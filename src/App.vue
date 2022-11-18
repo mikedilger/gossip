@@ -1,10 +1,12 @@
 <script setup lang="ts">
     import { ref } from 'vue'
+    import Menu from './components/Menu.vue'
 </script>
 
 <template>
     <div class="page">
         <div class="sidebar">
+            <Menu></Menu>
         </div>
         <div class="main-panel">
             <router-view></router-view>
