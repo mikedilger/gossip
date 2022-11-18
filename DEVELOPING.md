@@ -43,3 +43,67 @@ In any case
 $ rustup update
 $ cargo install tauri-cli
 ````
+
+## Develop
+
+Run dev environment
+
+````sh
+$ cargo tauri dev
+````
+
+Build just the rust part without running
+
+````sh
+$ (cd src-tauri && cargo build)
+````
+
+Building and packaging full output
+
+````sh
+cargo tauri build
+````
+
+Building and packaging full output with debugging
+
+````sh
+cargo tauri build --debug
+````
+
+Output is in `src-tauri/target/debug/gossip`
+
+## Upgrading dependencies
+
+### Yarn
+
+````sh
+$ yarn upgrade @tauri-apps/cli @tauri-apps/api --latest
+````
+
+### cargo
+
+````sh
+$ cargo update
+````
+
+## How the app was initialized (no need to do this again)
+
+Approximately like this (with config file edits in-between)
+
+````sh
+$ yarn create vite
+    Project Name: gossip
+    Select a framework: Vue
+    Select a variant: TypeScript
+$ cd gossip
+$ yarn add -D @tauri-apps/cli
+$ yarn add @tauri-apps/api
+$ cargo tauri init
+    App name: gossip
+    Window title: Gossip
+    Assets loc: ../dist
+    Dev server: http://localhost:5173/
+    Frontend dev command: yarn run dev
+    Fronend build command: yarn run build
+$ cargo tauri dev
+````
