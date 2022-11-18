@@ -1,31 +1,45 @@
 <script setup lang="ts">
-// This starter template is using Vue 3 <script setup> SFCs
-// Check out https://vuejs.org/api/sfc-script-setup.html#script-setup
-import HelloWorld from './components/HelloWorld.vue'
+    import { ref } from 'vue'
 </script>
 
 <template>
-  <div>
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
-  </div>
-  <HelloWorld msg="Vite + Vue" />
+    <div class="page">
+        <div class="sidebar">
+        </div>
+        <div class="main-panel">
+            <router-view></router-view>
+        </div>
+    </div>
 </template>
 
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
+    div.page {
+        display: flex;
+        flex-flow: row nowrap;
+        justify-content: space-between;
+        align-items: stretch;
+        gap: 1em;
+    }
+
+    div.sidebar {
+        order: 1;
+        flex: 1 1 20%;
+        text-align: right;
+        padding-top: 2em;
+        padding-right: 1em;
+        border-right: 1px solid #505050;
+        font-size: 1.3rem;
+        line-height: 1.8;
+    }
+
+    div.main-panel {
+        order: 2;
+        flex: 4 1 80%;
+    }
+
+    @media (prefers-color-scheme: light) {
+        div.sidebar {
+            border-right: 1px solid #E8E8E8;
+        }
+    }
 </style>
