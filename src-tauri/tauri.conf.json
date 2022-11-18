@@ -29,8 +29,8 @@
                 "icons/icon.icns",
                 "icons/icon.ico"
             ],
-            "identifier": "com.tauri.dev",
-            "longDescription": "",
+            "identifier": "com.mikedilger.gossip",
+            "longDescription": "Gossip nostr client",
             "macOS": {
                 "entitlements": null,
                 "exceptionDomain": "",
@@ -56,10 +56,12 @@
         "windows": [
             {
                 "fullscreen": false,
-                "height": 600,
+                "width": 900,
+                "height": 1050,
+                "minWidth": 320,
+                "minHeight": 300,
                 "resizable": true,
-                "title": "Gossip",
-                "width": 800
+                "title": "Gossip"
             }
         ]
     }
