@@ -64,4 +64,18 @@ impl DbEventSeen {
 
         Ok(())
     }
+
+    #[allow(dead_code)]
+    pub async fn delete(criteria: &str) -> Result<(), Error> {
+        let sql = format!("DELETE FROM event_seen WHERE {}", criteria);
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            db.execute(&sql, [])?;
+            Ok::<(), Error>(())
+        }).await??;
+
+        Ok(())
+    }
 }
