@@ -46,9 +46,7 @@ struct DbEventTag {
 }
  */
 
-
 pub async fn check_and_upgrade() -> Result<(), Error> {
-
     let maybe_db = GLOBALS.db.lock().await;
     let db = maybe_db.as_ref().unwrap();
 
@@ -56,7 +54,7 @@ pub async fn check_and_upgrade() -> Result<(), Error> {
     match db.query_row(
         "SELECT value FROM settings WHERE key=?",
         ["version"],
-        |row| row.get::<usize,String>(0)
+        |row| row.get::<usize, String>(0),
     ) {
         Ok(v) => upgrade(db, v.parse::<u16>().unwrap()),
         Err(_e) => {
@@ -70,20 +68,20 @@ macro_rules! apply_sql {
     ($db:ident, $version:ident, $thisversion:expr, $file:expr) => {{
         if $version < $thisversion {
             log::info!("Upgrading database to version {}", $thisversion);
-            $db.execute_batch(
-                include_str!($file)
-            )?;
+            $db.execute_batch(include_str!($file))?;
             $db.execute(
-                &format!("UPDATE settings SET value='{}' WHERE key='version'", $thisversion),
-                ()
+                &format!(
+                    "UPDATE settings SET value='{}' WHERE key='version'",
+                    $thisversion
+                ),
+                (),
             )?;
             $version = $thisversion;
         }
-    }}
+    }};
 }
 
 fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
-
     apply_sql!(db, version, 1, "schema1.sql");
 
     log::info!("Database is at version {}", version);

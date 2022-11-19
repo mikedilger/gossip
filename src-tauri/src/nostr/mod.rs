@@ -1,8 +1,9 @@
-use crate::{BusMessage, Error, GLOBALS};
 use crate::db::{DbPerson, DbPersonRelay};
-use futures::{StreamExt, SinkExt};
-use nostr_proto::{Url, ClientMessage, EventKind, Filters, PublicKey, RelayMessage,
-                  SubscriptionId, Unixtime};
+use crate::{BusMessage, Error, GLOBALS};
+use futures::{SinkExt, StreamExt};
+use nostr_proto::{
+    ClientMessage, EventKind, Filters, PublicKey, RelayMessage, SubscriptionId, Unixtime, Url,
+};
 use std::collections::HashMap;
 use tokio::select;
 use tokio::sync::broadcast::Sender;
@@ -11,25 +12,21 @@ use tungstenite::protocol::Message as WsMessage;
 /// This function computes which relays we need to follow and what filters
 /// they should have, only for startup, based on what is in the database.
 pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error> {
-
     let mut hashmap: HashMap<Url, Filters> = HashMap::new();
 
     // Load all the people we are following
     let people = DbPerson::fetch(Some("following=1")).await?;
     for person in people.iter() {
-
         let public_key: PublicKey = PublicKey::try_from_hex_string(&person.public_key)?;
 
         // Load which relays they use
-        let person_relays = DbPersonRelay::fetch(
-            Some(&format!("person='{}'", person.public_key))
-        ).await?;
+        let person_relays =
+            DbPersonRelay::fetch(Some(&format!("person='{}'", person.public_key))).await?;
 
         for person_relay in person_relays.iter() {
             let url: Url = Url(person_relay.relay.clone());
 
-            let entry = hashmap.entry(url)
-                .or_default();
+            let entry = hashmap.entry(url).or_default();
 
             entry.add_author(&public_key, None);
         }
@@ -74,7 +71,11 @@ pub async fn handle_relay(filters: Filters, url: Url) {
 async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
     log::info!("Task started to handle relay at {}", &url.0);
 
-    log::debug!("Filter for {}: {}", &url.0, serde_json::to_string(&filters)?);
+    log::debug!(
+        "Filter for {}: {}",
+        &url.0,
+        serde_json::to_string(&filters)?
+    );
 
     // Get the broadcast channel and subscribe to it
     let tx = GLOBALS.bus.clone();
@@ -89,15 +90,14 @@ async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
     // Subscribe to our filters
     let message = ClientMessage::Req(
         SubscriptionId("gossip-dev-testing".to_owned()),
-        vec![ filters.clone() ]
+        vec![filters.clone()],
     );
     let wire = serde_json::to_string(&message)?;
     log::debug!("About to send {}", &wire);
     write.send(WsMessage::Text(wire.clone())).await?;
     log::debug!("Sent {}", &wire);
 
-    'relayloop:
-    loop {
+    'relayloop: loop {
         select! {
             ws_message = read.next() => {
                 let ws_message = match ws_message.unwrap() {
@@ -134,7 +134,11 @@ async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
     Ok(())
 }
 
-async fn handle_nostr_message(tx: Sender<BusMessage>, message: String, urlstr: String) -> Result<(), Error> {
+async fn handle_nostr_message(
+    tx: Sender<BusMessage>,
+    message: String,
+    urlstr: String,
+) -> Result<(), Error> {
     let message: RelayMessage = serde_json::from_str(&message)?;
 
     match message {
@@ -148,21 +152,21 @@ async fn handle_nostr_message(tx: Sender<BusMessage>, message: String, urlstr: S
                     target: "to_javascript".to_string(),
                     source: urlstr,
                     kind: "event".to_string(),
-                    payload: serde_json::to_string(&event)?
+                    payload: serde_json::to_string(&event)?,
                 }) {
                     log::error!("Unable to send message to javascript: {}", e);
                 }
             }
-        },
+        }
         RelayMessage::Notice(msg) => {
             println!("NOTICE: {}", msg);
-        },
+        }
         RelayMessage::Eose(subid) => {
             println!("EOSE: {:?}", subid);
-        },
+        }
         RelayMessage::Ok(id, ok, message) => {
             println!("OK: {:?} {} {}", id, ok, message);
-        },
+        }
     }
 
     Ok(())

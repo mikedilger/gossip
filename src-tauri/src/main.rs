@@ -77,14 +77,10 @@ fn main() {
     env_logger::init();
 
     tauri::Builder::default()
-        .invoke_handler(
-            tauri::generate_handler![commands::about]
-        )
+        .invoke_handler(tauri::generate_handler![commands::about])
         .setup(|app| {
             let app_handle = app.handle();
-            let _join = tauri::async_runtime::spawn(
-                mainloop(app_handle)
-            );
+            let _join = tauri::async_runtime::spawn(mainloop(app_handle));
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -94,7 +90,6 @@ fn main() {
 }
 
 async fn mainloop(app_handle: AppHandle) {
-
     // Get the broadcast channel and subscribe to it
     let tx = GLOBALS.bus.clone();
     let mut rx = tx.subscribe();
@@ -106,7 +101,7 @@ async fn mainloop(app_handle: AppHandle) {
             target: "all".to_string(),
             source: "mainloop".to_string(),
             kind: "shutdown".to_string(),
-            payload: "shutdown".to_string()
+            payload: "shutdown".to_string(),
         }) {
             log::error!("Unable to send message: {}", e);
         }
@@ -115,7 +110,7 @@ async fn mainloop(app_handle: AppHandle) {
 
     // Wait until Taori is up
     // TBD - this is a hack. Listen for an event instead.
-    tokio::time::sleep(std::time::Duration::new(1,0)).await;
+    tokio::time::sleep(std::time::Duration::new(1, 0)).await;
 
     // Send a first message to javascript (actually to us, then we send it
     // onwards -- we read our own message just below)
@@ -123,7 +118,7 @@ async fn mainloop(app_handle: AppHandle) {
         target: "to_javascript".to_string(),
         source: "mainloop".to_string(),
         kind: "greeting".to_string(),
-        payload: serde_json::to_string("Hello World").unwrap()
+        payload: serde_json::to_string("Hello World").unwrap(),
     }) {
         log::error!("Unable to send message: {}", e);
     }
@@ -137,7 +132,7 @@ async fn mainloop(app_handle: AppHandle) {
                 target: "all".to_string(),
                 source: "mainloop".to_string(),
                 kind: "shutdown".to_string(),
-                payload: "shutdown".to_string()
+                payload: "shutdown".to_string(),
             }) {
                 log::error!("Unable to send message: {}", e);
             }
@@ -157,26 +152,25 @@ async fn mainloop(app_handle: AppHandle) {
         });
     }
 
-    'mainloop:
-    loop {
+    'mainloop: loop {
         let message = rx.recv().await.unwrap();
         match &*message.target {
             "to_javascript" => {
-                log::info!("sending to javascript: kind={} payload={}", message.kind, message.payload);
-                app_handle
-                    .emit_all("from_rust", message)
-                    .unwrap();
-            },
-            "all" => {
-                match &*message.kind {
-                    "shutdown" => {
-                        log::info!("Mainloop shutting down");
-                        break 'mainloop;
-                    },
-                    _ => {}
-                }
+                log::info!(
+                    "sending to javascript: kind={} payload={}",
+                    message.kind,
+                    message.payload
+                );
+                app_handle.emit_all("from_rust", message).unwrap();
             }
-            _ => { }
+            "all" => match &*message.kind {
+                "shutdown" => {
+                    log::info!("Mainloop shutting down");
+                    break 'mainloop;
+                }
+                _ => {}
+            },
+            _ => {}
         }
         // TBD: handle other messages
     }
@@ -189,9 +183,9 @@ async fn mainloop(app_handle: AppHandle) {
 
 // This sets up the database
 async fn setup_database() -> Result<(), Error> {
-    let mut data_dir = dirs::data_dir().ok_or::<Error>(
-        From::from("Cannot find a directory to store application data.")
-    )?;
+    let mut data_dir = dirs::data_dir().ok_or::<Error>(From::from(
+        "Cannot find a directory to store application data.",
+    ))?;
     data_dir.push("gossip");
 
     // Create our data directory only if it doesn't exist
@@ -200,12 +194,13 @@ async fn setup_database() -> Result<(), Error> {
     // Connect to (or create) our database
     let mut db_path = data_dir.clone();
     db_path.push("gossip.sqlite");
-    let connection =  Connection::open_with_flags(
+    let connection = Connection::open_with_flags(
         &db_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE |
-        rusqlite::OpenFlags::SQLITE_OPEN_CREATE |
-        rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX |
-        rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW)?;
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
+            | rusqlite::OpenFlags::SQLITE_OPEN_CREATE
+            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW,
+    )?;
 
     // Save the connection globally
     {

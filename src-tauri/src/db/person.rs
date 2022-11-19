@@ -1,5 +1,5 @@
 use crate::{Error, GLOBALS};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -9,16 +9,16 @@ pub struct DbPerson {
     pub about: Option<String>,
     pub picture: Option<String>,
     pub nip05: Option<String>,
-    pub following: u8
+    pub following: u8,
 }
 
 impl DbPerson {
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
-
-        let sql = "SELECT public_key, name, about, picture, nip05, following FROM person".to_owned();
+        let sql =
+            "SELECT public_key, name, about, picture, nip05, following FROM person".to_owned();
         let sql = match criteria {
             None => sql,
-            Some(crit) => format!("{} WHERE {}", sql, crit)
+            Some(crit) => format!("{} WHERE {}", sql, crit),
         };
 
         let output: Result<Vec<DbPerson>, Error> = spawn_blocking(move || {
@@ -42,7 +42,8 @@ impl DbPerson {
                 output.push(row?);
             }
             Ok(output)
-        }).await?;
+        })
+        .await?;
 
         output
     }
