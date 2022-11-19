@@ -5,6 +5,9 @@ pub enum Error {
     #[error("Error: {0}")]
     General(String),
 
+    #[error("Nostr: {0}")]
+    Nostr(#[from] nostr_proto::Error),
+
     #[error("I/O Error: {0}")]
     Io(#[from] std::io::Error),
 

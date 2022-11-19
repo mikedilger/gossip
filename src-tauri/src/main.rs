@@ -20,6 +20,8 @@ mod db;
 mod error;
 pub use error::Error;
 
+mod nostr;
+
 /// This is a message we send/recv in our broadcast channel
 #[derive(Debug, Clone)]
 pub struct Message {
