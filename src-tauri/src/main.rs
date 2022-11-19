@@ -9,6 +9,8 @@ extern crate lazy_static;
 use rusqlite::Connection;
 use std::env;
 use std::fs;
+use tauri::Manager;
+use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 
 mod commands;
@@ -18,16 +20,39 @@ mod db;
 mod error;
 pub use error::Error;
 
+/// This is a message we send/recv in our broadcast channel
+#[derive(Debug, Clone)]
+pub struct Message {
+    /// Who the message is for
+    pub target: String,
+
+    /// What the message is
+    pub message: String,
+}
+
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
 pub struct Globals {
+    /// This is our connection to SQLite. Only one thread at a time.
     pub db: Mutex<Option<Connection>>,
+
+    /// This is a broadcast channel. All tasks can listen on it.
+    /// To create a receiver, just run .subscribe() on it.
+    pub broadcast: broadcast::Sender<Message>,
 }
 
 lazy_static! {
-    /// Global state for the rust application:
-    static ref GLOBALS: Globals = Globals {
-        db: Mutex::new(None),
+    static ref GLOBALS: Globals = {
+
+        // Setup a watch communications channel (single-producer, multiple watchers)
+        // that we can use to signal our websocket driving threads about changes
+        // to what they should be following, events we need to send, etc.
+        let (broadcast_tx, _) = broadcast::channel(16);
+
+        Globals {
+            db: Mutex::new(None),
+            broadcast: broadcast_tx
+        }
     };
 }
 
@@ -45,15 +70,69 @@ fn main() {
         .invoke_handler(
             tauri::generate_handler![commands::about]
         )
-        .setup(|_app| {
+        .setup(|app| {
+
+            let app_handle = app.handle();
+
             // This will be our main asynchronous rust thread
             let _join = tauri::async_runtime::spawn(async move {
-                // Setup the database (possibly create, possibly upgrade)
-                setup_database().await?;
 
-                // return type hint for this async block: Result<(), Error>
-                // NOTE: the caller is dropping this error on the floor currently.
-                Ok::<(), Error>(())
+                // Get the broadcast channel and subscribe to it
+                let tx = GLOBALS.broadcast.clone();
+                let mut rx = tx.subscribe();
+
+                // Setup the database (possibly create, possibly upgrade)
+                if let Err(e) = setup_database().await {
+                    log::error!("{}", e);
+                    if let Err(e) = tx.send(Message {
+                        target: "all".to_string(),
+                        message: "shutdown".to_string()
+                    }) {
+                        log::error!("Unable to send message: {}", e);
+                    }
+                    return;
+                }
+
+                // Wait until Taori is up
+                // TBD - this is a hack. Listen for an event instead.
+                tokio::time::sleep(std::time::Duration::new(1,0)).await;
+
+                // Send a first message to javascript (actually to us, then we send it
+                // onwards -- we read our own message just below)
+                if let Err(e) = tx.send(Message {
+                    target: "to_javascript".to_string(),
+                    message: "Hello World".to_string()
+                }) {
+                    log::error!("Unable to send message: {}", e);
+                }
+
+                'mainloop:
+                loop {
+                    let message = rx.recv().await.unwrap();
+                    match &*message.target {
+                        "to_javascript" => {
+                            log::info!("sending to javascript: {}", message.message);
+                            app_handle
+                                .emit_all("from_rust", message.message)
+                                .unwrap();
+                        },
+                        "all" => {
+                            match &*message.message {
+                                "shutdown" => {
+                                    break 'mainloop;
+                                },
+                                _ => {}
+                            }
+                        }
+                        _ => { }
+                    }
+                    // TBD: handle other messages
+                }
+
+                // TODO:
+                // Figure out what relays we need to talk to
+                // Start threads for each of them
+                // Refigure it out and tell them
             });
 
             Ok(())

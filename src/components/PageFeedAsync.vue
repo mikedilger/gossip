@@ -1,5 +1,11 @@
 <script setup lang="ts">
     import Identity from './Identity.vue'
+    import { listen } from '@tauri-apps/api/event'
+
+    await listen('from_rust', (event) => {
+        console.log("from rust: ")
+        console.log(event)
+    })
 </script>
 
 <template>
