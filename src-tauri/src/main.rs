@@ -9,7 +9,7 @@ extern crate lazy_static;
 use rusqlite::Connection;
 use std::env;
 use std::fs;
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 
@@ -71,74 +71,76 @@ fn main() {
             tauri::generate_handler![commands::about]
         )
         .setup(|app| {
-
             let app_handle = app.handle();
-
-            // This will be our main asynchronous rust thread
-            let _join = tauri::async_runtime::spawn(async move {
-
-                // Get the broadcast channel and subscribe to it
-                let tx = GLOBALS.broadcast.clone();
-                let mut rx = tx.subscribe();
-
-                // Setup the database (possibly create, possibly upgrade)
-                if let Err(e) = setup_database().await {
-                    log::error!("{}", e);
-                    if let Err(e) = tx.send(Message {
-                        target: "all".to_string(),
-                        message: "shutdown".to_string()
-                    }) {
-                        log::error!("Unable to send message: {}", e);
-                    }
-                    return;
-                }
-
-                // Wait until Taori is up
-                // TBD - this is a hack. Listen for an event instead.
-                tokio::time::sleep(std::time::Duration::new(1,0)).await;
-
-                // Send a first message to javascript (actually to us, then we send it
-                // onwards -- we read our own message just below)
-                if let Err(e) = tx.send(Message {
-                    target: "to_javascript".to_string(),
-                    message: "Hello World".to_string()
-                }) {
-                    log::error!("Unable to send message: {}", e);
-                }
-
-                'mainloop:
-                loop {
-                    let message = rx.recv().await.unwrap();
-                    match &*message.target {
-                        "to_javascript" => {
-                            log::info!("sending to javascript: {}", message.message);
-                            app_handle
-                                .emit_all("from_rust", message.message)
-                                .unwrap();
-                        },
-                        "all" => {
-                            match &*message.message {
-                                "shutdown" => {
-                                    break 'mainloop;
-                                },
-                                _ => {}
-                            }
-                        }
-                        _ => { }
-                    }
-                    // TBD: handle other messages
-                }
-
-                // TODO:
-                // Figure out what relays we need to talk to
-                // Start threads for each of them
-                // Refigure it out and tell them
-            });
-
+            let _join = tauri::async_runtime::spawn(
+                mainloop(app_handle)
+            );
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    println!("This is never printed. Tauri exits.");
+}
+
+async fn mainloop(app_handle: AppHandle) {
+
+    // Get the broadcast channel and subscribe to it
+    let tx = GLOBALS.broadcast.clone();
+    let mut rx = tx.subscribe();
+
+    // Setup the database (possibly create, possibly upgrade)
+    if let Err(e) = setup_database().await {
+        log::error!("{}", e);
+        if let Err(e) = tx.send(Message {
+            target: "all".to_string(),
+            message: "shutdown".to_string()
+        }) {
+            log::error!("Unable to send message: {}", e);
+        }
+        return;
+    }
+
+    // Wait until Taori is up
+    // TBD - this is a hack. Listen for an event instead.
+    tokio::time::sleep(std::time::Duration::new(1,0)).await;
+
+    // Send a first message to javascript (actually to us, then we send it
+    // onwards -- we read our own message just below)
+    if let Err(e) = tx.send(Message {
+        target: "to_javascript".to_string(),
+        message: "Hello World".to_string()
+    }) {
+        log::error!("Unable to send message: {}", e);
+    }
+
+    'mainloop:
+    loop {
+        let message = rx.recv().await.unwrap();
+        match &*message.target {
+            "to_javascript" => {
+                log::info!("sending to javascript: {}", message.message);
+                app_handle
+                    .emit_all("from_rust", message.message)
+                    .unwrap();
+            },
+            "all" => {
+                match &*message.message {
+                    "shutdown" => {
+                        break 'mainloop;
+                    },
+                    _ => {}
+                }
+            }
+            _ => { }
+        }
+        // TBD: handle other messages
+    }
+
+    // TODO:
+    // Figure out what relays we need to talk to
+    // Start threads for each of them
+    // Refigure it out and tell them
 }
 
 // This sets up the database
