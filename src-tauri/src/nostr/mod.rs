@@ -140,19 +140,19 @@ async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
 
 async fn handle_nostr_message(
     tx: Sender<BusMessage>,
-    message: String,
+    ws_message: String,
     urlstr: String,
 ) -> Result<(), Error> {
-    let message: RelayMessage = serde_json::from_str(&message)?;
+    let relay_message: RelayMessage = serde_json::from_str(&ws_message)?;
 
     let mut maxtime = Unixtime::now()?;
     maxtime.0 += 60 * 15; // 15 minutes into the future
 
-    match message {
+    match relay_message {
         RelayMessage::Event(_subid, event) => {
 
             if let Err(e) = event.verify(Some(maxtime)) {
-                log::error!("VERIFY ERROR: {}, {:?}", e, serde_json::to_string(&event)?)
+                log::error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
             } else {
 
                 // TODO: save into the database
@@ -173,8 +173,8 @@ async fn handle_nostr_message(
         RelayMessage::Eose(subid) => {
             println!("EOSE: {} {:?}", &urlstr, subid);
         }
-        RelayMessage::Ok(id, ok, message) => {
-            println!("OK: {} {:?} {} {}", &urlstr, id, ok, message);
+        RelayMessage::Ok(id, ok, ok_message) => {
+            println!("OK: {} {:?} {} {}", &urlstr, id, ok, ok_message);
         }
     }
 
