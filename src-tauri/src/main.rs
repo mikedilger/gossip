@@ -6,7 +6,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+use nostr_proto::{Filters, Url};
 use rusqlite::Connection;
+use serde::Serialize;
 use std::env;
 use std::fs;
 use tauri::{AppHandle, Manager};
@@ -23,13 +25,19 @@ pub use error::Error;
 mod nostr;
 
 /// This is a message we send/recv in our broadcast channel
-#[derive(Debug, Clone)]
-pub struct Message {
+#[derive(Debug, Clone, Serialize)]
+pub struct BusMessage {
     /// Who the message is for
     pub target: String,
 
-    /// What the message is
-    pub message: String,
+    /// Who is the message from
+    pub source: String,
+
+    /// What kind of message is this
+    pub kind: String,
+
+    /// What is the payload
+    pub payload: String,
 }
 
 /// Only one of these is ever created, via lazy_static!, and represents
@@ -40,7 +48,7 @@ pub struct Globals {
 
     /// This is a broadcast channel. All tasks can listen on it.
     /// To create a receiver, just run .subscribe() on it.
-    pub broadcast: broadcast::Sender<Message>,
+    pub bus: broadcast::Sender<BusMessage>,
 }
 
 lazy_static! {
@@ -53,7 +61,7 @@ lazy_static! {
 
         Globals {
             db: Mutex::new(None),
-            broadcast: broadcast_tx
+            bus: broadcast_tx
         }
     };
 }
@@ -88,15 +96,17 @@ fn main() {
 async fn mainloop(app_handle: AppHandle) {
 
     // Get the broadcast channel and subscribe to it
-    let tx = GLOBALS.broadcast.clone();
+    let tx = GLOBALS.bus.clone();
     let mut rx = tx.subscribe();
 
     // Setup the database (possibly create, possibly upgrade)
     if let Err(e) = setup_database().await {
         log::error!("{}", e);
-        if let Err(e) = tx.send(Message {
+        if let Err(e) = tx.send(BusMessage {
             target: "all".to_string(),
-            message: "shutdown".to_string()
+            source: "mainloop".to_string(),
+            kind: "shutdown".to_string(),
+            payload: "shutdown".to_string()
         }) {
             log::error!("Unable to send message: {}", e);
         }
@@ -109,11 +119,42 @@ async fn mainloop(app_handle: AppHandle) {
 
     // Send a first message to javascript (actually to us, then we send it
     // onwards -- we read our own message just below)
-    if let Err(e) = tx.send(Message {
+    if let Err(e) = tx.send(BusMessage {
         target: "to_javascript".to_string(),
-        message: "Hello World".to_string()
+        source: "mainloop".to_string(),
+        kind: "greeting".to_string(),
+        payload: serde_json::to_string("Hello World").unwrap()
     }) {
         log::error!("Unable to send message: {}", e);
+    }
+
+    // Load the initial relay filters
+    let mut relay_filters = match crate::nostr::load_initial_relay_filters().await {
+        Ok(rf) => rf,
+        Err(e) => {
+            log::error!("Could not load initial relay filters: {}", e);
+            if let Err(e) = tx.send(BusMessage {
+                target: "all".to_string(),
+                source: "mainloop".to_string(),
+                kind: "shutdown".to_string(),
+                payload: "shutdown".to_string()
+            }) {
+                log::error!("Unable to send message: {}", e);
+            }
+            return;
+        }
+    };
+
+    // Start a thread for each relay
+    for (url, filters) in relay_filters.iter_mut() {
+        let task_filters: Filters = filters.clone();
+        let task_url: Url = url.clone();
+
+        // We don't need a join handle. And we can broadcast to it once it
+        // starts listening to broadcast
+        tauri::async_runtime::spawn(async move {
+            crate::nostr::handle_relay(task_filters, task_url).await
+        });
     }
 
     'mainloop:
@@ -121,14 +162,15 @@ async fn mainloop(app_handle: AppHandle) {
         let message = rx.recv().await.unwrap();
         match &*message.target {
             "to_javascript" => {
-                log::info!("sending to javascript: {}", message.message);
+                log::info!("sending to javascript: kind={} payload={}", message.kind, message.payload);
                 app_handle
-                    .emit_all("from_rust", message.message)
+                    .emit_all("from_rust", message)
                     .unwrap();
             },
             "all" => {
-                match &*message.message {
+                match &*message.kind {
                     "shutdown" => {
+                        log::info!("Mainloop shutting down");
                         break 'mainloop;
                     },
                     _ => {}

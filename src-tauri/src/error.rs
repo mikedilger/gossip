@@ -22,6 +22,9 @@ pub enum Error {
 
     #[error("Tauri: {0}")]
     Tauri(#[from] tauri::Error),
+
+    #[error("Websocket: {0}")]
+    Websocket(#[from] tungstenite::Error),
 }
 
 impl From<String> for Error {
