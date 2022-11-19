@@ -16,6 +16,7 @@ tauri-build = { version = "1.2.0", features = [] }
 [dependencies]
 dirs = "4.0"
 env_logger = "0.9"
+futures = "0.3"
 lazy_static = "1.4"
 log = "0.4"
 rusqlite = { version = "0.28", features = ["bundled", "chrono", "serde_json"] }
