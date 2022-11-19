@@ -1,17 +1,25 @@
+<script>
+    import { invoke } from '@tauri-apps/api'
+    let about_outer = {}
+    invoke('gossip_about')
+        .then((response) => about_outer = response)
+</script>
+
 <script setup>
+    let about = about_outer
 </script>
 
 <template>
     <h2>about</h2>
     <div class="main-scrollable">
-        <h2>Name</h2>
-        <p>Description</p>
+        <h2>{{  about.name }}</h2>
+        <p>{{ about.description }}</p>
 
         <ul>
-            <li>Version: <b>VERSION</b></li>
-            <li>By: <b>AUTHORS</b></li>
-            <li>Repo: <a :href="REPO">{{ REPO }}</a></li>
-            <li>Homepage: <a :href="HOMEPAGE">{{ HOMEPAGE }}</a></li>
+            <li>Version: <b>{{ about.version }}</b></li>
+            <li>By: <b>{{ about.authors }}</b></li>
+            <li>Repo: <a :href="about.repository">{{ about.repository }}</a></li>
+            <li>Homepage: <a :href="about.homepage">{{ about.homepage }}</a></li>
         </ul>
     </div>
 </template>
