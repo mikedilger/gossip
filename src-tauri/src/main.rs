@@ -12,6 +12,8 @@ use std::env;
 use std::fs;
 use tokio::sync::Mutex;
 
+mod db;
+
 mod error;
 pub use error::Error;
 
@@ -106,6 +108,9 @@ async fn setup_database() -> Result<(), Error> {
         let mut db = GLOBALS.db.lock().await;
         *db = Some(connection);
     }
+
+    // Check and upgrade our data schema
+    crate::db::check_and_upgrade().await?;
 
     Ok(())
 }
