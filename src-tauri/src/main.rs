@@ -7,6 +7,7 @@
 extern crate lazy_static;
 
 use serde::Serialize;
+use std::env;
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -20,6 +21,15 @@ lazy_static! {
 }
 
 fn main() {
+    // Set up logging
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info");
+    }
+    if env::var("RUST_LOG_STYLE").is_err() {
+        env::set_var("RUST_LOG_STYLE", "auto");
+    }
+    env_logger::init();
+
     tauri::Builder::default()
         .invoke_handler(
             tauri::generate_handler![gossip_about]
