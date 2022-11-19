@@ -7,10 +7,11 @@
 extern crate lazy_static;
 
 use rusqlite::Connection;
-use serde::Serialize;
 use std::env;
 use std::fs;
 use tokio::sync::Mutex;
+
+mod commands;
 
 mod db;
 
@@ -42,7 +43,7 @@ fn main() {
 
     tauri::Builder::default()
         .invoke_handler(
-            tauri::generate_handler![gossip_about]
+            tauri::generate_handler![commands::about]
         )
         .setup(|_app| {
             // This will be our main asynchronous rust thread
@@ -59,28 +60,6 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-#[derive(Debug, Serialize)]
-pub struct About {
-    pub name: String,
-    pub version: String,
-    pub description: String,
-    pub authors: String,
-    pub repository: String,
-    pub homepage: String,
-}
-
-#[tauri::command]
-fn gossip_about() -> About {
-    About {
-        name: env!("CARGO_PKG_NAME").to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        description: env!("CARGO_PKG_DESCRIPTION").to_string(),
-        authors: env!("CARGO_PKG_AUTHORS").to_string(),
-        repository: env!("CARGO_PKG_REPOSITORY").to_string(),
-        homepage: env!("CARGO_PKG_HOMEPAGE").to_string(),
-    }
 }
 
 // This sets up the database

@@ -1,7 +1,7 @@
 <script>
     import { invoke } from '@tauri-apps/api'
     let about_outer = {}
-    invoke('gossip_about')
+    invoke('about')
         .then((response) => about_outer = response)
 </script>
 
