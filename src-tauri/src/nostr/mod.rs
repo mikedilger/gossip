@@ -29,7 +29,7 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
             let url: Url = Url(person_relay.relay.clone());
 
             let entry = hashmap.entry(url)
-                .or_insert(Default::default());
+                .or_default();
 
             entry.add_author(&public_key, None);
         }
@@ -50,7 +50,7 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
 
             // On startup, only pick up events in the last 12 hours
             let mut start = Unixtime::now().unwrap();
-            start.0 = start.0 - 43200;
+            start.0 -= 43200;
 
             // LETS BE NICE and not get messages from too far back
             filters.since = Some(start);
@@ -123,11 +123,9 @@ async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
                 if bus_message.target == url.0 {
                     log::warn!("Websocket task got message, unimpmented: {}",
                                bus_message.payload);
-                } else if &*bus_message.target == "all" {
-                    if &*bus_message.kind=="shutdown" {
-                        log::info!("Websocket listener {} shutting down", &url.0);
-                        break 'relayloop;
-                    }
+                } else if &*bus_message.target == "all" && &*bus_message.kind == "shutdown" {
+                    log::info!("Websocket listener {} shutting down", &url.0);
+                    break 'relayloop;
                 }
             },
         }
