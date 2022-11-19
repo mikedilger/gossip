@@ -119,6 +119,10 @@ async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
                 }
             },
             bus_message = rx.recv() => {
+                if let Err(e) = bus_message {
+                    log::error!("{}", e);
+                    continue 'relayloop;
+                }
                 let bus_message = bus_message.unwrap();
                 if bus_message.target == url.0 {
                     log::warn!("Websocket task got message, unimpmented: {}",
