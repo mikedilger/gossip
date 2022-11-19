@@ -9,6 +9,9 @@ extern crate lazy_static;
 use serde::Serialize;
 use std::env;
 
+mod error;
+pub use error::Error;
+
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
 pub struct Globals {
