@@ -13,6 +13,9 @@ pub enum Error {
 
     #[error("SerdeJson Error: {0}")]
     SerdeJson(#[from] serde_json::Error),
+
+    #[error("SQL: {0}")]
+    Sql(#[from] rusqlite::Error),
 }
 
 impl From<String> for Error {
