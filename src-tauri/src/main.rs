@@ -105,6 +105,7 @@ async fn mainloop(app_handle: AppHandle) {
         }) {
             log::error!("Unable to send message: {}", e);
         }
+        app_handle.exit(1);
         return;
     }
 
@@ -136,6 +137,7 @@ async fn mainloop(app_handle: AppHandle) {
             }) {
                 log::error!("Unable to send message: {}", e);
             }
+            app_handle.exit(1);
             return;
         }
     };
@@ -174,6 +176,8 @@ async fn mainloop(app_handle: AppHandle) {
         }
         // TBD: handle other messages
     }
+
+    app_handle.exit(1);
 
     // TODO:
     // Figure out what relays we need to talk to
