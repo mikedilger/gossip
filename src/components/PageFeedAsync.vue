@@ -12,6 +12,7 @@
                 let event = JSON.parse(rust_message.payload.payload);
                 if (event.kind==1) {
                     textNotes.value.push(event);
+                    textNotes.value.sort((a,b) => b.created_at - a.created_at);
                 }
             }
         })
