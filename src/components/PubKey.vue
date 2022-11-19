@@ -1,6 +1,6 @@
 <script setup lang="ts">
     const props = defineProps({
-        pubkey: { type: Object, required: true },
+        pubkey: { type: String, required: true },
     })
 </script>
 

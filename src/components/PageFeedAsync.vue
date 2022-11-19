@@ -1,11 +1,7 @@
-<script setup lang="ts">
-    import Identity from './Identity.vue'
-    import TextNote from './TextNote.vue'
+<script lang="ts">
     import { listen } from '@tauri-apps/api/event'
     import { ref } from 'vue'
-</script>
 
-<script lang="ts">
     const textNotes = ref([]);
 
     interface Payload {
@@ -15,22 +11,39 @@
         target: string
     }
 
-    interface Event {
+    interface RustMessage {
         event: string,
         id: number,
         payload: Payload
     }
 
+    interface Event {
+        id: string,
+        pubkey: string,
+        created_at: number,
+        kind: number,
+        tags: array,
+        content: string,
+        sig: string
+    }
+
     (async () => {
-        await listen('from_rust', (event: Event) => {
+        await listen('from_rust', (rust_message: RustMessage) => {
             //console.log("from rust: ")
             //console.log(event)
-            if (event.payload.kind == "event") {
-                let textNote = JSON.parse(event.payload.payload);
-                textNotes.value.push(textNote);
+            if (rust_message.payload.kind == "event") {
+                let event: Event = JSON.parse(rust_message.payload.payload);
+                if (event.kind==1) {
+                    textNotes.value.push(event);
+                }
             }
         })
     })()
+</script>
+
+<script setup lang="ts">
+    import Identity from './Identity.vue'
+    import TextNote from './TextNote.vue'
 </script>
 
 <template>
