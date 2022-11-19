@@ -145,10 +145,14 @@ async fn handle_nostr_message(
 ) -> Result<(), Error> {
     let message: RelayMessage = serde_json::from_str(&message)?;
 
+    let mut maxtime = Unixtime::now()?;
+    maxtime.0 += 60 * 15; // 15 minutes into the future
+
     match message {
         RelayMessage::Event(_subid, event) => {
-            if let Err(_e) = event.verify(Some(Unixtime::now()?)) {
-                log::error!("VERIFY ERROR: {:?}", serde_json::to_string(&event)?)
+
+            if let Err(e) = event.verify(Some(maxtime)) {
+                log::error!("VERIFY ERROR: {}, {:?}", e, serde_json::to_string(&event)?)
             } else {
 
                 // TODO: save into the database
