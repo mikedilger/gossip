@@ -14,16 +14,16 @@ CREATE TABLE person (
 
 CREATE TABLE relay (
     url TEXT PRIMARY KEY NOT NULL,
-    last_up TEXT DEFAULT NULL,
-    last_try TEXT DEFAULT NULL,
-    last_fetched TEXT DEFAULT NULL
+    last_up INTEGER DEFAULT NULL,
+    last_try INTEGER DEFAULT NULL,
+    last_fetched INTEGER DEFAULT NULL
 ) WITHOUT ROWID;
 
 CREATE TABLE person_relay (
     person TEXT NOT NULL,
     relay TEXT NOT NULL,
     recommended INTEGER DEFAULT 0,
-    last_fetched TEXT DEFAULT NULL,
+    last_fetched INTEGER DEFAULT NULL,
     UNIQUE(person, relay)
 );
 
@@ -37,6 +37,7 @@ CREATE TABLE contact (
 
 CREATE TABLE event (
     id TEXT PRIMARY KEY NOT NULL,
+    raw TEXT NOT NULL,
     public key TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     kind INTEGER NOT NULL,
@@ -46,7 +47,8 @@ CREATE TABLE event (
 
 CREATE TABLE event_tag (
     event TEXT NOT NULL,
-    label TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    label TEXT DEFAULT NULL,
     field0 TEXT DEFAULT NULL,
     field1 TEXT DEFAULT NULL,
     field2 TEXT DEFAULT NULL,
@@ -59,7 +61,7 @@ CREATE TABLE event_tag (
 CREATE TABLE event_seen (
     event TEXT NOT NULL,
     url TEXT NOT NULL,
-    when_seen TEXT NOT NULL,
+    when_seen INTEGER NOT NULL,
     CONSTRAINT fk_event
       FOREIGN KEY (event) REFERENCES event (id)
       ON DELETE CASCADE

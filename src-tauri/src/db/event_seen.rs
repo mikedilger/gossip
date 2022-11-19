@@ -6,7 +6,7 @@ use tauri::async_runtime::spawn_blocking;
 pub struct DbEventSeen {
     pub event: String,
     pub url: String,
-    pub when_seen: String
+    pub when_seen: u64
 }
 
 impl DbEventSeen {

@@ -5,9 +5,9 @@ use tauri::async_runtime::spawn_blocking;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbRelay {
     pub url: String,
-    pub last_up: Option<String>,
-    pub last_try: Option<String>,
-    pub last_fetched: Option<String>,
+    pub last_up: Option<u64>,
+    pub last_try: Option<u64>,
+    pub last_fetched: Option<u64>,
 }
 
 impl DbRelay {

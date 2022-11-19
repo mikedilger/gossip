@@ -7,7 +7,7 @@ pub struct DbPersonRelay {
     pub person: String,
     pub relay: String,
     pub recommended: u8,
-    pub last_fetched: Option<String>,
+    pub last_fetched: Option<u64>,
 }
 
 impl DbPersonRelay {

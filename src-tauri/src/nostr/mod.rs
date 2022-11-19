@@ -1,4 +1,4 @@
-use crate::db::{DbPerson, DbPersonRelay};
+use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay};
 use crate::{BusMessage, Error, GLOBALS};
 use futures::{SinkExt, StreamExt};
 use nostr_proto::{
@@ -143,6 +143,10 @@ async fn handle_nostr_message(
     ws_message: String,
     urlstr: String,
 ) -> Result<(), Error> {
+
+    // TODO: pull out the raw event without any deserialization to be sure we don't mangle
+    //       it.
+
     let relay_message: RelayMessage = serde_json::from_str(&ws_message)?;
 
     let mut maxtime = Unixtime::now()?;
@@ -150,20 +154,59 @@ async fn handle_nostr_message(
 
     match relay_message {
         RelayMessage::Event(_subid, event) => {
-
             if let Err(e) = event.verify(Some(maxtime)) {
                 log::error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
             } else {
 
-                // TODO: save into the database
+                // Save in the database
+                {
+                    let db_event = DbEvent {
+                        id: event.id.as_hex_string(),
+                        raw: serde_json::to_string(&event)?, // TODO: this is reserialized.
+                        public_key: event.pubkey.as_hex_string(),
+                        created_at: event.created_at.0,
+                        kind: From::from(event.kind),
+                        content: event.content.clone(),
+                        ots: event.ots.clone()
+                    };
+                    DbEvent::insert(db_event).await?;
 
-                if let Err(e) = tx.send(BusMessage {
-                    target: "to_javascript".to_string(),
-                    source: urlstr.clone(),
-                    kind: "event".to_string(),
-                    payload: serde_json::to_string(&event)?,
-                }) {
-                    log::error!("Unable to send message to javascript: {}", e);
+                    let mut seq = 0;
+                    for tag in event.tags.iter() {
+                        // convert to vec of strings
+                        let v: Vec<String> = serde_json::from_str(&serde_json::to_string(&tag)?)?;
+
+                        let db_event_tag = DbEventTag {
+                            event: event.id.as_hex_string(),
+                            seq: seq,
+                            label: v.get(0).cloned(),
+                            field0: v.get(1).cloned(),
+                            field1: v.get(2).cloned(),
+                            field2: v.get(3).cloned(),
+                            field3: v.get(4).cloned(),
+                        };
+                        DbEventTag::insert(db_event_tag).await?;
+                        seq += 1;
+                    }
+
+                    let db_event_seen = DbEventSeen {
+                        event: event.id.as_hex_string(),
+                        url: urlstr.clone(),
+                        when_seen: Unixtime::now()?.0 as u64
+                    };
+                    DbEventSeen::insert(db_event_seen).await?;
+                }
+
+                // Send to Javascript
+                {
+                    if let Err(e) = tx.send(BusMessage {
+                        target: "to_javascript".to_string(),
+                        source: urlstr.clone(),
+                        kind: "event".to_string(),
+                        payload: serde_json::to_string(&event)?,
+                    }) {
+                        log::error!("Unable to send message to javascript: {}", e);
+                    }
                 }
             }
         }
