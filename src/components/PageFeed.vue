@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
     import PageFeedAsync from './PageFeedAsync.vue'
     import Loading from './Loading.vue'
 </script>

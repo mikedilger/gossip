@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
     import { useRouter, useRoute } from 'vue-router'
     import MenuItem from './MenuItem.vue'
 

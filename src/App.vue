@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
     import Menu from './components/Menu.vue'
 </script>
 

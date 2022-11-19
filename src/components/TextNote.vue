@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
     import PubKey from './PubKey.vue'
     const props = defineProps({
         textNote: { type: Object, required: true },
