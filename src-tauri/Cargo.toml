@@ -1,15 +1,14 @@
 [package]
-name = "app"
+name = "gossip"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
-default-run = "app"
+description = "A social media client for nostr"
+authors = ["Mike Dilger <mike@mikedilger.com>"]
+license = "MIT"
+repository = "https://github.com/mikediger/gossip"
+homepage = "https://github.com/mikediger/gossip"
+default-run = "gossip"
 edition = "2021"
 rust-version = "1.59"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
 tauri-build = { version = "1.2.0", features = [] }
