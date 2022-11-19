@@ -3,7 +3,21 @@
     windows_subsystem = "windows"
 )]
 
+#[macro_use]
+extern crate lazy_static;
+
 use serde::Serialize;
+
+/// Only one of these is ever created, via lazy_static!, and represents
+/// global state for the rust application
+pub struct Globals {
+}
+
+lazy_static! {
+    /// Global state for the rust application:
+    static ref GLOBALS: Globals = Globals {
+    };
+}
 
 fn main() {
     tauri::Builder::default()
