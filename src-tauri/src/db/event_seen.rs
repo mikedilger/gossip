@@ -4,7 +4,7 @@ use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEventSeen {
-    pub id: String,
+    pub event: String,
     pub url: String,
     pub when_seen: String
 }
@@ -13,7 +13,7 @@ impl DbEventSeen {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbEventSeen>, Error> {
         let sql =
-            "SELECT id, url, when_seen FROM event_seen".to_owned();
+            "SELECT event, url, when_seen FROM event_seen".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -26,7 +26,7 @@ impl DbEventSeen {
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
                 Ok(DbEventSeen {
-                    id: row.get(0)?,
+                    event: row.get(0)?,
                     url: row.get(1)?,
                     when_seen: row.get(2)?,
                 })
@@ -46,7 +46,7 @@ impl DbEventSeen {
     #[allow(dead_code)]
     pub async fn insert(event_seen: DbEventSeen) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO event_seen (id, url, when_seen) \
+            "INSERT OR IGNORE INTO event_seen (event, url, when_seen) \
              VALUES (?1, ?2, ?3)";
 
         spawn_blocking(move || {
@@ -55,7 +55,7 @@ impl DbEventSeen {
 
             let mut stmt = db.prepare(&sql)?;
             stmt.execute((
-                &event_seen.id,
+                &event_seen.event,
                 &event_seen.url,
                 &event_seen.when_seen
             ))?;

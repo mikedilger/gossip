@@ -15,7 +15,7 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
     let mut hashmap: HashMap<Url, Filters> = HashMap::new();
 
     // Load all the people we are following
-    let people = DbPerson::fetch(Some("following=1")).await?;
+    let people = DbPerson::fetch(Some("followed=1")).await?;
     for person in people.iter() {
         let public_key: PublicKey = PublicKey::try_from_hex_string(&person.public_key)?;
 

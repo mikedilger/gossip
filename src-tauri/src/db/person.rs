@@ -9,14 +9,14 @@ pub struct DbPerson {
     pub about: Option<String>,
     pub picture: Option<String>,
     pub nip05: Option<String>,
-    pub are_following: u8,
+    pub followed: u8,
 }
 
 impl DbPerson {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql =
-            "SELECT public_key, name, about, picture, nip05, are_following FROM person".to_owned();
+            "SELECT public_key, name, about, picture, nip05, followed FROM person".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -34,7 +34,7 @@ impl DbPerson {
                     about: row.get(2)?,
                     picture: row.get(3)?,
                     nip05: row.get(4)?,
-                    are_following: row.get(5)?,
+                    followed: row.get(5)?,
                 })
             })?;
 
@@ -52,7 +52,7 @@ impl DbPerson {
     #[allow(dead_code)]
     pub async fn insert(person: DbPerson) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO person (public_key, name, about, picture, nip05, are_following) \
+            "INSERT OR IGNORE INTO person (public_key, name, about, picture, nip05, followed) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
 
         spawn_blocking(move || {
@@ -66,7 +66,7 @@ impl DbPerson {
                 &person.about,
                 &person.picture,
                 &person.nip05,
-                &person.are_following
+                &person.followed
             ))?;
             Ok::<(), Error>(())
         }).await??;
