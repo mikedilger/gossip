@@ -19,6 +19,9 @@ pub enum Error {
 
     #[error("SQL: {0}")]
     Sql(#[from] rusqlite::Error),
+
+    #[error("Tauri: {0}")]
+    Tauri(#[from] tauri::Error),
 }
 
 impl From<String> for Error {

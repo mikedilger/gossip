@@ -1,5 +1,6 @@
 use crate::{Error, GLOBALS};
 use serde::{Serialize, Deserialize};
+use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbPerson {
@@ -13,8 +14,6 @@ pub struct DbPerson {
 
 impl DbPerson {
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
-        let maybe_db = GLOBALS.db.lock().await;
-        let db = maybe_db.as_ref().unwrap();
 
         let sql = "SELECT public_key, name, about, picture, nip05, following FROM person".to_owned();
         let sql = match criteria {
@@ -22,24 +21,29 @@ impl DbPerson {
             Some(crit) => format!("{} WHERE {}", sql, crit)
         };
 
-        let mut stmt = db.prepare(&sql)?;
+        let output: Result<Vec<DbPerson>, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
 
-        let rows = stmt.query_map([], |row| {
-            Ok(DbPerson {
-                public_key: row.get(0)?,
-                name: row.get(1)?,
-                about: row.get(2)?,
-                picture: row.get(3)?,
-                nip05: row.get(4)?,
-                following: row.get(5)?,
-            })
-        })?;
+            let mut stmt = db.prepare(&sql)?;
+            let rows = stmt.query_map([], |row| {
+                Ok(DbPerson {
+                    public_key: row.get(0)?,
+                    name: row.get(1)?,
+                    about: row.get(2)?,
+                    picture: row.get(3)?,
+                    nip05: row.get(4)?,
+                    following: row.get(5)?,
+                })
+            })?;
 
-        let mut output: Vec<DbPerson> = Vec::new();
-        for row in rows {
-            output.push(row?);
-        }
+            let mut output: Vec<DbPerson> = Vec::new();
+            for row in rows {
+                output.push(row?);
+            }
+            Ok(output)
+        }).await?;
 
-        Ok(output)
+        output
     }
 }
