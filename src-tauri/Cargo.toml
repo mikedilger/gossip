@@ -19,6 +19,7 @@ env_logger = "0.9"
 futures = "0.3"
 lazy_static = "1.4"
 log = "0.4"
+nostr-proto = { git = "https://github.com/mikedilger/nostr-proto", branch = "master" }
 rusqlite = { version = "0.28", features = ["bundled", "chrono", "serde_json"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
