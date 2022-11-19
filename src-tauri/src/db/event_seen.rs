@@ -3,37 +3,36 @@ use serde::{Deserialize, Serialize};
 use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DbRelay {
+pub struct DbEventSeen {
+    pub id: String,
     pub url: String,
-    pub last_up: Option<String>,
-    pub last_try: Option<String>,
-    pub last_fetched: Option<String>,
+    pub when_seen: String
 }
 
-impl DbRelay {
+impl DbEventSeen {
     #[allow(dead_code)]
-    pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
-        let sql = "SELECT url, last_up, last_try, last_fetched FROM relay".to_owned();
+    pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbEventSeen>, Error> {
+        let sql =
+            "SELECT id, url, when_seen FROM event_seen".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
         };
 
-        let output: Result<Vec<DbRelay>, Error> = spawn_blocking(move || {
+        let output: Result<Vec<DbEventSeen>, Error> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
-                Ok(DbRelay {
-                    url: row.get(0)?,
-                    last_up: row.get(1)?,
-                    last_try: row.get(2)?,
-                    last_fetched: row.get(3)?,
+                Ok(DbEventSeen {
+                    id: row.get(0)?,
+                    url: row.get(1)?,
+                    when_seen: row.get(2)?,
                 })
             })?;
 
-            let mut output: Vec<DbRelay> = Vec::new();
+            let mut output: Vec<DbEventSeen> = Vec::new();
             for row in rows {
                 output.push(row?);
             }
@@ -45,10 +44,10 @@ impl DbRelay {
     }
 
     #[allow(dead_code)]
-    pub async fn insert(relay: DbRelay) -> Result<(), Error> {
+    pub async fn insert(event_seen: DbEventSeen) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO relay (url, last_up, last_try, last_fetched) \
-             VALUES (?1, ?2, ?3, ?4)";
+            "INSERT OR IGNORE INTO event_seen (id, url, when_seen) \
+             VALUES (?1, ?2, ?3)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -56,10 +55,9 @@ impl DbRelay {
 
             let mut stmt = db.prepare(&sql)?;
             stmt.execute((
-                &relay.url,
-                &relay.last_up,
-                &relay.last_try,
-                &relay.last_fetched
+                &event_seen.id,
+                &event_seen.url,
+                &event_seen.when_seen
             ))?;
             Ok::<(), Error>(())
         }).await??;

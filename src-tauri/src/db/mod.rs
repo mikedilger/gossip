@@ -1,50 +1,29 @@
 use crate::{Error, GLOBALS};
 use rusqlite::Connection;
 
+mod event;
+pub use event::DbEvent;
+
+mod event_seen;
+pub use event_seen::DbEventSeen;
+
+mod event_tag;
+pub use event_tag::DbEventTag;
+
 mod relay;
 pub use relay::DbRelay;
 
 mod person;
 pub use person::DbPerson;
 
+mod contact;
+pub use contact::DbContact;
+
 mod person_relay;
 pub use person_relay::DbPersonRelay;
 
-/*
-#[derive(Debug)]
-struct DbbSetting {
-    key: String,
-    value: String
-}
-
-#[derive(Debug)]
-struct DbPersonContact {
-    person: String,
-    contact: String,
-    relay: Option<String>,
-    petname: Option<String>,
-}
-
-#[derive(Debug)]
-struct DbEvent {
-    id: String,
-    public_key: String,
-    created_at: i64,
-    kind: u8,
-    content: String,
-    ots: Option<String>
-}
-
-#[derive(Debug)]
-struct DbEventTag {
-    event: String,
-    label: String,
-    field0: Option<String>,
-    field1: Option<String>,
-    field2: Option<String>,
-    field3: Option<String>,
-}
- */
+mod setting;
+pub use setting::DbSetting;
 
 pub async fn check_and_upgrade() -> Result<(), Error> {
     let maybe_db = GLOBALS.db.lock().await;

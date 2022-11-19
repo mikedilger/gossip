@@ -150,6 +150,7 @@ async fn handle_nostr_message(
             if let Err(_e) = event.verify(Some(Unixtime::now()?)) {
                 log::error!("VERIFY ERROR: {:?}", serde_json::to_string(&event)?)
             } else {
+
                 // TODO: save into the database
 
                 if let Err(e) = tx.send(BusMessage {
