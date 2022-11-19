@@ -155,7 +155,7 @@ async fn handle_nostr_message(
 
                 if let Err(e) = tx.send(BusMessage {
                     target: "to_javascript".to_string(),
-                    source: urlstr,
+                    source: urlstr.clone(),
                     kind: "event".to_string(),
                     payload: serde_json::to_string(&event)?,
                 }) {
@@ -164,13 +164,13 @@ async fn handle_nostr_message(
             }
         }
         RelayMessage::Notice(msg) => {
-            println!("NOTICE: {}", msg);
+            println!("NOTICE: {} {}", &urlstr, msg);
         }
         RelayMessage::Eose(subid) => {
-            println!("EOSE: {:?}", subid);
+            println!("EOSE: {} {:?}", &urlstr, subid);
         }
         RelayMessage::Ok(id, ok, message) => {
-            println!("OK: {:?} {} {}", id, ok, message);
+            println!("OK: {} {:?} {} {}", &urlstr, id, ok, message);
         }
     }
 
