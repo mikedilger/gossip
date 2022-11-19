@@ -8,14 +8,29 @@
 <script lang="ts">
     const textNotes = ref([]);
 
-    await listen('from_rust', (event) => {
-        //console.log("from rust: ")
-        //console.log(event)
-        if (event.payload.kind == "event") {
-            let textNote = JSON.parse(event.payload.payload);
-            textNotes.value.push(textNote);
-        }
-    })
+    interface Payload {
+        kind: string,
+        payload: string,
+        source: string,
+        target: string
+    }
+
+    interface Event {
+        event: string,
+        id: number,
+        payload: Payload
+    }
+
+    (async () => {
+        await listen('from_rust', (event: Event) => {
+            //console.log("from rust: ")
+            //console.log(event)
+            if (event.payload.kind == "event") {
+                let textNote = JSON.parse(event.payload.payload);
+                textNotes.value.push(textNote);
+            }
+        })
+    })()
 </script>
 
 <template>
