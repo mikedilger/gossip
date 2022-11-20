@@ -2,7 +2,8 @@ use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay, DbRel
 use crate::{BusMessage, Error, GLOBALS};
 use futures::{SinkExt, StreamExt};
 use nostr_proto::{
-    ClientMessage, EventKind, Filters, PublicKey, RelayMessage, SubscriptionId, Unixtime, Url,
+    ClientMessage, Event, EventKind, Filters, PublicKey, RelayMessage, SubscriptionId,
+    Unixtime, Url,
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -203,87 +204,21 @@ async fn handle_nostr_message(
             if let Err(e) = event.verify(Some(maxtime)) {
                 log::error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
             } else {
-
-                // Save in the database
-                {
-                    let db_event = DbEvent {
-                        id: event.id.as_hex_string(),
-                        raw: serde_json::to_string(&event)?, // TODO: this is reserialized.
-                        public_key: event.pubkey.as_hex_string(),
-                        created_at: event.created_at.0,
-                        kind: From::from(event.kind),
-                        content: event.content.clone(),
-                        ots: event.ots.clone()
-                    };
-                    DbEvent::insert(db_event).await?;
-
-                    let mut seq = 0;
-                    for tag in event.tags.iter() {
-                        // convert to vec of strings
-                        let v: Vec<String> = serde_json::from_str(&serde_json::to_string(&tag)?)?;
-
-                        let db_event_tag = DbEventTag {
-                            event: event.id.as_hex_string(),
-                            seq: seq,
-                            label: v.get(0).cloned(),
-                            field0: v.get(1).cloned(),
-                            field1: v.get(2).cloned(),
-                            field2: v.get(3).cloned(),
-                            field3: v.get(4).cloned(),
-                        };
-                        DbEventTag::insert(db_event_tag).await?;
-                        seq += 1;
-                    }
-
-                    let db_event_seen = DbEventSeen {
-                        event: event.id.as_hex_string(),
-                        relay: urlstr.clone(),
-                        when_seen: Unixtime::now()?.0 as u64
-                    };
-                    DbEventSeen::replace(db_event_seen).await?;
-                }
-
-                // Send to Javascript
-                {
-                    // Look up name
-                    let maybe_db_person = DbPerson::fetch_one(event.pubkey.clone()).await?;
-
-                    let name = match maybe_db_person {
-                        None => "".to_owned(),
-                        Some(person) => match person.name {
-                            None => "".to_owned(),
-                            Some(name) => name.to_owned()
-                        }
-                    };
-
-                    let jsevent = Jsevent { // see below for type
-                        id: event.id.as_hex_string(),
-                        pubkey: event.pubkey.as_hex_string(),
-                        created_at: event.created_at.0,
-                        kind: From::from(event.kind),
-                        content: event.content.clone(),
-                        name: name
-                    };
-
-                    if let Err(e) = tx.send(BusMessage {
-                        target: "to_javascript".to_string(),
-                        source: urlstr.clone(),
-                        kind: "event".to_string(),
-                        payload: serde_json::to_string(&jsevent)?,
-                    }) {
-                        log::error!("Unable to send message to javascript: {}", e);
-                    }
-                }
+                save_event_in_database(&event, urlstr.clone()).await?;
+                send_event_to_javascript(&tx, (*event).clone(), urlstr.clone()).await?;
+                process_event(&tx, *event, urlstr.clone()).await?;
             }
         }
         RelayMessage::Notice(msg) => {
-            println!("NOTICE: {} {}", &urlstr, msg);
+            log::info!("NOTICE: {} {}", &urlstr, msg);
         }
         RelayMessage::Eose(subid) => {
-            println!("EOSE: {} {:?}", &urlstr, subid);
+            // These don't have to be processed.
+            log::info!("EOSE: {} {:?}", &urlstr, subid);
         }
         RelayMessage::Ok(id, ok, ok_message) => {
-            println!("OK: {} {:?} {} {}", &urlstr, id, ok, ok_message);
+            // These don't have to be processed.
+            log::info!("OK: {} {:?} {} {}", &urlstr, id, ok, ok_message);
         }
     }
 
@@ -298,4 +233,113 @@ struct Jsevent {
     kind: u64,
     content: String,
     name: String,
+}
+
+async fn save_event_in_database(
+    event: &Event,
+    urlstr: String
+) -> Result<(), Error> {
+    let db_event = DbEvent {
+        id: event.id.as_hex_string(),
+        raw: serde_json::to_string(&event)?, // TODO: this is reserialized.
+        public_key: event.pubkey.as_hex_string(),
+        created_at: event.created_at.0,
+        kind: From::from(event.kind),
+        content: event.content.clone(),
+        ots: event.ots.clone()
+    };
+    DbEvent::insert(db_event).await?;
+
+    let mut seq = 0;
+    for tag in event.tags.iter() {
+        // convert to vec of strings
+        let v: Vec<String> = serde_json::from_str(&serde_json::to_string(&tag)?)?;
+
+        let db_event_tag = DbEventTag {
+            event: event.id.as_hex_string(),
+            seq: seq,
+            label: v.get(0).cloned(),
+            field0: v.get(1).cloned(),
+            field1: v.get(2).cloned(),
+            field2: v.get(3).cloned(),
+            field3: v.get(4).cloned(),
+        };
+        DbEventTag::insert(db_event_tag).await?;
+        seq += 1;
+    }
+
+    let db_event_seen = DbEventSeen {
+        event: event.id.as_hex_string(),
+        relay: urlstr.clone(),
+        when_seen: Unixtime::now()?.0 as u64
+    };
+    DbEventSeen::replace(db_event_seen).await?;
+
+    Ok(())
+}
+
+async fn send_event_to_javascript(
+    tx: &Sender<BusMessage>,
+    event: Event,
+    urlstr: String
+) -> Result<(), Error> {
+
+    // Event doesn't include petname
+    // Look up their petname
+    let maybe_db_person = DbPerson::fetch_one(event.pubkey.clone()).await?;
+
+    let name = match maybe_db_person {
+        None => "".to_owned(),
+        Some(person) => match person.name {
+            None => "".to_owned(),
+            Some(name) => name.to_owned()
+        }
+    };
+
+    let jsevent = Jsevent { // see below for type
+        id: event.id.as_hex_string(),
+        pubkey: event.pubkey.as_hex_string(),
+        created_at: event.created_at.0,
+        kind: From::from(event.kind),
+        content: event.content.clone(),
+        name: name
+    };
+
+    if let Err(e) = tx.send(BusMessage {
+        target: "to_javascript".to_string(),
+        source: urlstr.clone(),
+        kind: "event".to_string(),
+        payload: serde_json::to_string(&jsevent)?,
+    }) {
+        log::error!("Unable to send message to javascript: {}", e);
+    }
+
+    Ok(())
+}
+
+async fn process_event(
+    tx: &Sender<BusMessage>,
+    event: Event,
+    urlstr: String
+) -> Result<(), Error> {
+
+
+    /*
+    match event.kind {
+        EventKind::Metadata => {
+        },
+        EventKind::TextNote => { }, // Nothing more to do. We sent these to javascript.
+        EventKind::RecommendRelay => {
+        },
+        EventKind::ContactList => {
+        },
+        EventKind::EventDeletion => {
+        },
+        EventKind::Reaction => {
+        },
+        _ => { }
+    }
+     */
+
+    Ok(())
 }
