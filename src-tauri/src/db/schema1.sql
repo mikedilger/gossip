@@ -38,7 +38,7 @@ CREATE TABLE contact (
 CREATE TABLE event (
     id TEXT PRIMARY KEY NOT NULL,
     raw TEXT NOT NULL,
-    public key TEXT NOT NULL,
+    public_key TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     kind INTEGER NOT NULL,
     content TEXT NOT NULL,
