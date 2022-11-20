@@ -44,9 +44,9 @@ impl DbEventSeen {
     }
 
     #[allow(dead_code)]
-    pub async fn insert(event_seen: DbEventSeen) -> Result<(), Error> {
+    pub async fn replace(event_seen: DbEventSeen) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO event_seen (event, url, when_seen) \
+            "REPLACE INTO event_seen (event, url, when_seen) \
              VALUES (?1, ?2, ?3)";
 
         spawn_blocking(move || {

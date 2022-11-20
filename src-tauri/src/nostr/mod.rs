@@ -214,7 +214,7 @@ async fn handle_nostr_message(
                         url: urlstr.clone(),
                         when_seen: Unixtime::now()?.0 as u64
                     };
-                    DbEventSeen::insert(db_event_seen).await?;
+                    DbEventSeen::replace(db_event_seen).await?;
                 }
 
                 // Send to Javascript
