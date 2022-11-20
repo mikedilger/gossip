@@ -24,6 +24,7 @@ rusqlite = { version = "0.28", features = ["bundled", "chrono", "serde_json"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.2.0", features = [] }
+textnonce = "1.0"
 thiserror = "1.0"
 tokio = { version = "1", features = [ "full" ] }
 tokio-tungstenite = { version = "0.17", features = [ "rustls-tls-native-roots" ] }

@@ -131,7 +131,7 @@ async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
 
     // Subscribe to our filters
     let message = ClientMessage::Req(
-        SubscriptionId("gossip-dev-testing".to_owned()),
+        SubscriptionId(format!("gossip_{}", textnonce::TextNonce::new())),
         vec![filters.clone()],
     );
     let wire = serde_json::to_string(&message)?;

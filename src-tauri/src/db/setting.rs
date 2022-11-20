@@ -42,6 +42,19 @@ impl DbSetting {
     }
 
     #[allow(dead_code)]
+    pub async fn fetch_setting(key: &str) -> Result<Option<String>, Error> {
+        let db_settings = DbSetting::fetch(
+            Some(&format!("key='{}'",key))
+        ).await?;
+
+        if db_settings.len() == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(db_settings[0].value.clone()))
+        }
+    }
+
+    #[allow(dead_code)]
     pub async fn insert(setting: DbSetting) -> Result<(), Error> {
         let sql =
             "INSERT OR IGNORE INTO settings (key, value) \
