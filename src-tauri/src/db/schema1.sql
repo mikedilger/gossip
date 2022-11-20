@@ -16,7 +16,8 @@ CREATE TABLE relay (
     url TEXT PRIMARY KEY NOT NULL,
     last_up INTEGER DEFAULT NULL,
     last_try INTEGER DEFAULT NULL,
-    last_fetched INTEGER DEFAULT NULL
+    last_fetched INTEGER DEFAULT NULL,
+    rank INTEGER DEFAULT 1
 ) WITHOUT ROWID;
 
 CREATE TABLE person_relay (

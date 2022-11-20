@@ -8,12 +8,13 @@ pub struct DbRelay {
     pub last_up: Option<u64>,
     pub last_try: Option<u64>,
     pub last_fetched: Option<u64>,
+    pub rank: Option<u64>,
 }
 
 impl DbRelay {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
-        let sql = "SELECT url, last_up, last_try, last_fetched FROM relay".to_owned();
+        let sql = "SELECT url, last_up, last_try, last_fetched, rank FROM relay".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -30,6 +31,7 @@ impl DbRelay {
                     last_up: row.get(1)?,
                     last_try: row.get(2)?,
                     last_fetched: row.get(3)?,
+                    rank: row.get(4)?,
                 })
             })?;
 
@@ -47,8 +49,8 @@ impl DbRelay {
     #[allow(dead_code)]
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO relay (url, last_up, last_try, last_fetched) \
-             VALUES (?1, ?2, ?3, ?4)";
+            "INSERT OR IGNORE INTO relay (url, last_up, last_try, last_fetched, rank) \
+             VALUES (?1, ?2, ?3, ?4, ?5)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -59,7 +61,8 @@ impl DbRelay {
                 &relay.url,
                 &relay.last_up,
                 &relay.last_try,
-                &relay.last_fetched
+                &relay.last_fetched,
+                &relay.rank
             ))?;
             Ok::<(), Error>(())
         }).await??;
