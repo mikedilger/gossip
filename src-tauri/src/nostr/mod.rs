@@ -12,6 +12,8 @@ use tungstenite::protocol::Message as WsMessage;
 /// This function computes which relays we need to follow and what filters
 /// they should have, only for startup, based on what is in the database.
 pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error> {
+
+    // Per-relay filters
     let mut hashmap: HashMap<Url, Filters> = HashMap::new();
 
     // Load all the people we are following
@@ -23,12 +25,27 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
         let person_relays =
             DbPersonRelay::fetch(Some(&format!("person='{}'", person.public_key))).await?;
 
+        // Determine if they post to a relay that we already have setup
+        let mut existing_relay: Option<Url> = None;
         for person_relay in person_relays.iter() {
             let url: Url = Url(person_relay.relay.clone());
+            if hashmap.contains_key(&url) {
+                existing_relay = Some(url);
+                break;
+            }
+        }
 
-            let entry = hashmap.entry(url).or_default();
-
+        // If so, add them to that relay
+        if let Some(existing_url) = existing_relay {
+            let entry = hashmap.entry(existing_url).or_default(); // wont be or_default
             entry.add_author(&public_key, None);
+        } else {
+            // Take their first one (if they even have one!)
+            if let Some(person_relay) = person_relays.iter().next() {
+                let url: Url = Url(person_relay.relay.clone());
+                let entry = hashmap.entry(url).or_default();
+                entry.add_author(&public_key, None);
+            }
         }
 
         // If they have no relay, we will handle them next loop
@@ -36,7 +53,10 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
 
     // Update all the filters
     {
-        for (_url, filters) in hashmap.iter_mut() {
+        for (url, filters) in hashmap.iter_mut() {
+
+            log::debug!("We will listen to {}, {:?}", &url.0, filters.authors);
+
             // Listen to these six kinds of events
             filters.add_event_kind(EventKind::Metadata);
             filters.add_event_kind(EventKind::TextNote);
