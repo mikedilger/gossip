@@ -61,9 +61,9 @@ CREATE TABLE event_tag (
 
 CREATE TABLE event_seen (
     event TEXT NOT NULL,
-    url TEXT NOT NULL,
+    relay TEXT NOT NULL,
     when_seen INTEGER NOT NULL,
-    UNIQUE (event, url),
+    UNIQUE (event, relay),
     CONSTRAINT fk_event
       FOREIGN KEY (event) REFERENCES event (id)
       ON DELETE CASCADE

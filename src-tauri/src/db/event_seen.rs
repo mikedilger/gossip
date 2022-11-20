@@ -5,7 +5,7 @@ use tauri::async_runtime::spawn_blocking;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEventSeen {
     pub event: String,
-    pub url: String,
+    pub relay: String,
     pub when_seen: u64
 }
 
@@ -13,7 +13,7 @@ impl DbEventSeen {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbEventSeen>, Error> {
         let sql =
-            "SELECT event, url, when_seen FROM event_seen".to_owned();
+            "SELECT event, relay, when_seen FROM event_seen".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -27,7 +27,7 @@ impl DbEventSeen {
             let rows = stmt.query_map([], |row| {
                 Ok(DbEventSeen {
                     event: row.get(0)?,
-                    url: row.get(1)?,
+                    relay: row.get(1)?,
                     when_seen: row.get(2)?,
                 })
             })?;
@@ -46,7 +46,7 @@ impl DbEventSeen {
     #[allow(dead_code)]
     pub async fn replace(event_seen: DbEventSeen) -> Result<(), Error> {
         let sql =
-            "REPLACE INTO event_seen (event, url, when_seen) \
+            "REPLACE INTO event_seen (event, relay, when_seen) \
              VALUES (?1, ?2, ?3)";
 
         spawn_blocking(move || {
@@ -56,7 +56,7 @@ impl DbEventSeen {
             let mut stmt = db.prepare(&sql)?;
             stmt.execute((
                 &event_seen.event,
-                &event_seen.url,
+                &event_seen.relay,
                 &event_seen.when_seen
             ))?;
             Ok::<(), Error>(())
