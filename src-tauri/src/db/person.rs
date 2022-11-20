@@ -1,8 +1,9 @@
 use crate::{Error, GLOBALS};
+use nostr_proto::PublicKey;
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::spawn_blocking;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbPerson {
     pub public_key: String,
     pub name: Option<String>,
@@ -47,6 +48,19 @@ impl DbPerson {
         .await?;
 
         output
+    }
+
+    #[allow(dead_code)]
+    pub async fn fetch_one(pubkey: PublicKey) -> Result<Option<DbPerson>, Error> {
+        let people = DbPerson::fetch(
+            Some(&format!("public_key='{}'",pubkey.as_hex_string()))
+        ).await?;
+
+        if people.len() == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(people[0].clone()))
+        }
     }
 
     #[allow(dead_code)]

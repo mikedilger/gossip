@@ -10,6 +10,7 @@
     <div>
         <PubKey :pubkey="textNote.pubkey"></PubKey>
         <DateAgo :date="textNote.created_at"></DateAgo>
+        {{ textNote.name }}
         <br>
         <div class="textnote">
             {{ textNote.content }}

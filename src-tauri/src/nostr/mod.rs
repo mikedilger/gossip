@@ -4,6 +4,7 @@ use futures::{SinkExt, StreamExt};
 use nostr_proto::{
     ClientMessage, EventKind, Filters, PublicKey, RelayMessage, SubscriptionId, Unixtime, Url,
 };
+use serde::Serialize;
 use std::collections::HashMap;
 use tokio::select;
 use tokio::sync::broadcast::Sender;
@@ -239,11 +240,31 @@ async fn handle_nostr_message(
 
                 // Send to Javascript
                 {
+                    // Look up name
+                    let maybe_db_person = DbPerson::fetch_one(event.pubkey.clone()).await?;
+
+                    let name = match maybe_db_person {
+                        None => "".to_owned(),
+                        Some(person) => match person.name {
+                            None => "".to_owned(),
+                            Some(name) => name.to_owned()
+                        }
+                    };
+
+                    let jsevent = Jsevent { // see below for type
+                        id: event.id.as_hex_string(),
+                        pubkey: event.pubkey.as_hex_string(),
+                        created_at: event.created_at.0,
+                        kind: From::from(event.kind),
+                        content: event.content.clone(),
+                        name: name
+                    };
+
                     if let Err(e) = tx.send(BusMessage {
                         target: "to_javascript".to_string(),
                         source: urlstr.clone(),
                         kind: "event".to_string(),
-                        payload: serde_json::to_string(&event)?,
+                        payload: serde_json::to_string(&jsevent)?,
                     }) {
                         log::error!("Unable to send message to javascript: {}", e);
                     }
@@ -262,4 +283,14 @@ async fn handle_nostr_message(
     }
 
     Ok(())
+}
+
+#[derive(Serialize)]
+struct Jsevent {
+    id: String,
+    pubkey: String,
+    created_at: i64,
+    kind: u64,
+    content: String,
+    name: String,
 }
