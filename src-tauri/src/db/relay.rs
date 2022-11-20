@@ -2,7 +2,7 @@ use crate::{Error, GLOBALS};
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::spawn_blocking;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbRelay {
     pub url: String,
     pub last_up: Option<u64>,

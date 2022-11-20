@@ -1,4 +1,4 @@
-use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay};
+use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay, DbRelay};
 use crate::{BusMessage, Error, GLOBALS};
 use futures::{SinkExt, StreamExt};
 use nostr_proto::{
@@ -13,47 +13,63 @@ use tungstenite::protocol::Message as WsMessage;
 /// they should have, only for startup, based on what is in the database.
 pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error> {
 
-    // Per-relay filters
-    let mut hashmap: HashMap<Url, Filters> = HashMap::new();
+    // Start collecting filters per-relay
+    let mut per_relay_filters: HashMap<Url, Filters> = HashMap::new();
+
+    // Build a hashmap of relays that we know
+    let mut relays = DbRelay::fetch(None).await?;
+    let mut relaymap: HashMap<String, DbRelay> = HashMap::new();
+    for relay in relays.drain(..) {
+        relaymap.insert(relay.url.clone(), relay);
+    }
 
     // Load all the people we are following
     let people = DbPerson::fetch(Some("followed=1")).await?;
+
+    // Remember people for which we have no relay information
+    let mut orphan_pubkeys: Vec<String> = Vec::new();
+
     for person in people.iter() {
+
         let public_key: PublicKey = PublicKey::try_from_hex_string(&person.public_key)?;
 
         // Load which relays they use
         let person_relays =
             DbPersonRelay::fetch(Some(&format!("person='{}'", person.public_key))).await?;
 
-        // Determine if they post to a relay that we already have setup
-        let mut existing_relay: Option<Url> = None;
-        for person_relay in person_relays.iter() {
-            let url: Url = Url(person_relay.relay.clone());
-            if hashmap.contains_key(&url) {
-                existing_relay = Some(url);
-                break;
-            }
-        }
+        // Get the highest ranked relay that they use
+        let best_relay: Option<DbRelay> = person_relays.iter()
+            .map_while(|pr| relaymap.get(&pr.relay))
+            .fold(None, |current, candidate| {
+                if let Some(cur) = current {
+                    if cur.rank >= candidate.rank { Some(cur) }
+                    else { Some(candidate.clone()) }
+                } else {
+                    Some(candidate.clone())
+                }
+            });
 
-        // If so, add them to that relay
-        if let Some(existing_url) = existing_relay {
-            let entry = hashmap.entry(existing_url).or_default(); // wont be or_default
+        if let Some(relay) = best_relay {
+            let url: Url = Url(relay.url.clone());
+            let entry = per_relay_filters.entry(url).or_default();
             entry.add_author(&public_key, None);
         } else {
-            // Take their first one (if they even have one!)
-            if let Some(person_relay) = person_relays.iter().next() {
-                let url: Url = Url(person_relay.relay.clone());
-                let entry = hashmap.entry(url).or_default();
-                entry.add_author(&public_key, None);
-            }
+            // if they have no relay, mark them as an orphan
+            orphan_pubkeys.push(person.public_key.clone())
         }
+    }
 
-        // If they have no relay, we will handle them next loop
+    // Listen to orphans on all relays we are already listening on
+    for orphan in orphan_pubkeys.iter() {
+        for (_url, filters) in per_relay_filters.iter_mut() {
+            let pubkey = PublicKey::try_from_hex_string(orphan)?;
+            filters.add_author(&pubkey, None);
+        }
     }
 
     // Update all the filters
     {
-        for (url, filters) in hashmap.iter_mut() {
+        for (url, filters) in per_relay_filters.iter_mut() {
 
             log::debug!("We will listen to {}, {:?}", &url.0, filters.authors);
 
@@ -76,7 +92,11 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
         }
     }
 
-    Ok(hashmap)
+    for (url, filters) in per_relay_filters.iter() {
+        log::info!("WILL WATCH {} WITH {:?}", &url.0, filters);
+    }
+
+    Ok(per_relay_filters)
 }
 
 pub async fn handle_relay(filters: Filters, url: Url) {
@@ -211,7 +231,7 @@ async fn handle_nostr_message(
 
                     let db_event_seen = DbEventSeen {
                         event: event.id.as_hex_string(),
-                        url: urlstr.clone(),
+                        relay: urlstr.clone(),
                         when_seen: Unixtime::now()?.0 as u64
                     };
                     DbEventSeen::replace(db_event_seen).await?;
