@@ -1787,7 +1787,7 @@ checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 [[package]]
 name = "nostr-proto"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/nostr-proto?branch=master#48e9b76d3d7cc0bd40906a8bfc73059a0e6d3e37"
+source = "git+https://github.com/mikedilger/nostr-proto?branch=master#9808107257bd7a3cd1a28b900ebcf224a54df5f3"
 dependencies = [
  "derive_more",
  "hex",
