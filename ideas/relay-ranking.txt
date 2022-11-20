@@ -1,0 +1,23 @@
+Relay ranking
+
+  Which one has been giving us the most events
+  (although this is heavily biased by which ones we have decided to connect to)
+
+     select count(event), relay from event_seen group by relay order by count(event) desc;
+
+     86|wss://nostr-pub.wellorder.net
+     82|wss://relay.damus.io
+     69|wss://nostr-relay.wlvs.space
+     52|wss://nostr.oxtr.dev
+     27|wss://nostr-relay-dev.wlvs.space
+     26|wss://nostr-pub.semisol.dev
+     7|wss://relay.nostr.info
+     6|wss://nostr.semisol.dev
+     6|wss://nostr.onsats.org
+     5|wss://nostr.ono.re
+     3|wss://nostr.bitcoiner.social
+     2|wss://nostr-verified.wellorder.net
+
+  Keep count of how many times it has been up, and how many times it has been down.
+
+  last_up, last_try, last_fetched dates
