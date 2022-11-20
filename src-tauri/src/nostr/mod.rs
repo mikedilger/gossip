@@ -150,7 +150,13 @@ async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
                 };
                 log::debug!("Handling message from {}", &url.0);
                 match ws_message {
-                    WsMessage::Text(t) => handle_nostr_message(tx.clone(), t, url.0.clone()).await?,
+                    WsMessage::Text(t) => {
+                        if let Err(e) = handle_nostr_message(tx.clone(), t, url.0.clone()).await {
+                            log::error!("Error on {}: {}", &url.0, e);
+                            // FIXME: some errors we should probably bail on.
+                            // For now, try to continue.
+                        }
+                    },
                     WsMessage::Binary(_) => log::warn!("Unexpected binary message"),
                     WsMessage::Ping(x) => write.send(WsMessage::Pong(x)).await?,
                     WsMessage::Pong(_) => log::warn!("Unexpected pong message"),
