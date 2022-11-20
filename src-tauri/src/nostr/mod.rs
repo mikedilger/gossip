@@ -134,7 +134,6 @@ async fn handle_relay_inner(filters: Filters, url: Url) -> Result<(), Error> {
         vec![filters.clone()],
     );
     let wire = serde_json::to_string(&message)?;
-    log::debug!("About to send {}", &wire);
     write.send(WsMessage::Text(wire.clone())).await?;
     log::debug!("Sent {}", &wire);
 

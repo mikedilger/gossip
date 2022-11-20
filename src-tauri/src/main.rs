@@ -158,7 +158,7 @@ async fn mainloop(app_handle: AppHandle) {
         let message = rx.recv().await.unwrap();
         match &*message.target {
             "to_javascript" => {
-                log::debug!(
+                log::trace!(
                     "sending to javascript: kind={} payload={}",
                     message.kind,
                     message.payload
