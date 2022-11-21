@@ -1,9 +1,41 @@
+<script setup>
+    import IconAt from './IconAt.vue'
+    import IconBell from './IconBell.vue'
+    import IconEncryptedMessage from './IconEncryptedMessage.vue'
+    import IconFeed from './IconFeed.vue'
+    import IconGear from './IconGear.vue'
+    import IconInfo from './IconInfo.vue'
+    import IconPerson from './IconPerson.vue'
+    import IconPerson2 from './IconPerson2.vue'
+    import IconQuote from './IconQuote.vue'
+    import IconReply from './IconReply.vue'
+    import IconRepost from './IconRepost.vue'
+    import IconSpy from './IconSpy.vue'
+    import IconVerified from './IconVerified.vue'
+    import IconWalk from './IconWalk.vue'
+</script>
+
 <template>
     <h2>settings</h2>
     <div class="main-scrollable">
         <p>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis at neque vestibulum, imperdiet ipsum sed, accumsan mauris. Integer egestas urna quis leo bibendum egestas. Proin id lacus non dolor sagittis sodales. Curabitur et urna purus. Proin posuere purus vitae ipsum tristique faucibus. Proin semper id nibh ac interdum. Interdum et malesuada fames ac ante ipsum primis in faucibus. Curabitur tempus elit et venenatis mollis. Duis venenatis, urna vitae varius rutrum, sapien est fermentum justo, nec vulputate ex lectus vel arcu.
         </p>
+        <IconAt></IconAt>
+        <IconBell></IconBell>
+        <IconEncryptedMessage></IconEncryptedMessage>
+        <IconFeed></IconFeed>
+        <IconGear></IconGear>
+        <IconInfo></IconInfo>
+        <IconList></IconList>
+        <IconPerson></IconPerson>
+        <IconPerson2></IconPerson2>
+        <IconQuote></IconQuote>
+        <IconReply></IconReply>
+        <IconRepost></IconRepost>
+        <IconSpy></IconSpy>
+        <IconVerified></IconVerified>
+        <IconWalk></IconWalk>
         <p>
             Mauris fringilla, magna quis luctus laoreet, eros quam sollicitudin risus, sed porttitor augue dolor quis felis. Integer fringilla risus sed ex facilisis, nec posuere lacus egestas. Nulla aliquet luctus ornare. Donec vitae laoreet elit. Phasellus risus lacus, tempus quis mauris vestibulum, mattis consequat lectus. Morbi eu nulla ac sapien ullamcorper congue. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Suspendisse eget tincidunt lorem. Nunc finibus nisl in varius eleifend. Etiam eleifend velit tempus ipsum placerat egestas. Vivamus fringilla nunc nibh, et placerat justo euismod sagittis.
         </p>

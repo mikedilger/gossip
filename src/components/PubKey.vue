@@ -5,5 +5,12 @@
 </script>
 
 <template>
-    {{ pubkey.substring(0,5) }}..{{ pubkey.substring(59,64) }}
+    <span class="pubkey">{{ pubkey.substring(0,12) }}..{{ pubkey.substring(52,64) }}</span>
 </template>
+
+<style scoped>
+    span.pubkey {
+        float: right;
+        color: #b1a296;
+    }
+</style>
