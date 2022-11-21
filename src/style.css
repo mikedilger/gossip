@@ -91,3 +91,11 @@ button:focus-visible {
         background-color: #f9f9f9;
     }
 }
+
+.float-right {
+    float: right;
+}
+
+.float-clear {
+    float: clear;
+}

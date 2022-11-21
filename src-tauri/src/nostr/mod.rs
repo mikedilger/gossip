@@ -232,6 +232,7 @@ struct Jsevent {
     kind: u64,
     content: String,
     name: String,
+    avatar_url: String,
 }
 
 async fn save_event_in_database(
@@ -287,12 +288,10 @@ async fn send_event_to_javascript(
     // Look up their petname
     let maybe_db_person = DbPerson::fetch_one(event.pubkey.clone()).await?;
 
-    let name = match maybe_db_person {
-        None => "".to_owned(),
-        Some(person) => match person.name {
-            None => "".to_owned(),
-            Some(name) => name.to_owned()
-        }
+    let (name, avatar_url) = match maybe_db_person {
+        None => ("".to_owned(), "".to_owned()),
+        Some(person) => ( person.name.unwrap_or("".to_owned()),
+                          person.picture.unwrap_or("".to_owned()) )
     };
 
     let jsevent = Jsevent { // see below for type
@@ -301,7 +300,8 @@ async fn send_event_to_javascript(
         created_at: event.created_at.0,
         kind: From::from(event.kind),
         content: event.content.clone(),
-        name: name
+        name: name,
+        avatar_url: avatar_url,
     };
 
     if let Err(e) = tx.send(BusMessage {

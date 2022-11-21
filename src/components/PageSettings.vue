@@ -13,6 +13,8 @@
     import IconSpy from './IconSpy.vue'
     import IconVerified from './IconVerified.vue'
     import IconWalk from './IconWalk.vue'
+
+    import Avatar from './Avatar.vue'
 </script>
 
 <template>
@@ -21,6 +23,8 @@
         <p>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis at neque vestibulum, imperdiet ipsum sed, accumsan mauris. Integer egestas urna quis leo bibendum egestas. Proin id lacus non dolor sagittis sodales. Curabitur et urna purus. Proin posuere purus vitae ipsum tristique faucibus. Proin semper id nibh ac interdum. Interdum et malesuada fames ac ante ipsum primis in faucibus. Curabitur tempus elit et venenatis mollis. Duis venenatis, urna vitae varius rutrum, sapien est fermentum justo, nec vulputate ex lectus vel arcu.
         </p>
+        <Avatar url="https://avatars.githubusercontent.com/u/1669069?v=4"></Avatar>
+        <br>
         <IconAt></IconAt>
         <IconBell></IconBell>
         <IconEncryptedMessage></IconEncryptedMessage>

@@ -10,7 +10,6 @@
 
 <style scoped>
     span.pubkey {
-        float: right;
         color: #b1a296;
     }
 </style>

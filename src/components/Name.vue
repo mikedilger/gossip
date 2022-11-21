@@ -10,6 +10,7 @@
 
 <style scoped>
     span.name {
+        font-size: 1.15em;
         color: black;
         font-weight: bold;
     }
