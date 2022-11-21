@@ -28,6 +28,7 @@
         text-align: right;
         padding-top: 2em;
         padding-right: 1em;
+        padding-left: 1em;
         border-right: 1px solid #505050;
         font-size: 1.3rem;
         line-height: 1.8;

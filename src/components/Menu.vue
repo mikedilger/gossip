@@ -7,7 +7,7 @@
 
 <template>
     <MenuItem url="/" name="Feed"></MenuItem>
-    <MenuItem url="/getting-started" name="Getting Started"></MenuItem>
+    <MenuItem url="/getting-started" name="Getting&nbsp;Started"></MenuItem>
     <MenuItem url="/subscriptions" name="Subsriptions"></MenuItem>
     <MenuItem url="/identities" name="Identities"></MenuItem>
     <MenuItem url="/settings" name="Settings"></MenuItem>

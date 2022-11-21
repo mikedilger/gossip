@@ -62,6 +62,5 @@
 <style scoped>
     span.dateago {
         display: inline-block;
-        width: 4em;
     }
 </style>
