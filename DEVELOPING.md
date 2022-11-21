@@ -44,6 +44,8 @@ $ rustup update
 $ cargo install tauri-cli
 ````
 
+Minimum rust version is 1.64 (for the process_set_process_group feature).
+
 ## Develop
 
 Run dev environment
