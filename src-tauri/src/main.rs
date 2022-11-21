@@ -9,11 +9,13 @@ extern crate lazy_static;
 use nostr_proto::{Filters, Url};
 use rusqlite::Connection;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use tauri::{AppHandle, Manager};
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
+use tokio::{select, task};
 
 mod commands;
 
@@ -125,7 +127,7 @@ async fn mainloop(app_handle: AppHandle) {
     }
 
     // Load the initial relay filters
-    let mut relay_filters = match crate::nostr::load_initial_relay_filters().await {
+    let relay_filters = match crate::nostr::load_initial_relay_filters().await {
         Ok(rf) => rf,
         Err(e) => {
             log::error!("Could not load initial relay filters: {}", e);
@@ -142,39 +144,72 @@ async fn mainloop(app_handle: AppHandle) {
         }
     };
 
+    // Keep the join handles for the relay tasks
+    let mut relay_tasks = task::JoinSet::new();
+    // Keep a mapping from Task ID to relay url
+    let mut task_id_to_relay_url: HashMap<task::Id, Url> = HashMap::new();
+
     // Start a thread for each relay
-    for (url, filters) in relay_filters.iter_mut() {
+    for (url, filters) in relay_filters.iter() {
         let task_filters: Filters = filters.clone();
         let task_url: Url = url.clone();
 
-        // We don't need a join handle. And we can broadcast to it once it
-        // starts listening to broadcast
-        tauri::async_runtime::spawn(async move {
+        // We don't really need to keep the abort_handle as we will use
+        // the JoinSet variable which is more powerful. But it has the
+        // task id, so that's convenient.
+        let abort_handle = relay_tasks.spawn(async move {
             crate::nostr::handle_relay(task_filters, task_url).await
         });
+        let id = abort_handle.id();
+
+        task_id_to_relay_url.insert(id, url.clone());
     }
 
     'mainloop: loop {
-        let message = rx.recv().await.unwrap();
-        match &*message.target {
-            "to_javascript" => {
-                log::trace!(
-                    "sending to javascript: kind={} payload={}",
-                    message.kind,
-                    message.payload
-                );
-                app_handle.emit_all("from_rust", message).unwrap();
-            }
-            "all" => match &*message.kind {
-                "shutdown" => {
-                    log::info!("Mainloop shutting down");
-                    break 'mainloop;
+        if relay_tasks.is_empty() {
+            // We only need to listen on the bus
+            let bus_message = rx.recv().await.unwrap();
+            let keepgoing = handle_bus_message(bus_message, app_handle.clone());
+            if !keepgoing { break 'mainloop; }
+        } else {
+            // We need to listen on the bus, and for completed tasks
+            select! {
+                bus_message = rx.recv() => {
+                    let bus_message = bus_message.unwrap();
+                    let keepgoing = handle_bus_message(bus_message, app_handle.clone());
+                    if !keepgoing { break 'mainloop; }
+                },
+                task_next_joined = relay_tasks.join_next_with_id() => {
+                    if task_next_joined.is_none() { continue; } // rare
+                    match task_next_joined.unwrap() {
+                        Err(join_error) => {
+                            let id = join_error.id();
+                            let relay_url = task_id_to_relay_url.get(&id);
+                            match relay_url {
+                                Some(url) => {
+                                    // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
+                                    log::warn!("Relay Task {} completed with error: {}", &url.0, join_error);
+                                },
+                                None => {
+                                    log::warn!("Relay task UNKNOWN completed with error: {}", join_error);
+                                }
+                            }
+                        },
+                        Ok((id, _)) => {
+                            let relay_url = task_id_to_relay_url.get(&id);
+                            match relay_url {
+                                Some(url) => log::warn!("Relay Task {} completed", &url.0),
+                                None => log::warn!("Relay Task UNKNOWN completed"),
+                            }
+                        }
+                    }
+                    // FIXME: we should look up which relay it was serving
+                    // Then we should wait for a cooldown period.
+                    // Then we should recompute the filters and spin up a new task to
+                    // continue that relay.
                 }
-                _ => {}
-            },
-            _ => {}
+            }
         }
-        // TBD: handle other messages
     }
 
     app_handle.exit(1);
@@ -183,6 +218,28 @@ async fn mainloop(app_handle: AppHandle) {
     // Figure out what relays we need to talk to
     // Start threads for each of them
     // Refigure it out and tell them
+}
+
+fn handle_bus_message(bus_message: BusMessage, app_handle: AppHandle) -> bool {
+    match &*bus_message.target {
+        "to_javascript" => {
+            log::trace!(
+                "sending to javascript: kind={} payload={}",
+                bus_message.kind,
+                bus_message.payload
+            );
+            app_handle.emit_all("from_rust", bus_message).unwrap();
+        }
+        "all" => match &*bus_message.kind {
+            "shutdown" => {
+                log::info!("Mainloop shutting down");
+                return false;
+            }
+            _ => {}
+        },
+        _ => {}
+    }
+    true
 }
 
 // This sets up the database
