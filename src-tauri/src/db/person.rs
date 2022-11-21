@@ -89,6 +89,30 @@ impl DbPerson {
     }
 
     #[allow(dead_code)]
+    pub async fn update(person: DbPerson) -> Result<(), Error> {
+        let sql =
+            "UPDATE person SET name=?, about=?, picture=?, nip05=?, followed=? WHERE public_key=?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+            stmt.execute((
+                &person.name,
+                &person.about,
+                &person.picture,
+                &person.nip05,
+                &person.followed,
+                &person.public_key
+            ))?;
+            Ok::<(), Error>(())
+        }).await??;
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM person WHERE {}", criteria);
 

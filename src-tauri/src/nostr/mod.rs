@@ -2,8 +2,8 @@ use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay, DbRel
 use crate::{BusMessage, Error, GLOBALS};
 use futures::{SinkExt, StreamExt};
 use nostr_proto::{
-    ClientMessage, Event, EventKind, Filters, PublicKey, RelayMessage, SubscriptionId,
-    Unixtime, Url,
+    ClientMessage, Event, EventKind, Filters, Metadata, PublicKey, RelayMessage,
+    SubscriptionId, Unixtime, Url,
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -205,7 +205,6 @@ async fn handle_nostr_message(
                 log::error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
             } else {
                 save_event_in_database(&event, urlstr.clone()).await?;
-                send_event_to_javascript(&tx, (*event).clone(), urlstr.clone()).await?;
                 process_event(&tx, *event, urlstr.clone()).await?;
             }
         }
@@ -323,23 +322,44 @@ async fn process_event(
     urlstr: String
 ) -> Result<(), Error> {
 
-
-    /*
     match event.kind {
         EventKind::Metadata => {
+            let metadata: Metadata = serde_json::from_str(&event.content)?;
+            if let Some(mut person) = DbPerson::fetch_one(event.pubkey.clone()).await? {
+                person.name = Some(metadata.name);
+                person.about = metadata.about;
+                person.picture = metadata.picture;
+                person.nip05 = metadata.nip05;
+                DbPerson::update(person).await?;
+            } else {
+                let person = DbPerson {
+                    public_key: event.pubkey.as_hex_string(),
+                    name: Some(metadata.name),
+                    about: metadata.about,
+                    picture: metadata.picture,
+                    nip05: metadata.nip05,
+                    followed: 0
+                };
+                DbPerson::insert(person).await?;
+            }
         },
-        EventKind::TextNote => { }, // Nothing more to do. We sent these to javascript.
+        EventKind::TextNote => {
+            send_event_to_javascript(&tx, event, urlstr.clone()).await?;
+        },
         EventKind::RecommendRelay => {
+            // TBD
         },
         EventKind::ContactList => {
+            // TBD
         },
         EventKind::EventDeletion => {
+            // TBD
         },
         EventKind::Reaction => {
+            // TBD
         },
         _ => { }
     }
-     */
 
     Ok(())
 }
