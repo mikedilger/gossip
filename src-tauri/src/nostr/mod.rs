@@ -342,8 +342,11 @@ async fn process_event(
                 };
                 DbPerson::insert(person).await?;
             }
+            // Javascript needs to update metadata on its list of events:
+            send_event_to_javascript(&tx, event, urlstr.clone()).await?;
         },
         EventKind::TextNote => {
+            // Javascript needs to render this event on the feed:
             send_event_to_javascript(&tx, event, urlstr.clone()).await?;
         },
         EventKind::RecommendRelay => {

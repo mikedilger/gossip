@@ -10,8 +10,17 @@
             //console.log(event)
             if (rust_message.payload.kind == "event") {
                 let event = JSON.parse(rust_message.payload.payload);
-                if (event.kind==1) {
+                if (event.kind==0) {
+                    // For every event, possibly update the name
+                    textNotes.value.forEach((val, index) => {
+                        if (textNotes.value[index].pubkey == event.pubkey) {
+                            textNotes.value[index].name = event.name;
+                        }
+                    });
+                }
+                else if (event.kind==1) {
                     textNotes.value.push(event);
+                    // resort - events may not come in sorted order every time.
                     textNotes.value.sort((a,b) => b.created_at - a.created_at);
                 }
             }
