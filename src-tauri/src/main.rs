@@ -111,21 +111,6 @@ async fn mainloop(app_handle: AppHandle) {
         return;
     }
 
-    // Wait until Taori is up
-    // TBD - this is a hack. Listen for an event instead.
-    tokio::time::sleep(std::time::Duration::new(1, 0)).await;
-
-    // Send a first message to javascript (actually to us, then we send it
-    // onwards -- we read our own message just below)
-    if let Err(e) = tx.send(BusMessage {
-        target: "to_javascript".to_string(),
-        source: "mainloop".to_string(),
-        kind: "greeting".to_string(),
-        payload: serde_json::to_string("Hello World").unwrap(),
-    }) {
-        log::error!("Unable to send message: {}", e);
-    }
-
     // Load the initial relay filters
     let relay_filters = match crate::nostr::load_initial_relay_filters().await {
         Ok(rf) => rf,
@@ -144,6 +129,10 @@ async fn mainloop(app_handle: AppHandle) {
         }
     };
 
+    // Wait until Taori is up
+    // TBD - this is a hack. Listen for an event instead.
+    tokio::time::sleep(std::time::Duration::new(1, 0)).await;
+
     // Keep the join handles for the relay tasks
     let mut relay_tasks = task::JoinSet::new();
     // Keep a mapping from Task ID to relay url
@@ -158,7 +147,11 @@ async fn mainloop(app_handle: AppHandle) {
         // the JoinSet variable which is more powerful. But it has the
         // task id, so that's convenient.
         let abort_handle = relay_tasks.spawn(async move {
-            crate::nostr::handle_relay(task_filters, task_url).await
+            let websocket_handler = crate::nostr::WebsocketHandler::new(
+                task_url,
+                task_filters
+            );
+            websocket_handler.handle().await
         });
         let id = abort_handle.id();
 
