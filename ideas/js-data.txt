@@ -1,0 +1,95 @@
+
+the JavaScript side of gossip will have the following data structures allowing it
+to efficiently render feeds:
+
+events:  Map [ ID => EVENT ]
+============================
+
+  This is the event data itself, mapped by the event id.
+
+    NOTE: We may learn more about this event later (e.g. metadata, reactions, replies).
+    Such additional data is stored in our metadata map.
+
+  Each event includes:
+
+  {
+    id,
+    pubkey,
+    created_at,
+    kind,
+    tags,
+    content,
+  }
+
+  This map only gets added to. Rust only sends new events. Events are never updated.
+  There is no meaningful order.
+
+  Later there might be some way to delete old/deranked events so it doesn't bog
+  down memory. But we will cross that bridge when we get there.
+
+
+metadata:  Map [ ID => METADATA ]
+=================================
+
+  This is metadata about an event, mapped by the event id.
+
+  It includes:
+
+  {
+    id,
+    replies: [ ID, ID, ID ]   // Rust will supply in time order. Direct replies only.
+    reactions: {
+      upvotes: 13,
+      downvotes: 1,
+      emojis: [ 😀: 2,  🤢: 1 ]
+    },
+  }
+
+  Rust sends this data to JavaScript, and JS either inserts (if it had none)
+  or replaces it.
+
+  Rust always sends the entire set of data if it has to change something (e.g. add a
+  new reply)
+
+
+feed:  Array [ ID, ID, ... ]
+============================
+
+  This is a list of what events to show in the feed, in REVERSE order.  They
+  should be shown with the last one at the top (if Twiiter style setting is on
+  which is the default)
+
+  Each event may have replies. Javscript will check the metadata map and render each
+  reply as needed.
+
+  If the event is itself a reply to something else that we have down below, it should
+  be rendered simply with a document link href=#eventid which will scroll the user
+  down to that conversation.
+
+  Rust can modify this data in two ways:
+
+     1. Refreshes this entire list. If the users changes what they want to see
+        (e.g. follow or global, etc), this may happen.
+
+     2. PUSH one or more new events onto the end (the last being the first in the feed).
+
+
+people:  Map [ PubKey => Person ]
+=================================
+
+  This is data about people. It is referenced for rendering the feed, as well as the
+  page that lists/manages who you are following.
+
+  Each person includes:
+
+    {
+      pubkey,
+      username: "Mike-Dilger"
+      about: "blah blah blah"
+      picture: "https://example.com/mypicture"
+      nip05: "mike@mikedilger.com"
+      nip05valid: true
+      followed: true
+    }
+
+  Rust can add multiple people, or replace a person.
