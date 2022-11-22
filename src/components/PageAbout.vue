@@ -20,7 +20,10 @@
             <li>By: <b>{{ about.authors }}</b></li>
             <li>Repo: <a :href="about.repository">{{ about.repository }}</a></li>
             <li>Homepage: <a :href="about.homepage">{{ about.homepage }}</a></li>
+            <li>License: <b>{{ about.license }}</b></li>
         </ul>
+
+        Path to database: {{ about.database_path }}
     </div>
 </template>
 
