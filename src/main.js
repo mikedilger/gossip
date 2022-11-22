@@ -1,7 +1,8 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import './style.css'
 import App from './App.vue'
-import { createRouter, createWebHashHistory } from 'vue-router'
 
 import PageFeed from './components/PageFeed.vue'
 import PageGettingStarted from './components/PageGettingStarted.vue'
@@ -24,6 +25,9 @@ const router = createRouter({
     routes: routes
 })
 
+const pinia = createPinia()
+
 const app = createApp(App)
       .use(router)
+      .use(pinia)
       .mount('#app')

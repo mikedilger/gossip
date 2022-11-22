@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^1.2.0",
+    "pinia": "^2.0.25",
     "vue": "^3.2.41",
     "vue-router": "4"
   },
