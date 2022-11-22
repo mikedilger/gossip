@@ -12,8 +12,8 @@
     img.avatar {
         width: 36px;
         height: 36px;
-        padding-right: 0.8em;
+        margin-right: 0.8em;
         display: inline-block;
-        border-radius: 12px;
+        border-radius: 8px;
     }
 </style>
