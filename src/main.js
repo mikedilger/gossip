@@ -1,6 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { useEventStore } from './eventStore.js'
+import { listen } from '@tauri-apps/api/event'
 import './style.css'
 import App from './App.vue'
 
@@ -27,7 +29,35 @@ const router = createRouter({
 
 const pinia = createPinia()
 
-const app = createApp(App)
-      .use(router)
-      .use(pinia)
-      .mount('#app')
+const app = createApp(App);
+app.use(router);
+app.use(pinia);
+app.mount('#app');
+
+// Process messages sent in from rust
+(async () => {
+    await listen('from_rust', (rust_message) => {
+
+        console.log("message from rust")
+        //console.log(event)
+
+        const store = useEventStore();
+
+        if (rust_message.payload.kind == "event") {
+            let event = JSON.parse(rust_message.payload.payload);
+            if (event.kind==0) {
+                // For every event, possibly update the name
+                store.textNotes.forEach((val, index) => {
+                    if (store.textNotes[index].pubkey == event.pubkey) {
+                        store.textNotes[index].name = event.name;
+                    }
+                });
+            }
+            else if (event.kind==1) {
+                store.textNotes.push(event);
+                // resort - events may not come in sorted order every time.
+                store.textNotes.sort((a,b) => b.created_at - a.created_at);
+            }
+        }
+    })
+})()
