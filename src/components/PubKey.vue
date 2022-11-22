@@ -5,7 +5,7 @@
 </script>
 
 <template>
-    <span class="pubkey">{{ pubkey.substring(0,12) }}..{{ pubkey.substring(52,64) }}</span>
+    <span class="pubkey">{{ pubkey.substring(0,4) }}_{{ pubkey.substring(4,8) }} .. {{ pubkey.substring(56,60) }}_{{ pubkey.substring(60,64) }}</span>
 </template>
 
 <style scoped>

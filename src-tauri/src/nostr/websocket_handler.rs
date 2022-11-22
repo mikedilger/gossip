@@ -12,7 +12,7 @@ use tungstenite::protocol::Message as WsMessage;
 
 
 #[derive(Serialize)]
-struct Jsevent {
+struct JsEvent {
     id: String,
     pubkey: String,
     created_at: i64,
@@ -20,6 +20,9 @@ struct Jsevent {
     content: String,
     name: String,
     avatar_url: String,
+    followed: bool,
+    nip05: Option<String>,
+    nip05valid: bool,
 }
 
 
@@ -212,13 +215,16 @@ impl WebsocketHandler {
         // Look up their petname
         let maybe_db_person = DbPerson::fetch_one(event.pubkey.clone()).await?;
 
-        let (name, avatar_url) = match maybe_db_person {
-            None => ("".to_owned(), "".to_owned()),
+        let (name, avatar_url, followed, nip05, nip05valid) = match maybe_db_person {
+            None => ("".to_owned(), "".to_owned(), false, None, false),
             Some(person) => ( person.name.unwrap_or("".to_owned()),
-                              person.picture.unwrap_or("".to_owned()) )
+                              person.picture.unwrap_or("".to_owned()),
+                              person.followed != 0,
+                              person.nip05,
+                              false )// FIXME validate NIP05
         };
 
-        let jsevent = Jsevent { // see below for type
+        let jsevent = JsEvent { // see below for type
             id: event.id.as_hex_string(),
             pubkey: event.pubkey.as_hex_string(),
             created_at: event.created_at.0,
@@ -226,6 +232,9 @@ impl WebsocketHandler {
             content: event.content.clone(),
             name: name,
             avatar_url: avatar_url,
+            followed: followed,
+            nip05: nip05,
+            nip05valid: nip05valid,
         };
 
         if let Err(e) = tx.send(BusMessage {
