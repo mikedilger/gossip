@@ -57,7 +57,7 @@ impl WebsocketHandler {
         );
         let wire = serde_json::to_string(&message)?;
         write.send(WsMessage::Text(wire.clone())).await?;
-        log::debug!("Sent {}", &wire);
+        //log::debug!("Sent {}", &wire);
 
         'relayloop: loop {
             select! {

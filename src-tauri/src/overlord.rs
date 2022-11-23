@@ -178,8 +178,9 @@ impl Overlord {
 
     fn send_early_messages_to_javascript(&mut self) {
         for bus_message in self.early_messages_to_javascript.drain(..) {
+            log::debug!("POPPING early message");
             log::trace!(
-                "sending (buffered) to javascript: kind={} payload={}",
+                "sending to javascript: kind={} payload={}",
                 bus_message.kind,
                 bus_message.payload
             );

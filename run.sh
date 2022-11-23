@@ -1,3 +1,3 @@
 #!/bin/bash
 
-RUST_BACKTRACE=1 RUST_LOG=debug cargo tauri dev
+RUST_BACKTRACE=1 RUST_LOG="info,gossip=debug" cargo tauri dev
