@@ -4,7 +4,7 @@ export const useEventStore = defineStore('events', {
     state: () => ({
         // The event_map maps event IDs to Event structures like this
         //    { id, pubkey, created_at, kind, tags, content }
-        events: new Map([]),
+        events: new Map(),
 
         // The metadata map maps event IDs onto Event metdata like this
         //    {
@@ -12,7 +12,7 @@ export const useEventStore = defineStore('events', {
         //      replies: [ id, id, ... ],
         //      reactions: { upvotes, downvotes, emojis [ 😀: 2 ] }
         //    }
-        metadata: new Map([]),
+        metadata: new Map(),
 
         // The feed is a list of event IDs to be rendered in REVERSE order
         feed: [],
@@ -21,9 +21,6 @@ export const useEventStore = defineStore('events', {
         // {
         //    pubkey, username, about, picture, nip05, nip05valid, followed
         // }
-        people: new Map([]),
-
-        // THIS IS GOING AWAY:
-        textNotes: []
+        people: new Map(),
     }),
 })

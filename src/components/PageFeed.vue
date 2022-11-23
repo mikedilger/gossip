@@ -1,18 +1,15 @@
 <script setup>
-    import { useEventStore } from '../eventStore.js'
     import { storeToRefs } from 'pinia'
+    import { useEventStore } from '../eventStore.js'
+    import Post from './Post.vue'
 
-    import Identity from './Identity.vue'
-    import TextNote from './TextNote.vue'
-
-    const store = useEventStore();
-    const { textNotes } = storeToRefs(store);
+    const store = useEventStore()
+    const { feed } = storeToRefs(store)
 </script>
 
 <template>
-    <Identity></Identity>
     <div class="main-scrollable">
-        <TextNote v-for="textNote in store.textNotes" :text-note="textNote"></TextNote>
+        <Post v-for="eventId in feed.slice().reverse()" :event-id="eventId"></Post>
     </div>
 </template>
 

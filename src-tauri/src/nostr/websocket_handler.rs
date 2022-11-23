@@ -242,8 +242,8 @@ impl WebsocketHandler {
         if let Err(e) = tx.send(BusMessage {
             target: "to_javascript".to_string(),
             source: self.url.0.clone(),
-            kind: "oldevent".to_string(),
-            payload: serde_json::to_string(&jsevent)?,
+            kind: "pushfeedevents".to_string(),
+            payload: serde_json::to_string(&vec![jsevent])?,
         }) {
             log::error!("Unable to send message to javascript: {}", e);
         }
