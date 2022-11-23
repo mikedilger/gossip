@@ -41,8 +41,10 @@ pub fn about() -> About {
 pub fn javascript_is_ready() {
     let tx = GLOBALS.bus.clone();
 
+    log::debug!("javascript-is-ready tauri command called");
+
     if let Err(e) = tx.send(BusMessage {
-        target: "mainloop".to_string(),
+        target: "overlord".to_string(),
         source: "javascript".to_string(),
         kind: "javascript_is_ready".to_string(),
         payload: "".to_string()
