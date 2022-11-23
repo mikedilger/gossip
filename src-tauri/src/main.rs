@@ -79,7 +79,10 @@ fn main() {
     env_logger::init();
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![commands::about])
+        .invoke_handler(tauri::generate_handler![
+            commands::about,
+            commands::javascript_is_ready
+        ])
         .setup(|app| {
             let app_handle = app.handle();
             let _join = tauri::async_runtime::spawn(mainloop(app_handle));
@@ -105,7 +108,7 @@ async fn mainloop(app_handle: AppHandle) {
             kind: "shutdown".to_string(),
             payload: "shutdown".to_string(),
         }) {
-            log::error!("Unable to send message: {}", e);
+            log::error!("Unable to send shutdown: {}", e);
         }
         app_handle.exit(1);
         return;
@@ -122,7 +125,7 @@ async fn mainloop(app_handle: AppHandle) {
                 kind: "shutdown".to_string(),
                 payload: "shutdown".to_string(),
             }) {
-                log::error!("Unable to send message: {}", e);
+                log::error!("Unable to send shutdown: {}", e);
             }
             app_handle.exit(1);
             return;
@@ -227,7 +230,15 @@ fn handle_bus_message(bus_message: BusMessage, app_handle: AppHandle) -> bool {
             "shutdown" => {
                 log::info!("Mainloop shutting down");
                 return false;
-            }
+            },
+            _ => {}
+        },
+        "mainloop" => match &*bus_message.kind {
+            "javascript_is_ready" => {
+                log::info!("Javascript is ready");
+                // FIXME, we should wait for this before we send any events
+                // to javascript.
+            },
             _ => {}
         },
         _ => {}

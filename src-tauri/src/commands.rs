@@ -1,4 +1,5 @@
 use serde::Serialize;
+use crate::{BusMessage, GLOBALS};
 
 #[derive(Debug, Serialize)]
 pub struct About {
@@ -33,5 +34,19 @@ pub fn about() -> About {
         homepage: env!("CARGO_PKG_HOMEPAGE").to_string(),
         license: env!("CARGO_PKG_LICENSE").to_string(),
         database_path: data_dir.to_string(),
+    }
+}
+
+#[tauri::command]
+pub fn javascript_is_ready() {
+    let tx = GLOBALS.bus.clone();
+
+    if let Err(e) = tx.send(BusMessage {
+        target: "mainloop".to_string(),
+        source: "javascript".to_string(),
+        kind: "javascript_is_ready".to_string(),
+        payload: "".to_string()
+    }) {
+        log::error!("Unable to send javascript_is_ready: {}", e);
     }
 }

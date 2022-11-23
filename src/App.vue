@@ -1,5 +1,11 @@
 <script setup>
     import Menu from './components/Menu.vue'
+    import { onMounted } from 'vue'
+    import { invoke } from '@tauri-apps/api/tauri'
+
+    onMounted(() => {
+        invoke('javascript_is_ready')
+    })
 </script>
 
 <template>
