@@ -1,5 +1,6 @@
 
 use crate::{BusMessage, Error, GLOBALS};
+use crate::db::DbPerson;
 use nostr_proto::{Filters, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -23,13 +24,8 @@ impl Overlord {
     }
 
     pub async fn run(&mut self) {
-
-        // Get the broadcast channel and subscribe to it
-        let tx = GLOBALS.bus.clone();
-        let mut rx = tx.subscribe();
-
-        // Setup the database (possibly create, possibly upgrade)
-        if let Err(e) = setup_database().await {
+        if let Err(e) = self.run_inner().await {
+            let tx = GLOBALS.bus.clone();
             log::error!("{}", e);
             if let Err(e) = tx.send(BusMessage {
                 target: "all".to_string(),
@@ -42,24 +38,19 @@ impl Overlord {
             self.app_handle.exit(1);
             return;
         }
+    }
+
+    pub async fn run_inner(&mut self) -> Result<(), Error> {
+
+        // Get the broadcast channel and subscribe to it
+        let tx = GLOBALS.bus.clone();
+        let mut rx = tx.subscribe();
+
+        // Setup the database (possibly create, possibly upgrade)
+        setup_database().await?;
 
         // Load the initial relay filters
-        let relay_filters = match crate::nostr::load_initial_relay_filters().await {
-            Ok(rf) => rf,
-            Err(e) => {
-                log::error!("Could not load initial relay filters: {}", e);
-                if let Err(e) = tx.send(BusMessage {
-                    target: "all".to_string(),
-                    source: "overlord".to_string(),
-                    kind: "shutdown".to_string(),
-                    payload: "shutdown".to_string(),
-                }) {
-                    log::error!("Unable to send shutdown: {}", e);
-                }
-                self.app_handle.exit(1);
-                return;
-            }
-        };
+        let relay_filters = crate::nostr::load_initial_relay_filters().await?;
 
         // Keep the join handles for the relay tasks
         let mut relay_tasks = task::JoinSet::new();
@@ -84,6 +75,17 @@ impl Overlord {
             let id = abort_handle.id();
 
             task_id_to_relay_url.insert(id, url.clone());
+        }
+
+        // Load person data from database and send to javascript
+        {
+            let people = DbPerson::fetch(None).await?;
+            tx.send(BusMessage {
+                target: "to_javascript".to_string(),
+                source: "overlord".to_string(),
+                kind: "setpeople".to_string(),
+                payload: serde_json::to_string(&people)?
+            })?;
         }
 
         'mainloop: loop {
@@ -139,6 +141,8 @@ impl Overlord {
         // Figure out what relays we need to talk to
         // Start threads for each of them
         // Refigure it out and tell them
+
+        Ok(())
     }
 
     fn handle_bus_message(&mut self, bus_message: BusMessage) -> bool {

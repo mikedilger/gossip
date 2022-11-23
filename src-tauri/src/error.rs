@@ -1,7 +1,11 @@
+use crate::BusMessage;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("Error broadcasting: {0}")]
+    Broadcast(#[from] tokio::sync::broadcast::error::SendError<BusMessage>),
+
     #[error("Error: {0}")]
     General(String),
 
