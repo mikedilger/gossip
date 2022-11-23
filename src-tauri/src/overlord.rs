@@ -61,10 +61,6 @@ impl Overlord {
             }
         };
 
-        // Wait until Taori is up
-        // TBD - this is a hack. Listen for an event instead.
-        tokio::time::sleep(std::time::Duration::new(1, 0)).await;
-
         // Keep the join handles for the relay tasks
         let mut relay_tasks = task::JoinSet::new();
         // Keep a mapping from Task ID to relay url
