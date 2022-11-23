@@ -34,19 +34,9 @@ app.use(router);
 app.use(pinia);
 app.mount('#app');
 
-// Process messages sent in from rust
-(async () => {
-    await listen('from_rust', (rust_message) => {
-        switch (rust_message.payload.kind) {
-        case "oldevent": handle_old_event(rust_message); break;
-        }
-    })
-})()
-
-function handle_old_event(rust_message) {
+function handle_old_event(event) {
     const store = useEventStore();
 
-    let event = JSON.parse(rust_message.payload.payload);
     if (event.kind==0) {
         // For every event, possibly update the name
         store.textNotes.forEach((val, index) => {
@@ -61,3 +51,41 @@ function handle_old_event(rust_message) {
         store.textNotes.sort((a,b) => b.created_at - a.created_at);
     }
 }
+
+
+// Process messages sent in from rust
+(async () => {
+    await listen('from_rust', (rust_message) => {
+
+        let payload = JSON.parse(rust_message.payload.payload);
+        const store = useEventStore();
+
+        switch (rust_message.payload.kind) {
+        case "oldevent":
+            handle_old_event(payload);
+            break;
+        case "addevents":
+            payload.forEach(event => store.events.set(event.id, event))
+            break;
+        case "setmetadata":
+            handle_setmetadata(payload);
+            payload.forEach(metadata => store.metadata.set(metadata.id, metadata))
+            break;
+        case "replacefeed":
+            store.$patch({ feed: payload });
+            break;
+        case "pushfeed":
+            store.feed.push(...payload);
+            break;
+        case "pushfeedevents": // a combo of "addevents" and "pushfeed"
+            payload.forEach(event => store.events.set(event.id, event))
+            let pushfeed = payload.map(event => event.id)
+            store.feed.push(...pushfeed);
+            break;
+        case "setpeople":
+            payload.forEach(person => store.people.set(person.pubkey, person))
+            break;
+        }
+    })
+})()
+
