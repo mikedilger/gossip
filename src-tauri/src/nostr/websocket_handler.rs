@@ -18,6 +18,8 @@ struct JsEvent {
     created_at: i64,
     kind: u64,
     content: String,
+
+    // Get rid of these. Use a JsPerson instead.
     name: String,
     avatar_url: String,
     followed: bool,
@@ -205,7 +207,7 @@ impl WebsocketHandler {
         Ok(())
     }
 
-    async fn send_event_to_javascript(
+    async fn old_send_event_to_javascript(
         &self,
         tx: &Sender<BusMessage>,
         event: Event
@@ -240,7 +242,7 @@ impl WebsocketHandler {
         if let Err(e) = tx.send(BusMessage {
             target: "to_javascript".to_string(),
             source: self.url.0.clone(),
-            kind: "event".to_string(),
+            kind: "oldevent".to_string(),
             payload: serde_json::to_string(&jsevent)?,
         }) {
             log::error!("Unable to send message to javascript: {}", e);
@@ -276,11 +278,11 @@ impl WebsocketHandler {
                     DbPerson::insert(person).await?;
                 }
                 // Javascript needs to update metadata on its list of events:
-                self.send_event_to_javascript(&tx, event).await?;
+                self.old_send_event_to_javascript(&tx, event).await?;
             },
             EventKind::TextNote => {
                 // Javascript needs to render this event on the feed:
-                self.send_event_to_javascript(&tx, event).await?;
+                self.old_send_event_to_javascript(&tx, event).await?;
             },
             EventKind::RecommendRelay => {
                 // TBD

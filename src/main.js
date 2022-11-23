@@ -37,27 +37,27 @@ app.mount('#app');
 // Process messages sent in from rust
 (async () => {
     await listen('from_rust', (rust_message) => {
-
-        console.log("message from rust")
-        //console.log(event)
-
-        const store = useEventStore();
-
-        if (rust_message.payload.kind == "event") {
-            let event = JSON.parse(rust_message.payload.payload);
-            if (event.kind==0) {
-                // For every event, possibly update the name
-                store.textNotes.forEach((val, index) => {
-                    if (store.textNotes[index].pubkey == event.pubkey) {
-                        store.textNotes[index].name = event.name;
-                    }
-                });
-            }
-            else if (event.kind==1) {
-                store.textNotes.push(event);
-                // resort - events may not come in sorted order every time.
-                store.textNotes.sort((a,b) => b.created_at - a.created_at);
-            }
+        switch (rust_message.payload.kind) {
+        case "oldevent": handle_old_event(rust_message); break;
         }
     })
 })()
+
+function handle_old_event(rust_message) {
+    const store = useEventStore();
+
+    let event = JSON.parse(rust_message.payload.payload);
+    if (event.kind==0) {
+        // For every event, possibly update the name
+        store.textNotes.forEach((val, index) => {
+            if (store.textNotes[index].pubkey == event.pubkey) {
+                store.textNotes[index].name = event.name;
+            }
+        });
+    }
+    else if (event.kind==1) {
+        store.textNotes.push(event);
+        // resort - events may not come in sorted order every time.
+        store.textNotes.sort((a,b) => b.created_at - a.created_at);
+    }
+}
