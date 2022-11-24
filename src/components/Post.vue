@@ -46,9 +46,10 @@
             name: "",
             about: "",
             picture: "",
-            nip05: null,
-            nip05valid: false,
-            followed: false
+            dns_id: null,
+            dns_id_valid: 0,
+            dns_id_last_checked: null,
+            followed: 0
         };
     })
 </script>
@@ -67,7 +68,7 @@
                 <br class="float-clear">
                 <Name :name="person.name"></Name>
                 <IconWalk v-if="person.followed"></IconWalk>
-                <Nip05 :nip05="person.nip05==null ? '' : person.nip05" :valid="person.nip05valid"></Nip05>
+                <Nip05 :nip05="person.dns_id==null ? '' : person.dns_id" :valid="person.dns_id_valid==1"></Nip05>
             </div>
         </div>
         <div class="post-content">

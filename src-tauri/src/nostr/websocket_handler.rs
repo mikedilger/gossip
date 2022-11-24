@@ -5,7 +5,6 @@ use nostr_proto::{
     ClientMessage, Event, EventKind, Filters, Metadata, RelayMessage,
     SubscriptionId, Unixtime, Url,
 };
-use serde::Serialize;
 use tokio::select;
 use tokio::sync::broadcast::Sender;
 use tungstenite::protocol::Message as WsMessage;
@@ -214,12 +213,20 @@ impl WebsocketHandler {
 
         match event.kind {
             EventKind::Metadata => {
+                let created_at: u64 = event.created_at.0 as u64;
                 let metadata: Metadata = serde_json::from_str(&event.content)?;
                 if let Some(mut person) = DbPerson::fetch_one(event.pubkey.clone()).await? {
                     person.name = Some(metadata.name);
                     person.about = metadata.about;
                     person.picture = metadata.picture;
-                    person.nip05 = metadata.nip05;
+                    if person.dns_id != metadata.nip05 {
+                        person.dns_id = metadata.nip05;
+                        person.dns_id_valid = 0; // changed so starts invalid
+                        person.dns_id_last_checked = match person.dns_id_last_checked {
+                            None => Some(created_at),
+                            Some(lc) => Some(created_at.max(lc)),
+                        }
+                    }
                     DbPerson::update(person).await?;
                 } else {
                     let person = DbPerson {
@@ -227,7 +234,9 @@ impl WebsocketHandler {
                         name: Some(metadata.name),
                         about: metadata.about,
                         picture: metadata.picture,
-                        nip05: metadata.nip05,
+                        dns_id: metadata.nip05,
+                        dns_id_valid: 0, // new so starts invalid
+                        dns_id_last_checked: Some(created_at),
                         followed: 0
                     };
                     DbPerson::insert(person).await?;

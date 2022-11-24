@@ -8,7 +8,9 @@ CREATE TABLE person (
     name TEXT DEFAULT NULL,
     about TEXT DEFAULT NULL,
     picture TEXT DEFAULT NULL,
-    nip05 TEXT DEFAULT NULL,
+    dns_id TEXT DEFAULT NULL,
+    dns_id_valid INTEGER DEFAULT 0,
+    dns_id_last_checked INTEGER DEFAULT NULL,
     followed INTEGER DEFAULT 0
 ) WITHOUT ROWID;
 

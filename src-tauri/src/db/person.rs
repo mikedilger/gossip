@@ -9,7 +9,9 @@ pub struct DbPerson {
     pub name: Option<String>,
     pub about: Option<String>,
     pub picture: Option<String>,
-    pub nip05: Option<String>,
+    pub dns_id: Option<String>,
+    pub dns_id_valid: u8,
+    pub dns_id_last_checked: Option<u64>,
     pub followed: u8,
 }
 
@@ -17,7 +19,7 @@ impl DbPerson {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql =
-            "SELECT public_key, name, about, picture, nip05, followed FROM person".to_owned();
+            "SELECT public_key, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, followed FROM person".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -34,8 +36,10 @@ impl DbPerson {
                     name: row.get(1)?,
                     about: row.get(2)?,
                     picture: row.get(3)?,
-                    nip05: row.get(4)?,
-                    followed: row.get(5)?,
+                    dns_id: row.get(4)?,
+                    dns_id_valid: row.get(5)?,
+                    dns_id_last_checked: row.get(6)?,
+                    followed: row.get(7)?,
                 })
             })?;
 
@@ -66,8 +70,8 @@ impl DbPerson {
     #[allow(dead_code)]
     pub async fn insert(person: DbPerson) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO person (public_key, name, about, picture, nip05, followed) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
+            "INSERT OR IGNORE INTO person (public_key, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, followed) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -79,7 +83,9 @@ impl DbPerson {
                 &person.name,
                 &person.about,
                 &person.picture,
-                &person.nip05,
+                &person.dns_id,
+                &person.dns_id_valid,
+                &person.dns_id_last_checked,
                 &person.followed
             ))?;
             Ok::<(), Error>(())
@@ -91,7 +97,7 @@ impl DbPerson {
     #[allow(dead_code)]
     pub async fn update(person: DbPerson) -> Result<(), Error> {
         let sql =
-            "UPDATE person SET name=?, about=?, picture=?, nip05=?, followed=? WHERE public_key=?";
+            "UPDATE person SET name=?, about=?, picture=?, dns_id=?, dns_id_valid=?, dns_id_last_checked=?, followed=? WHERE public_key=?";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -102,7 +108,9 @@ impl DbPerson {
                 &person.name,
                 &person.about,
                 &person.picture,
-                &person.nip05,
+                &person.dns_id,
+                &person.dns_id_valid,
+                &person.dns_id_last_checked,
                 &person.followed,
                 &person.public_key
             ))?;
