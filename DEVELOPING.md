@@ -48,6 +48,18 @@ Minimum rust version is 1.64 (for the process_set_process_group feature).
 
 ## Develop
 
+Install yarn dependencies
+
+````sh
+$ yarn install
+````
+
+Start up vue-devtools before the app
+
+````sh
+$ yarn run vue-devtools
+````
+
 Run dev environment
 
 ````sh
