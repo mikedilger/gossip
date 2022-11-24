@@ -4,7 +4,7 @@ CREATE TABLE settings (
 ) WITHOUT ROWID;
 
 CREATE TABLE person (
-    public_key TEXT PRIMARY KEY NOT NULL,
+    pubkey TEXT PRIMARY KEY NOT NULL,
     name TEXT DEFAULT NULL,
     about TEXT DEFAULT NULL,
     picture TEXT DEFAULT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE contact (
 CREATE TABLE event (
     id TEXT PRIMARY KEY NOT NULL,
     raw TEXT NOT NULL,
-    public_key TEXT NOT NULL,
+    pubkey TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     kind INTEGER NOT NULL,
     content TEXT NOT NULL,

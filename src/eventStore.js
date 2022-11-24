@@ -17,7 +17,7 @@ export const useEventStore = defineStore('events', {
         // The feed is a list of event IDs to be rendered in REVERSE order
         feed: [],
 
-        // People is a map from public key to Person data like this
+        // People is a map from pubkey to Person data like this
         // {
         //    pubkey, username, about, picture, nip05, nip05valid, followed
         // }

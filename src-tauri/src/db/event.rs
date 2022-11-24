@@ -6,7 +6,7 @@ use tauri::async_runtime::spawn_blocking;
 pub struct DbEvent {
     pub id: String,
     pub raw: String,
-    pub public_key: String,
+    pub pubkey: String,
     pub created_at: i64,
     pub kind: u64,
     pub content: String,
@@ -17,7 +17,7 @@ impl DbEvent {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbEvent>, Error> {
         let sql =
-            "SELECT id, raw, public_key, created_at, kind, content, ots FROM event".to_owned();
+            "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -32,7 +32,7 @@ impl DbEvent {
                 Ok(DbEvent {
                     id: row.get(0)?,
                     raw: row.get(1)?,
-                    public_key: row.get(2)?,
+                    pubkey: row.get(2)?,
                     created_at: row.get(3)?,
                     kind: row.get(4)?,
                     content: row.get(5)?,
@@ -54,7 +54,7 @@ impl DbEvent {
     #[allow(dead_code)]
     pub async fn insert(event: DbEvent) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO event (id, raw, public_key, created_at, kind, content, ots) \
+            "INSERT OR IGNORE INTO event (id, raw, pubkey, created_at, kind, content, ots) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
 
         spawn_blocking(move || {
@@ -65,7 +65,7 @@ impl DbEvent {
             stmt.execute((
                 &event.id,
                 &event.raw,
-                &event.public_key,
+                &event.pubkey,
                 &event.created_at,
                 &event.kind,
                 &event.content,

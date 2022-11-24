@@ -30,11 +30,11 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
 
     for person in people.iter() {
 
-        let public_key: PublicKey = PublicKey::try_from_hex_string(&person.public_key)?;
+        let public_key: PublicKey = PublicKey::try_from_hex_string(&person.pubkey)?;
 
         // Load which relays they use
         let person_relays =
-            DbPersonRelay::fetch(Some(&format!("person='{}'", person.public_key))).await?;
+            DbPersonRelay::fetch(Some(&format!("person='{}'", person.pubkey))).await?;
 
         // Get the highest ranked relay that they use
         let best_relay: Option<DbRelay> = person_relays.iter()
@@ -54,15 +54,15 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
             entry.add_author(&public_key, None);
         } else {
             // if they have no relay, mark them as an orphan
-            orphan_pubkeys.push(person.public_key.clone())
+            orphan_pubkeys.push(person.pubkey.clone())
         }
     }
 
     // Listen to orphans on all relays we are already listening on
     for orphan in orphan_pubkeys.iter() {
         for (_url, filters) in per_relay_filters.iter_mut() {
-            let pubkey = PublicKey::try_from_hex_string(orphan)?;
-            filters.add_author(&pubkey, None);
+            let public_key = PublicKey::try_from_hex_string(orphan)?;
+            filters.add_author(&public_key, None);
         }
     }
 

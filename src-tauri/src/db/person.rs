@@ -5,7 +5,7 @@ use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbPerson {
-    pub public_key: String,
+    pub pubkey: String,
     pub name: Option<String>,
     pub about: Option<String>,
     pub picture: Option<String>,
@@ -19,7 +19,7 @@ impl DbPerson {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql =
-            "SELECT public_key, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, followed FROM person".to_owned();
+            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, followed FROM person".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -32,7 +32,7 @@ impl DbPerson {
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
                 Ok(DbPerson {
-                    public_key: row.get(0)?,
+                    pubkey: row.get(0)?,
                     name: row.get(1)?,
                     about: row.get(2)?,
                     picture: row.get(3)?,
@@ -57,7 +57,7 @@ impl DbPerson {
     #[allow(dead_code)]
     pub async fn fetch_one(pubkey: PublicKey) -> Result<Option<DbPerson>, Error> {
         let people = DbPerson::fetch(
-            Some(&format!("public_key='{}'",pubkey.as_hex_string()))
+            Some(&format!("pubkey='{}'",pubkey.as_hex_string()))
         ).await?;
 
         if people.len() == 0 {
@@ -70,7 +70,7 @@ impl DbPerson {
     #[allow(dead_code)]
     pub async fn insert(person: DbPerson) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO person (public_key, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, followed) \
+            "INSERT OR IGNORE INTO person (pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, followed) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
         spawn_blocking(move || {
@@ -79,7 +79,7 @@ impl DbPerson {
 
             let mut stmt = db.prepare(&sql)?;
             stmt.execute((
-                &person.public_key,
+                &person.pubkey,
                 &person.name,
                 &person.about,
                 &person.picture,
@@ -97,7 +97,7 @@ impl DbPerson {
     #[allow(dead_code)]
     pub async fn update(person: DbPerson) -> Result<(), Error> {
         let sql =
-            "UPDATE person SET name=?, about=?, picture=?, dns_id=?, dns_id_valid=?, dns_id_last_checked=?, followed=? WHERE public_key=?";
+            "UPDATE person SET name=?, about=?, picture=?, dns_id=?, dns_id_valid=?, dns_id_last_checked=?, followed=? WHERE pubkey=?";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -112,7 +112,7 @@ impl DbPerson {
                 &person.dns_id_valid,
                 &person.dns_id_last_checked,
                 &person.followed,
-                &person.public_key
+                &person.pubkey
             ))?;
             Ok::<(), Error>(())
         }).await??;

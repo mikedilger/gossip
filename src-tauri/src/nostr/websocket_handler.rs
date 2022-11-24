@@ -152,7 +152,7 @@ impl WebsocketHandler {
         let db_event = DbEvent {
             id: event.id.as_hex_string(),
             raw: serde_json::to_string(&event)?, // TODO: this is reserialized.
-            public_key: event.pubkey.as_hex_string(),
+            pubkey: event.pubkey.as_hex_string(),
             created_at: event.created_at.0,
             kind: From::from(event.kind),
             content: event.content.clone(),
@@ -230,7 +230,7 @@ impl WebsocketHandler {
                     DbPerson::update(person).await?;
                 } else {
                     let person = DbPerson {
-                        public_key: event.pubkey.as_hex_string(),
+                        pubkey: event.pubkey.as_hex_string(),
                         name: Some(metadata.name),
                         about: metadata.about,
                         picture: metadata.picture,
