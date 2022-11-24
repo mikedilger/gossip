@@ -57,6 +57,9 @@ impl Overlord {
         // Keep a mapping from Task ID to relay url
         let mut task_id_to_relay_url: HashMap<task::Id, Url> = HashMap::new();
 
+        // Create a person record for every person seen, and follow everybody
+        DbPerson::populate_new_people(true).await?;
+
         // Start a thread for each relay
         for (url, filters) in relay_filters.iter() {
             let task_filters: Filters = filters.clone();
