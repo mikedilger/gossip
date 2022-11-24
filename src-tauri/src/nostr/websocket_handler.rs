@@ -24,18 +24,18 @@ impl WebsocketHandler {
     pub async fn handle(&self) {
         // Catch errors, Return nothing.
         if let Err(e) = self.handle_inner().await {
-            log::error!("ERROR handling {}: {}", &self.url.0, e);
+            log::error!("ERROR handling {}: {}", &self.url, e);
         }
 
         // Should we signal that we are exiting?
     }
 
     async fn handle_inner(&self) -> Result<(), Error> {
-        log::info!("Task started to handle relay at {}", &self.url.0);
+        log::info!("Task started to handle relay at {}", &self.url);
 
         log::debug!(
             "Filter for {}: {}",
-            &self.url.0,
+            &self.url,
             serde_json::to_string(&self.filters)?
         );
 
@@ -45,7 +45,7 @@ impl WebsocketHandler {
 
         // Connect to the relay
         let (websocket_stream, _response) = tokio_tungstenite::connect_async(&self.url.0).await?;
-        log::info!("Connected to {}", &self.url.0);
+        log::info!("Connected to {}", &self.url);
 
         let (mut write, mut read) = websocket_stream.split();
 
@@ -70,11 +70,11 @@ impl WebsocketHandler {
                             break 'relayloop;
                         }
                     };
-                    log::debug!("Handling message from {}", &self.url.0);
+                    log::debug!("Handling message from {}", &self.url);
                     match ws_message {
                         WsMessage::Text(t) => {
                             if let Err(e) = self.handle_nostr_message(tx.clone(), t).await {
-                                log::error!("Error on {}: {}", &self.url.0, e);
+                                log::error!("Error on {}: {}", &self.url, e);
                                 // FIXME: some errors we should probably bail on.
                                 // For now, try to continue.
                             }
@@ -96,7 +96,7 @@ impl WebsocketHandler {
                         log::warn!("Websocket task got message, unimpmented: {}",
                                    bus_message.payload);
                     } else if &*bus_message.target == "all" && &*bus_message.kind == "shutdown" {
-                        log::info!("Websocket listener {} shutting down", &self.url.0);
+                        log::info!("Websocket listener {} shutting down", &self.url);
                         break 'relayloop;
                     }
                 },
@@ -130,15 +130,15 @@ impl WebsocketHandler {
                 }
             }
             RelayMessage::Notice(msg) => {
-                log::info!("NOTICE: {} {}", &self.url.0, msg);
+                log::info!("NOTICE: {} {}", &self.url, msg);
             }
             RelayMessage::Eose(subid) => {
                 // These don't have to be processed.
-                log::info!("EOSE: {} {:?}", &self.url.0, subid);
+                log::info!("EOSE: {} {:?}", &self.url, subid);
             }
             RelayMessage::Ok(id, ok, ok_message) => {
                 // These don't have to be processed.
-                log::info!("OK: {} {:?} {} {}", &self.url.0, id, ok, ok_message);
+                log::info!("OK: {} {:?} {} {}", &self.url, id, ok, ok_message);
             }
         }
 

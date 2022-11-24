@@ -129,7 +129,7 @@ impl Overlord {
                                 match relay_url {
                                     Some(url) => {
                                         // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
-                                        log::warn!("Relay Task {} completed with error: {}", &url.0, join_error);
+                                        log::warn!("Relay Task {} completed with error: {}", &url, join_error);
                                     },
                                     None => {
                                         log::warn!("Relay task UNKNOWN completed with error: {}", join_error);
@@ -139,7 +139,7 @@ impl Overlord {
                             Ok((id, _)) => {
                                 let relay_url = task_id_to_relay_url.get(&id);
                                 match relay_url {
-                                    Some(url) => log::warn!("Relay Task {} completed", &url.0),
+                                    Some(url) => log::warn!("Relay Task {} completed", &url),
                                     None => log::warn!("Relay Task UNKNOWN completed"),
                                 }
                             }

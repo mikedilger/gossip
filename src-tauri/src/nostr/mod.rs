@@ -70,7 +70,7 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
     {
         for (url, filters) in per_relay_filters.iter_mut() {
 
-            log::debug!("We will listen to {}, {:?}", &url.0, filters.authors);
+            log::debug!("We will listen to {}, {:?}", &url, filters.authors);
 
             // Listen to these six kinds of events
             filters.add_event_kind(EventKind::Metadata);
@@ -92,7 +92,7 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
     }
 
     for (url, filters) in per_relay_filters.iter() {
-        log::info!("WILL WATCH {} WITH {:?}", &url.0, filters);
+        log::info!("WILL WATCH {} WITH {:?}", &url, filters);
     }
 
     Ok(per_relay_filters)
