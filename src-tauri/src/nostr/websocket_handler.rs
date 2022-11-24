@@ -188,18 +188,36 @@ impl WebsocketHandler {
         Ok(())
     }
 
-    async fn old_send_event_to_javascript(
+    async fn send_javascript_pushfeedevents(
         &self,
         tx: &Sender<BusMessage>,
-        event: Event
+        events: Vec<Event>
     ) -> Result<(), Error> {
         if let Err(e) = tx.send(BusMessage {
             target: "to_javascript".to_string(),
             source: self.url.0.clone(),
             kind: "pushfeedevents".to_string(),
-            payload: serde_json::to_string(&vec![event])?,
+            payload: serde_json::to_string(&events)?,
         }) {
-            log::error!("Unable to send message to javascript: {}", e);
+            log::error!("Unable to send pushfeedevents to javascript: {}", e);
+        }
+
+        Ok(())
+    }
+
+
+    async fn send_javascript_setpeople(
+        &self,
+        tx: &Sender<BusMessage>,
+        people: Vec<DbPerson>
+    ) -> Result<(), Error> {
+        if let Err(e) = tx.send(BusMessage {
+            target: "to_javascript".to_string(),
+            source: self.url.0.clone(),
+            kind: "setpeople".to_string(),
+            payload: serde_json::to_string(&people)?,
+        }) {
+            log::error!("Unable to send setpeople to javascript: {}", e);
         }
 
         Ok(())
@@ -227,7 +245,8 @@ impl WebsocketHandler {
                             Some(lc) => Some(created_at.max(lc)),
                         }
                     }
-                    DbPerson::update(person).await?;
+                    DbPerson::update(person.clone()).await?;
+                    self.send_javascript_setpeople(&tx, vec![person]).await?;
                 } else {
                     let person = DbPerson {
                         pubkey: event.pubkey.as_hex_string(),
@@ -239,14 +258,13 @@ impl WebsocketHandler {
                         dns_id_last_checked: Some(created_at),
                         followed: 0
                     };
-                    DbPerson::insert(person).await?;
+                    DbPerson::insert(person.clone()).await?;
+                    self.send_javascript_setpeople(&tx, vec![person]).await?;
                 }
-                // Javascript needs to update metadata on its list of events:
-                self.old_send_event_to_javascript(&tx, event).await?;
             },
             EventKind::TextNote => {
                 // Javascript needs to render this event on the feed:
-                self.old_send_event_to_javascript(&tx, event).await?;
+                self.send_javascript_pushfeedevents(&tx, vec![event]).await?;
             },
             EventKind::RecommendRelay => {
                 // TBD
