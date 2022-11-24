@@ -1,11 +1,11 @@
 use crate::{Error, GLOBALS};
-use nostr_proto::PublicKey;
+use nostr_proto::PublicKeyHex;
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbPerson {
-    pub pubkey: String,
+    pub pubkey: PublicKeyHex,
     pub name: Option<String>,
     pub about: Option<String>,
     pub picture: Option<String>,
@@ -32,7 +32,7 @@ impl DbPerson {
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
                 Ok(DbPerson {
-                    pubkey: row.get(0)?,
+                    pubkey: PublicKeyHex(row.get(0)?),
                     name: row.get(1)?,
                     about: row.get(2)?,
                     picture: row.get(3)?,
@@ -55,9 +55,9 @@ impl DbPerson {
     }
 
     #[allow(dead_code)]
-    pub async fn fetch_one(pubkey: PublicKey) -> Result<Option<DbPerson>, Error> {
+    pub async fn fetch_one(pubkey: PublicKeyHex) -> Result<Option<DbPerson>, Error> {
         let people = DbPerson::fetch(
-            Some(&format!("pubkey='{}'",pubkey.as_hex_string()))
+            Some(&format!("pubkey='{}'",pubkey))
         ).await?;
 
         if people.len() == 0 {
@@ -79,7 +79,7 @@ impl DbPerson {
 
             let mut stmt = db.prepare(&sql)?;
             stmt.execute((
-                &person.pubkey,
+                &person.pubkey.0,
                 &person.name,
                 &person.about,
                 &person.picture,
@@ -112,7 +112,7 @@ impl DbPerson {
                 &person.dns_id_valid,
                 &person.dns_id_last_checked,
                 &person.followed,
-                &person.pubkey
+                &person.pubkey.0
             ))?;
             Ok::<(), Error>(())
         }).await??;

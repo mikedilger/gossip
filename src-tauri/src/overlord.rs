@@ -213,9 +213,9 @@ impl Overlord {
 
 // This sets up the database
 async fn setup_database() -> Result<(), Error> {
-    let mut data_dir = dirs::data_dir().ok_or::<Error>(From::from(
-        "Cannot find a directory to store application data.",
-    ))?;
+    let mut data_dir = dirs::data_dir().ok_or::<Error>(
+        "Cannot find a directory to store application data.".into(),
+    )?;
     data_dir.push("gossip");
 
     // Create our data directory only if it doesn't exist

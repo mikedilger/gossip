@@ -1,12 +1,13 @@
 use crate::{Error, GLOBALS};
+use nostr_proto::{IdHex, PublicKeyHex};
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEvent {
-    pub id: String,
+    pub id: IdHex,
     pub raw: String,
-    pub pubkey: String,
+    pub pubkey: PublicKeyHex,
     pub created_at: i64,
     pub kind: u64,
     pub content: String,
@@ -30,9 +31,9 @@ impl DbEvent {
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
                 Ok(DbEvent {
-                    id: row.get(0)?,
+                    id: IdHex(row.get(0)?),
                     raw: row.get(1)?,
-                    pubkey: row.get(2)?,
+                    pubkey: PublicKeyHex(row.get(2)?),
                     created_at: row.get(3)?,
                     kind: row.get(4)?,
                     content: row.get(5)?,
@@ -63,9 +64,9 @@ impl DbEvent {
 
             let mut stmt = db.prepare(&sql)?;
             stmt.execute((
-                &event.id,
+                &event.id.0,
                 &event.raw,
-                &event.pubkey,
+                &event.pubkey.0,
                 &event.created_at,
                 &event.kind,
                 &event.content,

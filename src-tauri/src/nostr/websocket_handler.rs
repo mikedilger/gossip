@@ -150,11 +150,11 @@ impl WebsocketHandler {
         event: &Event
     ) -> Result<(), Error> {
         let db_event = DbEvent {
-            id: event.id.as_hex_string(),
+            id: event.id.into(),
             raw: serde_json::to_string(&event)?, // TODO: this is reserialized.
-            pubkey: event.pubkey.as_hex_string(),
+            pubkey: event.pubkey.into(),
             created_at: event.created_at.0,
-            kind: From::from(event.kind),
+            kind: event.kind.into(),
             content: event.content.clone(),
             ots: event.ots.clone()
         };
@@ -233,7 +233,7 @@ impl WebsocketHandler {
             EventKind::Metadata => {
                 let created_at: u64 = event.created_at.0 as u64;
                 let metadata: Metadata = serde_json::from_str(&event.content)?;
-                if let Some(mut person) = DbPerson::fetch_one(event.pubkey.clone()).await? {
+                if let Some(mut person) = DbPerson::fetch_one(event.pubkey.into()).await? {
                     person.name = Some(metadata.name);
                     person.about = metadata.about;
                     person.picture = metadata.picture;
@@ -249,7 +249,7 @@ impl WebsocketHandler {
                     self.send_javascript_setpeople(&tx, vec![person]).await?;
                 } else {
                     let person = DbPerson {
-                        pubkey: event.pubkey.as_hex_string(),
+                        pubkey: event.pubkey.into(),
                         name: Some(metadata.name),
                         about: metadata.about,
                         picture: metadata.picture,

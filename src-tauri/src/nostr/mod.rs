@@ -1,7 +1,7 @@
 use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use crate::Error;
 use nostr_proto::{
-    EventKind, Filters, PublicKey, Unixtime, Url,
+    EventKind, Filters, PublicKeyHex, Unixtime, Url,
 };
 use std::collections::HashMap;
 
@@ -26,11 +26,11 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
     let people = DbPerson::fetch(Some("followed=1")).await?;
 
     // Remember people for which we have no relay information
-    let mut orphan_pubkeys: Vec<String> = Vec::new();
+    let mut orphan_pubkeys: Vec<PublicKeyHex> = Vec::new();
 
     for person in people.iter() {
 
-        let public_key: PublicKey = PublicKey::try_from_hex_string(&person.pubkey)?;
+        let public_key: PublicKeyHex = PublicKeyHex(person.pubkey.0.clone());
 
         // Load which relays they use
         let person_relays =
@@ -61,7 +61,7 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
     // Listen to orphans on all relays we are already listening on
     for orphan in orphan_pubkeys.iter() {
         for (_url, filters) in per_relay_filters.iter_mut() {
-            let public_key = PublicKey::try_from_hex_string(orphan)?;
+            let public_key = orphan.clone();
             filters.add_author(&public_key, None);
         }
     }
