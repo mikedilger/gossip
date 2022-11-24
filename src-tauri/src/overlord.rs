@@ -1,7 +1,7 @@
 
 use crate::{BusMessage, Error, GLOBALS};
-use crate::db::DbPerson;
-use nostr_proto::{Filters, Url};
+use crate::db::{DbEvent, DbPerson};
+use nostr_proto::{Filters, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::fs;
@@ -75,6 +75,21 @@ impl Overlord {
             let id = abort_handle.id();
 
             task_id_to_relay_url.insert(id, url.clone());
+        }
+
+        // Load event data from database and send to javascript
+        {
+            let now = Unixtime::now().unwrap();
+            let then = now.0 - 43200; // 1 day ago
+            let events = DbEvent::fetch(Some(
+                &format!(" kind=1 AND created_at > {} ORDER BY created_at ASC", then)
+            )).await?;
+            tx.send(BusMessage {
+                target: "to_javascript".to_string(),
+                source: "overlord".to_string(),
+                kind: "pushfeedevents".to_string(),
+                payload: serde_json::to_string(&events)?,
+            })?;
         }
 
         // Load person data from database and send to javascript
