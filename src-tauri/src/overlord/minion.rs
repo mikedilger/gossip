@@ -1,4 +1,4 @@
-use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbSetting};
+use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay, DbSetting};
 use crate::{BusMessage, Error, GLOBALS};
 use futures::{SinkExt, StreamExt};
 use nostr_proto::{
@@ -41,11 +41,35 @@ impl Minion {
     async fn handle_inner(&mut self) -> Result<(), Error> {
         log::info!("Task started to handle relay at {}", &self.url);
 
-
-        // Lookup a setting
         let feed_chunk = DbSetting::fetch_setting_u64_or_default(
             "feed_chunk", crate::DEFAULT_FEED_CHUNK
         ).await?;
+
+        let overlap = DbSetting::fetch_setting_u64_or_default(
+            "overlap", crate::DEFAULT_OVERLAP
+        ).await?;
+
+        // Compute how far to look back for events
+        let since = {
+            // Find the oldest 'last_fetched' among the 'person_relay' table
+            let mut since: u64 = DbPersonRelay::fetch_oldest_last_fetched(
+                &self.pubkeys,
+                &self.url.0
+            ).await?;
+
+            // Subtract overlap to avoid gaps due to clock sync and event
+            // propogation delay
+            since -= overlap;
+
+            // But don't go back more than one feed_chunk ago
+            let one_feedchunk_ago = Unixtime::now().unwrap().0 - feed_chunk as i64;
+
+            since = since.max(one_feedchunk_ago as u64);
+
+            log::debug!("Looking back to unixtime {}", since);
+
+            Unixtime(since as i64)
+        };
 
         // Create the author filter
         let mut author_filter: Filters = Filters::new();
@@ -54,7 +78,7 @@ impl Minion {
         }
         author_filter.add_event_kind(EventKind::TextNote);
         author_filter.add_event_kind(EventKind::Reaction);
-        author_filter.since = Some(Unixtime(Unixtime::now().unwrap().0 - feed_chunk as i64));
+        author_filter.since = Some(since);
         log::debug!(
             "Author Filter {}: {}",
             &self.url,
