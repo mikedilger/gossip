@@ -8,6 +8,9 @@ use std::collections::HashMap;
 mod websocket_handler;
 pub use websocket_handler::WebsocketHandler;
 
+mod relay_picker;
+pub use relay_picker::{RelayPicker, BestRelay};
+
 /// This function computes which relays we need to follow and what filters
 /// they should have, only for startup, based on what is in the database.
 pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error> {
@@ -24,6 +27,30 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
 
     // Load all the people we are following
     let people = DbPerson::fetch(Some("followed=1")).await?;
+
+    // TEMP TEST RelayPicker
+    {
+        let pubkeys: Vec<PublicKeyHex> = people.iter().map(|p| p.pubkey.clone()).collect();
+
+        let mut relay_picker = RelayPicker {
+            relays: DbRelay::fetch(None).await?,
+            pubkeys: pubkeys.clone(),
+            person_relays: DbPersonRelay::fetch_for_pubkeys(&pubkeys).await?,
+        };
+        let mut best_relay: BestRelay;
+        loop {
+            let (rd, rp) = relay_picker.best()?;
+            best_relay = rd;
+            relay_picker = rp;
+
+            log::info!("Picked relay {}, {} people left",
+                       best_relay.relay.url,
+                       relay_picker.pubkeys.len());
+
+            if relay_picker.relays.len()==0 { break; }
+            if relay_picker.pubkeys.len()==0 { break; }
+        }
+    }
 
     // Remember people for which we have no relay information
     let mut orphan_pubkeys: Vec<PublicKeyHex> = Vec::new();
