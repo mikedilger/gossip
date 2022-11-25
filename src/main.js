@@ -33,25 +33,6 @@ const app = createApp(App);
 app.use(router);
 app.use(pinia);
 
-function handle_old_event(event) {
-    const store = useEventStore();
-
-    if (event.kind==0) {
-        // For every event, possibly update the name
-        store.textNotes.forEach((val, index) => {
-            if (store.textNotes[index].pubkey == event.pubkey) {
-                store.textNotes[index].name = event.name;
-            }
-        });
-    }
-    else if (event.kind==1) {
-        store.textNotes.push(event);
-        // resort - events may not come in sorted order every time.
-        store.textNotes.sort((a,b) => b.created_at - a.created_at);
-    }
-}
-
-
 // Process messages sent in from rust
 (async () => {
     await listen('from_rust', (rust_message) => {
@@ -59,10 +40,9 @@ function handle_old_event(event) {
         let payload = JSON.parse(rust_message.payload.payload);
         const store = useEventStore();
 
+        console.log("HANDLING RUST COMMAND " + rust_message.payload.kind)
+
         switch (rust_message.payload.kind) {
-        case "oldevent":
-            handle_old_event(payload);
-            break;
         case "addevents":
             payload.forEach(event => store.events.set(event.id, event))
             break;
@@ -82,8 +62,11 @@ function handle_old_event(event) {
             store.feed.push(...pushfeed);
             break;
         case "setpeople":
+            console.log("SETTING " + payload.length + " PEOPLE");
             payload.forEach(person => store.people.set(person.pubkey, person))
             break;
+        default:
+            console.log("UNRECOGNIZED COMMAND from_rust " + rust_message.payload.kind)
         }
     })
 })()
