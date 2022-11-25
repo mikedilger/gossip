@@ -32,7 +32,6 @@ const pinia = createPinia()
 const app = createApp(App);
 app.use(router);
 app.use(pinia);
-app.mount('#app');
 
 function handle_old_event(event) {
     const store = useEventStore();
@@ -89,3 +88,4 @@ function handle_old_event(event) {
     })
 })()
 
+app.mount('#app');
