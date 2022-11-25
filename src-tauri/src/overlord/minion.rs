@@ -130,7 +130,7 @@ impl Minion {
                             break 'relayloop;
                         }
                     };
-                    log::debug!("Handling message from {}", &self.url);
+                    log::trace!("Handling message from {}", &self.url);
                     match ws_message {
                         WsMessage::Text(t) => {
                             if let Err(e) = self.handle_nostr_message(t).await {
@@ -302,6 +302,7 @@ impl Minion {
 
         match event.kind {
             EventKind::Metadata => {
+                log::debug!("Event(metadata) from {}", &self.url);
                 let created_at: u64 = event.created_at.0 as u64;
                 let metadata: Metadata = serde_json::from_str(&event.content)?;
                 if let Some(mut person) = DbPerson::fetch_one(event.pubkey.into()).await? {
@@ -334,19 +335,24 @@ impl Minion {
                 }
             },
             EventKind::TextNote => {
+                log::debug!("Event(textnote) from {}", &self.url);
                 // Javascript needs to render this event on the feed:
                 self.send_javascript_pushfeedevents(vec![event]).await?;
             },
             EventKind::RecommendRelay => {
+                log::debug!("Event(recommend_relay) from {} [IGNORED]", &self.url);
                 // TBD
             },
             EventKind::ContactList => {
+                log::debug!("Event(contact_list) from {} [IGNORED]", &self.url);
                 // TBD
             },
             EventKind::EventDeletion => {
+                log::debug!("Event(deletion) from {} [IGNORED]", &self.url);
                 // TBD
             },
             EventKind::Reaction => {
+                log::debug!("Event(reaction) from {} [IGNORED]", &self.url);
                 // TBD
             },
             _ => { }
