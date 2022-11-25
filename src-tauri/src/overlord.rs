@@ -1,6 +1,6 @@
 
 use crate::{BusMessage, Error, GLOBALS};
-use crate::db::{DbEvent, DbPerson};
+use crate::db::{DbEvent, DbPerson, DbRelay};
 use nostr_proto::{Filters, IdHex, Metadata, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use serde::Serialize;
@@ -74,6 +74,10 @@ impl Overlord {
 
         // Create a person record for every person seen, and follow everybody
         DbPerson::populate_new_people(true).await?;
+
+        // Create a relay record for every relay in person_relay map (these get
+        // updated from events without necessarily updating our relays list)
+        DbRelay::populate_new_relays().await?;
 
         // Load TextNote event data from database and send to javascript
         {

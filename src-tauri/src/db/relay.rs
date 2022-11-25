@@ -83,4 +83,18 @@ impl DbRelay {
 
         Ok(())
     }
+
+    #[allow(dead_code)]
+    pub async fn populate_new_relays() -> Result<(), Error> {
+        let sql = "INSERT OR IGNORE INTO relay (url, rank) SELECT DISTINCT relay, 3 FROM person_relay";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            db.execute(&sql, [])?;
+            Ok::<(), Error>(())
+        }).await??;
+
+        Ok(())
+    }
 }
