@@ -65,6 +65,11 @@ app.use(pinia);
             console.log("SETTING " + payload.length + " PEOPLE");
             payload.forEach(person => store.people.set(person.pubkey, person))
             break;
+        case "setsettings":
+            console.log("Settings: ");
+            console.log(payload);
+            store.$patch({ settings: payload });
+            break;
         default:
             console.log("UNRECOGNIZED COMMAND from_rust " + rust_message.payload.kind)
         }

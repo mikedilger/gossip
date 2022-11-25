@@ -21,6 +21,9 @@ pub use error::Error;
 
 mod overlord;
 
+mod settings;
+pub use settings::Settings;
+
 /// This is a message we send/recv in our broadcast channel
 #[derive(Debug, Clone, Serialize)]
 pub struct BusMessage {
@@ -80,7 +83,8 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::about,
-            commands::javascript_is_ready
+            commands::javascript_is_ready,
+            commands::save_settings,
         ])
         .setup(|app| {
             let app_handle = app.handle();

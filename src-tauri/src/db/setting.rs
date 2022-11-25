@@ -1,5 +1,6 @@
 use crate::{Error, GLOBALS};
 use serde::{Deserialize, Serialize};
+use rusqlite::ToSql;
 use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -99,6 +100,23 @@ impl DbSetting {
                 &setting.key,
                 &setting.value
             ))?;
+            Ok::<(), Error>(())
+        }).await??;
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub async fn update<T: ToSql + Send + 'static>(key: String, value: T) -> Result<(), Error> {
+        let sql =
+            "UPDATE settings SET value=? WHERE key=?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+            stmt.execute((&value, &key))?;
             Ok::<(), Error>(())
         }).await??;
 

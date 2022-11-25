@@ -1,5 +1,5 @@
-use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay, DbSetting};
-use crate::{BusMessage, Error, GLOBALS};
+use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay};
+use crate::{BusMessage, Error, GLOBALS, Settings};
 use futures::{SinkExt, StreamExt};
 use nostr_proto::{
     ClientMessage, Event, EventKind, Filters, Metadata, PublicKeyHex,
@@ -14,6 +14,7 @@ pub struct Minion {
     pubkeys: Vec<PublicKeyHex>,
     bus_tx: Sender<BusMessage>,
     bus_rx: Receiver<BusMessage>,
+    settings: Settings,
 }
 
 impl Minion {
@@ -23,7 +24,8 @@ impl Minion {
         let bus_rx = bus_tx.subscribe();
 
         Minion {
-            url, pubkeys, bus_tx, bus_rx
+            url, pubkeys, bus_tx, bus_rx,
+            settings: Default::default()
         }
     }
 }
@@ -41,13 +43,8 @@ impl Minion {
     async fn handle_inner(&mut self) -> Result<(), Error> {
         log::info!("Task started to handle relay at {}", &self.url);
 
-        let feed_chunk = DbSetting::fetch_setting_u64_or_default(
-            "feed_chunk", crate::DEFAULT_FEED_CHUNK
-        ).await?;
-
-        let overlap = DbSetting::fetch_setting_u64_or_default(
-            "overlap", crate::DEFAULT_OVERLAP
-        ).await?;
+        // Load settings
+        self.settings.load().await?;
 
         // Compute how far to look back for events
         let since = {
@@ -59,10 +56,10 @@ impl Minion {
 
             // Subtract overlap to avoid gaps due to clock sync and event
             // propogation delay
-            since -= overlap;
+            since -= self.settings.overlap;
 
             // But don't go back more than one feed_chunk ago
-            let one_feedchunk_ago = Unixtime::now().unwrap().0 - feed_chunk as i64;
+            let one_feedchunk_ago = Unixtime::now().unwrap().0 - self.settings.feed_chunk as i64;
 
             since = since.max(one_feedchunk_ago as u64);
 
@@ -155,9 +152,16 @@ impl Minion {
                     if bus_message.target == self.url.0 {
                         log::warn!("Websocket task got message, unimpmented: {}",
                                    bus_message.payload);
-                    } else if &*bus_message.target == "all" && &*bus_message.kind == "shutdown" {
-                        log::info!("Websocket listener {} shutting down", &self.url);
-                        break 'relayloop;
+                    } else if &*bus_message.target == "all" {
+                        if &*bus_message.kind == "shutdown" {
+                            log::info!("Websocket listener {} shutting down", &self.url);
+                            break 'relayloop;
+                        } else if &*bus_message.kind == "settings_changed" {
+                            match serde_json::from_str(&bus_message.payload) {
+                                Ok(s) => self.settings=s,
+                                Err(e) => log::error!("minion unable to update settings: {}", e),
+                            }
+                        }
                     }
                 },
             }

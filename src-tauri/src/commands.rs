@@ -1,5 +1,5 @@
 use serde::Serialize;
-use crate::{BusMessage, GLOBALS};
+use crate::{BusMessage, GLOBALS, Settings};
 
 #[derive(Debug, Serialize)]
 pub struct About {
@@ -51,4 +51,22 @@ pub fn javascript_is_ready() {
     }) {
         log::error!("Unable to send javascript_is_ready: {}", e);
     }
+}
+
+#[tauri::command]
+pub async fn save_settings(settings: Settings) -> Result<bool, String> {
+    settings.save().await.map_err(|e| format!("{}", e))?;
+
+    let tx = GLOBALS.bus.clone();
+
+    if let Err(e) = tx.send(BusMessage {
+        target: "all".to_string(),
+        source: "javascript".to_string(),
+        kind: "settings_changed".to_string(),
+        payload: serde_json::to_string(&settings).map_err(|e| format!("{}", e))?
+    }) {
+        log::error!("Unable to send javascript_is_ready: {}", e);
+    }
+
+    Ok(true)
 }

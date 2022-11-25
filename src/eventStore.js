@@ -23,5 +23,11 @@ export const useEventStore = defineStore('events', {
         //      dns_id, dns_id_valid, dns_id_last_checked, followed }
         //    These are gossip::db::DbPerson types
         people: new Map(),
+
+        settings: {
+            feed_chunk: 43200,
+            overlap: 600,
+            autofollow: 0
+        }
     }),
 })

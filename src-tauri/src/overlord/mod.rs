@@ -1,6 +1,6 @@
 
-use crate::{BusMessage, Error, GLOBALS};
-use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay, DbSetting};
+use crate::{BusMessage, Error, GLOBALS, Settings};
+use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
 use nostr_proto::{IdHex, Metadata, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use serde::Serialize;
@@ -39,8 +39,7 @@ pub struct Overlord {
     app_handle: AppHandle,
     javascript_is_ready: bool,
     early_messages_to_javascript: Vec<BusMessage>,
-    overlap: u64,
-    feed_chunk: u64,
+    settings: Settings,
     bus_tx: Sender<BusMessage>,
     bus_rx: Receiver<BusMessage>,
     minions: task::JoinSet<()>,
@@ -55,8 +54,7 @@ impl Overlord {
             app_handle,
             javascript_is_ready: false,
             early_messages_to_javascript: Vec::new(),
-            overlap: 0,
-            feed_chunk: crate::DEFAULT_FEED_CHUNK,
+            settings: Default::default(),
             bus_tx, bus_rx,
             minions: task::JoinSet::new(),
             minion_records: HashMap::new(),
@@ -84,17 +82,19 @@ impl Overlord {
         // Setup the database (possibly create, possibly upgrade)
         setup_database().await?;
 
-        // Read settings
-        self.overlap = DbSetting::fetch_setting_u64_or_default("overlap", crate::DEFAULT_OVERLAP).await?;
-        log::info!("OVERLAP={}", self.overlap);
+        // Load settings
+        self.settings.load().await?;
 
-        self.feed_chunk = DbSetting::fetch_setting_u64_or_default("feed_chunk", crate::DEFAULT_FEED_CHUNK).await?;
-        log::info!("FEED_CHUNK={}", self.feed_chunk);
-        let autofollow = DbSetting::fetch_setting_u64_or_default("autofollow", crate::DEFAULT_AUTOFOLLOW).await?;
-        log::info!("AUTOFOLLOW={}", autofollow);
+        // Tell javascript our setings
+        self.bus_tx.send(BusMessage {
+            target: "to_javascript".to_string(),
+            source: "overlord".to_string(),
+            kind: "setsettings".to_string(),
+            payload: serde_json::to_string(&self.settings)?,
+        })?;
 
         // Create a person record for every person seen, possibly autofollow
-        DbPerson::populate_new_people(autofollow!=0).await?;
+        DbPerson::populate_new_people(self.settings.autofollow!=0).await?;
 
         // Create a relay record for every relay in person_relay map (these get
         // updated from events without necessarily updating our relays list)
@@ -103,7 +103,7 @@ impl Overlord {
         // Load TextNote event data from database and send to javascript
         {
             let now = Unixtime::now().unwrap();
-            let then = now.0 - self.feed_chunk as i64;
+            let then = now.0 - self.settings.feed_chunk as i64;
             let events = DbEvent::fetch(Some(
                 &format!(" kind=1 AND created_at > {} ORDER BY created_at ASC", then)
             )).await?;
@@ -273,6 +273,12 @@ impl Overlord {
                     log::info!("Overlord shutting down");
                     return false;
                 },
+                "settings_changed" => {
+                    match serde_json::from_str(&bus_message.payload) {
+                        Ok(s) => self.settings = s,
+                        Err(e) => log::error!("overlord unable to update settings: {}", e),
+                    }
+                }
                 _ => {}
             },
             "overlord" => match &*bus_message.kind {
