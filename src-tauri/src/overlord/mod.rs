@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fs;
 use tauri::{AppHandle, Manager};
 use tokio::{select, task};
+use tokio::sync::broadcast::{Sender, Receiver};
 
 mod minion;
 use minion::Minion;
@@ -40,18 +41,23 @@ pub struct Overlord {
     early_messages_to_javascript: Vec<BusMessage>,
     overlap: u64,
     feed_chunk: u64,
+    bus_tx: Sender<BusMessage>,
+    bus_rx: Receiver<BusMessage>,
     minions: task::JoinSet<()>,
     minion_records: HashMap<task::Id, MinionRecord>,
 }
 
 impl Overlord {
     pub fn new(app_handle: AppHandle) -> Overlord {
+        let bus_tx = GLOBALS.bus.clone();
+        let bus_rx = bus_tx.subscribe();
         Overlord {
             app_handle,
             javascript_is_ready: false,
             early_messages_to_javascript: Vec::new(),
             overlap: 0,
             feed_chunk: crate::DEFAULT_FEED_CHUNK,
+            bus_tx, bus_rx,
             minions: task::JoinSet::new(),
             minion_records: HashMap::new(),
         }
@@ -59,9 +65,8 @@ impl Overlord {
 
     pub async fn run(&mut self) {
         if let Err(e) = self.run_inner().await {
-            let tx = GLOBALS.bus.clone();
             log::error!("{}", e);
-            if let Err(e) = tx.send(BusMessage {
+            if let Err(e) = self.bus_tx.send(BusMessage {
                 target: "all".to_string(),
                 source: "overlord".to_string(),
                 kind: "shutdown".to_string(),
@@ -82,14 +87,11 @@ impl Overlord {
         // Read settings
         self.overlap = DbSetting::fetch_setting_u64_or_default("overlap", crate::DEFAULT_OVERLAP).await?;
         log::info!("OVERLAP={}", self.overlap);
+
         self.feed_chunk = DbSetting::fetch_setting_u64_or_default("feed_chunk", crate::DEFAULT_FEED_CHUNK).await?;
         log::info!("FEED_CHUNK={}", self.feed_chunk);
         let autofollow = DbSetting::fetch_setting_u64_or_default("autofollow", crate::DEFAULT_AUTOFOLLOW).await?;
         log::info!("AUTOFOLLOW={}", autofollow);
-
-        // Get the broadcast channel and subscribe to it
-        let tx = GLOBALS.bus.clone();
-        let mut rx = tx.subscribe();
 
         // Create a person record for every person seen, possibly autofollow
         DbPerson::populate_new_people(autofollow!=0).await?;
@@ -109,7 +111,7 @@ impl Overlord {
             // FIXME: build event_metadata as we go and send a 'setmetadata'
             //        with them.
 
-            tx.send(BusMessage {
+            self.bus_tx.send(BusMessage {
                 target: "to_javascript".to_string(),
                 source: "overlord".to_string(),
                 kind: "pushfeedevents".to_string(),
@@ -147,7 +149,7 @@ impl Overlord {
         let people = DbPerson::fetch(Some("followed=1")).await?;
 
         // Send these people to javascript
-        tx.send(BusMessage {
+        self.bus_tx.send(BusMessage {
             target: "to_javascript".to_string(),
             source: "overlord".to_string(),
             kind: "setpeople".to_string(),
@@ -197,13 +199,13 @@ impl Overlord {
         'mainloop: loop {
             if self.minions.is_empty() {
                 // We only need to listen on the bus
-                let bus_message = rx.recv().await.unwrap();
+                let bus_message = self.bus_rx.recv().await.unwrap();
                 let keepgoing = self.handle_bus_message(bus_message);
                 if !keepgoing { break 'mainloop; }
             } else {
                 // We need to listen on the bus, and for completed tasks
                 select! {
-                    bus_message = rx.recv() => {
+                    bus_message = self.bus_rx.recv() => {
                         let bus_message = bus_message.unwrap();
                         let keepgoing = self.handle_bus_message(bus_message);
                         if !keepgoing { break 'mainloop; }
