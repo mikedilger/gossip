@@ -84,13 +84,15 @@ impl Overlord {
         log::info!("OVERLAP={}", self.overlap);
         self.feed_chunk = DbSetting::fetch_setting_u64_or_default("feed_chunk", crate::DEFAULT_FEED_CHUNK).await?;
         log::info!("FEED_CHUNK={}", self.feed_chunk);
+        let autofollow = DbSetting::fetch_setting_u64_or_default("autofollow", crate::DEFAULT_AUTOFOLLOW).await?;
+        log::info!("AUTOFOLLOW={}", autofollow);
 
         // Get the broadcast channel and subscribe to it
         let tx = GLOBALS.bus.clone();
         let mut rx = tx.subscribe();
 
-        // Create a person record for every person seen, and follow everybody
-        DbPerson::populate_new_people(true).await?;
+        // Create a person record for every person seen, possibly autofollow
+        DbPerson::populate_new_people(autofollow!=0).await?;
 
         // Create a relay record for every relay in person_relay map (these get
         // updated from events without necessarily updating our relays list)

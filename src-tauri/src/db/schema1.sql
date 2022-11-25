@@ -76,3 +76,4 @@ INSERT INTO SETTINGS (key, value) values ('user_public_key', '');
 INSERT INTO SETTINGS (key, value) values ('user_private_key', '');
 INSERT INTO SETTINGS (key, value) values ('overlap', '3600');
 INSERT INTO SETTINGS (key, value) values ('feed_chunk', '86400');
+INSERT INTO SETTINGS (key, value) values ('autofollow', '1');

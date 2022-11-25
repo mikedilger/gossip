@@ -65,6 +65,7 @@ lazy_static! {
 
 const DEFAULT_FEED_CHUNK: u64 = 43200; // 12 hours
 const DEFAULT_OVERLAP: u64 = 600; // 10 minutes
+const DEFAULT_AUTOFOLLOW: u64 = 0;
 
 fn main() {
     // Set up logging
