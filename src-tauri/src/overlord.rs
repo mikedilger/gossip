@@ -1,12 +1,27 @@
 
 use crate::{BusMessage, Error, GLOBALS};
 use crate::db::{DbEvent, DbPerson};
-use nostr_proto::{Filters, Unixtime, Url};
+use nostr_proto::{Filters, IdHex, Metadata, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use tauri::{AppHandle, Manager};
 use tokio::{select, task};
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Reactions {
+    pub upvotes: u64,
+    pub downvotes: u64,
+    pub emojis: Vec<(char, u64)>
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct EventMetadata {
+    pub id: IdHex,
+    pub replies: Vec<IdHex>,
+    pub reactions: Reactions
+}
 
 pub struct Overlord {
     app_handle: AppHandle,
@@ -60,6 +75,63 @@ impl Overlord {
         // Create a person record for every person seen, and follow everybody
         DbPerson::populate_new_people(true).await?;
 
+        // Load TextNote event data from database and send to javascript
+        {
+            let now = Unixtime::now().unwrap();
+            let then = now.0 - 43200; // 1 day ago
+            let events = DbEvent::fetch(Some(
+                &format!(" kind=1 AND created_at > {} ORDER BY created_at ASC", then)
+            )).await?;
+
+            // FIXME: build event_metadata as we go and send a 'setmetadata'
+            //        with them.
+
+            tx.send(BusMessage {
+                target: "to_javascript".to_string(),
+                source: "overlord".to_string(),
+                kind: "pushfeedevents".to_string(),
+                payload: serde_json::to_string(&events)?,
+            })?;
+        }
+
+        // Update DbPerson records from kind=0 metadata events
+        {
+            // Get the latest kind=0 metadata update events from the database
+            let mut map: HashMap<PublicKeyHex, DbEvent> = HashMap::new();
+            let mut metadata_events = DbEvent::fetch(Some("kind=0")).await?;
+            for me in metadata_events.drain(..) {
+                let x = map.entry(me.pubkey.clone()).or_insert(me.clone());
+                if x.created_at < me.created_at {
+                    *x = me
+                }
+            }
+
+            // Update the person records for these, and save the people
+            for (_,event) in map.iter() {
+                let metadata: Metadata = serde_json::from_str(&event.content)?;
+                let person = DbPerson::fetch_one(event.pubkey.clone()).await?;
+                if let Some(mut person) = person {
+                    person.name = Some(metadata.name);
+                    person.about = metadata.about;
+                    person.picture = metadata.picture;
+                    person.dns_id = metadata.nip05;
+                    DbPerson::update(person).await?;
+                }
+            }
+        }
+
+        // Load person data from database and send to javascript
+        // FIXME: in the future when we have lots of people, JavaScript can ask first.
+        {
+            let people = DbPerson::fetch(None).await?;
+            tx.send(BusMessage {
+                target: "to_javascript".to_string(),
+                source: "overlord".to_string(),
+                kind: "setpeople".to_string(),
+                payload: serde_json::to_string(&people)?
+            })?;
+        }
+
         // Start a thread for each relay
         for (url, filters) in relay_filters.iter() {
             let task_filters: Filters = filters.clone();
@@ -78,32 +150,6 @@ impl Overlord {
             let id = abort_handle.id();
 
             task_id_to_relay_url.insert(id, url.clone());
-        }
-
-        // Load event data from database and send to javascript
-        {
-            let now = Unixtime::now().unwrap();
-            let then = now.0 - 43200; // 1 day ago
-            let events = DbEvent::fetch(Some(
-                &format!(" kind=1 AND created_at > {} ORDER BY created_at ASC", then)
-            )).await?;
-            tx.send(BusMessage {
-                target: "to_javascript".to_string(),
-                source: "overlord".to_string(),
-                kind: "pushfeedevents".to_string(),
-                payload: serde_json::to_string(&events)?,
-            })?;
-        }
-
-        // Load person data from database and send to javascript
-        {
-            let people = DbPerson::fetch(None).await?;
-            tx.send(BusMessage {
-                target: "to_javascript".to_string(),
-                source: "overlord".to_string(),
-                kind: "setpeople".to_string(),
-                payload: serde_json::to_string(&people)?
-            })?;
         }
 
         'mainloop: loop {

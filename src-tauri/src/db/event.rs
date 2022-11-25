@@ -3,7 +3,7 @@ use nostr_proto::{IdHex, PublicKeyHex};
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::spawn_blocking;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DbEvent {
     pub id: IdHex,
     pub raw: String,
