@@ -192,6 +192,10 @@ impl Minion {
                 log::info!("NOTICE: {} {}", &self.url, msg);
             }
             RelayMessage::Eose(subid) => {
+                // We should update last_fetched
+                let now = Unixtime::now().unwrap().0 as u64;
+                DbPersonRelay::update_last_fetched(self.url.0.clone(), now).await?;
+
                 // These don't have to be processed.
                 log::info!("EOSE: {} {:?}", &self.url, subid);
             }
