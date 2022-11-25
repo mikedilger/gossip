@@ -55,6 +55,36 @@ impl DbSetting {
     }
 
     #[allow(dead_code)]
+    pub async fn fetch_setting_or_default(key: &str, default: &str)
+                                          -> Result<String, Error>
+    {
+        let db_settings = DbSetting::fetch(
+            Some(&format!("key='{}'",key))
+        ).await?;
+
+        if db_settings.len() == 0 {
+            Ok(default.to_string())
+        } else {
+            Ok(db_settings[0].value.clone())
+        }
+    }
+
+    #[allow(dead_code)]
+    pub async fn fetch_setting_u64_or_default(key: &str, default: u64)
+                                              -> Result<u64, Error>
+    {
+        let db_settings = DbSetting::fetch(
+            Some(&format!("key='{}'",key))
+        ).await?;
+
+        if db_settings.len() == 0 {
+            Ok(default)
+        } else {
+            Ok(db_settings[0].value.parse::<u64>().unwrap_or(default))
+        }
+    }
+
+    #[allow(dead_code)]
     pub async fn insert(setting: DbSetting) -> Result<(), Error> {
         let sql =
             "INSERT OR IGNORE INTO settings (key, value) \
