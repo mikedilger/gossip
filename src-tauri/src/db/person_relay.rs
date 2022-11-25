@@ -81,7 +81,43 @@ impl DbPersonRelay {
             for row in rows {
                 output.push(row?);
             }
-           Ok(output)
+            Ok(output)
+        })
+        .await?;
+
+        output
+    }
+
+    /// Fetch oldest last_fetched among a set of public keys for a relay
+    #[allow(dead_code)]
+    pub async fn fetch_oldest_last_fetched(pubkeys: &[PublicKeyHex], relay: &str)
+                                           -> Result<u64, Error>
+    {
+        let sql = format!(
+            "SELECT min(last_fetched) FROM person_relay
+             WHERE relay=? AND person in ({})",
+            repeat_vars(pubkeys.len())
+        );
+
+        let mut params: Vec<String> = vec![relay.to_string()];
+        params.extend(
+            pubkeys.iter().map(|p| p.0.clone())
+        );
+
+        let output: Result<u64, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+            let mut rows = stmt.query_map(
+                rusqlite::params_from_iter(params),
+                |row| row.get(0)
+            )?;
+            if let Some(result) = rows.next() {
+                return Ok(result?);
+            } else {
+                return Ok(0)
+            }
         })
         .await?;
 
@@ -104,6 +140,26 @@ impl DbPersonRelay {
                 &person_relay.relay,
                 &person_relay.recommended,
                 &person_relay.last_fetched
+            ))?;
+            Ok::<(), Error>(())
+        }).await??;
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub async fn update_last_fetched(relay: String, last_fetched: u64) -> Result<(), Error> {
+        let sql =
+            "UPDATE person_relay SET last_fetched=? where relay=?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+            stmt.execute((
+                &*relay,
+                &last_fetched
             ))?;
             Ok::<(), Error>(())
         }).await??;
