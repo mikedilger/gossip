@@ -1,13 +1,19 @@
 
 use crate::{BusMessage, Error, GLOBALS};
-use crate::db::{DbEvent, DbPerson, DbRelay, DbSetting};
-use nostr_proto::{Filters, IdHex, Metadata, PublicKeyHex, Unixtime, Url};
+use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay, DbSetting};
+use nostr_proto::{IdHex, Metadata, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use tauri::{AppHandle, Manager};
 use tokio::{select, task};
+
+mod minion;
+use minion::Minion;
+
+mod relay_picker;
+use relay_picker::{BestRelay, RelayPicker};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Reactions {
@@ -23,14 +29,19 @@ pub struct EventMetadata {
     pub reactions: Reactions
 }
 
+pub struct MinionRecord {
+    pub relay_url: Url,
+    pub ready: bool,
+}
+
 pub struct Overlord {
     app_handle: AppHandle,
     javascript_is_ready: bool,
     early_messages_to_javascript: Vec<BusMessage>,
     overlap: u64,
     feed_chunk: u64,
-    relay_tasks: task::JoinSet<()>,
-    task_id_to_relay_url: HashMap<task::Id, Url>,
+    minions: task::JoinSet<()>,
+    minion_records: HashMap<task::Id, MinionRecord>,
 }
 
 impl Overlord {
@@ -41,8 +52,8 @@ impl Overlord {
             early_messages_to_javascript: Vec::new(),
             overlap: 0,
             feed_chunk: crate::DEFAULT_FEED_CHUNK,
-            relay_tasks: task::JoinSet::new(),
-            task_id_to_relay_url: HashMap::new(),
+            minions: task::JoinSet::new(),
+            minion_records: HashMap::new(),
         }
     }
 
@@ -77,9 +88,6 @@ impl Overlord {
         // Get the broadcast channel and subscribe to it
         let tx = GLOBALS.bus.clone();
         let mut rx = tx.subscribe();
-
-        // Load the initial relay filters
-        let relay_filters = crate::nostr::load_initial_relay_filters().await?;
 
         // Create a person record for every person seen, and follow everybody
         DbPerson::populate_new_people(true).await?;
@@ -133,40 +141,59 @@ impl Overlord {
             }
         }
 
-        // Load person data from database and send to javascript
-        // FIXME: in the future when we have lots of people, JavaScript can ask first.
+        // Load all people we are following
+        let people = DbPerson::fetch(Some("followed=1")).await?;
+
+        // Send these people to javascript
+        tx.send(BusMessage {
+            target: "to_javascript".to_string(),
+            source: "overlord".to_string(),
+            kind: "setpeople".to_string(),
+            payload: serde_json::to_string(&people)?
+        })?;
+
+        // Pick Relays and start Minions
         {
-            let people = DbPerson::fetch(None).await?;
-            tx.send(BusMessage {
-                target: "to_javascript".to_string(),
-                source: "overlord".to_string(),
-                kind: "setpeople".to_string(),
-                payload: serde_json::to_string(&people)?
-            })?;
-        }
+            let pubkeys: Vec<PublicKeyHex> = people.iter().map(|p| p.pubkey.clone()).collect();
 
-        // Start a thread for each relay
-        for (url, filters) in relay_filters.iter() {
-            let task_filters: Filters = filters.clone();
-            let task_url: Url = url.clone();
+            let mut relay_picker = RelayPicker {
+                relays: DbRelay::fetch(None).await?,
+                pubkeys: pubkeys.clone(),
+                person_relays: DbPersonRelay::fetch_for_pubkeys(&pubkeys).await?,
+            };
+            let mut best_relay: BestRelay;
+            loop {
+                let (rd, rp) = relay_picker.best()?;
+                best_relay = rd;
+                relay_picker = rp;
 
-            // We don't really need to keep the abort_handle as we will use
-            // the JoinSet variable which is more powerful. But it has the
-            // task id, so that's convenient.
-            let abort_handle = self.relay_tasks.spawn(async move {
-                let websocket_handler = crate::nostr::WebsocketHandler::new(
-                    task_url,
-                    task_filters
-                );
-                websocket_handler.handle().await
-            });
-            let id = abort_handle.id();
+                // Fire off a minion to handle this relay
+                {
+                    let url = Url(best_relay.relay.url.clone());
+                    let pubkeys = best_relay.pubkeys.clone();
+                    let abort_handle = self.minions.spawn(async move {
+                        let mut minion = Minion::new(url, pubkeys);
+                        minion.handle().await
+                    });
+                    let id = abort_handle.id();
 
-            self.task_id_to_relay_url.insert(id, url.clone());
+                    self.minion_records.insert(id, MinionRecord {
+                        relay_url: Url(best_relay.relay.url.clone()),
+                        ready: false
+                    });
+                }
+
+                log::info!("Picked relay {}, {} people left",
+                           best_relay.relay.url,
+                           relay_picker.pubkeys.len());
+
+                if relay_picker.relays.len()==0 { break; }
+                if relay_picker.pubkeys.len()==0 { break; }
+            }
         }
 
         'mainloop: loop {
-            if self.relay_tasks.is_empty() {
+            if self.minions.is_empty() {
                 // We only need to listen on the bus
                 let bus_message = rx.recv().await.unwrap();
                 let keepgoing = self.handle_bus_message(bus_message);
@@ -179,26 +206,26 @@ impl Overlord {
                         let keepgoing = self.handle_bus_message(bus_message);
                         if !keepgoing { break 'mainloop; }
                     },
-                    task_next_joined = self.relay_tasks.join_next_with_id() => {
+                    task_next_joined = self.minions.join_next_with_id() => {
                         if task_next_joined.is_none() { continue; } // rare
                         match task_next_joined.unwrap() {
                             Err(join_error) => {
                                 let id = join_error.id();
-                                let relay_url = self.task_id_to_relay_url.get(&id);
-                                match relay_url {
-                                    Some(url) => {
+                                let maybe_minion_record = self.minion_records.get(&id);
+                                match maybe_minion_record {
+                                    Some(minion_record) => {
                                         // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
-                                        log::warn!("Relay Task {} completed with error: {}", &url, join_error);
+                                        log::warn!("Minion {} completed with error: {}", &minion_record.relay_url, join_error);
                                     },
                                     None => {
-                                        log::warn!("Relay task UNKNOWN completed with error: {}", join_error);
+                                        log::warn!("Minion UNKNOWN completed with error: {}", join_error);
                                     }
                                 }
                             },
                             Ok((id, _)) => {
-                                let relay_url = self.task_id_to_relay_url.get(&id);
-                                match relay_url {
-                                    Some(url) => log::warn!("Relay Task {} completed", &url),
+                                let maybe_minion_record = self.minion_records.get(&id);
+                                match maybe_minion_record {
+                                    Some(minion_record) => log::warn!("Relay Task {} completed", &minion_record.relay_url),
                                     None => log::warn!("Relay Task UNKNOWN completed"),
                                 }
                             }

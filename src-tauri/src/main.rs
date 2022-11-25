@@ -19,8 +19,6 @@ mod db;
 mod error;
 pub use error::Error;
 
-mod nostr;
-
 mod overlord;
 
 /// This is a message we send/recv in our broadcast channel

@@ -1,27 +1,35 @@
-use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson};
+use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbSetting};
 use crate::{BusMessage, Error, GLOBALS};
 use futures::{SinkExt, StreamExt};
 use nostr_proto::{
-    ClientMessage, Event, EventKind, Filters, Metadata, RelayMessage,
-    SubscriptionId, Unixtime, Url,
+    ClientMessage, Event, EventKind, Filters, Metadata, PublicKeyHex,
+    RelayMessage, SubscriptionId, Unixtime, Url,
 };
 use tokio::select;
-use tokio::sync::broadcast::Sender;
+use tokio::sync::broadcast::{Sender, Receiver};
 use tungstenite::protocol::Message as WsMessage;
 
-pub struct WebsocketHandler {
+pub struct Minion {
     url: Url,
-    filters: Filters // FIXME, get these via a bus message, as they change over time
+    pubkeys: Vec<PublicKeyHex>,
+    bus_tx: Sender<BusMessage>,
+    bus_rx: Receiver<BusMessage>,
 }
 
-impl WebsocketHandler {
-    pub fn new(url: Url, filters: Filters) -> WebsocketHandler {
-        WebsocketHandler { url, filters }
+impl Minion {
+    pub fn new(url: Url, pubkeys: Vec<PublicKeyHex>) -> Minion {
+        // Get the broadcast channel and subscribe to it
+        let bus_tx = GLOBALS.bus.clone();
+        let bus_rx = bus_tx.subscribe();
+
+        Minion {
+            url, pubkeys, bus_tx, bus_rx
+        }
     }
 }
 
-impl WebsocketHandler {
-    pub async fn handle(&self) {
+impl Minion {
+    pub async fn handle(&mut self) {
         // Catch errors, Return nothing.
         if let Err(e) = self.handle_inner().await {
             log::error!("ERROR handling {}: {}", &self.url, e);
@@ -30,18 +38,43 @@ impl WebsocketHandler {
         // Should we signal that we are exiting?
     }
 
-    async fn handle_inner(&self) -> Result<(), Error> {
+    async fn handle_inner(&mut self) -> Result<(), Error> {
         log::info!("Task started to handle relay at {}", &self.url);
 
+
+        // Lookup a setting
+        let feed_chunk = DbSetting::fetch_setting_u64_or_default(
+            "feed_chunk", crate::DEFAULT_FEED_CHUNK
+        ).await?;
+
+        // Create the author filter
+        let mut author_filter: Filters = Filters::new();
+        for pk in self.pubkeys.iter() {
+            author_filter.add_author(&pk, None);
+        }
+        author_filter.add_event_kind(EventKind::TextNote);
+        author_filter.add_event_kind(EventKind::Reaction);
+        author_filter.since = Some(Unixtime(Unixtime::now().unwrap().0 - feed_chunk as i64));
         log::debug!(
-            "Filter for {}: {}",
+            "Author Filter {}: {}",
             &self.url,
-            serde_json::to_string(&self.filters)?
+            serde_json::to_string(&author_filter)?
         );
 
-        // Get the broadcast channel and subscribe to it
-        let tx = GLOBALS.bus.clone();
-        let mut rx = tx.subscribe();
+        // Create the lookback filter
+        let mut lookback_filter: Filters = Filters::new();
+        for pk in self.pubkeys.iter() {
+            lookback_filter.add_author(&pk, None);
+        }
+        lookback_filter.add_event_kind(EventKind::Metadata);
+        lookback_filter.add_event_kind(EventKind::RecommendRelay);
+        lookback_filter.add_event_kind(EventKind::ContactList);
+        lookback_filter.add_event_kind(EventKind::EventDeletion);
+        log::debug!(
+            "Lookback Filter {}: {}",
+            &self.url,
+            serde_json::to_string(&lookback_filter)?
+        );
 
         // Connect to the relay
         let (websocket_stream, _response) = tokio_tungstenite::connect_async(&self.url.0).await?;
@@ -53,11 +86,14 @@ impl WebsocketHandler {
         // FIXME, get filters in response to an appropriate bus message
         let message = ClientMessage::Req(
             SubscriptionId(format!("gossip-main-{}", textnonce::TextNonce::new())),
-            vec![self.filters.clone()],
+            vec![author_filter, lookback_filter],
         );
         let wire = serde_json::to_string(&message)?;
         write.send(WsMessage::Text(wire.clone())).await?;
         //log::debug!("Sent {}", &wire);
+
+        // Tell the overlord we are ready to receive commands
+        self.tell_overlord_we_are_ready().await?;
 
         'relayloop: loop {
             select! {
@@ -73,7 +109,7 @@ impl WebsocketHandler {
                     log::debug!("Handling message from {}", &self.url);
                     match ws_message {
                         WsMessage::Text(t) => {
-                            if let Err(e) = self.handle_nostr_message(tx.clone(), t).await {
+                            if let Err(e) = self.handle_nostr_message(t).await {
                                 log::error!("Error on {}: {}", &self.url, e);
                                 // FIXME: some errors we should probably bail on.
                                 // For now, try to continue.
@@ -86,7 +122,7 @@ impl WebsocketHandler {
                         WsMessage::Frame(_) => log::warn!("Unexpected frame message"),
                     }
                 },
-                bus_message = rx.recv() => {
+                bus_message = self.bus_rx.recv() => {
                     if let Err(e) = bus_message {
                         log::error!("{}", e);
                         continue 'relayloop;
@@ -108,7 +144,6 @@ impl WebsocketHandler {
 
     async fn handle_nostr_message(
         &self,
-        tx: Sender<BusMessage>,
         ws_message: String
     ) -> Result<(), Error> {
 
@@ -126,7 +161,7 @@ impl WebsocketHandler {
                     log::error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
                 } else {
                     self.save_event_in_database(&event).await?;
-                    self.process_event(&tx, *event).await?;
+                    self.process_event(*event).await?;
                 }
             }
             RelayMessage::Notice(msg) => {
@@ -188,12 +223,26 @@ impl WebsocketHandler {
         Ok(())
     }
 
+    async fn tell_overlord_we_are_ready(
+        &self,
+    ) -> Result<(), Error> {
+        if let Err(e) = self.bus_tx.send(BusMessage {
+            target: "overlord".to_string(),
+            source: self.url.0.clone(),
+            kind: "minion_is_ready".to_string(),
+            payload: "".to_owned(),
+        }) {
+            log::error!("Unable to tell the overlord we are ready: {}", e);
+        }
+
+        Ok(())
+    }
+
     async fn send_javascript_pushfeedevents(
         &self,
-        tx: &Sender<BusMessage>,
         events: Vec<Event>
     ) -> Result<(), Error> {
-        if let Err(e) = tx.send(BusMessage {
+        if let Err(e) = self.bus_tx.send(BusMessage {
             target: "to_javascript".to_string(),
             source: self.url.0.clone(),
             kind: "pushfeedevents".to_string(),
@@ -208,10 +257,9 @@ impl WebsocketHandler {
 
     async fn send_javascript_setpeople(
         &self,
-        tx: &Sender<BusMessage>,
         people: Vec<DbPerson>
     ) -> Result<(), Error> {
-        if let Err(e) = tx.send(BusMessage {
+        if let Err(e) = self.bus_tx.send(BusMessage {
             target: "to_javascript".to_string(),
             source: self.url.0.clone(),
             kind: "setpeople".to_string(),
@@ -225,7 +273,6 @@ impl WebsocketHandler {
 
     async fn process_event(
         &self,
-        tx: &Sender<BusMessage>,
         event: Event
     ) -> Result<(), Error> {
 
@@ -246,7 +293,7 @@ impl WebsocketHandler {
                         }
                     }
                     DbPerson::update(person.clone()).await?;
-                    self.send_javascript_setpeople(&tx, vec![person]).await?;
+                    self.send_javascript_setpeople(vec![person]).await?;
                 } else {
                     let person = DbPerson {
                         pubkey: event.pubkey.into(),
@@ -259,12 +306,12 @@ impl WebsocketHandler {
                         followed: 0
                     };
                     DbPerson::insert(person.clone()).await?;
-                    self.send_javascript_setpeople(&tx, vec![person]).await?;
+                    self.send_javascript_setpeople(vec![person]).await?;
                 }
             },
             EventKind::TextNote => {
                 // Javascript needs to render this event on the feed:
-                self.send_javascript_pushfeedevents(&tx, vec![event]).await?;
+                self.send_javascript_pushfeedevents(vec![event]).await?;
             },
             EventKind::RecommendRelay => {
                 // TBD
@@ -284,4 +331,3 @@ impl WebsocketHandler {
         Ok(())
     }
 }
-
