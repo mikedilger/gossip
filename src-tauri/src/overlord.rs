@@ -1,6 +1,6 @@
 
 use crate::{BusMessage, Error, GLOBALS};
-use crate::db::{DbEvent, DbPerson, DbRelay};
+use crate::db::{DbEvent, DbPerson, DbRelay, DbSetting};
 use nostr_proto::{Filters, IdHex, Metadata, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use serde::Serialize;
@@ -27,6 +27,10 @@ pub struct Overlord {
     app_handle: AppHandle,
     javascript_is_ready: bool,
     early_messages_to_javascript: Vec<BusMessage>,
+    overlap: u64,
+    feed_chunk: u64,
+    relay_tasks: task::JoinSet<()>,
+    task_id_to_relay_url: HashMap<task::Id, Url>,
 }
 
 impl Overlord {
@@ -34,7 +38,11 @@ impl Overlord {
         Overlord {
             app_handle,
             javascript_is_ready: false,
-            early_messages_to_javascript: Vec::new()
+            early_messages_to_javascript: Vec::new(),
+            overlap: 0,
+            feed_chunk: crate::DEFAULT_FEED_CHUNK,
+            relay_tasks: task::JoinSet::new(),
+            task_id_to_relay_url: HashMap::new(),
         }
     }
 
@@ -57,20 +65,21 @@ impl Overlord {
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
 
+        // Setup the database (possibly create, possibly upgrade)
+        setup_database().await?;
+
+        // Read settings
+        self.overlap = DbSetting::fetch_setting_u64_or_default("overlap", crate::DEFAULT_OVERLAP).await?;
+        log::info!("OVERLAP={}", self.overlap);
+        self.feed_chunk = DbSetting::fetch_setting_u64_or_default("feed_chunk", crate::DEFAULT_FEED_CHUNK).await?;
+        log::info!("FEED_CHUNK={}", self.feed_chunk);
+
         // Get the broadcast channel and subscribe to it
         let tx = GLOBALS.bus.clone();
         let mut rx = tx.subscribe();
 
-        // Setup the database (possibly create, possibly upgrade)
-        setup_database().await?;
-
         // Load the initial relay filters
         let relay_filters = crate::nostr::load_initial_relay_filters().await?;
-
-        // Keep the join handles for the relay tasks
-        let mut relay_tasks = task::JoinSet::new();
-        // Keep a mapping from Task ID to relay url
-        let mut task_id_to_relay_url: HashMap<task::Id, Url> = HashMap::new();
 
         // Create a person record for every person seen, and follow everybody
         DbPerson::populate_new_people(true).await?;
@@ -82,7 +91,7 @@ impl Overlord {
         // Load TextNote event data from database and send to javascript
         {
             let now = Unixtime::now().unwrap();
-            let then = now.0 - 43200; // 1 day ago
+            let then = now.0 - self.feed_chunk as i64;
             let events = DbEvent::fetch(Some(
                 &format!(" kind=1 AND created_at > {} ORDER BY created_at ASC", then)
             )).await?;
@@ -144,7 +153,7 @@ impl Overlord {
             // We don't really need to keep the abort_handle as we will use
             // the JoinSet variable which is more powerful. But it has the
             // task id, so that's convenient.
-            let abort_handle = relay_tasks.spawn(async move {
+            let abort_handle = self.relay_tasks.spawn(async move {
                 let websocket_handler = crate::nostr::WebsocketHandler::new(
                     task_url,
                     task_filters
@@ -153,11 +162,11 @@ impl Overlord {
             });
             let id = abort_handle.id();
 
-            task_id_to_relay_url.insert(id, url.clone());
+            self.task_id_to_relay_url.insert(id, url.clone());
         }
 
         'mainloop: loop {
-            if relay_tasks.is_empty() {
+            if self.relay_tasks.is_empty() {
                 // We only need to listen on the bus
                 let bus_message = rx.recv().await.unwrap();
                 let keepgoing = self.handle_bus_message(bus_message);
@@ -170,12 +179,12 @@ impl Overlord {
                         let keepgoing = self.handle_bus_message(bus_message);
                         if !keepgoing { break 'mainloop; }
                     },
-                    task_next_joined = relay_tasks.join_next_with_id() => {
+                    task_next_joined = self.relay_tasks.join_next_with_id() => {
                         if task_next_joined.is_none() { continue; } // rare
                         match task_next_joined.unwrap() {
                             Err(join_error) => {
                                 let id = join_error.id();
-                                let relay_url = task_id_to_relay_url.get(&id);
+                                let relay_url = self.task_id_to_relay_url.get(&id);
                                 match relay_url {
                                     Some(url) => {
                                         // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
@@ -187,7 +196,7 @@ impl Overlord {
                                 }
                             },
                             Ok((id, _)) => {
-                                let relay_url = task_id_to_relay_url.get(&id);
+                                let relay_url = self.task_id_to_relay_url.get(&id);
                                 match relay_url {
                                     Some(url) => log::warn!("Relay Task {} completed", &url),
                                     None => log::warn!("Relay Task UNKNOWN completed"),

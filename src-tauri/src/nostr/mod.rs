@@ -1,4 +1,4 @@
-use crate::db::{DbPerson, DbPersonRelay, DbRelay};
+use crate::db::{DbPerson, DbPersonRelay, DbRelay, DbSetting};
 use crate::Error;
 use nostr_proto::{
     EventKind, Filters, PublicKeyHex, Unixtime, Url,
@@ -93,6 +93,8 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
         }
     }
 
+    let feed_chunk = DbSetting::fetch_setting_u64_or_default("feed_chunk", crate::DEFAULT_FEED_CHUNK).await?;
+
     // Update all the filters
     {
         for (url, filters) in per_relay_filters.iter_mut() {
@@ -107,9 +109,10 @@ pub async fn load_initial_relay_filters() -> Result<HashMap<Url, Filters>, Error
             filters.add_event_kind(EventKind::EventDeletion);
             filters.add_event_kind(EventKind::Reaction);
 
-            // On startup, only pick up events in the last 12 hours
+            // On startup, pick up events since we last checked
+            // up to one feed chunk back
             let mut start = Unixtime::now().unwrap();
-            start.0 -= 43200;
+            start.0 -= feed_chunk as i64; // FIXME check when we last checked
 
             // LETS BE NICE and not get messages from too far back
             filters.since = Some(start);

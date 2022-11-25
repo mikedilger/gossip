@@ -65,6 +65,9 @@ lazy_static! {
     };
 }
 
+const DEFAULT_FEED_CHUNK: u64 = 43200; // 12 hours
+const DEFAULT_OVERLAP: u64 = 600; // 10 minutes
+
 fn main() {
     // Set up logging
     if env::var("RUST_LOG").is_err() {
