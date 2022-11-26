@@ -1,22 +1,43 @@
 <template>
-    <h2>identities</h2>
-    <div class="main-scrollable">
-        <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis at neque vestibulum, imperdiet ipsum sed, accumsan mauris. Integer egestas urna quis leo bibendum egestas. Proin id lacus non dolor sagittis sodales. Curabitur et urna purus. Proin posuere purus vitae ipsum tristique faucibus. Proin semper id nibh ac interdum. Interdum et malesuada fames ac ante ipsum primis in faucibus. Curabitur tempus elit et venenatis mollis. Duis venenatis, urna vitae varius rutrum, sapien est fermentum justo, nec vulputate ex lectus vel arcu.
-        </p>
-        <p>
-            Mauris fringilla, magna quis luctus laoreet, eros quam sollicitudin risus, sed porttitor augue dolor quis felis. Integer fringilla risus sed ex facilisis, nec posuere lacus egestas. Nulla aliquet luctus ornare. Donec vitae laoreet elit. Phasellus risus lacus, tempus quis mauris vestibulum, mattis consequat lectus. Morbi eu nulla ac sapien ullamcorper congue. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Suspendisse eget tincidunt lorem. Nunc finibus nisl in varius eleifend. Etiam eleifend velit tempus ipsum placerat egestas. Vivamus fringilla nunc nibh, et placerat justo euismod sagittis.
-        </p>
-        <p>
-            Curabitur aliquam, mauris et auctor tristique, ex massa gravida est, id imperdiet risus leo sit amet enim. Mauris eget tortor dignissim, interdum nisi eget, sodales ipsum. Maecenas ligula nisi, pulvinar sit amet cursus id, eleifend tristique lectus. Etiam pulvinar lectus sed mollis hendrerit. Nunc non auctor velit, a elementum felis. Aenean sollicitudin orci at luctus vestibulum. Duis pretium dolor non finibus rhoncus. Curabitur sit amet eros ut mauris consectetur finibus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Pellentesque nec malesuada felis. Integer ut ligula vel felis commodo aliquet eget vel nunc. Vestibulum placerat nibh velit, feugiat tincidunt massa laoreet quis.
-        </p>
-        <p>
-            Aenean placerat felis at eros scelerisque, ac commodo ex rhoncus. Sed et consequat ligula. Praesent nec egestas odio, id tempus ligula. Sed sodales nibh eu molestie egestas. Morbi tincidunt pharetra risus, quis aliquam felis dignissim sed. Phasellus ac erat erat. Nulla ipsum magna, elementum eget lectus non, fringilla feugiat lectus. Sed lobortis elit dui, quis feugiat nunc malesuada ut. Vivamus aliquet mollis metus. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Mauris rhoncus massa ut dolor vestibulum, ut porta mi placerat. Praesent interdum vel orci et ullamcorper. Ut dignissim erat arcu, in ornare tortor aliquam sollicitudin. Suspendisse potenti.
-        </p>
-        <p>
-            Sed sed dolor non purus dapibus condimentum at id risus. Duis fermentum purus sit amet venenatis viverra. Maecenas finibus nulla et elit sollicitudin consequat. Nullam dapibus mollis purus, ac rutrum ex feugiat eget. Pellentesque vitae nisi condimentum mi imperdiet consequat. Maecenas laoreet ex ut laoreet pulvinar. Quisque non sem ante. Ut elementum lacinia lorem, eget convallis est maximus non. Etiam tincidunt hendrerit auctor. Pellentesque bibendum, diam eget lacinia dictum, nibh orci fringilla dolor, vitae sagittis nulla diam vel enim. Donec sit amet accumsan sem, vel convallis tortor. Curabitur et aliquam nibh. Donec quam tortor, interdum ut rhoncus et, aliquam eu ligula. In posuere vel felis sed ultrices.
-        </p>
+    <h2>yourself</h2>
+
+    <hr>
+    <h3>Generate a new Identity</h3>
+
+    <div>
+        <b>Weak Security</b> - Import your private Key
+        <br>
+        TBD.
+        <ul>
+            <li>By using this, your private key is likely displayed on the screen</li>
+            <li>By using this, your private key probably remains in unallocated memory via the cut-n-paste buffer</li>
+        </ul>
     </div>
+
+    <div>
+        <b>Medium Security</b> - Generate a private key
+        <br>
+        TBD.
+        <ul>
+            <li>You will need to provide a PIN to unlock your private key each time you use it, and we will promptly forget your private key and PIN after each event is signed.</li>
+            <li>We will never display this private key on the screen.</li>
+            <li>We will never write this private key to disk in unencrypted form.</li>
+            <li>We will zero the memory that held your private key (and PIN) before freeing it</li>
+        </ul>
+    </div>
+
+    <div>
+        <b>Strong Security</b> - Use a physical hardware token
+        <br>
+        TBD.
+        <ul>
+            <li>You will need a compatible physical hardware token.</li>
+            <li>You will need system libraries and configuration allowing us to access that token.</li>
+        </ul>
+    </div>
+
+    <hr>
+
 </template>
 
 <style scoped>

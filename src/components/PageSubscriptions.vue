@@ -1,5 +1,5 @@
 <template>
-    <h2>subscriptions</h2>
+    <h2>other people</h2>
     <div class="main-scrollable">
         <p>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis at neque vestibulum, imperdiet ipsum sed, accumsan mauris. Integer egestas urna quis leo bibendum egestas. Proin id lacus non dolor sagittis sodales. Curabitur et urna purus. Proin posuere purus vitae ipsum tristique faucibus. Proin semper id nibh ac interdum. Interdum et malesuada fames ac ante ipsum primis in faucibus. Curabitur tempus elit et venenatis mollis. Duis venenatis, urna vitae varius rutrum, sapien est fermentum justo, nec vulputate ex lectus vel arcu.
