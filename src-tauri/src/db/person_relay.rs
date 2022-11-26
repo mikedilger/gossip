@@ -158,8 +158,8 @@ impl DbPersonRelay {
 
             let mut stmt = db.prepare(&sql)?;
             stmt.execute((
-                &*relay,
-                &last_fetched
+                &last_fetched,
+                &*relay
             ))?;
             Ok::<(), Error>(())
         }).await??;
