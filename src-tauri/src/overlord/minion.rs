@@ -8,26 +8,26 @@ use nostr_proto::{
 };
 use tokio::select;
 use tokio::net::TcpStream;
-use tokio::sync::broadcast::{Sender, Receiver};
+use tokio::sync::broadcast::Receiver;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::{WebSocketStream, MaybeTlsStream};
 use tungstenite::protocol::Message as WsMessage;
 
 pub struct Minion {
     url: Url,
     pubkeys: Vec<PublicKeyHex>,
-    bus_tx: Sender<BusMessage>,
-    bus_rx: Receiver<BusMessage>,
+    to_overlord: UnboundedSender<BusMessage>,
+    from_overlord: Receiver<BusMessage>,
     settings: Settings,
 }
 
 impl Minion {
     pub fn new(url: Url, pubkeys: Vec<PublicKeyHex>) -> Minion {
-        // Get the broadcast channel and subscribe to it
-        let bus_tx = GLOBALS.bus.clone();
-        let bus_rx = bus_tx.subscribe();
+        let to_overlord = GLOBALS.to_overlord.clone();
+        let from_overlord = GLOBALS.to_minions.subscribe();
 
         Minion {
-            url, pubkeys, bus_tx, bus_rx,
+            url, pubkeys, to_overlord, from_overlord,
             settings: Default::default()
         }
     }
@@ -171,7 +171,7 @@ impl Minion {
                     WsMessage::Frame(_) => log::warn!("Unexpected frame message"),
                 }
             },
-            bus_message = self.bus_rx.recv() => {
+            bus_message = self.from_overlord.recv() => {
                 let bus_message = match bus_message {
                     Ok(bm) => bm,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
@@ -284,14 +284,12 @@ impl Minion {
     async fn tell_overlord_we_are_ready(
         &self,
     ) -> Result<(), Error> {
-        if let Err(e) = self.bus_tx.send(BusMessage {
+        self.to_overlord.send(BusMessage {
+            relay_url: Some(self.url.0.clone()),
             target: "overlord".to_string(),
-            source: self.url.0.clone(),
             kind: "minion_is_ready".to_string(),
             payload: "".to_owned(),
-        }) {
-            log::error!("Unable to tell the overlord we are ready: {}", e);
-        }
+        })?;
 
         Ok(())
     }
@@ -301,15 +299,12 @@ impl Minion {
         event: Event
     ) -> Result<(), Error> {
         let js_event: JsEvent = event.into();
-        if let Err(e) = self.bus_tx.send(BusMessage {
+        self.to_overlord.send(BusMessage {
+            relay_url: Some(self.url.0.clone()),
             target: "overlord".to_string(),
-            source: self.url.0.clone(),
             kind: "new_event".to_string(),
             payload: serde_json::to_string(&js_event)?,
-        }) {
-            log::error!("Unable to send new_event to overlord: {}", e);
-        }
-
+        })?;
         Ok(())
     }
 
@@ -318,14 +313,12 @@ impl Minion {
         &self,
         people: Vec<DbPerson>
     ) -> Result<(), Error> {
-        if let Err(e) = self.bus_tx.send(BusMessage {
-            target: "to_javascript".to_string(),
-            source: self.url.0.clone(),
+        self.to_overlord.send(BusMessage {
+            relay_url: Some(self.url.0.clone()),
+            target: "javascript".to_string(),
             kind: "setpeople".to_string(),
             payload: serde_json::to_string(&people)?,
-        }) {
-            log::error!("Unable to send setpeople to javascript: {}", e);
-        }
+        })?;
 
         Ok(())
     }

@@ -39,13 +39,13 @@ pub fn about() -> About {
 
 #[tauri::command]
 pub fn javascript_is_ready() {
-    let tx = GLOBALS.bus.clone();
+    let tx = GLOBALS.to_overlord.clone();
 
     log::debug!("javascript-is-ready tauri command called");
 
     if let Err(e) = tx.send(BusMessage {
+        relay_url: None,
         target: "overlord".to_string(),
-        source: "javascript".to_string(),
         kind: "javascript_is_ready".to_string(),
         payload: "".to_string()
     }) {
@@ -57,16 +57,16 @@ pub fn javascript_is_ready() {
 pub async fn save_settings(settings: Settings) -> Result<bool, String> {
     settings.save().await.map_err(|e| format!("{}", e))?;
 
-    let tx = GLOBALS.bus.clone();
-
+    let tx = GLOBALS.to_overlord.clone();
     if let Err(e) = tx.send(BusMessage {
-        target: "all".to_string(),
-        source: "javascript".to_string(),
+        relay_url: None,
+        target: "overlord".to_string(),
         kind: "settings_changed".to_string(),
         payload: serde_json::to_string(&settings).map_err(|e| format!("{}", e))?
     }) {
         log::error!("Unable to send javascript_is_ready: {}", e);
     }
+
 
     Ok(true)
 }

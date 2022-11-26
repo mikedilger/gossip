@@ -9,7 +9,8 @@ extern crate lazy_static;
 use rusqlite::Connection;
 use serde::Serialize;
 use std::env;
-use tokio::sync::broadcast;
+use std::ops::DerefMut;
+use tokio::sync::{broadcast, mpsc};
 use tokio::sync::Mutex;
 
 mod commands;
@@ -24,14 +25,16 @@ mod overlord;
 mod settings;
 pub use settings::Settings;
 
-/// This is a message we send/recv in our broadcast channel
+/// This is a message sent between the Overlord and Minions
+/// in either direction
 #[derive(Debug, Clone, Serialize)]
 pub struct BusMessage {
-    /// Who the message is for
-    pub target: String,
+    /// Who the message is for or from (depending on the direction),
+    /// Not required for 'all' or 'javascript' messages.
+    pub relay_url: Option<String>,
 
-    /// Who is the message from
-    pub source: String,
+    /// 'javascript', 'overlord', 'all', or 'relay_url'
+    pub target: String,
 
     /// What kind of message is this
     pub kind: String,
@@ -40,28 +43,40 @@ pub struct BusMessage {
     pub payload: String,
 }
 
+
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
 pub struct Globals {
     /// This is our connection to SQLite. Only one thread at a time.
     pub db: Mutex<Option<Connection>>,
 
-    /// This is a broadcast channel. All tasks can listen on it.
+    /// This is a broadcast channel. All Minions should listen on it.
     /// To create a receiver, just run .subscribe() on it.
-    pub bus: broadcast::Sender<BusMessage>,
+    pub to_minions: broadcast::Sender<BusMessage>,
+
+    /// This is a mpsc channel. The Overlord listens on it.
+    /// To create a sender, just clone() it.
+    pub to_overlord: mpsc::UnboundedSender<BusMessage>,
+
+    /// This is ephemeral. It is filled during lazy_static initialization,
+    /// and stolen away when the Overlord is created.
+    pub from_minions: Mutex<Option<mpsc::UnboundedReceiver<BusMessage>>>,
 }
 
 lazy_static! {
     static ref GLOBALS: Globals = {
 
-        // Setup a watch communications channel (single-producer, multiple watchers)
-        // that we can use to signal our websocket driving threads about changes
-        // to what they should be following, events we need to send, etc.
-        let (broadcast_tx, _) = broadcast::channel(1024);
+        // Setup a communications channel from the Overlord to the Minions.
+        let (to_minions, _) = broadcast::channel(16);
+
+        // Setup a communications channel from the Minions to the Overlord.
+        let (to_overlord, from_minions) = mpsc::unbounded_channel();
 
         Globals {
             db: Mutex::new(None),
-            bus: broadcast_tx
+            to_minions,
+            to_overlord,
+            from_minions: Mutex::new(Some(from_minions)),
         }
     };
 }
@@ -89,7 +104,14 @@ fn main() {
         .setup(|app| {
             let app_handle = app.handle();
             let _join = tauri::async_runtime::spawn(async move {
-                let mut overlord = crate::overlord::Overlord::new(app_handle);
+
+                // Steal from_minions from the GLOBALS, and give it to the Overlord
+                let from_minions = {
+                    let mut mutex_option = GLOBALS.from_minions.lock().await;
+                    std::mem::replace(mutex_option.deref_mut(), None)
+                }.unwrap();
+
+                let mut overlord = crate::overlord::Overlord::new(app_handle, from_minions);
                 overlord.run().await;
             });
             Ok(())

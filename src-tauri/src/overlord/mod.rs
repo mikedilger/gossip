@@ -8,7 +8,8 @@ use std::collections::HashMap;
 use std::fs;
 use tauri::{AppHandle, Manager};
 use tokio::{select, task};
-use tokio::sync::broadcast::{Sender, Receiver};
+use tokio::sync::broadcast::Sender;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 mod minion;
 use minion::Minion;
@@ -46,23 +47,24 @@ pub struct Overlord {
     javascript_is_ready: bool,
     early_messages_to_javascript: Vec<BusMessage>,
     settings: Settings,
-    bus_tx: Sender<BusMessage>,
-    bus_rx: Receiver<BusMessage>,
+    to_minions: Sender<BusMessage>,
+    from_minions: UnboundedReceiver<BusMessage>,
     minions: task::JoinSet<()>,
     minion_records: HashMap<task::Id, MinionRecord>,
     feed: Feed,
 }
 
 impl Overlord {
-    pub fn new(app_handle: AppHandle) -> Overlord {
-        let bus_tx = GLOBALS.bus.clone();
-        let bus_rx = bus_tx.subscribe();
+    pub fn new(app_handle: AppHandle, from_minions: UnboundedReceiver<BusMessage>)
+               -> Overlord
+    {
+        let to_minions = GLOBALS.to_minions.clone();
         Overlord {
             app_handle,
             javascript_is_ready: false,
             early_messages_to_javascript: Vec::new(),
             settings: Default::default(),
-            bus_tx, bus_rx,
+            to_minions, from_minions,
             minions: task::JoinSet::new(),
             minion_records: HashMap::new(),
             feed: Feed::new(),
@@ -87,9 +89,9 @@ impl Overlord {
     pub async fn run(&mut self) {
         if let Err(e) = self.run_inner().await {
             log::error!("{}", e);
-            if let Err(e) = self.bus_tx.send(BusMessage {
+            if let Err(e) = self.to_minions.send(BusMessage {
+                relay_url: None,
                 target: "all".to_string(),
-                source: "overlord".to_string(),
                 kind: "shutdown".to_string(),
                 payload: "shutdown".to_string(),
             }) {
@@ -110,8 +112,8 @@ impl Overlord {
 
         // Tell javascript our setings
         self.send_to_javascript(BusMessage {
-            target: "to_javascript".to_string(),
-            source: "overlord".to_string(),
+            relay_url: None,
+            target: "javascript".to_string(),
             kind: "setsettings".to_string(),
             payload: serde_json::to_string(&self.settings)?,
         })?;
@@ -137,8 +139,8 @@ impl Overlord {
             //        with them.
 
             self.send_to_javascript(BusMessage {
-                target: "to_javascript".to_string(),
-                source: "overlord".to_string(),
+                relay_url: None,
+                target: "javascript".to_string(),
                 kind: "addevents".to_string(),
                 payload: serde_json::to_string(&events)?,
             })?;
@@ -146,8 +148,8 @@ impl Overlord {
             self.feed.add_events(&*events);
 
             self.send_to_javascript(BusMessage {
-                target: "to_javascript".to_string(),
-                source: "overlord".to_string(),
+                relay_url: None,
+                target: "javascript".to_string(),
                 kind: "replacefeed".to_string(),
                 payload: serde_json::to_string(&self.feed.as_id_vec())?,
             })?;
@@ -184,8 +186,8 @@ impl Overlord {
 
         // Send these people to javascript
         self.send_to_javascript(BusMessage {
-            target: "to_javascript".to_string(),
-            source: "overlord".to_string(),
+            relay_url: None,
+            target: "javascript".to_string(),
             kind: "setpeople".to_string(),
             payload: serde_json::to_string(&people)?
         })?;
@@ -265,24 +267,24 @@ impl Overlord {
 
         if self.minions.is_empty() {
             // We only need to listen on the bus
-            let bus_message = match self.bus_rx.recv().await {
-                Ok(bm) => bm,
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+            let bus_message = match self.from_minions.recv().await {
+                Some(bm) => bm,
+                None => {
+                    // All senders dropped, or one of them closed.
                     return Ok(false);
-                },
-                Err(e) => return Err(e.into())
+                }
             };
             keepgoing = self.handle_bus_message(bus_message)?;
         } else {
             // We need to listen on the bus, and for completed tasks
             select! {
-                bus_message = self.bus_rx.recv() => {
+                bus_message = self.from_minions.recv() => {
                     let bus_message = match bus_message {
-                        Ok(bm) => bm,
-                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        Some(bm) => bm,
+                        None => {
+                            // All senders dropped, or one of them closed.
                             return Ok(false);
-                        },
-                        Err(e) => return Err(e.into())
+                        }
                     };
                     keepgoing = self.handle_bus_message(bus_message)?;
                 },
@@ -325,7 +327,7 @@ impl Overlord {
 
     fn handle_bus_message(&mut self, bus_message: BusMessage) -> Result<bool, Error> {
         match &*bus_message.target {
-            "to_javascript" => {
+            "javascript" => {
                 self.send_to_javascript(bus_message)?;
             }
             "all" => match &*bus_message.kind {
@@ -335,7 +337,14 @@ impl Overlord {
                 },
                 "settings_changed" => {
                     self.settings = serde_json::from_str(&bus_message.payload)?;
-                }
+                    // We need to inform the minions
+                    self.to_minions.send(BusMessage {
+                        relay_url: None,
+                        target: "all".to_string(),
+                        kind: "settings_changed".to_string(),
+                        payload: bus_message.payload.clone(),
+                    })?;
+                },
                 _ => {}
             },
             "overlord" => match &*bus_message.kind {
@@ -344,11 +353,14 @@ impl Overlord {
                     self.javascript_is_ready = true;
                     self.send_early_messages_to_javascript()?;
                 },
+                "minion_is_ready" => {
+                    // TBD
+                },
                 "new_event" => {
                     let event: JsEvent = serde_json::from_str(&bus_message.payload)?;
                     self.send_to_javascript(BusMessage {
-                        target: "to_javascript".to_string(),
-                        source: "overlord".to_string(),
+                        relay_url: None,
+                        target: "javascript".to_string(),
                         kind: "addevents".to_string(),
                         payload: serde_json::to_string(&[&event])?,
                     })?;
@@ -356,12 +368,12 @@ impl Overlord {
                     self.feed.add_events(&[event]);
 
                     self.send_to_javascript(BusMessage {
-                        target: "to_javascript".to_string(),
-                        source: "overlord".to_string(),
+                        relay_url: None,
+                        target: "javascript".to_string(),
                         kind: "replacefeed".to_string(),
                         payload: serde_json::to_string(&self.feed.as_id_vec())?,
                     })?;
-                }
+                },
                 _ => {}
             },
             _ => {}

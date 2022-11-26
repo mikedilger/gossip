@@ -18,6 +18,9 @@ pub enum Error {
     #[error("I/O Error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("Error sending mpsc: {0}")]
+    MpscSend(#[from] tokio::sync::mpsc::error::SendError<BusMessage>),
+
     #[error("Bad integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
 
