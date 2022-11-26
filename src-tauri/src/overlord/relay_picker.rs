@@ -9,13 +9,13 @@ pub struct RelayPicker {
     pub person_relays: Vec<DbPersonRelay>,
 }
 
-/// See RelayPicker::best()
-pub struct BestRelay {
-    pub relay: DbRelay,
-    pub pubkeys: Vec<PublicKeyHex>
-}
-
 impl RelayPicker {
+    pub fn is_degenerate(&self) -> bool {
+        self.relays.len() == 0
+            || self.pubkeys.len() == 0
+            || self.person_relays.len() == 0
+    }
+
     /// This function takes a RelayPicker which consists of a list of relays,
     /// a list of public keys, and a mapping between them.  It outputs a
     /// BestRelay structure which includes the best relay to listen to and
@@ -77,5 +77,17 @@ impl RelayPicker {
             self
         ))
 
+    }
+}
+
+/// See RelayPicker::best()
+pub struct BestRelay {
+    pub relay: DbRelay,
+    pub pubkeys: Vec<PublicKeyHex>
+}
+
+impl BestRelay {
+    pub fn is_degenerate(&self) -> bool {
+        self.pubkeys.len() == 0
     }
 }

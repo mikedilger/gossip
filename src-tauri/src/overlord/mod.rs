@@ -201,9 +201,17 @@ impl Overlord {
             };
             let mut best_relay: BestRelay;
             loop {
+                if relay_picker.is_degenerate() {
+                    break;
+                }
+
                 let (rd, rp) = relay_picker.best()?;
                 best_relay = rd;
                 relay_picker = rp;
+
+                if best_relay.is_degenerate() {
+                    break;
+                }
 
                 // Fire off a minion to handle this relay
                 {
@@ -224,9 +232,6 @@ impl Overlord {
                 log::info!("Picked relay {}, {} people left",
                            best_relay.relay.url,
                            relay_picker.pubkeys.len());
-
-                if relay_picker.relays.len()==0 { break; }
-                if relay_picker.pubkeys.len()==0 { break; }
             }
         }
 

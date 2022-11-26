@@ -73,6 +73,13 @@ impl Minion {
             (Unixtime(special_since), Unixtime(feed_since))
         };
 
+        if self.pubkeys.len() == 0 {
+            // Right now, we can't continue with no people to watch for.
+            // Our filters require authors, or else they are asking for EVERYBODY.
+            // FIXME better.
+            return Ok(());
+        }
+
         // Create the author filter
         let mut feed_filter: Filters = Filters::new();
         for pk in self.pubkeys.iter() {
