@@ -59,6 +59,7 @@
             When we receive events that refer to people we don't
             know about yet, do you want to automatically follow those people
             anonymously? The default is not to.
+            NOTE: This has no effect yet because we aren't finding new people yet.
         </blockquote>
 
         <p class="center">
