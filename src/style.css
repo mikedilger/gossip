@@ -57,16 +57,20 @@ button {
     font-size: 1em;
     font-weight: 500;
     font-family: inherit;
-    background-color: #242424;
+    background-color: #505050;
     cursor: pointer;
     transition: border-color 0.25s;
 }
 button:hover {
-    border-color: #7395ae;
+    outline: 4px auto -webkit-focus-ring-color;
 }
 button:focus,
 button:focus-visible {
     outline: 4px auto -webkit-focus-ring-color;
+}
+button.selected {
+    font-weight: bold;
+    border-color: #7395ae;
 }
 
 .card {
@@ -88,7 +92,7 @@ button:focus-visible {
         color: #557a95;
     }
     button {
-        background-color: #f9f9f9;
+        background-color: #e8e8e8;
     }
 }
 
@@ -98,4 +102,11 @@ button:focus-visible {
 
 .float-clear {
     float: clear;
+}
+
+div.center {
+    display: block;
+    width: 50%;
+    margin: auto;
+    text-align: center;
 }
