@@ -57,7 +57,7 @@ lazy_static! {
         // Setup a watch communications channel (single-producer, multiple watchers)
         // that we can use to signal our websocket driving threads about changes
         // to what they should be following, events we need to send, etc.
-        let (broadcast_tx, _) = broadcast::channel(256);
+        let (broadcast_tx, _) = broadcast::channel(1024);
 
         Globals {
             db: Mutex::new(None),
