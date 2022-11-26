@@ -37,11 +37,6 @@ pub struct EventMetadata {
     pub reactions: Reactions
 }
 
-pub struct MinionRecord {
-    pub relay_url: Url,
-    pub ready: bool,
-}
-
 pub struct Overlord {
     app_handle: AppHandle,
     javascript_is_ready: bool,
@@ -50,7 +45,7 @@ pub struct Overlord {
     to_minions: Sender<BusMessage>,
     from_minions: UnboundedReceiver<BusMessage>,
     minions: task::JoinSet<()>,
-    minion_records: HashMap<task::Id, MinionRecord>,
+    minions_task_url: HashMap<task::Id, Url>,
     feed: Feed,
 }
 
@@ -66,7 +61,7 @@ impl Overlord {
             settings: Default::default(),
             to_minions, from_minions,
             minions: task::JoinSet::new(),
-            minion_records: HashMap::new(),
+            minions_task_url: HashMap::new(),
             feed: Feed::new(),
         }
     }
@@ -225,10 +220,7 @@ impl Overlord {
                     });
                     let id = abort_handle.id();
 
-                    self.minion_records.insert(id, MinionRecord {
-                        relay_url: Url(best_relay.relay.url.clone()),
-                        ready: false
-                    });
+                    self.minions_task_url.insert(id, Url(best_relay.relay.url.clone()));
                 }
 
                 log::info!("Picked relay {}, {} people left",
@@ -295,11 +287,11 @@ impl Overlord {
                     match task_next_joined.unwrap() {
                         Err(join_error) => {
                             let id = join_error.id();
-                            let maybe_minion_record = self.minion_records.get(&id);
-                            match maybe_minion_record {
-                                Some(minion_record) => {
+                            let maybe_url = self.minions_task_url.get(&id);
+                            match maybe_url {
+                                Some(url) => {
                                     // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
-                                    log::warn!("Minion {} completed with error: {}", &minion_record.relay_url, join_error);
+                                    log::warn!("Minion {} completed with error: {}", &url, join_error);
                                 },
                                 None => {
                                     log::warn!("Minion UNKNOWN completed with error: {}", join_error);
@@ -307,9 +299,9 @@ impl Overlord {
                             }
                         },
                         Ok((id, _)) => {
-                            let maybe_minion_record = self.minion_records.get(&id);
-                            match maybe_minion_record {
-                                Some(minion_record) => log::warn!("Relay Task {} completed", &minion_record.relay_url),
+                            let maybe_url = self.minions_task_url.get(&id);
+                            match maybe_url {
+                                Some(url) => log::warn!("Relay Task {} completed", &url),
                                 None => log::warn!("Relay Task UNKNOWN completed"),
                             }
                         }
@@ -354,7 +346,9 @@ impl Overlord {
                     self.send_early_messages_to_javascript()?;
                 },
                 "minion_is_ready" => {
-                    // TBD
+                    // We don't bother with this. We don't send minions messages
+                    // early on. In the future when we spin up new minions
+                    // after startup we may need this.
                 },
                 "new_event" => {
                     let event: JsEvent = serde_json::from_str(&bus_message.payload)?;
