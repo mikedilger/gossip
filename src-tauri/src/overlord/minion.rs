@@ -6,7 +6,9 @@ use nostr_proto::{
     RelayMessage, SubscriptionId, Unixtime, Url,
 };
 use tokio::select;
+use tokio::net::TcpStream;
 use tokio::sync::broadcast::{Sender, Receiver};
+use tokio_tungstenite::{WebSocketStream, MaybeTlsStream};
 use tungstenite::protocol::Message as WsMessage;
 
 pub struct Minion {
@@ -101,10 +103,11 @@ impl Minion {
         );
 
         // Connect to the relay
-        let (websocket_stream, _response) = tokio_tungstenite::connect_async(&self.url.0).await?;
+        let (mut websocket_stream, _response) =
+            tokio_tungstenite::connect_async(&self.url.0).await?;
         log::info!("Connected to {}", &self.url);
 
-        let (mut write, mut read) = websocket_stream.split();
+        //let (mut write, mut read) = websocket_stream.split();
 
         // Subscribe to our filters
         // FIXME, get filters in response to an appropriate bus message
@@ -113,64 +116,70 @@ impl Minion {
             vec![feed_filter, special_filter],
         );
         let wire = serde_json::to_string(&message)?;
-        write.send(WsMessage::Text(wire.clone())).await?;
+        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
         //log::debug!("Sent {}", &wire);
 
         // Tell the overlord we are ready to receive commands
         self.tell_overlord_we_are_ready().await?;
 
-        'relayloop: loop {
-            select! {
-                ws_message = read.next() => {
-                    let ws_message = match ws_message.unwrap() {
-                        Ok(wsm) => wsm,
-                        Err(e) => {
-                            log::error!("{}", e);
-                            // We probably cannot continue the websocket
-                            break 'relayloop;
-                        }
-                    };
-                    log::trace!("Handling message from {}", &self.url);
-                    match ws_message {
-                        WsMessage::Text(t) => {
-                            if let Err(e) = self.handle_nostr_message(t).await {
-                                log::error!("Error on {}: {}", &self.url, e);
-                                // FIXME: some errors we should probably bail on.
-                                // For now, try to continue.
-                            }
-                        },
-                        WsMessage::Binary(_) => log::warn!("Unexpected binary message"),
-                        WsMessage::Ping(x) => write.send(WsMessage::Pong(x)).await?,
-                        WsMessage::Pong(_) => log::warn!("Unexpected pong message"),
-                        WsMessage::Close(_) => break 'relayloop,
-                        WsMessage::Frame(_) => log::warn!("Unexpected frame message"),
+        'relayloop:
+        loop {
+            match self.loop_handler(&mut websocket_stream).await {
+                Ok(keepgoing) => {
+                    if !keepgoing {
+                        break 'relayloop;
                     }
                 },
-                bus_message = self.bus_rx.recv() => {
-                    if let Err(e) = bus_message {
-                        log::error!("{}", e);
-                        continue 'relayloop;
-                    }
-                    let bus_message = bus_message.unwrap();
-                    if bus_message.target == self.url.0 {
-                        log::warn!("Websocket task got message, unimpmented: {}",
-                                   bus_message.payload);
-                    } else if &*bus_message.target == "all" {
-                        if &*bus_message.kind == "shutdown" {
-                            log::info!("Websocket listener {} shutting down", &self.url);
-                            break 'relayloop;
-                        } else if &*bus_message.kind == "settings_changed" {
-                            match serde_json::from_str(&bus_message.payload) {
-                                Ok(s) => self.settings=s,
-                                Err(e) => log::error!("minion unable to update settings: {}", e),
-                            }
-                        }
-                    }
-                },
+                Err(e) => {
+                    // Log them and keep going
+                    log::error!("{}", e);
+                }
             }
         }
 
         Ok(())
+    }
+
+    async fn loop_handler(&mut self,
+                          ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>)
+                          -> Result<bool, Error>
+    {
+        let mut keepgoing: bool = true;
+
+        select! {
+            ws_message = ws_stream.next() => {
+                let ws_message = ws_message.unwrap()?;
+                log::trace!("Handling message from {}", &self.url);
+                match ws_message {
+                    WsMessage::Text(t) => {
+                        self.handle_nostr_message(t).await?;
+                        // FIXME: some errors we should probably bail on.
+                        // For now, try to continue.
+                    },
+                    WsMessage::Binary(_) => log::warn!("Unexpected binary message"),
+                    WsMessage::Ping(x) => ws_stream.send(WsMessage::Pong(x)).await?,
+                    WsMessage::Pong(_) => log::warn!("Unexpected pong message"),
+                    WsMessage::Close(_) => keepgoing = false,
+                    WsMessage::Frame(_) => log::warn!("Unexpected frame message"),
+                }
+            },
+            bus_message = self.bus_rx.recv() => {
+                let bus_message = bus_message?;
+                if bus_message.target == self.url.0 {
+                    log::warn!("Websocket task got message, unimpmented: {}",
+                               bus_message.payload);
+                } else if &*bus_message.target == "all" {
+                    if &*bus_message.kind == "shutdown" {
+                        log::info!("Websocket listener {} shutting down", &self.url);
+                        keepgoing = false;
+                    } else if &*bus_message.kind == "settings_changed" {
+                        self.settings = serde_json::from_str(&bus_message.payload)?;
+                    }
+                }
+            },
+        }
+
+        Ok(keepgoing)
     }
 
     async fn handle_nostr_message(

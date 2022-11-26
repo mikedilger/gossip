@@ -196,49 +196,17 @@ impl Overlord {
             }
         }
 
-        'mainloop: loop {
-            if self.minions.is_empty() {
-                // We only need to listen on the bus
-                let bus_message = self.bus_rx.recv().await.unwrap();
-                let keepgoing = self.handle_bus_message(bus_message);
-                if !keepgoing { break 'mainloop; }
-            } else {
-                // We need to listen on the bus, and for completed tasks
-                select! {
-                    bus_message = self.bus_rx.recv() => {
-                        let bus_message = bus_message.unwrap();
-                        let keepgoing = self.handle_bus_message(bus_message);
-                        if !keepgoing { break 'mainloop; }
-                    },
-                    task_next_joined = self.minions.join_next_with_id() => {
-                        if task_next_joined.is_none() { continue; } // rare
-                        match task_next_joined.unwrap() {
-                            Err(join_error) => {
-                                let id = join_error.id();
-                                let maybe_minion_record = self.minion_records.get(&id);
-                                match maybe_minion_record {
-                                    Some(minion_record) => {
-                                        // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
-                                        log::warn!("Minion {} completed with error: {}", &minion_record.relay_url, join_error);
-                                    },
-                                    None => {
-                                        log::warn!("Minion UNKNOWN completed with error: {}", join_error);
-                                    }
-                                }
-                            },
-                            Ok((id, _)) => {
-                                let maybe_minion_record = self.minion_records.get(&id);
-                                match maybe_minion_record {
-                                    Some(minion_record) => log::warn!("Relay Task {} completed", &minion_record.relay_url),
-                                    None => log::warn!("Relay Task UNKNOWN completed"),
-                                }
-                            }
-                        }
-                        // FIXME: we should look up which relay it was serving
-                        // Then we should wait for a cooldown period.
-                        // Then we should recompute the filters and spin up a new task to
-                        // continue that relay.
+        'mainloop:
+        loop {
+            match self.loop_handler().await {
+                Ok(keepgoing) => {
+                    if !keepgoing {
+                        break 'mainloop;
                     }
+                },
+                Err(e) => {
+                    // Log them and keep looping
+                    log::error!("{}", e);
                 }
             }
         }
@@ -253,7 +221,58 @@ impl Overlord {
         Ok(())
     }
 
-    fn handle_bus_message(&mut self, bus_message: BusMessage) -> bool {
+    async fn loop_handler(&mut self) -> Result<bool, Error> {
+        let mut keepgoing: bool = true;
+
+        if self.minions.is_empty() {
+            // We only need to listen on the bus
+            let bus_message = self.bus_rx.recv().await?;
+            keepgoing = self.handle_bus_message(bus_message)?;
+        } else {
+            // We need to listen on the bus, and for completed tasks
+            select! {
+                bus_message = self.bus_rx.recv() => {
+                    let bus_message = bus_message?;
+                    keepgoing = self.handle_bus_message(bus_message)?;
+                },
+                task_next_joined = self.minions.join_next_with_id() => {
+                    if task_next_joined.is_none() {
+                        return Ok(true); // rare
+                    }
+                    match task_next_joined.unwrap() {
+                        Err(join_error) => {
+                            let id = join_error.id();
+                            let maybe_minion_record = self.minion_records.get(&id);
+                            match maybe_minion_record {
+                                Some(minion_record) => {
+                                    // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
+                                    log::warn!("Minion {} completed with error: {}", &minion_record.relay_url, join_error);
+                                },
+                                None => {
+                                    log::warn!("Minion UNKNOWN completed with error: {}", join_error);
+                                }
+                            }
+                        },
+                        Ok((id, _)) => {
+                            let maybe_minion_record = self.minion_records.get(&id);
+                            match maybe_minion_record {
+                                Some(minion_record) => log::warn!("Relay Task {} completed", &minion_record.relay_url),
+                                None => log::warn!("Relay Task UNKNOWN completed"),
+                            }
+                        }
+                    }
+                    // FIXME: we should look up which relay it was serving
+                    // Then we should wait for a cooldown period.
+                    // Then we should recompute the filters and spin up a new task to
+                    // continue that relay.
+                }
+            }
+        }
+
+        Ok(keepgoing)
+    }
+
+    fn handle_bus_message(&mut self, bus_message: BusMessage) -> Result<bool, Error> {
         match &*bus_message.target {
             "to_javascript" => {
                 if self.javascript_is_ready {
@@ -262,7 +281,7 @@ impl Overlord {
                         bus_message.kind,
                         bus_message.payload
                     );
-                    self.app_handle.emit_all("from_rust", bus_message).unwrap();
+                    self.app_handle.emit_all("from_rust", bus_message)?;
                 } else {
                     log::debug!("PUSHING early message");
                     self.early_messages_to_javascript.push(bus_message);
@@ -271,13 +290,10 @@ impl Overlord {
             "all" => match &*bus_message.kind {
                 "shutdown" => {
                     log::info!("Overlord shutting down");
-                    return false;
+                    return Ok(false);
                 },
                 "settings_changed" => {
-                    match serde_json::from_str(&bus_message.payload) {
-                        Ok(s) => self.settings = s,
-                        Err(e) => log::error!("overlord unable to update settings: {}", e),
-                    }
+                    self.settings = serde_json::from_str(&bus_message.payload)?;
                 }
                 _ => {}
             },
@@ -285,16 +301,17 @@ impl Overlord {
                 "javascript_is_ready" => {
                     log::info!("Javascript is ready");
                     self.javascript_is_ready = true;
-                    self.send_early_messages_to_javascript();
+                    self.send_early_messages_to_javascript()?;
                 },
                 _ => {}
             },
             _ => {}
         }
-        true
+
+        Ok(true)
     }
 
-    fn send_early_messages_to_javascript(&mut self) {
+    fn send_early_messages_to_javascript(&mut self) -> Result<(), Error> {
         for bus_message in self.early_messages_to_javascript.drain(..) {
             log::debug!("POPPING early message");
             log::trace!(
@@ -302,8 +319,9 @@ impl Overlord {
                 bus_message.kind,
                 bus_message.payload
             );
-            self.app_handle.emit_all("from_rust", bus_message).unwrap();
+            self.app_handle.emit_all("from_rust", bus_message)?;
         }
+        Ok(())
     }
 }
 
