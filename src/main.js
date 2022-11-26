@@ -42,6 +42,8 @@ app.use(pinia);
 
         console.log("HANDLING RUST COMMAND " + rust_message.payload.kind)
 
+        store.render_feed = false;
+
         switch (rust_message.payload.kind) {
         case "addevents":
             payload.forEach(event => store.events.set(event.id, event))
@@ -73,6 +75,8 @@ app.use(pinia);
         default:
             console.log("UNRECOGNIZED COMMAND from_rust " + rust_message.payload.kind)
         }
+
+        store.render_feed = true;
     })
 })()
 

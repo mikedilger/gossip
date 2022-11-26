@@ -8,8 +8,11 @@
 </script>
 
 <template>
-    <div class="main-scrollable">
+    <div v-if="store.render_feed" class="main-scrollable">
         <Post v-for="eventId in feed.slice().reverse()" :event-id="eventId"></Post>
+    </div>
+    <div v-else class="main-scrollable">
+        L O A D I N G . . .
     </div>
 </template>
 

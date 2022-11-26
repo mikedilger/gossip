@@ -28,6 +28,10 @@ export const useEventStore = defineStore('events', {
             feed_chunk: 43200,
             overlap: 600,
             autofollow: 0
-        }
+        },
+
+        // We disable this when we make changes so Vue doesn't iterate
+        // while we are still making changes.
+        render_feed: true
     }),
 })
