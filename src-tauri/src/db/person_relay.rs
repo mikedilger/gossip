@@ -50,6 +50,8 @@ impl DbPersonRelay {
     pub async fn fetch_for_pubkeys(pubkeys: &[PublicKeyHex])
                                    -> Result<Vec<DbPersonRelay>, Error>
     {
+        if pubkeys.len()==0 { return Ok(vec![]); }
+
         let sql = format!(
             "SELECT person, relay, recommended, person_relay.last_fetched \
              FROM person_relay \
@@ -93,6 +95,8 @@ impl DbPersonRelay {
     pub async fn fetch_oldest_last_fetched(pubkeys: &[PublicKeyHex], relay: &str)
                                            -> Result<u64, Error>
     {
+        if pubkeys.len()==0 { return Ok(0); }
+
         let sql = format!(
             "SELECT min(last_fetched) FROM person_relay
              WHERE relay=? AND person in ({})",
