@@ -226,13 +226,25 @@ impl Overlord {
 
         if self.minions.is_empty() {
             // We only need to listen on the bus
-            let bus_message = self.bus_rx.recv().await?;
+            let bus_message = match self.bus_rx.recv().await {
+                Ok(bm) => bm,
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    return Ok(false);
+                },
+                Err(e) => return Err(e.into())
+            };
             keepgoing = self.handle_bus_message(bus_message)?;
         } else {
             // We need to listen on the bus, and for completed tasks
             select! {
                 bus_message = self.bus_rx.recv() => {
-                    let bus_message = bus_message?;
+                    let bus_message = match bus_message {
+                        Ok(bm) => bm,
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                            return Ok(false);
+                        },
+                        Err(e) => return Err(e.into())
+                    };
                     keepgoing = self.handle_bus_message(bus_message)?;
                 },
                 task_next_joined = self.minions.join_next_with_id() => {

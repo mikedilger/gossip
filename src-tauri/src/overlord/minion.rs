@@ -164,7 +164,13 @@ impl Minion {
                 }
             },
             bus_message = self.bus_rx.recv() => {
-                let bus_message = bus_message?;
+                let bus_message = match bus_message {
+                    Ok(bm) => bm,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        return Ok(false);
+                    },
+                    Err(e) => return Err(e.into())
+                };
                 if bus_message.target == self.url.0 {
                     log::warn!("Websocket task got message, unimpmented: {}",
                                bus_message.payload);
