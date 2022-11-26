@@ -46,55 +46,58 @@ impl Minion {
         // Load settings
         self.settings.load().await?;
 
-        // Compute how far to look back for events
-        let since = {
-            // Find the oldest 'last_fetched' among the 'person_relay' table
-            let mut since: u64 = DbPersonRelay::fetch_oldest_last_fetched(
+        //FIXME -- IF last_fetched is null, look back 1 period for texts, infinite for other.
+        // else look back since last fetched for both.
+
+        // Compute how far to look back
+        let (feed_since, special_since) = {
+
+            // Find the oldest 'last_fetched' among the 'person_relay' table.
+            // Null values will come through as 0.
+            let mut special_since: i64 = DbPersonRelay::fetch_oldest_last_fetched(
                 &self.pubkeys,
                 &self.url.0
-            ).await?;
+            ).await? as i64;
 
             // Subtract overlap to avoid gaps due to clock sync and event
             // propogation delay
-            since -= self.settings.overlap;
+            special_since -= self.settings.overlap as i64;
 
-            // But don't go back more than one feed_chunk ago
+            // For feed related events, don't look back more than one feed_chunk ago
             let one_feedchunk_ago = Unixtime::now().unwrap().0 - self.settings.feed_chunk as i64;
+            let feed_since = special_since.max(one_feedchunk_ago);
 
-            since = since.max(one_feedchunk_ago as u64);
-
-            log::debug!("Looking back to unixtime {}", since);
-
-            Unixtime(since as i64)
+            (Unixtime(special_since), Unixtime(feed_since))
         };
 
         // Create the author filter
-        let mut author_filter: Filters = Filters::new();
+        let mut feed_filter: Filters = Filters::new();
         for pk in self.pubkeys.iter() {
-            author_filter.add_author(&pk, None);
+            feed_filter.add_author(&pk, None);
         }
-        author_filter.add_event_kind(EventKind::TextNote);
-        author_filter.add_event_kind(EventKind::Reaction);
-        author_filter.since = Some(since);
+        feed_filter.add_event_kind(EventKind::TextNote);
+        feed_filter.add_event_kind(EventKind::Reaction);
+        //feed_filter.add_event_kind(EventKind::EventDeletion);
+        feed_filter.since = Some(feed_since);
         log::debug!(
             "Author Filter {}: {}",
             &self.url,
-            serde_json::to_string(&author_filter)?
+            serde_json::to_string(&feed_filter)?
         );
 
         // Create the lookback filter
-        let mut lookback_filter: Filters = Filters::new();
+        let mut special_filter: Filters = Filters::new();
         for pk in self.pubkeys.iter() {
-            lookback_filter.add_author(&pk, None);
+            special_filter.add_author(&pk, None);
         }
-        lookback_filter.add_event_kind(EventKind::Metadata);
-        //lookback_filter.add_event_kind(EventKind::RecommendRelay);
-        //lookback_filter.add_event_kind(EventKind::ContactList);
-        //lookback_filter.add_event_kind(EventKind::EventDeletion);
+        special_filter.add_event_kind(EventKind::Metadata);
+        //special_filter.add_event_kind(EventKind::RecommendRelay);
+        //special_filter.add_event_kind(EventKind::ContactList);
+        special_filter.since = Some(special_since);
         log::debug!(
             "Lookback Filter {}: {}",
             &self.url,
-            serde_json::to_string(&lookback_filter)?
+            serde_json::to_string(&special_filter)?
         );
 
         // Connect to the relay
@@ -107,7 +110,7 @@ impl Minion {
         // FIXME, get filters in response to an appropriate bus message
         let message = ClientMessage::Req(
             SubscriptionId(format!("gossip-main-{}", textnonce::TextNonce::new())),
-            vec![author_filter, lookback_filter],
+            vec![feed_filter, special_filter],
         );
         let wire = serde_json::to_string(&message)?;
         write.send(WsMessage::Text(wire.clone())).await?;
