@@ -22,6 +22,7 @@ const routes = [
     { path: '/about', component: PageAbout },
 ]
 
+
 const router = createRouter({
     history: createWebHashHistory(),
     routes: routes
@@ -52,14 +53,6 @@ app.use(pinia);
             break;
         case "replacefeed":
             store.$patch({ feed: payload });
-            break;
-        case "pushfeed":
-            store.feed.push(...payload);
-            break;
-        case "pushfeedevents": // a combo of "addevents" and "pushfeed"
-            payload.forEach(event => store.events.set(event.id, event))
-            let pushfeed = payload.map(event => event.id)
-            store.feed.push(...pushfeed);
             break;
         case "setpeople":
             console.log("SETTING " + payload.length + " PEOPLE");
