@@ -100,6 +100,9 @@ fn main() {
             commands::about,
             commands::javascript_is_ready,
             commands::save_settings,
+            commands::follow_nip35,
+            commands::follow_key_and_relay,
+            commands::follow_author,
         ])
         .setup(|app| {
             let app_handle = app.handle();

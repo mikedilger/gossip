@@ -1,5 +1,7 @@
 use serde::Serialize;
 use crate::{BusMessage, GLOBALS, Settings};
+use crate::db::{DbPerson, DbPersonRelay, DbRelay};
+use nostr_proto::PublicKeyHex;
 
 #[derive(Debug, Serialize)]
 pub struct About {
@@ -67,6 +69,82 @@ pub async fn save_settings(settings: Settings) -> Result<bool, String> {
         log::error!("Unable to send javascript_is_ready: {}", e);
     }
 
+
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn follow_nip35(_address: String) -> Result<bool, String> {
+    Err("Not Yet Implemented".to_string())
+}
+
+#[tauri::command]
+pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<bool, String> {
+    DbPerson::insert(DbPerson {
+        pubkey: PublicKeyHex(pubkey.clone()),
+        name: None,
+        about: None,
+        picture: None,
+        dns_id: None,
+        dns_id_valid: 0,
+        dns_id_last_checked: None,
+        followed: 1
+    }).await.map_err(|e| format!("{}", e))?;
+
+    DbPersonRelay::insert(DbPersonRelay {
+        person: pubkey,
+        relay: relay.clone(),
+        recommended: 0,
+        last_fetched: None
+    }).await.map_err(|e| format!("{}", e))?;
+
+    DbRelay::insert(DbRelay {
+        url: relay.clone(),
+        last_up: None,
+        last_try: None,
+        last_fetched: None,
+        rank: Some(3)
+    }).await.map_err(|e| format!("{}", e))?;
+
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn follow_author() -> Result<bool, String> {
+
+    let pk = "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49";
+
+    DbPerson::insert(DbPerson {
+        pubkey: PublicKeyHex(pk.to_owned()),
+        name: None,
+        about: None,
+        picture: None,
+        dns_id: None,
+        dns_id_valid: 0,
+        dns_id_last_checked: None,
+        followed: 1
+    }).await.map_err(|e| format!("{}", e))?;
+
+    for &relay in [
+        "wss://nostr-pub.wellorder.net",
+        "wss://nostr-relay.wlvs.space",
+        //"wss://nostr.onsats.org",
+    ].iter() {
+        DbPersonRelay::insert(DbPersonRelay {
+            person: pk.to_owned(),
+            relay: relay.to_owned(),
+            recommended: 0,
+            last_fetched: None
+        }).await.map_err(|e| format!("{}", e))?;
+
+        DbRelay::insert(DbRelay {
+            url: relay.to_owned(),
+            last_up: None,
+            last_try: None,
+            last_fetched: None,
+            rank: Some(3)
+        }).await.map_err(|e| format!("{}", e))?;
+    }
 
     Ok(true)
 }
