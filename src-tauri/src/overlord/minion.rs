@@ -91,9 +91,9 @@ impl Minion {
             lookback_filter.add_author(&pk, None);
         }
         lookback_filter.add_event_kind(EventKind::Metadata);
-        lookback_filter.add_event_kind(EventKind::RecommendRelay);
-        lookback_filter.add_event_kind(EventKind::ContactList);
-        lookback_filter.add_event_kind(EventKind::EventDeletion);
+        //lookback_filter.add_event_kind(EventKind::RecommendRelay);
+        //lookback_filter.add_event_kind(EventKind::ContactList);
+        //lookback_filter.add_event_kind(EventKind::EventDeletion);
         log::debug!(
             "Lookback Filter {}: {}",
             &self.url,
