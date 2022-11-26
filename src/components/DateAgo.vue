@@ -2,7 +2,12 @@
     import { reactive, onMounted } from 'vue'
 
     const props = defineProps(['date'])
-    const state = reactive({ ago: "", timeout: 500 })
+    const state = reactive({ ago: "", timeout: 500, hover: false })
+
+    const d = new Date(props.date * 1000);
+    const full = d.toLocaleString();
+
+    const locale = navigator.language; console.log(locale);
 
     function updateAgo() {
         let now = Date.now() / 1000;
@@ -56,7 +61,10 @@
 </script>
 
 <template>
-    <span class="dateago">{{ state.ago }}</span>
+    <span @mouseenter="state.hover=true" @mouseleave="state.hover=false">
+        <span v-if="state.hover">{{ full }}</span>
+        <span v-else class="dateago">{{ state.ago }}</span>
+    </span>
 </template>
 
 <style scoped>
