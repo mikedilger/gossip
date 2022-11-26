@@ -7,6 +7,10 @@
     import DateAgo from './DateAgo.vue'
     import Avatar from './Avatar.vue'
     import IconWalk from './IconWalk.vue'
+    import IconQuote from './IconQuote.vue'
+    import IconReply from './IconReply.vue'
+    import IconRepost from './IconRepost.vue'
+    import IconInfo from './IconInfo.vue'
 
     const props = defineProps({
         eventId: { type: String, required: true },
@@ -69,6 +73,16 @@
                 <Name :name="person.name"></Name>
                 <IconWalk v-if="person.followed"></IconWalk>
                 <Nip05 :nip05="person.dns_id==null ? '' : person.dns_id" :valid="person.dns_id_valid==1"></Nip05>
+                <span class="float-right faint">
+                    <IconReply></IconReply>
+                    <span class="space"></span>
+                    <IconQuote></IconQuote>
+                    <span class="space"></span>
+                    <IconRepost></IconRepost>
+                    <span class="space"></span>
+                    <IconInfo></IconInfo>
+                </span>
+                <br class="float-clear">
             </div>
         </div>
         <div class="post-content">
@@ -79,9 +93,9 @@
 
 <style scoped>
     div.post {
-        padding-top: 4px;
-        padding-bottom: 4px;
-        border-bottom: 1px dotted #505050;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #505050;
     }
     div.post-header {
         display: flex;
@@ -93,18 +107,28 @@
         flex: 1;
     }
     div.post-content {
-        color: white;
-        font-size: 1.2em;
+        color: rgba(255, 255, 255, 0.87);
+        font-size: 1.15em;
+        font-weight: 400;
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, san-serif;
         padding-top: 7px;
         padding-bottom: 3px;
         padding-left: 3em;
+        white-space: pre-wrap;
+    }
+    .faint {
+        opacity: 30%;
+    }
+    span.space {
+        padding-left: 0.5em;
+        padding-right: 0.5em;
     }
     @media (prefers-color-scheme: light) {
         div.post {
-            border-bottom: 1px dotted #e8e8e8;
+            border-bottom: 1px solid #e8e8e8;
         }
         div.post-content {
-            color: black;
+            color: #5d5c61;
         }
     }
 </style>
