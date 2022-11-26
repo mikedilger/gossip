@@ -1,5 +1,6 @@
 use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay};
 use crate::{BusMessage, Error, GLOBALS, Settings};
+use super::JsEvent;
 use futures::{SinkExt, StreamExt};
 use nostr_proto::{
     ClientMessage, Event, EventKind, Filters, Metadata, PublicKeyHex,
@@ -288,17 +289,18 @@ impl Minion {
         Ok(())
     }
 
-    async fn send_javascript_pushfeedevents(
+    async fn send_overlord_newevent(
         &self,
-        events: Vec<Event>
+        event: Event
     ) -> Result<(), Error> {
+        let js_event: JsEvent = event.into();
         if let Err(e) = self.bus_tx.send(BusMessage {
-            target: "to_javascript".to_string(),
+            target: "overlord".to_string(),
             source: self.url.0.clone(),
-            kind: "pushfeedevents".to_string(),
-            payload: serde_json::to_string(&events)?,
+            kind: "new_event".to_string(),
+            payload: serde_json::to_string(&js_event)?,
         }) {
-            log::error!("Unable to send pushfeedevents to javascript: {}", e);
+            log::error!("Unable to send new_event to overlord: {}", e);
         }
 
         Ok(())
@@ -363,7 +365,7 @@ impl Minion {
             EventKind::TextNote => {
                 log::debug!("Event(textnote) from {}", &self.url);
                 // Javascript needs to render this event on the feed:
-                self.send_javascript_pushfeedevents(vec![event]).await?;
+                self.send_overlord_newevent(event).await?;
             },
             EventKind::RecommendRelay => {
                 log::debug!("Event(recommend_relay) from {} [IGNORED]", &self.url);

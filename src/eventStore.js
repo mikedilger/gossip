@@ -3,8 +3,8 @@ import { defineStore } from 'pinia'
 export const useEventStore = defineStore('events', {
     state: () => ({
         // The event_map maps event IDs to Event structures like this
-        //    { id, pubkey, created_at, kind, tags, content }
-        //    These are nostr-proto/Event types
+        //    { id, pubkey, created_at, kind, content }
+        // Not included: 'raw', 'tags', 'ots'
         events: new Map(),
 
         // The metadata map maps event IDs onto Event metdata like this

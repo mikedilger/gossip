@@ -16,6 +16,12 @@ use minion::Minion;
 mod relay_picker;
 use relay_picker::{BestRelay, RelayPicker};
 
+mod feed;
+use feed::Feed;
+
+mod js_event;
+use js_event::JsEvent;
+
 #[derive(Clone, Debug, Serialize)]
 pub struct Reactions {
     pub upvotes: u64,
@@ -44,6 +50,7 @@ pub struct Overlord {
     bus_rx: Receiver<BusMessage>,
     minions: task::JoinSet<()>,
     minion_records: HashMap<task::Id, MinionRecord>,
+    feed: Feed,
 }
 
 impl Overlord {
@@ -58,7 +65,23 @@ impl Overlord {
             bus_tx, bus_rx,
             minions: task::JoinSet::new(),
             minion_records: HashMap::new(),
+            feed: Feed::new(),
         }
+    }
+
+    fn send_to_javascript(&mut self, bus_message: BusMessage) -> Result<(), Error> {
+        if self.javascript_is_ready {
+            log::trace!(
+                "sending to javascript: kind={} payload={}",
+                bus_message.kind,
+                bus_message.payload
+            );
+            self.app_handle.emit_all("from_rust", bus_message)?;
+        } else {
+            log::debug!("PUSHING early message");
+            self.early_messages_to_javascript.push(bus_message);
+        }
+        Ok(())
     }
 
     pub async fn run(&mut self) {
@@ -86,7 +109,7 @@ impl Overlord {
         self.settings.load().await?;
 
         // Tell javascript our setings
-        self.bus_tx.send(BusMessage {
+        self.send_to_javascript(BusMessage {
             target: "to_javascript".to_string(),
             source: "overlord".to_string(),
             kind: "setsettings".to_string(),
@@ -108,14 +131,25 @@ impl Overlord {
                 &format!(" kind=1 AND created_at > {} ORDER BY created_at ASC", then)
             )).await?;
 
+            let events: Vec<JsEvent> = events.iter().map(|e| e.into()).collect();
+
             // FIXME: build event_metadata as we go and send a 'setmetadata'
             //        with them.
 
-            self.bus_tx.send(BusMessage {
+            self.send_to_javascript(BusMessage {
                 target: "to_javascript".to_string(),
                 source: "overlord".to_string(),
-                kind: "pushfeedevents".to_string(),
+                kind: "addevents".to_string(),
                 payload: serde_json::to_string(&events)?,
+            })?;
+
+            self.feed.add_events(&*events);
+
+            self.send_to_javascript(BusMessage {
+                target: "to_javascript".to_string(),
+                source: "overlord".to_string(),
+                kind: "replacefeed".to_string(),
+                payload: serde_json::to_string(&self.feed.as_id_vec())?,
             })?;
         }
 
@@ -149,7 +183,7 @@ impl Overlord {
         let people = DbPerson::fetch(Some("followed=1")).await?;
 
         // Send these people to javascript
-        self.bus_tx.send(BusMessage {
+        self.send_to_javascript(BusMessage {
             target: "to_javascript".to_string(),
             source: "overlord".to_string(),
             kind: "setpeople".to_string(),
@@ -287,17 +321,7 @@ impl Overlord {
     fn handle_bus_message(&mut self, bus_message: BusMessage) -> Result<bool, Error> {
         match &*bus_message.target {
             "to_javascript" => {
-                if self.javascript_is_ready {
-                    log::trace!(
-                        "sending to javascript: kind={} payload={}",
-                        bus_message.kind,
-                        bus_message.payload
-                    );
-                    self.app_handle.emit_all("from_rust", bus_message)?;
-                } else {
-                    log::debug!("PUSHING early message");
-                    self.early_messages_to_javascript.push(bus_message);
-                }
+                self.send_to_javascript(bus_message)?;
             }
             "all" => match &*bus_message.kind {
                 "shutdown" => {
@@ -315,6 +339,24 @@ impl Overlord {
                     self.javascript_is_ready = true;
                     self.send_early_messages_to_javascript()?;
                 },
+                "new_event" => {
+                    let event: JsEvent = serde_json::from_str(&bus_message.payload)?;
+                    self.send_to_javascript(BusMessage {
+                        target: "to_javascript".to_string(),
+                        source: "overlord".to_string(),
+                        kind: "addevents".to_string(),
+                        payload: serde_json::to_string(&[&event])?,
+                    })?;
+
+                    self.feed.add_events(&[event]);
+
+                    self.send_to_javascript(BusMessage {
+                        target: "to_javascript".to_string(),
+                        source: "overlord".to_string(),
+                        kind: "replacefeed".to_string(),
+                        payload: serde_json::to_string(&self.feed.as_id_vec())?,
+                    })?;
+                }
                 _ => {}
             },
             _ => {}
