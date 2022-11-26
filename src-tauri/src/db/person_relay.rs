@@ -98,7 +98,7 @@ impl DbPersonRelay {
         if pubkeys.len()==0 { return Ok(0); }
 
         let sql = format!(
-            "SELECT min(last_fetched) FROM person_relay
+            "SELECT min(coalesce(last_fetched,0)) FROM person_relay
              WHERE relay=? AND person in ({})",
             repeat_vars(pubkeys.len())
         );
