@@ -9,6 +9,7 @@
     <MenuItem url="/" name="Feed"></MenuItem>
     <MenuItem url="/subscriptions" name="People"></MenuItem>
     <MenuItem url="/identities" name="Your Identity"></MenuItem>
+    <MenuItem url="/relays" name="Relays"></MenuItem>
     <MenuItem url="/settings" name="Settings"></MenuItem>
     <MenuItem url="/about" name="About"></MenuItem>
 </template>

@@ -9,6 +9,7 @@ import App from './App.vue'
 import PageFeed from './components/PageFeed.vue'
 import PageSubscriptions from './components/PageSubscriptions.vue'
 import PageIdentities from './components/PageIdentities.vue'
+import PageRelays from './components/PageRelays.vue'
 import PageSettings from './components/PageSettings.vue'
 import PageAbout from './components/PageAbout.vue'
 
@@ -16,6 +17,7 @@ const routes = [
     { path: '/', component: PageFeed },
     { path: '/subscriptions', component: PageSubscriptions },
     { path: '/identities', component: PageIdentities },
+    { path: '/relays', component: PageRelays },
     { path: '/settings', component: PageSettings },
     { path: '/about', component: PageAbout },
 ]
@@ -53,13 +55,13 @@ app.use(pinia);
             store.$patch({ feed: payload });
             break;
         case "setpeople":
-            console.log("SETTING " + payload.length + " PEOPLE");
             payload.forEach(person => store.people.set(person.pubkey, person))
             break;
         case "setsettings":
-            console.log("Settings: ");
-            console.log(payload);
             store.$patch({ settings: payload });
+            break;
+        case "setrelays":
+            payload.forEach(relay => store.relays.set(relay.url, relay))
             break;
         default:
             console.log("UNRECOGNIZED COMMAND from_rust " + rust_message.payload.kind)

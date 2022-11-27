@@ -120,6 +120,18 @@ impl Overlord {
         // updated from events without necessarily updating our relays list)
         DbRelay::populate_new_relays().await?;
 
+        // Send all relays to javascript
+        {
+            let relays = DbRelay::fetch(None).await?;
+
+            self.send_to_javascript(BusMessage {
+                relay_url: None,
+                target: "javascript".to_string(),
+                kind: "setrelays".to_string(),
+                payload: serde_json::to_string(&relays)?,
+            })?;
+        }
+
         // Load TextNote event data from database and send to javascript
         {
             let now = Unixtime::now().unwrap();

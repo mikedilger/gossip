@@ -24,6 +24,9 @@ export const useEventStore = defineStore('events', {
         //    These are gossip::db::DbPerson types
         people: new Map(),
 
+        // Relay map from URL to relay data
+        relays: new Map(),
+
         settings: {
             feed_chunk: 43200,
             overlap: 600,
