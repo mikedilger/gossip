@@ -1,15 +1,17 @@
 
 use crate::{BusMessage, Error, GLOBALS, Settings};
 use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
-use nostr_proto::{IdHex, Metadata, PublicKeyHex, Unixtime, Url};
+use nostr_proto::{Id, Event, EventKind, Metadata, PublicKeyHex, Tag, Unixtime, Url};
 use rusqlite::Connection;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use tauri::{AppHandle, Manager};
 use tokio::{select, task};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
+
+mod event_metadata;
+use event_metadata::EventMetadata;
 
 mod minion;
 use minion::Minion;
@@ -22,20 +24,6 @@ use feed::Feed;
 
 mod js_event;
 use js_event::JsEvent;
-
-#[derive(Clone, Debug, Serialize)]
-pub struct Reactions {
-    pub upvotes: u64,
-    pub downvotes: u64,
-    pub emojis: Vec<(char, u64)>
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct EventMetadata {
-    pub id: IdHex,
-    pub replies: Vec<IdHex>,
-    pub reactions: Reactions
-}
 
 pub struct Overlord {
     app_handle: AppHandle,
@@ -137,13 +125,27 @@ impl Overlord {
             let now = Unixtime::now().unwrap();
             let then = now.0 - self.settings.feed_chunk as i64;
             let events = DbEvent::fetch(Some(
-                &format!(" kind=1 AND created_at > {} ORDER BY created_at ASC", then)
+                &format!(" (kind=1 OR kind=5 OR kind=7) AND created_at > {} ORDER BY created_at ASC", then)
             )).await?;
 
-            let events: Vec<JsEvent> = events.iter().map(|e| e.into()).collect();
+            let metadata = Overlord::build_metadata(&events)?;
 
-            // FIXME: build event_metadata as we go and send a 'setmetadata'
-            //        with them.
+            // Send metadata to javascript
+            self.send_to_javascript(BusMessage {
+                relay_url: None,
+                target: "javascript".to_string(),
+                kind: "setmetadata".to_string(),
+                payload: serde_json::to_string(&metadata)?,
+            })?;
+
+            // Turn them into JsEvents for the front end
+            let events: Vec<JsEvent> = events.iter()
+                .filter(|e| e.kind==1) // Only TextNotes (deletes and reactions were processed above)
+                .map(|e| e.into())
+                .collect();
+
+            // TBD fetch replies that we didn't have (from before the feed chunk
+            //     but refered to in our events.
 
             self.send_to_javascript(BusMessage {
                 relay_url: None,
@@ -399,6 +401,79 @@ impl Overlord {
             self.app_handle.emit_all("from_rust", bus_message)?;
         }
         Ok(())
+    }
+
+    fn build_metadata(db_events: &[DbEvent]) -> Result<Vec<EventMetadata>, Error> {
+
+        let mut metadata: HashMap<Id, EventMetadata> = HashMap::new();
+
+        for db_event in db_events.iter() {
+
+            // Use the raw part, deserialize into a nostr-proto Event
+            let event: Event = serde_json::from_str(&db_event.raw)?;
+
+            // Get some metadata from tags that could apply to multiple
+            // kinds of events
+            //
+            // Some kinds seen in the wild:  nonce, p, e, t, client, content-warning,
+            //    subject, h, i, nostril, r, hashtag
+            for tag in event.tags.iter() {
+                match tag {
+                    Tag::Event { .. } => { }, // too specific to event types for this loop
+                    Tag::Pubkey { .. } => { }, // too specific to event types.
+                    Tag::Hashtag(s) => {
+                        let md = metadata
+                            .entry(event.id.into())
+                            .or_insert(EventMetadata::new(event.id.into()));
+                        md.hashtags.push(s.to_string());
+                    },
+                    Tag::Reference(r) => {
+                        let md = metadata
+                            .entry(event.id)
+                            .or_insert(EventMetadata::new(event.id.into()));
+                        md.urls.push(r.to_string());
+                    },
+                    Tag::Geohash(_) => { }, // not implemented
+                    Tag::Subject(s) => {
+                        let md = metadata
+                            .entry(event.id)
+                            .or_insert(EventMetadata::new(event.id.into()));
+                        md.subject = Some(s.to_string());
+                    }
+                    Tag::Nonce { .. } => { }, // not implemented
+                    Tag::Other { tag, data } => {
+                        if tag=="client"  && data.len() > 0 {
+                            let md = metadata
+                                .entry(event.id)
+                                .or_insert(EventMetadata::new(event.id.into()));
+                            md.client = Some(data[0].to_string());
+                        }
+                    },
+                    Tag::Empty => { }, // nothing to do
+                }
+            }
+
+            if event.kind == EventKind::EventDeletion {
+                for tag in event.tags.iter() {
+                    if let Tag::Event { id, .. } = tag { // Look for Tag::Event tags
+                        //te.id is the one that gets metadata
+                        let md = metadata
+                            .entry(*id)
+                            .or_insert(EventMetadata::new((*id).into()));
+                        md.deleted_reason = Some(event.content.clone());
+                    }
+                }
+            }
+            else if event.kind == EventKind::Reaction {
+                // TBD
+            }
+            else {
+                // TBD
+                // check if in reply to something else.
+            }
+        }
+
+        Ok(metadata.drain().map(|(_,v)| v).collect())
     }
 }
 
