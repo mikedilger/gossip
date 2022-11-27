@@ -66,7 +66,7 @@
                     <button @click="follow_key_and_relay()">Follow</button>
                 </div>
             </div>
-            <div class="section">
+            <div class="section" v-if="false">
                 <h2>NIP-35 DNS Identifier</h2>
 
                 <p>
