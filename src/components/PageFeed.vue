@@ -1,15 +1,22 @@
 <script setup>
-    import { storeToRefs } from 'pinia'
+    import { reactive } from 'vue'
     import { useEventStore } from '../eventStore.js'
     import Post from './Post.vue'
 
+    const pagestate = reactive({
+        redraw: 1
+    });
+
     const store = useEventStore()
-    const { feed } = storeToRefs(store)
+
+    store.$subscribe((mutation, state) => {
+        pagestate.redraw += 1;
+    })
 </script>
 
 <template>
-    <div v-if="feed.length > 0" class="main-scrollable">
-        <Post v-for="eventId in feed.slice().reverse()" :event-id="eventId"></Post>
+    <div v-if="store.feed.length > 0" class="main-scrollable" :key="pagestate.redraw">
+        <Post v-for="eventId in store.feed.slice().reverse()" :event-id="eventId"></Post>
     </div>
     <div v-else class="main-scrollable empty">
         <h3>Welcome to Gossip</h3>
