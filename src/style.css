@@ -83,19 +83,6 @@ button.selected {
     overflow: hidden;
 }
 
-@media (prefers-color-scheme: light) {
-    :root {
-        color: #5d5c61;
-        background-color: #ffffff;
-    }
-    a:hover {
-        color: #557a95;
-    }
-    button {
-        background-color: #e8e8e8;
-    }
-}
-
 .float-right {
     float: right;
 }
@@ -116,5 +103,25 @@ div.main-scrollable {
     padding-right: max(2em, 6vw);
     max-height: calc(100vh - 41px);
     overflow-y: scroll;
+}
+
+.border {
+    color: #505050;
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        color: #5d5c61;
+        background-color: #ffffff;
+    }
+    a:hover {
+        color: #557a95;
+    }
+    .border {
+        color: #e8e8e8;
+    }
+    button {
+        background-color: #e8e8e8;
+    }
 }
 
