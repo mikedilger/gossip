@@ -48,7 +48,6 @@ app.use(pinia);
             payload.forEach(event => store.events.set(event.id, event))
             break;
         case "setmetadata":
-            handle_setmetadata(payload);
             payload.forEach(metadata => store.metadata.set(metadata.id, metadata))
             break;
         case "replacefeed":
