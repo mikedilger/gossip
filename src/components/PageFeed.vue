@@ -20,13 +20,6 @@
 </template>
 
 <style scoped>
-    div.main-scrollable {
-        margin-top: 1em;
-        padding-right: max(2em, 6vw);
-        max-height: calc(100vh - 41px);
-        overflow-y: scroll;
-        word-break: break-word;
-    }
     div.empty {
         padding-top: 4em;
         text-align: center;

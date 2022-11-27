@@ -46,12 +46,3 @@
         <a href="https://github.com/nostr-protocol/nostr">Learn More about nostr</a>
     </div>
 </template>
-
-<style scoped>
-    div.main-scrollable {
-        margin-top: 1em;
-        padding-right: max(2em, 6vw);
-        max-height: calc(100vh - 41px);
-        overflow-y: scroll;
-    }
-</style>

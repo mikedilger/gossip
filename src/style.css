@@ -104,9 +104,17 @@ button.selected {
     float: clear;
 }
 
-div.center {
+.center {
     display: block;
     width: 50%;
     margin: auto;
     text-align: center;
 }
+
+div.main-scrollable {
+    margin-top: 1em;
+    padding-right: max(2em, 6vw);
+    max-height: calc(100vh - 41px);
+    overflow-y: scroll;
+}
+
