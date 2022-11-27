@@ -7,8 +7,6 @@
     const d = new Date(props.date * 1000);
     const full = d.toLocaleString();
 
-    const locale = navigator.language; console.log(locale);
-
     function updateAgo() {
         let now = Date.now() / 1000;
         let seconds = now - props.date;
