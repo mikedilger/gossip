@@ -115,6 +115,7 @@
         padding-bottom: 3px;
         padding-left: 3em;
         white-space: pre-wrap;
+        overflow-wrap: anywhere;
     }
     .faint {
         opacity: 30%;
