@@ -49,9 +49,6 @@ impl Minion {
         // Load settings
         self.settings.load().await?;
 
-        //FIXME -- IF last_fetched is null, look back 1 period for texts, infinite for other.
-        // else look back since last fetched for both.
-
         // Compute how far to look back
         let (feed_since, special_since) = {
 
@@ -70,7 +67,7 @@ impl Minion {
             let one_feedchunk_ago = Unixtime::now().unwrap().0 - self.settings.feed_chunk as i64;
             let feed_since = special_since.max(one_feedchunk_ago);
 
-            (Unixtime(special_since), Unixtime(feed_since))
+            (Unixtime(feed_since), Unixtime(special_since))
         };
 
         if self.pubkeys.len() == 0 {
@@ -90,7 +87,7 @@ impl Minion {
         //feed_filter.add_event_kind(EventKind::EventDeletion);
         feed_filter.since = Some(feed_since);
         log::debug!(
-            "Author Filter {}: {}",
+            "Feed Filter {}: {}",
             &self.url,
             serde_json::to_string(&feed_filter)?
         );
@@ -105,7 +102,7 @@ impl Minion {
         //special_filter.add_event_kind(EventKind::ContactList);
         special_filter.since = Some(special_since);
         log::debug!(
-            "Lookback Filter {}: {}",
+            "Special Filter {}: {}",
             &self.url,
             serde_json::to_string(&special_filter)?
         );
