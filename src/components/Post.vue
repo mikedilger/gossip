@@ -1,5 +1,6 @@
 <script setup>
     import { computed } from 'vue'
+    import { reactive } from 'vue'
     import { useEventStore } from '../eventStore.js'
     import Name from './Name.vue'
     import Nip05 from './Nip05.vue'
@@ -16,7 +17,15 @@
         eventId: { type: String, required: true },
     })
 
+    const pagestate = reactive({
+        redraw: 1
+    });
+
     const store = useEventStore()
+
+    store.$subscribe((mutation, state) => {
+        pagestate.redraw += 1;
+    })
 
     // We won't compute this, it shouldn't change in this
     // instance of the post component
@@ -59,39 +68,47 @@
 </script>
 
 <template>
-    <div v-if="ok" class="post">
-        <div class="post-header">
-            <div class="post-avatar">
-                <Avatar :url="person.picture"></Avatar>
+    <div v-if="ok" class="post" :key="pagestate.redraw">
+        <div>
+            <div class="post-header">
+                <div class="post-avatar">
+                    <Avatar :url="person.picture"></Avatar>
+                </div>
+                <div class="post-right-of-avatar">
+                    <PubKey :pubkey="event.pubkey"></PubKey>
+                    <span class="float-right">
+                        <DateAgo :date="event.created_at"></DateAgo>
+                    </span>
+                    <br class="float-clear">
+                    <Name :name="person.name"></Name>
+                    <IconWalk v-if="person.followed"></IconWalk>
+                    <Nip05 :nip05="person.dns_id==null ? '' : person.dns_id" :valid="person.dns_id_valid==1"></Nip05>
+                    <span class="float-right faint">
+                        <IconReply></IconReply>
+                        <span class="space"></span>
+                        <IconQuote></IconQuote>
+                        <span class="space"></span>
+                        <IconRepost></IconRepost>
+                        <span class="space"></span>
+                        <IconInfo></IconInfo>
+                    </span>
+                    <br class="float-clear">
+                </div>
             </div>
-            <div class="post-right-of-avatar">
-                <PubKey :pubkey="event.pubkey"></PubKey>
-                <span class="float-right">
-                    <DateAgo :date="event.created_at"></DateAgo>
-                </span>
-                <br class="float-clear">
-                <Name :name="person.name"></Name>
-                <IconWalk v-if="person.followed"></IconWalk>
-                <Nip05 :nip05="person.dns_id==null ? '' : person.dns_id" :valid="person.dns_id_valid==1"></Nip05>
-                <span class="float-right faint">
-                    <IconReply></IconReply>
-                    <span class="space"></span>
-                    <IconQuote></IconQuote>
-                    <span class="space"></span>
-                    <IconRepost></IconRepost>
-                    <span class="space"></span>
-                    <IconInfo></IconInfo>
-                </span>
-                <br class="float-clear">
+            <div v-if="post_metadata.deleted_reason != null">
+                <span class="deleted">DELETED:</span> {{ post_metadata.deleted_reason }}
             </div>
-        </div>
-        <div class="post-content">
-            {{ event.content }}
+            <div class="post-content" :class="post_metadata.deleted_reason!=null ? 'deleted' : ''">
+                {{ event.content }}
+            </div>
         </div>
     </div>
 </template>
 
 <style scoped>
+    div.tmp-metadata {
+        background: #808080;
+    }
     div.post {
         padding-top: 6px;
         padding-bottom: 6px;
@@ -116,6 +133,13 @@
         padding-left: 3em;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+    }
+    span.deleted {
+        color: red;
+    }
+    div.deleted {
+        opacity: 50%;
+        text-decoration: line-through;
     }
     .faint {
         opacity: 30%;

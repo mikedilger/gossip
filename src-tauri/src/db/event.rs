@@ -91,4 +91,22 @@ impl DbEvent {
 
         Ok(())
     }
+
+    #[allow(dead_code)]
+    pub async fn get_author(id: IdHex) -> Result<Option<PublicKeyHex>, Error> {
+        let sql = format!("SELECT pubkey FROM event WHERE id=?");
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(&sql)?;
+            let rows = stmt.query_map([id.0], |row| {
+                Ok(row.get(0)?)
+            })?;
+            for row in rows {
+                return Ok(Some(PublicKeyHex(row?)))
+            }
+            return Ok(None)
+        }).await?
+    }
 }

@@ -128,7 +128,8 @@ impl Overlord {
                 &format!(" (kind=1 OR kind=5 OR kind=7) AND created_at > {} ORDER BY created_at ASC", then)
             )).await?;
 
-            let metadata = Overlord::build_metadata(&events)?;
+
+            let metadata = Overlord::build_metadata(&events).await?;
 
             // Send metadata to javascript
             self.send_to_javascript(BusMessage {
@@ -155,6 +156,7 @@ impl Overlord {
             })?;
 
             self.feed.add_events(&*events);
+
 
             self.send_to_javascript(BusMessage {
                 relay_url: None,
@@ -403,7 +405,7 @@ impl Overlord {
         Ok(())
     }
 
-    fn build_metadata(db_events: &[DbEvent]) -> Result<Vec<EventMetadata>, Error> {
+    async fn build_metadata(db_events: &[DbEvent]) -> Result<Vec<EventMetadata>, Error> {
 
         let mut metadata: HashMap<Id, EventMetadata> = HashMap::new();
 
@@ -456,11 +458,20 @@ impl Overlord {
             if event.kind == EventKind::EventDeletion {
                 for tag in event.tags.iter() {
                     if let Tag::Event { id, .. } = tag { // Look for Tag::Event tags
-                        //te.id is the one that gets metadata
-                        let md = metadata
-                            .entry(*id)
-                            .or_insert(EventMetadata::new((*id).into()));
-                        md.deleted_reason = Some(event.content.clone());
+                        if let Some(original_event_pubkey) = DbEvent::get_author((*id).into()).await? {
+                            let deleter_pubkey: PublicKeyHex = event.pubkey.into();
+                            if original_event_pubkey == deleter_pubkey { // it matches
+                                //te.id is the one that gets metadata
+                                let md = metadata
+                                    .entry(*id)
+                                    .or_insert(EventMetadata::new((*id).into()));
+                                md.deleted_reason = Some(event.content.clone());
+                            } else {
+                                log::warn!("Someone trying to delete somebody else's post: \
+                                            original author {}, scoundrel {}",
+                                           original_event_pubkey, deleter_pubkey);
+                            }
+                        } // otherwise ignore it, we don't have the event to which it refers
                     }
                 }
             }
