@@ -114,6 +114,9 @@
             <div class="post-content" :class="post_metadata.deleted_reason!=null ? 'deleted' : ''">
                 {{ event.content }}
             </div>
+            <div v-if="post_metadata.replies.length>0" class="replies">
+                <Post v-for="eventId in post_metadata.replies" :event-id="eventId"></Post>
+            </div>
         </div>
     </div>
 </template>
@@ -168,6 +171,13 @@
     .icon {
         color: #ffffff;
         opacity: 20%;
+    }
+    div.replies {
+        margin-left: 1em;
+        padding-left: 1em;
+        border-left: 2px solid #b1a296;
+        padding-top: 7px;
+        padding-bottom: 3px;
     }
     span.space {
         padding-left: 0.5em;
