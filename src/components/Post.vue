@@ -44,7 +44,12 @@
                 upvotes: 0,
                 downvotes: 0,
                 emojis: []
-            }
+            },
+            deleted_reason: null,
+            client: null,
+            hashtags: [],
+            subject: null,
+            urls: []
         };
     })
 
@@ -83,7 +88,7 @@
                     <Name :name="person.name"></Name>
                     <IconWalk v-if="person.followed"></IconWalk>
                     <Nip05 :nip05="person.dns_id==null ? '' : person.dns_id" :valid="person.dns_id_valid==1"></Nip05>
-                    <span class="float-right faint">
+                    <span class="float-right icon">
                         <IconReply></IconReply>
                         <span class="space"></span>
                         <IconQuote></IconQuote>
@@ -95,8 +100,16 @@
                     <br class="float-clear">
                 </div>
             </div>
-            <div v-if="post_metadata.deleted_reason != null">
-                <span class="deleted">DELETED:</span> {{ post_metadata.deleted_reason }}
+            <div class="post-subheader">
+                <div v-if="post_metadata.deleted_reason != null">
+                    <span class="deleted">DELETED:</span> {{ post_metadata.deleted_reason }}
+                </div>
+                <div v-if="post_metadata.hashtags.length > 0" class="hashtags float-right">
+                    <span v-for="hashtag in post_metadata.hashtags" class="hashtag">#{{ hashtag }}</span>
+                </div>
+                <div v-if="post_metadata.subject != null">
+                    Subject: <span class="subject">{{ post_metadata.subject }}</span>
+                </div>
             </div>
             <div class="post-content" :class="post_metadata.deleted_reason!=null ? 'deleted' : ''">
                 {{ event.content }}
@@ -106,9 +119,6 @@
 </template>
 
 <style scoped>
-    div.tmp-metadata {
-        background: #808080;
-    }
     div.post {
         padding-top: 6px;
         padding-bottom: 6px;
@@ -123,37 +133,55 @@
     div.post-right-of-avatar {
         flex: 1;
     }
-    div.post-content {
-        color: rgba(255, 255, 255, 0.87);
-        font-size: 1.15em;
-        font-weight: 400;
-        font-family: "Segoe UI", Roboto, Helvetica, Arial, san-serif;
-        padding-top: 7px;
-        padding-bottom: 3px;
-        padding-left: 3em;
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-    }
     span.deleted {
         color: red;
+    }
+    div.post-subheader {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
     }
     div.deleted {
         opacity: 50%;
         text-decoration: line-through;
     }
-    .faint {
-        opacity: 30%;
+    span.subject {
+        font-weight: bold;
+    }
+    div.hashtags {
+        font-style: italic;
+    }
+    span.hashtag {
+        margin-left: 0.75em;
+    }
+    div.post-content {
+        float: clear;
+        color: rgba(255, 255, 255, 0.87);
+        font-size: 1.2em;
+        line-height: 1.4em;
+        font-weight: 400;
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, san-serif;
+        padding-top: 7px;
+        padding-bottom: 3px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+    .icon {
+        color: #ffffff;
+        opacity: 20%;
     }
     span.space {
         padding-left: 0.5em;
         padding-right: 0.5em;
     }
     @media (prefers-color-scheme: light) {
+        .icon {
+            color: #000000;
+        }
         div.post {
             border-bottom: 1px solid #e8e8e8;
         }
         div.post-content {
-            color: #5d5c61;
+            color: #383838;
         }
     }
 </style>
