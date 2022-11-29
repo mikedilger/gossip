@@ -107,7 +107,7 @@
                 <div v-if="post_metadata.hashtags.length > 0" class="hashtags float-right">
                     <span v-for="hashtag in post_metadata.hashtags" class="hashtag">#{{ hashtag }}</span>
                 </div>
-                <div v-if="post_metadata.subject != null">
+                <div v-if="post_metadata.subject != null" :class="post_metadata.deleted_reason!=null ? 'deleted' : ''">
                     Subject: <span class="subject">{{ post_metadata.subject }}</span>
                 </div>
             </div>
