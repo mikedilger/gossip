@@ -84,7 +84,7 @@ impl Minion {
         }
         feed_filter.add_event_kind(EventKind::TextNote);
         feed_filter.add_event_kind(EventKind::Reaction);
-        //feed_filter.add_event_kind(EventKind::EventDeletion);
+        feed_filter.add_event_kind(EventKind::EventDeletion);
         feed_filter.since = Some(feed_since);
         log::debug!(
             "Feed Filter {}: {}",
