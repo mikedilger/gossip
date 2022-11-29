@@ -461,10 +461,17 @@ impl Overlord {
                         Tag::Event { id, recommended_relay_url: _, marker } => {
                             if let Some(m) = marker {
                                 if m=="reply" {
+                                    // That note gets us in its 'replies'
                                     let md = metadata
                                         .entry(*id)
                                         .or_insert(EventMetadata::new((*id).into()));
                                     md.replies.push((event.id).into());
+
+                                    // We get them in our 'in_reply_to'
+                                    let md = metadata
+                                        .entry(event.id)
+                                        .or_insert(EventMetadata::new((event.id).into()));
+                                    md.in_reply_to = Some((*id).into());
                                 }
                             }
                         },

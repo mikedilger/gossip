@@ -23,6 +23,7 @@ impl Default for Reactions {
 pub struct EventMetadata {
     pub id: IdHex,
     pub replies: Vec<IdHex>,
+    pub in_reply_to: Option<IdHex>,
     pub reactions: Reactions,
     pub deleted_reason: Option<String>,
     pub client: Option<String>,
@@ -36,6 +37,7 @@ impl EventMetadata {
         EventMetadata {
             id: id,
             replies: Vec::new(),
+            in_reply_to: None,
             reactions: Default::default(),
             deleted_reason: None,
             client: None,

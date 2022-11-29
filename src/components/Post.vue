@@ -17,6 +17,10 @@
         eventId: { type: String, required: true },
     })
 
+    /*
+       JsEvent { id, pubkey, created_at, kind, content }
+     */
+
     const pagestate = reactive({
         redraw: 1
     });
@@ -40,6 +44,7 @@
         return {
             id: props.eventId,
             replies: [],
+            in_reply_to: null,
             reactions: {
                 upvotes: 0,
                 downvotes: 0,
