@@ -455,7 +455,24 @@ impl Overlord {
                 }
             }
 
-            if event.kind == EventKind::EventDeletion {
+            if event.kind == EventKind::TextNote {
+                for tag in event.tags.iter() {
+                    match tag {
+                        Tag::Event { id, recommended_relay_url: _, marker } => {
+                            if let Some(m) = marker {
+                                if m=="reply" {
+                                    let md = metadata
+                                        .entry(*id)
+                                        .or_insert(EventMetadata::new((*id).into()));
+                                    md.replies.push((event.id).into());
+                                }
+                            }
+                        },
+                        _ => { }
+                    }
+                }
+            }
+            else if event.kind == EventKind::EventDeletion {
                 for tag in event.tags.iter() {
                     if let Tag::Event { id, .. } = tag { // Look for Tag::Event tags
                         if let Some(original_event_pubkey) = DbEvent::get_author((*id).into()).await? {
