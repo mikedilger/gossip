@@ -1,6 +1,0 @@
-Display user public key identities with BIP-39 based on their public key
-mixed with a per-user longterm nonce. (the last part is so someone can't
-just mine a key that has the same BIP-39 output).
-
-Also show an icon on people you follow. Then if that icon is missing you
-can suspect an impostor.
