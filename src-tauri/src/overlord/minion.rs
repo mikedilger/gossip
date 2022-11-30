@@ -2,6 +2,7 @@ use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay};
 use crate::{BusMessage, Error, GLOBALS, Settings};
 use super::JsEvent;
 use futures::{SinkExt, StreamExt};
+use http::Uri;
 use nostr_proto::{
     ClientMessage, Event, EventKind, Filters, Metadata, PublicKeyHex,
     RelayMessage, SubscriptionId, Unixtime, Url,
@@ -11,7 +12,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::{WebSocketStream, MaybeTlsStream};
-use tungstenite::protocol::Message as WsMessage;
+use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 
 pub struct Minion {
     url: Url,
@@ -108,9 +109,42 @@ impl Minion {
         );
 
         // Connect to the relay
-        let (mut websocket_stream, _response) =
-            tokio_tungstenite::connect_async(&self.url.0).await?;
-        log::info!("Connected to {}", &self.url);
+        let mut websocket_stream = {
+            let uri: http::Uri = self.url.0.parse::<Uri>()?;
+            let authority = uri.authority().ok_or(Error::UrlHasNoHostname)?.as_str();
+            let host = authority
+                .find('@')
+                .map(|idx| authority.split_at(idx + 1).1)
+                .unwrap_or_else(|| authority);
+            if host.is_empty() {
+                return Err(Error::UrlHasEmptyHostname);
+            }
+
+            let key: [u8; 16] = rand::random();
+
+            let req = http::request::Request::builder()
+                .method("GET")
+                .header("Host", host)
+                .header("Connection", "Upgrade")
+                .header("Upgrade", "websocket")
+                .header("Sec-WebSocket-Version", "13")
+                .header("Sec-WebSocket-Key", base64::encode(&key))
+                .uri(uri)
+                .body(())?;
+
+            let config: WebSocketConfig = WebSocketConfig {
+                max_send_queue: None,
+                max_message_size: Some(1024*1024*16), // their default is 64 MiB, I choose 16 MiB
+                max_frame_size: Some(1024*1024*16), // their default is 16 MiB.
+                accept_unmasked_frames: true, // default is false which is the standard
+            };
+
+            let (websocket_stream, _response) =
+                tokio_tungstenite::connect_async_with_config(req, Some(config)).await?;
+            log::info!("Connected to {}", &self.url);
+
+            websocket_stream
+        };
 
         //let (mut write, mut read) = websocket_stream.split();
 

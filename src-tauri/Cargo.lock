@@ -1170,12 +1170,15 @@ dependencies = [
 name = "gossip"
 version = "0.1.0"
 dependencies = [
+ "base64 0.13.1",
  "dirs",
  "env_logger",
  "futures",
+ "http",
  "lazy_static",
  "log",
  "nostr-proto",
+ "rand 0.8.5",
  "rusqlite",
  "serde",
  "serde_json",
