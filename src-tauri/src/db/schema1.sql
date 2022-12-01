@@ -16,9 +16,8 @@ CREATE TABLE person (
 
 CREATE TABLE relay (
     url TEXT PRIMARY KEY NOT NULL,
-    last_up INTEGER DEFAULT NULL,
-    last_try INTEGER DEFAULT NULL,
-    last_fetched INTEGER DEFAULT NULL,
+    success_count INTEGER NOT NULL DEFAULT 0,
+    failure_count INTEGER NOT NULL DEFAULT 0,
     rank INTEGER DEFAULT 3
 ) WITHOUT ROWID;
 

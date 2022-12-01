@@ -5,16 +5,15 @@ use tauri::async_runtime::spawn_blocking;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbRelay {
     pub url: String,
-    pub last_up: Option<u64>,
-    pub last_try: Option<u64>,
-    pub last_fetched: Option<u64>,
+    pub success_count: u64,
+    pub failure_count: u64,
     pub rank: Option<u64>,
 }
 
 impl DbRelay {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
-        let sql = "SELECT url, last_up, last_try, last_fetched, rank FROM relay".to_owned();
+        let sql = "SELECT url, success_count, failure_count, rank FROM relay".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -28,10 +27,9 @@ impl DbRelay {
             let rows = stmt.query_map([], |row| {
                 Ok(DbRelay {
                     url: row.get(0)?,
-                    last_up: row.get(1)?,
-                    last_try: row.get(2)?,
-                    last_fetched: row.get(3)?,
-                    rank: row.get(4)?,
+                    success_count: row.get(1)?,
+                    failure_count: row.get(2)?,
+                    rank: row.get(3)?,
                 })
             })?;
 
@@ -49,7 +47,7 @@ impl DbRelay {
     #[allow(dead_code)]
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO relay (url, last_up, last_try, last_fetched, rank) \
+            "INSERT OR IGNORE INTO relay (url, success_count, failure_count, last_fetched, rank) \
              VALUES (?1, ?2, ?3, ?4, ?5)";
 
         spawn_blocking(move || {
@@ -59,9 +57,8 @@ impl DbRelay {
             let mut stmt = db.prepare(&sql)?;
             stmt.execute((
                 &relay.url,
-                &relay.last_up,
-                &relay.last_try,
-                &relay.last_fetched,
+                &relay.success_count,
+                &relay.failure_count,
                 &relay.rank
             ))?;
             Ok::<(), Error>(())

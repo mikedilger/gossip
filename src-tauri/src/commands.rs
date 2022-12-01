@@ -100,9 +100,8 @@ pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<bool,
 
     DbRelay::insert(DbRelay {
         url: relay.clone(),
-        last_up: None,
-        last_try: None,
-        last_fetched: None,
+        success_count: 0,
+        failure_count: 0,
         rank: Some(3)
     }).await.map_err(|e| format!("{}", e))?;
 
@@ -139,9 +138,8 @@ pub async fn follow_author() -> Result<bool, String> {
 
         DbRelay::insert(DbRelay {
             url: relay.to_owned(),
-            last_up: None,
-            last_try: None,
-            last_fetched: None,
+            success_count: 0,
+            failure_count: 0,
             rank: Some(3)
         }).await.map_err(|e| format!("{}", e))?;
     }
