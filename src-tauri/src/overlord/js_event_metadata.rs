@@ -20,7 +20,7 @@ impl Default for Reactions {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EventMetadata {
+pub struct JsEventMetadata {
     pub id: IdHex,
     pub replies: Vec<IdHex>,
     pub in_reply_to: Option<IdHex>,
@@ -32,9 +32,9 @@ pub struct EventMetadata {
     pub urls: Vec<String>,
 }
 
-impl EventMetadata {
-    pub fn new(id: IdHex) -> EventMetadata {
-        EventMetadata {
+impl JsEventMetadata {
+    pub fn new(id: IdHex) -> JsEventMetadata {
+        JsEventMetadata {
             id: id,
             replies: Vec::new(),
             in_reply_to: None,

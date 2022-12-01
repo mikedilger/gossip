@@ -10,9 +10,6 @@ use tokio::{select, task};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-mod event_metadata;
-use event_metadata::EventMetadata;
-
 mod minion;
 use minion::Minion;
 
@@ -24,6 +21,9 @@ use feed::Feed;
 
 mod js_event;
 use js_event::JsEvent;
+
+mod js_event_metadata;
+use js_event_metadata::JsEventMetadata;
 
 pub struct Overlord {
     app_handle: AppHandle,
@@ -140,7 +140,7 @@ impl Overlord {
             })?;
 
             // Turn them into JsEvents for the front end
-            let events: Vec<JsEvent> = events.iter()
+            let jsevents: Vec<JsEvent> = events.iter()
                 .filter(|e| e.kind==1) // Only TextNotes (deletes and reactions were processed above)
                 .map(|e| e.into())
                 .collect();
@@ -152,11 +152,10 @@ impl Overlord {
                 relay_url: None,
                 target: "javascript".to_string(),
                 kind: "addevents".to_string(),
-                payload: serde_json::to_string(&events)?,
+                payload: serde_json::to_string(&jsevents)?,
             })?;
 
-            self.feed.add_events(&*events);
-
+            self.feed.add_events(&*jsevents);
 
             self.send_to_javascript(BusMessage {
                 relay_url: None,
@@ -405,9 +404,9 @@ impl Overlord {
         Ok(())
     }
 
-    async fn build_metadata(db_events: &[DbEvent]) -> Result<Vec<EventMetadata>, Error> {
+    async fn build_metadata(db_events: &[DbEvent]) -> Result<Vec<JsEventMetadata>, Error> {
 
-        let mut metadata: HashMap<Id, EventMetadata> = HashMap::new();
+        let mut metadata: HashMap<Id, JsEventMetadata> = HashMap::new();
 
         for db_event in db_events.iter() {
 
@@ -426,20 +425,20 @@ impl Overlord {
                     Tag::Hashtag(s) => {
                         let md = metadata
                             .entry(event.id.into())
-                            .or_insert(EventMetadata::new(event.id.into()));
+                            .or_insert(JsEventMetadata::new(event.id.into()));
                         md.hashtags.push(s.to_string());
                     },
                     Tag::Reference(r) => {
                         let md = metadata
                             .entry(event.id)
-                            .or_insert(EventMetadata::new(event.id.into()));
+                            .or_insert(JsEventMetadata::new(event.id.into()));
                         md.urls.push(r.to_string());
                     },
                     Tag::Geohash(_) => { }, // not implemented
                     Tag::Subject(s) => {
                         let md = metadata
                             .entry(event.id)
-                            .or_insert(EventMetadata::new(event.id.into()));
+                            .or_insert(JsEventMetadata::new(event.id.into()));
                         md.subject = Some(s.to_string());
                     }
                     Tag::Nonce { .. } => { }, // not implemented
@@ -447,7 +446,7 @@ impl Overlord {
                         if tag=="client"  && data.len() > 0 {
                             let md = metadata
                                 .entry(event.id)
-                                .or_insert(EventMetadata::new(event.id.into()));
+                                .or_insert(JsEventMetadata::new(event.id.into()));
                             md.client = Some(data[0].to_string());
                         }
                     },
@@ -464,13 +463,13 @@ impl Overlord {
                                     // That note gets us in its 'replies'
                                     let md = metadata
                                         .entry(*id)
-                                        .or_insert(EventMetadata::new((*id).into()));
+                                        .or_insert(JsEventMetadata::new((*id).into()));
                                     md.replies.push((event.id).into());
 
                                     // We get them in our 'in_reply_to'
                                     let md = metadata
                                         .entry(event.id)
-                                        .or_insert(EventMetadata::new((event.id).into()));
+                                        .or_insert(JsEventMetadata::new((event.id).into()));
                                     md.in_reply_to = Some((*id).into());
                                 }
                             }
@@ -488,7 +487,7 @@ impl Overlord {
                                 //te.id is the one that gets metadata
                                 let md = metadata
                                     .entry(*id)
-                                    .or_insert(EventMetadata::new((*id).into()));
+                                    .or_insert(JsEventMetadata::new((*id).into()));
                                 md.deleted_reason = Some(event.content.clone());
                             } else {
                                 log::warn!("Someone trying to delete somebody else's post: \
