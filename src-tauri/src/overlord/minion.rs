@@ -1,6 +1,5 @@
 use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay, DbRelay};
 use crate::{BusMessage, Error, GLOBALS, Settings};
-use super::JsEvent;
 use futures::{SinkExt, StreamExt};
 use http::Uri;
 use nostr_proto::{
@@ -267,8 +266,13 @@ impl Minion {
                 if let Err(e) = event.verify(Some(maxtime)) {
                     log::error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
                 } else {
-                    self.save_event_in_database(&event).await?;
-                    self.process_event(*event).await?;
+                    self.save_event_in_database(&*event).await?;
+                    if event.kind == EventKind::Metadata {
+                        // We can handle these locally.
+                        self.process_metadata_event(*event).await?;
+                    } else {
+                        self.send_overlord_newevent(*event).await?;
+                    }
                 }
             }
             RelayMessage::Notice(msg) => {
@@ -351,16 +355,14 @@ impl Minion {
         &self,
         event: Event
     ) -> Result<(), Error> {
-        let js_event: JsEvent = event.into();
         self.to_overlord.send(BusMessage {
             relay_url: Some(self.url.0.clone()),
             target: "overlord".to_string(),
             kind: "new_event".to_string(),
-            payload: serde_json::to_string(&js_event)?,
+            payload: serde_json::to_string(&event)?,
         })?;
         Ok(())
     }
-
 
     async fn send_javascript_setpeople(
         &self,
@@ -376,67 +378,41 @@ impl Minion {
         Ok(())
     }
 
-    async fn process_event(
+    async fn process_metadata_event(
         &self,
         event: Event
     ) -> Result<(), Error> {
 
-        match event.kind {
-            EventKind::Metadata => {
-                log::debug!("Event(metadata) from {}", &self.url);
-                let created_at: u64 = event.created_at.0 as u64;
-                let metadata: Metadata = serde_json::from_str(&event.content)?;
-                if let Some(mut person) = DbPerson::fetch_one(event.pubkey.into()).await? {
-                    person.name = Some(metadata.name);
-                    person.about = metadata.about;
-                    person.picture = metadata.picture;
-                    if person.dns_id != metadata.nip05 {
-                        person.dns_id = metadata.nip05;
-                        person.dns_id_valid = 0; // changed so starts invalid
-                        person.dns_id_last_checked = match person.dns_id_last_checked {
-                            None => Some(created_at),
-                            Some(lc) => Some(created_at.max(lc)),
-                        }
-                    }
-                    DbPerson::update(person.clone()).await?;
-                    self.send_javascript_setpeople(vec![person]).await?;
-                } else {
-                    let person = DbPerson {
-                        pubkey: event.pubkey.into(),
-                        name: Some(metadata.name),
-                        about: metadata.about,
-                        picture: metadata.picture,
-                        dns_id: metadata.nip05,
-                        dns_id_valid: 0, // new so starts invalid
-                        dns_id_last_checked: Some(created_at),
-                        followed: 0
-                    };
-                    DbPerson::insert(person.clone()).await?;
-                    self.send_javascript_setpeople(vec![person]).await?;
+        log::debug!("Event(metadata) from {}", &self.url);
+        let created_at: u64 = event.created_at.0 as u64;
+        let metadata: Metadata = serde_json::from_str(&event.content)?;
+        if let Some(mut person) = DbPerson::fetch_one(event.pubkey.into()).await? {
+            person.name = Some(metadata.name);
+            person.about = metadata.about;
+            person.picture = metadata.picture;
+            if person.dns_id != metadata.nip05 {
+                person.dns_id = metadata.nip05;
+                person.dns_id_valid = 0; // changed so starts invalid
+                person.dns_id_last_checked = match person.dns_id_last_checked {
+                    None => Some(created_at),
+                    Some(lc) => Some(created_at.max(lc)),
                 }
-            },
-            EventKind::TextNote => {
-                log::debug!("Event(textnote) from {}", &self.url);
-                // Javascript needs to render this event on the feed:
-                self.send_overlord_newevent(event).await?;
-            },
-            EventKind::RecommendRelay => {
-                log::debug!("Event(recommend_relay) from {} [IGNORED]", &self.url);
-                // TBD
-            },
-            EventKind::ContactList => {
-                log::debug!("Event(contact_list) from {} [IGNORED]", &self.url);
-                // TBD
-            },
-            EventKind::EventDeletion => {
-                log::debug!("Event(deletion) from {} [IGNORED]", &self.url);
-                // TBD
-            },
-            EventKind::Reaction => {
-                log::debug!("Event(reaction) from {} [IGNORED]", &self.url);
-                // TBD
-            },
-            _ => { }
+            }
+            DbPerson::update(person.clone()).await?;
+            self.send_javascript_setpeople(vec![person]).await?;
+        } else {
+            let person = DbPerson {
+                pubkey: event.pubkey.into(),
+                name: Some(metadata.name),
+                about: metadata.about,
+                picture: metadata.picture,
+                dns_id: metadata.nip05,
+                dns_id_valid: 0, // new so starts invalid
+                dns_id_last_checked: Some(created_at),
+                followed: 0
+            };
+            DbPerson::insert(person.clone()).await?;
+            self.send_javascript_setpeople(vec![person]).await?;
         }
 
         Ok(())

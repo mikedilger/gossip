@@ -1,61 +1,110 @@
 
 use crate::db::DbEvent;
-use nostr_proto::Event;
-use serde::{Serialize, Deserialize};
+use nostr_proto::{Event, IdHex, PublicKeyHex};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Reactions {
+    pub upvotes: u64,
+    pub downvotes: u64,
+    pub emojis: Vec<(char, u64)>
+}
+
+impl Default for Reactions {
+    fn default() -> Reactions {
+        Reactions {
+            upvotes: 0,
+            downvotes: 0,
+            emojis: Vec::new()
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct JsEvent {
-    pub id: String,
-    pub pubkey: String,
-    pub created_at: i64,
-    pub kind: u64,
-    pub content: String
+    pub id: IdHex,
+    pub pubkey: Option<String>,
+    pub created_at: Option<i64>,
+    pub kind: Option<u64>,
+    pub content: Option<String>,
+    pub replies: Vec<IdHex>,
+    pub in_reply_to: Option<IdHex>,
+    pub reactions: Reactions,
+    pub deleted_reason: Option<String>,
+    pub client: Option<String>,
+    pub hashtags: Vec<String>,
+    pub subject: Option<String>,
+    pub urls: Vec<String>,
 }
 
-impl From<Event> for JsEvent {
-    fn from(e: Event) -> JsEvent {
+impl JsEvent {
+    pub fn new(id: IdHex) -> JsEvent {
         JsEvent {
-            id: e.id.as_hex_string(),
-            pubkey: e.pubkey.as_hex_string(),
-            created_at: e.created_at.0,
-            kind: e.kind.into(),
-            content: e.content,
+            id: id,
+            pubkey: None,
+            created_at: None,
+            kind: None,
+            content: None,
+            replies: Vec::new(),
+            in_reply_to: None,
+            reactions: Default::default(),
+            deleted_reason: None,
+            client: None,
+            hashtags: Vec::new(),
+            subject: None,
+            urls: Vec::new(),
         }
+    }
+
+    // Sometimes we start a JsEvent from new() because some other
+    // event wants to set some data about it before we have the
+    // actual main event part.  This is so we can set the actual
+    // main event part without erasing the metadata part
+    pub fn set_main_event_data(&mut self, event: JsEvent) {
+        self.id = event.id;
+        self.pubkey = event.pubkey;
+        self.created_at = event.created_at;
+        self.kind = event.kind;
+        self.content = event.content;
     }
 }
 
 impl From<&Event> for JsEvent {
-    fn from(e: &Event) -> JsEvent {
+    fn from(event: &Event) -> JsEvent {
         JsEvent {
-            id: e.id.as_hex_string(),
-            pubkey: e.pubkey.as_hex_string(),
-            created_at: e.created_at.0,
-            kind: e.kind.into(),
-            content: e.content.clone(),
-        }
-    }
-}
-
-impl From<DbEvent> for JsEvent {
-    fn from(e: DbEvent) -> JsEvent {
-        JsEvent {
-            id: e.id.0,
-            pubkey: e.pubkey.0,
-            created_at: e.created_at,
-            kind: e.kind,
-            content: e.content
+            id: From::from(event.id),
+            pubkey: Some(PublicKeyHex::from(event.pubkey).0),
+            created_at: Some(event.created_at.0),
+            kind: Some(u64::from(event.kind)),
+            content: Some(event.content.clone()),
+            replies: Vec::new(),
+            in_reply_to: None,
+            reactions: Default::default(),
+            deleted_reason: None,
+            client: None,
+            hashtags: Vec::new(),
+            subject: None,
+            urls: Vec::new(),
         }
     }
 }
 
 impl From<&DbEvent> for JsEvent {
-    fn from(e: &DbEvent) -> JsEvent {
+    fn from(dbevent: &DbEvent) -> JsEvent {
         JsEvent {
-            id: e.id.0.clone(),
-            pubkey: e.pubkey.0.clone(),
-            created_at: e.created_at,
-            kind: e.kind,
-            content: e.content.clone()
+            id: dbevent.id.clone(),
+            pubkey: Some(dbevent.pubkey.0.clone()),
+            created_at: Some(dbevent.created_at),
+            kind: Some(dbevent.kind),
+            content: Some(dbevent.content.clone()),
+            replies: Vec::new(),
+            in_reply_to: None,
+            reactions: Default::default(),
+            deleted_reason: None,
+            client: None,
+            hashtags: Vec::new(),
+            subject: None,
+            urls: Vec::new(),
         }
     }
 }

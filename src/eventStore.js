@@ -3,17 +3,28 @@ import { defineStore } from 'pinia'
 export const useEventStore = defineStore('events', {
     state: () => ({
         // The event_map maps event IDs to Event structures like this
-        //    { id, pubkey, created_at, kind, content }
+        // {
+        //   id,
+        //   pubkey,
+        //   created_at,
+        //   kind,
+        //   content,
+        //   replies: [],
+        //   in_reply_to: null,
+        //   reactions: {
+        //     upvotes: 0,
+        //     downvotes: 0,
+        //     emojis: [  😀: 2 ],
+        //   },
+        //   deleted_reason: null,
+        //   client: null,
+        //   hashtags: [],
+        //   subject: null,
+        //   urls: []
+        // }
+        //
         // Not included: 'raw', 'tags', 'ots'
         events: new Map(),
-
-        // The metadata map maps event IDs onto Event metdata like this
-        //    {
-        //      id,
-        //      replies: [ id, id, ... ],
-        //      reactions: { upvotes, downvotes, emojis [ 😀: 2 ] }
-        //    }
-        metadata: new Map(),
 
         // The feed is a list of event IDs to be rendered in REVERSE order
         feed: [],

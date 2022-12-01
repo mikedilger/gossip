@@ -1,7 +1,7 @@
 
 use crate::{BusMessage, Error, GLOBALS, Settings};
 use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
-use nostr_proto::{Id, Event, EventKind, Metadata, PublicKeyHex, Tag, Unixtime, Url};
+use nostr_proto::{Event, Metadata, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::fs;
@@ -10,20 +10,17 @@ use tokio::{select, task};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 
+mod event_processor;
+use event_processor::EventProcessor;
+
 mod minion;
 use minion::Minion;
 
 mod relay_picker;
 use relay_picker::{BestRelay, RelayPicker};
 
-mod feed;
-use feed::Feed;
-
 mod js_event;
 use js_event::JsEvent;
-
-mod js_event_metadata;
-use js_event_metadata::JsEventMetadata;
 
 pub struct Overlord {
     app_handle: AppHandle,
@@ -34,7 +31,7 @@ pub struct Overlord {
     from_minions: UnboundedReceiver<BusMessage>,
     minions: task::JoinSet<()>,
     minions_task_url: HashMap<task::Id, Url>,
-    feed: Feed,
+    event_processor: EventProcessor,
 }
 
 impl Overlord {
@@ -50,7 +47,7 @@ impl Overlord {
             to_minions, from_minions,
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
-            feed: Feed::new(),
+            event_processor: EventProcessor::new(),
         }
     }
 
@@ -120,48 +117,38 @@ impl Overlord {
             })?;
         }
 
-        // Load TextNote event data from database and send to javascript
+        // Load feed-related events from database and process (TextNote, EventDeletion, Reaction)
         {
             let now = Unixtime::now().unwrap();
             let then = now.0 - self.settings.feed_chunk as i64;
-            let events = DbEvent::fetch(Some(
+            let mut db_events = DbEvent::fetch(Some(
                 &format!(" (kind=1 OR kind=5 OR kind=7) AND created_at > {} ORDER BY created_at ASC", then)
             )).await?;
 
+            // Map db events into Events
+            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
+            for dbevent in db_events.iter() {
+                let e = serde_json::from_str(&dbevent.raw)?;
+                events.push(e);
+            }
 
-            let metadata = Overlord::build_metadata(&events).await?;
+            // Process these events
+            self.event_processor.add_events(&*events);
 
-            // Send metadata to javascript
+            // Send processed JsEvents to javascript
             self.send_to_javascript(BusMessage {
                 relay_url: None,
                 target: "javascript".to_string(),
-                kind: "setmetadata".to_string(),
-                payload: serde_json::to_string(&metadata)?,
+                kind: "setevents".to_string(),
+                payload: serde_json::to_string(&self.event_processor.get_js_events())?,
             })?;
 
-            // Turn them into JsEvents for the front end
-            let jsevents: Vec<JsEvent> = events.iter()
-                .filter(|e| e.kind==1) // Only TextNotes (deletes and reactions were processed above)
-                .map(|e| e.into())
-                .collect();
-
-            // TBD fetch replies that we didn't have (from before the feed chunk
-            //     but refered to in our events.
-
-            self.send_to_javascript(BusMessage {
-                relay_url: None,
-                target: "javascript".to_string(),
-                kind: "addevents".to_string(),
-                payload: serde_json::to_string(&jsevents)?,
-            })?;
-
-            self.feed.add_events(&*jsevents);
-
+            // Send computed feed to javascript
             self.send_to_javascript(BusMessage {
                 relay_url: None,
                 target: "javascript".to_string(),
                 kind: "replacefeed".to_string(),
-                payload: serde_json::to_string(&self.feed.as_id_vec())?,
+                payload: serde_json::to_string(&self.event_processor.get_feed())?,
             })?;
         }
 
@@ -366,21 +353,31 @@ impl Overlord {
                     // after startup we may need this.
                 },
                 "new_event" => {
-                    let event: JsEvent = serde_json::from_str(&bus_message.payload)?;
+                    // FIXME - on startup, relays will stream a lot of events
+                    //         quickly. Rather than making all these fast changes
+                    //         on the frontend, maybe we should batch them up
+                    //         and update the front end every 500ms or so?
+
+                    let event: Event = serde_json::from_str(&bus_message.payload)?;
+                    let changed_events = self.event_processor.add_events(&[event]);
+
+                    log::info!("Received new event from {} affecting {} events",
+                               bus_message.relay_url.unwrap(), changed_events.len());
+
+                    // Update javascript with added and changed events
                     self.send_to_javascript(BusMessage {
                         relay_url: None,
                         target: "javascript".to_string(),
-                        kind: "addevents".to_string(),
-                        payload: serde_json::to_string(&[&event])?,
+                        kind: "setevents".to_string(),
+                        payload: serde_json::to_string(&changed_events)?,
                     })?;
 
-                    self.feed.add_events(&[event]);
-
+                    // Update javascript, replace feed
                     self.send_to_javascript(BusMessage {
                         relay_url: None,
                         target: "javascript".to_string(),
                         kind: "replacefeed".to_string(),
-                        payload: serde_json::to_string(&self.feed.as_id_vec())?,
+                        payload: serde_json::to_string(&self.event_processor.get_feed())?,
                     })?;
                 },
                 _ => {}
@@ -402,112 +399,6 @@ impl Overlord {
             self.app_handle.emit_all("from_rust", bus_message)?;
         }
         Ok(())
-    }
-
-    async fn build_metadata(db_events: &[DbEvent]) -> Result<Vec<JsEventMetadata>, Error> {
-
-        let mut metadata: HashMap<Id, JsEventMetadata> = HashMap::new();
-
-        for db_event in db_events.iter() {
-
-            // Use the raw part, deserialize into a nostr-proto Event
-            let event: Event = serde_json::from_str(&db_event.raw)?;
-
-            // Get some metadata from tags that could apply to multiple
-            // kinds of events
-            //
-            // Some kinds seen in the wild:  nonce, p, e, t, client, content-warning,
-            //    subject, h, i, nostril, r, hashtag
-            for tag in event.tags.iter() {
-                match tag {
-                    Tag::Event { .. } => { }, // too specific to event types for this loop
-                    Tag::Pubkey { .. } => { }, // too specific to event types.
-                    Tag::Hashtag(s) => {
-                        let md = metadata
-                            .entry(event.id.into())
-                            .or_insert(JsEventMetadata::new(event.id.into()));
-                        md.hashtags.push(s.to_string());
-                    },
-                    Tag::Reference(r) => {
-                        let md = metadata
-                            .entry(event.id)
-                            .or_insert(JsEventMetadata::new(event.id.into()));
-                        md.urls.push(r.to_string());
-                    },
-                    Tag::Geohash(_) => { }, // not implemented
-                    Tag::Subject(s) => {
-                        let md = metadata
-                            .entry(event.id)
-                            .or_insert(JsEventMetadata::new(event.id.into()));
-                        md.subject = Some(s.to_string());
-                    }
-                    Tag::Nonce { .. } => { }, // not implemented
-                    Tag::Other { tag, data } => {
-                        if tag=="client"  && data.len() > 0 {
-                            let md = metadata
-                                .entry(event.id)
-                                .or_insert(JsEventMetadata::new(event.id.into()));
-                            md.client = Some(data[0].to_string());
-                        }
-                    },
-                    Tag::Empty => { }, // nothing to do
-                }
-            }
-
-            if event.kind == EventKind::TextNote {
-                for tag in event.tags.iter() {
-                    match tag {
-                        Tag::Event { id, recommended_relay_url: _, marker } => {
-                            if let Some(m) = marker {
-                                if m=="reply" {
-                                    // That note gets us in its 'replies'
-                                    let md = metadata
-                                        .entry(*id)
-                                        .or_insert(JsEventMetadata::new((*id).into()));
-                                    md.replies.push((event.id).into());
-
-                                    // We get them in our 'in_reply_to'
-                                    let md = metadata
-                                        .entry(event.id)
-                                        .or_insert(JsEventMetadata::new((event.id).into()));
-                                    md.in_reply_to = Some((*id).into());
-                                }
-                            }
-                        },
-                        _ => { }
-                    }
-                }
-            }
-            else if event.kind == EventKind::EventDeletion {
-                for tag in event.tags.iter() {
-                    if let Tag::Event { id, .. } = tag { // Look for Tag::Event tags
-                        if let Some(original_event_pubkey) = DbEvent::get_author((*id).into()).await? {
-                            let deleter_pubkey: PublicKeyHex = event.pubkey.into();
-                            if original_event_pubkey == deleter_pubkey { // it matches
-                                //te.id is the one that gets metadata
-                                let md = metadata
-                                    .entry(*id)
-                                    .or_insert(JsEventMetadata::new((*id).into()));
-                                md.deleted_reason = Some(event.content.clone());
-                            } else {
-                                log::warn!("Someone trying to delete somebody else's post: \
-                                            original author {}, scoundrel {}",
-                                           original_event_pubkey, deleter_pubkey);
-                            }
-                        } // otherwise ignore it, we don't have the event to which it refers
-                    }
-                }
-            }
-            else if event.kind == EventKind::Reaction {
-                // TBD
-            }
-            else {
-                // TBD
-                // check if in reply to something else.
-            }
-        }
-
-        Ok(metadata.drain().map(|(_,v)| v).collect())
     }
 }
 

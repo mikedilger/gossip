@@ -44,11 +44,8 @@ app.use(pinia);
         console.log("HANDLING RUST COMMAND " + rust_message.payload.kind)
 
         switch (rust_message.payload.kind) {
-        case "addevents":
+        case "setevents":
             payload.forEach(event => store.events.set(event.id, event))
-            break;
-        case "setmetadata":
-            payload.forEach(metadata => store.metadata.set(metadata.id, metadata))
             break;
         case "replacefeed":
             store.$patch({ feed: payload });

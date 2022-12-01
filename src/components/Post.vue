@@ -17,10 +17,6 @@
         eventId: { type: String, required: true },
     })
 
-    /*
-       JsEvent { id, pubkey, created_at, kind, content }
-     */
-
     const pagestate = reactive({
         redraw: 1
     });
@@ -31,18 +27,14 @@
         pagestate.redraw += 1;
     })
 
-    // We won't compute this, it shouldn't change in this
-    // instance of the post component
-    const event = store.events.get(props.eventId);
-    const ok = typeof event !== 'undefined';
-
-    // But new post metadata might be uploaded, so we compute this
-    const post_metadata = computed(() => {
-        if (store.metadata.has(props.eventId)) {
-            return store.metadata.get(props.eventId);
-        }
-        return {
+    let event = store.events.get(props.eventId);
+    if (event == null) {
+        event = {
             id: props.eventId,
+            pubkey: "",
+            created_at: 0,
+            kind: 0,
+            content: "",
             replies: [],
             in_reply_to: null,
             reactions: {
@@ -56,15 +48,14 @@
             subject: null,
             urls: []
         };
-    })
+    }
 
-    // And new person data might be uploaded, so we compute this
-    // too
-    const person = computed(() => {
-        if (ok && store.people.has(event.pubkey)) {
-            return store.people.get(event.pubkey);
-        }
-        return {
+    const ok = event.pubkey !== null;
+
+    // And new person data might be uploaded, so we compute this too
+    let person = store.people.get(event.pubkey);
+    if (person == null) {
+        person = {
             pubkey: event.pubkey,
             name: "",
             about: "",
@@ -74,7 +65,7 @@
             dns_id_last_checked: null,
             followed: 0
         };
-    })
+    }
 </script>
 
 <template>
@@ -106,21 +97,21 @@
                 </div>
             </div>
             <div class="post-subheader">
-                <div v-if="post_metadata.deleted_reason != null">
-                    <span class="deleted">DELETED:</span> {{ post_metadata.deleted_reason }}
+                <div v-if="event.deleted_reason != null">
+                    <span class="deleted">DELETED:</span> {{ event.deleted_reason }}
                 </div>
-                <div v-if="post_metadata.hashtags.length > 0" class="hashtags float-right">
-                    <span v-for="hashtag in post_metadata.hashtags" class="hashtag">#{{ hashtag }}</span>
+                <div v-if="event.hashtags.length > 0" class="hashtags float-right">
+                    <span v-for="hashtag in event.hashtags" class="hashtag">#{{ hashtag }}</span>
                 </div>
-                <div v-if="post_metadata.subject != null" :class="post_metadata.deleted_reason!=null ? 'deleted' : ''">
-                    Subject: <span class="subject">{{ post_metadata.subject }}</span>
+                <div v-if="event.subject != null" :class="event.deleted_reason!=null ? 'deleted' : ''">
+                    Subject: <span class="subject">{{ event.subject }}</span>
                 </div>
             </div>
-            <div class="post-content" :class="post_metadata.deleted_reason!=null ? 'deleted' : ''">
+            <div class="post-content" :class="event.deleted_reason!=null ? 'deleted' : ''">
                 {{ event.content }}
             </div>
-            <div v-if="post_metadata.replies.length>0" class="replies">
-                <Post v-for="eventId in post_metadata.replies" :event-id="eventId"></Post>
+            <div v-if="event.replies.length>0" class="replies">
+                <Post v-for="eventId in event.replies" :event-id="eventId"></Post>
             </div>
         </div>
     </div>
