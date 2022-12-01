@@ -1,4 +1,4 @@
-use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay};
+use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay, DbRelay};
 use crate::{BusMessage, Error, GLOBALS, Settings};
 use super::JsEvent;
 use futures::{SinkExt, StreamExt};
@@ -20,6 +20,7 @@ pub struct Minion {
     to_overlord: UnboundedSender<BusMessage>,
     from_overlord: Receiver<BusMessage>,
     settings: Settings,
+    dbrelay: Option<DbRelay>,
 }
 
 impl Minion {
@@ -29,7 +30,8 @@ impl Minion {
 
         Minion {
             url, pubkeys, to_overlord, from_overlord,
-            settings: Default::default()
+            settings: Default::default(),
+            dbrelay: None,
         }
     }
 }
@@ -39,6 +41,14 @@ impl Minion {
         // Catch errors, Return nothing.
         if let Err(e) = self.handle_inner().await {
             log::error!("ERROR handling {}: {}", &self.url, e);
+        }
+
+        // Bump the failure count for the relay.
+        if let Some(dbrelay) = &mut self.dbrelay {
+            dbrelay.failure_count += 1;
+            if let Err(e) = DbRelay::update(dbrelay.clone()).await {
+                log::error!("ERROR bumping relay failure count {}: {}", &self.url, e);
+            }
         }
 
         // Should we signal that we are exiting?
@@ -157,6 +167,18 @@ impl Minion {
         let wire = serde_json::to_string(&message)?;
         websocket_stream.send(WsMessage::Text(wire.clone())).await?;
         //log::debug!("Sent {}", &wire);
+
+        // Bump the success count for the relay
+        {
+            let maybe_dbrelay = DbRelay::fetch_one(&self.url).await?;
+            if let Some(mut dbrelay) = maybe_dbrelay {
+                dbrelay.success_count += 1;
+                DbRelay::update(dbrelay.clone()).await?;
+                self.dbrelay = Some(dbrelay);
+            } else {
+                log::error!("Could not load relay to update success count: {}", self.url);
+            }
+        }
 
         // Tell the overlord we are ready to receive commands
         self.tell_overlord_we_are_ready().await?;

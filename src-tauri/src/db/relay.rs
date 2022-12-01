@@ -1,4 +1,5 @@
 use crate::{Error, GLOBALS};
+use nostr_proto::Url;
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::spawn_blocking;
 
@@ -45,6 +46,19 @@ impl DbRelay {
     }
 
     #[allow(dead_code)]
+    pub async fn fetch_one(url: &Url) -> Result<Option<DbRelay>, Error> {
+        let relays = DbRelay::fetch(
+            Some(&format!("url='{}'",url))
+        ).await?;
+
+        if relays.len() == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(relays[0].clone()))
+        }
+    }
+
+    #[allow(dead_code)]
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let sql =
             "INSERT OR IGNORE INTO relay (url, success_count, failure_count, last_fetched, rank) \
@@ -60,6 +74,28 @@ impl DbRelay {
                 &relay.success_count,
                 &relay.failure_count,
                 &relay.rank
+            ))?;
+            Ok::<(), Error>(())
+        }).await??;
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub async fn update(relay: DbRelay) -> Result<(), Error> {
+        let sql =
+            "UPDATE relay SET success_count=?, failure_count=?, rank=? WHERE url=?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+            stmt.execute((
+                &relay.success_count,
+                &relay.failure_count,
+                &relay.rank,
+                &relay.url,
             ))?;
             Ok::<(), Error>(())
         }).await??;
