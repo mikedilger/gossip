@@ -61,8 +61,8 @@ impl DbRelay {
     #[allow(dead_code)]
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO relay (url, success_count, failure_count, last_fetched, rank) \
-             VALUES (?1, ?2, ?3, ?4, ?5)";
+            "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank) \
+             VALUES (?1, ?2, ?3, ?4)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
