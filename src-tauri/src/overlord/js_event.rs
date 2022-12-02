@@ -35,6 +35,7 @@ pub struct JsEvent {
     pub hashtags: Vec<String>,
     pub subject: Option<String>,
     pub urls: Vec<String>,
+    pub last_reply_at: Option<i64>,
 }
 
 impl JsEvent {
@@ -53,6 +54,7 @@ impl JsEvent {
             hashtags: Vec::new(),
             subject: None,
             urls: Vec::new(),
+            last_reply_at: None,
         }
     }
 
@@ -66,6 +68,8 @@ impl JsEvent {
         self.created_at = event.created_at;
         self.kind = event.kind;
         self.content = event.content;
+
+        self.last_reply_at = event.created_at;
     }
 }
 
@@ -85,6 +89,7 @@ impl From<&Event> for JsEvent {
             hashtags: Vec::new(),
             subject: None,
             urls: Vec::new(),
+            last_reply_at: Some(event.created_at.0),
         }
     }
 }
@@ -105,6 +110,7 @@ impl From<&DbEvent> for JsEvent {
             hashtags: Vec::new(),
             subject: None,
             urls: Vec::new(),
+            last_reply_at: Some(dbevent.created_at),
         }
     }
 }

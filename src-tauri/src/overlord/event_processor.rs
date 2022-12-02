@@ -61,7 +61,7 @@ impl EventProcessor {
             .map(|e| e.clone())
             .collect();
         log::info!("New feed, length={} (of {} events)", feed.len(), self.js_events.len());
-        feed.sort_unstable_by(|a,b| a.created_at.cmp(&b.created_at));
+        feed.sort_unstable_by(|a,b| a.last_reply_at.cmp(&b.last_reply_at));
         feed.iter().map(|e| e.id.0.clone()).collect()
     }
 
@@ -91,10 +91,29 @@ impl EventProcessor {
                     if event.kind == EventKind::TextNote {
                         if let Some(m) = marker {
                             if m=="reply" {
+                                // Mark our 'in_reply_to'
                                 get_js_event!(self, event.id).in_reply_to = Some((*id).into());
-                                get_js_event!(self, *id).replies.push(event.id.into());
                                 changed.push(event.id);
-                                changed.push(*id);
+
+                                // Add ourself to the parent's replies
+                                get_js_event!(self, *id).replies.push(event.id.into());
+                                // we push to changed in the loop below
+
+                                // Update the last_reply_at all the way up the chain
+                                let mut xid = *id;
+                                loop {
+                                    let e = get_js_event!(self, xid);
+                                    changed.push(xid);
+                                    if let Some(other) = e.last_reply_at {
+                                        e.last_reply_at = Some(other.max(event.created_at.0));
+                                    } else {
+                                        e.last_reply_at = Some(event.created_at.0);
+                                    }
+                                    xid = match e.in_reply_to {
+                                        Some(ref id) => Id::try_from_hex_string(&id.0).unwrap(),
+                                        None => break,
+                                    }
+                                }
                             }
                         }
                     }

@@ -20,7 +20,8 @@ export const useEventStore = defineStore('events', {
         //   client: null,
         //   hashtags: [],
         //   subject: null,
-        //   urls: []
+        //   urls: [],
+        //   last_reply_at: null
         // }
         //
         // Not included: 'raw', 'tags', 'ots'
