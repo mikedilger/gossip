@@ -9,7 +9,7 @@
     import PubKey from './PubKey.vue'
 
     const pagestate = reactive({
-        redraw: 1,
+        redraw_following: 1,
         tab: 'add_new',
         address: null,
         pubkey: null,
@@ -19,25 +19,29 @@
 
     const store = useEventStore();
 
+    store.$subscribe((mutation, state) => {
+        pagestate.redraw_following += 1;
+    })
+
     // store.people.
     //    { pubkey, name, about, picture,
     //      dns_id, dns_id_valid, dns_id_last_checked, followed }
 
     function follow_nip35() {
         invoke('follow_nip35', { address: pagestate.address })
-            .then((success) => pagestatea.alert = "Client restart required")
+            .then((success) => { })
             .catch((error) => pagestate.alert = error)
     }
 
     function follow_key_and_relay() {
         invoke('follow_key_and_relay', { pubkey: pagestate.pubkey, relay: pagestate.relay })
-            .then((success) => pagestate.alert = "Client restart required")
+            .then((person) => {  store.people.set(person.pubkey, person) })
             .catch((error) => pagestate.alert = error)
     }
 
     function follow_author() {
         invoke('follow_author', { })
-            .then((success) => pagestate.alert = "Client restart required")
+            .then((success) => {  store.people.set(person.pubkey, person) })
             .catch((error) => pagestate.alert = error)
     }
 
@@ -107,7 +111,7 @@
                 </div>
             </div>
         </div>
-        <div v-if="pagestate.tab=='following'" :key="pagestate.redraw">
+        <div v-if="pagestate.tab=='following'" :key="pagestate.redraw_following">
             <h2>Following</h2>
             <p v-for="[pubkey,person] in store.people" :key="person.pubkey">
                 <div class="person-row">

@@ -79,25 +79,41 @@ pub async fn follow_nip35(_address: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<bool, String> {
-    DbPerson::insert(DbPerson {
-        pubkey: PublicKeyHex(pubkey.clone()),
-        name: None,
-        about: None,
-        picture: None,
-        dns_id: None,
-        dns_id_valid: 0,
-        dns_id_last_checked: None,
-        followed: 1
-    }).await.map_err(|e| format!("{}", e))?;
+pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPerson, String> {
 
-    DbPersonRelay::insert(DbPersonRelay {
-        person: pubkey,
-        relay: relay.clone(),
-        recommended: 0,
-        last_fetched: None
-    }).await.map_err(|e| format!("{}", e))?;
+    let pubkeyhex = PublicKeyHex(pubkey.clone());
 
+    // Create or update them
+    let person = match DbPerson::fetch_one(pubkeyhex.clone())
+        .await
+        .map_err(|e| format!("{}", e))?
+    {
+        Some(mut person) => {
+            person.followed = 1;
+            DbPerson::update(person.clone())
+                .await
+                .map_err(|e| format!("{}", e))?;
+            person
+        }
+        None => {
+            let person = DbPerson {
+                pubkey: pubkeyhex.clone(),
+                name: None,
+                about: None,
+                picture: None,
+                dns_id: None,
+                dns_id_valid: 0,
+                dns_id_last_checked: None,
+                followed: 1
+            };
+            DbPerson::insert(person.clone())
+                .await
+                .map_err(|e| format!("{}", e))?;
+            person
+        }
+    };
+
+    // Insert (or ignore) this relay
     DbRelay::insert(DbRelay {
         url: relay.clone(),
         success_count: 0,
@@ -105,44 +121,53 @@ pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<bool,
         rank: Some(3)
     }).await.map_err(|e| format!("{}", e))?;
 
-    Ok(true)
+    // Insert (or ignore) this person's relay
+    DbPersonRelay::insert(DbPersonRelay {
+        person: pubkey,
+        relay: relay,
+        recommended: 0,
+        last_fetched: None
+    }).await.map_err(|e| format!("{}", e))?;
+
+    // Tell the overlord to update the  minion to watch for their events
+    // possibly starting a new minion if necessary.
+    // FIXME TODO
+
+    // Reply to javascript with the person which will be set in the store
+    Ok(person)
 }
 
 #[tauri::command]
-pub async fn follow_author() -> Result<bool, String> {
-
-    let pk = "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49";
-
-    DbPerson::insert(DbPerson {
-        pubkey: PublicKeyHex(pk.to_owned()),
-        name: None,
-        about: None,
-        picture: None,
-        dns_id: None,
-        dns_id_valid: 0,
-        dns_id_last_checked: None,
-        followed: 1
-    }).await.map_err(|e| format!("{}", e))?;
+pub async fn follow_author() -> Result<DbPerson, String> {
+    let public_key = "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49".to_string();
+    let relay = "wss://nostr.mikedilger.com".to_string();
+    let person = follow_key_and_relay(public_key.clone(), relay.clone()).await?;
 
     for &relay in [
         "wss://nostr-pub.wellorder.net",
         "wss://nostr-relay.wlvs.space",
-        //"wss://nostr.onsats.org",
+        "wss://nostr.onsats.org",
+	    "wss://nostr.oxtr.dev",
+	    "wss://relay.nostr.info"
     ].iter() {
-        DbPersonRelay::insert(DbPersonRelay {
-            person: pk.to_owned(),
-            relay: relay.to_owned(),
-            recommended: 0,
-            last_fetched: None
-        }).await.map_err(|e| format!("{}", e))?;
-
         DbRelay::insert(DbRelay {
-            url: relay.to_owned(),
+            url: relay.to_string(),
             success_count: 0,
             failure_count: 0,
             rank: Some(3)
         }).await.map_err(|e| format!("{}", e))?;
+
+        DbPersonRelay::insert(DbPersonRelay {
+            person: public_key.clone(),
+            relay: relay.to_string(),
+            recommended: 0,
+            last_fetched: None
+        }).await.map_err(|e| format!("{}", e))?;
     }
 
-    Ok(true)
+    // Tell the overlord to update the  minion to watch for their events
+    // possibly starting a new minion if necessary.
+    // FIXME TODO
+
+    Ok(person)
 }
