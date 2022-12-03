@@ -86,6 +86,27 @@ impl DbSetting {
     }
 
     #[allow(dead_code)]
+    pub async fn set(setting: DbSetting) -> Result<(), Error>
+    {
+        let sql =
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+            stmt.execute((
+                &setting.key,
+                &setting.value
+            ))?;
+            Ok::<(), Error>(())
+        }).await??;
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
     pub async fn insert(setting: DbSetting) -> Result<(), Error> {
         let sql =
             "INSERT OR IGNORE INTO settings (key, value) \

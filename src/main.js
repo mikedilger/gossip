@@ -59,6 +59,13 @@ app.use(pinia);
         case "setrelays":
             payload.forEach(relay => store.relays.set(relay.url, relay))
             break;
+        case "needpassword":
+            store.need_password = true;
+            break;
+        case "publickey":
+            store.public_key = payload;
+            store.need_password = false;
+            break;
         default:
             console.log("UNRECOGNIZED COMMAND from_rust " + rust_message.payload.kind)
         }

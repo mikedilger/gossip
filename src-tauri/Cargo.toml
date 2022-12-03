@@ -32,6 +32,7 @@ thiserror = "1.0"
 tokio = { version = "1", features = [ "full" ] }
 tokio-tungstenite = { version = "0.17", features = [ "rustls-tls-native-roots" ] }
 tungstenite = { version = "0.17", features = [ "rustls-tls-native-roots" ] }
+zeroize = "1.5"
 
 [features]
 # by default Tauri runs in production mode

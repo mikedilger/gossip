@@ -71,8 +71,7 @@ CREATE TABLE event_seen (
 );
 
 INSERT INTO settings (key, value) values ('version', '1');
-INSERT INTO settings (key, value) values ('user_public_key', '');
-INSERT INTO settings (key, value) values ('user_private_key', '');
+-- INSERT INTO settings (key, value) values ('user_private_key', ''); -- no setting if no key
 INSERT INTO settings (key, value) values ('overlap', '600');
 INSERT INTO settings (key, value) values ('feed_chunk', '43200');
 INSERT INTO settings (key, value) values ('autofollow', '0');

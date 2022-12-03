@@ -1,5 +1,5 @@
 use serde::Serialize;
-use crate::{BusMessage, GLOBALS, Settings};
+use crate::{BusMessage, GLOBALS, PasswordPacket, Settings};
 use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use nostr_proto::PublicKeyHex;
 
@@ -66,9 +66,8 @@ pub async fn save_settings(settings: Settings) -> Result<bool, String> {
         kind: "settings_changed".to_string(),
         payload: serde_json::to_string(&settings).map_err(|e| format!("{}", e))?
     }) {
-        log::error!("Unable to send javascript_is_ready: {}", e);
+        log::error!("Unable to send settings changed command: {}", e);
     }
-
 
     Ok(true)
 }
@@ -170,4 +169,42 @@ pub async fn follow_author() -> Result<DbPerson, String> {
     // FIXME TODO
 
     Ok(person)
+}
+
+#[tauri::command]
+pub async fn generate(password: String) -> Result<(), String> {
+    let password_packet = PasswordPacket(password);
+
+    // Send it to the overlord
+    let tx = GLOBALS.to_overlord.clone();
+    if let Err(e) = tx.send(BusMessage {
+        relay_url: None,
+        target: "overlord".to_string(),
+        kind: "generate".to_string(),
+        payload: serde_json::to_string(&password_packet)
+            .map_err(|e| format!("{}", e))?
+    }) {
+        log::error!("Unable to send password to the overlord for generate: {}", e);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn unlock(password: String) -> Result<(), String> {
+    let password_packet = PasswordPacket(password);
+
+    // Send it to the overlord
+    let tx = GLOBALS.to_overlord.clone();
+    if let Err(e) = tx.send(BusMessage {
+        relay_url: None,
+        target: "overlord".to_string(),
+        kind: "unlock".to_string(),
+        payload: serde_json::to_string(&password_packet)
+            .map_err(|e| format!("{}", e))?
+    }) {
+        log::error!("Unable to send password to the overlord for unlock: {}", e);
+    }
+
+    Ok(())
 }

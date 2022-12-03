@@ -7,11 +7,12 @@
 extern crate lazy_static;
 
 use rusqlite::Connection;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::env;
-use std::ops::DerefMut;
+use std::ops::{DerefMut, Drop};
 use tokio::sync::{broadcast, mpsc};
 use tokio::sync::Mutex;
+use zeroize::Zeroize;
 
 mod commands;
 
@@ -43,6 +44,22 @@ pub struct BusMessage {
     pub payload: String,
 }
 
+// We send passwords through BusMessage objects, so we need to zero out
+// bus message payloads upon drop.
+impl Drop for BusMessage {
+    fn drop(&mut self) {
+        self.payload.zeroize();
+    }
+}
+
+// This is not public because 'Serialize' is a leak.
+#[derive(Serialize, Deserialize)]
+struct PasswordPacket(String);
+impl Drop for PasswordPacket {
+    fn drop(&mut self) {
+        self.0.zeroize();
+    }
+}
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -103,6 +120,8 @@ fn main() {
             commands::follow_nip35,
             commands::follow_key_and_relay,
             commands::follow_author,
+            commands::generate,
+            commands::unlock,
         ])
         .setup(|app| {
             let app_handle = app.handle();

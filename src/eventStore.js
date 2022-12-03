@@ -43,6 +43,10 @@ export const useEventStore = defineStore('events', {
             feed_chunk: 43200,
             overlap: 600,
             autofollow: 0
-        }
+        },
+
+        need_password: false,
+
+        public_key: null,
     }),
 })

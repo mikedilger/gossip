@@ -1,7 +1,7 @@
 
-use crate::{BusMessage, Error, GLOBALS, Settings};
-use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
-use nostr_proto::{Event, Metadata, PublicKeyHex, Unixtime, Url};
+use crate::{BusMessage, Error, GLOBALS, PasswordPacket, Settings};
+use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay, DbSetting};
+use nostr_proto::{Event, Metadata, PrivateKey, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::fs;
@@ -32,6 +32,7 @@ pub struct Overlord {
     minions: task::JoinSet<()>,
     minions_task_url: HashMap<task::Id, Url>,
     event_processor: EventProcessor,
+    private_key: Option<PrivateKey>, // note that PrivateKey already zeroizes on drop
 }
 
 impl Overlord {
@@ -48,6 +49,7 @@ impl Overlord {
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
             event_processor: EventProcessor::new(),
+            private_key: None,
         }
     }
 
@@ -97,6 +99,18 @@ impl Overlord {
             kind: "setsettings".to_string(),
             payload: serde_json::to_string(&self.settings)?,
         })?;
+
+
+        // Check if we have a private key (don't bother loading it, we don't have the password yet)
+        if let Some(_) = DbSetting::fetch_setting("user_private_key").await? {
+            // Tell javascript we need the password
+            self.send_to_javascript(BusMessage {
+                relay_url: None,
+                target: "javascript".to_string(),
+                kind: "needpassword".to_string(),
+                payload: serde_json::to_string("")?,
+            })?;
+        }
 
         // Create a person record for every person seen, possibly autofollow
         DbPerson::populate_new_people(self.settings.autofollow!=0).await?;
@@ -268,7 +282,7 @@ impl Overlord {
                     return Ok(false);
                 }
             };
-            keepgoing = self.handle_bus_message(bus_message)?;
+            keepgoing = self.handle_bus_message(bus_message).await?;
         } else {
             // We need to listen on the bus, and for completed tasks
             select! {
@@ -280,7 +294,7 @@ impl Overlord {
                             return Ok(false);
                         }
                     };
-                    keepgoing = self.handle_bus_message(bus_message)?;
+                    keepgoing = self.handle_bus_message(bus_message).await?;
                 },
                 task_next_joined = self.minions.join_next_with_id() => {
                     if task_next_joined.is_none() {
@@ -319,7 +333,7 @@ impl Overlord {
         Ok(keepgoing)
     }
 
-    fn handle_bus_message(&mut self, bus_message: BusMessage) -> Result<bool, Error> {
+    async fn handle_bus_message(&mut self, bus_message: BusMessage) -> Result<bool, Error> {
         match &*bus_message.target {
             "javascript" => {
                 self.send_to_javascript(bus_message)?;
@@ -362,7 +376,8 @@ impl Overlord {
                     let changed_events = self.event_processor.add_events(&[event]);
 
                     log::info!("Received new event from {} affecting {} events",
-                               bus_message.relay_url.unwrap(), changed_events.len());
+                               bus_message.relay_url.as_ref().unwrap(),
+                               changed_events.len());
 
                     // Update javascript with added and changed events
                     self.send_to_javascript(BusMessage {
@@ -379,6 +394,48 @@ impl Overlord {
                         kind: "replacefeed".to_string(),
                         payload: serde_json::to_string(&self.event_processor.get_feed())?,
                     })?;
+                },
+                "generate" => {
+                    let password: PasswordPacket = serde_json::from_str(&bus_message.payload)?;
+
+                    self.private_key = Some(PrivateKey::generate());
+
+                    let encrypted_private_key = self.private_key.as_ref().unwrap()
+                        .export_encrypted(&password.0)?;
+
+                    let user_private_key_setting = DbSetting {
+                        key: "user_private_key".to_string(),
+                        value: encrypted_private_key.clone()
+                    };
+
+                    DbSetting::set(user_private_key_setting).await?;
+
+                    // Let javascript know our public key
+                    self.send_to_javascript(BusMessage {
+                        relay_url: None,
+                        target: "javascript".to_string(),
+                        kind: "publickey".to_string(),
+                        payload: serde_json::to_string(
+                            &self.private_key.as_ref().unwrap().public_key().as_hex_string()
+                        )?
+                    })?;
+                },
+                "unlock" => {
+                    let password: PasswordPacket = serde_json::from_str(&bus_message.payload)?;
+
+                    if let Some(epk) = DbSetting::fetch_setting("user_private_key").await? {
+                        self.private_key = Some(PrivateKey::import_encrypted(&epk, &password.0)?);
+
+                        // Let javascript know our public key
+                        self.send_to_javascript(BusMessage {
+                            relay_url: None,
+                            target: "javascript".to_string(),
+                            kind: "publickey".to_string(),
+                            payload: serde_json::to_string(
+                                &self.private_key.as_ref().unwrap().public_key().as_hex_string()
+                            )?
+                        })?;
+                    }
                 },
                 _ => {}
             },
