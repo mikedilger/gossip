@@ -88,6 +88,6 @@ pub struct BestRelay {
 
 impl BestRelay {
     pub fn is_degenerate(&self) -> bool {
-        self.pubkeys.len() == 0
+        self.pubkeys.len() == 0 || self.relay.rank == Some(0)
     }
 }
