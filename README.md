@@ -4,7 +4,7 @@ Gossip is a desktop client for nostr.
 
 Nostr is "Notes and Other Stuff Transmitted by Relays."
 
-This is pre-alpha code. I hope to have the first alpha release before 10 December 2022, but I cannot promise anything.
+This is pre-alpha code. It is not ready for use.
 
 ## Features
 
