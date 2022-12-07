@@ -16,21 +16,21 @@ This is pre-alpha code. It is not ready for use.
 ## nostr features supported
 
 - Reads and displays type=1 (TextNote) events in a feed sorted by time created.
-- Processes type=0 (Metadata) events to show user information on events in your feed (name, avatar)
-- Lets you subscribe to a person (via public key and relay), but currently requires a restart
-- Lets you subscribe to the author, but currently requires a restart
+    - Shows replies under the message they reply to
+    - Shows deleted events struck out with red deleted marker.
+- Shows people you subscribe to in the Person tab
+    - Processes type=0 (Metadata) events to show user information on events in your feed (name, avatar)
+    - Lets you subscribe to a person (via public key and relay), but currently requires a restart
+- Lets you generate an ID (private key) and stores that key encrypted under a passphrase, zeroing memory when finished with it where it can.
 - Settings: feed chunk size, overlap, autofollow, but these don't work right yet.
 
 ## nostr features planned for first alpha release
 
 - [ ] Lets you import an ID (private key)
-- [ ] Lets you generate an ID (key pair)
 - [ ] Lets you choose and manage relays you post to
 - [ ] Lets you post messages
-- [ ] Shows replies under the message they reply to
 - [ ] Shows reactions (but maybe not yet react yourself)
 - [ ] Lets you 'load more' older posts if you want to look back further
-- [ ] Handle delete events somehow (either delete or grey out)
 
 ## nostr features planned for subsequent releases
 
@@ -39,7 +39,6 @@ This is pre-alpha code. It is not ready for use.
 - [ ] Lets you react to other people's posts
 - [ ] Lets you show events from people you don't follow if they reply to a post you do
 - [ ] Lets you mute someone
-- [ ] More secure private key handling
 - [ ] Lets you rank relays
 - [ ] Shows links as links
 - [ ] Shows images inline (option to wait for your approval)
