@@ -45,26 +45,34 @@ app.use(pinia);
 
         switch (rust_message.payload.kind) {
         case "setevents":
-            payload.forEach(event => store.events.set(event.id, event))
+            store.$patch((state) => {
+                payload.forEach(event => state.events.set(event.id, event))
+            })
             break;
         case "replacefeed":
             store.$patch({ feed: payload });
             break;
         case "setpeople":
-            payload.forEach(person => store.people.set(person.pubkey, person))
+            store.$patch((state) => {
+                payload.forEach(person => state.people.set(person.pubkey, person))
+            })
             break;
         case "setsettings":
             store.$patch({ settings: payload });
             break;
         case "setrelays":
-            payload.forEach(relay => store.relays.set(relay.url, relay))
+            store.$patch((state) => {
+                payload.forEach(relay => state.relays.set(relay.url, relay))
+            })
             break;
         case "needpassword":
             store.need_password = true;
             break;
         case "publickey":
-            store.public_key = payload;
-            store.need_password = false;
+            store.$patch((state) => {
+                state.public_key = payload;
+                state.need_password = false;
+            })
             break;
         default:
             console.log("UNRECOGNIZED COMMAND from_rust " + rust_message.payload.kind)
