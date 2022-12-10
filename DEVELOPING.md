@@ -11,25 +11,68 @@ This app is developed using the following tools:
 * [Cargo](https://crates.io/) - Rust package manager
 * [Tauri](https://tauri.app/) - Desktop webview based app development and runtime system
 
+---
+
 ## Setup your Build Environment
 
-### ArchLinux
+### System Packages
+
+Everything in this section could also be installed under your user account in your home directory. But typically the things in this section are installed globally on your computer, so that is how our instructions read.
+
+#### ArchLinux
 
 ````sh
 $ sudo pacman -Syu
 $ sudo pacman -S --needed \
-       webkit2gtk \
-       base-devel \
-       curl \
-       wget \
-       openssl \
-       appmenu-gtk-module \
-       gtk3 \
-       libappindicator-gtk3 \
-       librsvg \
-       libvips \
-       yarn
+        webkit2gtk \
+        base-devel \
+        curl \
+        wget \
+        openssl \
+        appmenu-gtk-module \
+        gtk3 \
+        libappindicator-gtk3 \
+        librsvg \
+        libvips
 ````
+
+(We may have left off npm and nodejs, I can't check right now my archlinux system
+has a hardware failure.)
+
+#### Debian
+
+````sh
+$ sudo apt install \
+        libwebkit2gtk-4.0-dev \
+        build-essential \
+        curl \
+        wget \
+        libssl-dev \
+        libgtk-3-dev \
+        libayatana-appindicator3-dev \
+        librsvg2-dev
+````
+
+### Local Installations
+
+#### Node
+
+Outside of ArchLinux and other bleeding-edge linuxes, you'll probably need to manage nodejs and related packages under your user account inside of your home directory. We presume this in this section.
+
+Get node version manager https://github.com/nvm-sh/nvm.  The following may be out of date:
+
+````
+$ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | bash
+````
+
+After restarting your shell,
+
+```
+$ nvm install 18
+$ nvm use 18
+```
+
+#### Rust
 
 If you do not have rust installed yet:
 
@@ -37,7 +80,7 @@ If you do not have rust installed yet:
 $ curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 ````
 
-In any case
+In any casev
 
 ````sh
 $ rustup update
@@ -46,13 +89,33 @@ $ cargo install tauri-cli
 
 Minimum rust version is 1.64 (for the process_set_process_group feature).
 
-## Develop
+#### Yarn
 
-Install yarn dependencies
+Install yarn (1.x)
 
-````sh
+````
+$ npm install yarn
+````
+
+## Clone and Prepare
+
+You are reading this so you may have already cloned.
+Otherwise:
+
+````
+$ git clone https://github.com/mikedilger/gossip
+$ cd gossip
+````
+
+### Project package installation
+
+````
 $ yarn install
 ````
+
+---
+
+## Develop
 
 Start up vue-devtools before the app
 
@@ -86,6 +149,8 @@ cargo tauri build --debug
 
 Output is in `src-tauri/target/debug/gossip`
 
+---
+
 ## Upgrading dependencies
 
 ### Yarn
@@ -99,6 +164,8 @@ $ yarn upgrade @tauri-apps/cli @tauri-apps/api --latest
 ````sh
 $ cargo update
 ````
+
+---
 
 ## How the app was initialized (no need to do this again)
 
