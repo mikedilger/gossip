@@ -101,14 +101,29 @@ impl Overlord {
         })?;
 
 
-        // Check if we have a private key (don't bother loading it, we don't have the password yet)
+        // Load our private key
         if let Some(_) = DbSetting::fetch_setting("user_private_key").await? {
+            // We don't bother loading the value just yet because we don't have
+            // the password.
+
             // Tell javascript we need the password
             self.send_to_javascript(BusMessage {
                 relay_url: None,
                 target: "javascript".to_string(),
                 kind: "needpassword".to_string(),
                 payload: serde_json::to_string("")?,
+            })?;
+        } else if let Some(upkn) = DbSetting::fetch_setting("user_private_key_naked").await? {
+            self.private_key = Some(PrivateKey::try_from_hex_string(&upkn)?);
+
+            // Let javascript know our public key
+            self.send_to_javascript(BusMessage {
+                relay_url: None,
+                target: "javascript".to_string(),
+                kind: "publickey".to_string(),
+                payload: serde_json::to_string(
+                    &self.private_key.as_ref().unwrap().public_key().as_hex_string()
+                )?
             })?;
         }
 
@@ -135,7 +150,7 @@ impl Overlord {
         {
             let now = Unixtime::now().unwrap();
             let then = now.0 - self.settings.feed_chunk as i64;
-            let mut db_events = DbEvent::fetch(Some(
+            let db_events = DbEvent::fetch(Some(
                 &format!(" (kind=1 OR kind=5 OR kind=7) AND created_at > {} ORDER BY created_at ASC", then)
             )).await?;
 
@@ -437,6 +452,27 @@ impl Overlord {
                         })?;
                     }
                 },
+                "import_key" => {
+                    let private_key_hex = serde_json::from_str(&bus_message.payload)?;
+                    self.private_key = Some(PrivateKey::try_from_hex_string(private_key_hex)?);
+
+                    // Save it
+                    let user_private_key_setting = DbSetting {
+                        key: "user_private_key_naked".to_string(),
+                        value: private_key_hex.to_string(),
+                    };
+                    DbSetting::set(user_private_key_setting).await?;
+
+                    // Let javascript know our public key
+                    self.send_to_javascript(BusMessage {
+                        relay_url: None,
+                        target: "javascript".to_string(),
+                        kind: "publickey".to_string(),
+                        payload: serde_json::to_string(
+                            &self.private_key.as_ref().unwrap().public_key().as_hex_string()
+                        )?
+                    })?;
+                }
                 _ => {}
             },
             _ => {}

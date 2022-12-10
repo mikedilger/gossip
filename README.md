@@ -21,12 +21,13 @@ This is pre-alpha code. It is not ready for use.
 - Shows people you subscribe to in the Person tab
     - Processes type=0 (Metadata) events to show user information on events in your feed (name, avatar)
     - Lets you subscribe to a person (via public key and relay), but currently requires a restart
-- Lets you generate an ID (private key) and stores that key encrypted under a passphrase, zeroing memory when finished with it where it can.
+- Identity:
+    - Lets you generate an ID (private key) and stores that key encrypted under a passphrase, zeroing memory when finished with it where it can.
+    - Lets you import an ID (private key)
 - Settings: feed chunk size, overlap, autofollow, but these don't work right yet.
 
 ## nostr features planned for first alpha release
 
-- [ ] Lets you import an ID (private key)
 - [ ] Lets you choose and manage relays you post to
 - [ ] Lets you post messages
 - [ ] Shows reactions (but maybe not yet react yourself)

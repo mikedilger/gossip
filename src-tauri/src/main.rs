@@ -122,6 +122,7 @@ fn main() {
             commands::follow_author,
             commands::generate,
             commands::unlock,
+            commands::import_key
         ])
         .setup(|app| {
             let app_handle = app.handle();

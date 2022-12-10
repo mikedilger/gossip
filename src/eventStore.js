@@ -48,5 +48,7 @@ export const useEventStore = defineStore('events', {
         need_password: false,
 
         public_key: null,
+
+        key_security: null,
     }),
 })

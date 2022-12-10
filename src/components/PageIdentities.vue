@@ -6,7 +6,8 @@
     const pagestate = reactive({
         redraw: 1,
         alert: null,
-        password: ""
+        password: "",
+        private_key: "",
     });
 
     const store = useEventStore()
@@ -14,6 +15,16 @@
     store.$subscribe((mutation, state) => {
         pagestate.redraw += 1;
     })
+
+    function import_key() {
+        invoke('import_key', { privatekey: pagestate.private_key })
+            .then((public_key) => {
+                store.public_key = public_key;
+            })
+            .catch((error) => {
+                pagestate.alert = error
+            })
+    }
 
     function generate() {
         let password_copy = pagestate.password;
@@ -73,7 +84,8 @@
             <div>
                 <b>Weak Security</b> - Import your private Key
                 <br>
-                TBD.
+                Private Key: <input type="text" v-model="pagestate.private_key" />
+                <button @click="import_key()">Import</button>
                 <ul>
                     <li>By using this, your private key is likely displayed on the screen</li>
                     <li>By using this, your private key probably remains in unallocated memory via the cut-n-paste buffer</li>
