@@ -1,8 +1,9 @@
 
-use crate::{BusMessage, Error, GLOBALS, PasswordPacket, Settings};
+use crate::{BusMessage, Error, GLOBALS, KeyPasswordPacket, PasswordPacket, Settings};
 use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay, DbSetting};
 use nostr_proto::{Event, Metadata, PrivateKey, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use tauri::{AppHandle, Manager};
@@ -112,18 +113,6 @@ impl Overlord {
                 target: "javascript".to_string(),
                 kind: "needpassword".to_string(),
                 payload: serde_json::to_string("")?,
-            })?;
-        } else if let Some(upkn) = DbSetting::fetch_setting("user_private_key_naked").await? {
-            self.private_key = Some(PrivateKey::try_from_hex_string(&upkn)?);
-
-            // Let javascript know our public key
-            self.send_to_javascript(BusMessage {
-                relay_url: None,
-                target: "javascript".to_string(),
-                kind: "publickey".to_string(),
-                payload: serde_json::to_string(
-                    &self.private_key.as_ref().unwrap().public_key().as_hex_string()
-                )?
             })?;
         }
 
@@ -425,14 +414,18 @@ impl Overlord {
 
                     DbSetting::set(user_private_key_setting).await?;
 
+                    let pkref = self.private_key.as_ref().unwrap();
+                    let pki = PublicKeyInfo {
+                        public_key: pkref.public_key().as_hex_string(),
+                        key_security: pkref.key_security() as u8
+                    };
+
                     // Let javascript know our public key
                     self.send_to_javascript(BusMessage {
                         relay_url: None,
                         target: "javascript".to_string(),
                         kind: "publickey".to_string(),
-                        payload: serde_json::to_string(
-                            &self.private_key.as_ref().unwrap().public_key().as_hex_string()
-                        )?
+                        payload: serde_json::to_string(&pki)?
                     })?;
                 },
                 "unlock" => {
@@ -441,36 +434,51 @@ impl Overlord {
                     if let Some(epk) = DbSetting::fetch_setting("user_private_key").await? {
                         self.private_key = Some(PrivateKey::import_encrypted(&epk, &password.0)?);
 
+                        let pkref = self.private_key.as_ref().unwrap();
+                        let pki = PublicKeyInfo {
+                            public_key: pkref.public_key().as_hex_string(),
+                            key_security: pkref.key_security() as u8
+                        };
+
                         // Let javascript know our public key
                         self.send_to_javascript(BusMessage {
                             relay_url: None,
                             target: "javascript".to_string(),
                             kind: "publickey".to_string(),
-                            payload: serde_json::to_string(
-                                &self.private_key.as_ref().unwrap().public_key().as_hex_string()
-                            )?
+                            payload: serde_json::to_string(&pki)?
                         })?;
                     }
                 },
                 "import_key" => {
-                    let private_key_hex = serde_json::from_str(&bus_message.payload)?;
-                    self.private_key = Some(PrivateKey::try_from_hex_string(private_key_hex)?);
+                    let key_password_packet: KeyPasswordPacket =
+                        serde_json::from_str(&bus_message.payload)?;
 
-                    // Save it
+                    self.private_key = Some(
+                        PrivateKey::try_from_hex_string(&key_password_packet.0)?
+                    );
+
+                    let encrypted_private_key = self.private_key.as_ref().unwrap()
+                        .export_encrypted(&key_password_packet.1)?;
+
                     let user_private_key_setting = DbSetting {
-                        key: "user_private_key_naked".to_string(),
-                        value: private_key_hex.to_string(),
+                        key: "user_private_key".to_string(),
+                        value: encrypted_private_key.clone()
                     };
+
                     DbSetting::set(user_private_key_setting).await?;
+
+                    let pkref = self.private_key.as_ref().unwrap();
+                    let pki = PublicKeyInfo {
+                        public_key: pkref.public_key().as_hex_string(),
+                        key_security: pkref.key_security() as u8
+                    };
 
                     // Let javascript know our public key
                     self.send_to_javascript(BusMessage {
                         relay_url: None,
                         target: "javascript".to_string(),
                         kind: "publickey".to_string(),
-                        payload: serde_json::to_string(
-                            &self.private_key.as_ref().unwrap().public_key().as_hex_string()
-                        )?
+                        payload: serde_json::to_string(&pki)?
                     })?;
                 }
                 _ => {}
@@ -526,4 +534,10 @@ async fn setup_database() -> Result<(), Error> {
     crate::db::check_and_upgrade().await?;
 
     Ok(())
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct PublicKeyInfo {
+    public_key: String,
+    key_security: u8
 }

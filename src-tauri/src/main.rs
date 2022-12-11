@@ -61,6 +61,16 @@ impl Drop for PasswordPacket {
     }
 }
 
+// This is not public because 'Serialize' is a leak.
+#[derive(Serialize, Deserialize)]
+struct KeyPasswordPacket(String, String);
+impl Drop for KeyPasswordPacket {
+    fn drop(&mut self) {
+        self.0.zeroize();
+        self.1.zeroize();
+    }
+}
+
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
 pub struct Globals {

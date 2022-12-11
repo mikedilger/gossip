@@ -1,5 +1,5 @@
 use serde::Serialize;
-use crate::{BusMessage, GLOBALS, PasswordPacket, Settings};
+use crate::{BusMessage, GLOBALS, KeyPasswordPacket, PasswordPacket, Settings};
 use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use nostr_proto::{PrivateKey, PublicKeyHex};
 
@@ -211,10 +211,12 @@ pub async fn unlock(password: String) -> Result<(), String> {
 
 #[tauri::command]
 // send back public key on success
-pub async fn import_key(privatekey: String) -> Result<(), String> {
+pub async fn import_key(privatekey: String, password: String) -> Result<(), String> {
     // Verify the key is valid
     let _private_key_obj = PrivateKey::try_from_hex_string(&privatekey)
         .map_err(|e| format!("{}", e))?;
+
+    let key_password_packet = KeyPasswordPacket(privatekey, password);
 
     // Send it to the overlord
     let tx = GLOBALS.to_overlord.clone();
@@ -222,7 +224,7 @@ pub async fn import_key(privatekey: String) -> Result<(), String> {
         relay_url: None,
         target: "overlord".to_string(),
         kind: "import_key".to_string(),
-        payload: serde_json::to_string(&privatekey)
+        payload: serde_json::to_string(&key_password_packet)
             .map_err(|e| format!("{}", e))?
     }) {
         log::error!("Unable to send imported key to the overlord: {}", e);

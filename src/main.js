@@ -70,7 +70,8 @@ app.use(pinia);
             break;
         case "publickey":
             store.$patch((state) => {
-                state.public_key = payload;
+                state.public_key = payload.public_key;
+                state.key_security = payload.key_security;
                 state.need_password = false;
             })
             break;
