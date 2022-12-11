@@ -1917,7 +1917,7 @@ checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 [[package]]
 name = "nostr-proto"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/nostr-proto?branch=master#99bd295e61d076bf80bf8c3bbed0bd0edda121db"
+source = "git+https://github.com/mikedilger/nostr-proto?branch=master#6bdcb5bea927a4a6b03ce5775f93fcee9d78daaa"
 dependencies = [
  "aes",
  "base64 0.13.1",
