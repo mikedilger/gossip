@@ -30,6 +30,9 @@ pub enum Error {
     #[error("Bad integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
 
+    #[error("HTTP Request Error: {0}")]
+    Reqwest(#[from] reqwest::Error),
+
     #[error("SerdeJson Error: {0}")]
     SerdeJson(#[from] serde_json::Error),
 

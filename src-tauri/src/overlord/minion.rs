@@ -4,7 +4,7 @@ use futures::{SinkExt, StreamExt};
 use http::Uri;
 use nostr_proto::{
     ClientMessage, Event, EventKind, Filters, Metadata, PublicKeyHex,
-    RelayMessage, SubscriptionId, Unixtime, Url,
+    RelayInformationDocument, RelayMessage, SubscriptionId, Unixtime, Url,
 };
 use tokio::select;
 use tokio::net::TcpStream;
@@ -20,6 +20,7 @@ pub struct Minion {
     from_overlord: Receiver<BusMessage>,
     settings: Settings,
     dbrelay: Option<DbRelay>,
+    nip11: Option<RelayInformationDocument>,
 }
 
 impl Minion {
@@ -31,6 +32,7 @@ impl Minion {
             url, pubkeys, to_overlord, from_overlord,
             settings: Default::default(),
             dbrelay: None,
+            nip11: None,
         }
     }
 }
@@ -127,6 +129,25 @@ impl Minion {
                 .unwrap_or_else(|| authority);
             if host.is_empty() {
                 return Err(Error::UrlHasEmptyHostname);
+            }
+
+            // Read NIP-11 information
+            if let Ok(response) = reqwest::Client::new()
+                .get(&format!("https://{}", host))
+                .header("Host", host)
+                .header("Accept", "application/nostr+json")
+                .send().await
+            {
+                match response.json::<RelayInformationDocument>().await
+                {
+                    Ok(nip11) => {
+                        log::info!("{:?}", &nip11);
+                        self.nip11 = Some(nip11);
+                    },
+                    Err(e) => {
+                        log::error!("Unable to parse response as NIP-11 {}", e);
+                    }
+                }
             }
 
             let key: [u8; 16] = rand::random();
