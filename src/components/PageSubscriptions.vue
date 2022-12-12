@@ -27,24 +27,30 @@
     //    { pubkey, name, about, picture,
     //      dns_id, dns_id_valid, dns_id_last_checked, followed }
 
+    function followed_people() {
+        return Array.from(store.people.values()).filter(p => p.followed=='1')
+    }
+
+    function unfollowed_people() {
+        return Array.from(store.people.values()).filter(p => p.followed=='0')
+    }
+
+    // Commands
     function follow_nip35() {
         invoke('follow_nip35', { address: pagestate.address })
             .then((success) => { })
             .catch((error) => pagestate.alert = error)
     }
-
     function follow_key_and_relay() {
         invoke('follow_key_and_relay', { pubkey: pagestate.pubkey, relay: pagestate.relay })
             .then((person) => {  store.people.set(person.pubkey, person) })
             .catch((error) => pagestate.alert = error)
     }
-
     function follow_author() {
         invoke('follow_author', { })
             .then((success) => {  store.people.set(person.pubkey, person) })
             .catch((error) => pagestate.alert = error)
     }
-
 </script>
 
 <template>
@@ -113,7 +119,7 @@
         </div>
         <div v-if="pagestate.tab=='following'" :key="pagestate.redraw_following">
             <h2>Following</h2>
-            <p v-for="[pubkey,person] in store.people" :key="person.pubkey">
+            <p v-for="person in followed_people()" :key="person.pubkey">
                 <div class="person-row">
                     <div class="avatar-column">
                         <Avatar :url="person.picture"></Avatar>
@@ -122,6 +128,8 @@
                         <PubKey :pubkey="person.pubkey"></PubKey>
                         <br>
                         <Name :name="person.name"></Name>
+                        <IconWalk v-if="person.followed"></IconWalk>
+                        <Nip05 :nip05="person.dns_id==null ? '' : person.dns_id" :valid="person.dns_id_valid==1"></Nip05>
                         <br>
                         {{ person.about }}
                     </div>
@@ -130,7 +138,22 @@
         </div>
         <div v-if="pagestate.tab=='not_following'">
             <h2>Not Following</h2>
-            <p>TBD</p>
+            <p v-for="person in unfollowed_people()" :key="person.pubkey">
+                <div class="person-row">
+                    <div class="avatar-column">
+                        <Avatar :url="person.picture"></Avatar>
+                    </div>
+                    <div class="person-column">
+                        <PubKey :pubkey="person.pubkey"></PubKey>
+                        <br>
+                        <Name :name="person.name"></Name>
+                        <IconWalk v-if="person.followed"></IconWalk>
+                        <Nip05 :nip05="person.dns_id==null ? '' : person.dns_id" :valid="person.dns_id_valid==1"></Nip05>
+                        <br>
+                        {{ person.about }}
+                    </div>
+                </div>
+            </p>
         </div>
     </div>
 </template>
