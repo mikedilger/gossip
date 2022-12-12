@@ -8,7 +8,7 @@ pub struct EventProcessor {
     js_events: HashMap<Id, JsEvent>,
 }
 
-macro_rules! get_js_event {
+macro_rules! get_js_event_ref {
     ($self:ident, $id:expr) => {
         $self.js_events.entry($id)
             .or_insert(JsEvent::new($id.into()))
@@ -24,9 +24,8 @@ impl EventProcessor {
     }
 
     /// This adds events, creating a new JsEvent
-    /// and possible alters existing JsEventMetadata as well.
     ///
-    /// It returns all the `JsEventMetadata` records it created or modified.
+    /// It returns all the `JsEvent` records it created or modified.
     pub fn add_events(&mut self, events: &[Event]) -> Vec<JsEvent>
     {
         let mut changed_ids: HashSet<Id> = HashSet::new();
@@ -44,6 +43,10 @@ impl EventProcessor {
                 output.push(jse.to_owned())
             }
         }
+
+        log::debug!("memory event count: {}, memory js_event count: {}",
+                    self.events.len(), self.js_events.len());
+
         output
     }
 
@@ -73,7 +76,7 @@ impl EventProcessor {
         // Set the main js_event event data
         {
             let js_event: JsEvent = From::from(event);
-            get_js_event!(self, event.id).set_main_event_data(js_event);
+            get_js_event_ref!(self, event.id).set_main_event_data(js_event);
         }
 
         // Keep IDs for what has changed
@@ -92,17 +95,17 @@ impl EventProcessor {
                         if let Some(m) = marker {
                             if m=="reply" {
                                 // Mark our 'in_reply_to'
-                                get_js_event!(self, event.id).in_reply_to = Some((*id).into());
+                                get_js_event_ref!(self, event.id).in_reply_to = Some((*id).into());
                                 changed.push(event.id);
 
                                 // Add ourself to the parent's replies
-                                get_js_event!(self, *id).replies.push(event.id.into());
+                                get_js_event_ref!(self, *id).replies.push(event.id.into());
                                 // we push to changed in the loop below
 
                                 // Update the last_reply_at all the way up the chain
                                 let mut xid = *id;
                                 loop {
-                                    let e = get_js_event!(self, xid);
+                                    let e = get_js_event_ref!(self, xid);
                                     changed.push(xid);
                                     if let Some(other) = e.last_reply_at {
                                         e.last_reply_at = Some(other.max(event.created_at.0));
@@ -127,7 +130,7 @@ impl EventProcessor {
                                 self.events.remove(&event.id);
                                 return vec![];
                             }
-                            get_js_event!(self, *id).deleted_reason = Some(event.content.clone());
+                            get_js_event_ref!(self, *id).deleted_reason = Some(event.content.clone());
                             changed.push(*id);
                         } else {
                             // FIXME - currently we don't apply this deletion event
@@ -144,22 +147,22 @@ impl EventProcessor {
                     // For now we process these under specific event types.
                 },
                 Tag::Hashtag(s) => {
-                    get_js_event!(self, event.id).hashtags.push(s.to_string());
+                    get_js_event_ref!(self, event.id).hashtags.push(s.to_string());
                     changed.push(event.id);
                 },
                 Tag::Reference(r) => {
-                    get_js_event!(self, event.id).urls.push(r.to_string());
+                    get_js_event_ref!(self, event.id).urls.push(r.to_string());
                     changed.push(event.id);
                 },
                 Tag::Geohash(_) => { }, // not implemented
                 Tag::Subject(s) => {
-                    get_js_event!(self, event.id).subject = Some(s.to_string());
+                    get_js_event_ref!(self, event.id).subject = Some(s.to_string());
                     changed.push(event.id);
                 },
                 Tag::Nonce { .. } => { }, // not implemented
                 Tag::Other { tag, data } => {
                     if tag=="client"  && data.len() > 0 {
-                        get_js_event!(self, event.id).client = Some(data[0].to_string());
+                        get_js_event_ref!(self, event.id).client = Some(data[0].to_string());
                         changed.push(event.id);
                     }
                 },

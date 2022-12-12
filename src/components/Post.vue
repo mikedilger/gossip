@@ -50,7 +50,7 @@
         };
     }
 
-    const ok = event.pubkey !== null;
+    const full_event = event.created_at > 0 && event.pubkey != null && event.pubkey != "";
 
     // And new person data might be uploaded, so we compute this too
     let person = store.people.get(event.pubkey);
@@ -69,7 +69,7 @@
 </script>
 
 <template>
-    <div v-if="ok" class="post" :key="pagestate.redraw">
+    <div v-if="full_event" class="post" :key="pagestate.redraw">
         <div>
             <div class="post-header">
                 <div class="post-avatar">
