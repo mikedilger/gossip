@@ -2,10 +2,8 @@ use crate::db::{DbPersonRelay, DbRelay};
 use crate::{BusMessage, Error, GLOBALS, Settings};
 use futures::{SinkExt, StreamExt};
 use http::Uri;
-use nostr_proto::{
-    ClientMessage, EventKind, Filters, PublicKeyHex,
-    RelayInformationDocument, SubscriptionId, Unixtime, Url,
-};
+use nostr_proto::{EventKind, Filters, PublicKeyHex, RelayInformationDocument, Unixtime, Url};
+use std::collections::HashMap;
 use tokio::select;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast::Receiver;
@@ -13,8 +11,11 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::{WebSocketStream, MaybeTlsStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 
+
 mod handle_bus;
 mod handle_websocket;
+mod subscription;
+use subscription::Subscription;
 
 pub struct Minion {
     url: Url,
@@ -24,6 +25,8 @@ pub struct Minion {
     settings: Settings,
     dbrelay: Option<DbRelay>,
     nip11: Option<RelayInformationDocument>,
+    stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    subscriptions: HashMap<String, Subscription>,
 }
 
 impl Minion {
@@ -36,6 +39,8 @@ impl Minion {
             settings: Default::default(),
             dbrelay: None,
             nip11: None,
+            stream: None,
+            subscriptions: HashMap::new(),
         }
     }
 }
@@ -55,7 +60,7 @@ impl Minion {
             }
         }
 
-        // Should we signal that we are exiting?
+        log::debug!("Minion exiting: {}", self.url);
     }
 
     async fn handle_inner(&mut self) -> Result<(), Error> {
@@ -64,66 +69,8 @@ impl Minion {
         // Load settings
         self.settings.load().await?;
 
-        // Compute how far to look back
-        let (feed_since, special_since) = {
-
-            // Find the oldest 'last_fetched' among the 'person_relay' table.
-            // Null values will come through as 0.
-            let mut special_since: i64 = DbPersonRelay::fetch_oldest_last_fetched(
-                &self.pubkeys,
-                &self.url.0
-            ).await? as i64;
-
-            // Subtract overlap to avoid gaps due to clock sync and event
-            // propogation delay
-            special_since -= self.settings.overlap as i64;
-
-            // For feed related events, don't look back more than one feed_chunk ago
-            let one_feedchunk_ago = Unixtime::now().unwrap().0 - self.settings.feed_chunk as i64;
-            let feed_since = special_since.max(one_feedchunk_ago);
-
-            (Unixtime(feed_since), Unixtime(special_since))
-        };
-
-        if self.pubkeys.len() == 0 {
-            // Right now, we can't continue with no people to watch for.
-            // Our filters require authors, or else they are asking for EVERYBODY.
-            // FIXME better.
-            return Ok(());
-        }
-
-        // Create the author filter
-        let mut feed_filter: Filters = Filters::new();
-        for pk in self.pubkeys.iter() {
-            feed_filter.add_author(&pk, None);
-        }
-        feed_filter.add_event_kind(EventKind::TextNote);
-        feed_filter.add_event_kind(EventKind::Reaction);
-        feed_filter.add_event_kind(EventKind::EventDeletion);
-        feed_filter.since = Some(feed_since);
-        log::debug!(
-            "Feed Filter {}: {}",
-            &self.url,
-            serde_json::to_string(&feed_filter)?
-        );
-
-        // Create the lookback filter
-        let mut special_filter: Filters = Filters::new();
-        for pk in self.pubkeys.iter() {
-            special_filter.add_author(&pk, None);
-        }
-        special_filter.add_event_kind(EventKind::Metadata);
-        //special_filter.add_event_kind(EventKind::RecommendRelay);
-        //special_filter.add_event_kind(EventKind::ContactList);
-        special_filter.since = Some(special_since);
-        log::debug!(
-            "Special Filter {}: {}",
-            &self.url,
-            serde_json::to_string(&special_filter)?
-        );
-
         // Connect to the relay
-        let mut websocket_stream = {
+        let websocket_stream = {
             let uri: http::Uri = self.url.0.parse::<Uri>()?;
             let authority = uri.authority().ok_or(Error::UrlHasNoHostname)?.as_str();
             let host = authority
@@ -179,17 +126,7 @@ impl Minion {
             websocket_stream
         };
 
-        //let (mut write, mut read) = websocket_stream.split();
-
-        // Subscribe to our filters
-        // FIXME, get filters in response to an appropriate bus message
-        let message = ClientMessage::Req(
-            SubscriptionId(format!("gossip-main-{}", textnonce::TextNonce::new())),
-            vec![feed_filter, special_filter],
-        );
-        let wire = serde_json::to_string(&message)?;
-        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
-        //log::debug!("Sent {}", &wire);
+        self.stream = Some(websocket_stream);
 
         // Bump the success count for the relay
         {
@@ -203,12 +140,17 @@ impl Minion {
             }
         }
 
+        // Subscribe to the people we follow
+        if self.pubkeys.len() > 0 {
+            self.update_following_subscription().await?;
+        }
+
         // Tell the overlord we are ready to receive commands
         self.tell_overlord_we_are_ready().await?;
 
         'relayloop:
         loop {
-            match self.loop_handler(&mut websocket_stream).await {
+            match self.loop_handler().await {
                 Ok(keepgoing) => {
                     if !keepgoing {
                         break 'relayloop;
@@ -224,11 +166,10 @@ impl Minion {
         Ok(())
     }
 
-    async fn loop_handler(&mut self,
-                          ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>)
-                          -> Result<bool, Error>
-    {
+    async fn loop_handler(&mut self) -> Result<bool, Error> {
         let mut keepgoing: bool = true;
+
+        let ws_stream = self.stream.as_mut().unwrap();
 
         select! {
             ws_message = ws_stream.next() => {
@@ -280,6 +221,96 @@ impl Minion {
             kind: "minion_is_ready".to_string(),
             payload: "".to_owned(),
         })?;
+
+        Ok(())
+    }
+
+    async fn update_following_subscription(&mut self) -> Result<(), Error> {
+
+        let websocket_stream = self.stream.as_mut().unwrap();
+
+        if self.pubkeys.len() == 0 {
+            if let Some(sub) = self.subscriptions.get("following") {
+                // Close the subscription
+                let wire = serde_json::to_string(&sub.close_message())?;
+                websocket_stream.send(WsMessage::Text(wire.clone())).await?;
+
+                // Remove the subscription from the map
+                self.subscriptions.remove("following");
+            }
+
+            // Since pubkeys is empty, nothing to subscribe to.
+            return Ok(());
+        }
+
+        // Compute how far to look back
+        let (feed_since, special_since) = {
+            // Find the oldest 'last_fetched' among the 'person_relay' table.
+            // Null values will come through as 0.
+            let mut special_since: i64 = DbPersonRelay::fetch_oldest_last_fetched(
+                &self.pubkeys,
+                &self.url.0
+            ).await? as i64;
+
+            // Subtract overlap to avoid gaps due to clock sync and event
+            // propogation delay
+            special_since -= self.settings.overlap as i64;
+
+            // For feed related events, don't look back more than one feed_chunk ago
+            let one_feedchunk_ago = Unixtime::now().unwrap().0 - self.settings.feed_chunk as i64;
+            let feed_since = special_since.max(one_feedchunk_ago);
+
+            (Unixtime(feed_since), Unixtime(special_since))
+        };
+
+        // Create the author filter
+        let mut feed_filter: Filters = Filters::new();
+        for pk in self.pubkeys.iter() {
+            feed_filter.add_author(&pk, None);
+        }
+        feed_filter.add_event_kind(EventKind::TextNote);
+        feed_filter.add_event_kind(EventKind::Reaction);
+        feed_filter.add_event_kind(EventKind::EventDeletion);
+        feed_filter.since = Some(feed_since);
+        log::debug!(
+            "Feed Filter {}: {}",
+            &self.url,
+            serde_json::to_string(&feed_filter)?
+        );
+
+        // Create the lookback filter
+        let mut special_filter: Filters = Filters::new();
+        for pk in self.pubkeys.iter() {
+            special_filter.add_author(&pk, None);
+        }
+        special_filter.add_event_kind(EventKind::Metadata);
+        //special_filter.add_event_kind(EventKind::RecommendRelay);
+        //special_filter.add_event_kind(EventKind::ContactList);
+        special_filter.since = Some(special_since);
+        log::debug!(
+            "Special Filter {}: {}",
+            &self.url,
+            serde_json::to_string(&special_filter)?
+        );
+
+        // Get the subscription
+        let sub = self.subscriptions.entry("following".to_string()).or_insert(
+            Subscription::new("following".to_string())
+        );
+
+        // Write our filters into it
+        {
+            let vec: &mut Vec<Filters> = sub.get_mut();
+            vec.clear();
+            vec.push(feed_filter);
+            vec.push(special_filter);
+        }
+
+        // Subscribe (or resubscribe) to the subscription
+        let wire = serde_json::to_string(&sub.req_message())?;
+        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
+
+        log::trace!("Sent {}", &wire);
 
         Ok(())
     }

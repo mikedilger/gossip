@@ -6,7 +6,7 @@ use nostr_proto::{Event, EventKind, Metadata, RelayMessage, Unixtime};
 
 impl Minion {
     pub(super) async fn handle_nostr_message(
-        &self,
+        &mut self,
         ws_message: String
     ) -> Result<(), Error> {
 
@@ -40,8 +40,16 @@ impl Minion {
                 let now = Unixtime::now().unwrap().0 as u64;
                 DbPersonRelay::update_last_fetched(self.url.0.clone(), now).await?;
 
-                // These don't have to be processed.
-                log::info!("EOSE: {} {:?}", &self.url, subid);
+                // Update the matching subscription
+                match self.subscriptions.get_mut(&subid.0) {
+                    Some(sub) => {
+                        sub.set_eose();
+                        log::info!("EOSE: {} {:?}", &self.url, subid);
+                    },
+                    None => {
+                        log::warn!("EOSE for unknown subsription: {} {:?}", &self.url, subid);
+                    }
+                }
             }
             RelayMessage::Ok(id, ok, ok_message) => {
                 // These don't have to be processed.
