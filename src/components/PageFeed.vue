@@ -21,7 +21,7 @@
     <div v-else class="main-scrollable empty">
         <h3>Welcome to Gossip</h3>
         <p>Your Feed is Empty.</p>
-        <p>Try <router-link to="/subscriptions">following someone</router-link></p>
+        <p>Try <router-link to="/people">following someone</router-link></p>
         <p>Or maybe set a longer Feed Chunk Size in <router-link to="/settings">Settings</router-link></p>
     </div>
 </template>

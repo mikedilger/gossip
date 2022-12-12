@@ -7,7 +7,7 @@ import './style.css'
 import App from './App.vue'
 
 import PageFeed from './components/PageFeed.vue'
-import PageSubscriptions from './components/PageSubscriptions.vue'
+import PagePeople from './components/PagePeople.vue'
 import PageIdentities from './components/PageIdentities.vue'
 import PageRelays from './components/PageRelays.vue'
 import PageSettings from './components/PageSettings.vue'
@@ -15,7 +15,7 @@ import PageAbout from './components/PageAbout.vue'
 
 const routes = [
     { path: '/', component: PageFeed },
-    { path: '/subscriptions', component: PageSubscriptions },
+    { path: '/people', component: PagePeople },
     { path: '/identities', component: PageIdentities },
     { path: '/relays', component: PageRelays },
     { path: '/settings', component: PageSettings },
