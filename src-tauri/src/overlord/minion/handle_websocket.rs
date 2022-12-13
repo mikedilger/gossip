@@ -112,7 +112,7 @@ impl Minion {
         let created_at: u64 = event.created_at.0 as u64;
         let metadata: Metadata = serde_json::from_str(&event.content)?;
         if let Some(mut person) = DbPerson::fetch_one(event.pubkey.into()).await? {
-            person.name = Some(metadata.name);
+            person.name = metadata.name;
             person.about = metadata.about;
             person.picture = metadata.picture;
             if person.dns_id != metadata.nip05 {
@@ -128,7 +128,7 @@ impl Minion {
         } else {
             let person = DbPerson {
                 pubkey: event.pubkey.into(),
-                name: Some(metadata.name),
+                name: metadata.name,
                 about: metadata.about,
                 picture: metadata.picture,
                 dns_id: metadata.nip05,

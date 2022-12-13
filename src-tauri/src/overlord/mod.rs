@@ -200,7 +200,7 @@ impl Overlord {
                 let metadata: Metadata = serde_json::from_str(&event.content)?;
                 let person = DbPerson::fetch_one(event.pubkey.clone()).await?;
                 if let Some(mut person) = person {
-                    person.name = Some(metadata.name);
+                    person.name = metadata.name;
                     person.about = metadata.about;
                     person.picture = metadata.picture;
                     person.dns_id = metadata.nip05;
