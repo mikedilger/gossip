@@ -95,16 +95,8 @@ pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPer
             person
         }
         None => {
-            let person = DbPerson {
-                pubkey: pubkeyhex.clone(),
-                name: None,
-                about: None,
-                picture: None,
-                dns_id: None,
-                dns_id_valid: 0,
-                dns_id_last_checked: None,
-                followed: 1
-            };
+            let mut person = DbPerson::new(pubkeyhex.clone());
+            person.followed = 1;
             DbPerson::insert(person.clone())
                 .await
                 .map_err(|e| format!("{}", e))?;

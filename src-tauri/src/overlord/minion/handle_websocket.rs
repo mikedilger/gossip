@@ -109,33 +109,32 @@ impl Minion {
     ) -> Result<(), Error> {
 
         log::debug!("Event(metadata) from {}", &self.url);
-        let created_at: u64 = event.created_at.0 as u64;
         let metadata: Metadata = serde_json::from_str(&event.content)?;
         if let Some(mut person) = DbPerson::fetch_one(event.pubkey.into()).await? {
+            if let Some(existing_at) = person.metadata_at {
+                if event.created_at.0 <= existing_at {
+                    // Old data. Ignore it
+                    return Ok(());
+                }
+            }
             person.name = metadata.name;
             person.about = metadata.about;
             person.picture = metadata.picture;
             if person.dns_id != metadata.nip05 {
                 person.dns_id = metadata.nip05;
                 person.dns_id_valid = 0; // changed so starts invalid
-                person.dns_id_last_checked = match person.dns_id_last_checked {
-                    None => Some(created_at),
-                    Some(lc) => Some(created_at.max(lc)),
-                }
+                person.dns_id_last_checked = None; // we haven't checked this new one yet
             }
+            person.metadata_at = Some(event.created_at.0);
             DbPerson::update(person.clone()).await?;
             self.send_javascript_setpeople(vec![person]).await?;
         } else {
-            let person = DbPerson {
-                pubkey: event.pubkey.into(),
-                name: metadata.name,
-                about: metadata.about,
-                picture: metadata.picture,
-                dns_id: metadata.nip05,
-                dns_id_valid: 0, // new so starts invalid
-                dns_id_last_checked: Some(created_at),
-                followed: 0
-            };
+            let mut person = DbPerson::new(event.pubkey.into());
+            person.name = metadata.name;
+            person.about = metadata.about;
+            person.picture = metadata.picture;
+            person.dns_id = metadata.nip05;
+            person.metadata_at = Some(event.created_at.0);
             DbPerson::insert(person.clone()).await?;
             self.send_javascript_setpeople(vec![person]).await?;
         }

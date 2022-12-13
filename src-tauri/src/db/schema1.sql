@@ -11,6 +11,7 @@ CREATE TABLE person (
     dns_id TEXT DEFAULT NULL,
     dns_id_valid INTEGER DEFAULT 0,
     dns_id_last_checked INTEGER DEFAULT NULL,
+    metadata_at INTEGER DEFAULT NULL,
     followed INTEGER DEFAULT 0
 ) WITHOUT ROWID;
 
