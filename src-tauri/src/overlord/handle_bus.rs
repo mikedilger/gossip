@@ -1,6 +1,6 @@
 
 use crate::{BusMessage, Error, KeyPasswordPacket, PasswordPacket};
-use crate::db::DbSetting;
+use crate::db::{DbPerson, DbSetting};
 use super::Overlord;
 use nostr_proto::{Event, PrivateKey};
 use serde::Serialize;

@@ -18,6 +18,9 @@ mod handle_bus;
 mod minion;
 use minion::Minion;
 
+mod person_synchro;
+use person_synchro::PersonSynchro;
+
 mod relay_picker;
 use relay_picker::{BestRelay, RelayPicker};
 
