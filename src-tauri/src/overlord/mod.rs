@@ -209,8 +209,8 @@ impl Overlord {
             }
         }
 
-        // Load all people we are following
-        let people = DbPerson::fetch(Some("followed=1")).await?;
+        // Load all the people we know about
+        let people = DbPerson::fetch(Some("name is not null")).await?;
 
         // Send these people to javascript
         self.send_to_javascript(BusMessage {
@@ -222,7 +222,9 @@ impl Overlord {
 
         // Pick Relays and start Minions
         {
-            let pubkeys: Vec<PublicKeyHex> = people.iter().map(|p| p.pubkey.clone()).collect();
+            let pubkeys: Vec<PublicKeyHex> = people.iter()
+                .filter(|p| p.followed == 1)
+                .map(|p| p.pubkey.clone()).collect();
 
             let mut relay_picker = RelayPicker {
                 relays: DbRelay::fetch(None).await?,
