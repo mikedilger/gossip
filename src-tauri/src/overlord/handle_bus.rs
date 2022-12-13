@@ -1,8 +1,8 @@
 
 use crate::{BusMessage, Error, KeyPasswordPacket, PasswordPacket};
-use crate::db::{DbPerson, DbSetting};
+use crate::db::DbSetting;
 use super::Overlord;
-use nostr_proto::{Event, PrivateKey};
+use nostr_proto::{Event, EventKind, Metadata, PrivateKey};
 use serde::Serialize;
 
 #[derive(Clone, Debug, Serialize)]
@@ -52,27 +52,49 @@ impl Overlord {
                     //         and update the front end every 500ms or so?
 
                     let event: Event = serde_json::from_str(&bus_message.payload)?;
-                    let changed_events = self.feed_event_processor.add_events(&[event]);
 
-                    log::info!("Received new event from {} affecting {} events",
-                               bus_message.relay_url.as_ref().unwrap(),
-                               changed_events.len());
+                    // If feed-related, send to the feed event processor
+                    if event.kind==EventKind::TextNote || event.kind==EventKind::EncryptedDirectMessage ||
+                        event.kind==EventKind::EventDeletion || event.kind==EventKind::Reaction
+                    {
+                        let changed_events = self.feed_event_processor.add_events(&[event]);
 
-                    // Update javascript with added and changed events
-                    self.send_to_javascript(BusMessage {
-                        relay_url: None,
-                        target: "javascript".to_string(),
-                        kind: "setevents".to_string(),
-                        payload: serde_json::to_string(&changed_events)?,
-                    })?;
+                        log::info!("Received new feed event from {} affecting {} events",
+                                   bus_message.relay_url.as_ref().unwrap(),
+                                   changed_events.len());
 
-                    // Update javascript, replace feed
-                    self.send_to_javascript(BusMessage {
-                        relay_url: None,
-                        target: "javascript".to_string(),
-                        kind: "replacefeed".to_string(),
-                        payload: serde_json::to_string(&self.feed_event_processor.get_feed())?,
-                    })?;
+                        // Update javascript with added and changed events
+                        self.send_to_javascript(BusMessage {
+                            relay_url: None,
+                            target: "javascript".to_string(),
+                            kind: "setevents".to_string(),
+                            payload: serde_json::to_string(&changed_events)?,
+                        })?;
+
+                        // Update javascript, replace feed
+                        self.send_to_javascript(BusMessage {
+                            relay_url: None,
+                            target: "javascript".to_string(),
+                            kind: "replacefeed".to_string(),
+                            payload: serde_json::to_string(&self.feed_event_processor.get_feed())?,
+                        })?;
+                    }
+                    else {
+                        // Not Feed Related:  Metadata, RecommendRelay, ContactList
+                        log::info!("Received new non-feed event from {}",
+                                   bus_message.relay_url.as_ref().unwrap());
+
+                        if event.kind==EventKind::Metadata {
+                            let metadata: Metadata = serde_json::from_str(&event.content)?;
+                            self.person_synchro.update_from_event(
+                                event.pubkey.into(), event.created_at, metadata
+                            );
+                            self.sync_person_synchro().await?;
+                        }
+
+                        // FIXME: Handle EventKind::RecommendedRelay
+                        // FIXME: Handle EventKind::ContactList
+                    }
                 },
                 "generate" => {
                     let password: PasswordPacket = serde_json::from_str(&bus_message.payload)?;

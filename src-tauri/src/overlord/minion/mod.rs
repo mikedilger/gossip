@@ -227,6 +227,8 @@ impl Minion {
         Ok(())
     }
 
+    // This updates a subscription named "following" which watches for events
+    // from the people we follow.
     async fn update_following_subscription(&mut self) -> Result<(), Error> {
 
         let websocket_stream = self.stream.as_mut().unwrap();

@@ -37,6 +37,7 @@ pub struct Overlord {
     minions: task::JoinSet<()>,
     minions_task_url: HashMap<task::Id, Url>,
     feed_event_processor: FeedEventProcessor,
+    person_synchro: PersonSynchro,
     private_key: Option<PrivateKey>, // note that PrivateKey already zeroizes on drop
 }
 
@@ -54,6 +55,7 @@ impl Overlord {
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
             feed_event_processor: FeedEventProcessor::new(),
+            person_synchro: PersonSynchro::new(),
             private_key: None,
         }
     }
@@ -85,6 +87,26 @@ impl Overlord {
         }
         Ok(())
     }
+
+    async fn sync_person_synchro(&mut self) -> Result<(), Error> {
+        // Save to database any that need saving
+        self.person_synchro.sync_to_database().await?;
+
+        // Get the people that JavaScript needs an update on
+        let people = self.person_synchro.for_sync_to_javascript().await?;
+        if people.len() > 0 {
+            // And update javascript with them
+            self.send_to_javascript(BusMessage {
+                relay_url: None,
+                target: "javascript".to_string(),
+                kind: "setpeople".to_string(),
+                payload: serde_json::to_string(&people)?
+            })?;
+        }
+
+        Ok(())
+    }
+
     pub async fn run(&mut self) {
         if let Err(e) = self.run_inner().await {
             log::error!("{}", e);
@@ -117,7 +139,6 @@ impl Overlord {
             payload: serde_json::to_string(&self.settings)?,
         })?;
 
-
         // Load our private key
         if let Some(_) = DbSetting::fetch_setting("user_private_key").await? {
             // We don't bother loading the value just yet because we don't have
@@ -143,6 +164,7 @@ impl Overlord {
         // updated from events without necessarily updating our relays list)
         DbRelay::populate_new_relays().await?;
 
+        // FIXME - this should use a future relay_syncrho
         // Send all relays to javascript
         {
             let relays = DbRelay::fetch(None).await?;
@@ -154,6 +176,10 @@ impl Overlord {
                 payload: serde_json::to_string(&relays)?,
             })?;
         }
+
+        // Load all the people
+        self.person_synchro.load_all_from_database().await?;
+        self.sync_person_synchro().await?;
 
         // Load feed-related events from database and process (TextNote, EventDeletion, Reaction)
         {
@@ -190,22 +216,9 @@ impl Overlord {
             })?;
         }
 
-        // Load all the people we know about
-        let people = DbPerson::fetch(Some("name is not null")).await?;
-
-        // Send these people to javascript
-        self.send_to_javascript(BusMessage {
-            relay_url: None,
-            target: "javascript".to_string(),
-            kind: "setpeople".to_string(),
-            payload: serde_json::to_string(&people)?
-        })?;
-
         // Pick Relays and start Minions
         {
-            let pubkeys: Vec<PublicKeyHex> = people.iter()
-                .filter(|p| p.followed == 1)
-                .map(|p| p.pubkey.clone()).collect();
+            let pubkeys: Vec<PublicKeyHex> = self.person_synchro.followed_pubkeys();
 
             let mut relay_picker = RelayPicker {
                 relays: DbRelay::fetch(None).await?,

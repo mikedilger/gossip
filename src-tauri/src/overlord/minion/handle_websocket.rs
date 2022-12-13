@@ -1,8 +1,8 @@
 
 use crate::{BusMessage, Error};
-use crate::db::{DbEvent, DbPerson, DbPersonRelay};
+use crate::db::{DbEvent, DbPersonRelay};
 use super::Minion;
-use nostr_proto::{Event, EventKind, Metadata, RelayMessage, Unixtime};
+use nostr_proto::{Event, RelayMessage, Unixtime};
 
 impl Minion {
     pub(super) async fn handle_nostr_message(
@@ -24,12 +24,7 @@ impl Minion {
                     log::error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
                 } else {
                     DbEvent::save_nostr_event(&*event, Some(self.url.clone())).await?;
-                    if event.kind == EventKind::Metadata {
-                        // We can handle these locally.
-                        self.process_metadata_event(*event).await?;
-                    } else {
-                        self.send_overlord_newevent(*event).await?;
-                    }
+                    self.send_overlord_newevent(*event).await?;
                 }
             }
             RelayMessage::Notice(msg) => {
@@ -60,45 +55,6 @@ impl Minion {
         Ok(())
     }
 
-    async fn process_metadata_event(
-        &self,
-        event: Event
-    ) -> Result<(), Error> {
-
-        log::debug!("Event(metadata) from {}", &self.url);
-        let metadata: Metadata = serde_json::from_str(&event.content)?;
-        if let Some(mut person) = DbPerson::fetch_one(event.pubkey.into()).await? {
-            if let Some(existing_at) = person.metadata_at {
-                if event.created_at.0 <= existing_at {
-                    // Old data. Ignore it
-                    return Ok(());
-                }
-            }
-            person.name = metadata.name;
-            person.about = metadata.about;
-            person.picture = metadata.picture;
-            if person.dns_id != metadata.nip05 {
-                person.dns_id = metadata.nip05;
-                person.dns_id_valid = 0; // changed so starts invalid
-                person.dns_id_last_checked = None; // we haven't checked this new one yet
-            }
-            person.metadata_at = Some(event.created_at.0);
-            DbPerson::update(person.clone()).await?;
-            self.send_javascript_setpeople(vec![person]).await?;
-        } else {
-            let mut person = DbPerson::new(event.pubkey.into());
-            person.name = metadata.name;
-            person.about = metadata.about;
-            person.picture = metadata.picture;
-            person.dns_id = metadata.nip05;
-            person.metadata_at = Some(event.created_at.0);
-            DbPerson::insert(person.clone()).await?;
-            self.send_javascript_setpeople(vec![person]).await?;
-        }
-
-        Ok(())
-    }
-
     async fn send_overlord_newevent(
         &self,
         event: Event
@@ -111,19 +67,4 @@ impl Minion {
         })?;
         Ok(())
     }
-
-    async fn send_javascript_setpeople(
-        &self,
-        people: Vec<DbPerson>
-    ) -> Result<(), Error> {
-        self.to_overlord.send(BusMessage {
-            relay_url: Some(self.url.0.clone()),
-            target: "javascript".to_string(),
-            kind: "setpeople".to_string(),
-            payload: serde_json::to_string(&people)?,
-        })?;
-
-        Ok(())
-    }
-
 }
