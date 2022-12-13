@@ -52,7 +52,7 @@ impl Overlord {
                     //         and update the front end every 500ms or so?
 
                     let event: Event = serde_json::from_str(&bus_message.payload)?;
-                    let changed_events = self.event_processor.add_events(&[event]);
+                    let changed_events = self.feed_event_processor.add_events(&[event]);
 
                     log::info!("Received new event from {} affecting {} events",
                                bus_message.relay_url.as_ref().unwrap(),
@@ -71,7 +71,7 @@ impl Overlord {
                         relay_url: None,
                         target: "javascript".to_string(),
                         kind: "replacefeed".to_string(),
-                        payload: serde_json::to_string(&self.event_processor.get_feed())?,
+                        payload: serde_json::to_string(&self.feed_event_processor.get_feed())?,
                     })?;
                 },
                 "generate" => {

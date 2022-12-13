@@ -3,7 +3,7 @@ use super::JsEvent;
 use nostr_proto::{Event, EventKind, Id, Tag};
 use std::collections::{HashMap, HashSet};
 
-pub struct EventProcessor {
+pub struct FeedEventProcessor {
     events: HashMap<Id, Event>,
     js_events: HashMap<Id, JsEvent>,
 }
@@ -15,9 +15,9 @@ macro_rules! get_js_event_ref {
     }
 }
 
-impl EventProcessor {
-    pub fn new() -> EventProcessor {
-        EventProcessor {
+impl FeedEventProcessor {
+    pub fn new() -> FeedEventProcessor {
+        FeedEventProcessor {
             events: HashMap::new(),
             js_events: HashMap::new(),
         }

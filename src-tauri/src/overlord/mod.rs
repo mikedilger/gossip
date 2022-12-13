@@ -10,8 +10,8 @@ use tokio::{select, task};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-mod event_processor;
-use event_processor::EventProcessor;
+mod feed_event_processor;
+use feed_event_processor::FeedEventProcessor;
 
 mod handle_bus;
 
@@ -33,7 +33,7 @@ pub struct Overlord {
     from_minions: UnboundedReceiver<BusMessage>,
     minions: task::JoinSet<()>,
     minions_task_url: HashMap<task::Id, Url>,
-    event_processor: EventProcessor,
+    feed_event_processor: FeedEventProcessor,
     private_key: Option<PrivateKey>, // note that PrivateKey already zeroizes on drop
 }
 
@@ -50,7 +50,7 @@ impl Overlord {
             to_minions, from_minions,
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
-            event_processor: EventProcessor::new(),
+            feed_event_processor: FeedEventProcessor::new(),
             private_key: None,
         }
     }
@@ -168,14 +168,14 @@ impl Overlord {
             }
 
             // Process these events
-            self.event_processor.add_events(&*events);
+            self.feed_event_processor.add_events(&*events);
 
             // Send processed JsEvents to javascript
             self.send_to_javascript(BusMessage {
                 relay_url: None,
                 target: "javascript".to_string(),
                 kind: "setevents".to_string(),
-                payload: serde_json::to_string(&self.event_processor.get_js_events())?,
+                payload: serde_json::to_string(&self.feed_event_processor.get_js_events())?,
             })?;
 
             // Send computed feed to javascript
@@ -183,7 +183,7 @@ impl Overlord {
                 relay_url: None,
                 target: "javascript".to_string(),
                 kind: "replacefeed".to_string(),
-                payload: serde_json::to_string(&self.event_processor.get_feed())?,
+                payload: serde_json::to_string(&self.feed_event_processor.get_feed())?,
             })?;
         }
 
