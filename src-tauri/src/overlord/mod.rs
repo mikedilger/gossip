@@ -1,7 +1,7 @@
 
 use crate::{BusMessage, Error, GLOBALS, Settings};
 use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay, DbSetting};
-use nostr_proto::{Event, Metadata, PrivateKey, PublicKeyHex, Unixtime, Url};
+use nostr_proto::{Event, PrivateKey, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::fs;
@@ -181,32 +181,6 @@ impl Overlord {
                 kind: "replacefeed".to_string(),
                 payload: serde_json::to_string(&self.event_processor.get_feed())?,
             })?;
-        }
-
-        // Update DbPerson records from kind=0 metadata events
-        {
-            // Get the latest kind=0 metadata update events from the database
-            let mut map: HashMap<PublicKeyHex, DbEvent> = HashMap::new();
-            let mut metadata_events = DbEvent::fetch(Some("kind=0")).await?;
-            for me in metadata_events.drain(..) {
-                let x = map.entry(me.pubkey.clone()).or_insert(me.clone());
-                if x.created_at < me.created_at {
-                    *x = me
-                }
-            }
-
-            // Update the person records for these, and save the people
-            for (_,event) in map.iter() {
-                let metadata: Metadata = serde_json::from_str(&event.content)?;
-                let person = DbPerson::fetch_one(event.pubkey.clone()).await?;
-                if let Some(mut person) = person {
-                    person.name = metadata.name;
-                    person.about = metadata.about;
-                    person.picture = metadata.picture;
-                    person.dns_id = metadata.nip05;
-                    DbPerson::update(person).await?;
-                }
-            }
         }
 
         // Load all the people we know about
