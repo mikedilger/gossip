@@ -244,17 +244,8 @@ impl Overlord {
                 }
 
                 // Fire off a minion to handle this relay
-                {
-                    let url = Url(best_relay.relay.url.clone());
-                    let pubkeys = best_relay.pubkeys.clone();
-                    let abort_handle = self.minions.spawn(async move {
-                        let mut minion = Minion::new(url, pubkeys);
-                        minion.handle().await
-                    });
-                    let id = abort_handle.id();
-
-                    self.minions_task_url.insert(id, Url(best_relay.relay.url.clone()));
-                }
+                self.start_minion(best_relay.relay.url.clone(),
+                                  best_relay.pubkeys.clone());
 
                 log::info!("Picked relay {}, {} people left",
                            best_relay.relay.url,
@@ -285,6 +276,16 @@ impl Overlord {
         // Refigure it out and tell them
 
         Ok(())
+    }
+
+    fn start_minion(&mut self, url: String, pubkeys: Vec<PublicKeyHex>) {
+        let moved_url = Url(url.clone());
+        let abort_handle = self.minions.spawn(async move {
+            let mut minion = Minion::new(moved_url, pubkeys);
+            minion.handle().await
+        });
+        let id = abort_handle.id();
+        self.minions_task_url.insert(id, Url(url));
     }
 
     async fn loop_handler(&mut self) -> Result<bool, Error> {
@@ -325,6 +326,9 @@ impl Overlord {
                                 Some(url) => {
                                     // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
                                     log::warn!("Minion {} completed with error: {}", &url, join_error);
+
+                                    // Remove from our hashmap
+                                    self.minions_task_url.remove(&id);
                                 },
                                 None => {
                                     log::warn!("Minion UNKNOWN completed with error: {}", join_error);
@@ -334,7 +338,12 @@ impl Overlord {
                         Ok((id, _)) => {
                             let maybe_url = self.minions_task_url.get(&id);
                             match maybe_url {
-                                Some(url) => log::warn!("Relay Task {} completed", &url),
+                                Some(url) => {
+                                    log::warn!("Relay Task {} completed", &url);
+
+                                    // Remove from our hashmap
+                                    self.minions_task_url.remove(&id);
+                                },
                                 None => log::warn!("Relay Task UNKNOWN completed"),
                             }
                         }
