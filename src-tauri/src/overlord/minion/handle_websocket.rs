@@ -1,6 +1,6 @@
 
 use crate::{BusMessage, Error};
-use crate::db::{DbEvent, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay};
+use crate::db::{DbEvent, DbPerson, DbPersonRelay};
 use super::Minion;
 use nostr_proto::{Event, EventKind, Metadata, RelayMessage, Unixtime};
 
@@ -23,7 +23,7 @@ impl Minion {
                 if let Err(e) = event.verify(Some(maxtime)) {
                     log::error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
                 } else {
-                    self.save_event_in_database(&*event).await?;
+                    DbEvent::save_nostr_event(&*event, Some(self.url.clone())).await?;
                     if event.kind == EventKind::Metadata {
                         // We can handle these locally.
                         self.process_metadata_event(*event).await?;
@@ -56,49 +56,6 @@ impl Minion {
                 log::info!("OK: {} {:?} {} {}", &self.url, id, ok, ok_message);
             }
         }
-
-        Ok(())
-    }
-
-    async fn save_event_in_database(
-        &self,
-        event: &Event
-    ) -> Result<(), Error> {
-        let db_event = DbEvent {
-            id: event.id.into(),
-            raw: serde_json::to_string(&event)?, // TODO: this is reserialized.
-            pubkey: event.pubkey.into(),
-            created_at: event.created_at.0,
-            kind: event.kind.into(),
-            content: event.content.clone(),
-            ots: event.ots.clone()
-        };
-        DbEvent::insert(db_event).await?;
-
-        let mut seq = 0;
-        for tag in event.tags.iter() {
-            // convert to vec of strings
-            let v: Vec<String> = serde_json::from_str(&serde_json::to_string(&tag)?)?;
-
-            let db_event_tag = DbEventTag {
-                event: event.id.as_hex_string(),
-                seq: seq,
-                label: v.get(0).cloned(),
-                field0: v.get(1).cloned(),
-                field1: v.get(2).cloned(),
-                field2: v.get(3).cloned(),
-                field3: v.get(4).cloned(),
-            };
-            DbEventTag::insert(db_event_tag).await?;
-            seq += 1;
-        }
-
-        let db_event_seen = DbEventSeen {
-            event: event.id.as_hex_string(),
-            relay: self.url.0.clone(),
-            when_seen: Unixtime::now()?.0 as u64
-        };
-        DbEventSeen::replace(db_event_seen).await?;
 
         Ok(())
     }
