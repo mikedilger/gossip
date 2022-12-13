@@ -129,9 +129,13 @@ impl Overlord {
             })?;
         }
 
+        // FIXME - if this needs doing, it should be done dynamically as
+        //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen, possibly autofollow
         DbPerson::populate_new_people(self.settings.autofollow!=0).await?;
 
+        // FIXME - if this needs doing, it should be done dynamically as
+        //         new people are encountered, not batch-style on startup.
         // Create a relay record for every relay in person_relay map (these get
         // updated from events without necessarily updating our relays list)
         DbRelay::populate_new_relays().await?;
