@@ -105,12 +105,8 @@ pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPer
     };
 
     // Insert (or ignore) this relay
-    DbRelay::insert(DbRelay {
-        url: relay.clone(),
-        success_count: 0,
-        failure_count: 0,
-        rank: Some(3)
-    }).await.map_err(|e| format!("{}", e))?;
+    DbRelay::insert(DbRelay::new(relay.clone()))
+                    .await.map_err(|e| format!("{}", e))?;
 
     // Insert (or ignore) this person's relay
     DbPersonRelay::insert(DbPersonRelay {
@@ -141,12 +137,8 @@ pub async fn follow_author() -> Result<DbPerson, String> {
 	    "wss://nostr.oxtr.dev",
 	    "wss://relay.nostr.info"
     ].iter() {
-        DbRelay::insert(DbRelay {
-            url: relay.to_string(),
-            success_count: 0,
-            failure_count: 0,
-            rank: Some(3)
-        }).await.map_err(|e| format!("{}", e))?;
+        DbRelay::insert(DbRelay::new(relay.to_string()))
+            .await.map_err(|e| format!("{}", e))?;
 
         DbPersonRelay::insert(DbPersonRelay {
             person: public_key.clone(),

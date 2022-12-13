@@ -20,23 +20,25 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub async fn load(&mut self) -> Result<(), Error> {
-        self.feed_chunk = DbSetting::fetch_setting_u64_or_default(
+    pub async fn load() -> Result<Settings, Error> {
+        let feed_chunk = DbSetting::fetch_setting_u64_or_default(
             "feed_chunk",
             crate::DEFAULT_FEED_CHUNK
         ).await?;
 
-        self.overlap = DbSetting::fetch_setting_u64_or_default(
+        let overlap = DbSetting::fetch_setting_u64_or_default(
             "overlap",
             crate::DEFAULT_OVERLAP
         ).await?;
 
-        self.autofollow = DbSetting::fetch_setting_u64_or_default(
+        let autofollow = DbSetting::fetch_setting_u64_or_default(
             "autofollow",
             crate::DEFAULT_AUTOFOLLOW
         ).await?;
 
-        Ok(())
+        Ok(Settings {
+            feed_chunk, overlap, autofollow
+        })
     }
 
     pub async fn save(&self) -> Result<(), Error> {

@@ -23,25 +23,34 @@ pub struct Minion {
     to_overlord: UnboundedSender<BusMessage>,
     from_overlord: Receiver<BusMessage>,
     settings: Settings,
-    dbrelay: Option<DbRelay>,
+    dbrelay: DbRelay,
     nip11: Option<RelayInformationDocument>,
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     subscriptions: HashMap<String, Subscription>,
 }
 
 impl Minion {
-    pub fn new(url: Url, pubkeys: Vec<PublicKeyHex>) -> Minion {
+    pub async fn new(url: Url, pubkeys: Vec<PublicKeyHex>) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
+        let settings = Settings::load().await?;
+        let dbrelay = match DbRelay::fetch_one(&url).await? {
+            Some(dbrelay) => dbrelay,
+            None => {
+                let dbrelay = DbRelay::new(url.0.clone());
+                DbRelay::insert(dbrelay.clone()).await?;
+                dbrelay
+            }
+        };
 
-        Minion {
+        Ok(Minion {
             url, pubkeys, to_overlord, from_overlord,
-            settings: Default::default(),
-            dbrelay: None,
+            settings: settings,
+            dbrelay: dbrelay,
             nip11: None,
             stream: None,
             subscriptions: HashMap::new(),
-        }
+        })
     }
 }
 
@@ -53,11 +62,9 @@ impl Minion {
         }
 
         // Bump the failure count for the relay.
-        if let Some(dbrelay) = &mut self.dbrelay {
-            dbrelay.failure_count += 1;
-            if let Err(e) = DbRelay::update(dbrelay.clone()).await {
-                log::error!("ERROR bumping relay failure count {}: {}", &self.url, e);
-            }
+        self.dbrelay.failure_count += 1;
+        if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+            log::error!("ERROR bumping relay failure count {}: {}", &self.url, e);
         }
 
         log::debug!("Minion exiting: {}", self.url);
@@ -65,9 +72,6 @@ impl Minion {
 
     async fn handle_inner(&mut self) -> Result<(), Error> {
         log::info!("Task started to handle relay at {}", &self.url);
-
-        // Load settings
-        self.settings.load().await?;
 
         // Connect to the relay
         let websocket_stream = {
@@ -130,14 +134,8 @@ impl Minion {
 
         // Bump the success count for the relay
         {
-            let maybe_dbrelay = DbRelay::fetch_one(&self.url).await?;
-            if let Some(mut dbrelay) = maybe_dbrelay {
-                dbrelay.success_count += 1;
-                DbRelay::update(dbrelay.clone()).await?;
-                self.dbrelay = Some(dbrelay);
-            } else {
-                log::error!("Could not load relay to update success count: {}", self.url);
-            }
+            self.dbrelay.success_count += 1;
+            DbRelay::update(self.dbrelay.clone()).await?;
         }
 
         // Subscribe to the people we follow

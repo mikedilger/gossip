@@ -104,7 +104,7 @@ impl Overlord {
         setup_database().await?;
 
         // Load settings
-        self.settings.load().await?;
+        self.settings = Settings::load().await?;
 
         // Tell javascript our setings
         self.send_to_javascript(BusMessage {
@@ -221,7 +221,7 @@ impl Overlord {
 
                 // Fire off a minion to handle this relay
                 self.start_minion(best_relay.relay.url.clone(),
-                                  best_relay.pubkeys.clone());
+                                  best_relay.pubkeys.clone()).await?;
 
                 log::info!("Picked relay {}, {} people left",
                            best_relay.relay.url,
@@ -254,14 +254,16 @@ impl Overlord {
         Ok(())
     }
 
-    fn start_minion(&mut self, url: String, pubkeys: Vec<PublicKeyHex>) {
+    async fn start_minion(&mut self, url: String, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
         let moved_url = Url(url.clone());
+        let mut minion = Minion::new(moved_url, pubkeys).await?;
         let abort_handle = self.minions.spawn(async move {
-            let mut minion = Minion::new(moved_url, pubkeys);
             minion.handle().await
         });
         let id = abort_handle.id();
         self.minions_task_url.insert(id, Url(url));
+
+        Ok(())
     }
 
     async fn loop_handler(&mut self) -> Result<bool, Error> {

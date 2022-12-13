@@ -12,6 +12,15 @@ pub struct DbRelay {
 }
 
 impl DbRelay {
+    pub fn new(url: String) -> DbRelay {
+        DbRelay {
+            url: url,
+            success_count: 0,
+            failure_count: 0,
+            rank: Some(3),
+        }
+    }
+
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
         let sql = "SELECT url, success_count, failure_count, rank FROM relay".to_owned();
