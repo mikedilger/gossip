@@ -173,7 +173,11 @@ impl Minion {
 
         select! {
             ws_message = ws_stream.next() => {
-                let ws_message = ws_message.unwrap()?;
+                let ws_message = match ws_message {
+                    Some(m) => m,
+                    None => return Ok(false), // probably connection reset
+                }?;
+
                 log::trace!("Handling message from {}", &self.url);
                 match ws_message {
                     WsMessage::Text(t) => {
