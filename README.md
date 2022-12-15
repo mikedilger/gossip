@@ -6,6 +6,10 @@ Nostr is "Notes and Other Stuff Transmitted by Relays."
 
 This is pre-alpha code. It is not ready for use.
 
+NOTE: I am reworking this code to use GTK4 because something about Tauri/JavaScript/WebkitGTK
+is dog slow. See issue #58. I probably wont be pushing my work into this repo until I'm sure
+it's on the right path, so don't fret if this repo seems idle for a while.
+
 ## Features
 
 - Asychronous design: No busy waiting, no repeatitive polling, easy on your processor.
