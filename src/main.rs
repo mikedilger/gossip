@@ -4,6 +4,8 @@ extern crate lazy_static;
 mod comms;
 use comms::BusMessage;
 
+mod error;
+
 use std::env;
 use tokio::sync::{broadcast, mpsc, Mutex};
 
