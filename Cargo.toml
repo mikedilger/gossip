@@ -11,6 +11,7 @@ edition = "2021"
 
 [dependencies]
 env_logger = "0.10"
+gtk = { package = "gtk4", version="0.5", features = [ "v4_8" ] }
 lazy_static = "1.4"
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }

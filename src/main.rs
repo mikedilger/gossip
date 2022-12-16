@@ -6,7 +6,9 @@ use comms::BusMessage;
 
 mod error;
 
-use std::env;
+mod ui;
+
+use std::{env, thread};
 use tokio::sync::{broadcast, mpsc, Mutex};
 
 /// Only one of these is ever created, via lazy_static!, and represents
@@ -51,4 +53,20 @@ fn main() {
         env::set_var("RUST_LOG_STYLE", "auto");
     }
     env_logger::init();
+
+    // Create a separate thread to drive the User Interface
+    let ui_thread = thread::spawn(move || {
+        ui::run();
+    });
+
+    // The main thread will be driven by tokio
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(tokio_main());
+
+    // Don't exit until the UI thread exits
+    let _ = ui_thread.join();
+}
+
+async fn tokio_main() {
+    println!("Hello World");
 }
