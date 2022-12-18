@@ -1,3 +1,5 @@
+mod relay_picker;
+
 use crate::comms::BusMessage;
 use crate::settings::Settings;
 use crate::{Error, GLOBALS};
