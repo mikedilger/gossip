@@ -12,6 +12,11 @@ pub fn run() {
 
     // Run the application
     app.run();
+
+    // Initiate shutdown
+    if let Err(e) = crate::initiate_shutdown() {
+        log::error!("{}", e);
+    }
 }
 
 fn build_ui(app: &Application) {
