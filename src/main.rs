@@ -9,6 +9,8 @@ use comms::BusMessage;
 mod error;
 use error::Error;
 
+mod settings;
+
 mod ui;
 
 use rusqlite::Connection;
