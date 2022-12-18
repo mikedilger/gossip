@@ -1,19 +1,26 @@
 #[macro_use]
 extern crate lazy_static;
 
+mod db;
+
 mod comms;
 use comms::BusMessage;
 
 mod error;
+use error::Error;
 
 mod ui;
 
+use rusqlite::Connection;
 use std::{env, thread};
 use tokio::sync::{broadcast, mpsc, Mutex};
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
 pub struct Globals {
+    /// This is our connection to SQLite. Only one thread at a time.
+    pub db: Mutex<Option<Connection>>,
+
     /// This is a broadcast channel. All Minions should listen on it.
     /// To create a receiver, just run .subscribe() on it.
     pub to_minions: broadcast::Sender<BusMessage>,
@@ -37,6 +44,7 @@ lazy_static! {
         let (to_overlord, from_minions) = mpsc::unbounded_channel();
 
         Globals {
+            db: Mutex::new(None),
             to_minions,
             to_overlord,
             from_minions: Mutex::new(Some(from_minions)),

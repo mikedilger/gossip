@@ -21,6 +21,9 @@ pub enum Error {
     #[error("Nostr: {0}")]
     Nostr(#[from] nostr_proto::Error),
 
+    #[error("I/O Error: {0}")]
+    Io(#[from] std::io::Error),
+
     #[error("Bad integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
 
