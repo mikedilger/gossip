@@ -9,13 +9,18 @@ use comms::BusMessage;
 mod error;
 use error::Error;
 
+mod event_related;
+use event_related::EventRelated;
+
 mod overlord;
 
 mod settings;
 
 mod ui;
 
+use nostr_proto::{Event, Id};
 use rusqlite::Connection;
+use std::collections::HashMap;
 use std::ops::DerefMut;
 use std::{env, thread};
 use tokio::sync::{broadcast, mpsc, Mutex};
@@ -37,6 +42,12 @@ pub struct Globals {
     /// This is ephemeral. It is filled during lazy_static initialization,
     /// and stolen away when the Overlord is created.
     pub from_minions: Mutex<Option<mpsc::UnboundedReceiver<BusMessage>>>,
+
+    /// All nostr events currently loaded to memory, keyed by their Id
+    pub events: Mutex<HashMap<Id, Event>>,
+
+    /// All nostr event related data, keyed by the event Id
+    pub event_relateds: Mutex<HashMap<Id, EventRelated>>,
 }
 
 lazy_static! {
@@ -53,6 +64,8 @@ lazy_static! {
             to_minions,
             to_overlord,
             from_minions: Mutex::new(Some(from_minions)),
+            events: Mutex::new(HashMap::new()),
+            event_relateds: Mutex::new(HashMap::new()),
         }
     };
 }
