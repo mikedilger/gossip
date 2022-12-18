@@ -20,6 +20,9 @@ pub enum Error {
 
     #[error("Bad integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
+
+    #[error("SerdeJson Error: {0}")]
+    SerdeJson(#[from] serde_json::Error),
 }
 
 impl From<String> for Error {
