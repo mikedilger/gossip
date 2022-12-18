@@ -10,6 +10,7 @@ default-run = "gossip"
 edition = "2021"
 
 [dependencies]
+dirs = "4.0"
 env_logger = "0.10"
 gtk = { package = "gtk4", version="0.5", features = [ "v4_8" ] }
 lazy_static = "1.4"
