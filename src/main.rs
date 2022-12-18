@@ -9,11 +9,14 @@ use comms::BusMessage;
 mod error;
 use error::Error;
 
+mod overlord;
+
 mod settings;
 
 mod ui;
 
 use rusqlite::Connection;
+use std::ops::DerefMut;
 use std::{env, thread};
 use tokio::sync::{broadcast, mpsc, Mutex};
 
@@ -78,5 +81,13 @@ fn main() {
 }
 
 async fn tokio_main() {
-    println!("Hello World");
+    // Steal `from_minions` from the GLOBALS, and give it to a new Overlord
+    let from_minions = {
+        let mut mutex_option = GLOBALS.from_minions.lock().await;
+        std::mem::replace(mutex_option.deref_mut(), None)
+    }
+    .unwrap();
+
+    let mut overlord = crate::overlord::Overlord::new(from_minions);
+    overlord.run().await;
 }

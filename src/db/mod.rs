@@ -27,7 +27,6 @@ use rusqlite::Connection;
 use std::fs;
 
 // This sets up the database
-#[allow(dead_code)]
 #[allow(clippy::or_fun_call)]
 pub async fn setup_database() -> Result<(), Error> {
     let mut data_dir = dirs::data_dir()
@@ -60,7 +59,6 @@ pub async fn setup_database() -> Result<(), Error> {
     Ok(())
 }
 
-#[allow(dead_code)]
 async fn check_and_upgrade() -> Result<(), Error> {
     let maybe_db = GLOBALS.db.lock().await;
     let db = maybe_db.as_ref().unwrap();
@@ -96,7 +94,6 @@ macro_rules! apply_sql {
     }};
 }
 
-#[allow(dead_code)]
 fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
     apply_sql!(db, version, 1, "schema1.sql");
 
