@@ -1,8 +1,13 @@
+pub mod about;
+pub mod following;
+pub mod identities;
+pub mod relays;
+pub mod settings;
+pub mod stats;
+
 use gtk::prelude::*;
 use gtk::{gio, glib};
-use gtk::{
-    Align, Application, ApplicationWindow, Box, Orientation, ScrolledWindow, Statusbar, Window,
-};
+use gtk::{Align, Application, ApplicationWindow, Box, Orientation, ScrolledWindow, Statusbar};
 
 const APP_ID: &str = "com.mikedilger.gossip";
 
@@ -14,7 +19,7 @@ pub fn run() {
     app.connect_startup(configure_app);
 
     // Connect activate to build (and show) the app window
-    app.connect_activate(build_app_window);
+    app.connect_activate(build_ui);
 
     // Connect shutdown to initiate shutdown
     app.connect_shutdown(|_| {
@@ -31,7 +36,7 @@ fn configure_app(app: &Application) {
     let show_relays_window_action = gio::SimpleAction::new("show_relays_window", None);
     show_relays_window_action.connect_activate(
         glib::clone!(@weak app => move |_action, _parameter| {
-            show_relays_window(&app);
+            relays::show_window(&app);
         }),
     );
     app.add_action(&show_relays_window_action);
@@ -39,7 +44,7 @@ fn configure_app(app: &Application) {
     let show_settings_window_action = gio::SimpleAction::new("show_settings_window", None);
     show_settings_window_action.connect_activate(
         glib::clone!(@weak app => move |_action, _parameter| {
-            show_settings_window(&app);
+            settings::show_window(&app);
         }),
     );
     app.add_action(&show_settings_window_action);
@@ -53,7 +58,7 @@ fn configure_app(app: &Application) {
     let show_identities_window_action = gio::SimpleAction::new("show_identities_window", None);
     show_identities_window_action.connect_activate(
         glib::clone!(@weak app => move |_action, _parameter| {
-            show_identities_window(&app);
+            identities::show_window(&app);
         }),
     );
     app.add_action(&show_identities_window_action);
@@ -61,7 +66,7 @@ fn configure_app(app: &Application) {
     let show_following_window_action = gio::SimpleAction::new("show_following_window", None);
     show_following_window_action.connect_activate(
         glib::clone!(@weak app => move |_action, _parameter| {
-            show_following_window(&app);
+            following::show_window(&app);
         }),
     );
     app.add_action(&show_following_window_action);
@@ -69,7 +74,7 @@ fn configure_app(app: &Application) {
     let show_stats_window_action = gio::SimpleAction::new("show_stats_window", None);
     show_stats_window_action.connect_activate(
         glib::clone!(@weak app => move |_action, _parameter| {
-            show_stats_window(&app);
+            stats::show_window(&app);
         }),
     );
     app.add_action(&show_stats_window_action);
@@ -77,169 +82,115 @@ fn configure_app(app: &Application) {
     let show_about_window_action = gio::SimpleAction::new("show_about_window", None);
     show_about_window_action.connect_activate(
         glib::clone!(@weak app => move |_action, _parameter| {
-            show_about_window(&app);
+            about::show_window(&app);
         }),
     );
     app.add_action(&show_about_window_action);
 }
 
-fn build_app_window(app: &Application) {
-    // Create a window and set the title
-    let app_window = ApplicationWindow::builder()
-        .application(app)
-        .decorated(true)
-        .default_width(700)
-        .default_height(900)
-        .resizable(true)
-        .title("Gossip")
-        .build();
+fn build_ui(app: &Application) {
+    let ui = Ui::new(app);
 
-    let menubar = {
-        let main_menu = {
-            let relays_menu_item =
-                gio::MenuItem::new(Some("Relays"), Some("app.show_relays_window"));
-            let settings_menu_item =
-                gio::MenuItem::new(Some("Settings"), Some("app.show_settings_window"));
-            let quit_menu_item = gio::MenuItem::new(Some("Quit"), Some("app.quit"));
+    // FIXME: stick this into GLOBALS under an Arc<Mutex<>>
 
-            let main_menu = gio::Menu::new();
-            main_menu.append_item(&relays_menu_item);
-            main_menu.append_item(&settings_menu_item);
-            main_menu.append_item(&quit_menu_item);
-            main_menu
-        };
+    ui.present();
+}
 
-        // People Menu
-        let people_menu = {
-            let identities_menu_item =
-                gio::MenuItem::new(Some("Your Identities"), Some("app.show_identities_window"));
-            let following_menu_item =
-                gio::MenuItem::new(Some("Following"), Some("app.show_following_window"));
+pub struct Ui {
+    app_window: ApplicationWindow,
+}
 
-            let people_menu = gio::Menu::new();
-            people_menu.append_item(&identities_menu_item);
-            people_menu.append_item(&following_menu_item);
-            people_menu
-        };
-
-        // Help menu
-        let help_menu = {
-            let stats_menu_item =
-                gio::MenuItem::new(Some("Statistics"), Some("app.show_stats_window"));
-            let about_menu_item = gio::MenuItem::new(Some("About"), Some("app.show_about_window"));
-
-            let help_menu = gio::Menu::new();
-            help_menu.append_item(&stats_menu_item);
-            help_menu.append_item(&about_menu_item);
-            help_menu
-        };
-
-        // Menubar
-        let menubar = gio::Menu::new();
-        menubar.append_submenu(Some("Main"), &main_menu);
-        menubar.append_submenu(Some("People"), &people_menu);
-        menubar.append_submenu(Some("Help"), &help_menu);
-
-        menubar
-    };
-
-    app.set_menubar(Some(&menubar));
-    app_window.set_show_menubar(true);
-
-    let main_hbox = {
-        let statusbar = Statusbar::builder().build();
-        //let statusbar_context_id = statusbar.context_id("");
-
-        let main_scrolled_window = ScrolledWindow::builder()
-            .has_frame(true)
-            .halign(Align::Fill)
-            .hexpand(true)
-            .valign(Align::Fill)
-            .vexpand(true)
+impl Ui {
+    pub fn new(app: &Application) -> Ui {
+        // Create a window and set the title
+        let app_window = ApplicationWindow::builder()
+            .application(app)
+            .decorated(true)
+            .default_width(700)
+            .default_height(900)
+            .resizable(true)
+            .title("Gossip")
             .build();
 
-        let main_hbox = Box::builder().orientation(Orientation::Vertical).build();
+        let menubar = {
+            let main_menu = {
+                let relays_menu_item =
+                    gio::MenuItem::new(Some("Relays"), Some("app.show_relays_window"));
+                let settings_menu_item =
+                    gio::MenuItem::new(Some("Settings"), Some("app.show_settings_window"));
+                let quit_menu_item = gio::MenuItem::new(Some("Quit"), Some("app.quit"));
 
-        main_hbox.append(&main_scrolled_window);
-        main_hbox.append(&statusbar);
+                let main_menu = gio::Menu::new();
+                main_menu.append_item(&relays_menu_item);
+                main_menu.append_item(&settings_menu_item);
+                main_menu.append_item(&quit_menu_item);
+                main_menu
+            };
 
-        main_hbox
-    };
+            // People Menu
+            let people_menu = {
+                let identities_menu_item =
+                    gio::MenuItem::new(Some("Your Identities"), Some("app.show_identities_window"));
+                let following_menu_item =
+                    gio::MenuItem::new(Some("Following"), Some("app.show_following_window"));
 
-    app_window.set_child(Some(&main_hbox));
+                let people_menu = gio::Menu::new();
+                people_menu.append_item(&identities_menu_item);
+                people_menu.append_item(&following_menu_item);
+                people_menu
+            };
 
-    // Present window
-    app_window.present();
-}
+            // Help menu
+            let help_menu = {
+                let stats_menu_item =
+                    gio::MenuItem::new(Some("Statistics"), Some("app.show_stats_window"));
+                let about_menu_item =
+                    gio::MenuItem::new(Some("About"), Some("app.show_about_window"));
 
-fn show_relays_window(_app: &Application) {
-    let relays_window = Window::builder()
-        .decorated(true)
-        .title("Gossip: Relays")
-        .default_width(400)
-        .default_height(600)
-        .resizable(true)
-        .build();
+                let help_menu = gio::Menu::new();
+                help_menu.append_item(&stats_menu_item);
+                help_menu.append_item(&about_menu_item);
+                help_menu
+            };
 
-    relays_window.show();
-}
+            // Menubar
+            let menubar = gio::Menu::new();
+            menubar.append_submenu(Some("Main"), &main_menu);
+            menubar.append_submenu(Some("People"), &people_menu);
+            menubar.append_submenu(Some("Help"), &help_menu);
 
-fn show_settings_window(_app: &Application) {
-    let settings_window = Window::builder()
-        .decorated(true)
-        .title("Gossip: Settings")
-        .default_width(400)
-        .default_height(600)
-        .resizable(true)
-        .build();
+            menubar
+        };
 
-    settings_window.show();
-}
+        app.set_menubar(Some(&menubar));
+        app_window.set_show_menubar(true);
 
-fn show_identities_window(_app: &Application) {
-    let identities_window = Window::builder()
-        .decorated(true)
-        .title("Gossip: Identities")
-        .default_width(400)
-        .default_height(600)
-        .resizable(true)
-        .build();
+        let main_hbox = {
+            let statusbar = Statusbar::builder().build();
+            //let statusbar_context_id = statusbar.context_id("");
 
-    identities_window.show();
-}
+            let main_scrolled_window = ScrolledWindow::builder()
+                .has_frame(true)
+                .halign(Align::Fill)
+                .hexpand(true)
+                .valign(Align::Fill)
+                .vexpand(true)
+                .build();
 
-fn show_following_window(_app: &Application) {
-    let following_window = Window::builder()
-        .decorated(true)
-        .title("Gossip: Following")
-        .default_width(400)
-        .default_height(600)
-        .resizable(true)
-        .build();
+            let main_hbox = Box::builder().orientation(Orientation::Vertical).build();
 
-    following_window.show();
-}
+            main_hbox.append(&main_scrolled_window);
+            main_hbox.append(&statusbar);
 
-fn show_stats_window(_app: &Application) {
-    let stats_window = Window::builder()
-        .decorated(true)
-        .title("Gossip: Stats")
-        .default_width(400)
-        .default_height(600)
-        .resizable(true)
-        .build();
+            main_hbox
+        };
 
-    stats_window.show();
-}
+        app_window.set_child(Some(&main_hbox));
 
-fn show_about_window(_app: &Application) {
-    let about_window = Window::builder()
-        .decorated(true)
-        .title("Gossip: About")
-        .default_width(400)
-        .default_height(600)
-        .resizable(true)
-        .build();
+        Ui { app_window }
+    }
 
-    about_window.show();
+    pub fn present(&self) {
+        self.app_window.present();
+    }
 }
