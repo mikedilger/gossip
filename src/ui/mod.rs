@@ -1,6 +1,7 @@
 pub mod about;
 pub mod following;
 pub mod identities;
+pub mod post;
 pub mod relays;
 pub mod settings;
 pub mod stats;
@@ -8,9 +9,11 @@ pub mod stats;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
 use gtk::{
-    AboutDialog, Align, Application, ApplicationWindow, Box, License, Orientation, ScrolledWindow,
-    Statusbar,
+    AboutDialog, Align, Application, ApplicationWindow, Box, Label, License,
+    ListView, Orientation, PolicyType, ScrolledWindow, SignalListItemFactory, SingleSelection,
+    Statusbar
 };
+use post::Post;
 
 const APP_ID: &str = "com.mikedilger.gossip";
 
@@ -206,13 +209,77 @@ impl Ui {
             let statusbar = Statusbar::builder().build();
             //let statusbar_context_id = statusbar.context_id("");
 
-            let main_scrolled_window = ScrolledWindow::builder()
-                .has_frame(true)
-                .halign(Align::Fill)
-                .hexpand(true)
-                .valign(Align::Fill)
-                .vexpand(true)
-                .build();
+            let main_scrolled_window = {
+
+                let list_view = {
+                    // Create a `Vec<Post>` with numbers from 0 to 100_000
+                    let vector: Vec<Post> =
+                        (0..=1000).into_iter().map(Post::new).collect();
+
+                    // Create new model
+                    let model = gio::ListStore::new(Post::static_type());
+
+                    // Add the vector to the model
+                    model.extend_from_slice(&vector);
+
+                    let factory = SignalListItemFactory::new();
+                    factory.connect_setup(move |_, list_item| {
+                        let label = Label::new(None);
+                        list_item.set_child(Some(&label)); // Cannot .set_child() on glib::Object
+                    });
+
+                    factory.connect_bind(move |_, list_item| {
+                        // Get `Post` from `ListItem`
+                        let post = list_item
+                            .item() // Cannot .item() on glib::Object
+                            .expect("The item has to exist.")
+                            .downcast::<Post>()
+                            .expect("The item has to be an `Post`.");
+
+                        // Get `Label` from `ListItem`
+                        let label = list_item
+                            .child() // Cannot .child() on glib::Object()
+                            .expect("The child has to exist.")
+                            .downcast::<Label>()
+                            .expect("The child has to be a `Label`.");
+
+                        // Bind "label" to "number"
+                        post
+                            .bind_property("number", &label, "label")
+                            .flags(glib::BindingFlags::SYNC_CREATE)
+                            .build();
+                    });
+
+                    let selection_model = SingleSelection::new(Some(&model));
+                    let list_view = ListView::new(Some(&selection_model), Some(&factory));
+
+                    list_view.connect_activate(move |list_view, position| {
+                        // Get `Post` from model
+                        let model = list_view.model().expect("The model has to exist.");
+                        let post = model
+                            .item(position)
+                            .expect("The item has to exist.")
+                            .downcast::<Post>()
+                            .expect("The item has to be a `Post`.");
+
+                        // Increase "number" of `Post`
+                        post.increase_number();
+                    });
+
+                    list_view
+                };
+
+                ScrolledWindow::builder()
+                    .hscrollbar_policy(PolicyType::Never)
+                    .has_frame(true)
+                    .min_content_width(360)
+                    .halign(Align::Fill)
+                    .hexpand(true)
+                    .valign(Align::Fill)
+                    .vexpand(true)
+                    .child(&list_view)
+                    .build()
+            };
 
             let main_hbox = Box::builder().orientation(Orientation::Vertical).build();
 

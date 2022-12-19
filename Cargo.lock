@@ -684,6 +684,7 @@ dependencies = [
  "lazy_static",
  "log",
  "nostr-proto",
+ "once_cell",
  "rusqlite",
  "serde",
  "serde_json",

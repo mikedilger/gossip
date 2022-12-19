@@ -83,9 +83,12 @@ impl Overlord {
             }
 
             // Process these events
+            let mut count = 0;
             for event in events.iter() {
+                count += 1;
                 crate::globals::add_event(event).await?;
             }
+            log::info!("Loaded {} events from the database", count);
         }
 
         'mainloop: loop {
