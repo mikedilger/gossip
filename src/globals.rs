@@ -74,6 +74,23 @@ pub async fn get_feed() -> Vec<Id> {
 }
 
 #[allow(dead_code)]
+pub fn blocking_get_feed() -> Vec<Id> {
+    let mut feed: Vec<EventRelated> = GLOBALS
+        .event_relateds
+        .blocking_lock()
+        .iter()
+        .map(|(_, e)| e)
+        //.filter(|e| e.feed_related) // feed related
+        //.filter(|e| e.in_reply_to.is_none()) // only root events
+        .cloned()
+        .collect();
+    let len = GLOBALS.event_relateds.blocking_lock().len();
+    log::info!("New feed, length={} (of {} events)", feed.len(), len);
+    feed.sort_unstable_by(|a, b| a.last_reply_at.cmp(&b.last_reply_at));
+    feed.iter().map(|e| e.id).collect()
+}
+
+#[allow(dead_code)]
 pub async fn add_event(event: &Event) -> Result<(), Error> {
     // Insert the event
     insert_event(event).await;

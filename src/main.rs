@@ -29,6 +29,9 @@ fn main() {
 
     // Create a separate thread to drive the User Interface
     let ui_thread = thread::spawn(move || {
+        // TEMPORARY HACK SO THE LIST IS CREATED AFTER THE FEED IS LOADED
+        // Later, use the ListModel::items-changed signal
+        std::thread::sleep(std::time::Duration::from_millis(1000));
         ui::run();
     });
 

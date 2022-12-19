@@ -9,9 +9,8 @@ pub mod stats;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
 use gtk::{
-    AboutDialog, Align, Application, ApplicationWindow, Box, Label, License,
-    ListView, Orientation, PolicyType, ScrolledWindow, SignalListItemFactory, SingleSelection,
-    Statusbar
+    AboutDialog, Align, Application, ApplicationWindow, Box, Label, License, ListView, Orientation,
+    PolicyType, ScrolledWindow, SignalListItemFactory, SingleSelection, Statusbar,
 };
 use post::Post;
 
@@ -210,11 +209,12 @@ impl Ui {
             //let statusbar_context_id = statusbar.context_id("");
 
             let main_scrolled_window = {
-
                 let list_view = {
-                    // Create a `Vec<Post>` with numbers from 0 to 100_000
-                    let vector: Vec<Post> =
-                        (0..=1000).into_iter().map(Post::new).collect();
+                    // Create a `Vec<Post>` feed
+                    let vector: Vec<Post> = crate::globals::blocking_get_feed()
+                        .into_iter()
+                        .map(Post::new)
+                        .collect();
 
                     // Create new model
                     let model = gio::ListStore::new(Post::static_type());
@@ -244,29 +244,14 @@ impl Ui {
                             .expect("The child has to be a `Label`.");
 
                         // Bind "label" to "number"
-                        post
-                            .bind_property("number", &label, "label")
+                        post.bind_property("id", &label, "label")
                             .flags(glib::BindingFlags::SYNC_CREATE)
                             .build();
                     });
 
                     let selection_model = SingleSelection::new(Some(&model));
-                    let list_view = ListView::new(Some(&selection_model), Some(&factory));
 
-                    list_view.connect_activate(move |list_view, position| {
-                        // Get `Post` from model
-                        let model = list_view.model().expect("The model has to exist.");
-                        let post = model
-                            .item(position)
-                            .expect("The item has to exist.")
-                            .downcast::<Post>()
-                            .expect("The item has to be a `Post`.");
-
-                        // Increase "number" of `Post`
-                        post.increase_number();
-                    });
-
-                    list_view
+                    ListView::new(Some(&selection_model), Some(&factory))
                 };
 
                 ScrolledWindow::builder()
