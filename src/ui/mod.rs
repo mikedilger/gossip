@@ -1,6 +1,8 @@
 use gtk::prelude::*;
 use gtk::{gio, glib};
-use gtk::{Application, ApplicationWindow};
+use gtk::{
+    Align, Application, ApplicationWindow, Box, Orientation, ScrolledWindow, Statusbar, Window,
+};
 
 const APP_ID: &str = "com.mikedilger.gossip";
 
@@ -8,20 +10,21 @@ pub fn run() {
     // Create a new application
     let app = Application::builder().application_id(APP_ID).build();
 
-    // Connect signals
+    // Connect startup to configure the app
     app.connect_startup(configure_app);
-    app.connect_activate(build_ui);
+
+    // Connect activate to build (and show) the app window
+    app.connect_activate(build_app_window);
+
+    // Connect shutdown to initiate shutdown
     app.connect_shutdown(|_| {
         log::info!("UI shutting down");
+        if let Err(e) = crate::initiate_shutdown() {
+            log::error!("{}", e);
+        }
     });
 
-    // Run the application
     app.run();
-
-    // Initiate shutdown
-    if let Err(e) = crate::initiate_shutdown() {
-        log::error!("{}", e);
-    }
 }
 
 fn configure_app(app: &Application) {
@@ -33,15 +36,19 @@ fn configure_app(app: &Application) {
 
     let about = gio::SimpleAction::new("about", None);
     about.connect_activate(glib::clone!(@weak app => move |_action, _parameter| {
-        log::info!("About was pressed");
+        build_about_window(&app);
     }));
     app.add_action(&about);
 }
 
-fn build_ui(app: &Application) {
+fn build_app_window(app: &Application) {
     // Create a window and set the title
-    let window = ApplicationWindow::builder()
+    let app_window = ApplicationWindow::builder()
         .application(app)
+        .decorated(true)
+        .default_width(700)
+        .default_height(900)
+        .resizable(true)
         .title("Gossip")
         .build();
 
@@ -90,8 +97,42 @@ fn build_ui(app: &Application) {
     };
 
     app.set_menubar(Some(&menubar));
-    window.set_show_menubar(true);
+    app_window.set_show_menubar(true);
+
+    let main_hbox = {
+        let statusbar = Statusbar::builder().build();
+        //let statusbar_context_id = statusbar.context_id("");
+
+        let main_scrolled_window = ScrolledWindow::builder()
+            .has_frame(true)
+            .halign(Align::Fill)
+            .hexpand(true)
+            .valign(Align::Fill)
+            .vexpand(true)
+            .build();
+
+        let main_hbox = Box::builder().orientation(Orientation::Vertical).build();
+
+        main_hbox.append(&main_scrolled_window);
+        main_hbox.append(&statusbar);
+
+        main_hbox
+    };
+
+    app_window.set_child(Some(&main_hbox));
 
     // Present window
-    window.present();
+    app_window.present();
+}
+
+fn build_about_window(_app: &Application) {
+    let about_window = Window::builder()
+        .decorated(true)
+        .title("Gossip: About")
+        .default_width(400)
+        .default_height(600)
+        .resizable(true)
+        .build();
+
+    about_window.show();
 }
