@@ -6,8 +6,11 @@ pub mod settings;
 pub mod stats;
 
 use gtk::prelude::*;
-use gtk::{gio, glib};
-use gtk::{Align, Application, ApplicationWindow, Box, Orientation, ScrolledWindow, Statusbar};
+use gtk::{gdk, gio, glib};
+use gtk::{
+    AboutDialog, Align, Application, ApplicationWindow, Box, License, Orientation, ScrolledWindow,
+    Statusbar,
+};
 
 const APP_ID: &str = "com.mikedilger.gossip";
 
@@ -82,7 +85,41 @@ fn configure_app(app: &Application) {
     let show_about_window_action = gio::SimpleAction::new("show_about_window", None);
     show_about_window_action.connect_activate(
         glib::clone!(@weak app => move |_action, _parameter| {
-            about::show_window(&app);
+            let about = crate::ui::about::about();
+
+            let comments = format!(
+                "{}
+
+Nostr is a protocol and specification for storing and retrieving social media events onto servers called relays. Many users store their events onto multiple relays for reliability, censorship resistance, and to spread their reach. If you didn't store an event on a particular relay, don't expect anyone to find it there because relays normally don't share events with each other.
+
+Users are defined by their keypair, and are known by the public key of that pair. All events they generate are signed by their private key, and verifiable by their public key.
+
+Learn more about nostr at https://github.com/nostr-protocol/nostr
+", about.description);
+
+            let about_dialog = AboutDialog::builder()
+                .program_name(&about.name)
+                .version(&about.version)
+                .comments(&comments)
+                .authors(vec![about.authors])
+                .website(&about.homepage)
+                .website_label("Source Code")
+                .license_type(License::MitX11)
+                .system_information(
+                    &format!("We are storing data on your system at {}.
+This data is only used locally by this client.
+The nostr protocol does not use clients as a store of other people's data.", about.database_path)
+                )
+                .build();
+
+            // FIXME - best to compile this in somehow so finding it isn't a nightmare,
+            // and it won't even spin their disk to do so.
+            let logo_file = gio::File::for_path("./gossip.svg");
+            if let Ok(logo) = gdk::Texture::from_file(&logo_file) {
+                about_dialog.set_logo(Some(&logo));
+            }
+
+            about_dialog.show();
         }),
     );
     app.add_action(&show_about_window_action);
