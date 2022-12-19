@@ -154,7 +154,6 @@ impl DbPerson {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn populate_new_people(follow_everybody: bool) -> Result<(), Error> {
         let sql = if follow_everybody {
             "INSERT or IGNORE INTO person (pubkey, followed) SELECT DISTINCT pubkey, 1 FROM EVENT"
