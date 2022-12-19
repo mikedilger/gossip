@@ -1,9 +1,10 @@
 mod relay_picker;
 
 use crate::comms::BusMessage;
-use crate::db::{DbPerson, DbRelay};
+use crate::db::{DbEvent, DbPerson, DbRelay};
 use crate::settings::Settings;
 use crate::{Error, GLOBALS};
+use nostr_proto::{Event, Unixtime};
 use tokio::select;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -63,6 +64,29 @@ impl Overlord {
         // Create a relay record for every relay in person_relay map (these get
         // updated from events without necessarily updating our relays list)
         DbRelay::populate_new_relays().await?;
+
+        // Load feed-related events from database and process (TextNote, EventDeletion, Reaction)
+        {
+            let now = Unixtime::now().unwrap();
+            let then = now.0 - self.settings.feed_chunk as i64;
+            let db_events = DbEvent::fetch(Some(&format!(
+                " (kind=1 OR kind=5 OR kind=7) AND created_at > {} ORDER BY created_at ASC",
+                then
+            )))
+            .await?;
+
+            // Map db events into Events
+            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
+            for dbevent in db_events.iter() {
+                let e = serde_json::from_str(&dbevent.raw)?;
+                events.push(e);
+            }
+
+            // Process these events
+            for event in events.iter() {
+                crate::globals::add_event(event).await?;
+            }
+        }
 
         'mainloop: loop {
             match self.loop_handler().await {
