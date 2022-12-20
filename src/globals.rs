@@ -1,5 +1,5 @@
 use crate::comms::BusMessage;
-use crate::db::DbPerson;
+use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::event_related::EventRelated;
 use nostr_proto::{Event, EventKind, Id, Metadata, PublicKey, PublicKeyHex, Tag, Unixtime};
@@ -277,4 +277,53 @@ async fn followed_pubkeys() -> Vec<PublicKeyHex> {
         .filter(|p| p.followed == 1)
         .map(|p| p.pubkey.clone())
         .collect()
+}
+
+#[allow(dead_code)]
+pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPerson, String> {
+    let pubkeyhex = PublicKeyHex(pubkey.clone());
+
+    // Create or update them
+    let person = match DbPerson::fetch_one(pubkeyhex.clone())
+        .await
+        .map_err(|e| format!("{}", e))?
+    {
+        Some(mut person) => {
+            person.followed = 1;
+            DbPerson::update(person.clone())
+                .await
+                .map_err(|e| format!("{}", e))?;
+            person
+        }
+        None => {
+            let mut person = DbPerson::new(pubkeyhex.clone());
+            person.followed = 1;
+            DbPerson::insert(person.clone())
+                .await
+                .map_err(|e| format!("{}", e))?;
+            person
+        }
+    };
+
+    // Insert (or ignore) this relay
+    DbRelay::insert(DbRelay::new(relay.clone()))
+        .await
+        .map_err(|e| format!("{}", e))?;
+
+    // Insert (or ignore) this person's relay
+    DbPersonRelay::insert(DbPersonRelay {
+        person: pubkey,
+        relay,
+        recommended: 0,
+        last_fetched: None,
+    })
+    .await
+    .map_err(|e| format!("{}", e))?;
+
+    // Tell the overlord to update the  minion to watch for their events
+    // possibly starting a new minion if necessary.
+    // FIXME TODO
+
+    // Reply to javascript with the person which will be set in the store
+    Ok(person)
 }
