@@ -1,8 +1,13 @@
 [package]
 name = "gossip"
 version = "0.3.0"
-edition = "2021"
+description = "A social media client for nostr"
+authors = ["Mike Dilger <mike@mikedilger.com>"]
 license = "MIT"
+repository = "https://github.com/mikedilger/gossip"
+homepage = "https://github.com/mikedilger/gossip"
+default-run = "gossip"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
