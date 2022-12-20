@@ -2,6 +2,7 @@
 extern crate lazy_static;
 
 mod comms;
+mod db;
 mod error;
 mod globals;
 
