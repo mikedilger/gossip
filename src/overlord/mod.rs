@@ -1,14 +1,18 @@
+mod minion;
 mod relay_picker;
 
 use crate::comms::BusMessage;
-use crate::db::{DbEvent, DbPerson, DbRelay};
+use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
-use nostr_proto::{Event, Unixtime};
-use tokio::select;
+use minion::Minion;
+use nostr_proto::{Event, PublicKey, PublicKeyHex, Unixtime, Url};
+use relay_picker::{BestRelay, RelayPicker};
+use std::collections::HashMap;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::{select, task};
 use tracing::{error, info};
 
 pub struct Overlord {
@@ -16,6 +20,8 @@ pub struct Overlord {
     to_minions: Sender<BusMessage>,
     #[allow(dead_code)]
     from_minions: UnboundedReceiver<BusMessage>,
+    minions: task::JoinSet<()>,
+    minions_task_url: HashMap<task::Id, Url>,
 }
 
 impl Overlord {
@@ -25,6 +31,8 @@ impl Overlord {
             settings: Settings::default(),
             to_minions,
             from_minions,
+            minions: task::JoinSet::new(),
+            minions_task_url: HashMap::new(),
         }
     }
 
@@ -67,6 +75,15 @@ impl Overlord {
         // updated from events without necessarily updating our relays list)
         DbRelay::populate_new_relays().await?;
 
+        // Load people from the database
+        {
+            let mut dbpeople = DbPerson::fetch(None).await?;
+            for dbperson in dbpeople.drain(..) {
+                let pubkey = PublicKey::try_from(dbperson.pubkey.clone())?;
+                GLOBALS.people.lock().await.insert(pubkey, dbperson);
+            }
+        }
+
         // Load feed-related events from database and process (TextNote, EventDeletion, Reaction)
         {
             let now = Unixtime::now().unwrap();
@@ -93,6 +110,41 @@ impl Overlord {
             info!("Loaded {} events from the database", count);
         }
 
+        // Pick Relays and start Minions
+        {
+            let pubkeys: Vec<PublicKeyHex> = crate::globals::followed_pubkeys().await;
+
+            let mut relay_picker = RelayPicker {
+                relays: DbRelay::fetch(None).await?,
+                pubkeys: pubkeys.clone(),
+                person_relays: DbPersonRelay::fetch_for_pubkeys(&pubkeys).await?,
+            };
+            let mut best_relay: BestRelay;
+            loop {
+                if relay_picker.is_degenerate() {
+                    break;
+                }
+
+                let (rd, rp) = relay_picker.best()?;
+                best_relay = rd;
+                relay_picker = rp;
+
+                if best_relay.is_degenerate() {
+                    break;
+                }
+
+                // Fire off a minion to handle this relay
+                self.start_minion(best_relay.relay.url.clone(), best_relay.pubkeys.clone())
+                    .await?;
+
+                info!(
+                    "Picked relay {}, {} people left",
+                    best_relay.relay.url,
+                    relay_picker.pubkeys.len()
+                );
+            }
+        }
+
         'mainloop: loop {
             match self.loop_handler().await {
                 Ok(keepgoing) => {
@@ -106,6 +158,16 @@ impl Overlord {
                 }
             }
         }
+
+        Ok(())
+    }
+
+    async fn start_minion(&mut self, url: String, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
+        let moved_url = Url(url.clone());
+        let mut minion = Minion::new(moved_url, pubkeys).await?;
+        let abort_handle = self.minions.spawn(async move { minion.handle().await });
+        let id = abort_handle.id();
+        self.minions_task_url.insert(id, Url(url));
 
         Ok(())
     }

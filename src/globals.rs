@@ -268,8 +268,7 @@ async fn save_person(pubkey: PublicKey) -> Result<(), Error> {
     Ok(())
 }
 
-#[allow(dead_code)]
-async fn followed_pubkeys() -> Vec<PublicKeyHex> {
+pub async fn followed_pubkeys() -> Vec<PublicKeyHex> {
     let people = GLOBALS.people.lock().await;
     people
         .iter()
