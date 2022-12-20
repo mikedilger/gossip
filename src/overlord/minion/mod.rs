@@ -29,7 +29,8 @@ pub struct Minion {
     dbrelay: DbRelay,
     nip11: Option<RelayInformationDocument>,
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    subscriptions: HashMap<String, Subscription>,
+    subscriptions_by_ourname: HashMap<String, Subscription>,
+    subscription_id_to_ourname: HashMap<String, String>,
 }
 
 impl Minion {
@@ -55,7 +56,8 @@ impl Minion {
             dbrelay,
             nip11: None,
             stream: None,
-            subscriptions: HashMap::new(),
+            subscriptions_by_ourname: HashMap::new(),
+            subscription_id_to_ourname: HashMap::new(),
         })
     }
 }
@@ -235,13 +237,14 @@ impl Minion {
         let websocket_stream = self.stream.as_mut().unwrap();
 
         if self.pubkeys.is_empty() {
-            if let Some(sub) = self.subscriptions.get("following") {
+            if let Some(sub) = self.subscriptions_by_ourname.get("following") {
                 // Close the subscription
                 let wire = serde_json::to_string(&sub.close_message())?;
                 websocket_stream.send(WsMessage::Text(wire.clone())).await?;
 
                 // Remove the subscription from the map
-                self.subscriptions.remove("following");
+                self.subscription_id_to_ourname.remove(&sub.get_id());
+                self.subscriptions_by_ourname.remove("following");
             }
 
             // Since pubkeys is empty, nothing to subscribe to.
@@ -298,9 +301,9 @@ impl Minion {
 
         // Get the subscription
         let sub = self
-            .subscriptions
+            .subscriptions_by_ourname
             .entry("following".to_string())
-            .or_insert_with(|| Subscription::new("following".to_string()));
+            .or_insert_with(Subscription::new);
 
         // Write our filters into it
         {

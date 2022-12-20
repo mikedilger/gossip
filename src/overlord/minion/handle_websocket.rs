@@ -32,11 +32,16 @@ impl Minion {
                 DbPersonRelay::update_last_fetched(self.url.0.clone(), now).await?;
 
                 // Update the matching subscription
-                match self.subscriptions.get_mut(&subid.0) {
-                    Some(sub) => {
-                        sub.set_eose();
-                        info!("EOSE: {} {:?}", &self.url, subid);
-                    }
+                match self.subscription_id_to_ourname.get(&subid.0) {
+                    Some(ourname) => match self.subscriptions_by_ourname.get_mut(ourname) {
+                        Some(sub) => {
+                            sub.set_eose();
+                            info!("EOSE: {} {:?}", &self.url, subid);
+                        }
+                        None => {
+                            warn!("EOSE for unknown subscription ourname={}", ourname);
+                        }
+                    },
                     None => {
                         warn!("EOSE for unknown subsription: {} {:?}", &self.url, subid);
                     }

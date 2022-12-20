@@ -8,9 +8,9 @@ pub struct Subscription {
 }
 
 impl Subscription {
-    pub fn new(id: String) -> Subscription {
+    pub fn new() -> Subscription {
         Subscription {
-            id,
+            id: textnonce::TextNonce::new().to_string(),
             filters: vec![],
             eose: false,
         }
