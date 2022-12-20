@@ -13,7 +13,7 @@ edition = "2021"
 
 [dependencies]
 dirs = "4.0"
-eframe = "0.20"
+eframe = { version = "0.20", features = [ "dark-light" ] }
 egui_extras = { version = "0.20", features = [ "svg", "tracing" ] }
 image = "0.24"
 lazy_static = "1.4"

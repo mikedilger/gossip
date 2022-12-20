@@ -1,5 +1,6 @@
 use crate::error::Error;
-use eframe::{egui, IconData};
+use eframe::{egui, IconData, Theme};
+use egui::style::Style;
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
@@ -8,52 +9,70 @@ pub fn run() -> Result<(), Error> {
 
     let options = eframe::NativeOptions {
         decorated: true,
+        default_theme: Theme::Light,
         icon_data: Some(IconData {
             rgba: icon.into_raw(),
             width: icon_width,
             height: icon_height,
         }),
-        initial_window_size: Some(egui::vec2(320.0, 240.0)),
+        initial_window_size: Some(egui::vec2(700.0, 900.0)),
+        centered: true,
         ..Default::default()
     };
 
     eframe::run_native(
-        "My egui App",
+        "Gossip",
         options,
-        Box::new(|_cc| Box::new(MyApp::default())),
+        Box::new(|_cc| Box::new(GossipUi::default())),
     );
 
     Ok(())
 }
 
-struct MyApp {
-    name: String,
-    age: u32,
+#[derive(PartialEq)]
+enum Page {
+    Feed,
+    People,
+    You,
+    Relays,
+    Settings,
+    Stats,
+    About,
 }
 
-impl Default for MyApp {
+struct GossipUi {
+    page: Page,
+}
+
+impl Default for GossipUi {
     fn default() -> Self {
-        Self {
-            name: "Arthur".to_owned(),
-            age: 42,
-        }
+        Self { page: Page::Feed }
     }
 }
 
-impl eframe::App for MyApp {
+impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("My egui Application");
+            //ui.heading("Gossip");
+
             ui.horizontal(|ui| {
-                let name_label = ui.label("Your name: ");
-                ui.text_edit_singleline(&mut self.name)
-                    .labelled_by(name_label.id);
+                // light-dark switcher
+                let style: Style = (*ui.ctx().style()).clone();
+                let new_visuals = style.visuals.light_dark_small_toggle_button(ui);
+                if let Some(visuals) = new_visuals {
+                    ui.ctx().set_visuals(visuals);
+                }
+
+                ui.selectable_value(&mut self.page, Page::Feed, "Feed");
+                ui.selectable_value(&mut self.page, Page::People, "People");
+                ui.selectable_value(&mut self.page, Page::You, "You");
+                ui.selectable_value(&mut self.page, Page::Relays, "Relays");
+                ui.selectable_value(&mut self.page, Page::Settings, "Settings");
+                ui.selectable_value(&mut self.page, Page::Stats, "Stats");
+                ui.selectable_value(&mut self.page, Page::About, "About");
             });
-            ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
-            if ui.button("Click each year").clicked() {
-                self.age += 1;
-            }
-            ui.label(format!("Hello '{}', age {}", self.name, self.age));
+
+            ui.label("Hello World".to_string());
         });
     }
 }
