@@ -14,7 +14,7 @@ edition = "2021"
 [dependencies]
 base64 = "0.13"
 dirs = "4.0"
-eframe = { version = "0.20", features = [ "dark-light" ] }
+eframe = { version = "0.20", features = [ "dark-light", "persistence" ] }
 egui_extras = { version = "0.20", features = [ "svg", "tracing" ] }
 futures = "0.3"
 http = "0.2"
