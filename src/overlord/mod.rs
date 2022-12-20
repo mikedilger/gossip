@@ -18,7 +18,6 @@ use tracing::{error, info};
 pub struct Overlord {
     settings: Settings,
     to_minions: Sender<BusMessage>,
-    #[allow(dead_code)]
     from_minions: UnboundedReceiver<BusMessage>,
     minions: task::JoinSet<()>,
     minions_task_url: HashMap<task::Id, Url>,

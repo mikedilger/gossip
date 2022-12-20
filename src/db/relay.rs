@@ -13,7 +13,6 @@ pub struct DbRelay {
 }
 
 impl DbRelay {
-    #[allow(dead_code)]
     pub fn new(url: String) -> DbRelay {
         DbRelay {
             url,
@@ -23,7 +22,6 @@ impl DbRelay {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
         let sql = "SELECT url, success_count, failure_count, rank FROM relay".to_owned();
         let sql = match criteria {
@@ -56,7 +54,6 @@ impl DbRelay {
         output
     }
 
-    #[allow(dead_code)]
     pub async fn fetch_one(url: &Url) -> Result<Option<DbRelay>, Error> {
         let relays = DbRelay::fetch(Some(&format!("url='{}'", url))).await?;
 
@@ -67,7 +64,6 @@ impl DbRelay {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank) \
              VALUES (?1, ?2, ?3, ?4)";
@@ -90,7 +86,6 @@ impl DbRelay {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn update(relay: DbRelay) -> Result<(), Error> {
         let sql = "UPDATE relay SET success_count=?, failure_count=?, rank=? WHERE url=?";
 
@@ -127,7 +122,6 @@ impl DbRelay {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn populate_new_relays() -> Result<(), Error> {
         let sql =
             "INSERT OR IGNORE INTO relay (url, rank) SELECT DISTINCT relay, 3 FROM person_relay";

@@ -4,7 +4,6 @@ use nostr_proto::PublicKeyHex;
 use tracing::info;
 
 /// See RelayPicker::best()
-#[allow(dead_code)]
 pub struct RelayPicker {
     pub relays: Vec<DbRelay>,
     pub pubkeys: Vec<PublicKeyHex>,
@@ -12,7 +11,6 @@ pub struct RelayPicker {
 }
 
 impl RelayPicker {
-    #[allow(dead_code)]
     pub fn is_degenerate(&self) -> bool {
         self.relays.is_empty() || self.pubkeys.is_empty() || self.person_relays.is_empty()
     }
@@ -22,7 +20,6 @@ impl RelayPicker {
     /// BestRelay structure which includes the best relay to listen to and
     /// the public keys such a relay will cover. It also outpus a new RelayPicker
     /// that contains only the remaining relays and public keys.
-    #[allow(dead_code)]
     pub fn best(mut self) -> Result<(BestRelay, RelayPicker), Error> {
         if self.pubkeys.is_empty() {
             return Err(Error::General(
@@ -103,7 +100,6 @@ pub struct BestRelay {
 }
 
 impl BestRelay {
-    #[allow(dead_code)]
     pub fn is_degenerate(&self) -> bool {
         self.pubkeys.is_empty() || self.relay.rank == Some(0)
     }

@@ -18,7 +18,6 @@ pub struct DbPerson {
 }
 
 impl DbPerson {
-    #[allow(dead_code)]
     pub fn new(pubkey: PublicKeyHex) -> DbPerson {
         DbPerson {
             pubkey,
@@ -33,7 +32,6 @@ impl DbPerson {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql =
             "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed FROM person".to_owned();
@@ -72,7 +70,6 @@ impl DbPerson {
         output
     }
 
-    #[allow(dead_code)]
     pub async fn fetch_one(pubkey: PublicKeyHex) -> Result<Option<DbPerson>, Error> {
         let people = DbPerson::fetch(Some(&format!("pubkey='{}'", pubkey))).await?;
 
@@ -83,7 +80,6 @@ impl DbPerson {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn insert(person: DbPerson) -> Result<(), Error> {
         let sql =
             "INSERT OR IGNORE INTO person (pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed) \
@@ -112,7 +108,6 @@ impl DbPerson {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn update(person: DbPerson) -> Result<(), Error> {
         let sql =
             "UPDATE person SET name=?, about=?, picture=?, dns_id=?, dns_id_valid=?, dns_id_last_checked=?, metadata_at=?, followed=? WHERE pubkey=?";
@@ -155,7 +150,6 @@ impl DbPerson {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn populate_new_people(follow_everybody: bool) -> Result<(), Error> {
         let sql = if follow_everybody {
             "INSERT or IGNORE INTO person (pubkey, followed) SELECT DISTINCT pubkey, 1 FROM EVENT"

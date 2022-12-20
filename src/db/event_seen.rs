@@ -43,7 +43,6 @@ impl DbEventSeen {
         output
     }
 
-    #[allow(dead_code)]
     pub async fn replace(event_seen: DbEventSeen) -> Result<(), Error> {
         let sql = "REPLACE INTO event_seen (event, relay, when_seen) \
              VALUES (?1, ?2, ?3)";

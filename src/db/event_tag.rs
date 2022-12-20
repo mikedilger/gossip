@@ -52,7 +52,6 @@ impl DbEventTag {
         output
     }
 
-    #[allow(dead_code)]
     pub async fn insert(event_tag: DbEventTag) -> Result<(), Error> {
         let sql =
             "INSERT OR IGNORE INTO event_tag (event, seq, label, field0, field1, field2, field3) \

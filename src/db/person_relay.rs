@@ -47,7 +47,6 @@ impl DbPersonRelay {
     }
 
     /// Fetch records matching the given public keys, ordered from highest to lowest rank
-    #[allow(dead_code)]
     pub async fn fetch_for_pubkeys(pubkeys: &[PublicKeyHex]) -> Result<Vec<DbPersonRelay>, Error> {
         if pubkeys.is_empty() {
             return Ok(vec![]);
@@ -89,7 +88,6 @@ impl DbPersonRelay {
     }
 
     /// Fetch oldest last_fetched among a set of public keys for a relay
-    #[allow(dead_code)]
     pub async fn fetch_oldest_last_fetched(
         pubkeys: &[PublicKeyHex],
         relay: &str,
@@ -124,7 +122,6 @@ impl DbPersonRelay {
         output
     }
 
-    #[allow(dead_code)]
     pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person_relay (person, relay, recommended, last_fetched) \
              VALUES (?1, ?2, ?3, ?4)";
@@ -147,7 +144,6 @@ impl DbPersonRelay {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn update_last_fetched(relay: String, last_fetched: u64) -> Result<(), Error> {
         let sql = "UPDATE person_relay SET last_fetched=? where relay=?";
 

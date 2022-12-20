@@ -92,7 +92,6 @@ pub fn blocking_get_feed() -> Vec<Id> {
     feed.iter().map(|e| e.id).collect()
 }
 
-#[allow(dead_code)]
 pub async fn add_event(event: &Event) -> Result<(), Error> {
     // Insert the event
     insert_event(event).await;
@@ -208,13 +207,11 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
     Ok(())
 }
 
-#[allow(dead_code)]
 async fn insert_event(event: &Event) {
     let mut events = GLOBALS.events.lock().await;
     events.insert(event.id, event.clone());
 }
 
-#[allow(dead_code)]
 async fn update_event_related<F>(id: Id, mut f: F)
 where
     F: FnMut(&mut EventRelated),

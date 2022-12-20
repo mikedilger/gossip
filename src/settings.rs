@@ -24,7 +24,6 @@ impl Default for Settings {
 }
 
 impl Settings {
-    #[allow(dead_code)]
     pub async fn load() -> Result<Settings, Error> {
         let feed_chunk =
             DbSetting::fetch_setting_u64_or_default("feed_chunk", DEFAULT_FEED_CHUNK).await?;

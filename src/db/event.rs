@@ -17,7 +17,6 @@ pub struct DbEvent {
 }
 
 impl DbEvent {
-    #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbEvent>, Error> {
         let sql = "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event".to_owned();
         let sql = match criteria {
@@ -53,7 +52,6 @@ impl DbEvent {
         output
     }
 
-    #[allow(dead_code)]
     pub async fn insert(event: DbEvent) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO event (id, raw, pubkey, created_at, kind, content, ots) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
@@ -111,7 +109,6 @@ impl DbEvent {
         .await?
     }
 
-    #[allow(dead_code)]
     pub async fn save_nostr_event(event: &Event, seen_on: Option<Url>) -> Result<(), Error> {
         // Convert a nostr Event into a DbEvent
         let db_event = DbEvent {

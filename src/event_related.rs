@@ -29,7 +29,6 @@ pub struct EventRelated {
 }
 
 impl EventRelated {
-    #[allow(dead_code)]
     pub fn new(id: Id) -> EventRelated {
         EventRelated {
             id,
