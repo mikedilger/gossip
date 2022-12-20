@@ -12,6 +12,9 @@ pub enum Error {
     #[error("Error: {0}")]
     General(String),
 
+    #[error("HTTP error: {0}")]
+    HttpError(#[from] http::Error),
+
     #[error("Task join error: {0}")]
     JoinError(#[from] tokio::task::JoinError),
 
@@ -27,6 +30,9 @@ pub enum Error {
     #[error("I/O Error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("Invalid URI: {0}")]
+    InvalidUri(#[from] http::uri::InvalidUri),
+
     #[error("Bad integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
 
@@ -35,6 +41,15 @@ pub enum Error {
 
     #[error("SQL: {0}")]
     Sql(#[from] rusqlite::Error),
+
+    #[error("URL has empty hostname")]
+    UrlHasEmptyHostname,
+
+    #[error("URL has no hostname")]
+    UrlHasNoHostname,
+
+    #[error("Websocket: {0}")]
+    Websocket(#[from] tungstenite::Error),
 }
 
 impl From<String> for Error {
