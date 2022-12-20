@@ -21,6 +21,9 @@ pub enum Error {
     #[error("Nostr: {0}")]
     Nostr(#[from] nostr_proto::Error),
 
+    #[error("Image: {0}")]
+    Image(#[from] image::error::ImageError),
+
     #[error("I/O Error: {0}")]
     Io(#[from] std::io::Error),
 

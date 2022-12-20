@@ -14,6 +14,8 @@ edition = "2021"
 [dependencies]
 dirs = "4.0"
 eframe = "0.20"
+egui_extras = { version = "0.20", features = [ "svg", "tracing" ] }
+image = "0.24"
 lazy_static = "1.4"
 nostr-proto = { git = "https://github.com/mikedilger/nostr-proto", branch = "master" }
 rusqlite = { version = "0.28", features = ["bundled", "chrono", "serde_json"] }

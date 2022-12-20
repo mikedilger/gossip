@@ -16,7 +16,9 @@ fn main() {
 
     // TBD: start async code
 
-    ui::run();
+    if let Err(e) = ui::run() {
+        tracing::error!("{}", e);
+    }
 
     // TBD: Tell the async parties to close down
     // TBD: wait for the async parties to close down

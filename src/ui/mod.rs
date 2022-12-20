@@ -1,7 +1,18 @@
-use eframe::egui;
+use crate::error::Error;
+use eframe::{egui, IconData};
 
-pub fn run() {
+pub fn run() -> Result<(), Error> {
+    let icon_bytes = include_bytes!("../../gossip.png");
+    let icon = image::load_from_memory(icon_bytes)?.to_rgba8();
+    let (icon_width, icon_height) = icon.dimensions();
+
     let options = eframe::NativeOptions {
+        decorated: true,
+        icon_data: Some(IconData {
+            rgba: icon.into_raw(),
+            width: icon_width,
+            height: icon_height,
+        }),
         initial_window_size: Some(egui::vec2(320.0, 240.0)),
         ..Default::default()
     };
@@ -10,7 +21,9 @@ pub fn run() {
         "My egui App",
         options,
         Box::new(|_cc| Box::new(MyApp::default())),
-    )
+    );
+
+    Ok(())
 }
 
 struct MyApp {
