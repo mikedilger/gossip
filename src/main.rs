@@ -6,6 +6,7 @@ extern crate lazy_static;
 mod comms;
 mod db;
 mod error;
+mod event_related;
 mod globals;
 mod settings;
 mod ui;
