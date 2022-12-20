@@ -2,7 +2,7 @@ use super::Minion;
 use crate::db::{DbEvent, DbPersonRelay};
 use crate::{BusMessage, Error};
 use nostr_proto::{Event, RelayMessage, Unixtime};
-use tracing::{error, info, warn};
+use tracing::{error, info, trace, warn};
 
 impl Minion {
     pub(super) async fn handle_nostr_message(&mut self, ws_message: String) -> Result<(), Error> {
@@ -15,10 +15,11 @@ impl Minion {
         maxtime.0 += 60 * 15; // 15 minutes into the future
 
         match relay_message {
-            RelayMessage::Event(_subid, event) => {
+            RelayMessage::Event(subid, event) => {
                 if let Err(e) = event.verify(Some(maxtime)) {
                     error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
                 } else {
+                    trace!("NEW EVENT ON {}", subid.0);
                     DbEvent::save_nostr_event(&event, Some(self.url.clone())).await?;
                     self.send_overlord_newevent(*event).await?;
                 }
@@ -32,18 +33,13 @@ impl Minion {
                 DbPersonRelay::update_last_fetched(self.url.0.clone(), now).await?;
 
                 // Update the matching subscription
-                match self.subscription_id_to_ourname.get(&subid.0) {
-                    Some(ourname) => match self.subscriptions_by_ourname.get_mut(ourname) {
-                        Some(sub) => {
-                            sub.set_eose();
-                            info!("EOSE: {} {:?}", &self.url, subid);
-                        }
-                        None => {
-                            warn!("EOSE for unknown subscription ourname={}", ourname);
-                        }
-                    },
+                match self.subscriptions.get_mut_by_id(&subid.0) {
+                    Some(sub) => {
+                        sub.set_eose();
+                        info!("EOSE: {} {:?}", &self.url, subid);
+                    }
                     None => {
-                        warn!("EOSE for unknown subsription: {} {:?}", &self.url, subid);
+                        warn!("EOSE for unknown subscription: {} {:?}", &self.url, subid);
                     }
                 }
             }

@@ -1,3 +1,7 @@
+mod handle_bus;
+mod handle_websocket;
+mod subscription;
+
 use crate::comms::BusMessage;
 use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
@@ -6,7 +10,7 @@ use crate::settings::Settings;
 use futures::{SinkExt, StreamExt};
 use http::Uri;
 use nostr_proto::{EventKind, Filters, PublicKeyHex, RelayInformationDocument, Unixtime, Url};
-use std::collections::HashMap;
+use subscription::Subscriptions;
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio::sync::broadcast::Receiver;
@@ -14,11 +18,6 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
-
-mod handle_bus;
-mod handle_websocket;
-mod subscription;
-use subscription::Subscription;
 
 pub struct Minion {
     url: Url,
@@ -29,8 +28,7 @@ pub struct Minion {
     dbrelay: DbRelay,
     nip11: Option<RelayInformationDocument>,
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    subscriptions_by_ourname: HashMap<String, Subscription>,
-    subscription_id_to_ourname: HashMap<String, String>,
+    subscriptions: Subscriptions,
 }
 
 impl Minion {
@@ -56,8 +54,7 @@ impl Minion {
             dbrelay,
             nip11: None,
             stream: None,
-            subscriptions_by_ourname: HashMap::new(),
-            subscription_id_to_ourname: HashMap::new(),
+            subscriptions: Subscriptions::new(),
         })
     }
 }
@@ -237,14 +234,13 @@ impl Minion {
         let websocket_stream = self.stream.as_mut().unwrap();
 
         if self.pubkeys.is_empty() {
-            if let Some(sub) = self.subscriptions_by_ourname.get("following") {
+            if let Some(sub) = self.subscriptions.get("following") {
                 // Close the subscription
                 let wire = serde_json::to_string(&sub.close_message())?;
                 websocket_stream.send(WsMessage::Text(wire.clone())).await?;
 
                 // Remove the subscription from the map
-                self.subscription_id_to_ourname.remove(&sub.get_id());
-                self.subscriptions_by_ourname.remove("following");
+                self.subscriptions.remove("following");
             }
 
             // Since pubkeys is empty, nothing to subscribe to.
@@ -300,21 +296,22 @@ impl Minion {
         );
 
         // Get the subscription
-        let sub = self
-            .subscriptions_by_ourname
-            .entry("following".to_string())
-            .or_insert_with(Subscription::new);
 
-        // Write our filters into it
-        {
+        let req_message = if self.subscriptions.has("following") {
+            let sub = self.subscriptions.get_mut("following").unwrap();
             let vec: &mut Vec<Filters> = sub.get_mut();
             vec.clear();
             vec.push(feed_filter);
             vec.push(special_filter);
-        }
+            sub.req_message()
+        } else {
+            self.subscriptions
+                .add("following", vec![feed_filter, special_filter]);
+            self.subscriptions.get("following").unwrap().req_message()
+        };
 
         // Subscribe (or resubscribe) to the subscription
-        let wire = serde_json::to_string(&sub.req_message())?;
+        let wire = serde_json::to_string(&req_message)?;
         websocket_stream.send(WsMessage::Text(wire.clone())).await?;
 
         trace!("Sent {}", &wire);
