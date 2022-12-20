@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+mod about;
 mod comms;
 mod db;
 mod error;
