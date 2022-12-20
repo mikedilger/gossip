@@ -2,12 +2,12 @@ mod minion;
 mod relay_picker;
 
 use crate::comms::BusMessage;
-use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay, DbSetting};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
 use minion::Minion;
-use nostr_proto::{Event, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_proto::{Event, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
 use tokio::sync::broadcast::Sender;
@@ -21,6 +21,8 @@ pub struct Overlord {
     from_minions: UnboundedReceiver<BusMessage>,
     minions: task::JoinSet<()>,
     minions_task_url: HashMap<task::Id, Url>,
+    #[allow(dead_code)]
+    private_key: Option<PrivateKey>, // note that PrivateKey already zeroizes on drop
 }
 
 impl Overlord {
@@ -32,6 +34,7 @@ impl Overlord {
             from_minions,
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
+            private_key: None,
         }
     }
 
@@ -62,6 +65,19 @@ impl Overlord {
 
         // Load settings
         self.settings = Settings::load().await?;
+
+        // Check for a private key
+        if DbSetting::fetch_setting("user_private_key")
+            .await?
+            .is_some()
+        {
+            // We don't bother loading the value just yet because we don't have
+            // the password.
+            info!("Saved private key found. Will need a password to unlock.");
+            GLOBALS
+                .need_password
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.

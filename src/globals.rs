@@ -5,6 +5,7 @@ use crate::event_related::EventRelated;
 use nostr_proto::{Event, EventKind, Id, Metadata, PublicKey, PublicKeyHex, Tag, Unixtime};
 use rusqlite::Connection;
 use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use tracing::info;
 
@@ -34,6 +35,10 @@ pub struct Globals {
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: Mutex<HashMap<PublicKey, DbPerson>>,
+
+    /// Whether or not we have a saved private key and need the password to unlock it
+    #[allow(dead_code)]
+    pub need_password: AtomicBool,
 }
 
 lazy_static! {
@@ -53,6 +58,7 @@ lazy_static! {
             events: Mutex::new(HashMap::new()),
             event_relateds: Mutex::new(HashMap::new()),
             people: Mutex::new(HashMap::new()),
+            need_password: AtomicBool::new(false),
         }
     };
 }
