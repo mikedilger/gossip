@@ -7,6 +7,7 @@ mod comms;
 mod db;
 mod error;
 mod globals;
+mod settings;
 mod ui;
 
 fn main() {
