@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_proto::PublicKeyHex;
+use nostr_proto::{Metadata, PublicKeyHex, Unixtime};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -127,6 +127,30 @@ impl DbPerson {
                 &person.metadata_at,
                 &person.followed,
                 &person.pubkey.0,
+            ))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    pub async fn update_metadata(pubkey: PublicKeyHex, metadata: Metadata, created_at: Unixtime) -> Result<(), Error> {
+        let sql =
+            "UPDATE person SET name=?, about=?, picture=?, dns_id=?, metadata_at=? WHERE pubkey=?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((
+                &metadata.name,
+                &metadata.about,
+                &metadata.picture,
+                &metadata.nip05,
+                &created_at.0,
+                &pubkey.0,
             ))?;
             Ok::<(), Error>(())
         })

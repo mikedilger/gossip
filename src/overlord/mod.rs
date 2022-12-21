@@ -99,6 +99,37 @@ impl Overlord {
             }
         }
 
+        // Load latest metadata per person and update their metadata
+        {
+            let db_events = DbEvent::fetch_latest_metadata().await?;
+            for dbevent in db_events.iter() {
+                let e: Event = match serde_json::from_str(&dbevent.raw) {
+                    Ok(e) => e,
+                    Err(_) => {
+                        error!("Bad raw event: id={}, raw={}", dbevent.id, dbevent.raw);
+                        continue;
+                    }
+                };
+                let metadata: Metadata = match serde_json::from_str(&dbevent.content) {
+                    Ok(e) => e,
+                    Err(_) => {
+                        error!("Bad metadata: id={}, content={}", dbevent.id, dbevent.content);
+                        continue;
+                    }
+                };
+
+                // Update in globals
+                crate::globals::update_person_from_event_metadata(
+                    e.pubkey, e.created_at, metadata.clone()
+                ).await;
+
+                // Update in database
+                DbPerson::update_metadata(PublicKeyHex(e.pubkey.as_hex_string()),
+                                          metadata,
+                                          e.created_at).await?;
+            }
+        }
+
         // Load feed-related events from database and process (TextNote, EventDeletion, Reaction)
         {
             let now = Unixtime::now().unwrap();
@@ -230,8 +261,6 @@ impl Overlord {
                 "new_event" => {
                     let event: Event = serde_json::from_str(&bus_message.json_payload)?;
 
-                    debug!("new event arrived: {}...", event.id.as_hex_string());
-
                     // If feed-related, send to the feed event processor
                     if event.kind == EventKind::TextNote
                         || event.kind == EventKind::EncryptedDirectMessage
@@ -240,10 +269,10 @@ impl Overlord {
                     {
                         crate::globals::add_event(&event).await?;
 
-                        debug!("Received new feed event");
+                        debug!("new feed event arrived: {}...", event.id.as_hex_string());
                     } else {
                         // Not Feed Related:  Metadata, RecommendRelay, ContactList
-                        debug!("Received new non-feed event");
+                        debug!("new non-feed event arrived: {}...", event.id.as_hex_string());
 
                         if event.kind == EventKind::Metadata {
                             let metadata: Metadata = serde_json::from_str(&event.content)?;
