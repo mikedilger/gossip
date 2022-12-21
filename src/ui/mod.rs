@@ -7,8 +7,8 @@ mod stats;
 mod style;
 mod you;
 
-use crate::error::Error;
 use crate::about::About;
+use crate::error::Error;
 use eframe::{egui, IconData, Theme};
 use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
 
@@ -55,7 +55,7 @@ enum Page {
 struct GossipUi {
     page: Page,
     about: About,
-    icon: TextureHandle
+    icon: TextureHandle,
 }
 
 impl GossipUi {
@@ -79,11 +79,8 @@ impl GossipUi {
         let pixels = image_buffer.as_flat_samples();
         let icon_texture_handle = cctx.egui_ctx.load_texture(
             "icon",
-            ImageData::Color(ColorImage::from_rgba_unmultiplied(
-                size,
-                pixels.as_slice(),
-            )),
-            TextureOptions::default() // magnification, minification
+            ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
+            TextureOptions::default(), // magnification, minification
         );
 
         GossipUi {
@@ -128,4 +125,3 @@ impl eframe::App for GossipUi {
         });
     }
 }
-

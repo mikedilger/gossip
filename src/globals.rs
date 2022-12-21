@@ -7,7 +7,6 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use tokio::sync::{broadcast, mpsc, Mutex};
-use tracing::info;
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -75,7 +74,6 @@ pub async fn get_feed() -> Vec<Id> {
         .filter(|e| e.in_reply_to.is_none()) // only root events
         .cloned()
         .collect();
-    let len = GLOBALS.event_relateds.lock().await.len();
     feed.sort_unstable_by(|a, b| a.last_reply_at.cmp(&b.last_reply_at));
     feed.iter().map(|e| e.id).collect()
 }
@@ -91,7 +89,6 @@ pub fn blocking_get_feed() -> Vec<Id> {
         //.filter(|e| e.in_reply_to.is_none()) // only root events
         .cloned()
         .collect();
-    let len = GLOBALS.event_relateds.blocking_lock().len();
     feed.sort_unstable_by(|a, b| a.last_reply_at.cmp(&b.last_reply_at));
     feed.iter().map(|e| e.id).collect()
 }

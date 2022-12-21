@@ -1,9 +1,8 @@
 use super::GossipUi;
 use eframe::egui;
-use egui::{Align, Context, FontFamily, Layout, RichText, TextStyle, Ui, vec2};
+use egui::{Align, Context, Layout, RichText, TextStyle, Ui};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-
     ui.with_layout(Layout::top_down(Align::Center), |ui| {
 
         ui.add_space(30.0);
@@ -70,5 +69,4 @@ We are storing data on your system in this file: {}. This data is only used loca
                 .text_style(TextStyle::Small)
         );
     });
-
 }

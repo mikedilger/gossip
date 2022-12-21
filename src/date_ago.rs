@@ -1,4 +1,3 @@
-
 use nostr_proto::Unixtime;
 
 pub fn date_ago(then: Unixtime) -> String {
@@ -13,8 +12,7 @@ pub fn date_ago(then: Unixtime) -> String {
         format!("{}s", seconds)
     } else if seconds < 90 {
         "1m".to_string()
-    }
-    else if minutes < 45.0 {
+    } else if minutes < 45.0 {
         format!("{}m", minutes as i64)
     } else if minutes < 90.0 {
         "1h".to_string()
@@ -27,7 +25,7 @@ pub fn date_ago(then: Unixtime) -> String {
     } else if days < 45.0 {
         "1m".to_string()
     } else if days < 365.0 {
-        format!("{}m", (days/30.0) as i64)
+        format!("{}m", (days / 30.0) as i64)
     } else if years < 1.5 {
         "1y".to_string()
     } else {

@@ -1,6 +1,8 @@
 use eframe::{egui, epaint};
 use egui::style::{Selection, Visuals, Widgets};
-use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Rounding, Stroke, TextStyle};
+use egui::{
+    Color32, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Rounding, Stroke, TextStyle,
+};
 use epaint::Shadow;
 use std::collections::BTreeMap;
 
@@ -67,50 +69,77 @@ pub(super) fn light_mode_visuals() -> Visuals {
 pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     let mut text_styles: BTreeMap<TextStyle, FontId> = BTreeMap::new();
 
-    text_styles.insert(TextStyle::Small, FontId {
-        size: 12.0,
-        family: FontFamily::Proportional,
-    });
+    text_styles.insert(
+        TextStyle::Small,
+        FontId {
+            size: 12.0,
+            family: FontFamily::Proportional,
+        },
+    );
 
-    text_styles.insert(TextStyle::Body, FontId {
-        size: 14.0,
-        family: FontFamily::Proportional,
-    });
+    text_styles.insert(
+        TextStyle::Body,
+        FontId {
+            size: 14.0,
+            family: FontFamily::Proportional,
+        },
+    );
 
-    text_styles.insert(TextStyle::Monospace, FontId {
-        size: 14.0,
-        family: FontFamily::Monospace,
-    });
+    text_styles.insert(
+        TextStyle::Monospace,
+        FontId {
+            size: 14.0,
+            family: FontFamily::Monospace,
+        },
+    );
 
-    text_styles.insert(TextStyle::Button, FontId {
-        size: 15.0,
-        family: FontFamily::Proportional,
-    });
+    text_styles.insert(
+        TextStyle::Button,
+        FontId {
+            size: 15.0,
+            family: FontFamily::Proportional,
+        },
+    );
 
-    text_styles.insert(TextStyle::Heading, FontId {
-        size: 16.0,
-        family: FontFamily::Name("BoldOblique".into()),
-    });
+    text_styles.insert(
+        TextStyle::Heading,
+        FontId {
+            size: 16.0,
+            family: FontFamily::Name("BoldOblique".into()),
+        },
+    );
 
-    text_styles.insert(TextStyle::Name("Bold".into()), FontId {
-        size: 14.0,
-        family: FontFamily::Name("Bold".into()),
-    });
+    text_styles.insert(
+        TextStyle::Name("Bold".into()),
+        FontId {
+            size: 14.0,
+            family: FontFamily::Name("Bold".into()),
+        },
+    );
 
-    text_styles.insert(TextStyle::Name("MonoBold".into()), FontId {
-        size: 14.0,
-        family: FontFamily::Name("MonoBold".into()),
-    });
+    text_styles.insert(
+        TextStyle::Name("MonoBold".into()),
+        FontId {
+            size: 14.0,
+            family: FontFamily::Name("MonoBold".into()),
+        },
+    );
 
-    text_styles.insert(TextStyle::Name("MonoOblique".into()), FontId {
-        size: 14.0,
-        family: FontFamily::Name("MonoOblique".into()),
-    });
+    text_styles.insert(
+        TextStyle::Name("MonoOblique".into()),
+        FontId {
+            size: 14.0,
+            family: FontFamily::Name("MonoOblique".into()),
+        },
+    );
 
-    text_styles.insert(TextStyle::Name("MonoBoldOblique".into()), FontId {
-        size: 14.0,
-        family: FontFamily::Name("MonoBoldOblique".into()),
-    });
+    text_styles.insert(
+        TextStyle::Name("MonoBoldOblique".into()),
+        FontId {
+            size: 14.0,
+            family: FontFamily::Name("MonoBoldOblique".into()),
+        },
+    );
 
     text_styles
 }
@@ -128,7 +157,6 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
  *    MonoBoldOblique
  */
 pub(super) fn font_definitions() -> FontDefinitions {
-
     let mut font_data: BTreeMap<String, FontData> = BTreeMap::new();
     let mut families = BTreeMap::new();
 
@@ -190,7 +218,9 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "DejaVuSansOblique".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSans-Oblique.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../fonts/DejaVuSans/DejaVuSans-Oblique.ttf"
+        )),
     );
 
     font_data.insert(
@@ -211,7 +241,9 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "DejaVuSansBoldOblique".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSans-BoldOblique.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../fonts/DejaVuSans/DejaVuSans-BoldOblique.ttf"
+        )),
     );
 
     font_data.insert(
@@ -232,13 +264,14 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "InconsolataRegular".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/inconsolata/Inconsolata-SemiCondensedLight.ttf")).tweak(
-            FontTweak {
-                scale: 1.1,            // Make it bigger. Inconsolata is smaller than DejaVu.
-                y_offset_factor: 0.0,
-                y_offset: 0.0,
-            },
-        ),
+        FontData::from_static(include_bytes!(
+            "../../fonts/inconsolata/Inconsolata-SemiCondensedLight.ttf"
+        ))
+        .tweak(FontTweak {
+            scale: 1.1, // Make it bigger. Inconsolata is smaller than DejaVu.
+            y_offset_factor: 0.0,
+            y_offset: 0.0,
+        }),
     );
 
     font_data.insert(
@@ -265,18 +298,21 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "InconsolataBold".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/inconsolata/Inconsolata-SemiCondensedSemiBold.ttf")).tweak(
-            FontTweak {
-                scale: 1.1,            // Make it bigger. Inconsolata is smaller than DejaVu.
-                y_offset_factor: 0.0,
-                y_offset: 0.0,
-            },
-        ),
+        FontData::from_static(include_bytes!(
+            "../../fonts/inconsolata/Inconsolata-SemiCondensedSemiBold.ttf"
+        ))
+        .tweak(FontTweak {
+            scale: 1.1, // Make it bigger. Inconsolata is smaller than DejaVu.
+            y_offset_factor: 0.0,
+            y_offset: 0.0,
+        }),
     );
 
     font_data.insert(
         "DejaVuSansMonoBold".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSansMono-Bold.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../fonts/DejaVuSans/DejaVuSansMono-Bold.ttf"
+        )),
     );
 
     font_data.insert(
@@ -298,7 +334,9 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "DejaVuSansMonoOblique".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSansMono-Oblique.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../fonts/DejaVuSans/DejaVuSansMono-Oblique.ttf"
+        )),
     );
 
     families.insert(
@@ -314,7 +352,9 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "DejaVuSansMonoBoldOblique".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSansMono-BoldOblique.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../fonts/DejaVuSans/DejaVuSansMono-BoldOblique.ttf"
+        )),
     );
 
     families.insert(
@@ -331,4 +371,3 @@ pub(super) fn font_definitions() -> FontDefinitions {
         families,
     }
 }
-
