@@ -2,11 +2,26 @@ use super::GossipUi;
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextStyle, Ui, Vec2};
 use nostr_proto::PublicKey;
+use tracing::info;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed = crate::globals::blocking_get_feed();
 
     //let screen_rect = ctx.input().screen_rect; // Rect
+
+    ui.horizontal(|ui| {
+        ui.text_edit_multiline(&mut app.draft);
+
+        if ui.button("Send").clicked() {
+            info!("Would send: {}", app.draft);
+            app.draft = "".to_owned();
+
+            // We need our private key
+            // Then we need to create a TextNote event
+            // Then we need to send it to multiple relays
+            // NOT a one-liner
+        }
+    });
 
     ScrollArea::vertical().show(ui, |ui| {
         for id in feed.iter() {

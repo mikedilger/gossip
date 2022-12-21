@@ -57,6 +57,7 @@ struct GossipUi {
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
+    draft: String,
 }
 
 impl GossipUi {
@@ -104,6 +105,7 @@ impl GossipUi {
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
+            draft: "".to_owned(),
         }
     }
 }
