@@ -14,8 +14,9 @@ pub struct Reactions {
 /// rendering the event, most of which is gathered from other related
 /// events.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EventRelated {
+pub struct FeedEvent {
     pub id: Id,
+    pub event: Option<Event>,
     pub feed_related: bool,
     pub replies: Vec<Id>,
     pub in_reply_to: Option<Id>,
@@ -28,10 +29,11 @@ pub struct EventRelated {
     pub last_reply_at: Option<i64>,
 }
 
-impl EventRelated {
-    pub fn new(id: Id) -> EventRelated {
-        EventRelated {
+impl FeedEvent {
+    pub fn new(id: Id) -> FeedEvent {
+        FeedEvent {
             id,
+            event: None,
             feed_related: false,
             replies: Vec::new(),
             in_reply_to: None,
@@ -46,10 +48,11 @@ impl EventRelated {
     }
 }
 
-impl From<&Event> for EventRelated {
-    fn from(event: &Event) -> EventRelated {
-        EventRelated {
+impl From<&Event> for FeedEvent {
+    fn from(event: &Event) -> FeedEvent {
+        FeedEvent {
             id: event.id,
+            event: Some(event.to_owned()),
             feed_related: event.kind == EventKind::TextNote,
             replies: Vec::new(),
             in_reply_to: None,
@@ -64,12 +67,13 @@ impl From<&Event> for EventRelated {
     }
 }
 
-impl TryFrom<&DbEvent> for EventRelated {
+impl TryFrom<&DbEvent> for FeedEvent {
     type Error = Error;
 
-    fn try_from(dbevent: &DbEvent) -> Result<EventRelated, Error> {
-        Ok(EventRelated {
+    fn try_from(dbevent: &DbEvent) -> Result<FeedEvent, Error> {
+        Ok(FeedEvent {
             id: dbevent.id.clone().try_into()?,
+            event: serde_json::from_str(&dbevent.raw)?,
             feed_related: dbevent.kind == 1,
             replies: Vec::new(),
             in_reply_to: None,

@@ -8,7 +8,7 @@ mod comms;
 mod date_ago;
 mod db;
 mod error;
-mod event_related;
+mod feed_event;
 mod globals;
 mod overlord;
 mod settings;

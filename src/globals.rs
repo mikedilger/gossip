@@ -1,7 +1,7 @@
 use crate::comms::BusMessage;
 use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
-use crate::event_related::EventRelated;
+use crate::feed_event::FeedEvent;
 use nostr_proto::{Event, EventKind, Id, Metadata, PublicKey, PublicKeyHex, Tag, Unixtime};
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -30,7 +30,7 @@ pub struct Globals {
     pub events: Mutex<HashMap<Id, Event>>,
 
     /// All nostr event related data, keyed by the event Id
-    pub event_relateds: Mutex<HashMap<Id, EventRelated>>,
+    pub feed_events: Mutex<HashMap<Id, FeedEvent>>,
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: Mutex<HashMap<PublicKey, DbPerson>>,
@@ -55,7 +55,7 @@ lazy_static! {
             to_overlord,
             from_minions: Mutex::new(Some(from_minions)),
             events: Mutex::new(HashMap::new()),
-            event_relateds: Mutex::new(HashMap::new()),
+            feed_events: Mutex::new(HashMap::new()),
             people: Mutex::new(HashMap::new()),
             need_password: AtomicBool::new(false),
         }
@@ -64,8 +64,8 @@ lazy_static! {
 
 #[allow(dead_code)]
 pub async fn get_feed() -> Vec<Id> {
-    let mut feed: Vec<EventRelated> = GLOBALS
-        .event_relateds
+    let mut feed: Vec<FeedEvent> = GLOBALS
+        .feed_events
         .lock()
         .await
         .iter()
@@ -80,8 +80,8 @@ pub async fn get_feed() -> Vec<Id> {
 
 #[allow(dead_code)]
 pub fn blocking_get_feed() -> Vec<Id> {
-    let mut feed: Vec<EventRelated> = GLOBALS
-        .event_relateds
+    let mut feed: Vec<FeedEvent> = GLOBALS
+        .feed_events
         .blocking_lock()
         .iter()
         .map(|(_, e)| e)
@@ -113,13 +113,13 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
                     if let Some(m) = marker {
                         if m == "reply" {
                             // Mark our 'in_reply_to'
-                            update_event_related(event.id, |er| {
+                            update_feed_event(event.id, |er| {
                                 er.in_reply_to = Some(*id);
                             })
                             .await;
 
                             // Add ourself to the parent's replies
-                            update_event_related(*id, |er| {
+                            update_feed_event(*id, |er| {
                                 er.replies.push(event.id);
                             })
                             .await;
@@ -128,7 +128,7 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
                             let mut xid = *id;
                             loop {
                                 let mut in_reply_to: Option<Id> = None;
-                                update_event_related(xid, |er| {
+                                update_feed_event(xid, |er| {
                                     if let Some(other) = er.last_reply_at {
                                         er.last_reply_at = Some(other.max(event.created_at.0));
                                     } else {
@@ -152,10 +152,10 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
                         if other_event.pubkey != event.pubkey {
                             // Invalid delete event
                             GLOBALS.events.lock().await.remove(id);
-                            GLOBALS.event_relateds.lock().await.remove(id);
+                            GLOBALS.feed_events.lock().await.remove(id);
                             return Ok(());
                         }
-                        update_event_related(*id, |er| {
+                        update_feed_event(*id, |er| {
                             er.deleted_reason = Some(event.content.clone());
                         })
                         .await;
@@ -174,20 +174,20 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
                 // For now we process these under specific event types.
             }
             Tag::Hashtag(s) => {
-                update_event_related(event.id, |er| {
+                update_feed_event(event.id, |er| {
                     er.hashtags.push(s.to_string());
                 })
                 .await;
             }
             Tag::Reference(r) => {
-                update_event_related(event.id, |er| {
+                update_feed_event(event.id, |er| {
                     er.urls.push(r.to_string());
                 })
                 .await;
             }
             Tag::Geohash(_) => {} // not implemented
             Tag::Subject(s) => {
-                update_event_related(event.id, |er| {
+                update_feed_event(event.id, |er| {
                     er.subject = Some(s.to_string());
                 })
                 .await;
@@ -195,7 +195,7 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
             Tag::Nonce { .. } => {} // not implemented
             Tag::Other { tag, data } => {
                 if tag == "client" && !data.is_empty() {
-                    update_event_related(event.id, |er| {
+                    update_feed_event(event.id, |er| {
                         er.client = Some(data[0].to_string());
                     })
                     .await;
@@ -213,15 +213,15 @@ async fn insert_event(event: &Event) {
     events.insert(event.id, event.clone());
 }
 
-async fn update_event_related<F>(id: Id, mut f: F)
+async fn update_feed_event<F>(id: Id, mut f: F)
 where
-    F: FnMut(&mut EventRelated),
+    F: FnMut(&mut FeedEvent),
 {
-    let mut event_relateds = GLOBALS.event_relateds.lock().await;
-    let event_related = event_relateds
+    let mut feed_events = GLOBALS.feed_events.lock().await;
+    let feed_event = feed_events
         .entry(id)
-        .or_insert_with(|| EventRelated::new(id));
-    f(event_related);
+        .or_insert_with(|| FeedEvent::new(id));
+    f(feed_event);
 }
 
 pub async fn update_person_from_event_metadata(
