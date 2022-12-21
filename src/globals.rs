@@ -76,7 +76,6 @@ pub async fn get_feed() -> Vec<Id> {
         .cloned()
         .collect();
     let len = GLOBALS.event_relateds.lock().await.len();
-    info!("New feed, length={} (of {} events)", feed.len(), len);
     feed.sort_unstable_by(|a, b| a.last_reply_at.cmp(&b.last_reply_at));
     feed.iter().map(|e| e.id).collect()
 }
@@ -93,7 +92,6 @@ pub fn blocking_get_feed() -> Vec<Id> {
         .cloned()
         .collect();
     let len = GLOBALS.event_relateds.blocking_lock().len();
-    info!("New feed, length={} (of {} events)", feed.len(), len);
     feed.sort_unstable_by(|a, b| a.last_reply_at.cmp(&b.last_reply_at));
     feed.iter().map(|e| e.id).collect()
 }
