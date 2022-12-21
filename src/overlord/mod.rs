@@ -230,6 +230,8 @@ impl Overlord {
                 "new_event" => {
                     let event: Event = serde_json::from_str(&bus_message.json_payload)?;
 
+                    debug!("new event arrived: {}...", event.id.as_hex_string());
+
                     // If feed-related, send to the feed event processor
                     if event.kind == EventKind::TextNote
                         || event.kind == EventKind::EncryptedDirectMessage

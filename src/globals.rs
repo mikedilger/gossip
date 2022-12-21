@@ -124,6 +124,7 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
     for tag in event.tags.iter() {
         // Get some metadata from tags that could apply to multiple
         // kinds of events
+
         match tag {
             Tag::Event {
                 id,
@@ -168,7 +169,8 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
                     }
                 } else if event.kind == EventKind::EventDeletion {
                     // Find the other event
-                    if let Some(deleted_feed_event) = { GLOBALS.feed_events.lock().await.get(id) } {
+                    let maybe_other_event = GLOBALS.feed_events.lock().await.get(id).cloned();
+                    if let Some(deleted_feed_event) = maybe_other_event {
                         match &deleted_feed_event.event {
                             None => {
                                 // Can't verify the author. Take no action
