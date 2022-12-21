@@ -224,8 +224,7 @@ where
     f(event_related);
 }
 
-#[allow(dead_code)]
-async fn update_person_from_event_metadata(
+pub async fn update_person_from_event_metadata(
     pubkey: PublicKey,
     created_at: Unixtime,
     metadata: Metadata,

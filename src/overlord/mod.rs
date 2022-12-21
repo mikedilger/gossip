@@ -7,13 +7,13 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
 use minion::Minion;
-use nostr_proto::{Event, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_proto::{Event, EventKind, Metadata, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 pub struct Overlord {
     settings: Settings,
@@ -226,8 +226,38 @@ impl Overlord {
                 }
                 _ => {}
             },
-            //"overlord" => match &*bus_message.kind {
-            //}
+            "overlord" => match &*bus_message.kind {
+                "new_event" => {
+                    let event: Event = serde_json::from_str(&bus_message.json_payload)?;
+
+                    // If feed-related, send to the feed event processor
+                    if event.kind==EventKind::TextNote || event.kind==EventKind::EncryptedDirectMessage ||
+                        event.kind==EventKind::EventDeletion || event.kind==EventKind::Reaction
+                    {
+                        crate::globals::add_event(&event).await?;
+
+                        debug!("Received new feed event");
+                    }
+                    else {
+                        // Not Feed Related:  Metadata, RecommendRelay, ContactList
+                        debug!("Received new non-feed event");
+
+                        if event.kind==EventKind::Metadata {
+                            let metadata: Metadata = serde_json::from_str(&event.content)?;
+                            crate::globals::update_person_from_event_metadata(
+                                event.pubkey.into(), event.created_at, metadata
+                            ).await;
+                        }
+
+                        // FIXME: Handle EventKind::RecommendedRelay
+                        // FIXME: Handle EventKind::ContactList
+                    }
+
+                },
+                "minion_is_ready" => {
+                },
+                _ => {}
+            }
             _ => {}
         }
 
