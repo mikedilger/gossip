@@ -19,6 +19,13 @@ pub(super) fn update(_app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fr
                 if let Some(event) = &fevent.event {
                     ui.label(crate::date_ago::date_ago(event.created_at));
 
+                    if fevent.reactions.upvotes > 0 {
+                        ui.label(&format!("Upvotes={}", fevent.reactions.upvotes));
+                    }
+                    if fevent.reactions.downvotes > 0 {
+                        ui.label(&format!("Downvotes={}", fevent.reactions.downvotes));
+                    }
+
                     if let Some(person) = crate::globals::GLOBALS
                         .people
                         .blocking_lock()

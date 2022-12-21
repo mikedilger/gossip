@@ -97,8 +97,11 @@ fn sort_feed(mut feed: Vec<FeedEvent>) -> Vec<Id> {
     // Linear sort neweset first:
     feed.sort_unstable_by(|a, b| {
         if a.event.is_some() && b.event.is_some() {
-            b.event.as_ref().unwrap().created_at.cmp(
-                &a.event.as_ref().unwrap().created_at)
+            b.event
+                .as_ref()
+                .unwrap()
+                .created_at
+                .cmp(&a.event.as_ref().unwrap().created_at)
         } else if a.event.is_some() {
             std::cmp::Ordering::Greater
         } else if b.event.is_some() {
@@ -227,6 +230,45 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
                 }
             }
             Tag::Empty => {} // nothing to do
+        }
+    }
+
+    if event.kind == EventKind::Reaction {
+        for tag in event.tags.iter() {
+            if let Tag::Event {
+                id,
+                recommended_relay_url: _,
+                marker: _,
+            } = tag
+            {
+                // last 'e' is the id reacted to
+                if event.content.starts_with('+') {
+                    update_feed_event(id.to_owned(), |er| {
+                        er.reactions.upvotes += 1;
+                    })
+                    .await;
+                } else if event.content.starts_with('-') {
+                    update_feed_event(id.to_owned(), |er| {
+                        er.reactions.downvotes += 1;
+                    })
+                    .await;
+                } else if event.content.is_empty() {
+                    // consider it an upvote
+                    update_feed_event(id.to_owned(), |er| {
+                        er.reactions.upvotes += 1;
+                    })
+                    .await;
+                } else {
+                    // consider it an emoji
+                    update_feed_event(id.to_owned(), |er| {
+                        // FIXME: If it exists, increment it
+                        er.reactions
+                            .emojis
+                            .push((event.content.chars().next().unwrap(), 1))
+                    })
+                    .await;
+                }
+            }
         }
     }
 
