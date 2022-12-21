@@ -7,7 +7,7 @@ pub struct About {
     pub repository: String,
     pub homepage: String,
     pub license: String,
-    pub database_path: String,
+    pub storage_path: String,
 }
 
 #[allow(dead_code)]
@@ -15,8 +15,7 @@ pub fn about() -> About {
     let data_dir = match dirs::data_dir() {
         Some(mut d) => {
             d.push("gossip");
-            d.push("gossip.sqlite");
-            format!("{}", d.display())
+            format!("{}/", d.display())
         }
         None => "Cannot find a directory to store application data.".to_owned(),
     };
@@ -29,6 +28,6 @@ pub fn about() -> About {
         repository: env!("CARGO_PKG_REPOSITORY").to_string(),
         homepage: env!("CARGO_PKG_HOMEPAGE").to_string(),
         license: env!("CARGO_PKG_LICENSE").to_string(),
-        database_path: data_dir,
+        storage_path: data_dir,
     }
 }

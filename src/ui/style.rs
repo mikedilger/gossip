@@ -1,6 +1,6 @@
 use eframe::{egui, epaint};
 use egui::style::{Selection, Visuals, Widgets};
-use egui::{Color32, FontData, FontDefinitions, FontFamily, FontTweak, Rounding, Stroke};
+use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Rounding, Stroke, TextStyle};
 use epaint::Shadow;
 use std::collections::BTreeMap;
 
@@ -64,28 +64,78 @@ pub(super) fn light_mode_visuals() -> Visuals {
     }
 }
 
+pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
+    let mut text_styles: BTreeMap<TextStyle, FontId> = BTreeMap::new();
+
+    text_styles.insert(TextStyle::Small, FontId {
+        size: 12.0,
+        family: FontFamily::Proportional,
+    });
+
+    text_styles.insert(TextStyle::Body, FontId {
+        size: 14.0,
+        family: FontFamily::Proportional,
+    });
+
+    text_styles.insert(TextStyle::Monospace, FontId {
+        size: 14.0,
+        family: FontFamily::Monospace,
+    });
+
+    text_styles.insert(TextStyle::Button, FontId {
+        size: 15.0,
+        family: FontFamily::Proportional,
+    });
+
+    text_styles.insert(TextStyle::Heading, FontId {
+        size: 16.0,
+        family: FontFamily::Name("BoldOblique".into()),
+    });
+
+    text_styles.insert(TextStyle::Name("Bold".into()), FontId {
+        size: 14.0,
+        family: FontFamily::Name("Bold".into()),
+    });
+
+    text_styles.insert(TextStyle::Name("MonoBold".into()), FontId {
+        size: 14.0,
+        family: FontFamily::Name("MonoBold".into()),
+    });
+
+    text_styles.insert(TextStyle::Name("MonoOblique".into()), FontId {
+        size: 14.0,
+        family: FontFamily::Name("MonoOblique".into()),
+    });
+
+    text_styles.insert(TextStyle::Name("MonoBoldOblique".into()), FontId {
+        size: 14.0,
+        family: FontFamily::Name("MonoBoldOblique".into()),
+    });
+
+    text_styles
+}
+
+/*
+ * We configure their font families
+ *    Proportional
+ *    Monospace
+ * We define the following Font Families:
+ *    Bold,
+ *    Oblique,
+ *    BoldOblique
+ *    MonoBold,
+ *    MonoOblique
+ *    MonoBoldOblique
+ */
 pub(super) fn font_definitions() -> FontDefinitions {
+
     let mut font_data: BTreeMap<String, FontData> = BTreeMap::new();
     let mut families = BTreeMap::new();
 
-    // Cantarell - gnome default
-    // code fonts - Inconsolata-g, Hack
-
-
-    font_data.insert(
-        "Inconsolata".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/Inconsolata-Regular.ttf")),
-    );
-
-    font_data.insert(
-        "FreeSans".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/freefont-20120503/FreeSans.otf")),
-    );
-
-    // Some good looking emojis. Use as first priority:
+    // Good Looking Emojis
     font_data.insert(
         "NotoColorEmoji".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/NotoColorEmoji.ttf")).tweak(
+        FontData::from_static(include_bytes!("../../fonts/noto/NotoColorEmoji.ttf")).tweak(
             FontTweak {
                 scale: 0.81,           // make it smaller
                 y_offset_factor: -0.2, // move it up
@@ -94,31 +144,185 @@ pub(super) fn font_definitions() -> FontDefinitions {
         ),
     );
 
+    // Proportional Regular
+
+    font_data.insert(
+        "DejaVuSansRegular".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSans.ttf")),
+    );
+
     font_data.insert(
         "NotoSansRegular".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/NotoSans-Regular.ttf")),
-    );
-
-    font_data.insert(
-        "NotoSansMonoRegular".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/NotoSansMono-Regular.ttf")),
-    );
-
-    families.insert(
-        FontFamily::Monospace,
-        vec![
-            "Inconsolata".to_owned(),
-            "NotoColorEmoji".to_owned(),
-            "NotoSansMonoRegular".to_owned(),
-        ],
+        FontData::from_static(include_bytes!("../../fonts/noto/NotoSans-Regular.ttf")),
     );
 
     families.insert(
         FontFamily::Proportional,
         vec![
-            "FreeSans".to_owned(),
+            "DejaVuSansRegular".to_owned(),
             "NotoColorEmoji".to_owned(),
             "NotoSansRegular".to_owned(),
+        ],
+    );
+
+    // Proportional Bold
+
+    font_data.insert(
+        "DejaVuSansBold".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSans-Bold.ttf")),
+    );
+
+    font_data.insert(
+        "NotoSansBold".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/noto/NotoSans-Bold.ttf")),
+    );
+
+    families.insert(
+        FontFamily::Name("Bold".into()),
+        vec![
+            "DejaVuSansBold".to_owned(),
+            "NotoColorEmoji".to_owned(),
+            "NotoSansBold".to_owned(),
+        ],
+    );
+
+    // Proportional Oblique
+
+    font_data.insert(
+        "DejaVuSansOblique".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSans-Oblique.ttf")),
+    );
+
+    font_data.insert(
+        "NotoSansOblique".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/noto/NotoSans-Italic.ttf")),
+    );
+
+    families.insert(
+        FontFamily::Name("Oblique".into()),
+        vec![
+            "DejaVuSansOblique".to_owned(),
+            "NotoColorEmoji".to_owned(),
+            "NotoSansOblique".to_owned(),
+        ],
+    );
+
+    // Proportional Bold Oblique
+
+    font_data.insert(
+        "DejaVuSansBoldOblique".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSans-BoldOblique.ttf")),
+    );
+
+    font_data.insert(
+        "NotoSansBoldOblique".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/noto/NotoSans-BoldItalic.ttf")),
+    );
+
+    families.insert(
+        FontFamily::Name("BoldOblique".into()),
+        vec![
+            "DejaVuSansBoldOblique".to_owned(),
+            "NotoColorEmoji".to_owned(),
+            "NotoSansBoldOblique".to_owned(),
+        ],
+    );
+
+    // Monospace Regular
+
+    font_data.insert(
+        "InconsolataRegular".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/inconsolata/Inconsolata-SemiCondensedLight.ttf")).tweak(
+            FontTweak {
+                scale: 1.1,            // Make it bigger. Inconsolata is smaller than DejaVu.
+                y_offset_factor: 0.0,
+                y_offset: 0.0,
+            },
+        ),
+    );
+
+    font_data.insert(
+        "DejaVuSansMonoRegular".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSansMono.ttf")),
+    );
+
+    font_data.insert(
+        "NotoSansMonoRegular".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/noto/NotoSansMono-Regular.ttf")),
+    );
+
+    families.insert(
+        FontFamily::Monospace,
+        vec![
+            "InconsolataRegular".to_owned(),
+            "DejaVuSansMonoRegular".to_owned(),
+            "NotoColorEmoji".to_owned(),
+            "NotoSansMonoRegular".to_owned(),
+        ],
+    );
+
+    // Monospace Bold
+
+    font_data.insert(
+        "InconsolataBold".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/inconsolata/Inconsolata-SemiCondensedSemiBold.ttf")).tweak(
+            FontTweak {
+                scale: 1.1,            // Make it bigger. Inconsolata is smaller than DejaVu.
+                y_offset_factor: 0.0,
+                y_offset: 0.0,
+            },
+        ),
+    );
+
+    font_data.insert(
+        "DejaVuSansMonoBold".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSansMono-Bold.ttf")),
+    );
+
+    font_data.insert(
+        "NotoSansMonoBold".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/noto/NotoSansMono-Bold.ttf")),
+    );
+
+    families.insert(
+        FontFamily::Name("MonoBold".into()),
+        vec![
+            "InconsolataBold".to_owned(),
+            "DejaVuSansMonoBold".to_owned(),
+            "NotoColorEmoji".to_owned(),
+            "NotoSansMonoBold".to_owned(),
+        ],
+    );
+
+    // Monospace Oblique
+
+    font_data.insert(
+        "DejaVuSansMonoOblique".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSansMono-Oblique.ttf")),
+    );
+
+    families.insert(
+        FontFamily::Name("MonoOblique".into()),
+        vec![
+            "DejaVuSansMonoOblique".to_owned(),
+            "NotoColorEmoji".to_owned(),
+            "NotoSansMonoRegular".to_owned(), // they don't have an oblique
+        ],
+    );
+
+    // Monospace Bold Oblique
+
+    font_data.insert(
+        "DejaVuSansMonoBoldOblique".to_owned(),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans/DejaVuSansMono-BoldOblique.ttf")),
+    );
+
+    families.insert(
+        FontFamily::Name("MonoBoldOblique".into()),
+        vec![
+            "DejaVuSansMonoBoldOblique".to_owned(),
+            "NotoColorEmoji".to_owned(),
+            "NotoSansMonoBold".to_owned(), // they don't have a bold oblique
         ],
     );
 
@@ -127,3 +331,4 @@ pub(super) fn font_definitions() -> FontDefinitions {
         families,
     }
 }
+

@@ -8,8 +8,9 @@ mod style;
 mod you;
 
 use crate::error::Error;
+use crate::about::About;
 use eframe::{egui, IconData, Theme};
-use egui::Context;
+use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
@@ -53,17 +54,42 @@ enum Page {
 
 struct GossipUi {
     page: Page,
-    initial_dark_mode_set: bool,
-    fonts_installed: bool,
-
+    about: About,
+    icon: TextureHandle
 }
 
 impl GossipUi {
-    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(cctx: &eframe::CreationContext<'_>) -> Self {
+        if cctx.egui_ctx.style().visuals.dark_mode {
+            cctx.egui_ctx.set_visuals(style::dark_mode_visuals());
+        } else {
+            cctx.egui_ctx.set_visuals(style::light_mode_visuals());
+        };
+
+        cctx.egui_ctx.set_fonts(style::font_definitions());
+
+        let mut style: egui::Style = (*cctx.egui_ctx.style()).clone();
+        style.text_styles = style::text_styles();
+        cctx.egui_ctx.set_style(style);
+
+        let icon_bytes = include_bytes!("../../gossip.png");
+        let image = image::load_from_memory(icon_bytes).unwrap();
+        let size = [image.width() as _, image.height() as _];
+        let image_buffer = image.to_rgba8();
+        let pixels = image_buffer.as_flat_samples();
+        let icon_texture_handle = cctx.egui_ctx.load_texture(
+            "icon",
+            ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                size,
+                pixels.as_slice(),
+            )),
+            TextureOptions::default() // magnification, minification
+        );
+
         GossipUi {
             page: Page::Feed,
-            initial_dark_mode_set: false,
-            fonts_installed: false,
+            about: crate::about::about(),
+            icon: icon_texture_handle,
         }
     }
 }
@@ -71,20 +97,6 @@ impl GossipUi {
 impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         let darkmode: bool = ctx.style().visuals.dark_mode;
-
-        if ! self.initial_dark_mode_set {
-            if darkmode {
-                ctx.set_visuals(style::dark_mode_visuals());
-            } else {
-                ctx.set_visuals(style::light_mode_visuals());
-            };
-            self.initial_dark_mode_set = true;
-        }
-
-        if ! self.fonts_installed {
-            ctx.set_fonts(style::font_definitions());
-            self.fonts_installed = true;
-        }
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
