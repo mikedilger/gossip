@@ -56,6 +56,7 @@ struct GossipUi {
     page: Page,
     about: About,
     icon: TextureHandle,
+    placeholder_avatar: TextureHandle,
 }
 
 impl GossipUi {
@@ -72,21 +73,37 @@ impl GossipUi {
         style.text_styles = style::text_styles();
         cctx.egui_ctx.set_style(style);
 
-        let icon_bytes = include_bytes!("../../gossip.png");
-        let image = image::load_from_memory(icon_bytes).unwrap();
-        let size = [image.width() as _, image.height() as _];
-        let image_buffer = image.to_rgba8();
-        let pixels = image_buffer.as_flat_samples();
-        let icon_texture_handle = cctx.egui_ctx.load_texture(
-            "icon",
-            ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
-            TextureOptions::default(), // magnification, minification
-        );
+        let icon_texture_handle = {
+            let bytes = include_bytes!("../../gossip.png");
+            let image = image::load_from_memory(bytes).unwrap();
+            let size = [image.width() as _, image.height() as _];
+            let image_buffer = image.to_rgba8();
+            let pixels = image_buffer.as_flat_samples();
+            cctx.egui_ctx.load_texture(
+                "icon",
+                ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
+                TextureOptions::default(), // magnification, minification
+            )
+        };
+
+        let placeholder_avatar_texture_handle = {
+            let bytes = include_bytes!("../../placeholder_avatar.png");
+            let image = image::load_from_memory(bytes).unwrap();
+            let size = [image.width() as _, image.height() as _];
+            let image_buffer = image.to_rgba8();
+            let pixels = image_buffer.as_flat_samples();
+            cctx.egui_ctx.load_texture(
+                "placeholder_avatar",
+                ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
+                TextureOptions::default(), // magnification, minification
+            )
+        };
 
         GossipUi {
             page: Page::Feed,
             about: crate::about::about(),
             icon: icon_texture_handle,
+            placeholder_avatar: placeholder_avatar_texture_handle,
         }
     }
 }

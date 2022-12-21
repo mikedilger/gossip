@@ -118,6 +118,14 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     );
 
     text_styles.insert(
+        TextStyle::Name("Oblique".into()),
+        FontId {
+            size: 14.0,
+            family: FontFamily::Name("Oblique".into()),
+        },
+    );
+
+    text_styles.insert(
         TextStyle::Name("MonoBold".into()),
         FontId {
             size: 14.0,
