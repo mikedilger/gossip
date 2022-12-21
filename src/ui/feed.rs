@@ -8,7 +8,7 @@ pub(super) fn update(_app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fr
     let screen_rect = ctx.input().screen_rect; // Rect
 
     ScrollArea::vertical().show(ui, |ui| {
-        for id in feed.iter().rev() {
+        for id in feed.iter() {
             // Stop rendering at the bottom of the window:
             let pos2 = ui.next_widget_position();
             if pos2.y > screen_rect.max.y {
