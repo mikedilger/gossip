@@ -68,7 +68,7 @@ pub async fn get_feed() -> Vec<Id> {
         .iter()
         .map(|(_, e)| e)
         .filter(|e| e.feed_related) // feed related
-        .filter(|e| e.in_reply_to.is_none()) // only root events
+        //.filter(|e| e.in_reply_to.is_none()) // only root events
         .cloned()
         .collect();
 
@@ -82,7 +82,7 @@ pub fn blocking_get_feed() -> Vec<Id> {
         .blocking_lock()
         .iter()
         .map(|(_, e)| e)
-        //.filter(|e| e.feed_related) // feed related
+        .filter(|e| e.feed_related) // feed related
         //.filter(|e| e.in_reply_to.is_none()) // only root events
         .cloned()
         .collect();
