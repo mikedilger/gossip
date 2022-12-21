@@ -274,12 +274,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
         "InconsolataRegular".to_owned(),
         FontData::from_static(include_bytes!(
             "../../fonts/inconsolata/Inconsolata-SemiCondensedLight.ttf"
-        ))
-        .tweak(FontTweak {
-            scale: 1.1, // Make it bigger. Inconsolata is smaller than DejaVu.
-            y_offset_factor: 0.0,
-            y_offset: 0.0,
-        }),
+        )),
     );
 
     font_data.insert(
@@ -308,12 +303,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
         "InconsolataBold".to_owned(),
         FontData::from_static(include_bytes!(
             "../../fonts/inconsolata/Inconsolata-SemiCondensedSemiBold.ttf"
-        ))
-        .tweak(FontTweak {
-            scale: 1.1, // Make it bigger. Inconsolata is smaller than DejaVu.
-            y_offset_factor: 0.0,
-            y_offset: 0.0,
-        }),
+        )),
     );
 
     font_data.insert(
