@@ -7,6 +7,7 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use tokio::sync::{broadcast, mpsc, Mutex};
+use tracing::warn;
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -25,9 +26,6 @@ pub struct Globals {
     /// This is ephemeral. It is filled during lazy_static initialization,
     /// and stolen away when the Overlord is created.
     pub from_minions: Mutex<Option<mpsc::UnboundedReceiver<BusMessage>>>,
-
-    /// All nostr events currently loaded to memory, keyed by their Id
-    pub events: Mutex<HashMap<Id, Event>>,
 
     /// All nostr event related data, keyed by the event Id
     pub feed_events: Mutex<HashMap<Id, FeedEvent>>,
@@ -54,7 +52,6 @@ lazy_static! {
             to_minions,
             to_overlord,
             from_minions: Mutex::new(Some(from_minions)),
-            events: Mutex::new(HashMap::new()),
             feed_events: Mutex::new(HashMap::new()),
             people: Mutex::new(HashMap::new()),
             need_password: AtomicBool::new(false),
@@ -147,18 +144,25 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
                     }
                 } else if event.kind == EventKind::EventDeletion {
                     // Find the other event
-                    if let Some(other_event) = { GLOBALS.events.lock().await.get(id) } {
-                        // Make sure the authors match
-                        if other_event.pubkey != event.pubkey {
-                            // Invalid delete event
-                            GLOBALS.events.lock().await.remove(id);
-                            GLOBALS.feed_events.lock().await.remove(id);
-                            return Ok(());
+                    if let Some(deleted_feed_event) = { GLOBALS.feed_events.lock().await.get(id) } {
+                        match &deleted_feed_event.event {
+                            None => {
+                                // Can't verify the author. Take no action
+                            }
+                            Some(deleted_event) => {
+                                if deleted_event.pubkey != event.pubkey {
+                                    // Invalid delete event, author does not match
+                                    warn!("Somebody tried to delete someone elses event");
+                                    GLOBALS.feed_events.lock().await.remove(id);
+                                    return Ok(());
+                                } else {
+                                    update_feed_event(*id, |er| {
+                                        er.deleted_reason = Some(event.content.clone());
+                                    })
+                                    .await;
+                                }
+                            }
                         }
-                        update_feed_event(*id, |er| {
-                            er.deleted_reason = Some(event.content.clone());
-                        })
-                        .await;
                     } else {
                         // FIXME - currently we don't apply this deletion event
                         // if we don't have the event it refers to because we cannot
@@ -209,8 +213,8 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
 }
 
 async fn insert_event(event: &Event) {
-    let mut events = GLOBALS.events.lock().await;
-    events.insert(event.id, event.clone());
+    let mut feed_events = GLOBALS.feed_events.lock().await;
+    feed_events.insert(event.id, event.into());
 }
 
 async fn update_feed_event<F>(id: Id, mut f: F)
@@ -218,9 +222,7 @@ where
     F: FnMut(&mut FeedEvent),
 {
     let mut feed_events = GLOBALS.feed_events.lock().await;
-    let feed_event = feed_events
-        .entry(id)
-        .or_insert_with(|| FeedEvent::new(id));
+    let feed_event = feed_events.entry(id).or_insert_with(|| FeedEvent::new(id));
     f(feed_event);
 }
 

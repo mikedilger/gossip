@@ -15,27 +15,26 @@ pub(super) fn update(_app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fr
                 break;
             }
 
-            if let Some(event) = crate::globals::GLOBALS.events.blocking_lock().get(id) {
-                ui.label(crate::date_ago::date_ago(event.created_at));
+            if let Some(fevent) = crate::globals::GLOBALS.feed_events.blocking_lock().get(id) {
+                if let Some(event) = &fevent.event {
+                    ui.label(crate::date_ago::date_ago(event.created_at));
 
-                if let Some(person) = crate::globals::GLOBALS
-                    .people
-                    .blocking_lock()
-                    .get(&event.pubkey)
-                {
-                    if let Some(name) = &person.name {
-                        ui.label(name);
+                    if let Some(person) = crate::globals::GLOBALS
+                        .people
+                        .blocking_lock()
+                        .get(&event.pubkey)
+                    {
+                        if let Some(name) = &person.name {
+                            ui.label(name);
+                        } else {
+                            ui.label(event.pubkey.as_hex_string());
+                        }
                     } else {
                         ui.label(event.pubkey.as_hex_string());
                     }
-                } else {
-                    ui.label(event.pubkey.as_hex_string());
+                    ui.label(&event.content);
+                    ui.separator();
                 }
-                ui.label(&event.content);
-                ui.separator();
-            } else {
-                ui.label("-- missing event --".to_string());
-                ui.separator();
             }
         }
     });

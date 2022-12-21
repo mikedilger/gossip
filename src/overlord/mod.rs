@@ -231,33 +231,35 @@ impl Overlord {
                     let event: Event = serde_json::from_str(&bus_message.json_payload)?;
 
                     // If feed-related, send to the feed event processor
-                    if event.kind==EventKind::TextNote || event.kind==EventKind::EncryptedDirectMessage ||
-                        event.kind==EventKind::EventDeletion || event.kind==EventKind::Reaction
+                    if event.kind == EventKind::TextNote
+                        || event.kind == EventKind::EncryptedDirectMessage
+                        || event.kind == EventKind::EventDeletion
+                        || event.kind == EventKind::Reaction
                     {
                         crate::globals::add_event(&event).await?;
 
                         debug!("Received new feed event");
-                    }
-                    else {
+                    } else {
                         // Not Feed Related:  Metadata, RecommendRelay, ContactList
                         debug!("Received new non-feed event");
 
-                        if event.kind==EventKind::Metadata {
+                        if event.kind == EventKind::Metadata {
                             let metadata: Metadata = serde_json::from_str(&event.content)?;
                             crate::globals::update_person_from_event_metadata(
-                                event.pubkey.into(), event.created_at, metadata
-                            ).await;
+                                event.pubkey,
+                                event.created_at,
+                                metadata,
+                            )
+                            .await;
                         }
 
                         // FIXME: Handle EventKind::RecommendedRelay
                         // FIXME: Handle EventKind::ContactList
                     }
-
-                },
-                "minion_is_ready" => {
-                },
+                }
+                "minion_is_ready" => {}
                 _ => {}
-            }
+            },
             _ => {}
         }
 
