@@ -4,10 +4,25 @@ Gossip is a desktop client for nostr.
 
 Nostr is "Notes and Other Stuff Transmitted by Relays."
 
-This is pre-alpha code. It is not ready for use.
-
 NOTE: After two false starts (tauri, gtk4) I'm moving to egui, which should be much easier
 and faster to develop.
+
+## Status
+
+This is pre-alpha code. It is not ready for use.
+
+If you want to use it anyway, you will need to do a few things manually to get it started (do this after the Building and Installing section below):
+
+- Sqlite3 to your gossip.sqlite file (see the About page to find where it is)
+- Insert people in the person table with followed=1
+- Insert at least one person_relay entry for each person
+- There may be other steps needed. Development is happening fast. Feel free to ask a question
+  by opening a github issue. I'm not snotty about it, you can just chat with me on github
+  issues if you want.
+
+After that, it should start following those people. You may need a restart from time to
+time as it loses connections to relays still, and some live event handling is less thorough
+than startup event handling is.
 
 ## Features
 
@@ -57,6 +72,44 @@ This section will need updating.
 - [ ] Follow someone privately (without including in your posted following list)
 - [ ] Allow viewing of other people's following lists w/ petnames
 - [ ] Dismiss a message for this session only w/o deleting it
+
+## Building and Installing
+
+### Step 1 - Install Rust
+
+If you don't already have rust installed, follow the guidance at [rust-lang.org](https://www.rust-lang.org/). Most people install rust under their user account, rather than using system packages which often don't keep up to date. Also, cargo caches compilation artifacts in your home directory.
+
+### Step 2 - Clone this Repository
+
+````bash
+$ git clone https://github.com/mikedilger/gossip
+````
+
+### Step 3 - Compile
+
+````bash
+$ cd gossip
+$ cargo build --release
+````
+
+The output will be a binary executable in `target/release/gossip`
+
+Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
+
+To make the binary smaller
+
+````base
+$ strip gossip
+````
+
+This binary should be portable to similar systems with similar hardware and operating system.
+
+If you want a binary optimized for your exact processor with the newest features enabled:
+
+````bash
+$ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
+````
+
 
 ## Technology Involved
 
