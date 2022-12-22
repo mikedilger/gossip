@@ -180,11 +180,11 @@ impl Minion {
         let ws_sink = self.sink.as_mut().unwrap();
 
         let mut timer = tokio::time::interval(std::time::Duration::new(55, 0));
+        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         timer.tick().await; // use up the first immediate tick.
 
         select! {
             _ = timer.tick() => {
-                debug!("Pinging {}", self.url.0);
                 ws_sink.send(WsMessage::Ping(vec![])).await?;
             },
             ws_message = ws_stream.next() => {
@@ -196,6 +196,8 @@ impl Minion {
                 trace!("Handling message from {}", &self.url);
                 match ws_message {
                     WsMessage::Text(t) => {
+                        // MAYBE FIXME, spawn a separate task here so that
+                        // we don't miss ping ticks
                         self.handle_nostr_message(t).await?;
                         // FIXME: some errors we should probably bail on.
                         // For now, try to continue.
