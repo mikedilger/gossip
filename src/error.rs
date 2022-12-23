@@ -22,7 +22,7 @@ pub enum Error {
     MpscSend(#[from] tokio::sync::mpsc::error::SendError<BusMessage>),
 
     #[error("Nostr: {0}")]
-    Nostr(#[from] nostr_proto::Error),
+    Nostr(#[from] nostr_types::Error),
 
     #[error("Image: {0}")]
     Image(#[from] image::error::ImageError),

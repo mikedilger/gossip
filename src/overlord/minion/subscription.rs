@@ -1,4 +1,4 @@
-use nostr_proto::{ClientMessage, Filters, SubscriptionId};
+use nostr_types::{ClientMessage, Filters, SubscriptionId};
 use std::collections::HashMap;
 
 pub struct Subscriptions {

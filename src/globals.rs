@@ -3,7 +3,7 @@ use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::feed_event::FeedEvent;
 use crate::settings::Settings;
-use nostr_proto::{Event, EventKind, Id, Metadata, PublicKey, PublicKeyHex, Tag, Unixtime, Url};
+use nostr_types::{Event, EventKind, Id, Metadata, PublicKey, PublicKeyHex, Tag, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;

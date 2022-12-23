@@ -1,6 +1,6 @@
 use crate::db::DbEvent;
 use crate::error::Error;
-use nostr_proto::{Event, EventKind, Id};
+use nostr_types::{Event, EventKind, Id};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

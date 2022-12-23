@@ -1,7 +1,7 @@
 use super::{DbEventSeen, DbEventTag};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_proto::{Event, IdHex, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Event, IdHex, PublicKeyHex, Unixtime, Url};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 

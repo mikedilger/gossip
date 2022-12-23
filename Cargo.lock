@@ -305,6 +305,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b645a089122eccb6111b4f81cbc1a49f5900ac4666bb93ac027feaecf15607bf"
 
 [[package]]
+name = "bech32"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
+
+[[package]]
 name = "bit_field"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1682,7 +1688,7 @@ dependencies = [
  "http",
  "image",
  "lazy_static",
- "nostr-proto",
+ "nostr-types",
  "rand 0.8.5",
  "reqwest",
  "rusqlite",
@@ -2301,12 +2307,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "nostr-proto"
+name = "nostr-types"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/nostr-proto?branch=master#5ca15366d237dc59ffc2abc6909de54a963d9b42"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b34b4dc519cba186652ea75403acd738587eaa375e00dac8b43752b9c77b3cc"
 dependencies = [
  "aes",
  "base64 0.13.1",
+ "bech32",
  "cbc",
  "derive_more",
  "hex",
@@ -2317,6 +2325,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "thiserror",
  "zeroize",
 ]
 

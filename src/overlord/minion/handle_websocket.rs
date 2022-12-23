@@ -1,7 +1,7 @@
 use super::Minion;
 use crate::db::{DbEvent, DbPersonRelay};
 use crate::{BusMessage, Error};
-use nostr_proto::{Event, RelayMessage, Unixtime};
+use nostr_types::{Event, RelayMessage, Unixtime};
 use tracing::{error, info, trace, warn};
 
 impl Minion {

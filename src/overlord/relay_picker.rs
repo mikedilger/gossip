@@ -1,6 +1,6 @@
 use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
-use nostr_proto::PublicKeyHex;
+use nostr_types::PublicKeyHex;
 use tracing::info;
 
 /// See RelayPicker::best()

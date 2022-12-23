@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_proto::Url;
+use nostr_types::Url;
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 

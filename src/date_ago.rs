@@ -1,4 +1,4 @@
-use nostr_proto::Unixtime;
+use nostr_types::Unixtime;
 
 pub fn date_ago(then: Unixtime) -> String {
     let now = Unixtime::now().unwrap();

@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_proto::{Metadata, PublicKeyHex, Unixtime};
+use nostr_types::{Metadata, PublicKeyHex, Unixtime};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
