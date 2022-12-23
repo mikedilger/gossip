@@ -294,7 +294,18 @@ impl Overlord {
                         // FIXME: Handle EventKind::ContactList
                     }
                 }
-                "minion_is_ready" => {}
+                "minion_is_ready" => {},
+                "save_settings" => {
+                    let settings: Settings = serde_json::from_str(&bus_message.json_payload)?;
+
+                    // Save to database
+                    settings.save().await?; // to database
+
+                    // Update in globals
+                    *GLOBALS.settings.lock().await = settings;
+
+                    debug!("Settings saved.");
+                },
                 _ => {}
             },
             _ => {}

@@ -10,6 +10,7 @@ mod you;
 use crate::about::About;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::settings::Settings;
 use eframe::{egui, IconData, Theme};
 use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
 
@@ -59,7 +60,7 @@ struct GossipUi {
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
     draft: String,
-    threaded: bool,
+    settings: Settings,
 }
 
 impl GossipUi {
@@ -102,7 +103,7 @@ impl GossipUi {
             )
         };
 
-        let threaded = GLOBALS.settings.blocking_lock().view_threaded;
+        let settings = GLOBALS.settings.blocking_lock().clone();
 
         GossipUi {
             page: Page::Feed,
@@ -110,7 +111,7 @@ impl GossipUi {
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
             draft: "".to_owned(),
-            threaded,
+            settings: settings,
         }
     }
 }

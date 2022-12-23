@@ -106,7 +106,7 @@ fn render_post(
 
     ui.horizontal(|ui| {
         // Indents first (if threaded)
-        if app.threaded {
+        if app.settings.view_threaded {
             for _ in 0..indent {
                 ui.add_space(8.0);
                 ui.separator();
@@ -170,7 +170,7 @@ fn render_post(
 
     ui.separator();
 
-    if app.threaded {
+    if app.settings.view_threaded {
         for reply_id in fevent.replies {
             render_post(app, _ctx, _frame, ui, reply_id, indent + 1);
         }
