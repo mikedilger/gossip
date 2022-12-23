@@ -137,6 +137,12 @@ fn render_post(
                             .text_style(TextStyle::Name("Oblique".into()))
                             .weak(),
                     );
+
+                    ui.add_space(10.0);
+
+                    ui.label("(i)").on_hover_ui(|ui| {
+                        ui.label(&format!("ID: {}", event.id.as_hex_string()));
+                    });
                 });
             });
 
