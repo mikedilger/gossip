@@ -135,7 +135,11 @@ impl DbPerson {
         Ok(())
     }
 
-    pub async fn update_metadata(pubkey: PublicKeyHex, metadata: Metadata, created_at: Unixtime) -> Result<(), Error> {
+    pub async fn update_metadata(
+        pubkey: PublicKeyHex,
+        metadata: Metadata,
+        created_at: Unixtime,
+    ) -> Result<(), Error> {
         let sql =
             "UPDATE person SET name=?, about=?, picture=?, dns_id=?, metadata_at=? WHERE pubkey=?";
 

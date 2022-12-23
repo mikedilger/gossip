@@ -8,7 +8,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
 use futures::{SinkExt, StreamExt};
-use futures_util::stream::{SplitStream, SplitSink};
+use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
 use nostr_proto::{EventKind, Filters, PublicKeyHex, RelayInformationDocument, Unixtime, Url};
 use subscription::Subscriptions;

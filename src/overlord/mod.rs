@@ -113,20 +113,29 @@ impl Overlord {
                 let metadata: Metadata = match serde_json::from_str(&dbevent.content) {
                     Ok(e) => e,
                     Err(_) => {
-                        error!("Bad metadata: id={}, content={}", dbevent.id, dbevent.content);
+                        error!(
+                            "Bad metadata: id={}, content={}",
+                            dbevent.id, dbevent.content
+                        );
                         continue;
                     }
                 };
 
                 // Update in globals
                 crate::globals::update_person_from_event_metadata(
-                    e.pubkey, e.created_at, metadata.clone()
-                ).await;
+                    e.pubkey,
+                    e.created_at,
+                    metadata.clone(),
+                )
+                .await;
 
                 // Update in database
-                DbPerson::update_metadata(PublicKeyHex(e.pubkey.as_hex_string()),
-                                          metadata,
-                                          e.created_at).await?;
+                DbPerson::update_metadata(
+                    PublicKeyHex(e.pubkey.as_hex_string()),
+                    metadata,
+                    e.created_at,
+                )
+                .await?;
             }
         }
 
@@ -272,7 +281,10 @@ impl Overlord {
                         debug!("new feed event arrived: {}...", event.id.as_hex_string());
                     } else {
                         // Not Feed Related:  Metadata, RecommendRelay, ContactList
-                        debug!("new non-feed event arrived: {}...", event.id.as_hex_string());
+                        debug!(
+                            "new non-feed event arrived: {}...",
+                            event.id.as_hex_string()
+                        );
 
                         if event.kind == EventKind::Metadata {
                             let metadata: Metadata = serde_json::from_str(&event.content)?;

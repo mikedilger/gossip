@@ -134,19 +134,13 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
         let count = event
             .tags
             .iter()
-            .filter(|t| match t {
-                Tag::Event { .. } => true,
-                _ => false,
-            })
+            .filter(|t| matches!(t, Tag::Event { .. }))
             .count();
 
         for (n, tag) in event
             .tags
             .iter()
-            .filter(|t| match t {
-                Tag::Event { .. } => true,
-                _ => false,
-            })
+            .filter(|t| matches!(t, Tag::Event { .. }))
             .enumerate()
         {
             if let Tag::Event {
@@ -198,13 +192,13 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
             update_feed_event(event.id, |this_event| {
                 this_event.in_reply_to = Some(id);
             })
-                .await;
+            .await;
 
             // Mark the parent event as having us as a reply
             update_feed_event(id, |parent_event| {
                 parent_event.replies.push(event.id);
             })
-                .await;
+            .await;
 
             // Get our last_reply_at for propogating upwards
             let mut last_reply_at = event.created_at.0;
@@ -222,7 +216,7 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
                     }
                     in_reply_to = ancestor_event.in_reply_to; // next up the chain
                 })
-                    .await;
+                .await;
 
                 xid = match in_reply_to {
                     Some(ref id) => *id,
@@ -232,7 +226,9 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
         }
 
         // We ignore 'root' and 'refer'.
-        if let Some(id) = root { trace!("event root = {}", id.as_hex_string()); }
+        if let Some(id) = root {
+            trace!("event root = {}", id.as_hex_string());
+        }
     }
 
     // Some kinds seen in the wild:
@@ -361,11 +357,12 @@ pub async fn add_event(event: &Event) -> Result<(), Error> {
 async fn insert_event(event: &Event) {
     let mut feed_events = GLOBALS.feed_events.lock().await;
 
-    feed_events.entry(event.id)
+    feed_events
+        .entry(event.id)
         .and_modify(|feed_event| {
             // If the event already exists, update it's base data.
             // (sometimes it is created to add feed data, but doesn't have base data yet)
-            feed_event.feed_related = event.kind==EventKind::TextNote;
+            feed_event.feed_related = event.kind == EventKind::TextNote;
             if feed_event.last_reply_at.is_none() {
                 feed_event.last_reply_at = Some(event.created_at.0)
             }
@@ -373,7 +370,7 @@ async fn insert_event(event: &Event) {
                 feed_event.event = Some(event.to_owned());
             }
         })
-        .or_insert(event.into());
+        .or_insert_with(|| event.into());
 }
 
 async fn update_feed_event<F>(id: Id, mut f: F)
