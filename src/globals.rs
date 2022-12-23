@@ -65,56 +65,68 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-pub async fn get_feed() -> Vec<Id> {
+pub async fn get_feed(threaded: bool) -> Vec<Id> {
     let feed: Vec<FeedEvent> = GLOBALS
         .feed_events
         .lock()
         .await
         .iter()
         .map(|(_, e)| e)
-        .filter(|e| e.feed_related) // feed related
-        //.filter(|e| e.in_reply_to.is_none()) // only root events
+        .filter(|e| e.event.is_some() && e.event.as_ref().unwrap().kind == EventKind::TextNote)
+        .filter(|e| {
+            if threaded {
+                e.in_reply_to.is_none()
+            } else {
+                true
+            }
+        }) // only root events
         .cloned()
         .collect();
 
-    sort_feed(feed)
+    sort_feed(feed, threaded)
 }
 
 #[allow(dead_code)]
-pub fn blocking_get_feed() -> Vec<Id> {
+pub fn blocking_get_feed(threaded: bool) -> Vec<Id> {
     let feed: Vec<FeedEvent> = GLOBALS
         .feed_events
         .blocking_lock()
         .iter()
         .map(|(_, e)| e)
-        .filter(|e| e.feed_related) // feed related
-        //.filter(|e| e.in_reply_to.is_none()) // only root events
+        .filter(|e| e.event.is_some() && e.event.as_ref().unwrap().kind == EventKind::TextNote)
+        .filter(|e| {
+            if threaded {
+                e.in_reply_to.is_none()
+            } else {
+                true
+            }
+        }) // only root events
         .cloned()
         .collect();
 
-    sort_feed(feed)
+    sort_feed(feed, threaded)
 }
 
-fn sort_feed(mut feed: Vec<FeedEvent>) -> Vec<Id> {
-    // Threaded, TBD:
-    // feed.sort_unstable_by(|a, b| a.last_reply_at.cmp(&b.last_reply_at));
-
-    // Linear sort neweset first:
-    feed.sort_unstable_by(|a, b| {
-        if a.event.is_some() && b.event.is_some() {
-            b.event
-                .as_ref()
-                .unwrap()
-                .created_at
-                .cmp(&a.event.as_ref().unwrap().created_at)
-        } else if a.event.is_some() {
-            std::cmp::Ordering::Greater
-        } else if b.event.is_some() {
-            std::cmp::Ordering::Less
-        } else {
-            std::cmp::Ordering::Equal
-        }
-    });
+fn sort_feed(mut feed: Vec<FeedEvent>, threaded: bool) -> Vec<Id> {
+    if threaded {
+        feed.sort_unstable_by(|a, b| b.last_reply_at.cmp(&a.last_reply_at));
+    } else {
+        feed.sort_unstable_by(|a, b| {
+            if a.event.is_some() && b.event.is_some() {
+                b.event
+                    .as_ref()
+                    .unwrap()
+                    .created_at
+                    .cmp(&a.event.as_ref().unwrap().created_at)
+            } else if a.event.is_some() {
+                std::cmp::Ordering::Greater
+            } else if b.event.is_some() {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        });
+    }
 
     feed.iter().map(|e| e.id).collect()
 }

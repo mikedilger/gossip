@@ -5,7 +5,7 @@ use nostr_proto::PublicKey;
 use tracing::info;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let feed = crate::globals::blocking_get_feed();
+    let feed = crate::globals::blocking_get_feed(true);
 
     //let screen_rect = ctx.input().screen_rect; // Rect
 
