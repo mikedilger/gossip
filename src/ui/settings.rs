@@ -1,9 +1,9 @@
-use crate::GLOBALS;
-use crate::comms::BusMessage;
 use super::GossipUi;
+use crate::comms::BusMessage;
+use crate::GLOBALS;
 use eframe::egui;
-use egui::{Align, Context, Layout, Ui};
 use egui::widgets::{Button, Slider};
+use egui::{Align, Context, Layout, Ui};
 
 pub(super) fn update(
     app: &mut GossipUi,
@@ -40,8 +40,13 @@ pub(super) fn update(
     ui.add_space(24.0);
     ui.heading("What Posts to Include");
 
-    ui.checkbox(&mut app.settings.view_posts_referred_to, "View posts referred to by people you follow (not yet implemented)")
-        .on_hover_text("Recommended, otherwise it's hard to understand what the person is talking about.");
+    ui.checkbox(
+        &mut app.settings.view_posts_referred_to,
+        "View posts referred to by people you follow (not yet implemented)",
+    )
+    .on_hover_text(
+        "Recommended, otherwise it's hard to understand what the person is talking about.",
+    );
 
     ui.checkbox(&mut app.settings.view_posts_referring_to, "View posts referring to posts by people you follow (not yet implemented)")
         .on_hover_text("Not recommended, as anyone can reply to them and you'll certainly encounter spam this way.");
@@ -49,8 +54,11 @@ pub(super) fn update(
     ui.add_space(24.0);
     ui.heading("Miscellaneous");
 
-    ui.checkbox(&mut app.settings.autofollow, "Autofollow everybody (not yet implemented)")
-        .on_hover_text("Definately not recommended. In fact we may remove this soon.");
+    ui.checkbox(
+        &mut app.settings.autofollow,
+        "Autofollow everybody (not yet implemented)",
+    )
+    .on_hover_text("Definately not recommended. In fact we may remove this soon.");
 
     ui.add_space(24.0);
     ui.heading("Style");
@@ -85,15 +93,13 @@ pub(super) fn update(
             let _ = tx.send(BusMessage {
                 target: "overlord".to_string(),
                 kind: "save_settings".to_string(),
-                json_payload: serde_json::to_string(&app.settings).unwrap()
+                json_payload: serde_json::to_string(&app.settings).unwrap(),
             });
         }
     });
-
 }
 
 fn secs_to_string(secs: u64) -> String {
-
     let days = secs / 86400;
     let remainder = secs % 86400;
     let hours = remainder / 3600;
@@ -101,9 +107,15 @@ fn secs_to_string(secs: u64) -> String {
     let minutes = remainder / 60;
     let seconds = remainder % 60;
     let mut output: String = String::new();
-    if days>0 { output.push_str(&format!(" {} days", days)); }
-    if hours>0 { output.push_str(&format!(" {} hours", hours)); }
-    if minutes>0 { output.push_str(&format!(" {} minutes", minutes)); }
+    if days > 0 {
+        output.push_str(&format!(" {} days", days));
+    }
+    if hours > 0 {
+        output.push_str(&format!(" {} hours", hours));
+    }
+    if minutes > 0 {
+        output.push_str(&format!(" {} minutes", minutes));
+    }
     output.push_str(&format!(" {} seconds", seconds));
     output
 }

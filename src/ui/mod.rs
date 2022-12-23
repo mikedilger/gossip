@@ -111,7 +111,7 @@ impl GossipUi {
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
             draft: "".to_owned(),
-            settings: settings,
+            settings,
         }
     }
 }
