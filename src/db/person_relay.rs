@@ -4,18 +4,22 @@ use nostr_types::PublicKeyHex;
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct DbPersonRelay {
     pub person: String,
     pub relay: String,
-    pub recommended: u8,
     pub last_fetched: Option<u64>,
+    pub last_suggested_kind2: Option<u64>,
+    pub last_suggested_kind3: Option<u64>,
+    pub last_suggested_nip23: Option<u64>,
+    pub last_suggested_nip35: Option<u64>,
+    pub last_suggested_bytag: Option<u64>,
 }
 
 impl DbPersonRelay {
     #[allow(dead_code)]
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPersonRelay>, Error> {
-        let sql = "SELECT person, relay, recommended, last_fetched FROM person_relay".to_owned();
+        let sql = "SELECT person, relay, last_fetched, last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, last_suggested_nip35, last_suggested_bytag FROM person_relay".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -30,8 +34,12 @@ impl DbPersonRelay {
                 Ok(DbPersonRelay {
                     person: row.get(0)?,
                     relay: row.get(1)?,
-                    recommended: row.get(2)?,
-                    last_fetched: row.get(3)?,
+                    last_fetched: row.get(2)?,
+                    last_suggested_kind2: row.get(3)?,
+                    last_suggested_kind3: row.get(4)?,
+                    last_suggested_nip23: row.get(5)?,
+                    last_suggested_nip35: row.get(6)?,
+                    last_suggested_bytag: row.get(7)?,
                 })
             })?;
 
@@ -53,7 +61,9 @@ impl DbPersonRelay {
         }
 
         let sql = format!(
-            "SELECT person, relay, recommended, person_relay.last_fetched \
+            "SELECT person, relay, person_relay.last_fetched, \
+             last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
+             last_suggested_nip35, last_suggested_bytag \
              FROM person_relay \
              INNER JOIN relay ON person_relay.relay=relay.url \
              WHERE person IN ({}) ORDER BY person, relay.rank DESC",
@@ -71,8 +81,12 @@ impl DbPersonRelay {
                 Ok(DbPersonRelay {
                     person: row.get(0)?,
                     relay: row.get(1)?,
-                    recommended: row.get(2)?,
-                    last_fetched: row.get(3)?,
+                    last_fetched: row.get(2)?,
+                    last_suggested_kind2: row.get(3)?,
+                    last_suggested_kind3: row.get(4)?,
+                    last_suggested_nip23: row.get(5)?,
+                    last_suggested_nip35: row.get(6)?,
+                    last_suggested_bytag: row.get(7)?,
                 })
             })?;
 
@@ -123,8 +137,10 @@ impl DbPersonRelay {
     }
 
     pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
-        let sql = "INSERT OR IGNORE INTO person_relay (person, relay, recommended, last_fetched) \
-             VALUES (?1, ?2, ?3, ?4)";
+        let sql = "INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, \
+                   last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
+                   last_suggested_nip35, last_suggested_bytag) \
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -134,8 +150,12 @@ impl DbPersonRelay {
             stmt.execute((
                 &person_relay.person,
                 &person_relay.relay,
-                &person_relay.recommended,
                 &person_relay.last_fetched,
+                &person_relay.last_suggested_kind2,
+                &person_relay.last_suggested_kind3,
+                &person_relay.last_suggested_nip23,
+                &person_relay.last_suggested_nip35,
+                &person_relay.last_suggested_bytag,
             ))?;
             Ok::<(), Error>(())
         })

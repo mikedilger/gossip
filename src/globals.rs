@@ -485,8 +485,7 @@ pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPer
     DbPersonRelay::insert(DbPersonRelay {
         person: pubkey,
         relay,
-        recommended: 0,
-        last_fetched: None,
+        ..Default::default()
     })
     .await
     .map_err(|e| format!("{}", e))?;

@@ -4,8 +4,14 @@ pub use event::DbEvent;
 mod event_seen;
 pub use event_seen::DbEventSeen;
 
+mod event_hashtag;
+pub use event_hashtag::DbEventHashtag;
+
 mod event_tag;
 pub use event_tag::DbEventTag;
+
+mod event_relationship;
+pub use event_relationship::DbEventRelationship;
 
 mod relay;
 pub use relay::DbRelay;
@@ -99,6 +105,7 @@ macro_rules! apply_sql {
 fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
     apply_sql!(db, version, 1, "schema1.sql");
     apply_sql!(db, version, 2, "schema2.sql");
+    apply_sql!(db, version, 3, "schema3.sql");
     info!("Database is at version {}", version);
 
     Ok(())
