@@ -33,8 +33,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             //}
 
             render_post(app, ctx, frame, ui, *id, 0);
-
-            ui.separator();
         }
     });
 }
@@ -45,7 +43,7 @@ fn render_post(
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
     id: Id,
-    _indent: usize,
+    indent: usize,
 ) {
     let maybe_fevent = crate::globals::GLOBALS
         .feed_events
@@ -107,6 +105,15 @@ fn render_post(
     // Try LayoutJob
 
     ui.horizontal(|ui| {
+        // Indents first (if threaded)
+        if app.threaded {
+            for _ in 0..indent {
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(8.0);
+            }
+        }
+
         // Avatar first
         ui.image(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 });
 
@@ -154,6 +161,14 @@ fn render_post(
             ui.label(&event.content);
         });
     });
+
+    ui.separator();
+
+    if app.threaded {
+        for reply_id in fevent.replies {
+            render_post(app, _ctx, _frame, ui, reply_id, indent + 1);
+        }
+    }
 }
 
 fn pubkey_short(pubkey: &PublicKey) -> String {
