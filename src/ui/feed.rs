@@ -1,7 +1,7 @@
 use super::GossipUi;
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextStyle, Ui, Vec2};
-use nostr_proto::{Id, PublicKey};
+use nostr_proto::{EventKind, Id, PublicKey};
 use tracing::info;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -61,6 +61,11 @@ fn render_post(
         return;
     } // don't render related info w/o nostr event.
     let event = fevent.event.as_ref().unwrap().to_owned();
+
+    // Only render TextNote events
+    if event.kind != EventKind::TextNote {
+        return;
+    }
 
     let maybe_person = crate::globals::GLOBALS
         .people
