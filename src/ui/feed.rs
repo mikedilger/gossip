@@ -129,7 +129,7 @@ fn render_post(
 
                 ui.separator();
 
-                ui.label(pubkey_short(&event.pubkey));
+                ui.label(RichText::new(pubkey_short(&event.pubkey)).weak());
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.label(
