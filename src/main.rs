@@ -11,6 +11,7 @@ mod error;
 mod feed_event;
 mod globals;
 mod overlord;
+mod relationship;
 mod settings;
 mod ui;
 
