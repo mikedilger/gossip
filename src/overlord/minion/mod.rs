@@ -6,7 +6,6 @@ use crate::comms::BusMessage;
 use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use crate::settings::Settings;
 use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
@@ -25,7 +24,6 @@ pub struct Minion {
     pubkeys: Vec<PublicKeyHex>,
     to_overlord: UnboundedSender<BusMessage>,
     from_overlord: Receiver<BusMessage>,
-    settings: Settings,
     dbrelay: DbRelay,
     nip11: Option<RelayInformationDocument>,
     stream: Option<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
@@ -37,7 +35,6 @@ impl Minion {
     pub async fn new(url: Url, pubkeys: Vec<PublicKeyHex>) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
-        let settings = Settings::load().await?;
         let dbrelay = match DbRelay::fetch_one(&url).await? {
             Some(dbrelay) => dbrelay,
             None => {
@@ -52,7 +49,6 @@ impl Minion {
             pubkeys,
             to_overlord,
             from_overlord,
-            settings,
             dbrelay,
             nip11: None,
             stream: None,
@@ -224,7 +220,7 @@ impl Minion {
                         info!("Websocket listener {} shutting down", &self.url);
                         keepgoing = false;
                     } else if &*bus_message.kind == "settings_changed" {
-                        self.settings = serde_json::from_str(&bus_message.json_payload)?;
+                        // TBD: possibly redo filters based on overlap, feed_chunk, etc.
                     }
                 }
             },
@@ -269,12 +265,14 @@ impl Minion {
             let mut special_since: i64 =
                 DbPersonRelay::fetch_oldest_last_fetched(&self.pubkeys, &self.url.0).await? as i64;
 
+            let settings = GLOBALS.settings.lock().await.clone();
+
             // Subtract overlap to avoid gaps due to clock sync and event
             // propogation delay
-            special_since -= self.settings.overlap as i64;
+            special_since -= settings.overlap as i64;
 
             // For feed related events, don't look back more than one feed_chunk ago
-            let one_feedchunk_ago = Unixtime::now().unwrap().0 - self.settings.feed_chunk as i64;
+            let one_feedchunk_ago = Unixtime::now().unwrap().0 - settings.feed_chunk as i64;
             let feed_since = special_since.max(one_feedchunk_ago);
 
             (Unixtime(feed_since), Unixtime(special_since))

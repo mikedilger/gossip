@@ -2,6 +2,7 @@ use crate::comms::BusMessage;
 use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::feed_event::FeedEvent;
+use crate::settings::Settings;
 use nostr_proto::{Event, EventKind, Id, Metadata, PublicKey, PublicKeyHex, Tag, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -40,6 +41,9 @@ pub struct Globals {
     /// Whether or not we have a saved private key and need the password to unlock it
     #[allow(dead_code)]
     pub need_password: AtomicBool,
+
+    /// Settings
+    pub settings: Mutex<Settings>,
 }
 
 lazy_static! {
@@ -60,6 +64,7 @@ lazy_static! {
             desired_events: Mutex::new(HashMap::new()),
             people: Mutex::new(HashMap::new()),
             need_password: AtomicBool::new(false),
+            settings: Mutex::new(Settings::default()),
         }
     };
 }

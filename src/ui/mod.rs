@@ -9,6 +9,7 @@ mod you;
 
 use crate::about::About;
 use crate::error::Error;
+use crate::globals::GLOBALS;
 use eframe::{egui, IconData, Theme};
 use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
 
@@ -101,13 +102,15 @@ impl GossipUi {
             )
         };
 
+        let threaded = GLOBALS.settings.blocking_lock().view_threaded;
+
         GossipUi {
             page: Page::Feed,
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
             draft: "".to_owned(),
-            threaded: true,
+            threaded,
         }
     }
 }

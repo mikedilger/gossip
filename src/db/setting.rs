@@ -63,6 +63,7 @@ impl DbSetting {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn fetch_setting_u64_or_default(key: &str, default: u64) -> Result<u64, Error> {
         let db_settings = DbSetting::fetch(Some(&format!("key='{}'", key))).await?;
 
@@ -108,6 +109,7 @@ impl DbSetting {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn update<T: ToSql + Send + 'static>(key: String, value: T) -> Result<(), Error> {
         let sql = "UPDATE settings SET value=? WHERE key=?";
 

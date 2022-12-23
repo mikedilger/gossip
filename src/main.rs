@@ -20,8 +20,15 @@ use crate::globals::GLOBALS;
 use std::ops::DerefMut;
 use std::{mem, thread};
 
-fn main() {
+fn main() -> Result<(), Error> {
     tracing_subscriber::fmt::init();
+
+    // Setup the database (possibly create, possibly upgrade)
+    crate::db::setup_database()?;
+
+    // Load settings
+    let settings = crate::settings::Settings::blocking_load()?;
+    *GLOBALS.settings.blocking_lock() = settings;
 
     // Start async code
     // We do this on a separate thread because egui is most portable by
@@ -42,6 +49,8 @@ fn main() {
 
     // Wait for the async thread to complete
     async_thread.join().unwrap();
+
+    Ok(())
 }
 
 async fn tokio_main() {

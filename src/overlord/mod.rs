@@ -60,12 +60,6 @@ impl Overlord {
     }
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
-        // Setup the database (possibly create, possibly upgrade)
-        crate::db::setup_database().await?;
-
-        // Load settings
-        self.settings = Settings::load().await?;
-
         // Check for a private key
         if DbSetting::fetch_setting("user_private_key")
             .await?
@@ -82,7 +76,7 @@ impl Overlord {
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen, possibly autofollow
-        DbPerson::populate_new_people(self.settings.autofollow != 0).await?;
+        DbPerson::populate_new_people(self.settings.autofollow).await?;
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.

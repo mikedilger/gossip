@@ -30,7 +30,7 @@ use tracing::info;
 
 // This sets up the database
 #[allow(clippy::or_fun_call)]
-pub async fn setup_database() -> Result<(), Error> {
+pub fn setup_database() -> Result<(), Error> {
     let mut data_dir = dirs::data_dir()
         .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
     data_dir.push("gossip");
@@ -51,18 +51,18 @@ pub async fn setup_database() -> Result<(), Error> {
 
     // Save the connection globally
     {
-        let mut db = GLOBALS.db.lock().await;
+        let mut db = GLOBALS.db.blocking_lock();
         *db = Some(connection);
     }
 
     // Check and upgrade our data schema
-    check_and_upgrade().await?;
+    check_and_upgrade()?;
 
     Ok(())
 }
 
-async fn check_and_upgrade() -> Result<(), Error> {
-    let maybe_db = GLOBALS.db.lock().await;
+fn check_and_upgrade() -> Result<(), Error> {
+    let maybe_db = GLOBALS.db.blocking_lock();
     let db = maybe_db.as_ref().unwrap();
 
     // Load the current version
