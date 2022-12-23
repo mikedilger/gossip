@@ -98,7 +98,7 @@ macro_rules! apply_sql {
 
 fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
     apply_sql!(db, version, 1, "schema1.sql");
-
+    apply_sql!(db, version, 2, "schema2.sql");
     info!("Database is at version {}", version);
 
     Ok(())
