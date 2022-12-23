@@ -1677,7 +1677,7 @@ dependencies = [
 
 [[package]]
 name = "gossip"
-version = "0.3.0"
+version = "0.3.1-unstable"
 dependencies = [
  "base64 0.13.1",
  "dirs",
@@ -2309,8 +2309,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b34b4dc519cba186652ea75403acd738587eaa375e00dac8b43752b9c77b3cc"
+source = "git+https://github.com/mikedilger/nostr-types#2badf71f2d11f49aa75886c38f07ef10eaa6c21f"
 dependencies = [
  "aes",
  "base64 0.13.1",
