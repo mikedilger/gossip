@@ -299,8 +299,8 @@ impl Minion {
             special_filter.add_author(pk, None);
         }
         special_filter.add_event_kind(EventKind::Metadata);
-        //special_filter.add_event_kind(EventKind::RecommendRelay);
-        //special_filter.add_event_kind(EventKind::ContactList);
+        special_filter.add_event_kind(EventKind::RecommendRelay);
+        special_filter.add_event_kind(EventKind::ContactList);
         special_filter.since = Some(special_since);
         debug!(
             "Special Filter {}: {}",
