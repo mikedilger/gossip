@@ -69,71 +69,73 @@ lazy_static! {
     };
 }
 
-#[allow(dead_code)]
-pub async fn get_feed(threaded: bool) -> Vec<Id> {
-    let feed: Vec<FeedEvent> = GLOBALS
-        .feed_events
-        .lock()
-        .await
-        .iter()
-        .map(|(_, e)| e)
-        .filter(|e| e.event.is_some() && e.event.as_ref().unwrap().kind == EventKind::TextNote)
-        .filter(|e| {
-            if threaded {
-                e.in_reply_to.is_none()
-            } else {
-                true
-            }
-        }) // only root events
-        .cloned()
-        .collect();
+impl Globals {
+    #[allow(dead_code)]
+    pub async fn get_feed(threaded: bool) -> Vec<Id> {
+        let feed: Vec<FeedEvent> = GLOBALS
+            .feed_events
+            .lock()
+            .await
+            .iter()
+            .map(|(_, e)| e)
+            .filter(|e| e.event.is_some() && e.event.as_ref().unwrap().kind == EventKind::TextNote)
+            .filter(|e| {
+                if threaded {
+                    e.in_reply_to.is_none()
+                } else {
+                    true
+                }
+            }) // only root events
+            .cloned()
+            .collect();
 
-    sort_feed(feed, threaded)
-}
-
-#[allow(dead_code)]
-pub fn blocking_get_feed(threaded: bool) -> Vec<Id> {
-    let feed: Vec<FeedEvent> = GLOBALS
-        .feed_events
-        .blocking_lock()
-        .iter()
-        .map(|(_, e)| e)
-        .filter(|e| e.event.is_some() && e.event.as_ref().unwrap().kind == EventKind::TextNote)
-        .filter(|e| {
-            if threaded {
-                e.in_reply_to.is_none()
-            } else {
-                true
-            }
-        }) // only root events
-        .cloned()
-        .collect();
-
-    sort_feed(feed, threaded)
-}
-
-fn sort_feed(mut feed: Vec<FeedEvent>, threaded: bool) -> Vec<Id> {
-    if threaded {
-        feed.sort_unstable_by(|a, b| b.last_reply_at.cmp(&a.last_reply_at));
-    } else {
-        feed.sort_unstable_by(|a, b| {
-            if a.event.is_some() && b.event.is_some() {
-                b.event
-                    .as_ref()
-                    .unwrap()
-                    .created_at
-                    .cmp(&a.event.as_ref().unwrap().created_at)
-            } else if a.event.is_some() {
-                std::cmp::Ordering::Greater
-            } else if b.event.is_some() {
-                std::cmp::Ordering::Less
-            } else {
-                std::cmp::Ordering::Equal
-            }
-        });
+        Self::sort_feed(feed, threaded)
     }
 
-    feed.iter().map(|e| e.id).collect()
+    #[allow(dead_code)]
+    pub fn blocking_get_feed(threaded: bool) -> Vec<Id> {
+        let feed: Vec<FeedEvent> = GLOBALS
+            .feed_events
+            .blocking_lock()
+            .iter()
+            .map(|(_, e)| e)
+            .filter(|e| e.event.is_some() && e.event.as_ref().unwrap().kind == EventKind::TextNote)
+            .filter(|e| {
+                if threaded {
+                    e.in_reply_to.is_none()
+                } else {
+                    true
+                }
+            }) // only root events
+            .cloned()
+            .collect();
+
+        Self::sort_feed(feed, threaded)
+    }
+
+    fn sort_feed(mut feed: Vec<FeedEvent>, threaded: bool) -> Vec<Id> {
+        if threaded {
+            feed.sort_unstable_by(|a, b| b.last_reply_at.cmp(&a.last_reply_at));
+        } else {
+            feed.sort_unstable_by(|a, b| {
+                if a.event.is_some() && b.event.is_some() {
+                    b.event
+                        .as_ref()
+                        .unwrap()
+                        .created_at
+                        .cmp(&a.event.as_ref().unwrap().created_at)
+                } else if a.event.is_some() {
+                    std::cmp::Ordering::Greater
+                } else if b.event.is_some() {
+                    std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Equal
+                }
+            });
+        }
+
+        feed.iter().map(|e| e.id).collect()
+    }
 }
 
 pub async fn add_event(event: &Event) -> Result<(), Error> {
