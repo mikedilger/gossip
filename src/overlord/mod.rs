@@ -95,7 +95,7 @@ impl Overlord {
                     let maybe_url = self.minions_task_url.get(&id);
                     match maybe_url {
                         Some(url) => {
-                            warn!("Relay Task {} completed", &url);
+                            info!("Relay Task {} completed", &url);
 
                             // Remove from our hashmap
                             self.minions_task_url.remove(&id);
