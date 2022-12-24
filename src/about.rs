@@ -10,7 +10,6 @@ pub struct About {
     pub storage_path: String,
 }
 
-#[allow(dead_code)]
 pub fn about() -> About {
     let data_dir = match dirs::data_dir() {
         Some(mut d) => {

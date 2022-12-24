@@ -10,7 +10,6 @@ pub struct DbEventHashtag {
 }
 
 impl DbEventHashtag {
-    #[allow(dead_code)]
     pub async fn insert(&self) -> Result<(), Error> {
         let event = self.event.clone();
         let hashtag = self.hashtag.clone();

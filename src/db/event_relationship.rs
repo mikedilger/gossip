@@ -13,7 +13,6 @@ pub struct DbEventRelationship {
 }
 
 impl DbEventRelationship {
-    #[allow(dead_code)]
     pub async fn insert(&self) -> Result<(), Error> {
         let original = self.original.clone();
         let referring = self.referring.clone();

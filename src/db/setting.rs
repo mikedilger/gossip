@@ -41,7 +41,6 @@ impl DbSetting {
         output
     }
 
-    #[allow(dead_code)]
     pub async fn fetch_setting(key: &str) -> Result<Option<String>, Error> {
         let db_settings = DbSetting::fetch(Some(&format!("key='{}'", key))).await?;
 

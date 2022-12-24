@@ -6,7 +6,6 @@ use nostr_types::{Event, EventKind, Metadata, Unixtime, Url};
 
 // This processes a new event, saving the results into the database
 // and also populating the GLOBALS maps.
-#[allow(dead_code)]
 pub async fn process_new_event(
     event: &Event,
     from_relay: bool,

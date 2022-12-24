@@ -1,6 +1,5 @@
 use crate::comms::BusMessage;
 use crate::db::{DbPerson, DbPersonRelay, DbRelay};
-use crate::error::Error;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use async_recursion::async_recursion;
@@ -46,7 +45,6 @@ pub struct Globals {
     pub people: Mutex<HashMap<PublicKey, DbPerson>>,
 
     /// Whether or not we have a saved private key and need the password to unlock it
-    #[allow(dead_code)]
     pub need_password: AtomicBool,
 
     /// Settings
@@ -79,29 +77,6 @@ lazy_static! {
 }
 
 impl Globals {
-    #[allow(dead_code)]
-    pub async fn get_feed(threaded: bool) -> Vec<Id> {
-        let feed: Vec<Event> = GLOBALS
-            .events
-            .lock()
-            .await
-            .iter()
-            .map(|(_, e)| e)
-            .filter(|e| e.kind == EventKind::TextNote)
-            .filter(|e| {
-                if threaded {
-                    e.replies_to().is_none()
-                } else {
-                    true
-                }
-            })
-            .cloned()
-            .collect();
-
-        Self::sort_feed(feed, threaded)
-    }
-
-    #[allow(dead_code)]
     pub fn blocking_get_feed(threaded: bool) -> Vec<Id> {
         let feed: Vec<Event> = GLOBALS
             .events
@@ -138,7 +113,6 @@ impl Globals {
         feed.iter().map(|e| e.id).collect()
     }
 
-    #[allow(dead_code)]
     pub async fn store_desired_event(id: Id, url: Option<Url>) {
         let mut desired_events = GLOBALS.desired_events.lock().await;
         desired_events
@@ -151,7 +125,6 @@ impl Globals {
             .or_insert_with(|| if let Some(u) = url { vec![u] } else { vec![] });
     }
 
-    #[allow(dead_code)]
     pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {
         let r = (related, relationship);
         let mut relationships = GLOBALS.relationships.lock().await;
@@ -165,7 +138,6 @@ impl Globals {
             .or_insert_with(|| vec![r]);
     }
 
-    #[allow(dead_code)]
     #[async_recursion]
     pub async fn update_last_reply(id: Id, time: Unixtime) {
         {
@@ -226,17 +198,6 @@ impl Globals {
 
         output
     }
-}
-
-#[allow(dead_code)]
-async fn save_person(pubkey: PublicKey) -> Result<(), Error> {
-    let mut people = GLOBALS.people.lock().await;
-    let person = people
-        .entry(pubkey)
-        .or_insert_with(|| DbPerson::new(pubkey.into()));
-
-    DbPerson::update(person.clone()).await?;
-    Ok(())
 }
 
 pub async fn followed_pubkeys() -> Vec<PublicKeyHex> {

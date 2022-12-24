@@ -67,7 +67,6 @@ impl Settings {
         Ok(settings)
     }
 
-    #[allow(dead_code)]
     pub async fn save(&self) -> Result<(), Error> {
         let maybe_db = GLOBALS.db.lock().await;
         let db = maybe_db.as_ref().unwrap();
