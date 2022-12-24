@@ -44,6 +44,9 @@ pub struct Globals {
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: Mutex<HashMap<PublicKey, DbPerson>>,
 
+    /// All nostr relay records we have
+    pub relays: Mutex<HashMap<Url, DbRelay>>,
+
     /// Whether or not we have a saved private key and need the password to unlock it
     pub need_password: AtomicBool,
 
@@ -74,6 +77,7 @@ lazy_static! {
             last_reply: Mutex::new(HashMap::new()),
             desired_events: Mutex::new(HashMap::new()),
             people: Mutex::new(HashMap::new()),
+            relays: Mutex::new(HashMap::new()),
             need_password: AtomicBool::new(false),
             shutting_down: AtomicBool::new(false),
             settings: Mutex::new(Settings::default()),

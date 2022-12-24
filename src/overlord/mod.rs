@@ -134,6 +134,18 @@ impl Overlord {
         // updated from events without necessarily updating our relays list)
         DbRelay::populate_new_relays().await?;
 
+        // Load relays from the database
+        let all_relays = DbRelay::fetch(None).await?;
+
+        // Store copy of all relays in globals (we use it again down below)
+        for relay in all_relays.iter() {
+            GLOBALS
+                .relays
+                .lock()
+                .await
+                .insert(Url(relay.url.clone()), relay.clone());
+        }
+
         // Load people from the database
         {
             let mut dbpeople = DbPerson::fetch(None).await?;
@@ -191,7 +203,7 @@ impl Overlord {
             let pubkeys: Vec<PublicKeyHex> = crate::globals::followed_pubkeys().await;
 
             let mut relay_picker = RelayPicker {
-                relays: DbRelay::fetch(None).await?,
+                relays: all_relays,
                 pubkeys: pubkeys.clone(),
                 person_relays: DbPersonRelay::fetch_for_pubkeys(&pubkeys).await?,
             };
