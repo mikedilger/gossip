@@ -1,7 +1,6 @@
 use crate::comms::BusMessage;
 use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
-use crate::feed_event::FeedEvent;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use async_recursion::async_recursion;
@@ -29,15 +28,10 @@ pub struct Globals {
     /// and stolen away when the Overlord is created.
     pub from_minions: Mutex<Option<mpsc::UnboundedReceiver<BusMessage>>>,
 
-    /// All nostr event related data, keyed by the event Id
-    pub feed_events: Mutex<HashMap<Id, FeedEvent>>,
-
     /// All nostr events, keyed by the event Id
-    /// This will replace feed_events.
     pub events: Mutex<HashMap<Id, Event>>,
 
     /// All relationships between events
-    /// This will also replace feed_events.
     pub relationships: Mutex<HashMap<Id, Vec<(Id, Relationship)>>>,
 
     /// The date of the latest reply. Only reply relationships count, not reactions,
@@ -73,7 +67,6 @@ lazy_static! {
             to_minions,
             to_overlord,
             from_minions: Mutex::new(Some(from_minions)),
-            feed_events: Mutex::new(HashMap::new()),
             events: Mutex::new(HashMap::new()),
             relationships: Mutex::new(HashMap::new()),
             last_reply: Mutex::new(HashMap::new()),
@@ -88,20 +81,20 @@ lazy_static! {
 impl Globals {
     #[allow(dead_code)]
     pub async fn get_feed(threaded: bool) -> Vec<Id> {
-        let feed: Vec<FeedEvent> = GLOBALS
-            .feed_events
+        let feed: Vec<Event> = GLOBALS
+            .events
             .lock()
             .await
             .iter()
             .map(|(_, e)| e)
-            .filter(|e| e.event.is_some() && e.event.as_ref().unwrap().kind == EventKind::TextNote)
+            .filter(|e| e.kind == EventKind::TextNote)
             .filter(|e| {
                 if threaded {
-                    e.in_reply_to.is_none()
+                    e.replies_to().is_none()
                 } else {
                     true
                 }
-            }) // only root events
+            })
             .cloned()
             .collect();
 
@@ -110,44 +103,36 @@ impl Globals {
 
     #[allow(dead_code)]
     pub fn blocking_get_feed(threaded: bool) -> Vec<Id> {
-        let feed: Vec<FeedEvent> = GLOBALS
-            .feed_events
+        let feed: Vec<Event> = GLOBALS
+            .events
             .blocking_lock()
             .iter()
             .map(|(_, e)| e)
-            .filter(|e| e.event.is_some() && e.event.as_ref().unwrap().kind == EventKind::TextNote)
+            .filter(|e| e.kind == EventKind::TextNote)
             .filter(|e| {
                 if threaded {
-                    e.in_reply_to.is_none()
+                    e.replies_to().is_none()
                 } else {
                     true
                 }
-            }) // only root events
+            })
             .cloned()
             .collect();
 
         Self::sort_feed(feed, threaded)
     }
 
-    fn sort_feed(mut feed: Vec<FeedEvent>, threaded: bool) -> Vec<Id> {
+    fn sort_feed(mut feed: Vec<Event>, threaded: bool) -> Vec<Id> {
         if threaded {
-            feed.sort_unstable_by(|a, b| b.last_reply_at.cmp(&a.last_reply_at));
-        } else {
             feed.sort_unstable_by(|a, b| {
-                if a.event.is_some() && b.event.is_some() {
-                    b.event
-                        .as_ref()
-                        .unwrap()
-                        .created_at
-                        .cmp(&a.event.as_ref().unwrap().created_at)
-                } else if a.event.is_some() {
-                    std::cmp::Ordering::Greater
-                } else if b.event.is_some() {
-                    std::cmp::Ordering::Less
-                } else {
-                    std::cmp::Ordering::Equal
-                }
+                let a_last = GLOBALS.last_reply.blocking_lock().get(&a.id).cloned();
+                let b_last = GLOBALS.last_reply.blocking_lock().get(&b.id).cloned();
+                let a_time = a_last.unwrap_or(a.created_at);
+                let b_time = b_last.unwrap_or(b.created_at);
+                b_time.cmp(&a_time)
             });
+        } else {
+            feed.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
         }
 
         feed.iter().map(|e| e.id).collect()
@@ -203,13 +188,25 @@ impl Globals {
         }
     }
 
+    pub fn get_replies_sync(id: Id) -> Vec<Id> {
+        let mut output: Vec<Id> = Vec::new();
+        if let Some(vec) = GLOBALS.relationships.blocking_lock().get(&id) {
+            for (id, relationship) in vec.iter() {
+                if *relationship == Relationship::Reply {
+                    output.push(*id);
+                }
+            }
+        }
+
+        output
+    }
+
     // FIXME - this allows people to react many times to the same event, and
     //         it counts them all!
-    #[allow(dead_code)]
-    pub async fn get_reactions(id: Id) -> HashMap<char, usize> {
+    pub fn get_reactions_sync(id: Id) -> HashMap<char, usize> {
         let mut output: HashMap<char, usize> = HashMap::new();
 
-        if let Some(relationships) = GLOBALS.relationships.lock().await.get(&id).cloned() {
+        if let Some(relationships) = GLOBALS.relationships.blocking_lock().get(&id).cloned() {
             for (_id, relationship) in relationships.iter() {
                 if let Relationship::Reaction(reaction) = relationship {
                     if let Some(ch) = reaction.chars().next() {

@@ -1,5 +1,5 @@
 use super::GossipUi;
-use crate::globals::Globals;
+use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextStyle, Ui, Vec2};
 use nostr_types::{EventKind, Id, PublicKey};
@@ -46,31 +46,21 @@ fn render_post(
     id: Id,
     indent: usize,
 ) {
-    let maybe_fevent = crate::globals::GLOBALS
-        .feed_events
-        .blocking_lock()
-        .get(&id)
-        .cloned();
-    if maybe_fevent.is_none() {
+    let maybe_event = GLOBALS.events.blocking_lock().get(&id).cloned();
+    if maybe_event.is_none() {
         return;
     }
-    let fevent = maybe_fevent.unwrap();
-
-    if fevent.event.is_none() {
-        return;
-    } // don't render related info w/o nostr event.
-    let event = fevent.event.as_ref().unwrap().to_owned();
+    let event = maybe_event.unwrap();
 
     // Only render TextNote events
     if event.kind != EventKind::TextNote {
         return;
     }
 
-    let maybe_person = crate::globals::GLOBALS
-        .people
-        .blocking_lock()
-        .get(&event.pubkey)
-        .cloned();
+    let maybe_person = GLOBALS.people.blocking_lock().get(&event.pubkey).cloned();
+
+    let reactions = Globals::get_reactions_sync(event.id);
+    let replies = Globals::get_replies_sync(event.id);
 
     // Person Things we can render:
     // pubkey
@@ -149,19 +139,25 @@ fn render_post(
 
             // Second row
             ui.horizontal(|ui| {
-                if fevent.reactions.upvotes > 0 {
-                    ui.label(
-                        RichText::new(&format!("+{}", fevent.reactions.upvotes))
-                            .text_style(TextStyle::Name("Bold".into()))
-                            .color(Color32::DARK_GREEN),
-                    );
-                }
-                if fevent.reactions.downvotes > 0 {
-                    ui.label(
-                        RichText::new(&format!("-{}", fevent.reactions.downvotes))
-                            .text_style(TextStyle::Name("Bold".into()))
-                            .color(Color32::DARK_RED),
-                    );
+                for (ch, count) in reactions.iter() {
+                    if *ch == '+' {
+                        ui.label(
+                            RichText::new(&format!("{} {}", ch, count))
+                                .text_style(TextStyle::Name("Bold".into()))
+                                .color(Color32::DARK_GREEN),
+                        );
+                    } else if *ch == '-' {
+                        ui.label(
+                            RichText::new(&format!("{} {}", ch, count))
+                                .text_style(TextStyle::Name("Bold".into()))
+                                .color(Color32::DARK_RED),
+                        );
+                    } else {
+                        ui.label(
+                            RichText::new(&format!("{} {}", ch, count))
+                                .text_style(TextStyle::Name("Bold".into())),
+                        );
+                    }
                 }
             });
 
@@ -172,7 +168,7 @@ fn render_post(
     ui.separator();
 
     if app.settings.view_threaded {
-        for reply_id in fevent.replies {
+        for reply_id in replies {
             render_post(app, _ctx, _frame, ui, reply_id, indent + 1);
         }
     }
