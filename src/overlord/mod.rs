@@ -46,9 +46,13 @@ impl Overlord {
             error!("{}", e);
         }
 
+        info!("Overlord signalling UI to shutdown");
+
         GLOBALS
             .shutting_down
             .store(true, std::sync::atomic::Ordering::Relaxed);
+
+        info!("Overlord signalling minions to shutdown");
 
         // Send shutdown message to all minions (and ui)
         // If this fails, it's probably because there are no more listeners
@@ -59,11 +63,50 @@ impl Overlord {
             json_payload: serde_json::to_string("shutdown").unwrap(),
         });
 
-        // Wait on all minions to finish. When there are no more senders
-        // sending to `from_minions` then they are all completed.
-        // In that case this call will return an error, but we don't care we
-        // just finish.
-        let _ = self.from_minions.recv();
+        info!("Overlord waiting for minions to all shutdown");
+
+        // Listen on self.minions until it is empty
+        while !self.minions.is_empty() {
+            let task_next_joined = self.minions.join_next_with_id().await;
+            if task_next_joined.is_none() {
+                continue;
+            } // rare but possible
+            match task_next_joined.unwrap() {
+                Err(join_error) => {
+                    let id = join_error.id();
+                    let maybe_url = self.minions_task_url.get(&id);
+                    match maybe_url {
+                        Some(url) => {
+                            // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
+                            // Minion probably alreaedy logged, this may be redundant.
+                            warn!("Minion {} completed with error: {}", &url, join_error);
+
+                            // Minion probably already logged failure in relay table
+
+                            // Remove from our hashmap
+                            self.minions_task_url.remove(&id);
+                        }
+                        None => {
+                            warn!("Minion UNKNOWN completed with error: {}", join_error);
+                        }
+                    }
+                }
+                Ok((id, _)) => {
+                    let maybe_url = self.minions_task_url.get(&id);
+                    match maybe_url {
+                        Some(url) => {
+                            warn!("Relay Task {} completed", &url);
+
+                            // Remove from our hashmap
+                            self.minions_task_url.remove(&id);
+                        }
+                        None => warn!("Relay Task UNKNOWN completed"),
+                    }
+                }
+            }
+        }
+
+        info!("Overlord confirms all minions have shutdown");
     }
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
