@@ -63,12 +63,12 @@ impl Minion {
         // Catch errors, Return nothing.
         if let Err(e) = self.handle_inner().await {
             error!("ERROR handling {}: {}", &self.url, e);
-        }
 
-        // Bump the failure count for the relay.
-        self.dbrelay.failure_count += 1;
-        if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
-            error!("ERROR bumping relay failure count {}: {}", &self.url, e);
+            // Bump the failure count for the relay.
+            self.dbrelay.failure_count += 1;
+            if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+                error!("ERROR bumping relay failure count {}: {}", &self.url, e);
+            }
         }
 
         debug!("Minion exiting: {}", self.url);
