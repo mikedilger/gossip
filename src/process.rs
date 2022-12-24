@@ -7,7 +7,11 @@ use nostr_types::{Event, EventKind, Metadata, Unixtime, Url};
 // This processes a new event, saving the results into the database
 // and also populating the GLOBALS maps.
 #[allow(dead_code)]
-pub async fn process_new_event(event: &Event, from_relay: bool, seen_on: Option<Url>) -> Result<(), Error> {
+pub async fn process_new_event(
+    event: &Event,
+    from_relay: bool,
+    seen_on: Option<Url>,
+) -> Result<(), Error> {
     // Save the event into the database
     if from_relay {
         // Convert a nostr Event into a DbEvent

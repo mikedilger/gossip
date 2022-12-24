@@ -7,7 +7,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
 use minion::Minion;
-use nostr_types::{Event, EventKind, Metadata, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Event, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
 use tokio::sync::broadcast::Sender;
@@ -104,32 +104,9 @@ impl Overlord {
                         continue;
                     }
                 };
-                let metadata: Metadata = match serde_json::from_str(&dbevent.content) {
-                    Ok(e) => e,
-                    Err(_) => {
-                        error!(
-                            "Bad metadata: id={}, content={}",
-                            dbevent.id, dbevent.content
-                        );
-                        continue;
-                    }
-                };
 
-                // Update in globals
-                crate::globals::update_person_from_event_metadata(
-                    e.pubkey,
-                    e.created_at,
-                    metadata.clone(),
-                )
-                .await;
-
-                // Update in database
-                DbPerson::update_metadata(
-                    PublicKeyHex(e.pubkey.as_hex_string()),
-                    metadata,
-                    e.created_at,
-                )
-                .await?;
+                // Process this metadata event to update people
+                crate::process::process_new_event(&e, false, None).await?;
             }
         }
 
@@ -154,7 +131,7 @@ impl Overlord {
             let mut count = 0;
             for event in events.iter() {
                 count += 1;
-                crate::globals::add_event(event).await?;
+                crate::process::process_new_event(event, false, None).await?;
             }
             info!("Loaded {} events from the database", count);
         }
@@ -261,39 +238,6 @@ impl Overlord {
                 _ => {}
             },
             "overlord" => match &*bus_message.kind {
-                "new_event" => {
-                    let event: Event = serde_json::from_str(&bus_message.json_payload)?;
-
-                    // If feed-related, send to the feed event processor
-                    if event.kind == EventKind::TextNote
-                        || event.kind == EventKind::EncryptedDirectMessage
-                        || event.kind == EventKind::EventDeletion
-                        || event.kind == EventKind::Reaction
-                    {
-                        crate::globals::add_event(&event).await?;
-
-                        debug!("new feed event arrived: {}...", event.id.as_hex_string());
-                    } else {
-                        // Not Feed Related:  Metadata, RecommendRelay, ContactList
-                        debug!(
-                            "new non-feed event arrived: {}...",
-                            event.id.as_hex_string()
-                        );
-
-                        if event.kind == EventKind::Metadata {
-                            let metadata: Metadata = serde_json::from_str(&event.content)?;
-                            crate::globals::update_person_from_event_metadata(
-                                event.pubkey,
-                                event.created_at,
-                                metadata,
-                            )
-                            .await;
-                        }
-
-                        // FIXME: Handle EventKind::RecommendedRelay
-                        // FIXME: Handle EventKind::ContactList
-                    }
-                }
                 "minion_is_ready" => {}
                 "save_settings" => {
                     let settings: Settings = serde_json::from_str(&bus_message.json_payload)?;

@@ -135,6 +135,7 @@ impl DbPerson {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn update_metadata(
         pubkey: PublicKeyHex,
         metadata: Metadata,

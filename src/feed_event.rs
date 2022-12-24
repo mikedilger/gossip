@@ -30,6 +30,7 @@ pub struct FeedEvent {
 }
 
 impl FeedEvent {
+    #[allow(dead_code)]
     pub fn new(id: Id) -> FeedEvent {
         FeedEvent {
             id,

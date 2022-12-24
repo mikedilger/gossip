@@ -1,8 +1,8 @@
 use super::Minion;
-use crate::db::{DbEvent, DbPersonRelay};
-use crate::{BusMessage, Error};
-use nostr_types::{Event, RelayMessage, Unixtime};
-use tracing::{error, info, trace, warn};
+use crate::db::DbPersonRelay;
+use crate::Error;
+use nostr_types::{RelayMessage, Unixtime};
+use tracing::{debug, error, info, warn};
 
 impl Minion {
     pub(super) async fn handle_nostr_message(&mut self, ws_message: String) -> Result<(), Error> {
@@ -19,9 +19,8 @@ impl Minion {
                 if let Err(e) = event.verify(Some(maxtime)) {
                     error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
                 } else {
-                    trace!("NEW EVENT ON {}", subid.0);
-                    DbEvent::save_nostr_event(&event, Some(self.url.clone())).await?;
-                    self.send_overlord_newevent(*event).await?;
+                    debug!("NEW EVENT ON {}", subid.0);
+                    crate::process::process_new_event(&event, true, Some(self.url.clone())).await?;
                 }
             }
             RelayMessage::Notice(msg) => {
@@ -49,15 +48,6 @@ impl Minion {
             }
         }
 
-        Ok(())
-    }
-
-    async fn send_overlord_newevent(&self, event: Event) -> Result<(), Error> {
-        self.to_overlord.send(BusMessage {
-            target: "overlord".to_string(),
-            kind: "new_event".to_string(),
-            json_payload: serde_json::to_string(&event)?,
-        })?;
         Ok(())
     }
 }

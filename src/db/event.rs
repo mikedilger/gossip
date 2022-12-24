@@ -1,7 +1,6 @@
-use super::{DbEventSeen, DbEventTag};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, IdHex, PublicKeyHex, Unixtime, Url};
+use nostr_types::{IdHex, PublicKeyHex};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -139,50 +138,5 @@ impl DbEvent {
             Ok(None)
         })
         .await?
-    }
-
-    pub async fn save_nostr_event(event: &Event, seen_on: Option<Url>) -> Result<(), Error> {
-        // Convert a nostr Event into a DbEvent
-        let db_event = DbEvent {
-            id: event.id.into(),
-            raw: serde_json::to_string(&event)?,
-            pubkey: event.pubkey.into(),
-            created_at: event.created_at.0,
-            kind: event.kind.into(),
-            content: event.content.clone(),
-            ots: event.ots.clone(),
-        };
-
-        // Save into event table
-        DbEvent::insert(db_event).await?;
-
-        // Save the tags into event_tag table
-        for (seq, tag) in event.tags.iter().enumerate() {
-            // convert to vec of strings
-            let v: Vec<String> = serde_json::from_str(&serde_json::to_string(&tag)?)?;
-
-            let db_event_tag = DbEventTag {
-                event: event.id.as_hex_string(),
-                seq: seq as u64,
-                label: v.get(0).cloned(),
-                field0: v.get(1).cloned(),
-                field1: v.get(2).cloned(),
-                field2: v.get(3).cloned(),
-                field3: v.get(4).cloned(),
-            };
-            DbEventTag::insert(db_event_tag).await?;
-        }
-
-        // Save the event into event_seen table
-        if let Some(url) = seen_on {
-            let db_event_seen = DbEventSeen {
-                event: event.id.as_hex_string(),
-                relay: url.0,
-                when_seen: Unixtime::now()?.0 as u64,
-            };
-            DbEventSeen::replace(db_event_seen).await?;
-        }
-
-        Ok(())
     }
 }
