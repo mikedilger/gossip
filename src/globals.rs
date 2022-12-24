@@ -2,7 +2,9 @@ use crate::comms::BusMessage;
 use crate::db::{DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::feed_event::FeedEvent;
+use crate::relationship::Relationship;
 use crate::settings::Settings;
+use async_recursion::async_recursion;
 use nostr_types::{Event, EventKind, Id, Metadata, PublicKey, PublicKeyHex, Tag, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -30,6 +32,18 @@ pub struct Globals {
 
     /// All nostr event related data, keyed by the event Id
     pub feed_events: Mutex<HashMap<Id, FeedEvent>>,
+
+    /// All nostr events, keyed by the event Id
+    /// This will replace feed_events.
+    pub events: Mutex<HashMap<Id, Event>>,
+
+    /// All relationships between events
+    /// This will also replace feed_events.
+    pub relationships: Mutex<HashMap<Id, Vec<(Id, Relationship)>>>,
+
+    /// The date of the latest reply. Only reply relationships count, not reactions,
+    /// deletions, or quotes
+    pub last_reply: Mutex<HashMap<Id, Unixtime>>,
 
     /// Desired events, referred to by others, with possible URLs where we can
     /// get them.  We may already have these, but if not we should ask for them.
@@ -61,6 +75,9 @@ lazy_static! {
             to_overlord,
             from_minions: Mutex::new(Some(from_minions)),
             feed_events: Mutex::new(HashMap::new()),
+            events: Mutex::new(HashMap::new()),
+            relationships: Mutex::new(HashMap::new()),
+            last_reply: Mutex::new(HashMap::new()),
             desired_events: Mutex::new(HashMap::new()),
             people: Mutex::new(HashMap::new()),
             need_password: AtomicBool::new(false),
@@ -135,6 +152,83 @@ impl Globals {
         }
 
         feed.iter().map(|e| e.id).collect()
+    }
+
+    #[allow(dead_code)]
+    pub async fn store_desired_event(id: Id, url: Option<Url>) {
+        let mut desired_events = GLOBALS.desired_events.lock().await;
+        desired_events
+            .entry(id)
+            .and_modify(|urls| {
+                if let Some(ref u) = url {
+                    urls.push(u.to_owned());
+                }
+            })
+            .or_insert_with(|| if let Some(u) = url { vec![u] } else { vec![] });
+    }
+
+    #[allow(dead_code)]
+    pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {
+        let r = (related, relationship);
+        let mut relationships = GLOBALS.relationships.lock().await;
+        relationships
+            .entry(id)
+            .and_modify(|vec| {
+                if !vec.contains(&r) {
+                    vec.push(r.clone());
+                }
+            })
+            .or_insert_with(|| vec![r]);
+    }
+
+    #[allow(dead_code)]
+    #[async_recursion]
+    pub async fn update_last_reply(id: Id, time: Unixtime) {
+        {
+            let mut last_reply = GLOBALS.last_reply.lock().await;
+            last_reply
+                .entry(id)
+                .and_modify(|lasttime| {
+                    if time > *lasttime {
+                        *lasttime = time;
+                    }
+                })
+                .or_insert_with(|| time);
+        } // drops lock
+
+        // Recurse upwards
+        if let Some(event) = GLOBALS.events.lock().await.get(&id).cloned() {
+            if let Some((id, _maybe_url)) = event.replies_to() {
+                Self::update_last_reply(id, event.created_at).await;
+            }
+        }
+    }
+
+    // FIXME - this allows people to react many times to the same event, and
+    //         it counts them all!
+    #[allow(dead_code)]
+    pub async fn get_reactions(id: Id) -> HashMap<char, usize> {
+        let mut output: HashMap<char, usize> = HashMap::new();
+
+        if let Some(relationships) = GLOBALS.relationships.lock().await.get(&id).cloned() {
+            for (_id, relationship) in relationships.iter() {
+                if let Relationship::Reaction(reaction) = relationship {
+                    if let Some(ch) = reaction.chars().next() {
+                        output
+                            .entry(ch)
+                            .and_modify(|count| *count += 1)
+                            .or_insert_with(|| 1);
+                    } else {
+                        output
+                            .entry('+') // if empty, presumed to be an upvote
+                            .and_modify(|count| *count += 1)
+                            .or_insert_with(|| 1);
+                    }
+                }
+            }
+        }
+
+        output
     }
 }
 
