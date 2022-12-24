@@ -43,6 +43,10 @@ impl Overlord {
             error!("{}", e);
         }
 
+        GLOBALS
+            .shutting_down
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+
         // Send shutdown message to all minions (and ui)
         // If this fails, it's probably because there are no more listeners
         // so just ignore it and keep shutting down.

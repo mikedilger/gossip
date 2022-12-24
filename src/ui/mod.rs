@@ -118,6 +118,13 @@ impl GossipUi {
 
 impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        if GLOBALS
+            .shutting_down
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            frame.close();
+        }
+
         let darkmode: bool = ctx.style().visuals.dark_mode;
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
