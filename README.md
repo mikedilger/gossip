@@ -2,82 +2,76 @@
 
 Gossip is a desktop client for nostr.
 
-Nostr is "Notes and Other Stuff Transmitted by Relays."
+Nostr is a social media protocol and ecosystem, kind of like Twitter, Mastodon, Gab, Post, Gettr, Farcaster, Truth social, BlueSky, Locals, Minds, Spoutable, etc, etc.... except that you control your own account and nobody can silence you so long as some relay operator somewhere allows you to post.
 
-NOTE: After two false starts (tauri, gtk4) I'm moving to egui, which should be much easier
-and faster to develop.
+Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 ## Status
 
-This is pre-alpha code. It is not ready for use.
+Gossip is currently pre-alpha code and not ready for use.
 
-If you want to use it anyway, you will need to do a few things manually to get it started (do this after the Building and Installing section below):
-
-- Sqlite3 to your gossip.sqlite file (see the About page to find where it is)
-- Insert people in the person table with followed=1
-- Insert at least one person_relay entry for each person
-- There may be other steps needed. Development is happening fast. Feel free to ask a question
-  by opening a github issue. I'm not snotty about it, you can just chat with me on github
-  issues if you want.
-
-After that, it should start following those people. You may need a restart from time to
-time as it loses connections to relays still, and some live event handling is less thorough
-than startup event handling is.
+If you want to use it anyway, please read the [Alpha Setup](#alpha-setup) section.
 
 ## Features
 
-- Asychronous design: No busy waiting or polling.
-- Portable. The UI will run on anything that runs one of these backends: OpenGL (glium, glow), OpenGL ES (glow, wgpu), WebGL (glow), Vulkan (wgpu), Metal (wgpu), DirectX 11/12 (wgpu), Browsers (WebAssembly). And rust runs very many places.
-- Talks to as few relays as it needs to to keep up with the people you follow, and doesn't overload them with too heavy of requests.
+- Portable design intended for the desktop: This is intended to run on desktop computers, but not limited as such. The UI will run on anything that runs one of these backends: OpenGL (glium, glow), OpenGL ES (glow, wgpu), WebGL (glow), Vulkan (wgpu), Metal (wgpu), DirectX 11/12 (wgpu), Browsers (WebAssembly). The platform must be supported by rust (most are), and SQLite3 needs to store its file somewhere.
+- High-enough performance: the network speed should be your limiting factor on performance, not the UI or any other part of the code. It doesn't matter how fast the code runs as long as it is always faster than the network, and I think that's definitely true for gossip.
+- High user control: the plan is for the user to be in control of quite a lot of settings regarding which posts they see, which relays to talk to, and when to fetch from them, but with some sane defaults so you don't have to change anything.
 
-## nostr features supported
+### nostr features supported
 
-This section will need updating.
-- Reads and displays type=1 (TextNote) events in a feed sorted by time created.
-    - Shows replies under the message they reply to
-    - Shows deleted events struck out with red deleted marker.
-- Shows people you subscribe to in the Person tab
-    - Processes type=0 (Metadata) events to show user information on events in your feed (name, avatar)
-    - Lets you subscribe to a person (via public key and relay), but currently requires a restart
-- Identity:
-    - Lets you generate an ID (private key) and stores that key encrypted under a passphrase, zeroing memory when finished with it where it can.
-    - Lets you import an ID (private key)
-- Settings: feed chunk size, overlap, autofollow, but these don't work right yet.
+We intend to support the following features/NIPs:
 
-## nostr features planned for first alpha release
+- [x] NIP-01 - Basic protocol flow description
+- [ ] NIP-02 - Contact List and Petnames
+- [ ] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers (partial)
+- [ ] NIP-08 - Handling Mentions
+- [x] NIP-09 - Event Deletion
+- [x] NIP-10 - Conventions for clients' use of e and p tags in text events
+- [ ] NIP-11 - Relay Information Document (partial)
+- [ ] NIP-12 - Generic Tag Queries
+- [ ] NIP-13 - Proof of Work
+- [ ] NIP-14 - Subject tag in text events (partial)
+- [x] NIP-15 - End of Stored Events Notice
+- [ ] NIP-16 - Event Treatment
+- [ ] NIP-19 - bech32-encoded entities (partial)
+- [x] NIP-20 - Command Results
+- [ ] NIP-22 - Event created_at Limits
+- [x] NIP-25 - Reactions
+- [ ] NIP-26 - Delegated Event Signing
+- [ ] NIP-28 - Public Chat
+- [ ] NIP-35 - User Discovery
+- [ ] NIP-36 - Sensitive Content
+- [ ] NIP-40 - Expiration Timestamp
 
-- [ ] Create your identity
-- [ ] Follow people and see their feed posts in time order
-- [ ] See your feed in threaded mode
-- [ ] Choose and manage relays to post to
-- [ ] Post messages and reactions
-- [ ] Show reactions
+We do not intend to support the following features/NIPs:
 
-## nostr features planned for subsequent releases
+- NIP-03 - OpenTimestamp Attestations for Events: We handle such events, but we do nothing about the ots fields in them.
+- NIP-04 - Encrypted Direct Message: I doesn't believe this is a good idea to do encrypted messaging this way, as it leaks metadata and has a cryptographic weakness.
+- NIP-06 - Basic key derivation from mnemonic seed phrase. This is probably not applicable anyways.
+- NIP-07 - window.nostr capability for web browsers. This is not applicable.
 
-- [ ] Lets you subscribe to a person via a DNS ID (NIP-35)
-- [ ] Validates users via NIP-05
-- [ ] Lets you react to other people's posts
-- [ ] Lets you show events from people you don't follow if they reply to a post you do
-- [ ] Lets you mute someone
-- [ ] Lets you rank relays
-- [ ] Shows links as links
-- [ ] Shows images inline (option to wait for your approval)
-- [ ] Include a 'client' tag
-- [ ] Show the 'client' tag of posts
-- [ ] Support "content-warning"
-- [ ] Allow browsing of relay-global events of people you dont follow
-- [ ] Multiple identities
-- [ ] Publish your following list
-- [ ] Follow someone privately (without including in your posted following list)
-- [ ] Allow viewing of other people's following lists w/ petnames
-- [ ] Dismiss a message for this session only w/o deleting it
+### other features worth mentioning
+
+- [x] threaded or linear
+- [x] configurable look-back time
+- [x] dark/light mode
+- [ ] semi-secure handling of private keys by zeroing memory and marking them Weak if displayed or exported (partial)
+- [ ] exporting/importing of private keys with a passphrase (partial)
+- [ ] multiple identities
+- [ ] user management of relays (read/write), including ranking
+- [ ] choose to load from another relay with a button press
+- [ ] choose what posts to see beyond direct posts of people you follow: replies, events replied to, posts liked by people you follow, post made by friends of friends, global on a relay, or global.
+- [ ] mute someone
+- [ ] mute a message
+- [ ] dismiss a message without blocking for future sessions
+- [ ] follow people privately or publicly
 
 ## Building and Installing
 
 ### Step 1 - Install Rust
 
-If you don't already have rust installed, follow the guidance at [rust-lang.org](https://www.rust-lang.org/). Most people install rust under their user account, rather than using system packages which often don't keep up to date. Also, cargo caches compilation artifacts in your home directory.
+If you don't already have rust installed, follow the guidance at [rust-lang.org](https://www.rust-lang.org/).
 
 ### Step 2 - Clone this Repository
 
@@ -109,6 +103,20 @@ If you want a binary optimized for your exact processor with the newest features
 ````bash
 $ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
 ````
+
+## Alpha Setup
+
+While gossip is in alpha, you will need to do a few things manually to get it started (do this after the [Building and Installing]([building-and-installing) section above):
+
+- SQLite3 to your gossip.sqlite file (see the About page to find where it is)
+- Insert people in the person table with followed=1
+- Insert at least one person_relay entry for each person
+- There may be other steps needed. Development is happening fast. Feel free to ask a question
+  by opening a GitHub issue.
+
+After that, it should start following those people. You may still need to restart from time to
+time as it loses connections to relays still, and some live event handling is less thorough
+than startup event handling is.
 
 
 ## Technology Involved
