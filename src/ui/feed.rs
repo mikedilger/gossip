@@ -13,14 +13,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.horizontal(|ui| {
         ui.text_edit_multiline(&mut app.draft);
 
-        if ui.button("Send").clicked() {
+        if ui.button("Send").clicked() && !app.draft.is_empty() {
             info!("Would send: {}", app.draft);
-            app.draft = "".to_owned();
 
             // We need our private key
             // Then we need to create a TextNote event
             // Then we need to send it to multiple relays
             // NOT a one-liner
+
+            app.draft = "".to_owned();
         }
     });
 
