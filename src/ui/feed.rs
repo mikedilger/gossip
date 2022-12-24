@@ -2,7 +2,7 @@ use super::GossipUi;
 use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextStyle, Ui, Vec2};
-use nostr_types::{EventKind, Id, PublicKey};
+use nostr_types::{EventKind, Id};
 use tracing::info;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -121,7 +121,7 @@ fn render_post(
 
                 ui.separator();
 
-                ui.label(RichText::new(pubkey_short(&event.pubkey)).weak());
+                ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.label(
@@ -143,19 +143,19 @@ fn render_post(
                 for (ch, count) in reactions.iter() {
                     if *ch == '+' {
                         ui.label(
-                            RichText::new(&format!("{} {}", ch, count))
+                            RichText::new(format!("{} {}", ch, count))
                                 .text_style(TextStyle::Name("Bold".into()))
                                 .color(Color32::DARK_GREEN),
                         );
                     } else if *ch == '-' {
                         ui.label(
-                            RichText::new(&format!("{} {}", ch, count))
+                            RichText::new(format!("{} {}", ch, count))
                                 .text_style(TextStyle::Name("Bold".into()))
                                 .color(Color32::DARK_RED),
                         );
                     } else {
                         ui.label(
-                            RichText::new(&format!("{} {}", ch, count))
+                            RichText::new(format!("{} {}", ch, count))
                                 .text_style(TextStyle::Name("Bold".into())),
                         );
                     }
@@ -173,15 +173,4 @@ fn render_post(
             render_post(app, _ctx, _frame, ui, reply_id, indent + 1);
         }
     }
-}
-
-fn pubkey_short(pubkey: &PublicKey) -> String {
-    let hex = pubkey.as_hex_string();
-    format!(
-        "{}_{}...{}_{}",
-        &hex[0..4],
-        &hex[4..8],
-        &hex[56..60],
-        &hex[60..64]
-    )
 }

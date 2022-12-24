@@ -13,6 +13,7 @@ use crate::globals::GLOBALS;
 use crate::settings::Settings;
 use eframe::{egui, IconData, Theme};
 use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
+use nostr_types::{PublicKey, PublicKeyHex};
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
@@ -155,5 +156,22 @@ impl eframe::App for GossipUi {
             Page::Stats => stats::update(self, ctx, frame, ui),
             Page::About => about::update(self, ctx, frame, ui),
         });
+    }
+}
+
+impl GossipUi {
+    pub fn hex_pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
+        format!(
+            "{}_{}...{}_{}",
+            &pubkeyhex.0[0..4],
+            &pubkeyhex.0[4..8],
+            &pubkeyhex.0[56..60],
+            &pubkeyhex.0[60..64]
+        )
+    }
+
+    pub fn pubkey_short(pubkey: &PublicKey) -> String {
+        let hex: PublicKeyHex = (*pubkey).into();
+        Self::hex_pubkey_short(&hex)
     }
 }
