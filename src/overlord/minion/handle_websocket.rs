@@ -1,5 +1,4 @@
 use super::Minion;
-use crate::db::DbPersonRelay;
 use crate::Error;
 use nostr_types::{RelayMessage, Unixtime};
 use tracing::{debug, error, info, warn};
@@ -27,10 +26,6 @@ impl Minion {
                 info!("NOTICE: {} {}", &self.url, msg);
             }
             RelayMessage::Eose(subid) => {
-                // We should update last_fetched
-                let now = Unixtime::now().unwrap().0 as u64;
-                DbPersonRelay::update_last_fetched(self.url.0.clone(), now).await?;
-
                 // Update the matching subscription
                 match self.subscriptions.get_mut_by_id(&subid.0) {
                     Some(sub) => {

@@ -164,22 +164,6 @@ impl DbPersonRelay {
         Ok(())
     }
 
-    pub async fn update_last_fetched(relay: String, last_fetched: u64) -> Result<(), Error> {
-        let sql = "UPDATE person_relay SET last_fetched=? where relay=?";
-
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((&last_fetched, &*relay))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-
     #[allow(dead_code)]
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM person_relay WHERE {}", criteria);

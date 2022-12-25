@@ -140,8 +140,8 @@ impl Minion {
 
         // Bump the success count for the relay
         {
-            self.dbrelay.success_count += 1;
-            DbRelay::update(self.dbrelay.clone()).await?;
+            let now = Unixtime::now().unwrap().0 as u64;
+            DbRelay::update_success(self.dbrelay.url.clone(), now).await?
         }
 
         // Subscribe to the people we follow

@@ -107,6 +107,24 @@ impl DbRelay {
         Ok(())
     }
 
+    /// This also bumps success_count
+    pub async fn update_success(url: String, last_success_at: u64) -> Result<(), Error> {
+        let sql = "UPDATE relay SET success_count = success_count + 1, last_success_at = ? \
+                   WHERE url = ?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((&last_success_at, &url))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM relay WHERE {}", criteria);
