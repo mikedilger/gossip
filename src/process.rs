@@ -1,8 +1,11 @@
-use crate::db::{DbEvent, DbEventHashtag, DbEventRelationship, DbEventSeen, DbEventTag, DbPerson};
+use crate::db::{
+    DbEvent, DbEventHashtag, DbEventRelationship, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay,
+    DbRelay,
+};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
-use nostr_types::{Event, EventKind, Metadata, Unixtime, Url};
+use nostr_types::{Event, EventKind, Metadata, Tag, Unixtime, Url};
 
 // This processes a new event, saving the results into the database
 // and also populating the GLOBALS maps.
@@ -28,15 +31,20 @@ pub async fn process_new_event(
         DbEvent::insert(db_event).await?;
     }
 
-    // Save event_seen data
     if from_relay {
         if let Some(url) = seen_on {
+            let now = Unixtime::now()?.0 as u64;
+
+            // Save event_seen data
             let db_event_seen = DbEventSeen {
                 event: event.id.as_hex_string(),
-                relay: url.0,
-                when_seen: Unixtime::now()?.0 as u64,
+                relay: url.0.clone(),
+                when_seen: now,
             };
             DbEventSeen::replace(db_event_seen).await?;
+
+            // Update person_relay.last_fetched
+            DbPersonRelay::upsert_last_fetched(event.pubkey.as_hex_string(), url.0, now).await?;
         }
     }
 
@@ -49,19 +57,57 @@ pub async fn process_new_event(
     // Save the tags into event_tag table
     if from_relay {
         for (seq, tag) in event.tags.iter().enumerate() {
-            // convert to vec of strings
-            let v: Vec<String> = serde_json::from_str(&serde_json::to_string(&tag)?)?;
+            // Save into database
+            {
+                // convert to vec of strings
+                let v: Vec<String> = serde_json::from_str(&serde_json::to_string(&tag)?)?;
 
-            let db_event_tag = DbEventTag {
-                event: event.id.as_hex_string(),
-                seq: seq as u64,
-                label: v.get(0).cloned(),
-                field0: v.get(1).cloned(),
-                field1: v.get(2).cloned(),
-                field2: v.get(3).cloned(),
-                field3: v.get(4).cloned(),
-            };
-            DbEventTag::insert(db_event_tag).await?;
+                let db_event_tag = DbEventTag {
+                    event: event.id.as_hex_string(),
+                    seq: seq as u64,
+                    label: v.get(0).cloned(),
+                    field0: v.get(1).cloned(),
+                    field1: v.get(2).cloned(),
+                    field2: v.get(3).cloned(),
+                    field3: v.get(4).cloned(),
+                };
+                DbEventTag::insert(db_event_tag).await?;
+            }
+
+            match tag {
+                Tag::Event {
+                    id: _,
+                    recommended_relay_url: Some(should_be_url),
+                    marker: _,
+                } => {
+                    if let Ok(url) = Url::new_validated(should_be_url) {
+                        // Insert (or ignore) into relays table
+                        let dbrelay = DbRelay::new(url.0.clone());
+                        DbRelay::insert(dbrelay).await?;
+                    }
+                }
+                Tag::Pubkey {
+                    pubkey,
+                    recommended_relay_url: Some(should_be_url),
+                    petname: _,
+                } => {
+                    if let Ok(url) = Url::new_validated(should_be_url) {
+                        // Insert (or ignore) into relays table
+                        let dbrelay = DbRelay::new(url.0.clone());
+                        DbRelay::insert(dbrelay).await?;
+
+                        // upsert person_relay.last_suggested_bytag
+                        let now = Unixtime::now()?.0 as u64;
+                        DbPersonRelay::upsert_last_suggested_bytag(
+                            pubkey.as_hex_string(),
+                            url.0.clone(),
+                            now,
+                        )
+                        .await?;
+                    }
+                }
+                _ => {}
+            }
         }
     }
 

@@ -164,6 +164,55 @@ impl DbPersonRelay {
         Ok(())
     }
 
+    pub async fn upsert_last_fetched(
+        person: String,
+        relay: String,
+        last_fetched: u64,
+    ) -> Result<(), Error> {
+        let sql = "INSERT INTO person_relay (person, relay, last_fetched) \
+                   VALUES (?, ?, ?) \
+                   ON CONFLICT(person, relay) DO UPDATE SET last_fetched=?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((&person, &relay, &last_fetched, &last_fetched))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    pub async fn upsert_last_suggested_bytag(
+        person: String,
+        relay: String,
+        last_suggested_bytag: u64,
+    ) -> Result<(), Error> {
+        let sql = "INSERT INTO person_relay (person, relay, last_suggested_bytag) \
+                   VALUES (?, ?, ?) \
+                   ON CONFLICT(person, relay) DO UPDATE SET last_suggested_bytag=?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((
+                &person,
+                &relay,
+                &last_suggested_bytag,
+                &last_suggested_bytag,
+            ))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM person_relay WHERE {}", criteria);
