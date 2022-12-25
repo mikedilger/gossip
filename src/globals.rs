@@ -128,7 +128,9 @@ impl Globals {
             .entry(id)
             .and_modify(|urls| {
                 if let Some(ref u) = url {
-                    urls.push(u.to_owned());
+                    if let Ok(valid) = Url::new_validated(u) {
+                        urls.push(valid);
+                    }
                 }
             })
             .or_insert_with(|| if let Some(u) = url { vec![u] } else { vec![] });
@@ -222,6 +224,9 @@ pub async fn followed_pubkeys() -> Vec<PublicKeyHex> {
 #[allow(dead_code)]
 pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPerson, String> {
     let pubkeyhex = PublicKeyHex(pubkey.clone());
+
+    // Validate the url
+    let _ = Url::new_validated(&relay).map_err(|e| format!("{}", e))?;
 
     // Create or update them
     let person = match DbPerson::fetch_one(pubkeyhex.clone())

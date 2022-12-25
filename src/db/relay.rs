@@ -155,7 +155,7 @@ impl DbRelay {
 
         // Get from 'e' and 'p' tags
         let sql =
-            "INSERT OR IGNORE INTO RELAY (url, rank) SELECT DISTINCT field1, 3 FROM event_tag where (label='e' OR label='p') and field1 like 'wss%'";
+            "INSERT OR IGNORE INTO RELAY (url, rank) SELECT DISTINCT field1, 3 FROM event_tag where (label='e' OR label='p') and field1 like 'ws%://%'";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
