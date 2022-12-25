@@ -123,8 +123,21 @@ impl DbRelay {
     }
 
     pub async fn populate_new_relays() -> Result<(), Error> {
+        // Get from person_relay list
         let sql =
             "INSERT OR IGNORE INTO relay (url, rank) SELECT DISTINCT relay, 3 FROM person_relay";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            db.execute(sql, [])?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        // Get from 'e' and 'p' tags
+        let sql =
+            "INSERT OR IGNORE INTO RELAY (url, rank) SELECT DISTINCT field1, 3 FROM event_tag where (label='e' OR label='p') and field1 like 'wss%'";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
