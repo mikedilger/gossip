@@ -4,7 +4,7 @@ mod relay_picker;
 use crate::comms::BusMessage;
 use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay, DbSetting};
 use crate::error::Error;
-use crate::globals::GLOBALS;
+use crate::globals::{Globals, GLOBALS};
 use crate::settings::Settings;
 use minion::Minion;
 use nostr_types::{Event, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
@@ -179,6 +179,7 @@ impl Overlord {
                 pubkeys: pubkeys.clone(),
                 person_relays: DbPersonRelay::fetch_for_pubkeys(&pubkeys).await?,
             };
+
             let mut best_relay: BestRelay;
             loop {
                 if relay_picker.is_degenerate() {
@@ -194,14 +195,48 @@ impl Overlord {
                 }
 
                 // Fire off a minion to handle this relay
-                self.start_minion(best_relay.relay.url.clone(), best_relay.pubkeys.clone())
-                    .await?;
+                self.start_minion(best_relay.relay.url.clone()).await?;
+
+                // Tell it to follow the chosen people
+                let _ = self.to_minions.send(BusMessage {
+                    target: best_relay.relay.url.clone(),
+                    kind: "set_followed_people".to_string(),
+                    json_payload: serde_json::to_string(&best_relay.pubkeys).unwrap(),
+                });
 
                 info!(
                     "Picked relay {}, {} people left",
-                    best_relay.relay.url,
+                    &best_relay.relay.url,
                     relay_picker.pubkeys.len()
                 );
+            }
+        }
+
+        // Get desired events from relays
+        {
+            let (desired_events_map, desired_events_vec) = Globals::get_desired_events().await?;
+
+            info!(
+                "Seeking {} events",
+                desired_events_map.len() + desired_events_vec.len()
+            );
+
+            for (url, mut ids) in desired_events_map {
+                // Add the orphans
+                ids.extend(&desired_events_vec);
+
+                // If we don't have such a minion, start one
+                if !self.urls_watching.contains(&url) {
+                    // Start a minion
+                    self.start_minion(url.0.clone()).await?;
+                }
+
+                // Tell it to get these events
+                let _ = self.to_minions.send(BusMessage {
+                    target: url.0.clone(),
+                    kind: "fetch_events".to_string(),
+                    json_payload: serde_json::to_string(&ids).unwrap(),
+                });
             }
         }
 
@@ -222,20 +257,13 @@ impl Overlord {
         Ok(())
     }
 
-    async fn start_minion(&mut self, url: String, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
+    async fn start_minion(&mut self, url: String) -> Result<(), Error> {
         let moved_url = Url(url.clone());
         let mut minion = Minion::new(moved_url).await?;
         let abort_handle = self.minions.spawn(async move { minion.handle().await });
         let id = abort_handle.id();
         self.minions_task_url.insert(id, Url(url.clone()));
         self.urls_watching.push(Url(url.clone()));
-
-        let _ = self.to_minions.send(BusMessage {
-            target: url.clone(),
-            kind: "set_followed_people".to_string(),
-            json_payload: serde_json::to_string(&pubkeys).unwrap(),
-        });
-
         Ok(())
     }
 
@@ -296,7 +324,7 @@ impl Overlord {
                 let maybe_url = self.minions_task_url.get(&id);
                 match maybe_url {
                     Some(url) => {
-                        warn!("Relay Task {} completed", &url);
+                        info!("Relay Task {} completed", &url);
 
                         // Remove from our urls_watching vec
                         self.urls_watching.retain(|value| value != url);

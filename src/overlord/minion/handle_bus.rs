@@ -1,6 +1,6 @@
 use super::Minion;
 use crate::{BusMessage, Error};
-use nostr_types::PublicKeyHex;
+use nostr_types::{IdHex, PublicKeyHex};
 use tracing::warn;
 
 impl Minion {
@@ -13,12 +13,17 @@ impl Minion {
                 let v: Vec<PublicKeyHex> = serde_json::from_str(&bus_message.json_payload)?;
                 self.upsert_following(v).await?;
             }
-            "fetch_events" => {}
-            "follow_event_reactions" => {}
+            "fetch_events" => {
+                let v: Vec<IdHex> = serde_json::from_str(&bus_message.json_payload)?;
+                self.get_events(v).await?;
+            }
+            "follow_event_reactions" => {
+                warn!("{}: follow event reactions unimplemented", &self.url);
+            }
             _ => {
                 warn!(
-                    "Unrecognized bus message kind received by minion: {}",
-                    bus_message.kind
+                    "{} Unrecognized bus message kind received by minion: {}",
+                    &self.url, bus_message.kind
                 );
             }
         }

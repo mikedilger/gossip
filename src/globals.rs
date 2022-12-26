@@ -1,13 +1,15 @@
 use crate::comms::BusMessage;
-use crate::db::{DbPerson, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
+use crate::error::Error;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use async_recursion::async_recursion;
-use nostr_types::{Event, EventKind, Id, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Event, EventKind, Id, IdHex, PublicKey, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use tokio::sync::{broadcast, mpsc, Mutex};
+use tracing::info;
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -134,6 +136,86 @@ impl Globals {
                 }
             })
             .or_insert_with(|| if let Some(u) = url { vec![u] } else { vec![] });
+    }
+
+    async fn get_desired_events_prelude() -> Result<(), Error> {
+        // Strip out Ids of events that we already have
+        {
+            // danger - two locks could lead to deadlock, check other code locking these
+            let mut desired_events = GLOBALS.desired_events.lock().await;
+            let events = GLOBALS.events.lock().await;
+            desired_events.retain(|&id, _| !events.contains_key(&id));
+        }
+
+        // Load from database
+        {
+            let ids: Vec<IdHex> = GLOBALS
+                .desired_events
+                .lock()
+                .await
+                .iter()
+                .map(|(id, _)| Into::<IdHex>::into(*id))
+                .collect();
+            let db_events = DbEvent::fetch_by_ids(ids).await?;
+            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
+            for dbevent in db_events.iter() {
+                let e = serde_json::from_str(&dbevent.raw)?;
+                events.push(e);
+            }
+            let mut count = 0;
+            for event in events.iter() {
+                count += 1;
+                crate::process::process_new_event(event, false, None).await?;
+            }
+            info!("Loaded {} desired events from the database", count);
+        }
+
+        // Strip out Ids of events that we already have (again, we just loaded from db)
+        {
+            // danger - two locks could lead to deadlock, check other code locking these
+            let mut desired_events = GLOBALS.desired_events.lock().await;
+            let events = GLOBALS.events.lock().await;
+            desired_events.retain(|&id, _| !events.contains_key(&id));
+        }
+
+        Ok(())
+    }
+
+    pub async fn get_desired_events() -> Result<(HashMap<Url, Vec<Id>>, Vec<Id>), Error> {
+        Globals::get_desired_events_prelude().await?;
+
+        let desired_events = GLOBALS.desired_events.lock().await;
+        let mut output: HashMap<Url, Vec<Id>> = HashMap::new();
+        let mut orphans: Vec<Id> = Vec::new();
+        for (id, vec_url) in desired_events.iter() {
+            if vec_url.is_empty() {
+                orphans.push(*id);
+            } else {
+                for url in vec_url.iter() {
+                    output
+                        .entry(url.to_owned())
+                        .and_modify(|vec| vec.push(*id))
+                        .or_insert_with(|| vec![*id]);
+                }
+            }
+        }
+
+        Ok((output, orphans))
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_desired_events_for_url(url: Url) -> Result<Vec<Id>, Error> {
+        Globals::get_desired_events_prelude().await?;
+
+        let desired_events = GLOBALS.desired_events.lock().await;
+        let mut output: Vec<Id> = Vec::new();
+        for (id, vec_url) in desired_events.iter() {
+            if vec_url.is_empty() || vec_url.contains(&url) {
+                output.push(*id);
+            }
+        }
+
+        Ok(output)
     }
 
     pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {

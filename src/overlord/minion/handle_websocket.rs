@@ -1,7 +1,9 @@
 use super::Minion;
 use crate::Error;
+use futures::SinkExt;
 use nostr_types::{RelayMessage, Unixtime};
 use tracing::{debug, error, info, warn};
+use tungstenite::protocol::Message as WsMessage;
 
 impl Minion {
     pub(super) async fn handle_nostr_message(&mut self, ws_message: String) -> Result<(), Error> {
@@ -16,35 +18,57 @@ impl Minion {
         match relay_message {
             RelayMessage::Event(subid, event) => {
                 if let Err(e) = event.verify(Some(maxtime)) {
-                    error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
+                    error!(
+                        "{}: VERIFY ERROR: {}, {}",
+                        &self.url,
+                        e,
+                        serde_json::to_string(&event)?
+                    )
                 } else {
                     let handle = self
                         .subscriptions
                         .get_handle_by_id(&subid.0)
                         .unwrap_or_else(|| "_".to_owned());
-                    debug!("NEW EVENT on {} [{}]", &self.url, handle);
+                    debug!("{}: {}: NEW EVENT", &self.url, handle);
 
                     crate::process::process_new_event(&event, true, Some(self.url.clone())).await?;
                 }
             }
             RelayMessage::Notice(msg) => {
-                info!("NOTICE: {} {}", &self.url, msg);
+                info!("{}: NOTICE: {}", &self.url, msg);
             }
             RelayMessage::Eose(subid) => {
+                let handle = self
+                    .subscriptions
+                    .get_handle_by_id(&subid.0)
+                    .unwrap_or_else(|| "_".to_owned());
+
+                let close: bool = &handle[0..5] == "event";
+
                 // Update the matching subscription
                 match self.subscriptions.get_mut_by_id(&subid.0) {
                     Some(sub) => {
-                        sub.set_eose();
-                        info!("EOSE: {} {:?}", &self.url, subid);
+                        info!("{}: {}: EOSE: {:?}", &self.url, handle, subid);
+                        if close {
+                            let close_message = sub.close_message();
+                            let websocket_sink = self.sink.as_mut().unwrap();
+                            let wire = serde_json::to_string(&close_message)?;
+                            websocket_sink.send(WsMessage::Text(wire.clone())).await?;
+                        } else {
+                            sub.set_eose();
+                        }
                     }
                     None => {
-                        warn!("EOSE for unknown subscription: {} {:?}", &self.url, subid);
+                        warn!(
+                            "{}: {} EOSE for unknown subscription {:?}",
+                            &self.url, handle, subid
+                        );
                     }
                 }
             }
             RelayMessage::Ok(id, ok, ok_message) => {
                 // These don't have to be processed.
-                info!("OK: {} {:?} {} {}", &self.url, id, ok, ok_message);
+                info!("{}: OK: {:?} {} {}", &self.url, id, ok, ok_message);
             }
         }
 

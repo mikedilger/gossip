@@ -51,6 +51,42 @@ impl DbEvent {
         output
     }
 
+    pub async fn fetch_by_ids(ids: Vec<IdHex>) -> Result<Vec<DbEvent>, Error> {
+        let sql = format!(
+            "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event WHERE id IN ({})",
+            repeat_vars(ids.len())
+        );
+
+        let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let id_strings: Vec<String> = ids.iter().map(|p| p.0.clone()).collect();
+
+            let mut stmt = db.prepare(&sql)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(id_strings), |row| {
+                Ok(DbEvent {
+                    id: IdHex(row.get(0)?),
+                    raw: row.get(1)?,
+                    pubkey: PublicKeyHex(row.get(2)?),
+                    created_at: row.get(3)?,
+                    kind: row.get(4)?,
+                    content: row.get(5)?,
+                    ots: row.get(6)?,
+                })
+            })?;
+
+            let mut output: Vec<DbEvent> = Vec::new();
+            for row in rows {
+                output.push(row?);
+            }
+            Ok(output)
+        })
+        .await?;
+
+        output
+    }
+
     pub async fn fetch_latest_metadata() -> Result<Vec<DbEvent>, Error> {
         // THIS SQL MIGHT WORK, NEEDS REVIEW
         let sql = "SELECT id, LAST_VALUE(raw) OVER (ORDER BY created_at desc) as last_raw, pubkey, LAST_VALUE(created_at) OVER (ORDER BY created_at desc), kind, content, ots FROM event WHERE kind=0".to_owned();
@@ -139,4 +175,12 @@ impl DbEvent {
         })
         .await?
     }
+}
+
+fn repeat_vars(count: usize) -> String {
+    assert_ne!(count, 0);
+    let mut s = "?,".repeat(count);
+    // Remove trailing comma
+    s.pop();
+    s
 }
