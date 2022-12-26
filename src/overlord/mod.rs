@@ -23,7 +23,12 @@ pub struct Overlord {
     // All the minion tasks running.
     minions: task::JoinSet<()>,
 
+    // Map from minion task::Id to Url
     minions_task_url: HashMap<task::Id, Url>,
+
+    // Vec of urls our minions are handling
+    urls_watching: Vec<Url>,
+
     #[allow(dead_code)]
     private_key: Option<PrivateKey>, // note that PrivateKey already zeroizes on drop
 }
@@ -37,6 +42,7 @@ impl Overlord {
             from_minions,
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
+            urls_watching: Vec::new(),
             private_key: None,
         }
     }
@@ -83,6 +89,9 @@ impl Overlord {
 
                             // Minion probably already logged failure in relay table
 
+                            // Remove from our urls_watching vec
+                            self.urls_watching.retain(|value| value != url);
+
                             // Remove from our hashmap
                             self.minions_task_url.remove(&id);
                         }
@@ -96,6 +105,9 @@ impl Overlord {
                     match maybe_url {
                         Some(url) => {
                             info!("Relay Task {} completed", &url);
+
+                            // Remove from our urls_watching vec
+                            self.urls_watching.retain(|value| value != url);
 
                             // Remove from our hashmap
                             self.minions_task_url.remove(&id);
@@ -255,7 +267,8 @@ impl Overlord {
         let mut minion = Minion::new(moved_url, pubkeys).await?;
         let abort_handle = self.minions.spawn(async move { minion.handle().await });
         let id = abort_handle.id();
-        self.minions_task_url.insert(id, Url(url));
+        self.minions_task_url.insert(id, Url(url.clone()));
+        self.urls_watching.push(Url(url));
 
         Ok(())
     }
@@ -291,6 +304,9 @@ impl Overlord {
 
                                 // Minion probably already logged failure in relay table
 
+                                // Remove from our urls_watching vec
+                                self.urls_watching.retain(|value| value != url);
+
                                 // Remove from our hashmap
                                 self.minions_task_url.remove(&id);
                             },
@@ -304,6 +320,9 @@ impl Overlord {
                         match maybe_url {
                             Some(url) => {
                                 warn!("Relay Task {} completed", &url);
+
+                                // Remove from our urls_watching vec
+                                self.urls_watching.retain(|value| value != url);
 
                                 // Remove from our hashmap
                                 self.minions_task_url.remove(&id);
