@@ -114,7 +114,7 @@ pub async fn process_new_event(
     // Save event relationships
     {
         // replies to
-        if let Some((id, maybe_url)) = event.replies_to() {
+        if let Some((id, _)) = event.replies_to() {
             if from_relay {
                 let db_event_relationship = DbEventRelationship {
                     original: event.id.as_hex_string(),
@@ -125,16 +125,19 @@ pub async fn process_new_event(
                 db_event_relationship.insert().await?;
             }
 
-            // Insert desired event if relevant
-            if !GLOBALS.events.lock().await.contains_key(&id) {
-                Globals::store_desired_event(id, maybe_url).await;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Reply).await;
 
             // Update last_reply
             Globals::update_last_reply(id, event.created_at);
+        }
+
+        // We desire all ancestors
+        for (id, maybe_url) in event.replies_to_ancestors() {
+            // Insert desired event if relevant
+            if !GLOBALS.events.lock().await.contains_key(&id) {
+                Globals::store_desired_event(id, maybe_url).await;
+            }
         }
 
         // reacts to
