@@ -82,7 +82,7 @@ pub async fn process_new_event(
                 } => {
                     if let Ok(url) = Url::new_validated(should_be_url) {
                         // Insert (or ignore) into relays table
-                        let dbrelay = DbRelay::new(url.0.clone());
+                        let dbrelay = DbRelay::new(url.0.clone())?;
                         DbRelay::insert(dbrelay).await?;
                     }
                 }
@@ -93,7 +93,7 @@ pub async fn process_new_event(
                 } => {
                     if let Ok(url) = Url::new_validated(should_be_url) {
                         // Insert (or ignore) into relays table
-                        let dbrelay = DbRelay::new(url.0.clone());
+                        let dbrelay = DbRelay::new(url.0.clone())?;
                         DbRelay::insert(dbrelay).await?;
 
                         // upsert person_relay.last_suggested_bytag

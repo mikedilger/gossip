@@ -333,7 +333,8 @@ pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPer
     };
 
     // Insert (or ignore) this relay
-    DbRelay::insert(DbRelay::new(relay.clone()))
+    let dbrelay = DbRelay::new(relay.clone()).map_err(|e| format!("{}", e))?;
+    DbRelay::insert(dbrelay)
         .await
         .map_err(|e| format!("{}", e))?;
 

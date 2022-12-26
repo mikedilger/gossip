@@ -13,13 +13,15 @@ pub struct DbRelay {
 }
 
 impl DbRelay {
-    pub fn new(url: String) -> DbRelay {
-        DbRelay {
+    pub fn new(url: String) -> Result<DbRelay, Error> {
+        let _ = Url::new_validated(&url)?;
+
+        Ok(DbRelay {
             url,
             success_count: 0,
             failure_count: 0,
             rank: Some(3),
-        }
+        })
     }
 
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
@@ -65,6 +67,8 @@ impl DbRelay {
     }
 
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
+        let _ = Url::new_validated(&relay.url)?;
+
         let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank) \
              VALUES (?1, ?2, ?3, ?4)";
 

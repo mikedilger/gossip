@@ -36,12 +36,14 @@ pub struct Minion {
 
 impl Minion {
     pub async fn new(url: Url) -> Result<Minion, Error> {
+        let _ = Url::new_validated(&url)?;
+
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = match DbRelay::fetch_one(&url).await? {
             Some(dbrelay) => dbrelay,
             None => {
-                let dbrelay = DbRelay::new(url.0.clone());
+                let dbrelay = DbRelay::new(url.0.clone())?;
                 DbRelay::insert(dbrelay.clone()).await?;
                 dbrelay
             }
