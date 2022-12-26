@@ -20,12 +20,14 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use std::ops::DerefMut;
 use std::{mem, thread};
+use tracing_subscriber::filter::EnvFilter;
 
 fn main() -> Result<(), Error> {
     tracing_subscriber::fmt::fmt()
         .without_time()
         .with_file(cfg!(debug_assertions))
         .with_line_number(cfg!(debug_assertions))
+        .with_env_filter(EnvFilter::from_default_env())
         .init();
 
     // Setup the database (possibly create, possibly upgrade)
