@@ -138,3 +138,17 @@ than startup event handling is.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, shall be licensed as above, without any additional
 terms or conditions.
+
+## Follow me on Nostr
+
+My public key is ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49
+
+You can also my NIP-05/NIP-35 address of `mike@mikedilger.com` which will also hook you up with the relays I post to.
+
+Note: I will rollover my public key once gossip is my daily driver.
+
+## Tips
+
+You can tip me at my Bitcoin Lighting address (lud16): lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
+
+You can also do that with the [Damus](https://damus.io) iOS nostr app (not yet available in gossip).
