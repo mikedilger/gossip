@@ -360,20 +360,34 @@ impl Overlord {
     async fn get_missing_events(&mut self) -> Result<(), Error> {
         let (desired_events_map, desired_events_vec) = Globals::get_desired_events().await?;
 
-        info!(
-            "Seeking {} events",
-            desired_events_map.len() + desired_events_vec.len()
-        );
+        let desired_count = GLOBALS.desired_events.lock().await.len();
 
-        for (url, mut ids) in desired_events_map {
+        if desired_count == 0 {
+            return Ok(());
+        }
+
+        info!("Seeking {} events", desired_count);
+
+        let urls = self.urls_watching.clone();
+
+        for url in urls.iter() {
+            // Get all the ones slated for this relay
+            let mut ids = desired_events_map.get(url).cloned().unwrap_or_default();
+
             // Add the orphans
             ids.extend(&desired_events_vec);
 
+            if ids.is_empty() {
+                continue;
+            }
+
             // If we don't have such a minion, start one
-            if !self.urls_watching.contains(&url) {
+            if !self.urls_watching.contains(url) {
                 // Start a minion
                 self.start_minion(url.0.clone()).await?;
             }
+
+            debug!("{}: Asking to fetch {} events", &url.0, ids.len());
 
             // Tell it to get these events
             let _ = self.to_minions.send(BusMessage {
