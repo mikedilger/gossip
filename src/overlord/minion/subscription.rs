@@ -40,6 +40,15 @@ impl Subscriptions {
         self.by_id.get(id).cloned()
     }
 
+    pub fn get_handle_by_id(&self, id: &str) -> Option<String> {
+        for (handle, xid) in self.handle_to_id.iter() {
+            if id == xid {
+                return Some(handle.to_string());
+            }
+        }
+        None
+    }
+
     pub fn get_mut(&mut self, handle: &str) -> Option<&mut Subscription> {
         match self.handle_to_id.get(handle) {
             None => None,

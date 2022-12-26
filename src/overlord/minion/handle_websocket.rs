@@ -18,7 +18,12 @@ impl Minion {
                 if let Err(e) = event.verify(Some(maxtime)) {
                     error!("VERIFY ERROR: {}, {}", e, serde_json::to_string(&event)?)
                 } else {
-                    debug!("NEW EVENT ON {}", subid.0);
+                    let handle = self
+                        .subscriptions
+                        .get_handle_by_id(&subid.0)
+                        .unwrap_or_else(|| "_".to_owned());
+                    debug!("NEW EVENT on {} [{}]", &self.url, handle);
+
                     crate::process::process_new_event(&event, true, Some(self.url.clone())).await?;
                 }
             }
