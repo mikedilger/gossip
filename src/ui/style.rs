@@ -9,24 +9,31 @@ use std::collections::BTreeMap;
 pub(super) fn dark_mode_visuals() -> Visuals {
     Visuals {
         dark_mode: true,
-        override_text_color: None,
         widgets: Widgets::default(),
+
+        // Background colors
+        window_fill: Color32::from_gray(0x24),
+        panel_fill: Color32::from_gray(0x24),
+        faint_bg_color: Color32::from_gray(0x14),
+        extreme_bg_color: Color32::from_gray(0),
+        code_bg_color: Color32::from_gray(64),
+
+        // Foreground colors
+        window_stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)), // DONE
+        override_text_color: None,
+        warn_fg_color: Color32::from_rgb(255, 143, 0), // orange
+        error_fg_color: Color32::from_rgb(255, 0, 0),  // red
+        hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae), // DONE
+
         selection: Selection {
             bg_fill: Color32::from_rgb(0xb1, 0xa2, 0x96), // DONE
             stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)), // DONE
         },
-        hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae), // DONE
-        faint_bg_color: Color32::from_gray(0x30),             // DONE
-        extreme_bg_color: Color32::from_gray(0),              // e.g. TextEdit background
-        code_bg_color: Color32::from_gray(64),
-        warn_fg_color: Color32::from_rgb(255, 143, 0), // orange
-        error_fg_color: Color32::from_rgb(255, 0, 0),  // red
-        window_rounding: Rounding::same(6.0),
+
         window_shadow: Shadow::big_dark(),
-        window_fill: Color32::from_gray(0x24), // DONE
-        window_stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)), // DONE
-        panel_fill: Color32::from_gray(0x24),  // DONE
         popup_shadow: Shadow::small_dark(),
+
+        window_rounding: Rounding::same(6.0),
         resize_corner_size: 12.0,
         text_cursor_width: 2.0,
         text_cursor_preview: false,
@@ -39,24 +46,31 @@ pub(super) fn dark_mode_visuals() -> Visuals {
 pub(super) fn light_mode_visuals() -> Visuals {
     Visuals {
         dark_mode: false,
-        override_text_color: None,
         widgets: Widgets::light(),
+
+        // Background colors
+        window_fill: Color32::from_gray(0xed),
+        panel_fill: Color32::from_gray(0xed),
+        faint_bg_color: Color32::from_gray(0xf9),
+        extreme_bg_color: Color32::from_gray(0xff),
+        code_bg_color: Color32::from_gray(230),
+
+        // Foreground colors
+        window_stroke: Stroke::new(1.0, Color32::from_rgb(0x5d, 0x5c, 0x61)), // DONE
+        override_text_color: None,
+        warn_fg_color: Color32::from_rgb(255, 100, 0), // slightly orange red. it's difficult to find a warning color that pops on bright background.
+        error_fg_color: Color32::from_rgb(255, 0, 0),  // red
+        hyperlink_color: Color32::from_rgb(0x55, 0x7a, 0x95), // DONE
+
         selection: Selection {
             bg_fill: Color32::from_rgb(0xb1, 0xa2, 0x96), // DONE
             stroke: Stroke::new(1.0, Color32::from_rgb(0x5d, 0x5c, 0x61)), // DONE
         },
-        hyperlink_color: Color32::from_rgb(0x55, 0x7a, 0x95), // DONE
-        faint_bg_color: Color32::from_gray(0xf0),             // DONE
-        extreme_bg_color: Color32::from_gray(0xff),           // e.g. TextEdit background
-        code_bg_color: Color32::from_gray(230),
-        warn_fg_color: Color32::from_rgb(255, 100, 0), // slightly orange red. it's difficult to find a warning color that pops on bright background.
-        error_fg_color: Color32::from_rgb(255, 0, 0),  // red
-        window_rounding: Rounding::same(6.0),
+
         window_shadow: Shadow::big_light(),
-        window_fill: Color32::from_gray(0xF8), // DONE
-        window_stroke: Stroke::new(1.0, Color32::from_rgb(0x5d, 0x5c, 0x61)), // DONE
-        panel_fill: Color32::from_gray(0xF8),  // DONE
         popup_shadow: Shadow::small_light(),
+
+        window_rounding: Rounding::same(6.0),
         resize_corner_size: 12.0,
         text_cursor_width: 2.0,
         text_cursor_preview: false,
