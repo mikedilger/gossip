@@ -213,32 +213,7 @@ impl Overlord {
         }
 
         // Get desired events from relays
-        {
-            let (desired_events_map, desired_events_vec) = Globals::get_desired_events().await?;
-
-            info!(
-                "Seeking {} events",
-                desired_events_map.len() + desired_events_vec.len()
-            );
-
-            for (url, mut ids) in desired_events_map {
-                // Add the orphans
-                ids.extend(&desired_events_vec);
-
-                // If we don't have such a minion, start one
-                if !self.urls_watching.contains(&url) {
-                    // Start a minion
-                    self.start_minion(url.0.clone()).await?;
-                }
-
-                // Tell it to get these events
-                let _ = self.to_minions.send(BusMessage {
-                    target: url.0.clone(),
-                    kind: "fetch_events".to_string(),
-                    json_payload: serde_json::to_string(&ids).unwrap(),
-                });
-            }
-        }
+        self.get_missing_events().await?;
 
         'mainloop: loop {
             match self.loop_handler().await {
@@ -371,11 +346,43 @@ impl Overlord {
 
                     debug!("Settings saved.");
                 }
+                "get_missing_events" => {
+                    self.get_missing_events().await?;
+                }
                 _ => {}
             },
             _ => {}
         }
 
         Ok(true)
+    }
+
+    async fn get_missing_events(&mut self) -> Result<(), Error> {
+        let (desired_events_map, desired_events_vec) = Globals::get_desired_events().await?;
+
+        info!(
+            "Seeking {} events",
+            desired_events_map.len() + desired_events_vec.len()
+        );
+
+        for (url, mut ids) in desired_events_map {
+            // Add the orphans
+            ids.extend(&desired_events_vec);
+
+            // If we don't have such a minion, start one
+            if !self.urls_watching.contains(&url) {
+                // Start a minion
+                self.start_minion(url.0.clone()).await?;
+            }
+
+            // Tell it to get these events
+            let _ = self.to_minions.send(BusMessage {
+                target: url.0.clone(),
+                kind: "fetch_events".to_string(),
+                json_payload: serde_json::to_string(&ids).unwrap(),
+            });
+        }
+
+        Ok(())
     }
 }

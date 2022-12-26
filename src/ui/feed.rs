@@ -1,4 +1,5 @@
 use super::GossipUi;
+use crate::comms::BusMessage;
 use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextStyle, Ui, Vec2};
@@ -9,6 +10,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     let feed = Globals::blocking_get_feed(true);
 
     //let screen_rect = ctx.input().screen_rect; // Rect
+
+    let desired_count = {
+        Globals::trim_desired_events_sync();
+        GLOBALS.desired_events.blocking_lock().len()
+    };
 
     ui.horizontal(|ui| {
         ui.text_edit_multiline(&mut app.draft);
@@ -23,6 +29,20 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             app.draft = "".to_owned();
         }
+
+        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+            ui.with_layout(Layout::top_down(Align::Max), |ui| {
+                ui.label(&format!("{} missing events", desired_count));
+                if ui.button("Get 'em").clicked() {
+                    let tx = GLOBALS.to_overlord.clone();
+                    let _ = tx.send(BusMessage {
+                        target: "overlord".to_string(),
+                        kind: "get_missing_events".to_string(),
+                        json_payload: serde_json::to_string("").unwrap(),
+                    });
+                }
+            });
+        });
     });
 
     ScrollArea::vertical().show(ui, |ui| {

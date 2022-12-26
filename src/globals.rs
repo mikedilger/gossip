@@ -138,14 +138,24 @@ impl Globals {
             .or_insert_with(|| if let Some(u) = url { vec![u] } else { vec![] });
     }
 
+    pub fn trim_desired_events_sync() {
+        // danger - two locks could lead to deadlock, check other code locking these
+        // don't change the order, or else change it everywhere
+        let mut desired_events = GLOBALS.desired_events.blocking_lock();
+        let events = GLOBALS.events.blocking_lock();
+        desired_events.retain(|&id, _| !events.contains_key(&id));
+    }
+
+    pub async fn trim_desired_events() {
+        // danger - two locks could lead to deadlock, check other code locking these
+        // don't change the order, or else change it everywhere
+        let mut desired_events = GLOBALS.desired_events.lock().await;
+        let events = GLOBALS.events.lock().await;
+        desired_events.retain(|&id, _| !events.contains_key(&id));
+    }
+
     async fn get_desired_events_prelude() -> Result<(), Error> {
-        // Strip out Ids of events that we already have
-        {
-            // danger - two locks could lead to deadlock, check other code locking these
-            let mut desired_events = GLOBALS.desired_events.lock().await;
-            let events = GLOBALS.events.lock().await;
-            desired_events.retain(|&id, _| !events.contains_key(&id));
-        }
+        Self::trim_desired_events().await;
 
         // Load from database
         {
@@ -170,13 +180,7 @@ impl Globals {
             info!("Loaded {} desired events from the database", count);
         }
 
-        // Strip out Ids of events that we already have (again, we just loaded from db)
-        {
-            // danger - two locks could lead to deadlock, check other code locking these
-            let mut desired_events = GLOBALS.desired_events.lock().await;
-            let events = GLOBALS.events.lock().await;
-            desired_events.retain(|&id, _| !events.contains_key(&id));
-        }
+        Self::trim_desired_events().await; // again
 
         Ok(())
     }
