@@ -22,7 +22,11 @@ use std::ops::DerefMut;
 use std::{mem, thread};
 
 fn main() -> Result<(), Error> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt::fmt()
+        .without_time()
+        .with_file(cfg!(debug_assertions))
+        .with_line_number(cfg!(debug_assertions))
+        .init();
 
     // Setup the database (possibly create, possibly upgrade)
     crate::db::setup_database()?;
