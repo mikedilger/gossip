@@ -47,7 +47,8 @@ pub fn run() -> Result<(), Error> {
 #[derive(PartialEq)]
 enum Page {
     Feed,
-    People,
+    PeopleFollow,
+    PeopleList,
     You,
     Relays,
     Settings,
@@ -62,6 +63,7 @@ struct GossipUi {
     placeholder_avatar: TextureHandle,
     draft: String,
     settings: Settings,
+    nip35follow: String,
 }
 
 impl GossipUi {
@@ -113,6 +115,7 @@ impl GossipUi {
             placeholder_avatar: placeholder_avatar_texture_handle,
             draft: "".to_owned(),
             settings,
+            nip35follow: "".to_owned(),
         }
     }
 }
@@ -132,7 +135,7 @@ impl eframe::App for GossipUi {
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.page, Page::Feed, "Feed");
                 ui.separator();
-                ui.selectable_value(&mut self.page, Page::People, "People");
+                ui.selectable_value(&mut self.page, Page::PeopleList, "People");
                 ui.separator();
                 ui.selectable_value(&mut self.page, Page::You, "You");
                 ui.separator();
@@ -149,7 +152,8 @@ impl eframe::App for GossipUi {
 
         egui::CentralPanel::default().show(ctx, |ui| match self.page {
             Page::Feed => feed::update(self, ctx, frame, ui),
-            Page::People => people::update(self, ctx, frame, ui),
+            Page::PeopleList => people::update(self, ctx, frame, ui),
+            Page::PeopleFollow => people::update(self, ctx, frame, ui),
             Page::You => you::update(self, ctx, frame, ui),
             Page::Relays => relays::update(self, ctx, frame, ui),
             Page::Settings => settings::update(self, ctx, frame, ui, darkmode),

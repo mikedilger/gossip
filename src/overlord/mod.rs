@@ -7,7 +7,7 @@ use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::settings::Settings;
 use minion::Minion;
-use nostr_types::{Event, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Event, Nip05, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
 use tokio::sync::broadcast::Sender;
@@ -349,6 +349,14 @@ impl Overlord {
                 "get_missing_events" => {
                     self.get_missing_events().await?;
                 }
+                "follow_nip35" => {
+                    let dns_id: String = serde_json::from_str(&bus_message.json_payload)?;
+                    let _ = tokio::spawn(async move {
+                        if let Err(e) = Overlord::get_and_follow_nip35(dns_id).await {
+                            error!("{}", e);
+                        }
+                    });
+                }
                 _ => {}
             },
             _ => {}
@@ -396,6 +404,63 @@ impl Overlord {
                 json_payload: serde_json::to_string(&ids).unwrap(),
             });
         }
+
+        Ok(())
+    }
+
+    async fn get_and_follow_nip35(nip35: String) -> Result<(), Error> {
+        let mut parts: Vec<&str> = nip35.split('@').collect();
+        if parts.len() != 2 {
+            return Err(Error::InvalidDnsId);
+        }
+
+        let domain = parts.pop().unwrap();
+        let user = parts.pop().unwrap();
+        let nip05_future = reqwest::Client::new()
+            .get(format!(
+                "https://{}/.well-known/nostr.json?name={}",
+                domain, user
+            ))
+            .header("Host", domain)
+            .send();
+        let timeout_future = tokio::time::timeout(std::time::Duration::new(15, 0), nip05_future);
+        let response = timeout_future.await??;
+        let nip05 = response.json::<Nip05>().await?;
+        Overlord::follow_nip35(nip05, user.to_string(), domain.to_string()).await?;
+        Ok(())
+    }
+
+    async fn follow_nip35(nip05: Nip05, user: String, domain: String) -> Result<(), Error> {
+        let dns_id = format!("{}@{}", user, domain);
+
+        let pubkey = match nip05.names.get(&user) {
+            Some(pk) => pk,
+            None => return Err(Error::Nip05NotFound),
+        };
+
+        let relays = match nip05.relays.get(pubkey) {
+            Some(relays) => relays,
+            None => return Err(Error::Nip35NotFound),
+        };
+
+        // Save person
+        DbPerson::upsert_valid_nip05((*pubkey).into(), dns_id, Unixtime::now().unwrap().0 as u64)
+            .await?;
+
+        for relay in relays.iter() {
+            // Save relay
+            let db_relay = DbRelay::new(relay.to_string())?;
+            DbRelay::insert(db_relay).await?;
+
+            DbPersonRelay::upsert_last_suggested_nip35(
+                (*pubkey).into(),
+                relay.0.clone(),
+                Unixtime::now().unwrap().0 as u64,
+            )
+            .await?;
+        }
+
+        info!("Followed {}@{} at {} relays", user, domain, relays.len());
 
         Ok(())
     }

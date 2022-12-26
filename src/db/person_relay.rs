@@ -213,6 +213,33 @@ impl DbPersonRelay {
         Ok(())
     }
 
+    pub async fn upsert_last_suggested_nip35(
+        person: PublicKeyHex,
+        relay: String,
+        last_suggested_nip35: u64,
+    ) -> Result<(), Error> {
+        let sql = "INSERT INTO person_relay (person, relay, last_suggested_nip35) \
+                   VALUES (?, ?, ?) \
+                   ON CONFLICT(person, relay) DO UPDATE SET last_suggested_nip35=?";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((
+                &person.0,
+                &relay,
+                &last_suggested_nip35,
+                &last_suggested_nip35,
+            ))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM person_relay WHERE {}", criteria);

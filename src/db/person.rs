@@ -164,6 +164,34 @@ impl DbPerson {
         Ok(())
     }
 
+    pub async fn upsert_valid_nip05(
+        pubkey: PublicKeyHex,
+        dns_id: String,
+        dns_id_last_checked: u64,
+    ) -> Result<(), Error> {
+        let sql = "INSERT INTO person (pubkey, dns_id, dns_id_valid, dns_id_last_checked, followed) \
+                   values (?, ?, 1, ?, 1) \
+                   ON CONFLICT(pubkey) DO UPDATE SET dns_id=?, dns_id_valid=1, dns_id_last_checked=?, followed=1";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((
+                &pubkey.0,
+                &dns_id,
+                &dns_id_last_checked,
+                &dns_id,
+                &dns_id_last_checked,
+            ))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM person WHERE {}", criteria);

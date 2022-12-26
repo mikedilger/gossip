@@ -21,6 +21,12 @@ pub enum Error {
     #[error("Error sending mpsc: {0}")]
     MpscSend(#[from] tokio::sync::mpsc::error::SendError<BusMessage>),
 
+    #[error("NIP-05 public key not found")]
+    Nip05NotFound,
+
+    #[error("NIP-35 relays not found")]
+    Nip35NotFound,
+
     #[error("Nostr: {0}")]
     Nostr(#[from] nostr_types::Error),
 
@@ -30,11 +36,17 @@ pub enum Error {
     #[error("I/O Error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("Invalid DNS ID (nip-05 / nip-35), should be user@domain")]
+    InvalidDnsId,
+
     #[error("Invalid URI: {0}")]
     InvalidUri(#[from] http::uri::InvalidUri),
 
     #[error("Bad integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
+
+    #[error("HTTP (reqwest) error: {0}")]
+    ReqwestHttpError(#[from] reqwest::Error),
 
     #[error("SerdeJson Error: {0}")]
     SerdeJson(#[from] serde_json::Error),
