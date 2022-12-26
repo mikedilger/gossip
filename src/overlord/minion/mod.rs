@@ -92,13 +92,15 @@ impl Minion {
                 return Err(Error::UrlHasEmptyHostname);
             }
 
-            // Read NIP-11 information
-            if let Ok(response) = reqwest::Client::new()
-                .get(&format!("https://{}", host))
+            let request_nip11_future = reqwest::Client::new()
+                .get(format!("https://{}", host))
                 .header("Host", host)
                 .header("Accept", "application/nostr+json")
-                .send()
-                .await
+                .send();
+
+            // Read NIP-11 information
+            if let Ok(response) =
+                tokio::time::timeout(std::time::Duration::new(15, 0), request_nip11_future).await?
             {
                 match response.json::<RelayInformationDocument>().await {
                     Ok(nip11) => {
@@ -130,8 +132,11 @@ impl Minion {
                 accept_unmasked_frames: true,             // default is false which is the standard
             };
 
-            let (websocket_stream, _response) =
-                tokio_tungstenite::connect_async_with_config(req, Some(config)).await?;
+            let (websocket_stream, _response) = tokio::time::timeout(
+                std::time::Duration::new(15, 0),
+                tokio_tungstenite::connect_async_with_config(req, Some(config)),
+            )
+            .await??;
             info!("Connected to {}", &self.url);
 
             websocket_stream

@@ -42,6 +42,9 @@ pub enum Error {
     #[error("SQL: {0}")]
     Sql(#[from] rusqlite::Error),
 
+    #[error("Timeout: {0}")]
+    Timeout(#[from] tokio::time::error::Elapsed),
+
     #[error("URL has empty hostname")]
     UrlHasEmptyHostname,
 
