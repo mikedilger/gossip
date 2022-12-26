@@ -9,7 +9,9 @@ use crate::globals::GLOBALS;
 use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
-use nostr_types::{EventKind, Filters, PublicKeyHex, RelayInformationDocument, Unixtime, Url};
+use nostr_types::{
+    EventKind, Filters, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
+};
 use subscription::Subscriptions;
 use tokio::net::TcpStream;
 use tokio::select;
@@ -21,7 +23,6 @@ use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 
 pub struct Minion {
     url: Url,
-    pubkeys: Vec<PublicKeyHex>,
     to_overlord: UnboundedSender<BusMessage>,
     from_overlord: Receiver<BusMessage>,
     dbrelay: DbRelay,
@@ -29,10 +30,12 @@ pub struct Minion {
     stream: Option<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
     sink: Option<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, WsMessage>>,
     subscriptions: Subscriptions,
+    #[allow(dead_code)]
+    next_events_subscription_id: u32,
 }
 
 impl Minion {
-    pub async fn new(url: Url, pubkeys: Vec<PublicKeyHex>) -> Result<Minion, Error> {
+    pub async fn new(url: Url) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = match DbRelay::fetch_one(&url).await? {
@@ -46,7 +49,6 @@ impl Minion {
 
         Ok(Minion {
             url,
-            pubkeys,
             to_overlord,
             from_overlord,
             dbrelay,
@@ -54,6 +56,7 @@ impl Minion {
             stream: None,
             sink: None,
             subscriptions: Subscriptions::new(),
+            next_events_subscription_id: 0,
         })
     }
 }
@@ -142,11 +145,6 @@ impl Minion {
         {
             let now = Unixtime::now().unwrap().0 as u64;
             DbRelay::update_success(self.dbrelay.url.clone(), now).await?
-        }
-
-        // Subscribe to the people we follow
-        if !self.pubkeys.is_empty() {
-            self.update_following_subscription().await?;
         }
 
         // Tell the overlord we are ready to receive commands
@@ -239,12 +237,11 @@ impl Minion {
         Ok(())
     }
 
-    // This updates a subscription named "following" which watches for events
-    // from the people we follow.
-    async fn update_following_subscription(&mut self) -> Result<(), Error> {
+    // Create or replace the following subscription
+    async fn upsert_following(&mut self, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
         let websocket_sink = self.sink.as_mut().unwrap();
 
-        if self.pubkeys.is_empty() {
+        if pubkeys.is_empty() {
             if let Some(sub) = self.subscriptions.get("following") {
                 // Close the subscription
                 let wire = serde_json::to_string(&sub.close_message())?;
@@ -263,7 +260,7 @@ impl Minion {
             // Find the oldest 'last_fetched' among the 'person_relay' table.
             // Null values will come through as 0.
             let mut special_since: i64 =
-                DbPersonRelay::fetch_oldest_last_fetched(&self.pubkeys, &self.url.0).await? as i64;
+                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
 
             let settings = GLOBALS.settings.lock().await.clone();
 
@@ -280,7 +277,7 @@ impl Minion {
 
         // Create the author filter
         let mut feed_filter: Filters = Filters::new();
-        for pk in self.pubkeys.iter() {
+        for pk in pubkeys.iter() {
             feed_filter.add_author(pk, None);
         }
         feed_filter.add_event_kind(EventKind::TextNote);
@@ -295,7 +292,7 @@ impl Minion {
 
         // Create the lookback filter
         let mut special_filter: Filters = Filters::new();
-        for pk in self.pubkeys.iter() {
+        for pk in pubkeys.iter() {
             special_filter.add_author(pk, None);
         }
         special_filter.add_event_kind(EventKind::Metadata);
@@ -310,7 +307,6 @@ impl Minion {
         );
 
         // Get the subscription
-
         let req_message = if self.subscriptions.has("following") {
             let sub = self.subscriptions.get_mut("following").unwrap();
             let vec: &mut Vec<Filters> = sub.get_mut();
@@ -331,5 +327,18 @@ impl Minion {
         trace!("Sent {}", &wire);
 
         Ok(())
+    }
+
+    #[allow(dead_code)]
+    async fn get_events(&mut self, _ids: Vec<IdHex>) -> Result<(), Error> {
+        // Create a new "events" subscription which closes on EOSE
+        // Use and bump next_events_subscription_id so they are independent subscriptions
+        unimplemented!()
+    }
+
+    #[allow(dead_code)]
+    async fn follow_event_reactions(&mut self, _ids: Vec<IdHex>) -> Result<(), Error> {
+        // Create or extend the "reactions" subscription
+        unimplemented!()
     }
 }

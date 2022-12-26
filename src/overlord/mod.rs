@@ -224,11 +224,17 @@ impl Overlord {
 
     async fn start_minion(&mut self, url: String, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
         let moved_url = Url(url.clone());
-        let mut minion = Minion::new(moved_url, pubkeys).await?;
+        let mut minion = Minion::new(moved_url).await?;
         let abort_handle = self.minions.spawn(async move { minion.handle().await });
         let id = abort_handle.id();
         self.minions_task_url.insert(id, Url(url.clone()));
-        self.urls_watching.push(Url(url));
+        self.urls_watching.push(Url(url.clone()));
+
+        let _ = self.to_minions.send(BusMessage {
+            target: url.clone(),
+            kind: "set_followed_people".to_string(),
+            json_payload: serde_json::to_string(&pubkeys).unwrap(),
+        });
 
         Ok(())
     }
