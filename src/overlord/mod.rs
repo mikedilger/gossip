@@ -438,14 +438,20 @@ impl Overlord {
             None => return Err(Error::Nip05NotFound),
         };
 
+        // Save person
+        DbPerson::upsert_valid_nip05(
+            (*pubkey).into(),
+            dns_id.clone(),
+            Unixtime::now().unwrap().0 as u64,
+        )
+        .await?;
+
+        info!("Followed {}", &dns_id);
+
         let relays = match nip05.relays.get(pubkey) {
             Some(relays) => relays,
             None => return Err(Error::Nip35NotFound),
         };
-
-        // Save person
-        DbPerson::upsert_valid_nip05((*pubkey).into(), dns_id, Unixtime::now().unwrap().0 as u64)
-            .await?;
 
         for relay in relays.iter() {
             // Save relay
@@ -460,7 +466,7 @@ impl Overlord {
             .await?;
         }
 
-        info!("Followed {}@{} at {} relays", user, domain, relays.len());
+        info!("Setup {} relays for {}", relays.len(), &dns_id);
 
         Ok(())
     }
