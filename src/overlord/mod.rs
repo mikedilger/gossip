@@ -357,6 +357,14 @@ impl Overlord {
                         }
                     });
                 }
+                "follow_bech32" => {
+                    let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
+                    Overlord::follow_bech32(data.0, data.1).await?;
+                }
+                "follow_hexkey" => {
+                    let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
+                    Overlord::follow_hexkey(data.0, data.1).await?;
+                }
                 _ => {}
             },
             _ => {}
@@ -455,9 +463,11 @@ impl Overlord {
 
         for relay in relays.iter() {
             // Save relay
-            let db_relay = DbRelay::new(relay.to_string())?;
+            let relay_url = Url::new_validated(relay)?;
+            let db_relay = DbRelay::new(relay_url.0)?;
             DbRelay::insert(db_relay).await?;
 
+            // Save person_relay
             DbPersonRelay::upsert_last_suggested_nip35(
                 (*pubkey).into(),
                 relay.0.clone(),
@@ -467,6 +477,56 @@ impl Overlord {
         }
 
         info!("Setup {} relays for {}", relays.len(), &dns_id);
+
+        Ok(())
+    }
+
+    async fn follow_bech32(bech32: String, relay: String) -> Result<(), Error> {
+        let pk = PublicKey::try_from_bech32_string(&bech32)?;
+        let pkhex: PublicKeyHex = pk.into();
+        DbPerson::follow(pkhex.clone()).await?;
+
+        debug!("Followed {}", &pkhex);
+
+        // Save relay
+        let relay_url = Url::new_validated(&relay)?;
+        let db_relay = DbRelay::new(relay.to_string())?;
+        DbRelay::insert(db_relay).await?;
+
+        // Save person_relay
+        DbPersonRelay::insert(DbPersonRelay {
+            person: pkhex.0.clone(),
+            relay: relay_url.0.clone(),
+            ..Default::default()
+        })
+        .await?;
+
+        info!("Setup 1 relay for {}", &pkhex);
+
+        Ok(())
+    }
+
+    async fn follow_hexkey(hexkey: String, relay: String) -> Result<(), Error> {
+        let pk = PublicKey::try_from_hex_string(&hexkey)?;
+        let pkhex: PublicKeyHex = pk.into();
+        DbPerson::follow(pkhex.clone()).await?;
+
+        debug!("Followed {}", &pkhex);
+
+        // Save relay
+        let relay_url = Url::new_validated(&relay)?;
+        let db_relay = DbRelay::new(relay.to_string())?;
+        DbRelay::insert(db_relay).await?;
+
+        // Save person_relay
+        DbPersonRelay::insert(DbPersonRelay {
+            person: pkhex.0.clone(),
+            relay: relay_url.0.clone(),
+            ..Default::default()
+        })
+        .await?;
+
+        info!("Setup 1 relay for {}", &pkhex);
 
         Ok(())
     }

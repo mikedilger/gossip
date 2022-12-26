@@ -192,6 +192,23 @@ impl DbPerson {
         Ok(())
     }
 
+    pub async fn follow(pubkey: PublicKeyHex) -> Result<(), Error> {
+        let sql = "INSERT INTO PERSON (pubkey, followed) values (?, 1) \
+                   ON CONFLICT(pubkey) DO UPDATE SET followed=1";
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((&pubkey.0,))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM person WHERE {}", criteria);

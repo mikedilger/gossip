@@ -64,6 +64,9 @@ struct GossipUi {
     draft: String,
     settings: Settings,
     nip35follow: String,
+    follow_bech32_pubkey: String,
+    follow_hex_pubkey: String,
+    follow_pubkey_at_relay: String,
 }
 
 impl GossipUi {
@@ -116,6 +119,9 @@ impl GossipUi {
             draft: "".to_owned(),
             settings,
             nip35follow: "".to_owned(),
+            follow_bech32_pubkey: "".to_owned(),
+            follow_hex_pubkey: "".to_owned(),
+            follow_pubkey_at_relay: "".to_owned(),
         }
     }
 }
