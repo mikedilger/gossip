@@ -80,6 +80,18 @@ impl Overlord {
     }
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
+        // Load Signer (we cannot unlock yet, UI will have to drive that after
+        // prompting for a password)
+        if let Some(epk) = GLOBALS
+            .settings
+            .read()
+            .await
+            .encrypted_private_key
+            .to_owned()
+        {
+            GLOBALS.signer.write().await.load_encrypted_private_key(epk);
+        }
+
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen, possibly autofollow
