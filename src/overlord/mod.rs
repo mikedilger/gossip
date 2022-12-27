@@ -16,7 +16,6 @@ use tokio::{select, task};
 use tracing::{debug, error, info, warn};
 
 pub struct Overlord {
-    settings: Settings,
     to_minions: Sender<BusMessage>,
     from_minions: UnboundedReceiver<BusMessage>,
 
@@ -37,7 +36,6 @@ impl Overlord {
     pub fn new(from_minions: UnboundedReceiver<BusMessage>) -> Overlord {
         let to_minions = GLOBALS.to_minions.clone();
         Overlord {
-            settings: Settings::default(),
             to_minions,
             from_minions,
             minions: task::JoinSet::new(),
@@ -98,7 +96,9 @@ impl Overlord {
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen, possibly autofollow
-        DbPerson::populate_new_people(self.settings.autofollow).await?;
+
+        let autofollow = GLOBALS.settings.lock().await.autofollow;
+        DbPerson::populate_new_people(autofollow).await?;
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
@@ -147,7 +147,8 @@ impl Overlord {
         // Load feed-related events from database and process (TextNote, EventDeletion, Reaction)
         {
             let now = Unixtime::now().unwrap();
-            let then = now.0 - self.settings.feed_chunk as i64;
+            let feed_chunk = GLOBALS.settings.lock().await.feed_chunk;
+            let then = now.0 - feed_chunk as i64;
             let db_events = DbEvent::fetch(Some(&format!(
                 " (kind=1 OR kind=5 OR kind=7) AND created_at > {} ORDER BY created_at ASC",
                 then
@@ -320,15 +321,6 @@ impl Overlord {
                 "shutdown" => {
                     info!("Overlord shutting down");
                     return Ok(false);
-                }
-                "settings_changed" => {
-                    self.settings = serde_json::from_str(&bus_message.json_payload)?;
-                    // We need to inform the minions
-                    self.to_minions.send(BusMessage {
-                        target: "all".to_string(),
-                        kind: "settings_changed".to_string(),
-                        json_payload: bus_message.json_payload.clone(),
-                    })?;
                 }
                 _ => {}
             },

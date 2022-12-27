@@ -218,14 +218,13 @@ impl Minion {
                     },
                     Err(e) => return Err(e.into())
                 };
+                #[allow(clippy::collapsible_if)]
                 if bus_message.target == self.url.0 {
                     self.handle_bus_message(bus_message).await?;
                 } else if &*bus_message.target == "all" {
                     if &*bus_message.kind == "shutdown" {
                         info!("{}: Websocket listener shutting down", &self.url);
                         keepgoing = false;
-                    } else if &*bus_message.kind == "settings_changed" {
-                        // TBD: possibly redo filters based on overlap, feed_chunk, etc.
                     }
                 }
             },
@@ -269,14 +268,17 @@ impl Minion {
             let mut special_since: i64 =
                 DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
 
-            let settings = GLOBALS.settings.lock().await.clone();
+            let (overlap, feed_chunk) = {
+                let settings = GLOBALS.settings.lock().await.clone();
+                (settings.overlap, settings.feed_chunk)
+            };
 
             // Subtract overlap to avoid gaps due to clock sync and event
             // propogation delay
-            special_since -= settings.overlap as i64;
+            special_since -= overlap as i64;
 
             // For feed related events, don't look back more than one feed_chunk ago
-            let one_feedchunk_ago = Unixtime::now().unwrap().0 - settings.feed_chunk as i64;
+            let one_feedchunk_ago = Unixtime::now().unwrap().0 - feed_chunk as i64;
             let feed_since = special_since.max(one_feedchunk_ago);
 
             (Unixtime(feed_since), Unixtime(special_since))
