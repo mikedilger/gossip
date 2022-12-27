@@ -13,9 +13,9 @@ edition = "2021"
 
 [dependencies]
 async-recursion = "1.0"
-base64 = "0.13"
+base64 = "0.20"
 dirs = "4.0"
-eframe = { version = "0.20", features = [ "dark-light", "persistence" ] }
+eframe = { version = "0.20", features = [ "accesskit", "dark-light", "persistence", "screen_reader" ] }
 egui_extras = { version = "0.20", features = [ "svg", "tracing" ] }
 futures = "0.3"
 futures-util = "0.3"
