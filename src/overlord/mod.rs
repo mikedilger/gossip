@@ -7,7 +7,9 @@ use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::settings::Settings;
 use minion::Minion;
-use nostr_types::{Event, Nip05, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_types::{
+    Event, EventKind, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url,
+};
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
 use tokio::sync::broadcast::Sender;
@@ -468,6 +470,10 @@ impl Overlord {
                         }
                     }
                 }
+                "post_textnote" => {
+                    let content: String = serde_json::from_str(&bus_message.json_payload)?;
+                    self.post_textnote(content).await?;
+                }
                 _ => {}
             },
             _ => {}
@@ -630,6 +636,58 @@ impl Overlord {
         .await?;
 
         info!("Setup 1 relay for {}", &pkhex);
+
+        Ok(())
+    }
+
+    async fn post_textnote(&mut self, content: String) -> Result<(), Error> {
+        let event = {
+            let public_key = match GLOBALS.signer.read().await.public_key() {
+                Some(pk) => pk,
+                None => {
+                    warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::TextNote,
+                tags: vec![],
+                content,
+                ots: None,
+            };
+
+            GLOBALS.signer.read().await.sign_preevent(pre_event)?
+        };
+
+        let relays: Vec<DbRelay> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .collect();
+
+        for relay in relays {
+            // Start a minion for it, if there is none
+            if !self.urls_watching.contains(&Url(relay.url.clone())) {
+                self.start_minion(relay.url.clone()).await?;
+            }
+
+            // Send it the event to post
+            debug!("Asking {} to post", &relay.url);
+
+            let _ = self.to_minions.send(BusMessage {
+                target: relay.url.clone(),
+                kind: "post_event".to_string(),
+                json_payload: serde_json::to_string(&event).unwrap(),
+            });
+        }
+
+        // Process the message for ourself
+        crate::process::process_new_event(&event, false, None).await?;
 
         Ok(())
     }

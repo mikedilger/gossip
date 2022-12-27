@@ -4,7 +4,6 @@ use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextStyle, Ui, Vec2};
 use nostr_types::{EventKind, Id};
-use tracing::info;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed = Globals::blocking_get_feed(true);
@@ -35,13 +34,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.text_edit_multiline(&mut app.draft);
 
             if ui.button("Send").clicked() && !app.draft.is_empty() {
-                info!("Would send: {}", app.draft);
-
-                // We need our private key
-                // Then we need to create a TextNote event
-                // Then we need to send it to multiple relays
-                // NOT a one-liner
-
+                let tx = GLOBALS.to_overlord.clone();
+                let _ = tx.send(BusMessage {
+                    target: "overlord".to_string(),
+                    kind: "post_textnote".to_string(),
+                    json_payload: serde_json::to_string(&app.draft).unwrap(),
+                });
                 app.draft = "".to_owned();
             }
         }
