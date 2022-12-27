@@ -64,7 +64,7 @@ lazy_static! {
     pub static ref GLOBALS: Globals = {
 
         // Setup a communications channel from the Overlord to the Minions.
-        let (to_minions, _) = broadcast::channel(16);
+        let (to_minions, _) = broadcast::channel(256);
 
         // Setup a communications channel from the Minions to the Overlord.
         let (to_overlord, from_minions) = mpsc::unbounded_channel();
