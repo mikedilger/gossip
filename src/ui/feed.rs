@@ -1,4 +1,4 @@
-use super::GossipUi;
+use super::{GossipUi, Page};
 use crate::comms::BusMessage;
 use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
@@ -17,7 +17,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     };
 
     ui.horizontal(|ui| {
-        if GLOBALS.signer.blocking_read().is_ready() {
+        if !GLOBALS.signer.blocking_read().is_ready() {
+            ui.horizontal(|ui| {
+                ui.label("You need to ");
+                if ui.link("setup your identity").clicked() {
+                    app.page = Page::You;
+                }
+            });
+        } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
+            ui.horizontal(|ui| {
+                ui.label("You need to ");
+                if ui.link("choose relays to post to").clicked() {
+                    app.page = Page::Relays;
+                }
+            });
+        } else {
             ui.text_edit_multiline(&mut app.draft);
 
             if ui.button("Send").clicked() && !app.draft.is_empty() {
