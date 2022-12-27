@@ -2,7 +2,7 @@ mod minion;
 mod relay_picker;
 
 use crate::comms::BusMessage;
-use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay, DbSetting};
+use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::settings::Settings;
@@ -80,19 +80,6 @@ impl Overlord {
     }
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
-        // Check for a private key
-        if DbSetting::fetch_setting("user_private_key")
-            .await?
-            .is_some()
-        {
-            // We don't bother loading the value just yet because we don't have
-            // the password.
-            info!("Saved private key found. Will need a password to unlock.");
-            GLOBALS
-                .need_password
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-        }
-
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen, possibly autofollow

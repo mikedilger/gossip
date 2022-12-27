@@ -49,9 +49,6 @@ pub struct Globals {
     /// All nostr relay records we have
     pub relays: Mutex<HashMap<Url, DbRelay>>,
 
-    /// Whether or not we have a saved private key and need the password to unlock it
-    pub need_password: AtomicBool,
-
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
     pub shutting_down: AtomicBool,
@@ -80,7 +77,6 @@ lazy_static! {
             desired_events: Mutex::new(HashMap::new()),
             people: Mutex::new(HashMap::new()),
             relays: Mutex::new(HashMap::new()),
-            need_password: AtomicBool::new(false),
             shutting_down: AtomicBool::new(false),
             settings: Mutex::new(Settings::default()),
         }
