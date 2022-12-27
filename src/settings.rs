@@ -1,6 +1,8 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use nostr_types::{EncryptedPrivateKey, PublicKey};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 pub const DEFAULT_FEED_CHUNK: u64 = 43200; // 12 hours
 pub const DEFAULT_OVERLAP: u64 = 600; // 10 minutes
@@ -13,8 +15,6 @@ pub const DEFAULT_MAX_RELAYS: u8 = 15;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
-    // user_private_key
-    // version
     pub feed_chunk: u64,
     pub overlap: u64,
     pub autofollow: bool,
@@ -23,6 +23,8 @@ pub struct Settings {
     pub view_threaded: bool,
     pub num_relays_per_person: u8,
     pub max_relays: u8,
+    pub public_key: Option<PublicKey>,
+    pub encrypted_private_key: Option<EncryptedPrivateKey>,
 }
 
 impl Default for Settings {
@@ -36,6 +38,8 @@ impl Default for Settings {
             view_threaded: DEFAULT_VIEW_THREADED,
             num_relays_per_person: DEFAULT_NUM_RELAYS_PER_PERSON,
             max_relays: DEFAULT_MAX_RELAYS,
+            public_key: None,
+            encrypted_private_key: None,
         }
     }
 }
@@ -72,6 +76,18 @@ impl Settings {
                 }
                 "max_relays" => {
                     settings.max_relays = row.1.parse::<u8>().unwrap_or(DEFAULT_MAX_RELAYS)
+                }
+                "encrypted_private_key" => {
+                    settings.encrypted_private_key = Some(EncryptedPrivateKey(row.1))
+                }
+                "public_key" => {
+                    settings.public_key = match PublicKey::try_from_hex_string(&row.1) {
+                        Ok(pk) => Some(pk),
+                        Err(e) => {
+                            error!("Public key in database is invalid or corrupt: {}", e);
+                            None
+                        }
+                    }
                 }
                 _ => {}
             }
@@ -110,6 +126,28 @@ impl Settings {
             self.max_relays,
         ))?;
 
+        // Save private key identity
+        if let Some(ref epk) = self.encrypted_private_key {
+            let mut stmt = db.prepare(
+                "REPLACE INTO SETTINGS (key, value) VALUES ('encrypted_private_key', ?)",
+            )?;
+            stmt.execute((&epk.0,))?;
+        } else {
+            // Otherwise delete any such setting
+            let mut stmt = db.prepare("DELETE FROM settings WHERE key='encrypted_private_key'")?;
+            stmt.execute(())?;
+        }
+
+        // Save public key
+        if let Some(ref pk) = self.public_key {
+            let mut stmt =
+                db.prepare("REPLACE INTO SETTINGS (key, value) VALUES ('public_key', ?)")?;
+            stmt.execute((pk.as_hex_string(),))?;
+        } else {
+            // Otherwise delete any such setting
+            let mut stmt = db.prepare("DELETE FROM settings WHERE key='public_key'")?;
+            stmt.execute(())?;
+        }
         Ok(())
     }
 }
