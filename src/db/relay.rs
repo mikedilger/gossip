@@ -6,6 +6,7 @@ use tokio::task::spawn_blocking;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbRelay {
+    pub dirty: bool,
     pub url: String,
     pub success_count: u64,
     pub failure_count: u64,
@@ -19,6 +20,7 @@ impl DbRelay {
         let _ = Url::new_validated(&url)?;
 
         Ok(DbRelay {
+            dirty: false,
             url,
             success_count: 0,
             failure_count: 0,
@@ -45,6 +47,7 @@ impl DbRelay {
             let rows = stmt.query_map([], |row| {
                 let postint: u32 = row.get(5)?;
                 Ok(DbRelay {
+                    dirty: false,
                     url: row.get(0)?,
                     success_count: row.get(1)?,
                     failure_count: row.get(2)?,
