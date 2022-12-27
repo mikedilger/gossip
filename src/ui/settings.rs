@@ -17,6 +17,22 @@ pub(super) fn update(
     ui.separator();
 
     ui.add_space(24.0);
+    ui.heading("How Many Relays to Query");
+
+    ui.horizontal(|ui| {
+        ui.label("Number of relays to query per person: ").on_hover_text("We will query N relays per person. Many people share the same relays so those will be queried about multiple people. Takes affect on restart.");
+        ui.add(Slider::new(&mut app.settings.num_relays_per_person, 1..=5).text("relays"));
+    });
+
+    ui.horizontal(|ui| {
+        ui.label("Maximum total number of relays to query: ")
+            .on_hover_text(
+                "We will not connect to more than this many relays. Takes affect on restart.",
+            );
+        ui.add(Slider::new(&mut app.settings.max_relays, 1..=30).text("relays"));
+    });
+
+    ui.add_space(24.0);
     ui.heading("How Many Posts to Load");
 
     ui.horizontal(|ui| {

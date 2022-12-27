@@ -174,16 +174,37 @@ impl Overlord {
         // Pick Relays and start Minions
         {
             let pubkeys: Vec<PublicKeyHex> = crate::globals::followed_pubkeys().await;
+            let num_relays_per_person = GLOBALS.settings.lock().await.num_relays_per_person;
+            let max_relays = GLOBALS.settings.lock().await.max_relays;
+            let mut pubkey_counts: HashMap<PublicKeyHex, u8> = HashMap::new();
+            for pk in pubkeys.iter() {
+                pubkey_counts.insert(pk.clone(), num_relays_per_person);
+            }
 
             let mut relay_picker = RelayPicker {
                 relays: all_relays,
-                pubkeys: pubkeys.clone(),
+                pubkey_counts,
                 person_relays: DbPersonRelay::fetch_for_pubkeys(&pubkeys).await?,
             };
 
             let mut best_relay: BestRelay;
+            let mut relay_count = 0;
             loop {
+                if relay_count >= max_relays {
+                    warn!(
+                        "Safety catch: we have picked {} relays. That's enough.",
+                        max_relays
+                    );
+                    break;
+                }
+
                 if relay_picker.is_degenerate() {
+                    info!(
+                        "Relay picker is degenerate, relays={} pubkey_counts={}, person_relays={}",
+                        relay_picker.relays.len(),
+                        relay_picker.pubkey_counts.len(),
+                        relay_picker.person_relays.len()
+                    );
                     break;
                 }
 
@@ -192,6 +213,7 @@ impl Overlord {
                 relay_picker = rp;
 
                 if best_relay.is_degenerate() {
+                    info!("Best relay is now degenerate.");
                     break;
                 }
 
@@ -206,11 +228,15 @@ impl Overlord {
                 });
 
                 info!(
-                    "Picked relay {}, {} people left",
+                    "Picked relay {} covering {} people.",
                     &best_relay.relay.url,
-                    relay_picker.pubkeys.len()
+                    best_relay.pubkeys.len()
                 );
+
+                relay_count += 1;
             }
+
+            info!("Listening on {} relays", relay_count);
         }
 
         // Get desired events from relays

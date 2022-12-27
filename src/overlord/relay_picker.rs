@@ -1,18 +1,19 @@
 use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
 use nostr_types::PublicKeyHex;
+use std::collections::HashMap;
 use tracing::info;
 
 /// See RelayPicker::best()
 pub struct RelayPicker {
     pub relays: Vec<DbRelay>,
-    pub pubkeys: Vec<PublicKeyHex>,
+    pub pubkey_counts: HashMap<PublicKeyHex, u8>,
     pub person_relays: Vec<DbPersonRelay>,
 }
 
 impl RelayPicker {
     pub fn is_degenerate(&self) -> bool {
-        self.relays.is_empty() || self.pubkeys.is_empty() || self.person_relays.is_empty()
+        self.relays.is_empty() || self.pubkey_counts.is_empty() || self.person_relays.is_empty()
     }
 
     /// This function takes a RelayPicker which consists of a list of relays,
@@ -21,7 +22,7 @@ impl RelayPicker {
     /// the public keys such a relay will cover. It also outpus a new RelayPicker
     /// that contains only the remaining relays and public keys.
     pub fn best(mut self) -> Result<(BestRelay, RelayPicker), Error> {
-        if self.pubkeys.is_empty() {
+        if self.pubkey_counts.is_empty() {
             return Err(Error::General(
                 "best_relay called for zero people".to_owned(),
             ));
@@ -35,7 +36,7 @@ impl RelayPicker {
         info!(
             "Searching for the best relay among {} for {} people",
             self.relays.len(),
-            self.pubkeys.len()
+            self.pubkey_counts.len()
         );
 
         // Keep score
@@ -57,7 +58,7 @@ impl RelayPicker {
         // Multiply scores by relay rank
         #[allow(clippy::needless_range_loop)]
         for i in 0..self.relays.len() {
-            score[i] *= self.relays[i].rank.unwrap_or(1);
+            score[i] *= self.relays[i].rank.unwrap_or(3);
         }
 
         let winner_index = score
@@ -76,12 +77,30 @@ impl RelayPicker {
             .map(|x| PublicKeyHex(x.person.clone()))
             .collect();
 
-        self.pubkeys.retain(|x| !covered_public_keys.contains(x));
+        // Decrement entries where we found another relay for them
+        let mut changed = false;
+        for (pubkey, count) in self.pubkey_counts.iter_mut() {
+            if covered_public_keys.contains(pubkey) {
+                *count -= 1;
+                changed = true;
+            }
+        }
 
-        self.person_relays.retain(|pr| {
-            !covered_public_keys.contains(&PublicKeyHex(pr.person.clone()))
-                && pr.relay != winner.url
-        });
+        // If the pubkey_counts did not change
+        if !changed {
+            // then we are now degenerate.
+            // Output a BestRelay with zero public keys to signal this
+            return Ok((
+                BestRelay {
+                    relay: winner,
+                    pubkeys: vec![],
+                },
+                self,
+            ));
+        }
+
+        // Remove entries with 0 more relays needed
+        self.pubkey_counts.retain(|_, v| *v > 0);
 
         Ok((
             BestRelay {
