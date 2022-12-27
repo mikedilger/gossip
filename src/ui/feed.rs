@@ -13,7 +13,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     let desired_count = {
         Globals::trim_desired_events_sync();
-        GLOBALS.desired_events.blocking_lock().len()
+        GLOBALS.desired_events.blocking_read().len()
     };
 
     ui.horizontal(|ui| {
@@ -67,7 +67,7 @@ fn render_post(
     id: Id,
     indent: usize,
 ) {
-    let maybe_event = GLOBALS.events.blocking_lock().get(&id).cloned();
+    let maybe_event = GLOBALS.events.blocking_read().get(&id).cloned();
     if maybe_event.is_none() {
         return;
     }
@@ -78,7 +78,7 @@ fn render_post(
         return;
     }
 
-    let maybe_person = GLOBALS.people.blocking_lock().get(&event.pubkey).cloned();
+    let maybe_person = GLOBALS.people.blocking_read().get(&event.pubkey).cloned();
 
     let reactions = Globals::get_reactions_sync(event.id);
     let replies = Globals::get_replies_sync(event.id);

@@ -109,7 +109,7 @@ impl GossipUi {
             )
         };
 
-        let settings = GLOBALS.settings.blocking_lock().clone();
+        let settings = GLOBALS.settings.blocking_read().clone();
 
         GossipUi {
             page: Page::Feed,

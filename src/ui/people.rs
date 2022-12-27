@@ -105,7 +105,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.heading("People Followed");
         ui.add_space(18.0);
 
-        let people = GLOBALS.people.blocking_lock().clone();
+        let people = GLOBALS.people.blocking_read().clone();
 
         ScrollArea::vertical().show(ui, |ui| {
             for (_, person) in people.iter() {

@@ -50,7 +50,7 @@ pub async fn process_new_event(
 
     // Insert the event into globals map
     {
-        let mut events = GLOBALS.events.lock().await;
+        let mut events = GLOBALS.events.write().await;
         let _ = events.insert(event.id, event.clone());
     }
 
@@ -135,7 +135,7 @@ pub async fn process_new_event(
         // We desire all ancestors
         for (id, maybe_url) in event.replies_to_ancestors() {
             // Insert desired event if relevant
-            if !GLOBALS.events.lock().await.contains_key(&id) {
+            if !GLOBALS.events.read().await.contains_key(&id) {
                 Globals::store_desired_event(id, maybe_url).await;
             }
         }
@@ -153,7 +153,7 @@ pub async fn process_new_event(
             }
 
             // Insert desired event if relevant
-            if !GLOBALS.events.lock().await.contains_key(&id) {
+            if !GLOBALS.events.read().await.contains_key(&id) {
                 Globals::store_desired_event(id, maybe_url).await;
             }
 
@@ -207,7 +207,7 @@ pub async fn process_new_event(
         }
 
         {
-            let mut people = GLOBALS.people.lock().await;
+            let mut people = GLOBALS.people.write().await;
             people
                 .entry(event.pubkey)
                 .and_modify(|person| {

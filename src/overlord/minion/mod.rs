@@ -269,7 +269,7 @@ impl Minion {
                 DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
 
             let (overlap, feed_chunk) = {
-                let settings = GLOBALS.settings.lock().await.clone();
+                let settings = GLOBALS.settings.read().await.clone();
                 (settings.overlap, settings.feed_chunk)
             };
 

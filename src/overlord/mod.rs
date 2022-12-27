@@ -84,7 +84,7 @@ impl Overlord {
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen, possibly autofollow
 
-        let autofollow = GLOBALS.settings.lock().await.autofollow;
+        let autofollow = GLOBALS.settings.read().await.autofollow;
         DbPerson::populate_new_people(autofollow).await?;
 
         // FIXME - if this needs doing, it should be done dynamically as
@@ -100,7 +100,7 @@ impl Overlord {
         for relay in all_relays.iter() {
             GLOBALS
                 .relays
-                .lock()
+                .write()
                 .await
                 .insert(Url(relay.url.clone()), relay.clone());
         }
@@ -110,7 +110,7 @@ impl Overlord {
             let mut dbpeople = DbPerson::fetch(None).await?;
             for dbperson in dbpeople.drain(..) {
                 let pubkey = PublicKey::try_from(dbperson.pubkey.clone())?;
-                GLOBALS.people.lock().await.insert(pubkey, dbperson);
+                GLOBALS.people.write().await.insert(pubkey, dbperson);
             }
         }
 
@@ -134,7 +134,7 @@ impl Overlord {
         // Load feed-related events from database and process (TextNote, EventDeletion, Reaction)
         {
             let now = Unixtime::now().unwrap();
-            let feed_chunk = GLOBALS.settings.lock().await.feed_chunk;
+            let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
             let then = now.0 - feed_chunk as i64;
             let db_events = DbEvent::fetch(Some(&format!(
                 " (kind=1 OR kind=5 OR kind=7) AND created_at > {} ORDER BY created_at ASC",
@@ -161,8 +161,10 @@ impl Overlord {
         // Pick Relays and start Minions
         {
             let pubkeys: Vec<PublicKeyHex> = crate::globals::followed_pubkeys().await;
-            let num_relays_per_person = GLOBALS.settings.lock().await.num_relays_per_person;
-            let max_relays = GLOBALS.settings.lock().await.max_relays;
+            let (num_relays_per_person, max_relays) = {
+                let settings = GLOBALS.settings.read().await;
+                (settings.num_relays_per_person, settings.max_relays)
+            };
             let mut pubkey_counts: HashMap<PublicKeyHex, u8> = HashMap::new();
             for pk in pubkeys.iter() {
                 pubkey_counts.insert(pk.clone(), num_relays_per_person);
@@ -347,7 +349,7 @@ impl Overlord {
                     settings.save().await?; // to database
 
                     // Update in globals
-                    *GLOBALS.settings.lock().await = settings;
+                    *GLOBALS.settings.write().await = settings;
 
                     debug!("Settings saved.");
                 }
@@ -381,7 +383,7 @@ impl Overlord {
     async fn get_missing_events(&mut self) -> Result<(), Error> {
         let (desired_events_map, desired_events_vec) = Globals::get_desired_events().await?;
 
-        let desired_count = GLOBALS.desired_events.lock().await.len();
+        let desired_count = GLOBALS.desired_events.read().await.len();
 
         if desired_count == 0 {
             return Ok(());

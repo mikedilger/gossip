@@ -35,7 +35,7 @@ fn main() -> Result<(), Error> {
 
     // Load settings
     let settings = crate::settings::Settings::blocking_load()?;
-    *GLOBALS.settings.blocking_lock() = settings;
+    *GLOBALS.settings.blocking_write() = settings;
 
     // Start async code
     // We do this on a separate thread because egui is most portable by

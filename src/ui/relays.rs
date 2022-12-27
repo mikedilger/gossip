@@ -9,7 +9,7 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
     ui.heading("Relays known");
     ui.add_space(18.0);
 
-    let mut relays = GLOBALS.relays.blocking_lock().clone();
+    let mut relays = GLOBALS.relays.blocking_read().clone();
     let mut relays: Vec<DbRelay> = relays.drain().map(|(_, relay)| relay).collect();
     relays.sort_by(|a, b| a.url.cmp(&b.url));
 

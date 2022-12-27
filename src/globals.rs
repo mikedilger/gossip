@@ -8,7 +8,7 @@ use nostr_types::{Event, EventKind, Id, IdHex, PublicKey, PublicKeyHex, Unixtime
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
-use tokio::sync::{broadcast, mpsc, Mutex};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use tracing::info;
 
 /// Only one of these is ever created, via lazy_static!, and represents
@@ -30,31 +30,31 @@ pub struct Globals {
     pub from_minions: Mutex<Option<mpsc::UnboundedReceiver<BusMessage>>>,
 
     /// All nostr events, keyed by the event Id
-    pub events: Mutex<HashMap<Id, Event>>,
+    pub events: RwLock<HashMap<Id, Event>>,
 
     /// All relationships between events
-    pub relationships: Mutex<HashMap<Id, Vec<(Id, Relationship)>>>,
+    pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
 
     /// The date of the latest reply. Only reply relationships count, not reactions,
     /// deletions, or quotes
-    pub last_reply: Mutex<HashMap<Id, Unixtime>>,
+    pub last_reply: RwLock<HashMap<Id, Unixtime>>,
 
     /// Desired events, referred to by others, with possible URLs where we can
     /// get them.  We may already have these, but if not we should ask for them.
-    pub desired_events: Mutex<HashMap<Id, Vec<Url>>>,
+    pub desired_events: RwLock<HashMap<Id, Vec<Url>>>,
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
-    pub people: Mutex<HashMap<PublicKey, DbPerson>>,
+    pub people: RwLock<HashMap<PublicKey, DbPerson>>,
 
     /// All nostr relay records we have
-    pub relays: Mutex<HashMap<Url, DbRelay>>,
+    pub relays: RwLock<HashMap<Url, DbRelay>>,
 
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
     pub shutting_down: AtomicBool,
 
     /// Settings
-    pub settings: Mutex<Settings>,
+    pub settings: RwLock<Settings>,
 }
 
 lazy_static! {
@@ -71,14 +71,14 @@ lazy_static! {
             to_minions,
             to_overlord,
             from_minions: Mutex::new(Some(from_minions)),
-            events: Mutex::new(HashMap::new()),
-            relationships: Mutex::new(HashMap::new()),
-            last_reply: Mutex::new(HashMap::new()),
-            desired_events: Mutex::new(HashMap::new()),
-            people: Mutex::new(HashMap::new()),
-            relays: Mutex::new(HashMap::new()),
+            events: RwLock::new(HashMap::new()),
+            relationships: RwLock::new(HashMap::new()),
+            last_reply: RwLock::new(HashMap::new()),
+            desired_events: RwLock::new(HashMap::new()),
+            people: RwLock::new(HashMap::new()),
+            relays: RwLock::new(HashMap::new()),
             shutting_down: AtomicBool::new(false),
-            settings: Mutex::new(Settings::default()),
+            settings: RwLock::new(Settings::default()),
         }
     };
 }
@@ -87,7 +87,7 @@ impl Globals {
     pub fn blocking_get_feed(threaded: bool) -> Vec<Id> {
         let feed: Vec<Event> = GLOBALS
             .events
-            .blocking_lock()
+            .blocking_read()
             .iter()
             .map(|(_, e)| e)
             .filter(|e| e.kind == EventKind::TextNote)
@@ -107,8 +107,8 @@ impl Globals {
     fn sort_feed(mut feed: Vec<Event>, threaded: bool) -> Vec<Id> {
         if threaded {
             feed.sort_unstable_by(|a, b| {
-                let a_last = GLOBALS.last_reply.blocking_lock().get(&a.id).cloned();
-                let b_last = GLOBALS.last_reply.blocking_lock().get(&b.id).cloned();
+                let a_last = GLOBALS.last_reply.blocking_read().get(&a.id).cloned();
+                let b_last = GLOBALS.last_reply.blocking_read().get(&b.id).cloned();
                 let a_time = a_last.unwrap_or(a.created_at);
                 let b_time = b_last.unwrap_or(b.created_at);
                 b_time.cmp(&a_time)
@@ -121,7 +121,7 @@ impl Globals {
     }
 
     pub async fn store_desired_event(id: Id, url: Option<Url>) {
-        let mut desired_events = GLOBALS.desired_events.lock().await;
+        let mut desired_events = GLOBALS.desired_events.write().await;
         desired_events
             .entry(id)
             .and_modify(|urls| {
@@ -137,16 +137,16 @@ impl Globals {
     pub fn trim_desired_events_sync() {
         // danger - two locks could lead to deadlock, check other code locking these
         // don't change the order, or else change it everywhere
-        let mut desired_events = GLOBALS.desired_events.blocking_lock();
-        let events = GLOBALS.events.blocking_lock();
+        let mut desired_events = GLOBALS.desired_events.blocking_write();
+        let events = GLOBALS.events.blocking_read();
         desired_events.retain(|&id, _| !events.contains_key(&id));
     }
 
     pub async fn trim_desired_events() {
         // danger - two locks could lead to deadlock, check other code locking these
         // don't change the order, or else change it everywhere
-        let mut desired_events = GLOBALS.desired_events.lock().await;
-        let events = GLOBALS.events.lock().await;
+        let mut desired_events = GLOBALS.desired_events.write().await;
+        let events = GLOBALS.events.read().await;
         desired_events.retain(|&id, _| !events.contains_key(&id));
     }
 
@@ -157,7 +157,7 @@ impl Globals {
         {
             let ids: Vec<IdHex> = GLOBALS
                 .desired_events
-                .lock()
+                .read()
                 .await
                 .iter()
                 .map(|(id, _)| Into::<IdHex>::into(*id))
@@ -184,7 +184,7 @@ impl Globals {
     pub async fn get_desired_events() -> Result<(HashMap<Url, Vec<Id>>, Vec<Id>), Error> {
         Globals::get_desired_events_prelude().await?;
 
-        let desired_events = GLOBALS.desired_events.lock().await;
+        let desired_events = GLOBALS.desired_events.read().await;
         let mut output: HashMap<Url, Vec<Id>> = HashMap::new();
         let mut orphans: Vec<Id> = Vec::new();
         for (id, vec_url) in desired_events.iter() {
@@ -207,7 +207,7 @@ impl Globals {
     pub async fn get_desired_events_for_url(url: Url) -> Result<Vec<Id>, Error> {
         Globals::get_desired_events_prelude().await?;
 
-        let desired_events = GLOBALS.desired_events.lock().await;
+        let desired_events = GLOBALS.desired_events.read().await;
         let mut output: Vec<Id> = Vec::new();
         for (id, vec_url) in desired_events.iter() {
             if vec_url.is_empty() || vec_url.contains(&url) {
@@ -220,7 +220,7 @@ impl Globals {
 
     pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {
         let r = (related, relationship);
-        let mut relationships = GLOBALS.relationships.lock().await;
+        let mut relationships = GLOBALS.relationships.write().await;
         relationships
             .entry(id)
             .and_modify(|vec| {
@@ -234,7 +234,7 @@ impl Globals {
     #[async_recursion]
     pub async fn update_last_reply(id: Id, time: Unixtime) {
         {
-            let mut last_reply = GLOBALS.last_reply.lock().await;
+            let mut last_reply = GLOBALS.last_reply.write().await;
             last_reply
                 .entry(id)
                 .and_modify(|lasttime| {
@@ -246,7 +246,7 @@ impl Globals {
         } // drops lock
 
         // Recurse upwards
-        if let Some(event) = GLOBALS.events.lock().await.get(&id).cloned() {
+        if let Some(event) = GLOBALS.events.write().await.get(&id).cloned() {
             if let Some((id, _maybe_url)) = event.replies_to() {
                 Self::update_last_reply(id, event.created_at).await;
             }
@@ -255,7 +255,7 @@ impl Globals {
 
     pub fn get_replies_sync(id: Id) -> Vec<Id> {
         let mut output: Vec<Id> = Vec::new();
-        if let Some(vec) = GLOBALS.relationships.blocking_lock().get(&id) {
+        if let Some(vec) = GLOBALS.relationships.blocking_read().get(&id) {
             for (id, relationship) in vec.iter() {
                 if *relationship == Relationship::Reply {
                     output.push(*id);
@@ -271,7 +271,7 @@ impl Globals {
     pub fn get_reactions_sync(id: Id) -> HashMap<char, usize> {
         let mut output: HashMap<char, usize> = HashMap::new();
 
-        if let Some(relationships) = GLOBALS.relationships.blocking_lock().get(&id).cloned() {
+        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id).cloned() {
             for (_id, relationship) in relationships.iter() {
                 if let Relationship::Reaction(reaction) = relationship {
                     if let Some(ch) = reaction.chars().next() {
@@ -294,7 +294,7 @@ impl Globals {
 }
 
 pub async fn followed_pubkeys() -> Vec<PublicKeyHex> {
-    let people = GLOBALS.people.lock().await;
+    let people = GLOBALS.people.read().await;
     people
         .iter()
         .map(|(_, p)| p)
