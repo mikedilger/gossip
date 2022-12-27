@@ -17,17 +17,19 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     };
 
     ui.horizontal(|ui| {
-        ui.text_edit_multiline(&mut app.draft);
+        if GLOBALS.signer.blocking_read().is_ready() {
+            ui.text_edit_multiline(&mut app.draft);
 
-        if ui.button("Send").clicked() && !app.draft.is_empty() {
-            info!("Would send: {}", app.draft);
+            if ui.button("Send").clicked() && !app.draft.is_empty() {
+                info!("Would send: {}", app.draft);
 
-            // We need our private key
-            // Then we need to create a TextNote event
-            // Then we need to send it to multiple relays
-            // NOT a one-liner
+                // We need our private key
+                // Then we need to create a TextNote event
+                // Then we need to send it to multiple relays
+                // NOT a one-liner
 
-            app.draft = "".to_owned();
+                app.draft = "".to_owned();
+            }
         }
 
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {

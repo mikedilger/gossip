@@ -414,6 +414,15 @@ impl Overlord {
                         signer.unlock_encrypted_private_key(&password)?;
                     }
                     password.zeroize();
+
+                    // Save
+                    let public_key = GLOBALS.signer.read().await.public_key().unwrap();
+                    {
+                        let mut settings = GLOBALS.settings.write().await;
+                        settings.encrypted_private_key = Some(epk);
+                        settings.public_key = Some(public_key);
+                        settings.save().await?;
+                    }
                 }
                 "import_hex" => {
                     let (mut import_hex, mut password): (String, String) =
@@ -427,6 +436,15 @@ impl Overlord {
                         signer.unlock_encrypted_private_key(&password)?;
                     }
                     password.zeroize();
+
+                    // Save
+                    let public_key = GLOBALS.signer.read().await.public_key().unwrap();
+                    {
+                        let mut settings = GLOBALS.settings.write().await;
+                        settings.encrypted_private_key = Some(epk);
+                        settings.public_key = Some(public_key);
+                        settings.save().await?;
+                    }
                 }
                 _ => {}
             },
