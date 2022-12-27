@@ -8,9 +8,9 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 ## Status
 
-Gossip is currently pre-alpha code and not ready for use.
+Gossip is currently early alpha-quality code. But it is just beginning to be useful. As of this writing you can follow people and see the feed, and most everything else is pretty sketchy. Even the content of the feed is still a bit sketchy. And the look-and-feel is still horrendous.
 
-If you want to use it anyway, please read the [Alpha Setup](#alpha-setup) section.
+But please give it a try. It is improving quickly.
 
 ## Features
 
@@ -103,21 +103,6 @@ If you want a binary optimized for your exact processor with the newest features
 ````bash
 $ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
 ````
-
-## Alpha Setup
-
-While gossip is in alpha, you will need to do a few things manually to get it started (do this after the [Building and Installing]([building-and-installing) section above):
-
-- SQLite3 to your gossip.sqlite file (see the About page to find where it is)
-- Insert people in the person table with followed=1
-- Insert at least one person_relay entry for each person
-- There may be other steps needed. Development is happening fast. Feel free to ask a question
-  by opening a GitHub issue.
-
-After that, it should start following those people. You may still need to restart from time to
-time as it loses connections to relays still, and some live event handling is less thorough
-than startup event handling is.
-
 
 ## Technology Involved
 
