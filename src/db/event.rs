@@ -52,6 +52,10 @@ impl DbEvent {
     }
 
     pub async fn fetch_by_ids(ids: Vec<IdHex>) -> Result<Vec<DbEvent>, Error> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+
         let sql = format!(
             "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event WHERE id IN ({})",
             repeat_vars(ids.len())
