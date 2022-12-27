@@ -30,6 +30,9 @@ pub enum Error {
     #[error("Nostr: {0}")]
     Nostr(#[from] nostr_types::Error),
 
+    #[error("No private key available.")]
+    NoPrivateKey,
+
     #[error("Image: {0}")]
     Image(#[from] image::error::ImageError),
 

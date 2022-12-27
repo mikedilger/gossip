@@ -3,6 +3,7 @@ use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
+use crate::signer::Signer;
 use async_recursion::async_recursion;
 use nostr_types::{Event, EventKind, Id, IdHex, PublicKey, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
@@ -55,6 +56,9 @@ pub struct Globals {
 
     /// Settings
     pub settings: RwLock<Settings>,
+
+    /// Signer
+    pub signer: RwLock<Signer>,
 }
 
 lazy_static! {
@@ -79,6 +83,7 @@ lazy_static! {
             relays: RwLock::new(HashMap::new()),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
+            signer: RwLock::new(Signer::default()),
         }
     };
 }

@@ -13,6 +13,7 @@ mod overlord;
 mod process;
 mod relationship;
 mod settings;
+mod signer;
 mod ui;
 
 use crate::comms::BusMessage;
