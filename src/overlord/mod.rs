@@ -14,6 +14,7 @@ use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
 use tracing::{debug, error, info, warn};
+use zeroize::Zeroize;
 
 pub struct Overlord {
     to_minions: Sender<BusMessage>,
@@ -383,6 +384,49 @@ impl Overlord {
                 "follow_hexkey" => {
                     let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
                     Overlord::follow_hexkey(data.0, data.1).await?;
+                }
+                "unlock_key" => {
+                    let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
+                    GLOBALS
+                        .signer
+                        .write()
+                        .await
+                        .unlock_encrypted_private_key(&password)?;
+                    password.zeroize();
+
+                    // Update public key from private key
+                    let public_key = GLOBALS.signer.read().await.public_key().unwrap();
+                    {
+                        let mut settings = GLOBALS.settings.write().await;
+                        settings.public_key = Some(public_key);
+                        settings.save().await?;
+                    }
+                }
+                "import_bech32" => {
+                    let (mut import_bech32, mut password): (String, String) =
+                        serde_json::from_str(&bus_message.json_payload)?;
+                    let pk = PrivateKey::try_from_bech32_string(&import_bech32)?;
+                    import_bech32.zeroize();
+                    let epk = pk.export_encrypted(&password)?;
+                    {
+                        let mut signer = GLOBALS.signer.write().await;
+                        signer.load_encrypted_private_key(epk.clone());
+                        signer.unlock_encrypted_private_key(&password)?;
+                    }
+                    password.zeroize();
+                }
+                "import_hex" => {
+                    let (mut import_hex, mut password): (String, String) =
+                        serde_json::from_str(&bus_message.json_payload)?;
+                    let pk = PrivateKey::try_from_hex_string(&import_hex)?;
+                    import_hex.zeroize();
+                    let epk = pk.export_encrypted(&password)?;
+                    {
+                        let mut signer = GLOBALS.signer.write().await;
+                        signer.load_encrypted_private_key(epk.clone());
+                        signer.unlock_encrypted_private_key(&password)?;
+                    }
+                    password.zeroize();
                 }
                 _ => {}
             },

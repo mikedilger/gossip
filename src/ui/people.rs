@@ -19,6 +19,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
         ui.heading("NOTICE: Gossip doesn't update the filters when you follow someone yet, so you have to restart the client to fetch their events. Will fix soon.");
 
+        ui.label("NOTICE: use CTRL-V to paste (middle/right click wont work)");
+
         ui.add_space(10.0);
         ui.separator();
         ui.add_space(10.0);

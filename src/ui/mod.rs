@@ -14,6 +14,7 @@ use crate::settings::Settings;
 use eframe::{egui, IconData, Theme};
 use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
 use nostr_types::{PublicKey, PublicKeyHex};
+use zeroize::Zeroize;
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
@@ -67,6 +68,15 @@ struct GossipUi {
     follow_bech32_pubkey: String,
     follow_hex_pubkey: String,
     follow_pubkey_at_relay: String,
+    password: String,
+    import_bech32: String,
+    import_hex: String,
+}
+
+impl Drop for GossipUi {
+    fn drop(&mut self) {
+        self.password.zeroize();
+    }
 }
 
 impl GossipUi {
@@ -122,6 +132,9 @@ impl GossipUi {
             follow_bech32_pubkey: "".to_owned(),
             follow_hex_pubkey: "".to_owned(),
             follow_pubkey_at_relay: "".to_owned(),
+            password: "".to_owned(),
+            import_bech32: "".to_owned(),
+            import_hex: "".to_owned(),
         }
     }
 }
