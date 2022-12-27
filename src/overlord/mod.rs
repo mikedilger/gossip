@@ -446,6 +446,28 @@ impl Overlord {
                         settings.save().await?;
                     }
                 }
+                "save_relays" => {
+                    let dirty_relays: Vec<DbRelay> = GLOBALS
+                        .relays
+                        .read()
+                        .await
+                        .iter()
+                        .filter_map(|(_, r)| if r.dirty { Some(r.to_owned()) } else { None })
+                        .collect();
+                    info!("Saving {} relays", dirty_relays.len());
+                    for relay in dirty_relays.iter() {
+                        // Just update 'post' since that's all 'dirty' indicates currently
+                        DbRelay::update_post(relay.url.to_owned(), relay.post).await?;
+                        if let Some(relay) = GLOBALS
+                            .relays
+                            .write()
+                            .await
+                            .get_mut(&Url(relay.url.clone()))
+                        {
+                            relay.dirty = false;
+                        }
+                    }
+                }
                 _ => {}
             },
             _ => {}
