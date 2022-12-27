@@ -20,10 +20,14 @@ use crate::comms::BusMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use std::ops::DerefMut;
-use std::{mem, thread};
+use std::{env, mem, thread};
 use tracing_subscriber::filter::EnvFilter;
 
 fn main() -> Result<(), Error> {
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info");
+    }
+
     tracing_subscriber::fmt::fmt()
         .without_time()
         .with_file(cfg!(debug_assertions))
