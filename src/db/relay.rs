@@ -10,6 +10,8 @@ pub struct DbRelay {
     pub success_count: u64,
     pub failure_count: u64,
     pub rank: Option<u64>,
+    pub last_success_at: Option<u64>,
+    pub post: bool,
 }
 
 impl DbRelay {
@@ -21,11 +23,15 @@ impl DbRelay {
             success_count: 0,
             failure_count: 0,
             rank: Some(3),
+            last_success_at: None,
+            post: false,
         })
     }
 
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
-        let sql = "SELECT url, success_count, failure_count, rank FROM relay".to_owned();
+        let sql =
+            "SELECT url, success_count, failure_count, rank, last_success_at, post FROM relay"
+                .to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -37,11 +43,14 @@ impl DbRelay {
 
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
+                let postint: u32 = row.get(5)?;
                 Ok(DbRelay {
                     url: row.get(0)?,
                     success_count: row.get(1)?,
                     failure_count: row.get(2)?,
                     rank: row.get(3)?,
+                    last_success_at: row.get(4)?,
+                    post: (postint > 0),
                 })
             })?;
 
@@ -69,19 +78,22 @@ impl DbRelay {
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let _ = Url::new_validated(&relay.url)?;
 
-        let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank) \
-             VALUES (?1, ?2, ?3, ?4)";
+        let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank, last_success_at, post) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
+            let postint = i32::from(relay.post);
             stmt.execute((
                 &relay.url,
                 &relay.success_count,
                 &relay.failure_count,
                 &relay.rank,
+                &relay.last_success_at,
+                &postint,
             ))?;
             Ok::<(), Error>(())
         })
@@ -91,17 +103,20 @@ impl DbRelay {
     }
 
     pub async fn update(relay: DbRelay) -> Result<(), Error> {
-        let sql = "UPDATE relay SET success_count=?, failure_count=?, rank=? WHERE url=?";
+        let sql = "UPDATE relay SET success_count=?, failure_count=?, rank=?, last_success_at=?, post=? WHERE url=?";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
+            let postint = i32::from(relay.post);
             stmt.execute((
                 &relay.success_count,
                 &relay.failure_count,
                 &relay.rank,
+                &relay.last_success_at,
+                &postint,
                 &relay.url,
             ))?;
             Ok::<(), Error>(())
