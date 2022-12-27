@@ -108,6 +108,7 @@ fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
     apply_sql!(db, version, 3, "schema3.sql");
     apply_sql!(db, version, 4, "schema4.sql");
     apply_sql!(db, version, 5, "schema5.sql");
+    apply_sql!(db, version, 6, "schema6.sql");
     info!("Database is at version {}", version);
     Ok(())
 }
