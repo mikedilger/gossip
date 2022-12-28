@@ -134,10 +134,10 @@ fn render_post(
     ui.horizontal(|ui| {
         // Indents first (if threaded)
         if app.settings.view_threaded {
-            for _ in 0..indent {
-                ui.add_space(8.0);
+            let space = 16.0 * (10.0 - (100.0 / (indent as f32 + 10.0)));
+            ui.add_space(space);
+            if indent > 0 {
                 ui.separator();
-                ui.add_space(8.0);
             }
         }
 
