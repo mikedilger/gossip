@@ -2,7 +2,7 @@ use super::{GossipUi, Page};
 use crate::comms::BusMessage;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Vec2};
+use egui::{Context, RichText, ScrollArea, TextEdit, TopBottomPanel, Ui, Vec2};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     TopBottomPanel::top("people_menu").show(ctx, |ui| {
@@ -123,10 +123,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
 
                         ui.horizontal(|ui| {
-                            ui.label(
-                                RichText::new(person.name.as_deref().unwrap_or(""))
-                                    .text_style(TextStyle::Name("Bold".into())),
-                            );
+                            ui.label(RichText::new(person.name.as_deref().unwrap_or("")).strong());
 
                             ui.add_space(24.0);
 

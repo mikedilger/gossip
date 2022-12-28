@@ -12,8 +12,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(15.0);
 
         ui.label(
-            RichText::new(&app.about.name)
-                .text_style(TextStyle::Name("Bold".into()))
+            RichText::new(&app.about.name).strong()
         );
 
         ui.add_space(15.0);
