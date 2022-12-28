@@ -6,6 +6,7 @@ mod settings;
 mod stats;
 mod style;
 mod you;
+mod widgets;
 
 use crate::about::About;
 use crate::error::Error;
