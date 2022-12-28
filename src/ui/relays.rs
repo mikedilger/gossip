@@ -23,6 +23,8 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
     let mut relays: Vec<DbRelay> = relays.drain().map(|(_, relay)| relay).collect();
     relays.sort_by(|a, b| a.url.cmp(&b.url));
 
+    let postrelays: Vec<DbRelay> = relays.iter().filter(|r| r.post).map(|r| r.to_owned()).collect();
+
     ui.add_space(32.0);
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
@@ -36,35 +38,53 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
         }
 
         ui.with_layout(Layout::top_down(Align::Center), |ui| {
+
+            ui.heading("Your Relays (write):");
+
+            for relay in postrelays.iter() {
+                render_relay(ui, relay, true);
+                ui.add_space(3.0);
+                ui.separator();
+                ui.add_space(3.0);
+            }
+
+            ui.heading("Known Relays:");
+
             ScrollArea::vertical().show(ui, |ui| {
                 for relay in relays.iter_mut() {
-                    ui.horizontal(|ui| {
-                        ui.label(&relay.url);
-
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-
-                            let mut post = relay.post; // checkbox needs a mutable state variable.
-
-                            if ui.checkbox(&mut post, "Post Here")
-                                .on_hover_text("If selected, posts you create will be sent to this relay. But you have to press [SAVE CHANGES] at the bottom of this page.")
-                                .clicked()
-                            {
-                                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&Url(relay.url.clone())) {
-                                    relay.post = post;
-                                    relay.dirty = true;
-                                }
-                            }
-
-                            //if ui.button("CONNECT").clicked() {
-                            //    ui.label("TBD");
-                            //}
-                        });
-                    });
-
-                    ui.add_space(12.0);
+                    render_relay(ui, relay, false);
+                    ui.add_space(3.0);
                     ui.separator();
+                    ui.add_space(3.0);
                 }
             });
+        });
+    });
+}
+
+fn render_relay (ui: &mut Ui, relay: &DbRelay, bold: bool) {
+    ui.horizontal(|ui| {
+        let mut rt = RichText::new(&relay.url);
+        if bold { rt = rt.strong(); }
+        ui.label(rt);
+
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+
+            let mut post = relay.post; // checkbox needs a mutable state variable.
+
+            if ui.checkbox(&mut post, "Post Here")
+                .on_hover_text("If selected, posts you create will be sent to this relay. But you have to press [SAVE CHANGES] at the bottom of this page.")
+                .clicked()
+            {
+                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&Url(relay.url.clone())) {
+                    relay.post = post;
+                    relay.dirty = true;
+                }
+            }
+
+            //if ui.button("CONNECT").clicked() {
+            //    ui.label("TBD");
+            //}
         });
     });
 }
