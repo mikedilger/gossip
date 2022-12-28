@@ -3,7 +3,7 @@ mod handle_websocket;
 mod subscription;
 
 use crate::comms::BusMessage;
-use crate::db::{DbPersonRelay, DbRelay};
+use crate::db::DbRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use futures::{SinkExt, StreamExt};
@@ -265,14 +265,24 @@ impl Minion {
 
         // Compute how far to look back
         let (feed_since, special_since) = {
-            // Find the oldest 'last_fetched' among the 'person_relay' table.
-            // Null values will come through as 0.
-            let mut special_since: i64 =
-                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, self.url.inner()).await? as i64;
-
+            // Get related settings
             let (overlap, feed_chunk) = {
                 let settings = GLOBALS.settings.read().await.clone();
                 (settings.overlap, settings.feed_chunk)
+            };
+
+            /*
+            // Find the oldest 'last_fetched' among the 'person_relay' table.
+            // Null values will come through as 0.
+            let mut special_since: i64 =
+                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
+            */
+
+            // Start with where we left off, the time we last got something from
+            // this relay.
+            let mut special_since: i64 = match self.dbrelay.last_success_at {
+                Some(u) => u as i64,
+                None => 0,
             };
 
             // Subtract overlap to avoid gaps due to clock sync and event

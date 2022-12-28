@@ -102,6 +102,7 @@ impl DbPersonRelay {
     }
 
     /// Fetch oldest last_fetched among a set of public keys for a relay
+    #[allow(dead_code)]
     pub async fn fetch_oldest_last_fetched(
         pubkeys: &[PublicKeyHex],
         relay: &str,
