@@ -8,7 +8,7 @@ use crate::globals::{Globals, GLOBALS};
 use crate::settings::Settings;
 use minion::Minion;
 use nostr_types::{
-    Event, EventKind, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url,
+    Event, EventKind, Id, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Unixtime, Url,
 };
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
@@ -483,7 +483,8 @@ impl Overlord {
     }
 
     async fn get_missing_events(&mut self) -> Result<(), Error> {
-        let (desired_events_map, desired_events_vec) = Globals::get_desired_events().await?;
+        let (desired_events_map, orphans): (HashMap<Url, Vec<Id>>, Vec<Id>) =
+            Globals::get_desired_events().await?;
 
         let desired_count = GLOBALS.desired_events.read().await.len();
 
@@ -493,14 +494,14 @@ impl Overlord {
 
         info!("Seeking {} events", desired_count);
 
-        let urls = self.urls_watching.clone();
+        let urls: Vec<Url> = desired_events_map.keys().map(|u| u.to_owned()).collect();
 
         for url in urls.iter() {
             // Get all the ones slated for this relay
             let mut ids = desired_events_map.get(url).cloned().unwrap_or_default();
 
             // Add the orphans
-            ids.extend(&desired_events_vec);
+            ids.extend(&orphans);
 
             if ids.is_empty() {
                 continue;
