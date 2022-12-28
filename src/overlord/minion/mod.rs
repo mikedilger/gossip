@@ -36,14 +36,16 @@ pub struct Minion {
 
 impl Minion {
     pub async fn new(url: Url) -> Result<Minion, Error> {
-        let _ = Url::new_validated(&url)?;
+        if !url.is_valid() {
+            return Err(Error::InvalidUrl(url.inner().to_owned()));
+        }
 
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = match DbRelay::fetch_one(&url).await? {
             Some(dbrelay) => dbrelay,
             None => {
-                let dbrelay = DbRelay::new(url.0.clone())?;
+                let dbrelay = DbRelay::new(url.inner().to_owned())?;
                 DbRelay::insert(dbrelay.clone()).await?;
                 dbrelay
             }
@@ -84,7 +86,7 @@ impl Minion {
 
         // Connect to the relay
         let websocket_stream = {
-            let uri: http::Uri = self.url.0.parse::<Uri>()?;
+            let uri: http::Uri = self.url.inner().parse::<Uri>()?;
             let authority = uri.authority().ok_or(Error::UrlHasNoHostname)?.as_str();
             let host = authority
                 .find('@')
@@ -219,7 +221,7 @@ impl Minion {
                     Err(e) => return Err(e.into())
                 };
                 #[allow(clippy::collapsible_if)]
-                if bus_message.target == self.url.0 {
+                if bus_message.target == self.url.inner() {
                     self.handle_bus_message(bus_message).await?;
                 } else if &*bus_message.target == "all" {
                     if &*bus_message.kind == "shutdown" {
@@ -266,7 +268,7 @@ impl Minion {
             // Find the oldest 'last_fetched' among the 'person_relay' table.
             // Null values will come through as 0.
             let mut special_since: i64 =
-                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
+                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, self.url.inner()).await? as i64;
 
             let (overlap, feed_chunk) = {
                 let settings = GLOBALS.settings.read().await.clone();

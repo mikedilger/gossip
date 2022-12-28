@@ -117,7 +117,7 @@ impl Overlord {
                 .relays
                 .write()
                 .await
-                .insert(Url(relay.url.clone()), relay.clone());
+                .insert(Url::new(&relay.url), relay.clone());
         }
 
         // Load people from the database
@@ -264,12 +264,15 @@ impl Overlord {
     }
 
     async fn start_minion(&mut self, url: String) -> Result<(), Error> {
-        let moved_url = Url(url.clone());
-        let mut minion = Minion::new(moved_url).await?;
+        let url = Url::new(&url);
+        if !url.is_valid() {
+            return Err(Error::InvalidUrl(url.inner().to_owned()));
+        }
+        let mut minion = Minion::new(url.clone()).await?;
         let abort_handle = self.minions.spawn(async move { minion.handle().await });
         let id = abort_handle.id();
-        self.minions_task_url.insert(id, Url(url.clone()));
-        self.urls_watching.push(Url(url.clone()));
+        self.minions_task_url.insert(id, url.clone());
+        self.urls_watching.push(url.clone());
         Ok(())
     }
 
@@ -460,11 +463,8 @@ impl Overlord {
                     for relay in dirty_relays.iter() {
                         // Just update 'post' since that's all 'dirty' indicates currently
                         DbRelay::update_post(relay.url.to_owned(), relay.post).await?;
-                        if let Some(relay) = GLOBALS
-                            .relays
-                            .write()
-                            .await
-                            .get_mut(&Url(relay.url.clone()))
+                        if let Some(relay) =
+                            GLOBALS.relays.write().await.get_mut(&Url::new(&relay.url))
                         {
                             relay.dirty = false;
                         }
@@ -509,14 +509,14 @@ impl Overlord {
             // If we don't have such a minion, start one
             if !self.urls_watching.contains(url) {
                 // Start a minion
-                self.start_minion(url.0.clone()).await?;
+                self.start_minion(url.inner().to_owned()).await?;
             }
 
-            debug!("{}: Asking to fetch {} events", &url.0, ids.len());
+            debug!("{}: Asking to fetch {} events", url.inner(), ids.len());
 
             // Tell it to get these events
             let _ = self.to_minions.send(BusMessage {
-                target: url.0.clone(),
+                target: url.inner().to_owned(),
                 kind: "fetch_events".to_string(),
                 json_payload: serde_json::to_string(&ids).unwrap(),
             });
@@ -572,17 +572,19 @@ impl Overlord {
 
         for relay in relays.iter() {
             // Save relay
-            let relay_url = Url::new_validated(relay)?;
-            let db_relay = DbRelay::new(relay_url.0)?;
-            DbRelay::insert(db_relay).await?;
+            let relay_url = Url::new(relay);
+            if relay_url.is_valid() {
+                let db_relay = DbRelay::new(relay_url.inner().to_owned())?;
+                DbRelay::insert(db_relay).await?;
 
-            // Save person_relay
-            DbPersonRelay::upsert_last_suggested_nip35(
-                (*pubkey).into(),
-                relay.0.clone(),
-                Unixtime::now().unwrap().0 as u64,
-            )
-            .await?;
+                // Save person_relay
+                DbPersonRelay::upsert_last_suggested_nip35(
+                    (*pubkey).into(),
+                    relay.inner().to_owned(),
+                    Unixtime::now().unwrap().0 as u64,
+                )
+                .await?;
+            }
         }
 
         info!("Setup {} relays for {}", relays.len(), &dns_id);
@@ -598,14 +600,17 @@ impl Overlord {
         debug!("Followed {}", &pkhex);
 
         // Save relay
-        let relay_url = Url::new_validated(&relay)?;
+        let relay_url = Url::new(&relay);
+        if !relay_url.is_valid() {
+            return Err(Error::InvalidUrl(relay));
+        }
         let db_relay = DbRelay::new(relay.to_string())?;
         DbRelay::insert(db_relay).await?;
 
         // Save person_relay
         DbPersonRelay::insert(DbPersonRelay {
             person: pkhex.0.clone(),
-            relay: relay_url.0.clone(),
+            relay: relay_url.inner().to_owned(),
             ..Default::default()
         })
         .await?;
@@ -623,14 +628,17 @@ impl Overlord {
         debug!("Followed {}", &pkhex);
 
         // Save relay
-        let relay_url = Url::new_validated(&relay)?;
+        let relay_url = Url::new(&relay);
+        if !relay_url.is_valid() {
+            return Err(Error::InvalidUrl(relay));
+        }
         let db_relay = DbRelay::new(relay.to_string())?;
         DbRelay::insert(db_relay).await?;
 
         // Save person_relay
         DbPersonRelay::insert(DbPersonRelay {
             person: pkhex.0.clone(),
-            relay: relay_url.0.clone(),
+            relay: relay_url.inner().to_owned(),
             ..Default::default()
         })
         .await?;
@@ -672,7 +680,7 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !self.urls_watching.contains(&Url(relay.url.clone())) {
+            if !self.urls_watching.contains(&Url::new(&relay.url)) {
                 self.start_minion(relay.url.clone()).await?;
             }
 

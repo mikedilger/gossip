@@ -17,7 +17,10 @@ pub struct DbRelay {
 
 impl DbRelay {
     pub fn new(url: String) -> Result<DbRelay, Error> {
-        let _ = Url::new_validated(&url)?;
+        let u = Url::new(&url);
+        if !u.is_valid() {
+            return Err(Error::InvalidUrl(u.inner().to_owned()));
+        }
 
         Ok(DbRelay {
             dirty: false,
@@ -79,7 +82,10 @@ impl DbRelay {
     }
 
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
-        let _ = Url::new_validated(&relay.url)?;
+        let url = Url::new(&relay.url);
+        if !url.is_valid() {
+            return Err(Error::InvalidUrl(relay.url.clone()));
+        }
 
         let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank, last_success_at, post) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)";

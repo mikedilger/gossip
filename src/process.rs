@@ -38,13 +38,18 @@ pub async fn process_new_event(
             // Save event_seen data
             let db_event_seen = DbEventSeen {
                 event: event.id.as_hex_string(),
-                relay: url.0.clone(),
+                relay: url.inner().to_owned(),
                 when_seen: now,
             };
             DbEventSeen::replace(db_event_seen).await?;
 
             // Update person_relay.last_fetched
-            DbPersonRelay::upsert_last_fetched(event.pubkey.as_hex_string(), url.0, now).await?;
+            DbPersonRelay::upsert_last_fetched(
+                event.pubkey.as_hex_string(),
+                url.inner().to_owned(),
+                now,
+            )
+            .await?;
         }
     }
 
@@ -80,9 +85,10 @@ pub async fn process_new_event(
                     recommended_relay_url: Some(should_be_url),
                     marker: _,
                 } => {
-                    if let Ok(url) = Url::new_validated(should_be_url) {
+                    let url = Url::new(should_be_url);
+                    if url.is_valid() {
                         // Insert (or ignore) into relays table
-                        let dbrelay = DbRelay::new(url.0.clone())?;
+                        let dbrelay = DbRelay::new(url.inner().to_owned())?;
                         DbRelay::insert(dbrelay).await?;
                     }
                 }
@@ -91,16 +97,17 @@ pub async fn process_new_event(
                     recommended_relay_url: Some(should_be_url),
                     petname: _,
                 } => {
-                    if let Ok(url) = Url::new_validated(should_be_url) {
+                    let url = Url::new(should_be_url);
+                    if url.is_valid() {
                         // Insert (or ignore) into relays table
-                        let dbrelay = DbRelay::new(url.0.clone())?;
+                        let dbrelay = DbRelay::new(url.inner().to_owned())?;
                         DbRelay::insert(dbrelay).await?;
 
                         // upsert person_relay.last_suggested_bytag
                         let now = Unixtime::now()?.0 as u64;
                         DbPersonRelay::upsert_last_suggested_bytag(
                             pubkey.as_hex_string(),
-                            url.0.clone(),
+                            url.inner().to_owned(),
                             now,
                         )
                         .await?;

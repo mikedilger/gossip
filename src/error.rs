@@ -45,6 +45,9 @@ pub enum Error {
     #[error("Invalid URI: {0}")]
     InvalidUri(#[from] http::uri::InvalidUri),
 
+    #[error("Invalid URL: {0}")]
+    InvalidUrl(String),
+
     #[error("Bad integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
 

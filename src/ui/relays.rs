@@ -23,7 +23,11 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
     let mut relays: Vec<DbRelay> = relays.drain().map(|(_, relay)| relay).collect();
     relays.sort_by(|a, b| a.url.cmp(&b.url));
 
-    let postrelays: Vec<DbRelay> = relays.iter().filter(|r| r.post).map(|r| r.to_owned()).collect();
+    let postrelays: Vec<DbRelay> = relays
+        .iter()
+        .filter(|r| r.post)
+        .map(|r| r.to_owned())
+        .collect();
 
     ui.add_space(32.0);
 
@@ -38,7 +42,6 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
         }
 
         ui.with_layout(Layout::top_down(Align::Center), |ui| {
-
             ui.heading("Your Relays (write):");
 
             for relay in postrelays.iter() {
@@ -62,7 +65,7 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
     });
 }
 
-fn render_relay (ui: &mut Ui, relay: &DbRelay, bold: bool) {
+fn render_relay(ui: &mut Ui, relay: &DbRelay, bold: bool) {
     ui.horizontal(|ui| {
         let mut rt = RichText::new(&relay.url);
         if bold { rt = rt.strong(); }
@@ -72,11 +75,12 @@ fn render_relay (ui: &mut Ui, relay: &DbRelay, bold: bool) {
 
             let mut post = relay.post; // checkbox needs a mutable state variable.
 
-            if ui.checkbox(&mut post, "Post Here")
+            let url = Url::new(&relay.url);
+            if url.is_valid() && ui.checkbox(&mut post, "Post Here")
                 .on_hover_text("If selected, posts you create will be sent to this relay. But you have to press [SAVE CHANGES] at the bottom of this page.")
                 .clicked()
             {
-                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&Url(relay.url.clone())) {
+                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&url) {
                     relay.post = post;
                     relay.dirty = true;
                 }

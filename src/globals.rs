@@ -131,8 +131,9 @@ impl Globals {
             .entry(id)
             .and_modify(|urls| {
                 if let Some(ref u) = url {
-                    if let Ok(valid) = Url::new_validated(u) {
-                        urls.push(valid);
+                    let n = Url::new(u);
+                    if n.is_valid() {
+                        urls.push(n);
                     }
                 }
             })
@@ -313,7 +314,10 @@ pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPer
     let pubkeyhex = PublicKeyHex(pubkey.clone());
 
     // Validate the url
-    let _ = Url::new_validated(&relay).map_err(|e| format!("{}", e))?;
+    let u = Url::new(&relay);
+    if !u.is_valid() {
+        return Err(format!("Invalid url: {}", relay));
+    }
 
     // Create or update them
     let person = match DbPerson::fetch_one(pubkeyhex.clone())
