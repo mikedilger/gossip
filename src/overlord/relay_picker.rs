@@ -42,8 +42,20 @@ impl RelayPicker {
         // Keep score
         let mut score: Vec<u64> = [0].repeat(self.relays.len());
 
-        // Count how many keys a relay covers, to use as part of it's score
+        // Count how many needed keys a relay covers, to use as part of it's score
         for person_relay in self.person_relays.iter() {
+            // Do not increase score if person has no more pubkey_counts
+            if let Some(pkc) = self
+                .pubkey_counts
+                .get(&PublicKeyHex(person_relay.person.clone()))
+            {
+                if *pkc == 0 {
+                    continue;
+                }
+            } else {
+                continue; // not even in there.
+            }
+
             let i = match self
                 .relays
                 .iter()
@@ -52,6 +64,7 @@ impl RelayPicker {
                 Some(index) => index,
                 None => continue, // we don't have that relay?
             };
+
             score[i] += 1;
         }
 
