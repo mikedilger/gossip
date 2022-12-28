@@ -68,7 +68,13 @@ impl Minion {
             }
             RelayMessage::Ok(id, ok, ok_message) => {
                 // These don't have to be processed.
-                info!("{}: OK: {:?} {} {}", &self.url, id, ok, ok_message);
+                info!(
+                    "{}: OK: id={} ok={} message=\"{}\"",
+                    &self.url,
+                    id.as_hex_string(),
+                    ok,
+                    ok_message
+                );
             }
         }
 
