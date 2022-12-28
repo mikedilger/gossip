@@ -108,7 +108,7 @@ impl Minion {
             {
                 match response.json::<RelayInformationDocument>().await {
                     Ok(nip11) => {
-                        info!("{}: {:?}", &self.url, &nip11);
+                        info!("{}: {}", &self.url, nip11);
                         self.nip11 = Some(nip11);
                     }
                     Err(e) => {
