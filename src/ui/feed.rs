@@ -171,7 +171,10 @@ fn render_post(
 
                     ui.add_space(10.0);
 
-                    ui.label("(i)").on_hover_ui(|ui| {
+                    if ui.add(CopyButton {}).clicked() {
+                        ui.output().copied_text = event.id.as_hex_string();
+                    }
+                    ui.label("[ID]").on_hover_ui(|ui| {
                         ui.label(&format!("ID: {}", event.id.as_hex_string()));
                     });
                 });

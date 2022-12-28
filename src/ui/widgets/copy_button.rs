@@ -32,8 +32,8 @@ impl CopyButton {
             closed: false,
             fill: Color32::TRANSPARENT,
             stroke: Stroke {
-                width: 1.5,
-                color: Color32::from_rgb(0xb1, 0xa2, 0x96),
+                width: 1.0,
+                color: Color32::from_rgb(0x8d, 0x7f, 0x73),
             },
         }));
 
@@ -63,8 +63,8 @@ impl CopyButton {
             closed: true,
             fill: Color32::TRANSPARENT,
             stroke: Stroke {
-                width: 1.5,
-                color: Color32::from_rgb(0xb1, 0xa2, 0x96),
+                width: 1.0,
+                color: Color32::from_rgb(0x8d, 0x7f, 0x73),
             },
         }));
     }
@@ -88,7 +88,7 @@ impl Widget for CopyButton {
             x: rect.min.x + padding.x + shift,
             y: rect.min.y + padding.y + shift,
         };
-        Self::paint(ui, pos);
+        Self::paint(ui, ui.painter().round_pos_to_pixels(pos));
 
         response
     }
