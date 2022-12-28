@@ -198,4 +198,9 @@ impl GossipUi {
         let hex: PublicKeyHex = (*pubkey).into();
         Self::hex_pubkey_short(&hex)
     }
+
+    pub fn pubkey_long(pubkey: &PublicKey) -> String {
+        let hex: PublicKeyHex = (*pubkey).into();
+        hex.0
+    }
 }

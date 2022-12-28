@@ -160,6 +160,10 @@ fn render_post(
 
                 ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
 
+                if ui.add(CopyButton { }).clicked() {
+                    ui.output().copied_text = GossipUi::pubkey_long(&event.pubkey);
+                }
+
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.label(
                         RichText::new(crate::date_ago::date_ago(event.created_at))
