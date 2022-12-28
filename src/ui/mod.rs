@@ -5,8 +5,8 @@ mod relays;
 mod settings;
 mod stats;
 mod style;
-mod you;
 mod widgets;
+mod you;
 
 use crate::about::About;
 use crate::error::Error;

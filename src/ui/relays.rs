@@ -37,7 +37,6 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
 
         ui.with_layout(Layout::top_down(Align::Center), |ui| {
             ScrollArea::vertical().show(ui, |ui| {
-                ui.label("This is the scroll area top");
                 for relay in relays.iter_mut() {
                     ui.horizontal(|ui| {
                         ui.label(&relay.url);
@@ -65,7 +64,6 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
                     ui.add_space(12.0);
                     ui.separator();
                 }
-                ui.label("This is the scroll area bottom");
             });
         });
     });

@@ -2,11 +2,9 @@ use super::{GossipUi, Page};
 use crate::comms::BusMessage;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
-use eframe::{egui, epaint};
-use egui::{Align, Color32, Context, Layout, Pos2, RichText, ScrollArea, Shape, TextStyle, Ui, Vec2};
-use epaint::{PathShape, Stroke};
+use eframe::egui;
+use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextStyle, Ui, Vec2};
 use nostr_types::{EventKind, Id};
-use tracing::info;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed = Globals::blocking_get_feed(true);
@@ -78,7 +76,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
 fn render_post(
     app: &mut GossipUi,
-    ctx: &Context,
+    _ctx: &Context,
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
     id: Id,
@@ -160,7 +158,7 @@ fn render_post(
 
                 ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
 
-                if ui.add(CopyButton { }).clicked() {
+                if ui.add(CopyButton {}).clicked() {
                     ui.output().copied_text = GossipUi::pubkey_long(&event.pubkey);
                 }
 
@@ -207,7 +205,7 @@ fn render_post(
 
             // Under row
             ui.horizontal(|ui| {
-                if ui.add(CopyButton { }).clicked() {
+                if ui.add(CopyButton {}).clicked() {
                     ui.output().copied_text = event.content.clone();
                 }
             });
@@ -218,8 +216,7 @@ fn render_post(
 
     if app.settings.view_threaded {
         for reply_id in replies {
-            render_post(app, ctx, _frame, ui, reply_id, indent + 1);
+            render_post(app, _ctx, _frame, ui, reply_id, indent + 1);
         }
     }
 }
-
