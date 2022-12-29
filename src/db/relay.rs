@@ -183,7 +183,7 @@ impl DbRelay {
     }
 
     pub async fn populate_new_relays() -> Result<(), Error> {
-        // Get from person_relay list
+        // Get relays from person_relay list
         let sql =
             "INSERT OR IGNORE INTO relay (url, rank) SELECT DISTINCT relay, 3 FROM person_relay";
 
@@ -195,14 +195,39 @@ impl DbRelay {
         })
         .await??;
 
-        // Get from 'e' and 'p' tags
-        let sql =
-            "INSERT OR IGNORE INTO RELAY (url, rank) SELECT DISTINCT field1, 3 FROM event_tag where (label='e' OR label='p') and field1 like 'ws%://%'";
-
-        spawn_blocking(move || {
+        // Select relays from 'e' and 'p' event tags
+        let sql = "SELECT DISTINCT field1 FROM event_tag where (label='e' OR label='p')";
+        let maybe_urls: Vec<String> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
-            db.execute(sql, [])?;
+            let mut stmt = db.prepare(sql)?;
+            let mut rows = stmt.query([])?;
+            let mut maybe_urls: Vec<String> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let maybe_string: Option<String> = row.get(0)?;
+                if let Some(string) = maybe_string {
+                    maybe_urls.push(string);
+                }
+            }
+            Ok::<Vec<String>, Error>(maybe_urls)
+        })
+        .await??;
+
+        // Convert into Urls
+        let urls: Vec<Url> = maybe_urls
+            .iter()
+            .map(|s| Url::new(s))
+            .filter(|r| r.is_valid())
+            .collect();
+
+        // FIXME this is a lot of separate sql calls
+        spawn_blocking(move || {
+            let sql = "INSERT OR IGNORE INTO RELAY (url, rank) VALUES (?, 3)";
+            for url in urls {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                db.execute(sql, [&url.inner()])?;
+            }
             Ok::<(), Error>(())
         })
         .await??;
