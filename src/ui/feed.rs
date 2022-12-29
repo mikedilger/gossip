@@ -1,10 +1,11 @@
 use super::{GossipUi, Page};
 use crate::comms::BusMessage;
 use crate::globals::{Globals, GLOBALS};
-use crate::ui::widgets::CopyButton;
+use crate::ui::widgets::{CopyButton, ReplyButton};
 use eframe::egui;
-use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, Ui, Vec2};
+use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, Ui, Vec2};
 use nostr_types::{EventKind, Id};
+use tracing::debug;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed = GLOBALS.feed.blocking_lock().get();
@@ -16,48 +17,86 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         GLOBALS.desired_events.blocking_read().len()
     };
 
-    ui.horizontal(|ui| {
+    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+        ui.with_layout(Layout::top_down(Align::Max), |ui| {
+            if ui
+                .button(&format!("Get {} missing events", desired_count))
+                .clicked()
+            {
+                let tx = GLOBALS.to_overlord.clone();
+                let _ = tx.send(BusMessage {
+                    target: "overlord".to_string(),
+                    kind: "get_missing_events".to_string(),
+                    json_payload: serde_json::to_string("").unwrap(),
+                });
+            }
+        });
+    });
+
+    ui.vertical(|ui| {
         if !GLOBALS.signer.blocking_read().is_ready() {
             ui.horizontal(|ui| {
                 ui.label("You need to ");
                 if ui.link("setup your identity").clicked() {
                     app.page = Page::You;
                 }
+                ui.label(" to post.");
             });
         } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
             ui.horizontal(|ui| {
                 ui.label("You need to ");
-                if ui.link("choose relays to post to").clicked() {
+                if ui.link("choose relays").clicked() {
                     app.page = Page::Relays;
                 }
+                ui.label(" to post.");
             });
         } else {
-            ui.text_edit_multiline(&mut app.draft);
-
-            if ui.button("Send").clicked() && !app.draft.is_empty() {
-                let tx = GLOBALS.to_overlord.clone();
-                let _ = tx.send(BusMessage {
-                    target: "overlord".to_string(),
-                    kind: "post_textnote".to_string(),
-                    json_payload: serde_json::to_string(&app.draft).unwrap(),
-                });
-                app.draft = "".to_owned();
+            if let Some(id) = app.replying_to {
+                render_post(app, ctx, frame, ui, id, 0, true);
             }
-        }
 
-        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-            ui.with_layout(Layout::top_down(Align::Max), |ui| {
-                if ui.button(&format!("Get {} missing events", desired_count)).clicked() {
+            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                if ui.button("Send").clicked() && !app.draft.is_empty() {
                     let tx = GLOBALS.to_overlord.clone();
-                    let _ = tx.send(BusMessage {
-                        target: "overlord".to_string(),
-                        kind: "get_missing_events".to_string(),
-                        json_payload: serde_json::to_string("").unwrap(),
-                    });
+                    match app.replying_to {
+                        Some(_id) => {
+                            let _ = tx.send(BusMessage {
+                                target: "overlord".to_string(),
+                                kind: "post_reply".to_string(),
+                                json_payload: serde_json::to_string(&(
+                                    &app.draft,
+                                    &app.replying_to,
+                                ))
+                                .unwrap(),
+                            });
+                        }
+                        None => {
+                            let _ = tx.send(BusMessage {
+                                target: "overlord".to_string(),
+                                kind: "post_textnote".to_string(),
+                                json_payload: serde_json::to_string(&app.draft).unwrap(),
+                            });
+                        }
+                    }
+                    app.draft = "".to_owned();
+                    app.replying_to = None;
                 }
+                if ui.button("Cancel").clicked() {
+                    app.draft = "".to_owned();
+                    app.replying_to = None;
+                }
+
+                ui.add(
+                    TextEdit::multiline(&mut app.draft)
+                        .hint_text("Type your message here")
+                        .desired_width(f32::INFINITY)
+                        .lock_focus(true),
+                );
             });
-        });
+        }
     });
+
+    ui.separator();
 
     ScrollArea::vertical().show(ui, |ui| {
         for id in feed.iter() {
@@ -68,7 +107,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             //    break;
             //}
 
-            render_post(app, ctx, frame, ui, *id, 0);
+            render_post(app, ctx, frame, ui, *id, 0, false);
         }
     });
 }
@@ -80,6 +119,7 @@ fn render_post(
     ui: &mut Ui,
     id: Id,
     indent: usize,
+    as_reply_to: bool,
 ) {
     let maybe_event = GLOBALS.events.blocking_read().get(&id).cloned();
     if maybe_event.is_none() {
@@ -203,19 +243,27 @@ fn render_post(
             ui.label(&event.content);
 
             // Under row
-            ui.horizontal(|ui| {
-                if ui.add(CopyButton {}).clicked() {
-                    ui.output().copied_text = event.content.clone();
-                }
-            });
+            if !as_reply_to {
+                ui.horizontal(|ui| {
+                    if ui.add(CopyButton {}).clicked() {
+                        ui.output().copied_text = event.content.clone();
+                    }
+
+                    ui.add_space(24.0);
+
+                    if ui.add(ReplyButton {}).clicked() {
+                        app.replying_to = Some(event.id);
+                    }
+                });
+            }
         });
     });
 
     ui.separator();
 
-    if app.settings.view_threaded {
+    if app.settings.view_threaded && !as_reply_to {
         for reply_id in replies {
-            render_post(app, _ctx, _frame, ui, reply_id, indent + 1);
+            render_post(app, _ctx, _frame, ui, reply_id, indent + 1, as_reply_to);
         }
     }
 }

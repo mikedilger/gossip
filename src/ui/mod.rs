@@ -14,7 +14,7 @@ use crate::globals::GLOBALS;
 use crate::settings::Settings;
 use eframe::{egui, IconData, Theme};
 use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
-use nostr_types::{PublicKey, PublicKeyHex};
+use nostr_types::{Id, PublicKey, PublicKeyHex};
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
@@ -74,6 +74,7 @@ struct GossipUi {
     password: String,
     import_bech32: String,
     import_hex: String,
+    replying_to: Option<Id>,
 }
 
 impl Drop for GossipUi {
@@ -139,6 +140,7 @@ impl GossipUi {
             password: "".to_owned(),
             import_bech32: "".to_owned(),
             import_hex: "".to_owned(),
+            replying_to: None,
         }
     }
 }
