@@ -15,17 +15,35 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         Globals::trim_desired_events_sync();
         GLOBALS.desired_events.blocking_read().len()
     };
+    let incoming_count = GLOBALS.incoming_events.blocking_read().len();
 
     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
         ui.with_layout(Layout::top_down(Align::Max), |ui| {
             if ui
-                .button(&format!("Get {} missing events", desired_count))
+                .button(&format!(
+                    "Query relays for {} missing events",
+                    desired_count
+                ))
                 .clicked()
             {
                 let tx = GLOBALS.to_overlord.clone();
                 let _ = tx.send(BusMessage {
                     target: "overlord".to_string(),
                     kind: "get_missing_events".to_string(),
+                    json_payload: serde_json::to_string("").unwrap(),
+                });
+            }
+        });
+
+        ui.with_layout(Layout::top_down(Align::Max), |ui| {
+            if ui
+                .button(&format!("Process {} incoming events", incoming_count))
+                .clicked()
+            {
+                let tx = GLOBALS.to_overlord.clone();
+                let _ = tx.send(BusMessage {
+                    target: "overlord".to_string(),
+                    kind: "process_incoming_events".to_string(),
                     json_payload: serde_json::to_string("").unwrap(),
                 });
             }

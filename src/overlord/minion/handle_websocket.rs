@@ -1,4 +1,5 @@
 use super::Minion;
+use crate::globals::GLOBALS;
 use crate::Error;
 use futures::SinkExt;
 use nostr_types::{RelayMessage, Unixtime};
@@ -31,7 +32,11 @@ impl Minion {
                         .unwrap_or_else(|| "_".to_owned());
                     debug!("{}: {}: NEW EVENT", &self.url, handle);
 
-                    crate::process::process_new_event(&event, true, Some(self.url.clone())).await?;
+                    GLOBALS
+                        .incoming_events
+                        .write()
+                        .await
+                        .push((*event, self.url.clone()));
                 }
             }
             RelayMessage::Notice(msg) => {

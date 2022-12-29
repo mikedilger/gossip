@@ -33,6 +33,9 @@ pub struct Globals {
     /// All nostr events, keyed by the event Id
     pub events: RwLock<HashMap<Id, Event>>,
 
+    /// Events coming in from relays that are not processed yet
+    pub incoming_events: RwLock<Vec<(Event, Url)>>,
+
     /// All relationships between events
     pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
 
@@ -82,6 +85,7 @@ lazy_static! {
             to_overlord,
             from_minions: Mutex::new(Some(from_minions)),
             events: RwLock::new(HashMap::new()),
+            incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             last_reply: RwLock::new(HashMap::new()),
             desired_events: RwLock::new(HashMap::new()),

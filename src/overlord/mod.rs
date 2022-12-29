@@ -470,6 +470,11 @@ impl Overlord {
                         serde_json::from_str(&bus_message.json_payload)?;
                     self.post_reply(content, reply_to).await?;
                 }
+                "process_incoming_events" => {
+                    for (event, url) in GLOBALS.incoming_events.write().await.drain(..) {
+                        crate::process::process_new_event(&event, true, Some(url)).await?;
+                    }
+                }
                 _ => {}
             },
             _ => {}
