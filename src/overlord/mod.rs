@@ -471,9 +471,11 @@ impl Overlord {
                     self.post_reply(content, reply_to).await?;
                 }
                 "process_incoming_events" => {
-                    for (event, url) in GLOBALS.incoming_events.write().await.drain(..) {
-                        crate::process::process_new_event(&event, true, Some(url)).await?;
-                    }
+                    let _ = tokio::spawn(async move {
+                        for (event, url) in GLOBALS.incoming_events.write().await.drain(..) {
+                            let _ = crate::process::process_new_event(&event, true, Some(url)).await;
+                        }
+                    });
                 }
                 _ => {}
             },
