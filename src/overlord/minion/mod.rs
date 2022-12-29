@@ -289,6 +289,11 @@ impl Minion {
             // propogation delay
             special_since -= overlap as i64;
 
+            // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:a
+            if special_since < 1577836800 {
+                special_since = 1577836800;
+            }
+
             // For feed related events, don't look back more than one feed_chunk ago
             let one_feedchunk_ago = Unixtime::now().unwrap().0 - feed_chunk as i64;
             let feed_since = special_since.max(one_feedchunk_ago);
