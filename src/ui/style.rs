@@ -84,7 +84,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Small,
         FontId {
-            size: 13.0,
+            size: 12.5,
             family: FontFamily::Proportional,
         },
     );

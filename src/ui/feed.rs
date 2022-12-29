@@ -3,7 +3,7 @@ use crate::comms::BusMessage;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::{CopyButton, ReplyButton};
 use eframe::egui;
-use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, Ui, Vec2};
+use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, TextStyle, Ui, Vec2};
 use nostr_types::{EventKind, Id};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -191,13 +191,14 @@ fn render_post(
                 if let Some(person) = maybe_person {
                     if let Some(name) = &person.name {
                         ui.label(RichText::new(name).strong());
+                    } else {
+                        ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
                     }
                 }
 
-                ui.separator();
+                ui.add_space(8.0);
 
-                ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
-
+                ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
                 if ui.add(CopyButton {}).clicked() {
                     ui.output().copied_text = GossipUi::pubkey_long(&event.pubkey);
                 }
