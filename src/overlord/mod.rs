@@ -473,7 +473,8 @@ impl Overlord {
                 "process_incoming_events" => {
                     let _ = tokio::spawn(async move {
                         for (event, url) in GLOBALS.incoming_events.write().await.drain(..) {
-                            let _ = crate::process::process_new_event(&event, true, Some(url)).await;
+                            let _ =
+                                crate::process::process_new_event(&event, true, Some(url)).await;
                         }
                     });
                 }
