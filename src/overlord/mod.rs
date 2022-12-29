@@ -5,7 +5,6 @@ use crate::comms::BusMessage;
 use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
-use crate::settings::Settings;
 use minion::Minion;
 use nostr_types::{
     Event, EventKind, Id, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
@@ -360,15 +359,7 @@ impl Overlord {
             "overlord" => match &*bus_message.kind {
                 "minion_is_ready" => {}
                 "save_settings" => {
-                    // from ui
-                    let settings: Settings = serde_json::from_str(&bus_message.json_payload)?;
-
-                    // Save to database
-                    settings.save().await?; // to database
-
-                    // Update in globals
-                    *GLOBALS.settings.write().await = settings;
-
+                    GLOBALS.settings.read().await.save().await?;
                     debug!("Settings saved.");
                 }
                 "get_missing_events" => {

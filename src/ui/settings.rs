@@ -130,11 +130,15 @@ pub(super) fn update(
 
     ui.with_layout(Layout::top_down(Align::Center), |ui| {
         if ui.button("SAVE CHANGES").clicked() {
+            // Copy local settings to global settings
+            *GLOBALS.settings.blocking_write() = app.settings.clone();
+
+            // Tell the overlord to save them
             let tx = GLOBALS.to_overlord.clone();
             let _ = tx.send(BusMessage {
                 target: "overlord".to_string(),
                 kind: "save_settings".to_string(),
-                json_payload: serde_json::to_string(&app.settings).unwrap(),
+                json_payload: serde_json::to_string("").unwrap(),
             });
         }
     });

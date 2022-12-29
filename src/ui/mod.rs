@@ -147,9 +147,11 @@ impl GossipUi {
 
 impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        let max_fps = GLOBALS.settings.blocking_read().max_fps as f32;
+
         // Wait until the next frame
         std::thread::sleep(self.next_frame - Instant::now());
-        self.next_frame += Duration::from_secs_f32(1.0 / self.settings.max_fps as f32);
+        self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
 
         // Redraw at least once per second
         ctx.request_repaint_after(Duration::from_secs(1));

@@ -5,7 +5,6 @@ use crate::ui::widgets::{CopyButton, ReplyButton};
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, Ui, Vec2};
 use nostr_types::{EventKind, Id};
-use tracing::debug;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed = GLOBALS.feed.blocking_lock().get();
@@ -170,9 +169,11 @@ fn render_post(
 
     // Try LayoutJob
 
+    let threaded = GLOBALS.settings.blocking_read().view_threaded;
+
     ui.horizontal(|ui| {
         // Indents first (if threaded)
-        if app.settings.view_threaded {
+        if threaded {
             let space = 16.0 * (10.0 - (100.0 / (indent as f32 + 10.0)));
             ui.add_space(space);
             if indent > 0 {
@@ -261,7 +262,7 @@ fn render_post(
 
     ui.separator();
 
-    if app.settings.view_threaded && !as_reply_to {
+    if threaded && !as_reply_to {
         for reply_id in replies {
             render_post(app, _ctx, _frame, ui, reply_id, indent + 1, as_reply_to);
         }
