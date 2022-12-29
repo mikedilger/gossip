@@ -14,9 +14,10 @@ pub(super) fn update(
 ) {
     ui.heading("Settings");
 
+    ui.add_space(12.0);
     ui.separator();
+    ui.add_space(12.0);
 
-    ui.add_space(24.0);
     ui.heading("How Many Relays to Query");
 
     ui.horizontal(|ui| {
@@ -32,7 +33,10 @@ pub(super) fn update(
         ui.add(Slider::new(&mut app.settings.max_relays, 1..=30).text("relays"));
     });
 
-    ui.add_space(24.0);
+    ui.add_space(12.0);
+    ui.separator();
+    ui.add_space(12.0);
+
     ui.heading("How Many Posts to Load");
 
     ui.horizontal(|ui| {
@@ -47,13 +51,28 @@ pub(super) fn update(
         ui.label(secs_to_string(app.settings.overlap));
     });
 
-    ui.add_space(24.0);
-    ui.heading("Feed Style / Order");
+    ui.add_space(12.0);
+    ui.separator();
+    ui.add_space(12.0);
+
+    ui.heading("Feed");
 
     ui.checkbox(&mut app.settings.view_threaded, "Threaded feed")
         .on_hover_text("If selected, replies are under what they reply to and the newest replied-to thread comes first. Otherwise all posts are independent and in time order.");
 
     ui.add_space(24.0);
+    ui.horizontal(|ui| {
+        ui.label("Recompute feed every (milliseconds): ")
+            .on_hover_text(
+                "The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes.",
+            );
+        ui.add(Slider::new(&mut app.settings.feed_recompute_interval_ms, 250..=5000).text("milliseconds"));
+    });
+
+    ui.add_space(12.0);
+    ui.separator();
+    ui.add_space(12.0);
+
     ui.heading("What Posts to Include");
 
     ui.checkbox(
@@ -67,16 +86,10 @@ pub(super) fn update(
     ui.checkbox(&mut app.settings.view_posts_referring_to, "View posts referring to posts by people you follow (not yet implemented)")
         .on_hover_text("Not recommended, as anyone can reply to them and you'll certainly encounter spam this way.");
 
-    ui.add_space(24.0);
-    ui.heading("Miscellaneous");
+    ui.add_space(12.0);
+    ui.separator();
+    ui.add_space(12.0);
 
-    ui.checkbox(
-        &mut app.settings.autofollow,
-        "Autofollow everybody (not yet implemented)",
-    )
-    .on_hover_text("Definately not recommended. In fact we may remove this soon.");
-
-    ui.add_space(24.0);
     ui.heading("User Interface");
 
     ui.horizontal(|ui| {
@@ -102,7 +115,7 @@ pub(super) fn update(
         }
     });
 
-    ui.add_space(24.0);
+    ui.add_space(12.0);
     ui.horizontal(|ui| {
         ui.label("Maximum FPS: ")
             .on_hover_text(
@@ -111,7 +124,10 @@ pub(super) fn update(
         ui.add(Slider::new(&mut app.settings.max_fps, 10..=60).text("Frames per second"));
     });
 
-    ui.add_space(32.0);
+    ui.add_space(12.0);
+    ui.separator();
+    ui.add_space(24.0);
+
     ui.with_layout(Layout::top_down(Align::Center), |ui| {
         if ui.button("SAVE CHANGES").clicked() {
             let tx = GLOBALS.to_overlord.clone();

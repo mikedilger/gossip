@@ -7,7 +7,7 @@ use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, Ui, Vec2};
 use nostr_types::{EventKind, Id};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    let feed = Globals::blocking_get_feed(true);
+    let feed = GLOBALS.feed.blocking_lock().get();
 
     //let screen_rect = ctx.input().screen_rect; // Rect
 

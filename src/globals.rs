@@ -1,11 +1,12 @@
 use crate::comms::BusMessage;
 use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
+use crate::feed::Feed;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
 use async_recursion::async_recursion;
-use nostr_types::{Event, EventKind, Id, IdHex, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Event, Id, IdHex, PublicKey, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
@@ -62,6 +63,9 @@ pub struct Globals {
 
     /// Dismissed Events
     pub dismissed: RwLock<Vec<Id>>,
+
+    /// Feed
+    pub feed: Mutex<Feed>,
 }
 
 lazy_static! {
@@ -88,48 +92,12 @@ lazy_static! {
             settings: RwLock::new(Settings::default()),
             signer: RwLock::new(Signer::default()),
             dismissed: RwLock::new(Vec::new()),
+            feed: Mutex::new(Feed::new()),
         }
     };
 }
 
 impl Globals {
-    pub fn blocking_get_feed(threaded: bool) -> Vec<Id> {
-        let feed: Vec<Event> = GLOBALS
-            .events
-            .blocking_read()
-            .iter()
-            .map(|(_, e)| e)
-            .filter(|e| e.kind == EventKind::TextNote)
-            .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
-            .filter(|e| {
-                if threaded {
-                    e.replies_to().is_none()
-                } else {
-                    true
-                }
-            })
-            .cloned()
-            .collect();
-
-        Self::sort_feed(feed, threaded)
-    }
-
-    fn sort_feed(mut feed: Vec<Event>, threaded: bool) -> Vec<Id> {
-        if threaded {
-            feed.sort_unstable_by(|a, b| {
-                let a_last = GLOBALS.last_reply.blocking_read().get(&a.id).cloned();
-                let b_last = GLOBALS.last_reply.blocking_read().get(&b.id).cloned();
-                let a_time = a_last.unwrap_or(a.created_at);
-                let b_time = b_last.unwrap_or(b.created_at);
-                b_time.cmp(&a_time)
-            });
-        } else {
-            feed.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
-        }
-
-        feed.iter().map(|e| e.id).collect()
-    }
-
     pub async fn store_desired_event(id: Id, url: Option<Url>) {
         let mut desired_events = GLOBALS.desired_events.write().await;
         desired_events

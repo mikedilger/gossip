@@ -13,6 +13,7 @@ pub const DEFAULT_VIEW_THREADED: bool = true;
 pub const DEFAULT_NUM_RELAYS_PER_PERSON: u8 = 2;
 pub const DEFAULT_MAX_RELAYS: u8 = 15;
 pub const DEFAULT_MAX_FPS: u32 = 60;
+pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 1000;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
@@ -27,6 +28,7 @@ pub struct Settings {
     pub public_key: Option<PublicKey>,
     pub encrypted_private_key: Option<EncryptedPrivateKey>,
     pub max_fps: u32,
+    pub feed_recompute_interval_ms: u32,
 }
 
 impl Default for Settings {
@@ -43,6 +45,7 @@ impl Default for Settings {
             public_key: None,
             encrypted_private_key: None,
             max_fps: DEFAULT_MAX_FPS,
+            feed_recompute_interval_ms: DEFAULT_FEED_RECOMPUTE_INTERVAL_MS,
         }
     }
 }
@@ -93,6 +96,12 @@ impl Settings {
                     }
                 }
                 "max_fps" => settings.max_fps = row.1.parse::<u32>().unwrap_or(DEFAULT_MAX_FPS),
+                "feed_recompute_interval_ms" => {
+                    settings.feed_recompute_interval_ms = row
+                        .1
+                        .parse::<u32>()
+                        .unwrap_or(DEFAULT_FEED_RECOMPUTE_INTERVAL_MS)
+                }
                 _ => {}
             }
         }
@@ -109,7 +118,7 @@ impl Settings {
                                    ('feed_chunk', ?),('overlap', ?),('autofollow', ?),\
                                    ('view_posts_referred_to', ?),('view_posts_referring_to', ?),\
                                    ('view_threaded', ?),('num_relays_per_person', ?), \
-                                   ('max_relays', ?),('max_fps', ?)",
+                                   ('max_relays', ?),('max_fps', ?),('feed_recompute_interval_ms', ?)",
         )?;
         stmt.execute((
             self.feed_chunk,
@@ -129,6 +138,7 @@ impl Settings {
             self.num_relays_per_person,
             self.max_relays,
             self.max_fps,
+            self.feed_recompute_interval_ms,
         ))?;
 
         // Save private key identity
