@@ -90,6 +90,18 @@ pub(super) fn update(
     ui.separator();
     ui.add_space(12.0);
 
+    ui.heading("Posting");
+
+    ui.horizontal(|ui| {
+        ui.label("Proof of Work: ")
+            .on_hover_text("The larger the number, the longer it takes.");
+        ui.add(Slider::new(&mut app.settings.pow, 0..=40).text("leading zeroes"));
+    });
+
+    ui.add_space(12.0);
+    ui.separator();
+    ui.add_space(12.0);
+
     ui.heading("User Interface");
 
     ui.horizontal(|ui| {

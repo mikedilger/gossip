@@ -58,9 +58,12 @@ impl Signer {
     }
 
     #[allow(dead_code)]
-    pub fn sign_preevent(&self, preevent: PreEvent) -> Result<Event, Error> {
+    pub fn sign_preevent(&self, preevent: PreEvent, pow: Option<u8>) -> Result<Event, Error> {
         match self {
-            Signer::Ready(pk) => Ok(Event::new(preevent, pk)?),
+            Signer::Ready(pk) => match pow {
+                Some(pow) => Ok(Event::new_with_pow(preevent, pk, pow)?),
+                None => Ok(Event::new(preevent, pk)?),
+            },
             _ => Err(Error::NoPrivateKey),
         }
     }

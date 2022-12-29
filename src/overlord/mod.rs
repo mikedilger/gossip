@@ -668,7 +668,9 @@ impl Overlord {
                 ots: None,
             };
 
-            GLOBALS.signer.read().await.sign_preevent(pre_event)?
+            let powint = GLOBALS.settings.read().await.pow;
+            let pow = if powint > 0 { Some(powint) } else { None };
+            GLOBALS.signer.read().await.sign_preevent(pre_event, pow)?
         };
 
         let relays: Vec<DbRelay> = GLOBALS
@@ -724,7 +726,9 @@ impl Overlord {
                 ots: None,
             };
 
-            GLOBALS.signer.read().await.sign_preevent(pre_event)?
+            let powint = GLOBALS.settings.read().await.pow;
+            let pow = if powint > 0 { Some(powint) } else { None };
+            GLOBALS.signer.read().await.sign_preevent(pre_event, pow)?
         };
 
         let relays: Vec<DbRelay> = GLOBALS
