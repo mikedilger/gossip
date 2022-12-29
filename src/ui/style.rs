@@ -84,7 +84,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Small,
         FontId {
-            size: 12.0,
+            size: 13.0,
             family: FontFamily::Proportional,
         },
     );
@@ -92,7 +92,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Body,
         FontId {
-            size: 14.0,
+            size: 15.0,
             family: FontFamily::Proportional,
         },
     );
@@ -100,7 +100,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Monospace,
         FontId {
-            size: 14.0,
+            size: 15.0,
             family: FontFamily::Monospace,
         },
     );
@@ -108,7 +108,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Button,
         FontId {
-            size: 15.0,
+            size: 16.0,
             family: FontFamily::Proportional,
         },
     );
@@ -116,7 +116,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Heading,
         FontId {
-            size: 16.0,
+            size: 17.0,
             family: FontFamily::Proportional,
         },
     );
