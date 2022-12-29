@@ -8,15 +8,27 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 ## Status
 
-Gossip is currently early alpha-quality code. But it is just beginning to be useful. As of this writing you can follow people and see the feed, and most everything else is pretty sketchy. Even the content of the feed is still a bit sketchy. And the look-and-feel is still horrendous.
+Gossip is currently early alpha-quality code. As of right now you can (if you aren't stopped by some bug):
 
-But please give it a try. It is improving quickly.
+- [x] Follow people by user@domain (NIP-35) or by public key (hex or bech32) plus a relay where they can be found.
+- [x] See the feed of posts by those people, threaded or not, including reactions. But it's ugly and not very complete.
+- [x] User-control of when to search for missing events (referred to by events you have), and a display of how many are missing.
+- [x] Generate or import (hex or bech32) a private key (your identity) and it is kept by the client encrypted under a password that you need to unlock it every time you start the client.
+- [x] Choose relays to post to (from among the relays that the client has seen -- it doesn't yet allow you to enter one)
+- [x] Post root-level text messages (but not in reply to, nor reactions)
 
-## Features
+## Development Ideology
 
-- Portable design intended for the desktop: This is intended to run on desktop computers, but not limited as such. The UI will run on anything that runs one of these backends: OpenGL (glium, glow), OpenGL ES (glow, wgpu), WebGL (glow), Vulkan (wgpu), Metal (wgpu), DirectX 11/12 (wgpu), Browsers (WebAssembly). The platform must be supported by rust (most are), and SQLite3 needs to store its file somewhere.
-- High-enough performance: the network speed should be your limiting factor on performance, not the UI or any other part of the code. It doesn't matter how fast the code runs as long as it is always faster than the network, and I think that's definitely true for gossip.
-- High user control: the plan is for the user to be in control of quite a lot of settings regarding which posts they see, which relays to talk to, and when to fetch from them, but with some sane defaults so you don't have to change anything.
+- **Portable** design intended for the **desktop**: This is intended to run on desktop computers, but not limited as such. The platform must be supported by rust (most are), and SQLite3 needs to store its file somewhere. The UI will run on anything that runs one of these backends:
+    - OpenGL (via glium or glow)
+    - OpenGL ES (via glow or wgpu)
+    - WebGL (via glow)
+    - Vulkan (via wgpu)
+    - Metal (via wgpu)
+    - DirectX 11/12 (via wgpu)
+    - Browsers (via WebAssembly)
+- **High-enough performance**: the network speed should be your limiting factor on performance, not the UI or any other part of the code. It doesn't matter how fast the code runs as long as it is always faster than the network, and I think that's definitely true for gossip.
+- **High user control**: the plan is for the user to be in control of quite a lot of settings regarding which posts they see, which relays to talk to, and when to fetch from them, but with some sane defaults so you don't have to change anything.
 
 ### nostr features supported
 
@@ -34,13 +46,13 @@ We intend to support the following features/NIPs:
 - [ ] NIP-14 - Subject tag in text events (partial)
 - [x] NIP-15 - End of Stored Events Notice
 - [ ] NIP-16 - Event Treatment
-- [ ] NIP-19 - bech32-encoded entities (partial)
+- [ ] NIP-19 - bech32-encoded entities (keys, not elsewise)
 - [x] NIP-20 - Command Results
 - [ ] NIP-22 - Event created_at Limits
-- [x] NIP-25 - Reactions
+- [ ] NIP-25 - Reactions (viewing, not yet creating)
 - [ ] NIP-26 - Delegated Event Signing
 - [ ] NIP-28 - Public Chat
-- [ ] NIP-35 - User Discovery
+- [x] NIP-35 - User Discovery
 - [ ] NIP-36 - Sensitive Content
 - [ ] NIP-40 - Expiration Timestamp
 
