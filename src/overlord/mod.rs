@@ -494,7 +494,11 @@ impl Overlord {
 
         info!("Seeking {} events", desired_count);
 
-        let urls: Vec<Url> = desired_events_map.keys().map(|u| u.to_owned()).filter(|u| u.is_valid()).collect();
+        let urls: Vec<Url> = desired_events_map
+            .keys()
+            .map(|u| u.to_owned())
+            .filter(|u| u.is_valid())
+            .collect();
 
         for url in urls.iter() {
             // Get all the ones slated for this relay

@@ -163,20 +163,20 @@ fn render_post(
                 }
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                    ui.menu_button(RichText::new("≡").size(28.0), |ui| {
+                        if ui.button("Copy ID").clicked() {
+                            ui.output().copied_text = event.id.as_hex_string();
+                        }
+                        if ui.button("Dismiss").clicked() {
+                            GLOBALS.dismissed.blocking_write().push(event.id);
+                        }
+                    });
+
                     ui.label(
                         RichText::new(crate::date_ago::date_ago(event.created_at))
                             .italics()
                             .weak(),
                     );
-
-                    ui.add_space(10.0);
-
-                    if ui.add(CopyButton {}).clicked() {
-                        ui.output().copied_text = event.id.as_hex_string();
-                    }
-                    ui.label("[ID]").on_hover_ui(|ui| {
-                        ui.label(&format!("ID: {}", event.id.as_hex_string()));
-                    });
                 });
             });
 

@@ -59,6 +59,9 @@ pub struct Globals {
 
     /// Signer
     pub signer: RwLock<Signer>,
+
+    /// Dismissed Events
+    pub dismissed: RwLock<Vec<Id>>,
 }
 
 lazy_static! {
@@ -84,6 +87,7 @@ lazy_static! {
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
             signer: RwLock::new(Signer::default()),
+            dismissed: RwLock::new(Vec::new()),
         }
     };
 }
@@ -96,6 +100,7 @@ impl Globals {
             .iter()
             .map(|(_, e)| e)
             .filter(|e| e.kind == EventKind::TextNote)
+            .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
             .filter(|e| {
                 if threaded {
                     e.replies_to().is_none()
@@ -274,7 +279,7 @@ impl Globals {
 
     // FIXME - this allows people to react many times to the same event, and
     //         it counts them all!
-    pub fn get_reactions_sync(id: Id) -> HashMap<char, usize> {
+    pub fn get_reactions_sync(id: Id) -> Vec<(char, usize)> {
         let mut output: HashMap<char, usize> = HashMap::new();
 
         if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id).cloned() {
@@ -295,7 +300,9 @@ impl Globals {
             }
         }
 
-        output
+        let mut v: Vec<(char, usize)> = output.iter().map(|(c, u)| (*c, *u)).collect();
+        v.sort();
+        v
     }
 }
 
