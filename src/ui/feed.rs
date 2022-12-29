@@ -217,6 +217,14 @@ fn render_post(
                     } else {
                         ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
                     }
+
+                    if let Some(dns_id) = &person.dns_id {
+                        if person.dns_id_valid > 0 {
+                            ui.label(RichText::new(dns_id).monospace().small());
+                        } else {
+                            ui.label(RichText::new(dns_id).monospace().small().strikethrough());
+                        }
+                    }
                 }
 
                 ui.add_space(8.0);
