@@ -12,8 +12,8 @@ pub const DEFAULT_VIEW_POSTS_REFERRING_TO: bool = false;
 pub const DEFAULT_VIEW_THREADED: bool = true;
 pub const DEFAULT_NUM_RELAYS_PER_PERSON: u8 = 2;
 pub const DEFAULT_MAX_RELAYS: u8 = 15;
-pub const DEFAULT_MAX_FPS: u32 = 60;
-pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 1000;
+pub const DEFAULT_MAX_FPS: u32 = 30;
+pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 2000;
 pub const DEFAULT_POW: u8 = 0;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
