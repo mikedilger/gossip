@@ -3,7 +3,7 @@ use crate::comms::BusMessage;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::{CopyButton, ReplyButton};
 use eframe::egui;
-use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, TextStyle, Ui, Vec2};
+use egui::{Align, Color32, Context, Frame, Layout, RichText, ScrollArea, TextEdit, TextStyle, Ui, Vec2};
 use nostr_types::{EventKind, Id};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -116,16 +116,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.separator();
 
     ScrollArea::vertical().show(ui, |ui| {
-        for id in feed.iter() {
-            // Stop rendering at the bottom of the window:
-            // (This confuses the scrollbar a bit, so I'm taking it out for now)
-            //let pos2 = ui.next_widget_position();
-            //if pos2.y > screen_rect.max.y {
-            //    break;
-            //}
 
-            render_post(app, ctx, frame, ui, *id, 0, false);
-        }
+        let bgcolor = if ctx.style().visuals.dark_mode { Color32::BLACK } else { Color32::WHITE };
+        Frame::none().fill(bgcolor)
+            .show(ui, |ui| {
+                for id in feed.iter() {
+                    // Stop rendering at the bottom of the window:
+                    // (This confuses the scrollbar a bit, so I'm taking it out for now)
+                    //let pos2 = ui.next_widget_position();
+                    //if pos2.y > screen_rect.max.y {
+                    //    break;
+                    //}
+
+                    render_post(app, ctx, frame, ui, *id, 0, false);
+                }
+            });
     });
 }
 
