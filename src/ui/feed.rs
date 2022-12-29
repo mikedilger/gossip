@@ -47,8 +47,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.with_layout(Layout::top_down(Align::Max), |ui| {
-                ui.label(&format!("{} missing events", desired_count));
-                if ui.button("Get 'em").clicked() {
+                if ui.button(&format!("Get {} missing events", desired_count)).clicked() {
                     let tx = GLOBALS.to_overlord.clone();
                     let _ = tx.send(BusMessage {
                         target: "overlord".to_string(),
