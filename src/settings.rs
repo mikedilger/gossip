@@ -6,7 +6,6 @@ use tracing::error;
 
 pub const DEFAULT_FEED_CHUNK: u64 = 43200; // 12 hours
 pub const DEFAULT_OVERLAP: u64 = 600; // 10 minutes
-pub const DEFAULT_AUTOFOLLOW: bool = false;
 pub const DEFAULT_VIEW_POSTS_REFERRED_TO: bool = true;
 pub const DEFAULT_VIEW_POSTS_REFERRING_TO: bool = false;
 pub const DEFAULT_VIEW_THREADED: bool = true;
@@ -20,7 +19,6 @@ pub const DEFAULT_POW: u8 = 0;
 pub struct Settings {
     pub feed_chunk: u64,
     pub overlap: u64,
-    pub autofollow: bool,
     pub view_posts_referred_to: bool,
     pub view_posts_referring_to: bool,
     pub view_threaded: bool,
@@ -38,7 +36,6 @@ impl Default for Settings {
         Settings {
             feed_chunk: DEFAULT_FEED_CHUNK,
             overlap: DEFAULT_OVERLAP,
-            autofollow: DEFAULT_AUTOFOLLOW,
             view_posts_referred_to: DEFAULT_VIEW_POSTS_REFERRED_TO,
             view_posts_referring_to: DEFAULT_VIEW_POSTS_REFERRING_TO,
             view_threaded: DEFAULT_VIEW_THREADED,
@@ -73,7 +70,6 @@ impl Settings {
                     settings.feed_chunk = row.1.parse::<u64>().unwrap_or(DEFAULT_FEED_CHUNK)
                 }
                 "overlap" => settings.overlap = row.1.parse::<u64>().unwrap_or(DEFAULT_OVERLAP),
-                "autofollow" => settings.autofollow = numstr_to_bool(row.1),
                 "view_posts_referred_to" => settings.view_posts_referred_to = numstr_to_bool(row.1),
                 "view_posts_referring_to" => {
                     settings.view_posts_referring_to = numstr_to_bool(row.1)
@@ -119,7 +115,7 @@ impl Settings {
 
         let mut stmt = db.prepare(
             "REPLACE INTO settings (key, value) VALUES \
-                                   ('feed_chunk', ?),('overlap', ?),('autofollow', ?),\
+                                   ('feed_chunk', ?),('overlap', ?),\
                                    ('view_posts_referred_to', ?),('view_posts_referring_to', ?),\
                                    ('view_threaded', ?),('num_relays_per_person', ?),\
                                    ('max_relays', ?),('max_fps', ?),('feed_recompute_interval_ms', ?),\
@@ -128,7 +124,6 @@ impl Settings {
         stmt.execute((
             self.feed_chunk,
             self.overlap,
-            if self.autofollow { "1" } else { "0" },
             if self.view_posts_referred_to {
                 "1"
             } else {

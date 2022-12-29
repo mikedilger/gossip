@@ -224,12 +224,8 @@ impl DbPerson {
         Ok(())
     }
 
-    pub async fn populate_new_people(follow_everybody: bool) -> Result<(), Error> {
-        let sql = if follow_everybody {
-            "INSERT or IGNORE INTO person (pubkey, followed) SELECT DISTINCT pubkey, 1 FROM EVENT"
-        } else {
-            "INSERT or IGNORE INTO person (pubkey) SELECT DISTINCT pubkey FROM EVENT"
-        };
+    pub async fn populate_new_people() -> Result<(), Error> {
+        let sql = "INSERT or IGNORE INTO person (pubkey) SELECT DISTINCT pubkey FROM EVENT";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();

@@ -96,10 +96,9 @@ impl Overlord {
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
-        // Create a person record for every person seen, possibly autofollow
+        // Create a person record for every person seen
 
-        let autofollow = GLOBALS.settings.read().await.autofollow;
-        DbPerson::populate_new_people(autofollow).await?;
+        DbPerson::populate_new_people().await?;
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
