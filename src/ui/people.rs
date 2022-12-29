@@ -19,6 +19,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
         ui.heading("NOTICE: Gossip doesn't update the filters when you follow someone yet, so you have to restart the client to fetch their events. Will fix soon.");
 
+        ui.heading("NOTICE: Gossip is not synchronizing with data on the nostr relays. This is a separate list and it won't overwrite anything.");
+
         ui.label("NOTICE: use CTRL-V to paste (middle/right click wont work)");
 
         ui.add_space(10.0);
@@ -103,7 +105,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     } else if app.page == Page::PeopleList {
         ui.add_space(24.0);
 
-        ui.add_space(8.0);
+        ui.heading("NOTICE: Gossip is not synchronizing with data on the nostr relays. This is a separate list and it won't overwrite anything.");
+
+        ui.add_space(10.0);
+        ui.separator();
+        ui.add_space(10.0);
+
         ui.heading("People Followed");
         ui.add_space(18.0);
 
