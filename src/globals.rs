@@ -5,7 +5,6 @@ use crate::feed::Feed;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
-use async_recursion::async_recursion;
 use nostr_types::{Event, Id, IdHex, PublicKey, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -210,26 +209,16 @@ impl Globals {
             .or_insert_with(|| vec![r]);
     }
 
-    #[async_recursion]
     pub async fn update_last_reply(id: Id, time: Unixtime) {
-        {
-            let mut last_reply = GLOBALS.last_reply.write().await;
-            last_reply
-                .entry(id)
-                .and_modify(|lasttime| {
-                    if time > *lasttime {
-                        *lasttime = time;
-                    }
-                })
-                .or_insert_with(|| time);
-        } // drops lock
-
-        // Recurse upwards
-        if let Some(event) = GLOBALS.events.write().await.get(&id).cloned() {
-            if let Some((id, _maybe_url)) = event.replies_to() {
-                Self::update_last_reply(id, event.created_at).await;
-            }
-        }
+        let mut last_reply = GLOBALS.last_reply.write().await;
+        last_reply
+            .entry(id)
+            .and_modify(|lasttime| {
+                if time > *lasttime {
+                    *lasttime = time;
+                }
+            })
+            .or_insert_with(|| time);
     }
 
     pub fn get_replies_sync(id: Id) -> Vec<Id> {
