@@ -2,7 +2,7 @@
 
 Gossip is a desktop client for nostr.
 
-Nostr is a social media protocol and ecosystem, kind of like Twitter, Mastodon, Gab, Post, Gettr, Farcaster, Truth social, BlueSky, Locals, Minds, Spoutable, etc, etc.... except that you control your own account and nobody can silence you so long as some relay operator somewhere allows you to post.
+Nostr is a social media protocol and ecosystem, kind of like Twitter, Mastodon, Gab, Post, Gettr, Farcaster, Truth social, BlueSky, Locals, Minds, Spoutable, etc, etc.... except that you control your own account and nobody can silence you so long as some relay operator somewhere allows you to post. People are finding many additional uses for nostr that go far beyond just chatting, but this client is focused on chatting.
 
 Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
@@ -27,8 +27,10 @@ Gossip is currently early alpha-quality code. As of right now you can (if you ar
     - Metal (via wgpu)
     - DirectX 11/12 (via wgpu)
     - Browsers (via WebAssembly)
-- **High-enough performance**: the network speed should be your limiting factor on performance, not the UI or any other part of the code. It doesn't matter how fast the code runs as long as it is always faster than the network, and I think that's definitely true for gossip.
+- **High-enough performance**: the network speed should be your limiting factor on performance, not the UI or any other part of the code. It doesn't matter too much how fast the code runs as long as it is always faster than the network, and I think that's definitely true for gossip. However due to our use of an immediate-mode renderer which computes and redraws frequently, we will continue to try to minimize the CPU impact of that hot loop.
 - **High user control**: the plan is for the user to be in control of quite a lot of settings regarding which posts they see, which relays to talk to, and when to fetch from them, but with some sane defaults so you don't have to change anything.
+- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS which won't do Tor completely. Gossip will provide options to support privacy usage such as not loading avatars, having multiple identities, etc.
+- **Key Security**: private keys need to be handled as securely as possible. We store the key encrypted under a passphrase on disk, and we zero out any memory that has seen either the key or the password that decrypts it. We also keep the decrypted key in just one place, the Signer, which doesn't provide access to the key directly. Eventually we will look to add hardware token support, probably first using programmable [Solo keys](https://solokeys.com/) because I have a half dozen of those.
 
 ### nostr features supported
 
@@ -37,6 +39,7 @@ We intend to support the following features/NIPs:
 - [x] NIP-01 - Basic protocol flow description
 - [ ] NIP-02 - Contact List and Petnames
 - [ ] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers (partial)
+- [ ] NIP-04 - Encrypted Direct Message: I doesn't believe this is a good idea to do encrypted messaging this way, as it leaks metadata and has a cryptographic weakness. But it is in common enough usage.
 - [ ] NIP-08 - Handling Mentions
 - [x] NIP-09 - Event Deletion
 - [x] NIP-10 - Conventions for clients' use of e and p tags in text events
@@ -59,7 +62,6 @@ We intend to support the following features/NIPs:
 We do not intend to support the following features/NIPs:
 
 - NIP-03 - OpenTimestamp Attestations for Events: We handle such events, but we do nothing about the ots fields in them.
-- NIP-04 - Encrypted Direct Message: I doesn't believe this is a good idea to do encrypted messaging this way, as it leaks metadata and has a cryptographic weakness.
 - NIP-06 - Basic key derivation from mnemonic seed phrase. This is probably not applicable anyways.
 - NIP-07 - window.nostr capability for web browsers. This is not applicable.
 
@@ -76,7 +78,7 @@ We do not intend to support the following features/NIPs:
 - [ ] choose what posts to see beyond direct posts of people you follow: replies, events replied to, posts liked by people you follow, post made by friends of friends, global on a relay, or global.
 - [ ] mute someone
 - [ ] mute a message
-- [ ] dismiss a message without blocking for future sessions
+- [x] dismiss a message without blocking for future sessions
 - [ ] follow people privately or publicly
 
 ## Building and Installing
