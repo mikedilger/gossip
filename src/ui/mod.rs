@@ -75,6 +75,7 @@ struct GossipUi {
     import_bech32: String,
     import_hex: String,
     replying_to: Option<Id>,
+    hides: Vec<Id>,
 }
 
 impl Drop for GossipUi {
@@ -141,6 +142,7 @@ impl GossipUi {
             import_bech32: "".to_owned(),
             import_hex: "".to_owned(),
             replying_to: None,
+            hides: Vec::new(),
         }
     }
 }
