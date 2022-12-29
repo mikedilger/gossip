@@ -202,6 +202,9 @@ fn render_post(
                 if ui.add(CopyButton {}).clicked() {
                     ui.output().copied_text = GossipUi::pubkey_long(&event.pubkey);
                 }
+                if event.pow() > 0 {
+                    ui.label(format!("POW={}", event.pow()));
+                }
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.menu_button(RichText::new("≡").size(28.0), |ui| {
