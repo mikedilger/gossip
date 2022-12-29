@@ -15,6 +15,7 @@ use crate::settings::Settings;
 use eframe::{egui, IconData, Theme};
 use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
 use nostr_types::{PublicKey, PublicKeyHex};
+use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
 pub fn run() -> Result<(), Error> {
@@ -59,6 +60,7 @@ enum Page {
 }
 
 struct GossipUi {
+    next_frame: Instant,
     page: Page,
     about: About,
     icon: TextureHandle,
@@ -123,6 +125,7 @@ impl GossipUi {
         let settings = GLOBALS.settings.blocking_read().clone();
 
         GossipUi {
+            next_frame: Instant::now(),
             page: Page::Feed,
             about: crate::about::about(),
             icon: icon_texture_handle,
@@ -142,6 +145,13 @@ impl GossipUi {
 
 impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        // Wait until the next frame
+        std::thread::sleep(self.next_frame - Instant::now());
+        self.next_frame += Duration::from_secs_f32(1.0 / self.settings.max_fps as f32);
+
+        // Redraw at least once per second
+        ctx.request_repaint_after(Duration::from_secs(1));
+
         if GLOBALS
             .shutting_down
             .load(std::sync::atomic::Ordering::Relaxed)

@@ -12,6 +12,7 @@ pub const DEFAULT_VIEW_POSTS_REFERRING_TO: bool = false;
 pub const DEFAULT_VIEW_THREADED: bool = true;
 pub const DEFAULT_NUM_RELAYS_PER_PERSON: u8 = 2;
 pub const DEFAULT_MAX_RELAYS: u8 = 15;
+pub const DEFAULT_MAX_FPS: u32 = 60;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
@@ -25,6 +26,7 @@ pub struct Settings {
     pub max_relays: u8,
     pub public_key: Option<PublicKey>,
     pub encrypted_private_key: Option<EncryptedPrivateKey>,
+    pub max_fps: u32,
 }
 
 impl Default for Settings {
@@ -40,6 +42,7 @@ impl Default for Settings {
             max_relays: DEFAULT_MAX_RELAYS,
             public_key: None,
             encrypted_private_key: None,
+            max_fps: DEFAULT_MAX_FPS,
         }
     }
 }
@@ -89,6 +92,7 @@ impl Settings {
                         }
                     }
                 }
+                "max_fps" => settings.max_fps = row.1.parse::<u32>().unwrap_or(DEFAULT_MAX_FPS),
                 _ => {}
             }
         }
@@ -105,7 +109,7 @@ impl Settings {
                                    ('feed_chunk', ?),('overlap', ?),('autofollow', ?),\
                                    ('view_posts_referred_to', ?),('view_posts_referring_to', ?),\
                                    ('view_threaded', ?),('num_relays_per_person', ?), \
-                                   ('max_relays', ?)",
+                                   ('max_relays', ?),('max_fps', ?)",
         )?;
         stmt.execute((
             self.feed_chunk,
@@ -124,6 +128,7 @@ impl Settings {
             if self.view_threaded { "1" } else { "0" },
             self.num_relays_per_person,
             self.max_relays,
+            self.max_fps,
         ))?;
 
         // Save private key identity

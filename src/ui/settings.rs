@@ -77,7 +77,7 @@ pub(super) fn update(
     .on_hover_text("Definately not recommended. In fact we may remove this soon.");
 
     ui.add_space(24.0);
-    ui.heading("Style");
+    ui.heading("User Interface");
 
     ui.horizontal(|ui| {
         ui.label("Switch to");
@@ -100,6 +100,15 @@ pub(super) fn update(
                 ui.ctx().set_visuals(super::style::dark_mode_visuals());
             }
         }
+    });
+
+    ui.add_space(24.0);
+    ui.horizontal(|ui| {
+        ui.label("Maximum FPS: ")
+            .on_hover_text(
+                "The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately.",
+            );
+        ui.add(Slider::new(&mut app.settings.max_fps, 10..=60).text("Frames per second"));
     });
 
     ui.add_space(32.0);
