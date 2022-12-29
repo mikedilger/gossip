@@ -71,6 +71,8 @@ fn render_relay(ui: &mut Ui, relay: &DbRelay, bold: bool) {
         if bold { rt = rt.strong(); }
         ui.label(rt);
 
+        ui.label(&format!("Success={} Failure={}", relay.success_count, relay.failure_count));
+
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
 
             let mut post = relay.post; // checkbox needs a mutable state variable.
