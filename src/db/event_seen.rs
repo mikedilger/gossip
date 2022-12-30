@@ -11,7 +11,7 @@ pub struct DbEventSeen {
 }
 
 impl DbEventSeen {
-    #[allow(dead_code)]
+    /*
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbEventSeen>, Error> {
         let sql = "SELECT event, relay, when_seen FROM event_seen".to_owned();
         let sql = match criteria {
@@ -42,6 +42,7 @@ impl DbEventSeen {
 
         output
     }
+     */
 
     pub async fn replace(event_seen: DbEventSeen) -> Result<(), Error> {
         let sql = "REPLACE INTO event_seen (event, relay, when_seen) \
@@ -60,18 +61,19 @@ impl DbEventSeen {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub async fn delete(criteria: &str) -> Result<(), Error> {
-        let sql = format!("DELETE FROM event_seen WHERE {}", criteria);
+    /*
+        pub async fn delete(criteria: &str) -> Result<(), Error> {
+            let sql = format!("DELETE FROM event_seen WHERE {}", criteria);
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            db.execute(&sql, [])?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+            spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                db.execute(&sql, [])?;
+                Ok::<(), Error>(())
+            })
+            .await??;
 
-        Ok(())
+            Ok(())
     }
+        */
 }

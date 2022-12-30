@@ -1,6 +1,5 @@
 use crate::db::{
-    DbEvent, DbEventHashtag, DbEventRelationship, DbEventSeen, DbEventTag, DbPerson, DbPersonRelay,
-    DbRelay,
+    DbEvent, DbEventHashtag, DbEventRelationship, DbEventSeen, DbEventTag, DbPersonRelay, DbRelay,
 };
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
@@ -44,28 +43,12 @@ pub async fn process_new_event(
             DbEventSeen::replace(db_event_seen).await?;
 
             // Create the person if missing in the database
-            DbPerson::populate_new_people().await?;
-
-            // Create the person if missing in GLOBALS.people
-            // FIXME - if the database has better data we should get it.
-            //         we should fix that by making GLOBALS.people an
-            //         object that persists on it's backend.
-            let _ = GLOBALS
+            GLOBALS
                 .people
                 .write()
                 .await
-                .entry(event.pubkey)
-                .or_insert_with(|| DbPerson {
-                    pubkey: event.pubkey.into(),
-                    name: None,
-                    about: None,
-                    picture: None,
-                    dns_id: None,
-                    dns_id_valid: 0,
-                    dns_id_last_checked: None,
-                    metadata_at: None,
-                    followed: 0,
-                });
+                .create_if_missing(event.pubkey)
+                .await?;
 
             // Update person_relay.last_fetched
             DbPersonRelay::upsert_last_fetched(
@@ -239,48 +222,13 @@ pub async fn process_new_event(
     // If metadata, update person
     if event.kind == EventKind::Metadata {
         let metadata: Metadata = serde_json::from_str(&event.content)?;
-        let metadata2 = metadata.clone();
 
-        if from_relay {
-            DbPerson::update_metadata(event.pubkey.into(), metadata.clone(), event.created_at)
-                .await?;
-        }
-
-        {
-            let mut people = GLOBALS.people.write().await;
-            people
-                .entry(event.pubkey)
-                .and_modify(|person| {
-                    if let Some(metadata_at) = person.metadata_at {
-                        if event.created_at.0 <= metadata_at {
-                            // Old metadata. Ignore it
-                            return;
-                        }
-                    }
-
-                    // Update the metadata
-                    person.name = metadata.name;
-                    person.about = metadata.about;
-                    person.picture = metadata.picture;
-                    if person.dns_id != metadata.nip05 {
-                        person.dns_id = metadata.nip05;
-                        person.dns_id_valid = 0; // changed, so reset to invalid
-                        person.dns_id_last_checked = None; // we haven't checked this one yet
-                    }
-                    person.metadata_at = Some(event.created_at.0);
-                })
-                .or_insert_with(|| {
-                    let mut person = DbPerson::new(event.pubkey.into());
-                    person.name = metadata2.name;
-                    person.about = metadata2.about;
-                    person.picture = metadata2.picture;
-                    person.dns_id = metadata2.nip05;
-                    person.dns_id_valid = 0;
-                    person.dns_id_last_checked = None; // we haven't checked this one yet
-                    person.metadata_at = Some(event.created_at.0);
-                    person
-                });
-        }
+        GLOBALS
+            .people
+            .write()
+            .await
+            .update_metadata(event.pubkey, metadata, event.created_at)
+            .await?;
     }
 
     // FIXME: Handle EventKind::RecommendedRelay

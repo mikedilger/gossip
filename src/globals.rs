@@ -1,11 +1,12 @@
 use crate::comms::BusMessage;
-use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbRelay};
 use crate::error::Error;
 use crate::feed::Feed;
+use crate::people::People;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
-use nostr_types::{Event, Id, IdHex, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Event, Id, IdHex, Unixtime, Url};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
@@ -56,7 +57,8 @@ pub struct Globals {
     pub desired_events: RwLock<HashMap<Id, Vec<Url>>>,
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
-    pub people: RwLock<HashMap<PublicKey, DbPerson>>,
+    //pub people: RwLock<HashMap<PublicKey, DbPerson>>,
+    pub people: RwLock<People>,
 
     /// All nostr relay records we have
     pub relays: RwLock<HashMap<Url, DbRelay>>,
@@ -105,7 +107,7 @@ lazy_static! {
             relationships: RwLock::new(HashMap::new()),
             last_reply: RwLock::new(HashMap::new()),
             desired_events: RwLock::new(HashMap::new()),
-            people: RwLock::new(HashMap::new()),
+            people: RwLock::new(People::new()),
             relays: RwLock::new(HashMap::new()),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
@@ -202,7 +204,7 @@ impl Globals {
         Ok((output, orphans))
     }
 
-    #[allow(dead_code)]
+    /*
     pub async fn get_desired_events_for_url(url: Url) -> Result<Vec<Id>, Error> {
         Globals::get_desired_events_prelude().await?;
 
@@ -216,6 +218,7 @@ impl Globals {
 
         Ok(output)
     }
+     */
 
     pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {
         let r = (related, relationship);
@@ -282,69 +285,4 @@ impl Globals {
         v.sort();
         v
     }
-}
-
-pub async fn followed_pubkeys() -> Vec<PublicKeyHex> {
-    let people = GLOBALS.people.read().await;
-    people
-        .iter()
-        .map(|(_, p)| p)
-        .filter(|p| p.followed == 1)
-        .map(|p| p.pubkey.clone())
-        .collect()
-}
-
-#[allow(dead_code)]
-pub async fn follow_key_and_relay(pubkey: String, relay: String) -> Result<DbPerson, String> {
-    let pubkeyhex = PublicKeyHex(pubkey.clone());
-
-    // Validate the url
-    let u = Url::new(&relay);
-    if !u.is_valid() {
-        return Err(format!("Invalid url: {}", relay));
-    }
-
-    // Create or update them
-    let person = match DbPerson::fetch_one(pubkeyhex.clone())
-        .await
-        .map_err(|e| format!("{}", e))?
-    {
-        Some(mut person) => {
-            person.followed = 1;
-            DbPerson::update(person.clone())
-                .await
-                .map_err(|e| format!("{}", e))?;
-            person
-        }
-        None => {
-            let mut person = DbPerson::new(pubkeyhex.clone());
-            person.followed = 1;
-            DbPerson::insert(person.clone())
-                .await
-                .map_err(|e| format!("{}", e))?;
-            person
-        }
-    };
-
-    // Insert (or ignore) this relay
-    let dbrelay = DbRelay::new(relay.clone()).map_err(|e| format!("{}", e))?;
-    DbRelay::insert(dbrelay)
-        .await
-        .map_err(|e| format!("{}", e))?;
-
-    // Insert (or ignore) this person's relay
-    DbPersonRelay::insert(DbPersonRelay {
-        person: pubkey,
-        relay,
-        ..Default::default()
-    })
-    .await
-    .map_err(|e| format!("{}", e))?;
-
-    // Tell the overlord to update the  minion to watch for their events
-    // possibly starting a new minion if necessary.
-    // FIXME TODO
-
-    // Reply to javascript with the person which will be set in the store
-    Ok(person)
 }

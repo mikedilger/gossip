@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Metadata, PublicKeyHex, Unixtime};
+use nostr_types::PublicKeyHex;
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -18,20 +18,6 @@ pub struct DbPerson {
 }
 
 impl DbPerson {
-    pub fn new(pubkey: PublicKeyHex) -> DbPerson {
-        DbPerson {
-            pubkey,
-            name: None,
-            about: None,
-            picture: None,
-            dns_id: None,
-            dns_id_valid: 0,
-            dns_id_last_checked: None,
-            metadata_at: None,
-            followed: 0,
-        }
-    }
-
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql =
             "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed FROM person".to_owned();
@@ -108,62 +94,6 @@ impl DbPerson {
         Ok(())
     }
 
-    pub async fn update(person: DbPerson) -> Result<(), Error> {
-        let sql =
-            "UPDATE person SET name=?, about=?, picture=?, dns_id=?, dns_id_valid=?, dns_id_last_checked=?, metadata_at=?, followed=? WHERE pubkey=?";
-
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                &person.name,
-                &person.about,
-                &person.picture,
-                &person.dns_id,
-                &person.dns_id_valid,
-                &person.dns_id_last_checked,
-                &person.metadata_at,
-                &person.followed,
-                &person.pubkey.0,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-
-    // Update metadata without clobbering anything else
-    pub async fn update_metadata(
-        pubkey: PublicKeyHex,
-        metadata: Metadata,
-        created_at: Unixtime,
-    ) -> Result<(), Error> {
-        let sql =
-            "UPDATE person SET name=?, about=?, picture=?, dns_id=?, metadata_at=? WHERE pubkey=?";
-
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                &metadata.name,
-                &metadata.about,
-                &metadata.picture,
-                &metadata.nip05,
-                &created_at.0,
-                &pubkey.0,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-
     pub async fn upsert_valid_nip05(
         pubkey: PublicKeyHex,
         dns_id: String,
@@ -209,32 +139,19 @@ impl DbPerson {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub async fn delete(criteria: &str) -> Result<(), Error> {
-        let sql = format!("DELETE FROM person WHERE {}", criteria);
+    /*
+        pub async fn delete(criteria: &str) -> Result<(), Error> {
+            let sql = format!("DELETE FROM person WHERE {}", criteria);
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            db.execute(&sql, [])?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+            spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                db.execute(&sql, [])?;
+                Ok::<(), Error>(())
+            })
+            .await??;
 
-        Ok(())
+            Ok(())
     }
-
-    pub async fn populate_new_people() -> Result<(), Error> {
-        let sql = "INSERT or IGNORE INTO person (pubkey) SELECT DISTINCT pubkey FROM EVENT";
-
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            db.execute(sql, [])?;
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
+        */
 }

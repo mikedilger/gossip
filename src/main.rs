@@ -11,6 +11,7 @@ mod error;
 mod feed;
 mod globals;
 mod overlord;
+mod people;
 mod process;
 mod relationship;
 mod settings;

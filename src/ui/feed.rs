@@ -166,7 +166,7 @@ fn render_post(
         return;
     }
 
-    let maybe_person = GLOBALS.people.blocking_read().get(&event.pubkey).cloned();
+    let maybe_person = GLOBALS.people.blocking_write().get(event.pubkey);
 
     let reactions = Globals::get_reactions_sync(event.id);
     let replies = Globals::get_replies_sync(event.id);
@@ -339,7 +339,7 @@ fn render_post(
 }
 
 fn set_person_view(app: &mut GossipUi, pubkey: PublicKey) {
-    if let Some(dbperson) = GLOBALS.people.blocking_read().get(&pubkey).cloned() {
+    if let Some(dbperson) = GLOBALS.people.blocking_write().get(pubkey) {
         app.person_view_name = if let Some(name) = &dbperson.name {
             Some(name.to_string())
         } else {

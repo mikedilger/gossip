@@ -167,7 +167,7 @@ impl DbRelay {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    /*
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM relay WHERE {}", criteria);
 
@@ -181,6 +181,7 @@ impl DbRelay {
 
         Ok(())
     }
+     */
 
     pub async fn populate_new_relays() -> Result<(), Error> {
         // Get relays from person_relay list

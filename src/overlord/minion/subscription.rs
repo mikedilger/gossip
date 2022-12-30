@@ -35,10 +35,11 @@ impl Subscriptions {
         }
     }
 
-    #[allow(dead_code)]
+    /*
     pub fn get_by_id(&self, id: &str) -> Option<Subscription> {
         self.by_id.get(id).cloned()
     }
+     */
 
     pub fn get_handle_by_id(&self, id: &str) -> Option<String> {
         for (handle, xid) in self.handle_to_id.iter() {
@@ -67,10 +68,11 @@ impl Subscriptions {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn remove_by_id(&mut self, id: &str) {
-        self.by_id.remove(id);
+    /*
+        pub fn remove_by_id(&mut self, id: &str) {
+            self.by_id.remove(id);
     }
+        */
 }
 
 #[derive(Clone, Debug)]
@@ -101,10 +103,11 @@ impl Subscription {
         self.eose = true;
     }
 
-    #[allow(dead_code)]
+    /*
     pub fn eose(&self) -> bool {
         self.eose
     }
+     */
 
     pub fn req_message(&self) -> ClientMessage {
         ClientMessage::Req(SubscriptionId(self.get_id()), self.filters.clone())

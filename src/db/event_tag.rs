@@ -15,7 +15,7 @@ pub struct DbEventTag {
 }
 
 impl DbEventTag {
-    #[allow(dead_code)]
+    /*
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbEventTag>, Error> {
         let sql =
             "SELECT event, seq, label, field0, field1, field2, field3 FROM event_tag".to_owned();
@@ -51,6 +51,7 @@ impl DbEventTag {
 
         output
     }
+     */
 
     pub async fn insert(event_tag: DbEventTag) -> Result<(), Error> {
         let sql =
@@ -78,18 +79,19 @@ impl DbEventTag {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub async fn delete(criteria: &str) -> Result<(), Error> {
-        let sql = format!("DELETE FROM event_tag WHERE {}", criteria);
+    /*
+        pub async fn delete(criteria: &str) -> Result<(), Error> {
+            let sql = format!("DELETE FROM event_tag WHERE {}", criteria);
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            db.execute(&sql, [])?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+            spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                db.execute(&sql, [])?;
+                Ok::<(), Error>(())
+            })
+            .await??;
 
-        Ok(())
+            Ok(())
     }
+        */
 }

@@ -17,7 +17,7 @@ pub struct DbPersonRelay {
 }
 
 impl DbPersonRelay {
-    #[allow(dead_code)]
+    /*
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPersonRelay>, Error> {
         let sql = "SELECT person, relay, last_fetched, last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, last_suggested_nip35, last_suggested_bytag FROM person_relay".to_owned();
         let sql = match criteria {
@@ -53,6 +53,7 @@ impl DbPersonRelay {
 
         output
     }
+     */
 
     /// Fetch records matching the given public keys, ordered from highest to lowest rank
     pub async fn fetch_for_pubkeys(pubkeys: &[PublicKeyHex]) -> Result<Vec<DbPersonRelay>, Error> {
@@ -101,8 +102,8 @@ impl DbPersonRelay {
         output
     }
 
+    /*
     /// Fetch oldest last_fetched among a set of public keys for a relay
-    #[allow(dead_code)]
     pub async fn fetch_oldest_last_fetched(
         pubkeys: &[PublicKeyHex],
         relay: &str,
@@ -136,6 +137,7 @@ impl DbPersonRelay {
 
         output
     }
+     */
 
     pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, \
@@ -241,20 +243,21 @@ impl DbPersonRelay {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub async fn delete(criteria: &str) -> Result<(), Error> {
-        let sql = format!("DELETE FROM person_relay WHERE {}", criteria);
+    /*
+        pub async fn delete(criteria: &str) -> Result<(), Error> {
+            let sql = format!("DELETE FROM person_relay WHERE {}", criteria);
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            db.execute(&sql, [])?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+            spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                db.execute(&sql, [])?;
+                Ok::<(), Error>(())
+            })
+            .await??;
 
-        Ok(())
+            Ok(())
     }
+        */
 }
 
 fn repeat_vars(count: usize) -> String {

@@ -5,6 +5,7 @@ use crate::comms::BusMessage;
 use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
+use crate::people::People;
 use minion::Minion;
 use nostr_types::{
     Event, EventKind, Id, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
@@ -94,7 +95,7 @@ impl Overlord {
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen
 
-        DbPerson::populate_new_people().await?;
+        People::populate_new_people().await?;
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
@@ -118,13 +119,7 @@ impl Overlord {
         let _ = GLOBALS.to_syncer.send("test".to_owned());
 
         // Load people from the database
-        {
-            let mut dbpeople = DbPerson::fetch(None).await?;
-            for dbperson in dbpeople.drain(..) {
-                let pubkey = PublicKey::try_from(dbperson.pubkey.clone())?;
-                GLOBALS.people.write().await.insert(pubkey, dbperson);
-            }
-        }
+        GLOBALS.people.write().await.load_all_followed().await?;
 
         // Load latest metadata per person and update their metadata
         {
@@ -172,7 +167,16 @@ impl Overlord {
 
         // Pick Relays and start Minions
         {
-            let pubkeys: Vec<PublicKeyHex> = crate::globals::followed_pubkeys().await;
+            let pubkeys: Vec<PublicKeyHex> = GLOBALS
+                .people
+                .read()
+                .await
+                .get_followed_pubkeys()
+                .await
+                .iter()
+                .map(|p| PublicKeyHex::from(*p))
+                .collect();
+
             let (num_relays_per_person, max_relays) = {
                 let settings = GLOBALS.settings.read().await;
                 (settings.num_relays_per_person, settings.max_relays)

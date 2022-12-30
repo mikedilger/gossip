@@ -1,7 +1,4 @@
-use crate::error::Error;
-use crate::globals::GLOBALS;
 use serde::{Deserialize, Serialize};
-use tokio::task::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbContact {
@@ -12,7 +9,7 @@ pub struct DbContact {
 }
 
 impl DbContact {
-    #[allow(dead_code)]
+    /*
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbContact>, Error> {
         let sql = "SELECT source, contact, relay, petname FROM contact".to_owned();
         let sql = match criteria {
@@ -44,8 +41,9 @@ impl DbContact {
 
         output
     }
+     */
 
-    #[allow(dead_code)]
+    /*
     pub async fn insert(contact: DbContact) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO contact (source, contact, relay, petname) \
              VALUES (?1, ?2, ?3, ?4)";
@@ -67,19 +65,21 @@ impl DbContact {
 
         Ok(())
     }
+     */
 
-    #[allow(dead_code)]
-    pub async fn delete(criteria: &str) -> Result<(), Error> {
-        let sql = format!("DELETE FROM contact WHERE {}", criteria);
+    /*
+        pub async fn delete(criteria: &str) -> Result<(), Error> {
+            let sql = format!("DELETE FROM contact WHERE {}", criteria);
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            db.execute(&sql, [])?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+            spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                db.execute(&sql, [])?;
+                Ok::<(), Error>(())
+            })
+            .await??;
 
-        Ok(())
+            Ok(())
     }
+        */
 }

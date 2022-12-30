@@ -148,7 +148,7 @@ impl DbEvent {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    /*
     pub async fn delete(criteria: &str) -> Result<(), Error> {
         let sql = format!("DELETE FROM event WHERE {}", criteria);
 
@@ -162,23 +162,25 @@ impl DbEvent {
 
         Ok(())
     }
+     */
 
-    #[allow(dead_code)]
-    pub async fn get_author(id: IdHex) -> Result<Option<PublicKeyHex>, Error> {
-        let sql = "SELECT pubkey FROM event WHERE id=?";
+    /*
+        pub async fn get_author(id: IdHex) -> Result<Option<PublicKeyHex>, Error> {
+            let sql = "SELECT pubkey FROM event WHERE id=?";
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            let mut stmt = db.prepare(sql)?;
-            let mut rows = stmt.query_map([id.0], |row| row.get(0))?;
-            if let Some(row) = rows.next() {
-                return Ok(Some(PublicKeyHex(row?)));
-            }
-            Ok(None)
-        })
-        .await?
+            spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                let mut stmt = db.prepare(sql)?;
+                let mut rows = stmt.query_map([id.0], |row| row.get(0))?;
+                if let Some(row) = rows.next() {
+                    return Ok(Some(PublicKeyHex(row?)));
+                }
+                Ok(None)
+            })
+            .await?
     }
+        */
 }
 
 fn repeat_vars(count: usize) -> String {

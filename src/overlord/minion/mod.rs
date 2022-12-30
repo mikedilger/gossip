@@ -30,7 +30,6 @@ pub struct Minion {
     stream: Option<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
     sink: Option<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, WsMessage>>,
     subscriptions: Subscriptions,
-    #[allow(dead_code)]
     next_events_subscription_id: u32,
 }
 
@@ -356,7 +355,6 @@ impl Minion {
         Ok(())
     }
 
-    #[allow(dead_code)]
     async fn get_events(&mut self, ids: Vec<IdHex>) -> Result<(), Error> {
         if ids.is_empty() {
             return Ok(());
@@ -388,9 +386,10 @@ impl Minion {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    async fn follow_event_reactions(&mut self, _ids: Vec<IdHex>) -> Result<(), Error> {
-        // Create or extend the "reactions" subscription
-        unimplemented!()
+    /*
+        async fn follow_event_reactions(&mut self, _ids: Vec<IdHex>) -> Result<(), Error> {
+            // Create or extend the "reactions" subscription
+            unimplemented!()
     }
+        */
 }

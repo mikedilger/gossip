@@ -39,6 +39,9 @@ pub enum Error {
     #[error("I/O Error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("INTERNAL: {0}")]
+    Internal(String),
+
     #[error("Invalid DNS ID (nip-05 / nip-35), should be user@domain")]
     InvalidDnsId,
 
