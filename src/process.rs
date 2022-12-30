@@ -263,5 +263,8 @@ pub async fn process_new_event(
 
     // FIXME: Handle EventKind::ContactList
 
+    // Save in event_is_new
+    GLOBALS.event_is_new.write().await.push(event.id);
+
     Ok(())
 }

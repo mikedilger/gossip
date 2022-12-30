@@ -148,7 +148,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
 fn render_post(
     app: &mut GossipUi,
-    _ctx: &Context,
+    ctx: &Context,
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
     id: Id,
@@ -206,115 +206,132 @@ fn render_post(
 
     let threaded = GLOBALS.settings.blocking_read().view_threaded;
 
-    ui.horizontal(|ui| {
-        // Indents first (if threaded)
-        if threaded {
-            #[allow(clippy::collapsible_else_if)]
-            if app.hides.contains(&id) {
-                if ui.add(Label::new("▶").sense(Sense::click())).clicked() {
-                    app.hides.retain(|e| *e != id)
-                }
-            } else {
-                if ui.add(Label::new("▼").sense(Sense::click())).clicked() {
-                    app.hides.push(id);
-                }
-            }
-
-            let space = 16.0 * (10.0 - (100.0 / (indent as f32 + 10.0)));
-            ui.add_space(space);
-            if indent > 0 {
-                ui.separator();
-            }
+    #[allow(clippy::collapsible_else_if)]
+    let bgcolor = if GLOBALS.event_is_new.blocking_read().contains(&event.id) {
+        if ctx.style().visuals.dark_mode {
+            Color32::from_rgb(60, 0, 0)
+        } else {
+            Color32::LIGHT_YELLOW
         }
+    } else {
+        if ctx.style().visuals.dark_mode {
+            Color32::BLACK
+        } else {
+            Color32::WHITE
+        }
+    };
 
-        // Avatar first
-        ui.image(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 });
-
-        // Everything else next
-        ui.vertical(|ui| {
-            // First row
-            ui.horizontal(|ui| {
-                if let Some(person) = maybe_person {
-                    if let Some(name) = &person.name {
-                        ui.label(RichText::new(name).strong());
-                    } else {
-                        ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
+    Frame::none().fill(bgcolor).show(ui, |ui| {
+        ui.horizontal(|ui| {
+            // Indents first (if threaded)
+            if threaded {
+                #[allow(clippy::collapsible_else_if)]
+                if app.hides.contains(&id) {
+                    if ui.add(Label::new("▶").sense(Sense::click())).clicked() {
+                        app.hides.retain(|e| *e != id)
                     }
+                } else {
+                    if ui.add(Label::new("▼").sense(Sense::click())).clicked() {
+                        app.hides.push(id);
+                    }
+                }
 
-                    if let Some(dns_id) = &person.dns_id {
-                        if person.dns_id_valid > 0 {
-                            ui.label(RichText::new(dns_id).monospace().small());
+                let space = 16.0 * (10.0 - (100.0 / (indent as f32 + 10.0)));
+                ui.add_space(space);
+                if indent > 0 {
+                    ui.separator();
+                }
+            }
+
+            // Avatar first
+            ui.image(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 });
+
+            // Everything else next
+            ui.vertical(|ui| {
+                // First row
+                ui.horizontal(|ui| {
+                    if let Some(person) = maybe_person {
+                        if let Some(name) = &person.name {
+                            ui.label(RichText::new(name).strong());
                         } else {
-                            ui.label(RichText::new(dns_id).monospace().small().strikethrough());
+                            ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
+                        }
+
+                        if let Some(dns_id) = &person.dns_id {
+                            if person.dns_id_valid > 0 {
+                                ui.label(RichText::new(dns_id).monospace().small());
+                            } else {
+                                ui.label(RichText::new(dns_id).monospace().small().strikethrough());
+                            }
                         }
                     }
-                }
 
-                ui.add_space(8.0);
+                    ui.add_space(8.0);
 
-                ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
-                if ui.add(CopyButton {}).clicked() {
-                    ui.output().copied_text = GossipUi::pubkey_long(&event.pubkey);
-                }
-                if event.pow() > 0 {
-                    ui.label(format!("POW={}", event.pow()));
-                }
+                    ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
+                    if ui.add(CopyButton {}).clicked() {
+                        ui.output().copied_text = GossipUi::pubkey_long(&event.pubkey);
+                    }
+                    if event.pow() > 0 {
+                        ui.label(format!("POW={}", event.pow()));
+                    }
 
-                ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                    ui.menu_button(RichText::new("≡").size(28.0), |ui| {
-                        if ui.button("Copy ID").clicked() {
-                            ui.output().copied_text = event.id.as_hex_string();
+                    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                        ui.menu_button(RichText::new("≡").size(28.0), |ui| {
+                            if ui.button("Copy ID").clicked() {
+                                ui.output().copied_text = event.id.as_hex_string();
+                            }
+                            if ui.button("Dismiss").clicked() {
+                                GLOBALS.dismissed.blocking_write().push(event.id);
+                            }
+                        });
+
+                        ui.label(
+                            RichText::new(crate::date_ago::date_ago(event.created_at))
+                                .italics()
+                                .weak(),
+                        );
+                    });
+                });
+
+                // Second row
+                ui.horizontal(|ui| {
+                    for (ch, count) in reactions.iter() {
+                        if *ch == '+' {
+                            ui.label(
+                                RichText::new(format!("{} {}", ch, count))
+                                    .strong()
+                                    .color(Color32::DARK_GREEN),
+                            );
+                        } else if *ch == '-' {
+                            ui.label(
+                                RichText::new(format!("{} {}", ch, count))
+                                    .strong()
+                                    .color(Color32::DARK_RED),
+                            );
+                        } else {
+                            ui.label(RichText::new(format!("{} {}", ch, count)).strong());
                         }
-                        if ui.button("Dismiss").clicked() {
-                            GLOBALS.dismissed.blocking_write().push(event.id);
+                    }
+                });
+
+                ui.label(&event.content);
+
+                // Under row
+                if !as_reply_to {
+                    ui.horizontal(|ui| {
+                        if ui.add(CopyButton {}).clicked() {
+                            ui.output().copied_text = event.content.clone();
+                        }
+
+                        ui.add_space(24.0);
+
+                        if ui.add(ReplyButton {}).clicked() {
+                            app.replying_to = Some(event.id);
                         }
                     });
-
-                    ui.label(
-                        RichText::new(crate::date_ago::date_ago(event.created_at))
-                            .italics()
-                            .weak(),
-                    );
-                });
-            });
-
-            // Second row
-            ui.horizontal(|ui| {
-                for (ch, count) in reactions.iter() {
-                    if *ch == '+' {
-                        ui.label(
-                            RichText::new(format!("{} {}", ch, count))
-                                .strong()
-                                .color(Color32::DARK_GREEN),
-                        );
-                    } else if *ch == '-' {
-                        ui.label(
-                            RichText::new(format!("{} {}", ch, count))
-                                .strong()
-                                .color(Color32::DARK_RED),
-                        );
-                    } else {
-                        ui.label(RichText::new(format!("{} {}", ch, count)).strong());
-                    }
                 }
             });
-
-            ui.label(&event.content);
-
-            // Under row
-            if !as_reply_to {
-                ui.horizontal(|ui| {
-                    if ui.add(CopyButton {}).clicked() {
-                        ui.output().copied_text = event.content.clone();
-                    }
-
-                    ui.add_space(24.0);
-
-                    if ui.add(ReplyButton {}).clicked() {
-                        app.replying_to = Some(event.id);
-                    }
-                });
-            }
         });
     });
 
@@ -322,7 +339,7 @@ fn render_post(
 
     if threaded && !as_reply_to && !app.hides.contains(&id) {
         for reply_id in replies {
-            render_post(app, _ctx, _frame, ui, reply_id, indent + 1, as_reply_to);
+            render_post(app, ctx, _frame, ui, reply_id, indent + 1, as_reply_to);
         }
     }
 }

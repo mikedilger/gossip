@@ -484,6 +484,9 @@ impl Overlord {
                     self.post_reply(content, reply_to).await?;
                 }
                 "process_incoming_events" => {
+                    // Clear new events
+                    GLOBALS.event_is_new.write().await.clear();
+
                     let _ = tokio::spawn(async move {
                         for (event, url) in GLOBALS.incoming_events.write().await.drain(..) {
                             let _ =

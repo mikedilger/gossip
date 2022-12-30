@@ -66,6 +66,9 @@ pub struct Globals {
     /// Dismissed Events
     pub dismissed: RwLock<Vec<Id>>,
 
+    /// Event is new
+    pub event_is_new: RwLock<Vec<Id>>,
+
     /// Feed
     pub feed: Mutex<Feed>,
 }
@@ -95,6 +98,7 @@ lazy_static! {
             settings: RwLock::new(Settings::default()),
             signer: RwLock::new(Signer::default()),
             dismissed: RwLock::new(Vec::new()),
+            event_is_new: RwLock::new(Vec::new()),
             feed: Mutex::new(Feed::new()),
         }
     };
