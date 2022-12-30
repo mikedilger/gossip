@@ -14,11 +14,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     //let screen_rect = ctx.input().screen_rect; // Rect
 
-    let desired_count = {
-        Globals::trim_desired_events_sync();
-        GLOBALS.desired_events.blocking_read().len()
+    Globals::trim_desired_events_sync();
+    let desired_count: isize = match GLOBALS.desired_events.try_read() {
+        Ok(v) => v.len() as isize,
+        Err(_) => -1,
     };
-    let incoming_count = GLOBALS.incoming_events.blocking_read().len();
+    let incoming_count: isize = match GLOBALS.incoming_events.try_read() {
+        Ok(v) => v.len() as isize,
+        Err(_) => -1,
+    };
 
     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
         if ui
@@ -48,7 +52,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             });
         }
 
-        if ui.button("▶  close all" ).clicked() {
+        if ui.button("▶  close all").clicked() {
             app.hides = feed.clone();
         }
         if ui.button("▼ open all").clicked() {
