@@ -29,6 +29,15 @@ impl Signer {
         }
     }
 
+    pub fn generate_private_key(&mut self, pass: &str) -> Result<EncryptedPrivateKey, Error> {
+        *self = Signer::Ready(PrivateKey::generate());
+        if let Signer::Ready(pk) = self {
+            Ok(pk.export_encrypted(pass)?)
+        } else {
+            Err(Error::NoPrivateKey)
+        }
+    }
+
     #[allow(dead_code)]
     pub fn is_loaded(&self) -> bool {
         matches!(self, Signer::Encrypted(_)) || matches!(self, Signer::Ready(_))

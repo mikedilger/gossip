@@ -393,6 +393,24 @@ impl Overlord {
                         settings.save().await?;
                     }
                 }
+                "generate_private_key" => {
+                    let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
+                    let epk = GLOBALS
+                        .signer
+                        .write()
+                        .await
+                        .generate_private_key(&password)?;
+                    password.zeroize();
+
+                    // Export and save private key
+                    let public_key = GLOBALS.signer.read().await.public_key().unwrap();
+                    {
+                        let mut settings = GLOBALS.settings.write().await;
+                        settings.encrypted_private_key = Some(epk);
+                        settings.public_key = Some(public_key);
+                        settings.save().await?;
+                    }
+                }
                 "import_bech32" => {
                     let (mut import_bech32, mut password): (String, String) =
                         serde_json::from_str(&bus_message.json_payload)?;

@@ -4,7 +4,6 @@ use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, TextEdit, Ui};
 use nostr_types::{KeySecurity, PublicKeyHex};
-use tracing::info;
 use zeroize::Zeroize;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -53,8 +52,19 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     } else {
         ui.heading("Generate a Keypair");
 
+        ui.horizontal(|ui| {
+            ui.label("Enter a password to keep it encrypted under");
+            ui.add(TextEdit::singleline(&mut app.password).password(true));
+        });
         if ui.button("Generate Now").clicked() {
-            info!("TBD GENERATE");
+            let tx = GLOBALS.to_overlord.clone();
+            let _ = tx.send(BusMessage {
+                target: "overlord".to_string(),
+                kind: "generate_private_key".to_string(),
+                json_payload: serde_json::to_string(&app.password).unwrap(),
+            });
+            app.password.zeroize();
+            app.password = "".to_owned();
         }
 
         ui.add_space(10.0);
