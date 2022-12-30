@@ -43,6 +43,30 @@ pub async fn process_new_event(
             };
             DbEventSeen::replace(db_event_seen).await?;
 
+            // Create the person if missing in the database
+            DbPerson::populate_new_people().await?;
+
+            // Create the person if missing in GLOBALS.people
+            // FIXME - if the database has better data we should get it.
+            //         we should fix that by making GLOBALS.people an
+            //         object that persists on it's backend.
+            let _ = GLOBALS
+                .people
+                .write()
+                .await
+                .entry(event.pubkey)
+                .or_insert_with(|| DbPerson {
+                    pubkey: event.pubkey.into(),
+                    name: None,
+                    about: None,
+                    picture: None,
+                    dns_id: None,
+                    dns_id_valid: 0,
+                    dns_id_last_checked: None,
+                    metadata_at: None,
+                    followed: 0,
+                });
+
             // Update person_relay.last_fetched
             DbPersonRelay::upsert_last_fetched(
                 event.pubkey.as_hex_string(),
