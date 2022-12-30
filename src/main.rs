@@ -15,6 +15,7 @@ mod process;
 mod relationship;
 mod settings;
 mod signer;
+mod syncer;
 mod ui;
 
 use crate::comms::BusMessage;
@@ -67,15 +68,29 @@ fn main() -> Result<(), Error> {
 }
 
 async fn tokio_main() {
-    // Steal `from_minions` from the GLOBALS, and give it to a new Overlord
-    let from_minions = {
-        let mut mutex_option = GLOBALS.from_minions.lock().await;
+    // note: we don't get a spawn handle here, we don't signal this thread when we are exiting,
+    // we just let it die when tokio_main() exits. I think that is ok.
+    tokio::task::spawn(async move {
+        // Steal `tmp_syncer_receiver` from the GLOBALS, and give it to a new Syncer
+        let syncer_receiver = {
+            let mut mutex_option = GLOBALS.tmp_syncer_receiver.lock().await;
+            mem::replace(mutex_option.deref_mut(), None)
+        }
+        .unwrap();
+
+        let mut syncer = crate::syncer::Syncer::new(syncer_receiver);
+        syncer.run().await;
+    });
+
+    // Steal `tmp_overlord_receiver` from the GLOBALS, and give it to a new Overlord
+    let overlord_receiver = {
+        let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
         mem::replace(mutex_option.deref_mut(), None)
     }
     .unwrap();
 
     // Run the overlord
-    let mut overlord = crate::overlord::Overlord::new(from_minions);
+    let mut overlord = crate::overlord::Overlord::new(overlord_receiver);
     overlord.run().await;
 }
 

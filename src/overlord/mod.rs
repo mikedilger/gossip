@@ -114,6 +114,9 @@ impl Overlord {
                 .insert(Url::new(&relay.url), relay.clone());
         }
 
+        // Test the syncer
+        let _ = GLOBALS.to_syncer.send("test".to_owned());
+
         // Load people from the database
         {
             let mut dbpeople = DbPerson::fetch(None).await?;
