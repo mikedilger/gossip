@@ -144,18 +144,31 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
 
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new(person.name.as_deref().unwrap_or("")).strong());
+                            if let Some(name) = &person.name {
+                                ui.label(RichText::new(name).strong());
+                            } else {
+                                ui.label(
+                                    RichText::new(GossipUi::hex_pubkey_short(&person.pubkey))
+                                        .weak(),
+                                );
+                            }
 
                             ui.add_space(24.0);
 
-                            if let Some(dns_id) = person.dns_id.as_deref() {
-                                ui.label(dns_id);
+                            if let Some(dns_id) = &person.dns_id {
+                                if person.dns_id_valid > 0 {
+                                    ui.label(RichText::new(dns_id).monospace().small());
+                                } else {
+                                    ui.label(
+                                        RichText::new(dns_id).monospace().small().strikethrough(),
+                                    );
+                                }
                             }
                         });
                     });
                 });
 
-                ui.add_space(12.0);
+                ui.add_space(4.0);
 
                 ui.separator();
             }
@@ -183,12 +196,28 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
 
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new(person.name.as_deref().unwrap_or("")).strong());
+                        if let Some(name) = &person.name {
+                            ui.label(RichText::new(name).strong());
+                        } else {
+                            ui.label(
+                                RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak(),
+                            );
+                        }
 
                         ui.add_space(24.0);
 
-                        if let Some(dns_id) = person.dns_id.as_deref() {
-                            ui.label(dns_id);
+                        if let Some(dns_id) = &person.dns_id {
+                            if person.dns_id_valid > 0 {
+                                ui.label(RichText::new(dns_id).monospace().small());
+                            } else {
+                                ui.label(RichText::new(dns_id).monospace().small().strikethrough());
+                            }
+                        }
+
+                        if person.followed > 0 {
+                            ui.label("FOLLOWED");
+                        } else {
+                            ui.label("not followed");
                         }
                     });
                 });
