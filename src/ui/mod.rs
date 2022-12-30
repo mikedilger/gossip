@@ -1,5 +1,5 @@
-mod about;
 mod feed;
+mod help;
 mod people;
 mod relays;
 mod settings;
@@ -56,7 +56,8 @@ enum Page {
     Relays,
     Settings,
     Stats,
-    About,
+    HelpHelp,
+    HelpAbout,
 }
 
 struct GossipUi {
@@ -181,7 +182,7 @@ impl eframe::App for GossipUi {
                 ui.separator();
                 ui.selectable_value(&mut self.page, Page::Stats, "Stats");
                 ui.separator();
-                ui.selectable_value(&mut self.page, Page::About, "About");
+                ui.selectable_value(&mut self.page, Page::HelpHelp, "Help");
                 ui.separator();
             });
         });
@@ -194,7 +195,8 @@ impl eframe::App for GossipUi {
             Page::Relays => relays::update(self, ctx, frame, ui),
             Page::Settings => settings::update(self, ctx, frame, ui, darkmode),
             Page::Stats => stats::update(self, ctx, frame, ui),
-            Page::About => about::update(self, ctx, frame, ui),
+            Page::HelpHelp => help::update(self, ctx, frame, ui),
+            Page::HelpAbout => help::update(self, ctx, frame, ui),
         });
     }
 }
