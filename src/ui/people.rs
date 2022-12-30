@@ -1,8 +1,10 @@
 use super::{GossipUi, Page};
 use crate::comms::BusMessage;
+use crate::db::DbPerson;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, RichText, ScrollArea, TextEdit, TopBottomPanel, Ui, Vec2};
+use egui::{Context, Image, RichText, ScrollArea, Sense, TextEdit, TopBottomPanel, Ui, Vec2};
+use nostr_types::PublicKey;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     TopBottomPanel::top("people_menu").show(ctx, |ui| {
@@ -11,6 +13,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.separator();
             ui.selectable_value(&mut app.page, Page::PeopleFollow, "Follow Someone New");
             ui.separator();
+            if let Some(name) = &app.person_view_name {
+                ui.selectable_value(&mut app.page, Page::Person, name);
+                ui.separator();
+            }
         });
     });
 
@@ -124,7 +130,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 ui.horizontal(|ui| {
                     // Avatar first
-                    ui.image(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 });
+                    if ui
+                        .add(
+                            Image::new(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 })
+                                .sense(Sense::click()),
+                        )
+                        .clicked()
+                    {
+                        set_person_view(app, person);
+                    };
 
                     ui.vertical(|ui| {
                         ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
@@ -143,14 +157,63 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 ui.add_space(12.0);
 
-                if let Some(about) = person.about.as_deref() {
-                    ui.label(about);
-                }
-
-                ui.add_space(12.0);
-
                 ui.separator();
             }
         });
+    } else if app.page == Page::Person {
+        if app.person_view_pubkey.is_none()
+            || app.person_view_person.is_none()
+            || app.person_view_name.is_none()
+        {
+            ui.label("ERROR");
+        } else {
+            //let pubkey = app.person_view_pubkey.as_ref().unwrap();
+            let person = app.person_view_person.as_ref().unwrap();
+            let name = app.person_view_name.as_ref().unwrap();
+
+            ui.add_space(24.0);
+
+            ui.heading(name);
+
+            ui.horizontal(|ui| {
+                // Avatar first
+                ui.image(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 });
+
+                ui.vertical(|ui| {
+                    ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
+
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(person.name.as_deref().unwrap_or("")).strong());
+
+                        ui.add_space(24.0);
+
+                        if let Some(dns_id) = person.dns_id.as_deref() {
+                            ui.label(dns_id);
+                        }
+                    });
+                });
+            });
+
+            ui.add_space(12.0);
+
+            if let Some(about) = person.about.as_deref() {
+                ui.label(about);
+            }
+
+            ui.add_space(12.0);
+        }
+    }
+}
+
+fn set_person_view(app: &mut GossipUi, person: &DbPerson) {
+    if let Ok(pk) = PublicKey::try_from_hex_string(&person.pubkey) {
+        app.person_view_pubkey = Some(pk);
+        app.person_view_person = Some(person.clone());
+        app.person_view_name = if let Some(name) = &person.name {
+            Some(name.to_string())
+        } else {
+            Some(GossipUi::pubkey_short(&pk))
+        };
+        app.page = Page::Person;
     }
 }

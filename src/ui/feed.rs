@@ -4,10 +4,10 @@ use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::{CopyButton, ReplyButton};
 use eframe::egui;
 use egui::{
-    Align, Color32, Context, Frame, Label, Layout, RichText, ScrollArea, Sense, TextEdit,
+    Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, Sense, TextEdit,
     TextStyle, Ui, Vec2,
 };
-use nostr_types::{EventKind, Id};
+use nostr_types::{EventKind, Id, PublicKey};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed = GLOBALS.feed.blocking_lock().get();
@@ -244,7 +244,15 @@ fn render_post(
             }
 
             // Avatar first
-            ui.image(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 });
+            if ui
+                .add(
+                    Image::new(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 })
+                        .sense(Sense::click()),
+                )
+                .clicked()
+            {
+                set_person_view(app, event.pubkey);
+            };
 
             // Everything else next
             ui.vertical(|ui| {
@@ -341,5 +349,18 @@ fn render_post(
         for reply_id in replies {
             render_post(app, ctx, _frame, ui, reply_id, indent + 1, as_reply_to);
         }
+    }
+}
+
+fn set_person_view(app: &mut GossipUi, pubkey: PublicKey) {
+    if let Some(dbperson) = GLOBALS.people.blocking_read().get(&pubkey).cloned() {
+        app.person_view_name = if let Some(name) = &dbperson.name {
+            Some(name.to_string())
+        } else {
+            Some(GossipUi::pubkey_short(&pubkey))
+        };
+        app.person_view_person = Some(dbperson);
+        app.person_view_pubkey = Some(pubkey);
+        app.page = Page::Person;
     }
 }

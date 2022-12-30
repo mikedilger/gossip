@@ -9,6 +9,7 @@ mod widgets;
 mod you;
 
 use crate::about::About;
+use crate::db::DbPerson;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
@@ -52,6 +53,7 @@ enum Page {
     Feed,
     PeopleFollow,
     PeopleList,
+    Person,
     You,
     Relays,
     Settings,
@@ -77,6 +79,9 @@ struct GossipUi {
     import_hex: String,
     replying_to: Option<Id>,
     hides: Vec<Id>,
+    person_view_pubkey: Option<PublicKey>,
+    person_view_person: Option<DbPerson>,
+    person_view_name: Option<String>,
 }
 
 impl Drop for GossipUi {
@@ -144,6 +149,9 @@ impl GossipUi {
             import_hex: "".to_owned(),
             replying_to: None,
             hides: Vec::new(),
+            person_view_pubkey: None,
+            person_view_person: None,
+            person_view_name: None,
         }
     }
 }
@@ -191,6 +199,7 @@ impl eframe::App for GossipUi {
             Page::Feed => feed::update(self, ctx, frame, ui),
             Page::PeopleList => people::update(self, ctx, frame, ui),
             Page::PeopleFollow => people::update(self, ctx, frame, ui),
+            Page::Person => people::update(self, ctx, frame, ui),
             Page::You => you::update(self, ctx, frame, ui),
             Page::Relays => relays::update(self, ctx, frame, ui),
             Page::Settings => settings::update(self, ctx, frame, ui, darkmode),
