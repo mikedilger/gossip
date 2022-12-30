@@ -29,9 +29,6 @@ pub struct Overlord {
 
     // Vec of urls our minions are handling
     urls_watching: Vec<Url>,
-
-    #[allow(dead_code)]
-    private_key: Option<PrivateKey>, // note that PrivateKey already zeroizes on drop
 }
 
 impl Overlord {
@@ -43,7 +40,6 @@ impl Overlord {
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
             urls_watching: Vec::new(),
-            private_key: None,
         }
     }
 
