@@ -105,7 +105,12 @@ impl Fetcher {
         // We can't fetch as we are not async and we don't want to block the caller.
         // So we save this request as pending, and ask the syncer to sync us.
         self.pending.write().unwrap().insert(url);
-        let _ = GLOBALS.to_syncer.send("sync_fetcher".to_owned());
+        tokio::spawn(async move {
+            if let Err(e) = GLOBALS.fetcher.sync().await {
+                tracing::error!("Problem fetching from web: {}", e);
+            }
+        });
+
         Ok(None)
     }
 

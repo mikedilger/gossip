@@ -32,14 +32,6 @@ pub struct Globals {
     /// and stolen away when the Overlord is created.
     pub tmp_overlord_receiver: Mutex<Option<mpsc::UnboundedReceiver<BusMessage>>>,
 
-    /// This is an mpsc channel. The Syncer listens on it.
-    /// To create a sender, just clone() it.
-    pub to_syncer: mpsc::UnboundedSender<String>,
-
-    /// This is ephemeral. It is filled during lazy_static initializtion,
-    /// and stolen away when the Syncer is created.
-    pub tmp_syncer_receiver: Mutex<Option<mpsc::UnboundedReceiver<String>>>,
-
     /// All nostr events, keyed by the event Id
     pub events: RwLock<HashMap<Id, Event>>,
 
@@ -95,16 +87,11 @@ lazy_static! {
         // Setup a communications channel from the Minions to the Overlord.
         let (to_overlord, tmp_overlord_receiver) = mpsc::unbounded_channel();
 
-        // Setup a communications channel from the UI (or anybody else) to the Syncer.
-        let (to_syncer, tmp_syncer_receiver) = mpsc::unbounded_channel();
-
         Globals {
             db: Mutex::new(None),
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
-            to_syncer,
-            tmp_syncer_receiver: Mutex::new(Some(tmp_syncer_receiver)),
             events: RwLock::new(HashMap::new()),
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
