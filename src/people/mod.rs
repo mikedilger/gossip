@@ -35,7 +35,8 @@ impl People {
         }
 
         // Try loading from the database
-        let maybe_dbperson = DbPerson::fetch_one(pubkey.into()).await?;
+        let maybe_dbperson = Self::fetch_one(pubkey.into()).await?;
+
         if let Some(dbperson) = maybe_dbperson {
             // Insert into the map
             self.people.insert(pubkey, dbperson);
@@ -55,7 +56,7 @@ impl People {
             // Insert into the map
             self.people.insert(pubkey, dbperson.clone());
             // Insert into the database
-            DbPerson::insert(dbperson).await?;
+            Self::insert(dbperson).await?;
         }
 
         Ok(())
@@ -189,7 +190,7 @@ impl People {
     pub async fn sync(&mut self) -> Result<(), Error> {
         for pubkey in self.deferred_load.iter() {
             if !self.people.contains_key(pubkey) {
-                if let Some(person) = DbPerson::fetch_one((*pubkey).into()).await? {
+                if let Some(person) = Self::fetch_one((*pubkey).into()).await? {
                     let _ = self.people.insert(*pubkey, person);
                 }
             }
@@ -212,4 +213,161 @@ impl People {
 
         Ok(())
     }
+
+    pub async fn follow(&mut self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
+        // Follow in database
+        let sql = "INSERT INTO PERSON (pubkey, followed) values (?, 1) \
+                   ON CONFLICT(pubkey) DO UPDATE SET followed=1";
+        let pubkeyhex2 = pubkeyhex.clone();
+        task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((&pubkeyhex2.0,))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        // Make sure memory matches
+        let pubkey: PublicKey = PublicKey::try_from_hex_string(&pubkeyhex.0)?;
+        if let Some(dbperson) = self.people.get_mut(&pubkey) {
+            dbperson.followed = 1;
+        } else {
+            // load
+            if let Some(person) = Self::fetch_one(pubkeyhex).await? {
+                self.people.insert(pubkey, person);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn upsert_valid_nip05(
+        &mut self,
+        pubkeyhex: PublicKeyHex,
+        dns_id: String,
+        dns_id_last_checked: u64,
+    ) -> Result<(), Error> {
+        // Update memory
+        let pubkey: PublicKey = PublicKey::try_from_hex_string(&pubkeyhex.0)?;
+        if let Some(dbperson) = self.people.get_mut(&pubkey) {
+            dbperson.dns_id = Some(dns_id.clone());
+            dbperson.dns_id_last_checked = Some(dns_id_last_checked);
+        }
+
+        // Update in database
+        let sql = "INSERT INTO person (pubkey, dns_id, dns_id_valid, dns_id_last_checked) \
+                   values (?, ?, 1, ?) \
+                   ON CONFLICT(pubkey) DO UPDATE SET dns_id=?, dns_id_valid=1, dns_id_last_checked=?";
+
+        task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((
+                &pubkeyhex.0,
+                &dns_id,
+                &dns_id_last_checked,
+                &dns_id,
+                &dns_id_last_checked,
+            ))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
+        let sql =
+            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed FROM person".to_owned();
+        let sql = match criteria {
+            None => sql,
+            Some(crit) => format!("{} WHERE {}", sql, crit),
+        };
+
+        let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+            let rows = stmt.query_map([], |row| {
+                Ok(DbPerson {
+                    pubkey: PublicKeyHex(row.get(0)?),
+                    name: row.get(1)?,
+                    about: row.get(2)?,
+                    picture: row.get(3)?,
+                    dns_id: row.get(4)?,
+                    dns_id_valid: row.get(5)?,
+                    dns_id_last_checked: row.get(6)?,
+                    metadata_at: row.get(7)?,
+                    followed: row.get(8)?,
+                })
+            })?;
+
+            let mut output: Vec<DbPerson> = Vec::new();
+            for row in rows {
+                output.push(row?);
+            }
+            Ok(output)
+        })
+        .await?;
+
+        output
+    }
+
+    async fn fetch_one(pubkey: PublicKeyHex) -> Result<Option<DbPerson>, Error> {
+        let people = Self::fetch(Some(&format!("pubkey='{}'", pubkey))).await?;
+
+        if people.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(people[0].clone()))
+        }
+    }
+
+    async fn insert(person: DbPerson) -> Result<(), Error> {
+        let sql =
+            "INSERT OR IGNORE INTO person (pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+
+        task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((
+                &person.pubkey.0,
+                &person.name,
+                &person.about,
+                &person.picture,
+                &person.dns_id,
+                &person.dns_id_valid,
+                &person.dns_id_last_checked,
+                &person.metadata_at,
+                &person.followed,
+            ))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    /*
+       pub async fn delete(criteria: &str) -> Result<(), Error> {
+           let sql = format!("DELETE FROM person WHERE {}", criteria);
+
+           task::spawn_blocking(move || {
+               let maybe_db = GLOBALS.db.blocking_lock();
+               let db = maybe_db.as_ref().unwrap();
+               db.execute(&sql, [])?;
+               Ok::<(), Error>(())
+           })
+           .await??;
+
+           Ok(())
+       }
+    */
 }

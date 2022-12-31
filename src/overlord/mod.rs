@@ -2,7 +2,7 @@ mod minion;
 mod relay_picker;
 
 use crate::comms::BusMessage;
-use crate::db::{DbEvent, DbPerson, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::people::People;
@@ -588,12 +588,24 @@ impl Overlord {
         };
 
         // Save person
-        DbPerson::upsert_valid_nip05(
-            (*pubkey).into(),
-            dns_id.clone(),
-            Unixtime::now().unwrap().0 as u64,
-        )
-        .await?;
+        GLOBALS
+            .people
+            .write()
+            .await
+            .upsert_valid_nip05(
+                (*pubkey).into(),
+                dns_id.clone(),
+                Unixtime::now().unwrap().0 as u64,
+            )
+            .await?;
+
+        // Mark as followed
+        GLOBALS
+            .people
+            .write()
+            .await
+            .follow((*pubkey).into())
+            .await?;
 
         info!("Followed {}", &dns_id);
 
@@ -627,7 +639,7 @@ impl Overlord {
     async fn follow_bech32(bech32: String, relay: String) -> Result<(), Error> {
         let pk = PublicKey::try_from_bech32_string(&bech32)?;
         let pkhex: PublicKeyHex = pk.into();
-        DbPerson::follow(pkhex.clone()).await?;
+        GLOBALS.people.write().await.follow(pkhex.clone()).await?;
 
         debug!("Followed {}", &pkhex);
 
@@ -655,7 +667,7 @@ impl Overlord {
     async fn follow_hexkey(hexkey: String, relay: String) -> Result<(), Error> {
         let pk = PublicKey::try_from_hex_string(&hexkey)?;
         let pkhex: PublicKeyHex = pk.into();
-        DbPerson::follow(pkhex.clone()).await?;
+        GLOBALS.people.write().await.follow(pkhex.clone()).await?;
 
         debug!("Followed {}", &pkhex);
 
