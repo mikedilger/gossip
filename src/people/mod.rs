@@ -23,7 +23,9 @@ impl People {
 
     pub async fn get_followed_pubkeys(&self) -> Vec<PublicKeyHex> {
         let mut output: Vec<PublicKeyHex> = Vec::new();
-        for (_, person) in self.people.iter() {
+        for person in self.people.iter()
+            .filter_map(|(_,p)| if p.followed==1 { Some(p) } else { None })
+        {
             output.push(person.pubkey.clone());
         }
         output
