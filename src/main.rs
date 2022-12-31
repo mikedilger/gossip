@@ -26,6 +26,9 @@ use std::ops::DerefMut;
 use std::{env, mem, thread};
 use tracing_subscriber::filter::EnvFilter;
 
+pub const AVATAR_SIZE: u32 = 48;
+pub const AVATAR_SIZE_F32: f32 = 48.0;
+
 fn main() -> Result<(), Error> {
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "info");

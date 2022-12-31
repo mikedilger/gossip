@@ -129,10 +129,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 ui.horizontal(|ui| {
                     // Avatar first
+                    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
+                        avatar
+                    } else {
+                        app.placeholder_avatar.clone()
+                    };
                     if ui
                         .add(
-                            Image::new(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 })
-                                .sense(Sense::click()),
+                            Image::new(
+                                &avatar,
+                                Vec2 {
+                                    x: crate::AVATAR_SIZE_F32,
+                                    y: crate::AVATAR_SIZE_F32,
+                                },
+                            )
+                            .sense(Sense::click()),
                         )
                         .clicked()
                     {
@@ -157,9 +168,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             ui.label("ERROR");
         } else {
-            let pubkeyhex = app.person_view_pubkey.as_ref().unwrap();
-            let person = app.person_view_person.as_ref().unwrap();
-            let name = app.person_view_name.as_ref().unwrap();
+            let pubkeyhex = app.person_view_pubkey.as_ref().unwrap().to_owned();
+            let person = app.person_view_person.as_ref().unwrap().to_owned();
+            let name = app.person_view_name.as_ref().unwrap().to_owned();
 
             ui.add_space(24.0);
 
@@ -167,11 +178,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
             ui.horizontal(|ui| {
                 // Avatar first
-                ui.image(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 });
+                let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pubkeyhex) {
+                    avatar
+                } else {
+                    app.placeholder_avatar.clone()
+                };
+                ui.image(&avatar, Vec2 { x: 36.0, y: 36.0 });
 
                 ui.vertical(|ui| {
-                    ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
-                    GossipUi::render_person_name_line(ui, Some(person));
+                    ui.label(RichText::new(GossipUi::hex_pubkey_short(&pubkeyhex)).weak());
+                    GossipUi::render_person_name_line(ui, Some(&person));
                 });
             });
 
@@ -186,11 +202,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             #[allow(clippy::collapsible_else_if)]
             if person.followed == 0 {
                 if ui.button("FOLLOW").clicked() {
-                    GLOBALS.people.blocking_write().follow(pubkeyhex, true);
+                    GLOBALS.people.blocking_write().follow(&pubkeyhex, true);
                 }
             } else {
                 if ui.button("UNFOLLOW").clicked() {
-                    GLOBALS.people.blocking_write().follow(pubkeyhex, false);
+                    GLOBALS.people.blocking_write().follow(&pubkeyhex, false);
                 }
             }
         }

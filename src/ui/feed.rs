@@ -244,10 +244,21 @@ fn render_post(
             }
 
             // Avatar first
+            let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &event.pubkey.into()) {
+                avatar
+            } else {
+                app.placeholder_avatar.clone()
+            };
             if ui
                 .add(
-                    Image::new(&app.placeholder_avatar, Vec2 { x: 36.0, y: 36.0 })
-                        .sense(Sense::click()),
+                    Image::new(
+                        &avatar,
+                        Vec2 {
+                            x: crate::AVATAR_SIZE_F32,
+                            y: crate::AVATAR_SIZE_F32,
+                        },
+                    )
+                    .sense(Sense::click()),
                 )
                 .clicked()
             {

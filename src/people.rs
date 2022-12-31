@@ -1,19 +1,31 @@
 use crate::db::DbPerson;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Metadata, PublicKeyHex, Unixtime};
+use image::RgbaImage;
+use nostr_types::{Metadata, PublicKeyHex, Unixtime, Url};
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tokio::task;
 
 pub struct People {
     people: HashMap<PublicKeyHex, DbPerson>,
+
+    // We fetch (with Fetcher), process, and temporarily hold avatars
+    // until the UI next asks for them, at which point we remove them
+    // and hand them over. This way we can do the work that takes
+    // longer and the UI can do as little work as possible.
+    avatars_temp: HashMap<PublicKeyHex, RgbaImage>,
+    avatars_pending_processing: HashSet<PublicKeyHex>,
+    avatars_failed: HashSet<PublicKeyHex>,
 }
 
 impl People {
     pub fn new() -> People {
         People {
             people: HashMap::new(),
+            avatars_temp: HashMap::new(),
+            avatars_pending_processing: HashSet::new(),
+            avatars_failed: HashSet::new(),
         }
     }
 
@@ -194,6 +206,89 @@ impl People {
             }
         });
         v
+    }
+
+    // If returns Err, means you're never going to get it so stop trying.
+    pub fn get_avatar(&mut self, pubkeyhex: &PublicKeyHex) -> Result<Option<image::RgbaImage>, ()> {
+        // If we have it, hand it over (we won't need a copy anymore)
+        if let Some(th) = self.avatars_temp.remove(pubkeyhex) {
+            return Ok(Some(th));
+        }
+
+        // If it failed before, error out now
+        if self.avatars_failed.contains(pubkeyhex) {
+            return Err(());
+        }
+
+        // If it is pending processing, respond now
+        if self.avatars_pending_processing.contains(pubkeyhex) {
+            return Ok(None);
+        }
+
+        // Get the person this is about
+        let person = match self.people.get(pubkeyhex) {
+            Some(person) => person,
+            None => {
+                return Err(());
+            }
+        };
+
+        // Fail if they don't have a picture url
+        // FIXME: we could get metadata that sets this while we are running, so just failing for
+        //        the duration of the client isn't quite right. But for now, retrying is taxing.
+        if person.picture.is_none() {
+            return Err(());
+        }
+
+        // FIXME: we could get metadata that sets this while we are running, so just failing for
+        //        the duration of the client isn't quite right. But for now, retrying is taxing.
+        let url = Url::new(person.picture.as_ref().unwrap());
+        if !url.is_valid() {
+            return Err(());
+        }
+
+        match GLOBALS.fetcher.try_get(url) {
+            Ok(None) => Ok(None),
+            Ok(Some(bytes)) => {
+                // Finish this later
+                let apubkeyhex = pubkeyhex.to_owned();
+                tokio::spawn(async move {
+                    let image = match image::load_from_memory(&bytes) {
+                        // DynamicImage
+                        Ok(di) => di,
+                        Err(_) => {
+                            let _ = GLOBALS
+                                .people
+                                .write()
+                                .await
+                                .avatars_failed
+                                .insert(apubkeyhex.clone());
+                            return;
+                        }
+                    };
+                    let image = image.resize(
+                        crate::AVATAR_SIZE,
+                        crate::AVATAR_SIZE,
+                        image::imageops::FilterType::Nearest,
+                    ); // DynamicImage
+                    let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
+
+                    GLOBALS
+                        .people
+                        .write()
+                        .await
+                        .avatars_temp
+                        .insert(apubkeyhex, image_buffer);
+                });
+                self.avatars_pending_processing.insert(pubkeyhex.to_owned());
+                Ok(None)
+            }
+            Err(e) => {
+                tracing::error!("{}", e);
+                self.avatars_failed.insert(pubkeyhex.to_owned());
+                Err(())
+            }
+        }
     }
 
     /// This is a 'just in case' the main code isn't keeping them in sync.

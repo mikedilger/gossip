@@ -16,6 +16,7 @@ use crate::settings::Settings;
 use eframe::{egui, IconData, Theme};
 use egui::{ColorImage, Context, ImageData, RichText, TextureHandle, TextureOptions, Ui};
 use nostr_types::{Id, PublicKey, PublicKeyHex};
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
@@ -82,6 +83,8 @@ struct GossipUi {
     person_view_pubkey: Option<PublicKeyHex>,
     person_view_person: Option<DbPerson>,
     person_view_name: Option<String>,
+    avatars: HashMap<PublicKeyHex, TextureHandle>,
+    failed_avatars: HashSet<PublicKeyHex>,
 }
 
 impl Drop for GossipUi {
@@ -152,6 +155,8 @@ impl GossipUi {
             person_view_pubkey: None,
             person_view_person: None,
             person_view_name: None,
+            avatars: HashMap::new(),
+            failed_avatars: HashSet::new(),
         }
     }
 }
@@ -248,5 +253,40 @@ impl GossipUi {
                 }
             }
         });
+    }
+
+    pub fn try_get_avatar(
+        &mut self,
+        ctx: &Context,
+        pubkeyhex: &PublicKeyHex,
+    ) -> Option<TextureHandle> {
+        // Do not keep retrying if failed
+        if self.failed_avatars.contains(pubkeyhex) {
+            return None;
+        }
+
+        if let Some(th) = self.avatars.get(pubkeyhex) {
+            return Some(th.to_owned());
+        }
+
+        match GLOBALS.people.blocking_write().get_avatar(pubkeyhex) {
+            Err(_) => {
+                self.failed_avatars.insert(pubkeyhex.to_owned());
+                None
+            }
+            Ok(Some(rgbaimage)) => {
+                let size = [rgbaimage.width() as _, rgbaimage.height() as _];
+                let pixels = rgbaimage.as_flat_samples();
+                let texture_handle = ctx.load_texture(
+                    pubkeyhex.0.clone(),
+                    ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
+                    TextureOptions::default(),
+                );
+                self.avatars
+                    .insert(pubkeyhex.to_owned(), texture_handle.clone());
+                Some(texture_handle)
+            }
+            Ok(None) => None,
+        }
     }
 }
