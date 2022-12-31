@@ -46,11 +46,16 @@ fn main() -> Result<(), Error> {
     let settings = crate::settings::Settings::blocking_load()?;
     *GLOBALS.settings.blocking_write() = settings;
 
-    // Start async code
-    // We do this on a separate thread because egui is most portable by
-    // being on the main thread.
-    let async_thread = thread::spawn(|| {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+    // We create and enter the runtime on the main thread so that
+    // non-async code can have a runtime context within which to spawn
+    // async tasks.
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let _main_rt = rt.enter(); // <-- this allows it.
+
+    // We run our main async code on a separate thread, not just a
+    // separate task. This leave the main thread for UI work only.
+    // egui is most portable when it is on the main thread.
+    let async_thread = thread::spawn(move || {
         rt.block_on(tokio_main());
     });
 
