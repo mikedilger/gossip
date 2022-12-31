@@ -174,7 +174,7 @@ impl Overlord {
                 .get_followed_pubkeys()
                 .await
                 .iter()
-                .map(|p| PublicKeyHex::from(*p))
+                .map(|p| p.to_owned())
                 .collect();
 
             let (num_relays_per_person, max_relays) = {
@@ -593,7 +593,7 @@ impl Overlord {
             .write()
             .await
             .upsert_valid_nip05(
-                (*pubkey).into(),
+                &(*pubkey).into(),
                 dns_id.clone(),
                 Unixtime::now().unwrap().0 as u64,
             )
@@ -604,7 +604,7 @@ impl Overlord {
             .people
             .write()
             .await
-            .follow((*pubkey).into())
+            .follow(&(*pubkey).into())
             .await?;
 
         info!("Followed {}", &dns_id);
@@ -639,7 +639,7 @@ impl Overlord {
     async fn follow_bech32(bech32: String, relay: String) -> Result<(), Error> {
         let pk = PublicKey::try_from_bech32_string(&bech32)?;
         let pkhex: PublicKeyHex = pk.into();
-        GLOBALS.people.write().await.follow(pkhex.clone()).await?;
+        GLOBALS.people.write().await.follow(&pkhex).await?;
 
         debug!("Followed {}", &pkhex);
 
@@ -667,7 +667,7 @@ impl Overlord {
     async fn follow_hexkey(hexkey: String, relay: String) -> Result<(), Error> {
         let pk = PublicKey::try_from_hex_string(&hexkey)?;
         let pkhex: PublicKeyHex = pk.into();
-        GLOBALS.people.write().await.follow(pkhex.clone()).await?;
+        GLOBALS.people.write().await.follow(&pkhex).await?;
 
         debug!("Followed {}", &pkhex);
 

@@ -79,7 +79,7 @@ struct GossipUi {
     import_hex: String,
     replying_to: Option<Id>,
     hides: Vec<Id>,
-    person_view_pubkey: Option<PublicKey>,
+    person_view_pubkey: Option<PublicKeyHex>,
     person_view_person: Option<DbPerson>,
     person_view_name: Option<String>,
 }
@@ -219,11 +219,6 @@ impl GossipUi {
             &pubkeyhex.0[56..60],
             &pubkeyhex.0[60..64]
         )
-    }
-
-    pub fn pubkey_short(pubkey: &PublicKey) -> String {
-        let hex: PublicKeyHex = (*pubkey).into();
-        Self::hex_pubkey_short(&hex)
     }
 
     pub fn pubkey_long(pubkey: &PublicKey) -> String {

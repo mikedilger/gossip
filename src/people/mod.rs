@@ -1,14 +1,14 @@
 use crate::db::DbPerson;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Metadata, PublicKey, PublicKeyHex, Unixtime};
+use nostr_types::{Metadata, PublicKeyHex, Unixtime};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use tokio::task;
 
 pub struct People {
-    people: HashMap<PublicKey, DbPerson>,
-    deferred_load: HashSet<PublicKey>,
+    people: HashMap<PublicKeyHex, DbPerson>,
+    deferred_load: HashSet<PublicKeyHex>,
 }
 
 impl People {
@@ -19,31 +19,29 @@ impl People {
         }
     }
 
-    pub async fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        let mut output: Vec<PublicKey> = Vec::new();
+    pub async fn get_followed_pubkeys(&self) -> Vec<PublicKeyHex> {
+        let mut output: Vec<PublicKeyHex> = Vec::new();
         for (_, person) in self.people.iter() {
-            if let Ok(pubkey) = PublicKey::try_from_hex_string(&person.pubkey.0) {
-                output.push(pubkey);
-            }
+            output.push(person.pubkey.clone());
         }
         output
     }
 
-    pub async fn create_if_missing(&mut self, pubkey: PublicKey) -> Result<(), Error> {
-        if self.people.contains_key(&pubkey) {
+    pub async fn create_if_missing(&mut self, pubkeyhex: &PublicKeyHex) -> Result<(), Error> {
+        if self.people.contains_key(pubkeyhex) {
             return Ok(());
         }
 
         // Try loading from the database
-        let maybe_dbperson = Self::fetch_one(pubkey.into()).await?;
+        let maybe_dbperson = Self::fetch_one(pubkeyhex).await?;
 
         if let Some(dbperson) = maybe_dbperson {
             // Insert into the map
-            self.people.insert(pubkey, dbperson);
+            self.people.insert(pubkeyhex.to_owned(), dbperson);
         } else {
             // Create new
             let dbperson = DbPerson {
-                pubkey: pubkey.into(),
+                pubkey: pubkeyhex.to_owned(),
                 name: None,
                 about: None,
                 picture: None,
@@ -54,7 +52,7 @@ impl People {
                 followed: 0,
             };
             // Insert into the map
-            self.people.insert(pubkey, dbperson.clone());
+            self.people.insert(pubkeyhex.to_owned(), dbperson.clone());
             // Insert into the database
             Self::insert(dbperson).await?;
         }
@@ -64,15 +62,15 @@ impl People {
 
     pub async fn update_metadata(
         &mut self,
-        pubkey: PublicKey,
+        pubkeyhex: &PublicKeyHex,
         metadata: Metadata,
         asof: Unixtime,
     ) -> Result<(), Error> {
         // Sync in from database first
-        self.create_if_missing(pubkey).await?;
+        self.create_if_missing(pubkeyhex).await?;
 
         // Update the map
-        let person = self.people.get_mut(&pubkey).unwrap();
+        let person = self.people.get_mut(pubkeyhex).unwrap();
         if let Some(metadata_at) = person.metadata_at {
             if asof.0 <= metadata_at {
                 // Old metadata. Ignore it
@@ -91,7 +89,7 @@ impl People {
 
         // Update the database
         let person = person.clone();
-        let pubkeyhex: PublicKeyHex = person.pubkey.clone();
+        let pubkeyhex2 = pubkeyhex.to_owned();
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
@@ -105,7 +103,7 @@ impl People {
                 &person.picture,
                 &person.dns_id,
                 &person.metadata_at,
-                &pubkeyhex.0,
+                &pubkeyhex2.0,
             ))?;
             Ok::<(), Error>(())
         })
@@ -154,21 +152,19 @@ impl People {
         .await?;
 
         for person in output? {
-            if let Ok(pubkey) = PublicKey::try_from_hex_string(&person.pubkey.0) {
-                self.people.insert(pubkey, person);
-            }
+            self.people.insert(person.pubkey.clone(), person);
         }
 
         Ok(())
     }
 
-    pub fn get(&mut self, pubkey: PublicKey) -> Option<DbPerson> {
-        if self.people.contains_key(&pubkey) {
-            self.people.get(&pubkey).cloned()
+    pub fn get(&mut self, pubkeyhex: &PublicKeyHex) -> Option<DbPerson> {
+        if self.people.contains_key(pubkeyhex) {
+            self.people.get(pubkeyhex).cloned()
         } else {
             // Not there. Maybe it's in the database. Defer and let syncer
             // try to load
-            self.deferred_load.insert(pubkey);
+            self.deferred_load.insert(pubkeyhex.to_owned());
             let _ = GLOBALS.to_syncer.send("sync_people".to_owned());
             None
         }
@@ -188,10 +184,10 @@ impl People {
     }
 
     pub async fn sync(&mut self) -> Result<(), Error> {
-        for pubkey in self.deferred_load.iter() {
-            if !self.people.contains_key(pubkey) {
-                if let Some(person) = Self::fetch_one((*pubkey).into()).await? {
-                    let _ = self.people.insert(*pubkey, person);
+        for pubkeyhex in self.deferred_load.iter() {
+            if !self.people.contains_key(pubkeyhex) {
+                if let Some(person) = Self::fetch_one(pubkeyhex).await? {
+                    let _ = self.people.insert(pubkeyhex.to_owned(), person);
                 }
             }
         }
@@ -214,11 +210,11 @@ impl People {
         Ok(())
     }
 
-    pub async fn follow(&mut self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
+    pub async fn follow(&mut self, pubkeyhex: &PublicKeyHex) -> Result<(), Error> {
         // Follow in database
         let sql = "INSERT INTO PERSON (pubkey, followed) values (?, 1) \
                    ON CONFLICT(pubkey) DO UPDATE SET followed=1";
-        let pubkeyhex2 = pubkeyhex.clone();
+        let pubkeyhex2 = pubkeyhex.to_owned();
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
@@ -229,13 +225,12 @@ impl People {
         .await??;
 
         // Make sure memory matches
-        let pubkey: PublicKey = PublicKey::try_from_hex_string(&pubkeyhex.0)?;
-        if let Some(dbperson) = self.people.get_mut(&pubkey) {
+        if let Some(dbperson) = self.people.get_mut(pubkeyhex) {
             dbperson.followed = 1;
         } else {
             // load
             if let Some(person) = Self::fetch_one(pubkeyhex).await? {
-                self.people.insert(pubkey, person);
+                self.people.insert(pubkeyhex.to_owned(), person);
             }
         }
 
@@ -244,13 +239,12 @@ impl People {
 
     pub async fn upsert_valid_nip05(
         &mut self,
-        pubkeyhex: PublicKeyHex,
+        pubkeyhex: &PublicKeyHex,
         dns_id: String,
         dns_id_last_checked: u64,
     ) -> Result<(), Error> {
         // Update memory
-        let pubkey: PublicKey = PublicKey::try_from_hex_string(&pubkeyhex.0)?;
-        if let Some(dbperson) = self.people.get_mut(&pubkey) {
+        if let Some(dbperson) = self.people.get_mut(pubkeyhex) {
             dbperson.dns_id = Some(dns_id.clone());
             dbperson.dns_id_last_checked = Some(dns_id_last_checked);
         }
@@ -260,13 +254,14 @@ impl People {
                    values (?, ?, 1, ?) \
                    ON CONFLICT(pubkey) DO UPDATE SET dns_id=?, dns_id_valid=1, dns_id_last_checked=?";
 
+        let pubkeyhex2 = pubkeyhex.to_owned();
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
-                &pubkeyhex.0,
+                &pubkeyhex2.0,
                 &dns_id,
                 &dns_id_last_checked,
                 &dns_id,
@@ -317,8 +312,8 @@ impl People {
         output
     }
 
-    async fn fetch_one(pubkey: PublicKeyHex) -> Result<Option<DbPerson>, Error> {
-        let people = Self::fetch(Some(&format!("pubkey='{}'", pubkey))).await?;
+    async fn fetch_one(pubkeyhex: &PublicKeyHex) -> Result<Option<DbPerson>, Error> {
+        let people = Self::fetch(Some(&format!("pubkey='{}'", pubkeyhex))).await?;
 
         if people.is_empty() {
             Ok(None)

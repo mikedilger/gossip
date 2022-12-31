@@ -7,7 +7,7 @@ use egui::{
     Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, Sense, TextEdit,
     TextStyle, Ui, Vec2,
 };
-use nostr_types::{EventKind, Id, PublicKey};
+use nostr_types::{EventKind, Id, PublicKeyHex};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed = GLOBALS.feed.blocking_lock().get();
@@ -166,7 +166,7 @@ fn render_post(
         return;
     }
 
-    let maybe_person = GLOBALS.people.blocking_write().get(event.pubkey);
+    let maybe_person = GLOBALS.people.blocking_write().get(&event.pubkey.into());
 
     let reactions = Globals::get_reactions_sync(event.id);
     let replies = Globals::get_replies_sync(event.id);
@@ -251,7 +251,7 @@ fn render_post(
                 )
                 .clicked()
             {
-                set_person_view(app, event.pubkey);
+                set_person_view(app, &event.pubkey.into());
             };
 
             // Everything else next
@@ -338,15 +338,15 @@ fn render_post(
     }
 }
 
-fn set_person_view(app: &mut GossipUi, pubkey: PublicKey) {
-    if let Some(dbperson) = GLOBALS.people.blocking_write().get(pubkey) {
+fn set_person_view(app: &mut GossipUi, pubkeyhex: &PublicKeyHex) {
+    if let Some(dbperson) = GLOBALS.people.blocking_write().get(pubkeyhex) {
         app.person_view_name = if let Some(name) = &dbperson.name {
             Some(name.to_string())
         } else {
-            Some(GossipUi::pubkey_short(&pubkey))
+            Some(GossipUi::hex_pubkey_short(pubkeyhex))
         };
         app.person_view_person = Some(dbperson);
-        app.person_view_pubkey = Some(pubkey);
+        app.person_view_pubkey = Some(pubkeyhex.to_owned());
         app.page = Page::Person;
     }
 }

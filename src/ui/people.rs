@@ -4,7 +4,6 @@ use crate::db::DbPerson;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, Image, RichText, ScrollArea, Sense, TextEdit, TopBottomPanel, Ui, Vec2};
-use nostr_types::PublicKey;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     TopBottomPanel::top("people_menu").show(ctx, |ui| {
@@ -188,14 +187,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 }
 
 fn set_person_view(app: &mut GossipUi, person: &DbPerson) {
-    if let Ok(pk) = PublicKey::try_from_hex_string(&person.pubkey) {
-        app.person_view_pubkey = Some(pk);
-        app.person_view_person = Some(person.clone());
-        app.person_view_name = if let Some(name) = &person.name {
-            Some(name.to_string())
-        } else {
-            Some(GossipUi::pubkey_short(&pk))
-        };
-        app.page = Page::Person;
-    }
+    app.person_view_pubkey = Some(person.pubkey.clone());
+    app.person_view_person = Some(person.clone());
+    app.person_view_name = if let Some(name) = &person.name {
+        Some(name.to_string())
+    } else {
+        Some(GossipUi::hex_pubkey_short(&person.pubkey))
+    };
+    app.page = Page::Person;
 }

@@ -57,7 +57,6 @@ pub struct Globals {
     pub desired_events: RwLock<HashMap<Id, Vec<Url>>>,
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
-    //pub people: RwLock<HashMap<PublicKey, DbPerson>>,
     pub people: RwLock<People>,
 
     /// All nostr relay records we have
