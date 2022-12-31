@@ -2,6 +2,7 @@ use crate::comms::BusMessage;
 use crate::db::{DbEvent, DbRelay};
 use crate::error::Error;
 use crate::feed::Feed;
+use crate::fetcher::Fetcher;
 use crate::people::People;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
@@ -80,6 +81,9 @@ pub struct Globals {
 
     /// Feed
     pub feed: Mutex<Feed>,
+
+    /// Fetcher
+    pub fetcher: RwLock<Fetcher>,
 }
 
 lazy_static! {
@@ -114,6 +118,7 @@ lazy_static! {
             dismissed: RwLock::new(Vec::new()),
             event_is_new: RwLock::new(Vec::new()),
             feed: Mutex::new(Feed::new()),
+            fetcher: RwLock::new(Fetcher::new()),
         }
     };
 }

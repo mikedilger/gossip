@@ -18,6 +18,7 @@ eframe = { version = "0.20", features = [ "dark-light", "persistence" ] }
 egui_extras = { version = "0.20", features = [ "svg", "tracing" ] }
 futures = "0.3"
 futures-util = "0.3"
+hex = "0.4"
 http = "0.2"
 image = "0.24"
 lazy_static = "1.4"
@@ -27,6 +28,7 @@ reqwest = { version = "0.11", features = ["json"] }
 rusqlite = { version = "0.28", features = ["bundled", "chrono", "serde_json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10"
 textnonce = "1.0"
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }

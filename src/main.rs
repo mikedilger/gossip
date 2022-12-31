@@ -9,6 +9,7 @@ mod date_ago;
 mod db;
 mod error;
 mod feed;
+mod fetcher;
 mod globals;
 mod overlord;
 mod people;

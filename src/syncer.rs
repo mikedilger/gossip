@@ -21,12 +21,14 @@ impl Syncer {
             let message = message.unwrap();
 
             match &*message {
-                "test" => {
-                    tracing::debug!("Syncer received test message.");
-                }
                 "sync_people" => {
                     if let Err(e) = GLOBALS.people.write().await.sync().await {
                         tracing::error!("Problem syncing people: {}", e);
+                    }
+                }
+                "sync_fetcher" => {
+                    if let Err(e) = GLOBALS.fetcher.write().await.sync().await {
+                        tracing::error!("Problem fetching from web: {}", e);
                     }
                 }
                 _ => {
