@@ -601,7 +601,7 @@ impl Overlord {
             .people
             .write()
             .await
-            .follow(&(*pubkey).into())
+            .async_follow(&(*pubkey).into(), true)
             .await?;
 
         info!("Followed {}", &dns_id);
@@ -636,7 +636,12 @@ impl Overlord {
     async fn follow_bech32(bech32: String, relay: String) -> Result<(), Error> {
         let pk = PublicKey::try_from_bech32_string(&bech32)?;
         let pkhex: PublicKeyHex = pk.into();
-        GLOBALS.people.write().await.follow(&pkhex).await?;
+        GLOBALS
+            .people
+            .write()
+            .await
+            .async_follow(&pkhex, true)
+            .await?;
 
         debug!("Followed {}", &pkhex);
 
@@ -664,7 +669,12 @@ impl Overlord {
     async fn follow_hexkey(hexkey: String, relay: String) -> Result<(), Error> {
         let pk = PublicKey::try_from_hex_string(&hexkey)?;
         let pkhex: PublicKeyHex = pk.into();
-        GLOBALS.people.write().await.follow(&pkhex).await?;
+        GLOBALS
+            .people
+            .write()
+            .await
+            .async_follow(&pkhex, true)
+            .await?;
 
         debug!("Followed {}", &pkhex);
 

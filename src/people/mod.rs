@@ -9,6 +9,7 @@ use tokio::task;
 pub struct People {
     people: HashMap<PublicKeyHex, DbPerson>,
     deferred_load: HashSet<PublicKeyHex>,
+    deferred_follow: HashMap<PublicKeyHex, bool>,
 }
 
 impl People {
@@ -16,6 +17,7 @@ impl People {
         People {
             people: HashMap::new(),
             deferred_load: HashSet::new(),
+            deferred_follow: HashMap::new(),
         }
     }
 
@@ -184,6 +186,7 @@ impl People {
     }
 
     pub async fn sync(&mut self) -> Result<(), Error> {
+        // handle deferred load
         for pubkeyhex in self.deferred_load.iter() {
             if !self.people.contains_key(pubkeyhex) {
                 if let Some(person) = Self::fetch_one(pubkeyhex).await? {
@@ -192,6 +195,14 @@ impl People {
             }
         }
         self.deferred_load.clear();
+
+        // handle deferred follow
+        let df = self.deferred_follow.clone();
+        for (pubkeyhex, follow) in df {
+            self.async_follow(&pubkeyhex, follow).await?;
+        }
+        self.deferred_follow.clear();
+
         Ok(())
     }
 
@@ -210,23 +221,37 @@ impl People {
         Ok(())
     }
 
-    pub async fn follow(&mut self, pubkeyhex: &PublicKeyHex) -> Result<(), Error> {
+    pub fn follow(&mut self, pubkeyhex: &PublicKeyHex, follow: bool) {
+        self.deferred_follow
+            .entry(pubkeyhex.clone())
+            .and_modify(|d| *d = follow)
+            .or_insert_with(|| follow);
+        let _ = GLOBALS.to_syncer.send("sync_people".to_owned());
+    }
+
+    pub async fn async_follow(
+        &mut self,
+        pubkeyhex: &PublicKeyHex,
+        follow: bool,
+    ) -> Result<(), Error> {
+        let f: u8 = u8::from(follow);
+
         // Follow in database
-        let sql = "INSERT INTO PERSON (pubkey, followed) values (?, 1) \
-                   ON CONFLICT(pubkey) DO UPDATE SET followed=1";
+        let sql = "INSERT INTO PERSON (pubkey, followed) values (?, ?) \
+                   ON CONFLICT(pubkey) DO UPDATE SET followed=?";
         let pubkeyhex2 = pubkeyhex.to_owned();
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&pubkeyhex2.0,))?;
+            stmt.execute((&pubkeyhex2.0, &f, &f))?;
             Ok::<(), Error>(())
         })
         .await??;
 
         // Make sure memory matches
         if let Some(dbperson) = self.people.get_mut(pubkeyhex) {
-            dbperson.followed = 1;
+            dbperson.followed = f;
         } else {
             // load
             if let Some(person) = Self::fetch_one(pubkeyhex).await? {

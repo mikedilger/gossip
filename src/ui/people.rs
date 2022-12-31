@@ -157,7 +157,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             ui.label("ERROR");
         } else {
-            //let pubkey = app.person_view_pubkey.as_ref().unwrap();
+            let pubkeyhex = app.person_view_pubkey.as_ref().unwrap();
             let person = app.person_view_person.as_ref().unwrap();
             let name = app.person_view_name.as_ref().unwrap();
 
@@ -182,6 +182,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
 
             ui.add_space(12.0);
+
+            #[allow(clippy::collapsible_else_if)]
+            if person.followed == 0 {
+                if ui.button("FOLLOW").clicked() {
+                    GLOBALS.people.blocking_write().follow(pubkeyhex, true);
+                }
+            } else {
+                if ui.button("UNFOLLOW").clicked() {
+                    GLOBALS.people.blocking_write().follow(pubkeyhex, false);
+                }
+            }
         }
     }
 }
