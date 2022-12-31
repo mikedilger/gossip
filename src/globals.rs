@@ -83,7 +83,7 @@ pub struct Globals {
     pub feed: Mutex<Feed>,
 
     /// Fetcher
-    pub fetcher: RwLock<Fetcher>,
+    pub fetcher: Fetcher,
 }
 
 lazy_static! {
@@ -118,7 +118,7 @@ lazy_static! {
             dismissed: RwLock::new(Vec::new()),
             event_is_new: RwLock::new(Vec::new()),
             feed: Mutex::new(Feed::new()),
-            fetcher: RwLock::new(Fetcher::new()),
+            fetcher: Fetcher::new(),
         }
     };
 }

@@ -27,7 +27,7 @@ impl Syncer {
                     }
                 }
                 "sync_fetcher" => {
-                    if let Err(e) = GLOBALS.fetcher.write().await.sync().await {
+                    if let Err(e) = GLOBALS.fetcher.sync().await {
                         tracing::error!("Problem fetching from web: {}", e);
                     }
                 }
