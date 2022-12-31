@@ -258,21 +258,7 @@ fn render_post(
             ui.vertical(|ui| {
                 // First row
                 ui.horizontal(|ui| {
-                    if let Some(person) = maybe_person {
-                        if let Some(name) = &person.name {
-                            ui.label(RichText::new(name).strong());
-                        } else {
-                            ui.label(RichText::new(GossipUi::pubkey_short(&event.pubkey)).weak());
-                        }
-
-                        if let Some(dns_id) = &person.dns_id {
-                            if person.dns_id_valid > 0 {
-                                ui.label(RichText::new(dns_id).monospace().small());
-                            } else {
-                                ui.label(RichText::new(dns_id).monospace().small().strikethrough());
-                            }
-                        }
-                    }
+                    GossipUi::render_person_name_line(ui, maybe_person.as_ref());
 
                     ui.add_space(8.0);
 

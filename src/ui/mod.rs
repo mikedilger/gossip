@@ -14,7 +14,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
 use eframe::{egui, IconData, Theme};
-use egui::{ColorImage, Context, ImageData, TextureHandle, TextureOptions};
+use egui::{ColorImage, Context, ImageData, RichText, TextureHandle, TextureOptions, Ui};
 use nostr_types::{Id, PublicKey, PublicKeyHex};
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
@@ -229,5 +229,29 @@ impl GossipUi {
     pub fn pubkey_long(pubkey: &PublicKey) -> String {
         let hex: PublicKeyHex = (*pubkey).into();
         hex.0
+    }
+
+    pub fn render_person_name_line(ui: &mut Ui, maybe_person: Option<&DbPerson>) {
+        ui.horizontal(|ui| {
+            if let Some(person) = maybe_person {
+                if let Some(name) = &person.name {
+                    ui.label(RichText::new(name).strong());
+                } else {
+                    ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
+                }
+
+                if person.followed > 0 {
+                    ui.label("🚶");
+                }
+
+                if let Some(dns_id) = &person.dns_id {
+                    if person.dns_id_valid > 0 {
+                        ui.label(RichText::new(dns_id).monospace().small());
+                    } else {
+                        ui.label(RichText::new(dns_id).monospace().small().strikethrough());
+                    }
+                }
+            }
+        });
     }
 }

@@ -142,29 +142,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                     ui.vertical(|ui| {
                         ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
-
-                        ui.horizontal(|ui| {
-                            if let Some(name) = &person.name {
-                                ui.label(RichText::new(name).strong());
-                            } else {
-                                ui.label(
-                                    RichText::new(GossipUi::hex_pubkey_short(&person.pubkey))
-                                        .weak(),
-                                );
-                            }
-
-                            ui.add_space(24.0);
-
-                            if let Some(dns_id) = &person.dns_id {
-                                if person.dns_id_valid > 0 {
-                                    ui.label(RichText::new(dns_id).monospace().small());
-                                } else {
-                                    ui.label(
-                                        RichText::new(dns_id).monospace().small().strikethrough(),
-                                    );
-                                }
-                            }
-                        });
+                        GossipUi::render_person_name_line(ui, Some(person));
                     });
                 });
 
@@ -194,32 +172,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 ui.vertical(|ui| {
                     ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
-
-                    ui.horizontal(|ui| {
-                        if let Some(name) = &person.name {
-                            ui.label(RichText::new(name).strong());
-                        } else {
-                            ui.label(
-                                RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak(),
-                            );
-                        }
-
-                        ui.add_space(24.0);
-
-                        if let Some(dns_id) = &person.dns_id {
-                            if person.dns_id_valid > 0 {
-                                ui.label(RichText::new(dns_id).monospace().small());
-                            } else {
-                                ui.label(RichText::new(dns_id).monospace().small().strikethrough());
-                            }
-                        }
-
-                        if person.followed > 0 {
-                            ui.label("FOLLOWED");
-                        } else {
-                            ui.label("not followed");
-                        }
-                    });
+                    GossipUi::render_person_name_line(ui, Some(person));
                 });
             });
 
