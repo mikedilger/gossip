@@ -20,7 +20,7 @@ use zeroize::Zeroize;
 
 pub struct Overlord {
     to_minions: Sender<BusMessage>,
-    from_minions: UnboundedReceiver<BusMessage>,
+    inbox: UnboundedReceiver<BusMessage>,
 
     // All the minion tasks running.
     minions: task::JoinSet<()>,
@@ -33,11 +33,11 @@ pub struct Overlord {
 }
 
 impl Overlord {
-    pub fn new(from_minions: UnboundedReceiver<BusMessage>) -> Overlord {
+    pub fn new(inbox: UnboundedReceiver<BusMessage>) -> Overlord {
         let to_minions = GLOBALS.to_minions.clone();
         Overlord {
             to_minions,
-            from_minions,
+            inbox,
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
             urls_watching: Vec::new(),
@@ -278,19 +278,35 @@ impl Overlord {
     async fn loop_handler(&mut self) -> Result<bool, Error> {
         let mut keepgoing: bool = true;
 
-        select! {
-            bus_message = self.from_minions.recv() => {
-                let bus_message = match bus_message {
-                    Some(bm) => bm,
-                    None => {
-                        // All senders dropped, or one of them closed.
-                        return Ok(false);
-                    }
-                };
-                keepgoing = self.handle_bus_message(bus_message).await?;
-            },
-            task_nextjoined = self.minions.join_next_with_id() => {
-                self.handle_task_nextjoined(task_nextjoined).await;
+        tracing::debug!("overlord looping");
+
+        if self.minions.is_empty() {
+            // Just listen on inbox
+            let bus_message = self.inbox.recv().await;
+            let bus_message = match bus_message {
+                Some(bm) => bm,
+                None => {
+                    // All senders dropped, or one of them closed.
+                    return Ok(false);
+                }
+            };
+            keepgoing = self.handle_bus_message(bus_message).await?;
+        } else {
+            // Listen on inbox, and dying minions
+            select! {
+                bus_message = self.inbox.recv() => {
+                    let bus_message = match bus_message {
+                        Some(bm) => bm,
+                        None => {
+                            // All senders dropped, or one of them closed.
+                            return Ok(false);
+                        }
+                    };
+                    keepgoing = self.handle_bus_message(bus_message).await?;
+                },
+                task_nextjoined = self.minions.join_next_with_id() => {
+                    self.handle_task_nextjoined(task_nextjoined).await;
+                }
             }
         }
 
