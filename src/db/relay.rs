@@ -18,7 +18,7 @@ pub struct DbRelay {
 impl DbRelay {
     pub fn new(url: String) -> Result<DbRelay, Error> {
         let u = Url::new(&url);
-        if !u.is_valid() {
+        if !u.is_valid_relay_url() {
             return Err(Error::InvalidUrl(u.inner().to_owned()));
         }
 
@@ -83,7 +83,7 @@ impl DbRelay {
 
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let url = Url::new(&relay.url);
-        if !url.is_valid() {
+        if !url.is_valid_relay_url() {
             return Err(Error::InvalidUrl(relay.url.clone()));
         }
 
@@ -218,7 +218,7 @@ impl DbRelay {
         let urls: Vec<Url> = maybe_urls
             .iter()
             .map(|s| Url::new(s))
-            .filter(|r| r.is_valid())
+            .filter(|r| r.is_valid_relay_url())
             .collect();
 
         // FIXME this is a lot of separate sql calls

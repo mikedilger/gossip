@@ -35,7 +35,7 @@ pub struct Minion {
 
 impl Minion {
     pub async fn new(url: Url) -> Result<Minion, Error> {
-        if !url.is_valid() {
+        if !url.is_valid_relay_url() {
             return Err(Error::InvalidUrl(url.inner().to_owned()));
         }
 

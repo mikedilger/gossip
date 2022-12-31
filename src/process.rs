@@ -93,7 +93,7 @@ pub async fn process_new_event(
                     marker: _,
                 } => {
                     let url = Url::new(should_be_url);
-                    if url.is_valid() {
+                    if url.is_valid_relay_url() {
                         // Insert (or ignore) into relays table
                         let dbrelay = DbRelay::new(url.inner().to_owned())?;
                         DbRelay::insert(dbrelay).await?;
@@ -105,7 +105,7 @@ pub async fn process_new_event(
                     petname: _,
                 } => {
                     let url = Url::new(should_be_url);
-                    if url.is_valid() {
+                    if url.is_valid_relay_url() {
                         // Insert (or ignore) into relays table
                         let dbrelay = DbRelay::new(url.inner().to_owned())?;
                         DbRelay::insert(dbrelay).await?;

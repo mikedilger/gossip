@@ -263,7 +263,7 @@ impl Overlord {
 
     async fn start_minion(&mut self, url: String) -> Result<(), Error> {
         let url = Url::new(&url);
-        if !url.is_valid() {
+        if !url.is_valid_relay_url() {
             return Err(Error::InvalidUrl(url.inner().to_owned()));
         }
         let mut minion = Minion::new(url.clone()).await?;
@@ -521,7 +521,7 @@ impl Overlord {
         let urls: Vec<Url> = desired_events_map
             .keys()
             .map(|u| u.to_owned())
-            .filter(|u| u.is_valid())
+            .filter(|u| u.is_valid_relay_url())
             .collect();
 
         for url in urls.iter() {
@@ -614,7 +614,7 @@ impl Overlord {
         for relay in relays.iter() {
             // Save relay
             let relay_url = Url::new(relay);
-            if relay_url.is_valid() {
+            if relay_url.is_valid_relay_url() {
                 let db_relay = DbRelay::new(relay_url.inner().to_owned())?;
                 DbRelay::insert(db_relay).await?;
 
@@ -642,7 +642,7 @@ impl Overlord {
 
         // Save relay
         let relay_url = Url::new(&relay);
-        if !relay_url.is_valid() {
+        if !relay_url.is_valid_relay_url() {
             return Err(Error::InvalidUrl(relay));
         }
         let db_relay = DbRelay::new(relay.to_string())?;
@@ -670,7 +670,7 @@ impl Overlord {
 
         // Save relay
         let relay_url = Url::new(&relay);
-        if !relay_url.is_valid() {
+        if !relay_url.is_valid_relay_url() {
             return Err(Error::InvalidUrl(relay));
         }
         let db_relay = DbRelay::new(relay.to_string())?;

@@ -78,7 +78,7 @@ fn render_relay(ui: &mut Ui, relay: &DbRelay, bold: bool) {
             let mut post = relay.post; // checkbox needs a mutable state variable.
 
             let url = Url::new(&relay.url);
-            if url.is_valid() && ui.checkbox(&mut post, "Post Here")
+            if url.is_valid_relay_url() && ui.checkbox(&mut post, "Post Here")
                 .on_hover_text("If selected, posts you create will be sent to this relay. But you have to press [SAVE CHANGES] at the bottom of this page.")
                 .clicked()
             {

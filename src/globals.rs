@@ -131,7 +131,7 @@ impl Globals {
             .and_modify(|urls| {
                 if let Some(ref u) = url {
                     let n = Url::new(u);
-                    if n.is_valid() {
+                    if n.is_valid_relay_url() {
                         urls.push(n);
                     }
                 }
