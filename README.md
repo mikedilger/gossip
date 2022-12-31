@@ -81,6 +81,14 @@ We do not intend to support the following features/NIPs:
 - [x] dismiss a message without blocking for future sessions
 - [ ] follow people privately or publicly
 
+### What Gossip Isn't
+
+Gossip doesn't use web technology (except for Websockets and HTTP fetch). There is no javascript. There is no HTML parsing. There is no HTML-based layout. There is no CSS. Because of this, there are no suprises. There are no XSS vulnerabilities. There are no CORS errors.
+
+On the flip side, we have (currently) shitty fonts, no color emojis, and we render many frames per second which has a computation cost.
+
+This is a trade off that works for the developer, who wants a reliable and secure client, not necessarily a flashy one.
+
 ## Building and Installing
 
 ### Step 1 - Install Rust
