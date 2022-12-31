@@ -3,21 +3,17 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{Metadata, PublicKeyHex, Unixtime};
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use tokio::task;
 
 pub struct People {
     people: HashMap<PublicKeyHex, DbPerson>,
-    deferred_load: HashSet<PublicKeyHex>,
-    deferred_follow: HashMap<PublicKeyHex, bool>,
 }
 
 impl People {
     pub fn new() -> People {
         People {
             people: HashMap::new(),
-            deferred_load: HashSet::new(),
-            deferred_follow: HashMap::new(),
         }
     }
 
@@ -168,10 +164,21 @@ impl People {
         if self.people.contains_key(pubkeyhex) {
             self.people.get(pubkeyhex).cloned()
         } else {
-            // Not there. Maybe it's in the database. Defer and let syncer
-            // try to load
-            self.deferred_load.insert(pubkeyhex.to_owned());
-            let _ = GLOBALS.to_syncer.send("sync_people".to_owned());
+            // We can't get it now, but we can setup a task to do it soon
+            let pubkeyhex = pubkeyhex.to_owned();
+            tokio::spawn(async move {
+                let mut people = GLOBALS.people.write().await;
+                #[allow(clippy::map_entry)]
+                if !people.people.contains_key(&pubkeyhex) {
+                    match People::fetch_one(&pubkeyhex).await {
+                        Ok(Some(person)) => {
+                            let _ = people.people.insert(pubkeyhex, person);
+                        }
+                        Err(e) => tracing::error!("{}", e),
+                        _ => {}
+                    }
+                }
+            });
             None
         }
     }
@@ -187,27 +194,6 @@ impl People {
             }
         });
         v
-    }
-
-    pub async fn sync(&mut self) -> Result<(), Error> {
-        // handle deferred load
-        for pubkeyhex in self.deferred_load.iter() {
-            if !self.people.contains_key(pubkeyhex) {
-                if let Some(person) = Self::fetch_one(pubkeyhex).await? {
-                    let _ = self.people.insert(pubkeyhex.to_owned(), person);
-                }
-            }
-        }
-        self.deferred_load.clear();
-
-        // handle deferred follow
-        let df = self.deferred_follow.clone();
-        for (pubkeyhex, follow) in df {
-            self.async_follow(&pubkeyhex, follow).await?;
-        }
-        self.deferred_follow.clear();
-
-        Ok(())
     }
 
     /// This is a 'just in case' the main code isn't keeping them in sync.
@@ -226,11 +212,14 @@ impl People {
     }
 
     pub fn follow(&mut self, pubkeyhex: &PublicKeyHex, follow: bool) {
-        self.deferred_follow
-            .entry(pubkeyhex.clone())
-            .and_modify(|d| *d = follow)
-            .or_insert_with(|| follow);
-        let _ = GLOBALS.to_syncer.send("sync_people".to_owned());
+        // We can't do it now, but we spawn a task to do it soon
+        let pubkeyhex = pubkeyhex.to_owned();
+        tokio::spawn(async move {
+            let mut people = GLOBALS.people.write().await;
+            if let Err(e) = people.async_follow(&pubkeyhex, follow).await {
+                tracing::error!("{}", e);
+            }
+        });
     }
 
     pub async fn async_follow(
