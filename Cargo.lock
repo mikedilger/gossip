@@ -1695,6 +1695,7 @@ dependencies = [
  "http",
  "image",
  "lazy_static",
+ "linkify",
  "nostr-types",
  "rand 0.8.5",
  "reqwest",
@@ -2085,6 +2086,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ecd207c9c713c34f95a097a5b029ac2ce6010530c7b49d7fea24d977dede04f5"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "linkify"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96dd5884008358112bc66093362197c7248ece00d46624e2cf71e50029f8cff5"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]

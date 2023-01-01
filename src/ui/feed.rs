@@ -7,6 +7,7 @@ use egui::{
     Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, Sense, TextEdit,
     Ui, Vec2,
 };
+use linkify::{LinkFinder, LinkKind};
 use nostr_types::{EventKind, Id, PublicKeyHex};
 
 struct FeedPostParams {
@@ -413,7 +414,7 @@ fn render_post_actual(
                     }
                 });
 
-                ui.label(&event.content);
+                render_content(ui, &event.content);
 
                 // Under row
                 if !as_reply_to {
@@ -450,6 +451,16 @@ fn render_post_actual(
                     threaded,
                 },
             );
+        }
+    }
+}
+
+fn render_content(ui: &mut Ui, content: &str) {
+    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
+        if span.kind().is_some() {
+            ui.hyperlink_to(span.as_str(), span.as_str());
+        } else {
+            ui.label(span.as_str());
         }
     }
 }
