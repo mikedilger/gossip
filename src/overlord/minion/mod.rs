@@ -12,6 +12,7 @@ use http::Uri;
 use nostr_types::{
     EventKind, Filter, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
 };
+use std::time::Duration;
 use subscription::Subscriptions;
 use tokio::net::TcpStream;
 use tokio::select;
@@ -386,10 +387,127 @@ impl Minion {
         Ok(())
     }
 
-    /*
-        async fn follow_event_reactions(&mut self, _ids: Vec<IdHex>) -> Result<(), Error> {
-            // Create or extend the "reactions" subscription
-            unimplemented!()
+    async fn subscribe_ephemeral_for_all(
+        &mut self,
+        people: Vec<PublicKeyHex>,
+    ) -> Result<(), Error> {
+        let filter = Filter {
+            authors: people,
+            kinds: vec![EventKind::Metadata, EventKind::ContactList],
+            // No since. The list of people changes so we can't even use 'last checked' here.
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "ephemeral_for_all").await
     }
-        */
+
+    async fn subscribe_posts_by_me(&mut self, me: PublicKeyHex) -> Result<(), Error> {
+        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+
+        let filter = Filter {
+            authors: vec![me],
+            // leave ALL kinds
+            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "posts_by_me").await
+    }
+
+    async fn subscribe_posts_by_followed(
+        &mut self,
+        followed: Vec<PublicKeyHex>,
+    ) -> Result<(), Error> {
+        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+
+        let filter = Filter {
+            authors: followed,
+            // leave ALL kinds
+            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "posts_by_followed").await
+    }
+
+    async fn subscribe_ancestors(&mut self, ancestors: Vec<IdHex>) -> Result<(), Error> {
+        let filter = Filter {
+            ids: ancestors,
+            // leave ALL kinds
+            // no since filter
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "ancestors").await
+    }
+
+    async fn subscribe_my_descendants(&mut self, my_posts: Vec<IdHex>) -> Result<(), Error> {
+        let filter = Filter {
+            e: my_posts,
+            // leave ALL kinds
+            // no since filter
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "my_descendants").await
+    }
+
+    async fn subscribe_follower_descendants(
+        &mut self,
+        follower_posts: Vec<IdHex>,
+    ) -> Result<(), Error> {
+        let filter = Filter {
+            e: follower_posts,
+            // leave ALL kinds
+            // no since filter
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "follower_descendants").await
+    }
+
+    async fn subscribe_my_mentions(&mut self, me: PublicKeyHex) -> Result<(), Error> {
+        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+
+        let filter = Filter {
+            p: vec![me],
+            // leave ALL kinds
+            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "my_mentions").await
+    }
+
+    async fn subscribe_follower_mentions(
+        &mut self,
+        followers: Vec<PublicKeyHex>,
+    ) -> Result<(), Error> {
+        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+
+        let filter = Filter {
+            p: followers,
+            // leave ALL kinds
+            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "follower_mentions").await
+    }
+
+    async fn subscribe(&mut self, filters: Vec<Filter>, handle: &str) -> Result<(), Error> {
+        let req_message = if self.subscriptions.has(handle) {
+            let sub = self.subscriptions.get_mut(handle).unwrap();
+            *sub.get_mut() = filters;
+            sub.req_message()
+        } else {
+            self.subscriptions.add(handle, filters);
+            self.subscriptions.get(handle).unwrap().req_message()
+        };
+        let wire = serde_json::to_string(&req_message)?;
+        let websocket_sink = self.sink.as_mut().unwrap();
+        websocket_sink.send(WsMessage::Text(wire.clone())).await?;
+        trace!("{}: Sent {}", &self.url, &wire);
+        Ok(())
+    }
 }
