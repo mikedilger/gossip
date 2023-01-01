@@ -243,6 +243,64 @@ impl DbPersonRelay {
         Ok(())
     }
 
+    pub async fn fetch_matching(
+        people: Vec<PublicKeyHex>,
+        relays: Vec<String>,
+    ) -> Result<Vec<DbPersonRelay>, Error> {
+        if people.is_empty() {
+            return Ok(vec![]);
+        }
+        if relays.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let sql = format!(
+            "SELECT \
+             person, relay, person_relay.last_fetched, \
+             last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
+             last_suggested_nip35, last_suggested_bytag \
+             FROM person_relay
+             INNER JOIN relay ON person_relay.relay=relay.url \
+             WHERE person IN ({}) and relay in ({}) \
+             ORDER BY person, relay.rank DESC",
+            repeat_vars(people.len()),
+            repeat_vars(relays.len())
+        );
+
+        let pubkey_strings: Vec<String> = people.iter().map(|p| p.0.clone()).collect();
+
+        let output: Result<Vec<DbPersonRelay>, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut params: Vec<String> = pubkey_strings;
+            params.extend(relays);
+
+            let mut stmt = db.prepare(&sql)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(params), |row| {
+                Ok(DbPersonRelay {
+                    person: row.get(0)?,
+                    relay: row.get(1)?,
+                    last_fetched: row.get(2)?,
+                    last_suggested_kind2: row.get(3)?,
+                    last_suggested_kind3: row.get(4)?,
+                    last_suggested_nip23: row.get(5)?,
+                    last_suggested_nip35: row.get(6)?,
+                    last_suggested_bytag: row.get(7)?,
+                })
+            })?;
+
+            let mut output: Vec<DbPersonRelay> = Vec::new();
+            for row in rows {
+                output.push(row?);
+            }
+            Ok(output)
+        })
+        .await?;
+
+        output
+    }
+
     /*
         pub async fn delete(criteria: &str) -> Result<(), Error> {
             let sql = format!("DELETE FROM person_relay WHERE {}", criteria);
