@@ -14,6 +14,7 @@ pub const DEFAULT_MAX_RELAYS: u8 = 15;
 pub const DEFAULT_MAX_FPS: u32 = 30;
 pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 2000;
 pub const DEFAULT_POW: u8 = 0;
+pub const DEFAULT_OFFLINE: bool = false;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
@@ -29,6 +30,7 @@ pub struct Settings {
     pub max_fps: u32,
     pub feed_recompute_interval_ms: u32,
     pub pow: u8,
+    pub offline: bool,
 }
 
 impl Default for Settings {
@@ -46,6 +48,7 @@ impl Default for Settings {
             max_fps: DEFAULT_MAX_FPS,
             feed_recompute_interval_ms: DEFAULT_FEED_RECOMPUTE_INTERVAL_MS,
             pow: DEFAULT_POW,
+            offline: DEFAULT_OFFLINE,
         }
     }
 }
@@ -102,6 +105,7 @@ impl Settings {
                         .unwrap_or(DEFAULT_FEED_RECOMPUTE_INTERVAL_MS)
                 }
                 "pow" => settings.pow = row.1.parse::<u8>().unwrap_or(DEFAULT_POW),
+                "offline" => settings.offline = numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -113,33 +117,40 @@ impl Settings {
         let maybe_db = GLOBALS.db.lock().await;
         let db = maybe_db.as_ref().unwrap();
 
+        let bool_to_numstr = |b: bool| -> &str {
+            if b {
+                "1"
+            } else {
+                "0"
+            }
+        };
+
         let mut stmt = db.prepare(
             "REPLACE INTO settings (key, value) VALUES \
-                                   ('feed_chunk', ?),('overlap', ?),\
-                                   ('view_posts_referred_to', ?),('view_posts_referring_to', ?),\
-                                   ('view_threaded', ?),('num_relays_per_person', ?),\
-                                   ('max_relays', ?),('max_fps', ?),('feed_recompute_interval_ms', ?),\
-                                   ('pow', ?)",
+             ('feed_chunk', ?),\
+             ('overlap', ?),\
+             ('view_posts_referred_to', ?),\
+             ('view_posts_referring_to', ?),\
+             ('view_threaded', ?),\
+             ('num_relays_per_person', ?),\
+             ('max_relays', ?),\
+             ('max_fps', ?),\
+             ('feed_recompute_interval_ms', ?),\
+             ('pow', ?),\
+             ('offline', ?)",
         )?;
         stmt.execute((
             self.feed_chunk,
             self.overlap,
-            if self.view_posts_referred_to {
-                "1"
-            } else {
-                "0"
-            },
-            if self.view_posts_referring_to {
-                "1"
-            } else {
-                "0"
-            },
-            if self.view_threaded { "1" } else { "0" },
+            bool_to_numstr(self.view_posts_referred_to),
+            bool_to_numstr(self.view_posts_referring_to),
+            bool_to_numstr(self.view_threaded),
             self.num_relays_per_person,
             self.max_relays,
             self.max_fps,
             self.feed_recompute_interval_ms,
             self.pow,
+            bool_to_numstr(self.offline),
         ))?;
 
         // Save private key identity

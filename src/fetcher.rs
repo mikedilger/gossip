@@ -102,6 +102,10 @@ impl Fetcher {
             }
         }
 
+        if GLOBALS.settings.blocking_read().offline {
+            return Ok(None);
+        }
+
         // We can't fetch as we are not async and we don't want to block the caller.
         // So we save this request as pending, and ask the syncer to sync us.
         self.pending.write().unwrap().insert(url);

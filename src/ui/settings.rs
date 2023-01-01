@@ -102,6 +102,15 @@ pub(super) fn update(
     ui.separator();
     ui.add_space(12.0);
 
+    ui.heading("Network");
+
+    ui.checkbox(&mut app.settings.offline, "Offline Mode")
+        .on_hover_text("If selected, no network requests will be issued. Takes effect on restart.");
+
+    ui.add_space(12.0);
+    ui.separator();
+    ui.add_space(12.0);
+
     ui.heading("User Interface");
 
     ui.horizontal(|ui| {

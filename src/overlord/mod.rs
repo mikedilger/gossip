@@ -163,7 +163,7 @@ impl Overlord {
         }
 
         // Pick Relays and start Minions
-        {
+        if !GLOBALS.settings.read().await.offline {
             let pubkeys: Vec<PublicKeyHex> = GLOBALS
                 .people
                 .read()
@@ -239,10 +239,10 @@ impl Overlord {
             }
 
             info!("Listening on {} relays", relay_count);
-        }
 
-        // Get desired events from relays
-        self.get_missing_events().await?;
+            // Get desired events from relays
+            self.get_missing_events().await?;
+        }
 
         'mainloop: loop {
             match self.loop_handler().await {
@@ -262,6 +262,10 @@ impl Overlord {
     }
 
     async fn start_minion(&mut self, url: String) -> Result<(), Error> {
+        if GLOBALS.settings.read().await.offline {
+            return Ok(());
+        }
+
         let url = Url::new(&url);
         if !url.is_valid_relay_url() {
             return Err(Error::InvalidUrl(url.inner().to_owned()));
