@@ -514,6 +514,12 @@ impl Overlord {
                         }
                     });
                 }
+                "add_relay" => {
+                    let relay_str: String = serde_json::from_str(&bus_message.json_payload)?;
+                    if let Ok(dbrelay) = DbRelay::new(relay_str) {
+                        DbRelay::insert(dbrelay).await?;
+                    }
+                }
                 _ => {}
             },
             _ => {}

@@ -3,20 +3,47 @@ use crate::comms::BusMessage;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Align, Context, Layout, RichText, ScrollArea, TextStyle, Ui};
+use egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, TextStyle, Ui};
 use nostr_types::Url;
 
-pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(8.0);
-    ui.heading("Relays known");
+    ui.heading("Relays");
     ui.add_space(18.0);
 
     ui.label(
         RichText::new(
-            "Relays on this list have been automatically discovered in various kinds of events.",
+            "Relays on this list were selected by the developer, but more relays will show up as they are automatically discovered in various kinds of events.",
         )
         .text_style(TextStyle::Body),
     );
+
+    ui.horizontal(|ui| {
+        ui.label("Enter a new relay URL:");
+        ui.add(TextEdit::singleline(&mut app.new_relay_url));
+        if ui.button("Add").clicked() {
+            let test_url = Url::new(&app.new_relay_url);
+            if test_url.is_valid_relay_url() {
+                let tx = GLOBALS.to_overlord.clone();
+                let _ = tx.send(BusMessage {
+                    target: "overlord".to_string(),
+                    kind: "add_relay".to_string(),
+                    json_payload: serde_json::to_string(&app.new_relay_url).unwrap(),
+                });
+                app.new_relay_url = "".to_owned();
+                app.status = format!(
+                    "I asked the overlord to add relay {}. Check for it below.",
+                    &app.new_relay_url
+                );
+            } else {
+                app.status = "That's not a valid relay URL.".to_owned();
+            }
+        }
+    });
+
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(10.0);
 
     // TBD time how long this takes. We don't want expensive code in the UI
     let mut relays = GLOBALS.relays.blocking_read().clone();

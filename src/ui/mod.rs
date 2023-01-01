@@ -69,6 +69,7 @@ enum Page {
 struct GossipUi {
     next_frame: Instant,
     page: Page,
+    status: String,
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
@@ -88,6 +89,7 @@ struct GossipUi {
     person_view_name: Option<String>,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     failed_avatars: HashSet<PublicKeyHex>,
+    new_relay_url: String,
 }
 
 impl Drop for GossipUi {
@@ -141,6 +143,9 @@ impl GossipUi {
         GossipUi {
             next_frame: Instant::now(),
             page: Page::Feed,
+            status:
+                "Welcome to Gossip. Status messages will appear here, clobbering previous ones."
+                    .to_owned(),
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
@@ -160,6 +165,7 @@ impl GossipUi {
             person_view_name: None,
             avatars: HashMap::new(),
             failed_avatars: HashSet::new(),
+            new_relay_url: "".to_owned(),
         }
     }
 }
@@ -214,6 +220,12 @@ impl eframe::App for GossipUi {
             Page::Stats => stats::update(self, ctx, frame, ui),
             Page::HelpHelp => help::update(self, ctx, frame, ui),
             Page::HelpAbout => help::update(self, ctx, frame, ui),
+        });
+
+        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(&self.status);
+            });
         });
     }
 }
