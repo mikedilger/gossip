@@ -1,4 +1,4 @@
-use nostr_types::{ClientMessage, Filters, SubscriptionId};
+use nostr_types::{ClientMessage, Filter, SubscriptionId};
 use std::collections::HashMap;
 
 pub struct Subscriptions {
@@ -14,7 +14,7 @@ impl Subscriptions {
         }
     }
 
-    pub fn add(&mut self, handle: &str, filters: Vec<Filters>) {
+    pub fn add(&mut self, handle: &str, filters: Vec<Filter>) {
         let mut sub = Subscription::new();
         sub.filters = filters;
         self.handle_to_id.insert(handle.to_owned(), sub.get_id());
@@ -78,7 +78,7 @@ impl Subscriptions {
 #[derive(Clone, Debug)]
 pub struct Subscription {
     id: String,
-    filters: Vec<Filters>,
+    filters: Vec<Filter>,
     eose: bool,
 }
 
@@ -95,7 +95,7 @@ impl Subscription {
         self.id.clone()
     }
 
-    pub fn get_mut(&mut self) -> &mut Vec<Filters> {
+    pub fn get_mut(&mut self) -> &mut Vec<Filter> {
         &mut self.filters
     }
 

@@ -10,7 +10,7 @@ use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
 use nostr_types::{
-    EventKind, Filters, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
+    EventKind, Filter, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
 };
 use subscription::Subscriptions;
 use tokio::net::TcpStream;
@@ -301,7 +301,7 @@ impl Minion {
         };
 
         // Create the author filter
-        let mut feed_filter: Filters = Filters::new();
+        let mut feed_filter: Filter = Filter::new();
         for pk in pubkeys.iter() {
             feed_filter.add_author(pk, None);
         }
@@ -317,7 +317,7 @@ impl Minion {
         );
 
         // Create the lookback filter
-        let mut special_filter: Filters = Filters::new();
+        let mut special_filter: Filter = Filter::new();
         for pk in pubkeys.iter() {
             special_filter.add_author(pk, None);
         }
@@ -335,7 +335,7 @@ impl Minion {
         // Get the subscription
         let req_message = if self.subscriptions.has("following") {
             let sub = self.subscriptions.get_mut("following").unwrap();
-            let vec: &mut Vec<Filters> = sub.get_mut();
+            let vec: &mut Vec<Filter> = sub.get_mut();
             vec.clear();
             vec.push(feed_filter);
             vec.push(special_filter);
@@ -361,7 +361,7 @@ impl Minion {
         }
 
         // create the filter
-        let mut filter = Filters::new();
+        let mut filter = Filter::new();
         filter.ids = ids;
 
         debug!("{}: Event Filter: {} events", &self.url, filter.ids.len());
