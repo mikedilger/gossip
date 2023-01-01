@@ -10,12 +10,25 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 Gossip is currently early alpha-quality code. As of right now you can (if you aren't stopped by some bug):
 
-- [x] Follow people by user@domain (NIP-35) or by public key (hex or bech32) plus a relay where they can be found.
-- [x] See the feed of posts by those people, threaded or not, including reactions. But it's ugly and not very complete.
-- [x] User-control of when to search for missing events (referred to by events you have), and a display of how many are missing.
+- [x] Follow people by user@domain (NIP-35) or by public key (hex or bech32) plus a relay where they can be found, or by finding them in the feed, clicking their avatar, and choosing to follow them on their page.
+- [x] See the feed of posts by those people, threaded or not, including avatars and reactions. But many events you may be interested in (such as replies to your own messages) are not queried for yet.
+- [x] User-control of when to search for missing events (events that are referred to by events you have), and a display of how many of them are known about and are missing.
 - [x] Generate or import (hex or bech32) a private key (your identity) and it is kept by the client encrypted under a password that you need to unlock it every time you start the client.
-- [x] Choose relays to post to (from among the relays that the client has seen -- it doesn't yet allow you to enter one)
-- [x] Post root-level text messages (but not in reply to, nor reactions)
+- [x] Choose relays to post to (from among some starting relays, plus ones the client has seen in events), including entering a relay URL directly.
+- [x] Post root-level text messages and reply to messages (but not yet react, quote, or boost).
+
+### Missing Critical Features
+
+- [ ] Setting your metadata and syncing with the network
+- [ ] Syncing the relays you use with the network
+- [ ] Seeing who other people follow (contact lists)
+- [ ] Seeing replies and/or reactions to your own posts by people you didn't directly follow
+- [ ] Good Emoji support (many are still tofu characters)
+- [ ] Reacting, quoting, and boosting posts
+- [ ] Muting people
+- [ ] Content of posts being rendered well (links, references, images, videos, etc)
+- [ ] NIP-05 backend verification
+- [ ] including a helpful URL in reply events (important for your post thread to be found)
 
 ## Development Ideology
 
@@ -73,7 +86,7 @@ We do not intend to support the following features/NIPs:
 - [ ] semi-secure handling of private keys by zeroing memory and marking them Weak if displayed or exported (partial)
 - [ ] exporting/importing of private keys with a passphrase (partial)
 - [ ] multiple identities
-- [ ] user management of relays (read/write), including ranking
+- [ ] user management of relays (read/write), including ranking (partial)
 - [ ] choose to load from another relay with a button press
 - [ ] choose what posts to see beyond direct posts of people you follow: replies, events replied to, posts liked by people you follow, post made by friends of friends, global on a relay, or global.
 - [ ] mute someone
