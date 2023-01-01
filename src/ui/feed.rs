@@ -32,10 +32,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
         if ui
-            .button(&format!(
-                "Query relays for {} missing events",
-                desired_count
-            ))
+            .button(&format!("QM {}", desired_count))
+            .on_hover_text("Query Relays for Missing Events")
             .clicked()
         {
             let tx = GLOBALS.to_overlord.clone();
@@ -47,7 +45,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
 
         if ui
-            .button(&format!("Process {} incoming events", incoming_count))
+            .button(&format!("PQ {}", incoming_count))
+            .on_hover_text("Process Queue of Incoming Events")
             .clicked()
         {
             let tx = GLOBALS.to_overlord.clone();
@@ -58,10 +57,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             });
         }
 
-        if ui.button("▶  close all").clicked() {
+        if ui.button("close all").clicked() {
             app.hides = feed.clone();
         }
-        if ui.button("▼ open all").clicked() {
+        if ui.button("open all").clicked() {
             app.hides.clear();
         }
     });
