@@ -795,7 +795,7 @@ impl Overlord {
                 kind: EventKind::TextNote,
                 tags: vec![Tag::Event {
                     id: reply_to,
-                    recommended_relay_url: None, // FIXME - we should pick a URL shared by who I am replying to and myself
+                    recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
                     marker: Some("reply".to_string()),
                 }],
                 content,

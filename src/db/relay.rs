@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::Url;
+use nostr_types::{Id, Url};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -234,5 +234,49 @@ impl DbRelay {
         .await??;
 
         Ok(())
+    }
+
+    pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<Url>, Error> {
+        // Try to find a relay where the event was seen AND that I post to which
+        // has a rank>1
+        let sql = "SELECT url FROM relay INNER JOIN event_seen ON relay.url=event_seen.relay \
+                   WHERE event_seen.event=? AND relay.post=1 AND relay.rank>1";
+        let output: Option<Url> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(sql)?;
+            let mut query_result = stmt.query([reply_to.as_hex_string()])?;
+            if let Some(row) = query_result.next()? {
+                let s: String = row.get(0)?;
+                let url = Url::new(&s);
+                Ok::<Option<Url>, Error>(Some(url))
+            } else {
+                Ok::<Option<Url>, Error>(None)
+            }
+        })
+        .await??;
+
+        if output.is_some() {
+            return Ok(output);
+        }
+
+        // Fallback to finding any relay where the event was seen
+        let sql = "SELECT relay FROM event_seen WHERE event=?";
+        let output: Option<Url> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(sql)?;
+            let mut query_result = stmt.query([reply_to.as_hex_string()])?;
+            if let Some(row) = query_result.next()? {
+                let s: String = row.get(0)?;
+                let url = Url::new(&s);
+                Ok::<Option<Url>, Error>(Some(url))
+            } else {
+                Ok::<Option<Url>, Error>(None)
+            }
+        })
+        .await??;
+
+        Ok(output)
     }
 }
