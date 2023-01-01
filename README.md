@@ -95,13 +95,23 @@ This is a trade off that works for the developer, who wants a reliable and secur
 
 If you don't already have rust installed, follow the guidance at [rust-lang.org](https://www.rust-lang.org/).
 
-### Step 2 - Clone this Repository
+### Step 2 - Install some dependencies
+
+Most dependencies are probably already installed in your base operating system. Here are a few that sometimes arent:
+
+- build essentials like gcc and make (debian: "build-essential")
+- cmake (debian: "cmake")
+- pkg-config (debian: "pkg-config")
+- openssl (debian: "libssl-dev")
+- fontconfig (debian: "libfontconfig1-dev")
+
+### Step 3 - Clone this Repository
 
 ````bash
 $ git clone https://github.com/mikedilger/gossip
 ````
 
-### Step 3 - Compile
+### Step 4 - Compile
 
 ````bash
 $ cd gossip
@@ -114,7 +124,7 @@ Everything gossip needs (fonts, icons) is baked into this executable. It doesn't
 
 To make the binary smaller
 
-````base
+````bash
 $ strip gossip
 ````
 
@@ -124,6 +134,17 @@ If you want a binary optimized for your exact processor with the newest features
 
 ````bash
 $ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
+````
+
+### Step 5 - Do it all again
+
+The `master` branch changes quickly.  When you want to update
+
+````bash
+$ git pull
+$ cargo build --release
+$ strip ./target/release/gossip
+$ ./target/release/gossip
 ````
 
 ## Technology Involved
