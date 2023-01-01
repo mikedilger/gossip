@@ -16,7 +16,8 @@ use crate::settings::Settings;
 use crate::ui::widgets::CopyButton;
 use eframe::{egui, IconData, Theme};
 use egui::{
-    ColorImage, Context, ImageData, RichText, TextStyle, TextureHandle, TextureOptions, Ui,
+    ColorImage, Context, ImageData, Label, RichText, Sense, TextStyle, TextureHandle,
+    TextureOptions, Ui,
 };
 use nostr_types::{Id, PublicKey, PublicKeyHex};
 use std::collections::{HashMap, HashSet};
@@ -144,7 +145,7 @@ impl GossipUi {
             next_frame: Instant::now(),
             page: Page::Feed,
             status:
-                "Welcome to Gossip. Status messages will appear here, clobbering previous ones."
+                "Welcome to Gossip. Status messages will appear here. Click them to dismiss them."
                     .to_owned(),
             about: crate::about::about(),
             icon: icon_texture_handle,
@@ -209,6 +210,17 @@ impl eframe::App for GossipUi {
             });
         });
 
+        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui
+                    .add(Label::new(&self.status).sense(Sense::click()))
+                    .clicked()
+                {
+                    self.status = "".to_string();
+                }
+            });
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| match self.page {
             Page::Feed => feed::update(self, ctx, frame, ui),
             Page::PeopleList => people::update(self, ctx, frame, ui),
@@ -220,12 +232,6 @@ impl eframe::App for GossipUi {
             Page::Stats => stats::update(self, ctx, frame, ui),
             Page::HelpHelp => help::update(self, ctx, frame, ui),
             Page::HelpAbout => help::update(self, ctx, frame, ui),
-        });
-
-        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(&self.status);
-            });
         });
     }
 }
