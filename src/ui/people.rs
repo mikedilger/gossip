@@ -203,10 +203,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             if person.followed == 0 {
                 if ui.button("FOLLOW").clicked() {
                     GLOBALS.people.blocking_write().follow(&pubkeyhex, true);
+                    app.person_view_person.as_mut().unwrap().followed = 1;
                 }
             } else {
                 if ui.button("UNFOLLOW").clicked() {
                     GLOBALS.people.blocking_write().follow(&pubkeyhex, false);
+                    app.person_view_person.as_mut().unwrap().followed = 0;
                 }
             }
         }
