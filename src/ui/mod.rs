@@ -13,8 +13,11 @@ use crate::db::DbPerson;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
+use crate::ui::widgets::CopyButton;
 use eframe::{egui, IconData, Theme};
-use egui::{ColorImage, Context, ImageData, RichText, TextureHandle, TextureOptions, Ui};
+use egui::{
+    ColorImage, Context, ImageData, RichText, TextStyle, TextureHandle, TextureOptions, Ui,
+};
 use nostr_types::{Id, PublicKey, PublicKeyHex};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
@@ -226,6 +229,7 @@ impl GossipUi {
         )
     }
 
+    #[allow(dead_code)]
     pub fn pubkey_long(pubkey: &PublicKey) -> String {
         let hex: PublicKeyHex = (*pubkey).into();
         hex.0
@@ -250,6 +254,10 @@ impl GossipUi {
                     } else {
                         ui.label(RichText::new(dns_id).monospace().small().strikethrough());
                     }
+                }
+                ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
+                if ui.add(CopyButton {}).clicked() {
+                    ui.output().copied_text = person.pubkey.0.to_owned();
                 }
             }
         });

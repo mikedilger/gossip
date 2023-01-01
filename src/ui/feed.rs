@@ -5,7 +5,7 @@ use crate::ui::widgets::{CopyButton, ReplyButton};
 use eframe::egui;
 use egui::{
     Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, Sense, TextEdit,
-    TextStyle, Ui, Vec2,
+    Ui, Vec2,
 };
 use nostr_types::{EventKind, Id, PublicKeyHex};
 
@@ -273,10 +273,6 @@ fn render_post(
 
                     ui.add_space(8.0);
 
-                    ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
-                    if ui.add(CopyButton {}).clicked() {
-                        ui.output().copied_text = GossipUi::pubkey_long(&event.pubkey);
-                    }
                     if event.pow() > 0 {
                         ui.label(format!("POW={}", event.pow()));
                     }
