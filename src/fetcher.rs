@@ -147,6 +147,7 @@ impl Fetcher {
                 .await?;
         let cache_file = self.cache_file(&url);
         fs::write(cache_file, bytes)?;
+        self.pending.write().unwrap().remove(&url);
         Ok(())
     }
 }
