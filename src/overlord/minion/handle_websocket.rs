@@ -2,7 +2,7 @@ use super::Minion;
 use crate::globals::GLOBALS;
 use crate::Error;
 use futures::SinkExt;
-use nostr_types::{RelayMessage, Unixtime};
+use nostr_types::{EventKind, RelayMessage, Unixtime};
 use tracing::{debug, error, info, warn};
 use tungstenite::protocol::Message as WsMessage;
 
@@ -32,11 +32,18 @@ impl Minion {
                         .unwrap_or_else(|| "_".to_owned());
                     debug!("{}: {}: NEW EVENT", &self.url, handle);
 
-                    GLOBALS
-                        .incoming_events
-                        .write()
-                        .await
-                        .push((*event, self.url.clone()));
+                    if event.kind == EventKind::TextNote {
+                        // Just store text notes in incoming
+                        GLOBALS
+                            .incoming_events
+                            .write()
+                            .await
+                            .push((*event, self.url.clone()));
+                    } else {
+                        // Process everything else immediately
+                        crate::process::process_new_event(&event, true, Some(self.url.clone()))
+                            .await?;
+                    }
                 }
             }
             RelayMessage::Notice(msg) => {
