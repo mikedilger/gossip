@@ -367,7 +367,7 @@ impl Minion {
         debug!("{}: Event Filter: {} events", &self.url, filter.ids.len());
 
         // create a handle for ourselves
-        let handle = format!("events{}", self.next_events_subscription_id);
+        let handle = format!("temp_events_{}", self.next_events_subscription_id);
         self.next_events_subscription_id += 1;
 
         // save the subscription

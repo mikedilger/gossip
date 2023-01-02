@@ -48,7 +48,7 @@ impl Minion {
                     .get_handle_by_id(&subid.0)
                     .unwrap_or_else(|| "_".to_owned());
 
-                let close: bool = &handle[0..5] == "event";
+                let close: bool = &handle[0..5] == "temp_";
 
                 // Update the matching subscription
                 match self.subscriptions.get_mut_by_id(&subid.0) {
