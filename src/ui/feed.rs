@@ -63,6 +63,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         if ui.button("open all").clicked() {
             app.hides.clear();
         }
+        ui.label(&format!(
+            "RIF={}",
+            GLOBALS
+                .fetcher
+                .requests_in_flight
+                .load(std::sync::atomic::Ordering::Relaxed)
+        ));
     });
 
     ui.vertical(|ui| {
