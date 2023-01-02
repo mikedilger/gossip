@@ -243,6 +243,7 @@ impl DbPersonRelay {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn fetch_matching(
         people: Vec<PublicKeyHex>,
         relays: Vec<String>,
