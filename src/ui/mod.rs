@@ -20,7 +20,7 @@ use egui::{
     TextureOptions, Ui,
 };
 use nostr_types::{Id, PublicKey, PublicKeyHex};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
@@ -89,7 +89,6 @@ struct GossipUi {
     person_view_person: Option<DbPerson>,
     person_view_name: Option<String>,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
-    failed_avatars: HashSet<PublicKeyHex>,
     new_relay_url: String,
 }
 
@@ -165,7 +164,6 @@ impl GossipUi {
             person_view_person: None,
             person_view_name: None,
             avatars: HashMap::new(),
-            failed_avatars: HashSet::new(),
             new_relay_url: "".to_owned(),
         }
     }
@@ -287,7 +285,7 @@ impl GossipUi {
         pubkeyhex: &PublicKeyHex,
     ) -> Option<TextureHandle> {
         // Do not keep retrying if failed
-        if self.failed_avatars.contains(pubkeyhex) {
+        if GLOBALS.failed_avatars.blocking_read().contains(pubkeyhex) {
             return None;
         }
 
@@ -297,7 +295,10 @@ impl GossipUi {
 
         match GLOBALS.people.blocking_write().get_avatar(pubkeyhex) {
             Err(_) => {
-                self.failed_avatars.insert(pubkeyhex.to_owned());
+                GLOBALS
+                    .failed_avatars
+                    .blocking_write()
+                    .insert(pubkeyhex.to_owned());
                 None
             }
             Ok(Some(rgbaimage)) => {

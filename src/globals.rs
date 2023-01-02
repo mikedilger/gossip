@@ -7,9 +7,9 @@ use crate::people::People;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
-use nostr_types::{Event, Id, IdHex, Unixtime, Url};
+use nostr_types::{Event, Id, IdHex, PublicKeyHex, Unixtime, Url};
 use rusqlite::Connection;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use tracing::info;
@@ -76,6 +76,9 @@ pub struct Globals {
 
     /// Fetcher
     pub fetcher: Fetcher,
+
+    /// Failed Avatar Fetches
+    pub failed_avatars: RwLock<HashSet<PublicKeyHex>>,
 }
 
 lazy_static! {
@@ -106,6 +109,7 @@ lazy_static! {
             event_is_new: RwLock::new(Vec::new()),
             feed: Mutex::new(Feed::new()),
             fetcher: Fetcher::new(),
+            failed_avatars: RwLock::new(HashSet::new()),
         }
     };
 }

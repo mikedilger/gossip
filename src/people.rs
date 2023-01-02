@@ -123,6 +123,9 @@ impl People {
         })
         .await??;
 
+        // Remove from failed avatars list so the UI will try to fetch the avatar again
+        GLOBALS.failed_avatars.write().await.remove(pubkeyhex);
+
         Ok(())
     }
 
