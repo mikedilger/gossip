@@ -169,7 +169,6 @@ impl Overlord {
                 .read()
                 .await
                 .get_followed_pubkeys()
-                .await
                 .iter()
                 .map(|p| p.to_owned())
                 .collect();

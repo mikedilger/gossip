@@ -29,7 +29,7 @@ impl People {
         }
     }
 
-    pub async fn get_followed_pubkeys(&self) -> Vec<PublicKeyHex> {
+    pub fn get_followed_pubkeys(&self) -> Vec<PublicKeyHex> {
         let mut output: Vec<PublicKeyHex> = Vec::new();
         for person in self
             .people
