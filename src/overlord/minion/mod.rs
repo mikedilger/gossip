@@ -386,6 +386,18 @@ impl Minion {
         Ok(())
     }
 
+    async fn temp_subscribe_metadata(&mut self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
+        let handle = format!("temp_subscribe_metadata_{}", &pubkeyhex.0);
+        let filter = Filter {
+            authors: vec![pubkeyhex],
+            kinds: vec![EventKind::Metadata, EventKind::ContactList],
+            // FIXME: we could probably get a since-last-fetched-their-metadata here.
+            //        but relays should just return the lastest of these.
+            ..Default::default()
+        };
+        self.subscribe(vec![filter], &handle).await
+    }
+
     #[allow(dead_code)]
     async fn subscribe(&mut self, filters: Vec<Filter>, handle: &str) -> Result<(), Error> {
         let req_message = if self.subscriptions.has(handle) {

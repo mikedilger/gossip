@@ -523,6 +523,24 @@ impl Overlord {
                         DbRelay::insert(dbrelay).await?;
                     }
                 }
+                "update_metadata" => {
+                    let pubkey: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
+                    let person_relays = DbPersonRelay::fetch_for_pubkeys(&[pubkey.clone()]).await?;
+
+                    for person_relay in person_relays.iter() {
+                        // Start a minion for this relay if there is none
+                        if !self.urls_watching.contains(&Url::new(&person_relay.relay)) {
+                            self.start_minion(person_relay.relay.clone()).await?;
+                        }
+
+                        // Subscribe to metadata and contact lists for this person
+                        let _ = self.to_minions.send(BusMessage {
+                            target: person_relay.relay.to_string(),
+                            kind: "temp_subscribe_metadata".to_string(),
+                            json_payload: serde_json::to_string(&pubkey).unwrap(),
+                        });
+                    }
+                }
                 _ => {}
             },
             _ => {}

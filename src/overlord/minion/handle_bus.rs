@@ -27,6 +27,10 @@ impl Minion {
                 ws_sink.send(WsMessage::Text(wire)).await?;
                 info!("Posted event to {}", &self.url);
             }
+            "temp_subscribe_metadata" => {
+                let pubkeyhex: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
+                self.temp_subscribe_metadata(pubkeyhex).await?;
+            }
             _ => {
                 warn!(
                     "{} Unrecognized bus message kind received by minion: {}",

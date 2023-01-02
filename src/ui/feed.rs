@@ -389,6 +389,16 @@ fn render_post_actual(
                             if ui.button("Dismiss").clicked() {
                                 GLOBALS.dismissed.blocking_write().push(event.id);
                             }
+                            if ui.button("Update Metadata").clicked() {
+                                let _ = GLOBALS.to_overlord.send(BusMessage {
+                                    target: "overlord".to_string(),
+                                    kind: "update_metadata".to_string(),
+                                    json_payload: serde_json::to_string(
+                                        &event.pubkey.as_hex_string(),
+                                    )
+                                    .unwrap(),
+                                });
+                            }
                         });
 
                         ui.label(
@@ -472,14 +482,6 @@ fn render_content(ui: &mut Ui, content: &str) {
 }
 
 fn set_person_view(app: &mut GossipUi, pubkeyhex: &PublicKeyHex) {
-    if let Some(dbperson) = GLOBALS.people.blocking_write().get(pubkeyhex) {
-        app.person_view_name = if let Some(name) = &dbperson.name {
-            Some(name.to_string())
-        } else {
-            Some(GossipUi::hex_pubkey_short(pubkeyhex))
-        };
-        app.person_view_person = Some(dbperson);
-        app.person_view_pubkey = Some(pubkeyhex.to_owned());
-        app.page = Page::Person;
-    }
+    app.person_view_pubkey = Some(pubkeyhex.to_owned());
+    app.page = Page::Person;
 }

@@ -86,8 +86,6 @@ struct GossipUi {
     replying_to: Option<Id>,
     hides: Vec<Id>,
     person_view_pubkey: Option<PublicKeyHex>,
-    person_view_person: Option<DbPerson>,
-    person_view_name: Option<String>,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     new_relay_url: String,
 }
@@ -161,8 +159,6 @@ impl GossipUi {
             replying_to: None,
             hides: Vec::new(),
             person_view_pubkey: None,
-            person_view_person: None,
-            person_view_name: None,
             avatars: HashMap::new(),
             new_relay_url: "".to_owned(),
         }

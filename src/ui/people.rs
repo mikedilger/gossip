@@ -6,14 +6,20 @@ use eframe::egui;
 use egui::{Context, Image, RichText, ScrollArea, Sense, TextEdit, TopBottomPanel, Ui, Vec2};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+    let maybe_person = if let Some(pubkeyhex) = &app.person_view_pubkey {
+        GLOBALS.people.blocking_write().get(pubkeyhex)
+    } else {
+        None
+    };
+
     TopBottomPanel::top("people_menu").show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut app.page, Page::PeopleList, "Followed");
             ui.separator();
             ui.selectable_value(&mut app.page, Page::PeopleFollow, "Follow Someone New");
             ui.separator();
-            if let Some(name) = &app.person_view_name {
-                ui.selectable_value(&mut app.page, Page::Person, name);
+            if let Some(person) = &maybe_person {
+                ui.selectable_value(&mut app.page, Page::Person, get_name(person));
                 ui.separator();
             }
         });
@@ -162,19 +168,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
         });
     } else if app.page == Page::Person {
-        if app.person_view_pubkey.is_none()
-            || app.person_view_person.is_none()
-            || app.person_view_name.is_none()
-        {
+        if maybe_person.is_none() || app.person_view_pubkey.is_none() {
             ui.label("ERROR");
         } else {
-            let pubkeyhex = app.person_view_pubkey.as_ref().unwrap().to_owned();
-            let person = app.person_view_person.as_ref().unwrap().to_owned();
-            let name = app.person_view_name.as_ref().unwrap().to_owned();
+            let person = maybe_person.as_ref().unwrap();
+            let pubkeyhex = app.person_view_pubkey.as_ref().unwrap().clone();
 
             ui.add_space(24.0);
 
-            ui.heading(name);
+            ui.heading(get_name(person));
 
             ui.horizontal(|ui| {
                 // Avatar first
@@ -187,7 +189,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 ui.vertical(|ui| {
                     ui.label(RichText::new(GossipUi::hex_pubkey_short(&pubkeyhex)).weak());
-                    GossipUi::render_person_name_line(ui, Some(&person));
+                    GossipUi::render_person_name_line(ui, Some(person));
                 });
             });
 
@@ -203,25 +205,33 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             if person.followed == 0 {
                 if ui.button("FOLLOW").clicked() {
                     GLOBALS.people.blocking_write().follow(&pubkeyhex, true);
-                    app.person_view_person.as_mut().unwrap().followed = 1;
                 }
             } else {
                 if ui.button("UNFOLLOW").clicked() {
                     GLOBALS.people.blocking_write().follow(&pubkeyhex, false);
-                    app.person_view_person.as_mut().unwrap().followed = 0;
                 }
+            }
+
+            if ui.button("UPDATE METADATA").clicked() {
+                let _ = GLOBALS.to_overlord.send(BusMessage {
+                    target: "overlord".to_string(),
+                    kind: "update_metadata".to_string(),
+                    json_payload: serde_json::to_string(&pubkeyhex).unwrap(),
+                });
             }
         }
     }
 }
 
+fn get_name(person: &DbPerson) -> String {
+    if let Some(name) = &person.name {
+        name.to_owned()
+    } else {
+        GossipUi::hex_pubkey_short(&person.pubkey)
+    }
+}
+
 fn set_person_view(app: &mut GossipUi, person: &DbPerson) {
     app.person_view_pubkey = Some(person.pubkey.clone());
-    app.person_view_person = Some(person.clone());
-    app.person_view_name = if let Some(name) = &person.name {
-        Some(name.to_string())
-    } else {
-        Some(GossipUi::hex_pubkey_short(&person.pubkey))
-    };
     app.page = Page::Person;
 }
