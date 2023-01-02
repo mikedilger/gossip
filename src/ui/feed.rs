@@ -31,35 +31,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     };
 
     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-
-        ui.menu_button("Query", |ui| {
-            if ui.button("Missing Events")
-                .on_hover_text("Query Relays for Missing Events")
-                .clicked()
-            {
-                let _ = GLOBALS.to_overlord.send(BusMessage {
-                    target: "overlord".to_string(),
-                    kind: "get_missing_events".to_string(),
-                    json_payload: serde_json::to_string("").unwrap(),
-                });
-            }
-
-            if ui.button("Metadata")
-                .on_hover_text("Metadata and contact lists for everyone in the feed")
-                .clicked()
-            {
-                let _ = GLOBALS.to_overlord.send(BusMessage {
-                    target: "overlord".to_string(),
-                    kind: "update_metadata".to_string(),
-                    json_payload: serde_json::to_string("").unwrap(),
-                });
-            }
-        });
-
-        ui.label(&format!("Missing={}", desired_count));
+        if ui
+            .button(&format!("QM {}", desired_count))
+            .on_hover_text("Query Relays for Missing Events")
+            .clicked()
+        {
+            let tx = GLOBALS.to_overlord.clone();
+            let _ = tx.send(BusMessage {
+                target: "overlord".to_string(),
+                kind: "get_missing_events".to_string(),
+                json_payload: serde_json::to_string("").unwrap(),
+            });
+        }
 
         if ui
-            .button(&format!("Process={}", incoming_count))
+            .button(&format!("PQ {}", incoming_count))
             .on_hover_text("Process Queue of Incoming Events")
             .clicked()
         {

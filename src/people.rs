@@ -195,7 +195,7 @@ impl People {
         }
     }
 
-    pub fn get_all(&self) -> Vec<DbPerson> {
+    pub fn get_all(&mut self) -> Vec<DbPerson> {
         let mut v: Vec<DbPerson> = self.people.values().map(|p| p.to_owned()).collect();
         v.sort_by(|a, b| {
             let c = a.name.cmp(&b.name);

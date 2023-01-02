@@ -524,43 +524,6 @@ impl Overlord {
                         DbRelay::insert(dbrelay).await?;
                     }
                 }
-                "update_metadata" => {
-                    tracing::debug!("Overlord got update_metadata request");
-
-                    // Get all people we are rendering
-                    let v: Vec<PublicKeyHex> = GLOBALS.people.read().await
-                        .get_all().iter().map(|p| p.pubkey.clone()).collect();
-
-                    // Get all relays we are connected to
-                    let r: Vec<String> = self.urls_watching.iter().map(|u| u.inner().to_owned()).collect();
-
-                    // Match up people with relays, sorted into per-relay buckets
-                    let matching = DbPersonRelay::fetch_matching(v.clone(), r.clone()).await?;
-                    let mut by_relay: HashMap<String, Vec<PublicKeyHex>> = HashMap::new();
-                    for person_relay in matching.iter() {
-                        let pkh = PublicKeyHex(person_relay.person.clone());
-                        by_relay.entry(person_relay.relay.clone())
-                            .and_modify(|v| v.push(pkh.clone()))
-                            .or_insert_with(|| {
-                                vec![pkh]
-                            });
-                    }
-
-                    // Tell each minion in turn to subscribe to ephemeral data for all
-                    // the people we are watching that use that relay
-                    for (relay, people) in by_relay.iter() {
-
-                        tracing::debug!("Overlord asking {} to update metadata for {} people",
-                                        &relay, people.len());
-
-                        // "subscribe_ephemeral_for_all"
-                        let _ = self.to_minions.send(BusMessage {
-                            target: relay.to_string(),
-                            kind: "subscribe_ephemeral_for_all".to_string(),
-                            json_payload: serde_json::to_string(people).unwrap(),
-                        });
-                    }
-                }
                 _ => {}
             },
             _ => {}
