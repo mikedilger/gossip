@@ -19,9 +19,6 @@ impl Minion {
                 let v: Vec<IdHex> = serde_json::from_str(&bus_message.json_payload)?;
                 self.get_events(v).await?;
             }
-            "follow_event_reactions" => {
-                warn!("{}: follow event reactions unimplemented", &self.url);
-            }
             "post_event" => {
                 let event: Event = serde_json::from_str(&bus_message.json_payload)?;
                 let msg = ClientMessage::Event(Box::new(event));

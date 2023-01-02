@@ -385,11 +385,4 @@ impl Minion {
 
         Ok(())
     }
-
-    /*
-        async fn follow_event_reactions(&mut self, _ids: Vec<IdHex>) -> Result<(), Error> {
-            // Create or extend the "reactions" subscription
-            unimplemented!()
-    }
-        */
 }
