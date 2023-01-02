@@ -15,7 +15,6 @@ use std::collections::HashMap;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
-use tracing::{debug, error, info, warn};
 use zeroize::Zeroize;
 
 pub struct Overlord {
@@ -46,16 +45,16 @@ impl Overlord {
 
     pub async fn run(&mut self) {
         if let Err(e) = self.run_inner().await {
-            error!("{}", e);
+            tracing::error!("{}", e);
         }
 
-        info!("Overlord signalling UI to shutdown");
+        tracing::info!("Overlord signalling UI to shutdown");
 
         GLOBALS
             .shutting_down
             .store(true, std::sync::atomic::Ordering::Relaxed);
 
-        info!("Overlord signalling minions to shutdown");
+        tracing::info!("Overlord signalling minions to shutdown");
 
         // Send shutdown message to all minions (and ui)
         // If this fails, it's probably because there are no more listeners
@@ -66,7 +65,7 @@ impl Overlord {
             json_payload: serde_json::to_string("shutdown").unwrap(),
         });
 
-        info!("Overlord waiting for minions to all shutdown");
+        tracing::info!("Overlord waiting for minions to all shutdown");
 
         // Listen on self.minions until it is empty
         while !self.minions.is_empty() {
@@ -75,7 +74,7 @@ impl Overlord {
             self.handle_task_nextjoined(task_nextjoined).await;
         }
 
-        info!("Overlord confirms all minions have shutdown");
+        tracing::info!("Overlord confirms all minions have shutdown");
     }
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
@@ -125,7 +124,7 @@ impl Overlord {
                 let e: Event = match serde_json::from_str(&dbevent.raw) {
                     Ok(e) => e,
                     Err(_) => {
-                        error!("Bad raw event: id={}, raw={}", dbevent.id, dbevent.raw);
+                        tracing::error!("Bad raw event: id={}, raw={}", dbevent.id, dbevent.raw);
                         continue;
                     }
                 };
@@ -159,7 +158,7 @@ impl Overlord {
                 count += 1;
                 crate::process::process_new_event(event, false, None).await?;
             }
-            info!("Loaded {} events from the database", count);
+            tracing::info!("Loaded {} events from the database", count);
         }
 
         // Pick Relays and start Minions
@@ -192,7 +191,7 @@ impl Overlord {
             let mut relay_count = 0;
             loop {
                 if relay_count >= max_relays {
-                    warn!(
+                    tracing::info!(
                         "Safety catch: we have picked {} relays. That's enough.",
                         max_relays
                     );
@@ -200,7 +199,7 @@ impl Overlord {
                 }
 
                 if relay_picker.is_degenerate() {
-                    info!(
+                    tracing::debug!(
                         "Relay picker is degenerate, relays={} pubkey_counts={}, person_relays={}",
                         relay_picker.relays.len(),
                         relay_picker.pubkey_counts.len(),
@@ -214,7 +213,7 @@ impl Overlord {
                 relay_picker = rp;
 
                 if best_relay.is_degenerate() {
-                    info!("Best relay is now degenerate.");
+                    tracing::debug!("Best relay is now degenerate.");
                     break;
                 }
 
@@ -228,7 +227,7 @@ impl Overlord {
                     json_payload: serde_json::to_string(&best_relay.pubkeys).unwrap(),
                 });
 
-                info!(
+                tracing::info!(
                     "Picked relay {} covering {} people.",
                     &best_relay.relay.url,
                     best_relay.pubkeys.len()
@@ -237,7 +236,7 @@ impl Overlord {
                 relay_count += 1;
             }
 
-            info!("Listening on {} relays", relay_count);
+            tracing::info!("Listening on {} relays", relay_count);
 
             // Get desired events from relays
             self.get_missing_events().await?;
@@ -252,7 +251,7 @@ impl Overlord {
                 }
                 Err(e) => {
                     // Log them and keep looping
-                    error!("{}", e);
+                    tracing::error!("{}", e);
                 }
             }
         }
@@ -281,7 +280,7 @@ impl Overlord {
     async fn loop_handler(&mut self) -> Result<bool, Error> {
         let mut keepgoing: bool = true;
 
-        tracing::debug!("overlord looping");
+        tracing::trace!("overlord looping");
 
         if self.minions.is_empty() {
             // Just listen on inbox
@@ -331,7 +330,7 @@ impl Overlord {
                     Some(url) => {
                         // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
                         // Minion probably alreaedy logged, this may be redundant.
-                        warn!("Minion {} completed with error: {}", &url, join_error);
+                        tracing::error!("Minion {} completed with error: {}", &url, join_error);
 
                         // Minion probably already logged failure in relay table
 
@@ -342,7 +341,7 @@ impl Overlord {
                         self.minions_task_url.remove(&id);
                     }
                     None => {
-                        warn!("Minion UNKNOWN completed with error: {}", join_error);
+                        tracing::error!("Minion UNKNOWN completed with error: {}", join_error);
                     }
                 }
             }
@@ -350,7 +349,7 @@ impl Overlord {
                 let maybe_url = self.minions_task_url.get(&id);
                 match maybe_url {
                     Some(url) => {
-                        info!("Relay Task {} completed", &url);
+                        tracing::info!("Relay Task {} completed", &url);
 
                         // Remove from our urls_watching vec
                         self.urls_watching.retain(|value| value != url);
@@ -358,7 +357,7 @@ impl Overlord {
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
                     }
-                    None => warn!("Relay Task UNKNOWN completed"),
+                    None => tracing::error!("Relay Task UNKNOWN completed"),
                 }
             }
         }
@@ -369,7 +368,7 @@ impl Overlord {
         match &*bus_message.target {
             "all" => match &*bus_message.kind {
                 "shutdown" => {
-                    info!("Overlord shutting down");
+                    tracing::info!("Overlord shutting down");
                     return Ok(false);
                 }
                 _ => {}
@@ -378,7 +377,7 @@ impl Overlord {
                 "minion_is_ready" => {}
                 "save_settings" => {
                     GLOBALS.settings.read().await.save().await?;
-                    debug!("Settings saved.");
+                    tracing::debug!("Settings saved.");
                 }
                 "get_missing_events" => {
                     self.get_missing_events().await?;
@@ -387,7 +386,7 @@ impl Overlord {
                     let dns_id: String = serde_json::from_str(&bus_message.json_payload)?;
                     let _ = tokio::spawn(async move {
                         if let Err(e) = Overlord::get_and_follow_nip35(dns_id).await {
-                            error!("{}", e);
+                            tracing::error!("{}", e);
                         }
                     });
                 }
@@ -486,7 +485,7 @@ impl Overlord {
                         .iter()
                         .filter_map(|(_, r)| if r.dirty { Some(r.to_owned()) } else { None })
                         .collect();
-                    info!("Saving {} relays", dirty_relays.len());
+                    tracing::info!("Saving {} relays", dirty_relays.len());
                     for relay in dirty_relays.iter() {
                         // Just update 'post' since that's all 'dirty' indicates currently
                         DbRelay::update_post(relay.url.to_owned(), relay.post).await?;
@@ -559,7 +558,7 @@ impl Overlord {
             return Ok(());
         }
 
-        info!("Seeking {} events", desired_count);
+        tracing::info!("Seeking {} events", desired_count);
 
         let urls: Vec<Url> = desired_events_map
             .keys()
@@ -584,7 +583,7 @@ impl Overlord {
                 self.start_minion(url.inner().to_owned()).await?;
             }
 
-            debug!("{}: Asking to fetch {} events", url.inner(), ids.len());
+            tracing::debug!("{}: Asking to fetch {} events", url.inner(), ids.len());
 
             // Tell it to get these events
             let _ = self.to_minions.send(BusMessage {
@@ -647,7 +646,7 @@ impl Overlord {
             .async_follow(&(*pubkey).into(), true)
             .await?;
 
-        info!("Followed {}", &dns_id);
+        tracing::info!("Followed {}", &dns_id);
 
         let relays = match nip05.relays.get(pubkey) {
             Some(relays) => relays,
@@ -671,7 +670,7 @@ impl Overlord {
             }
         }
 
-        info!("Setup {} relays for {}", relays.len(), &dns_id);
+        tracing::info!("Setup {} relays for {}", relays.len(), &dns_id);
 
         Ok(())
     }
@@ -686,7 +685,7 @@ impl Overlord {
             .async_follow(&pkhex, true)
             .await?;
 
-        debug!("Followed {}", &pkhex);
+        tracing::debug!("Followed {}", &pkhex);
 
         // Save relay
         let relay_url = Url::new(&relay);
@@ -704,7 +703,7 @@ impl Overlord {
         })
         .await?;
 
-        info!("Setup 1 relay for {}", &pkhex);
+        tracing::info!("Setup 1 relay for {}", &pkhex);
 
         Ok(())
     }
@@ -719,7 +718,7 @@ impl Overlord {
             .async_follow(&pkhex, true)
             .await?;
 
-        debug!("Followed {}", &pkhex);
+        tracing::debug!("Followed {}", &pkhex);
 
         // Save relay
         let relay_url = Url::new(&relay);
@@ -737,7 +736,7 @@ impl Overlord {
         })
         .await?;
 
-        info!("Setup 1 relay for {}", &pkhex);
+        tracing::info!("Setup 1 relay for {}", &pkhex);
 
         Ok(())
     }
@@ -747,7 +746,7 @@ impl Overlord {
             let public_key = match GLOBALS.signer.read().await.public_key() {
                 Some(pk) => pk,
                 None => {
-                    warn!("No public key! Not posting");
+                    tracing::warn!("No public key! Not posting");
                     return Ok(());
                 }
             };
@@ -781,7 +780,7 @@ impl Overlord {
             }
 
             // Send it the event to post
-            debug!("Asking {} to post", &relay.url);
+            tracing::debug!("Asking {} to post", &relay.url);
 
             let _ = self.to_minions.send(BusMessage {
                 target: relay.url.clone(),
@@ -801,7 +800,7 @@ impl Overlord {
             let public_key = match GLOBALS.signer.read().await.public_key() {
                 Some(pk) => pk,
                 None => {
-                    warn!("No public key! Not posting");
+                    tracing::warn!("No public key! Not posting");
                     return Ok(());
                 }
             };
@@ -839,7 +838,7 @@ impl Overlord {
             }
 
             // Send it the event to post
-            debug!("Asking {} to post", &relay.url);
+            tracing::debug!("Asking {} to post", &relay.url);
 
             let _ = self.to_minions.send(BusMessage {
                 target: relay.url.clone(),

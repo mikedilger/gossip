@@ -18,7 +18,6 @@ use tokio::select;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
-use tracing::{debug, error, info, trace, warn};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 
 pub struct Minion {
@@ -68,20 +67,20 @@ impl Minion {
     pub async fn handle(&mut self) {
         // Catch errors, Return nothing.
         if let Err(e) = self.handle_inner().await {
-            error!("{}: ERROR: {}", &self.url, e);
+            tracing::error!("{}: ERROR: {}", &self.url, e);
 
             // Bump the failure count for the relay.
             self.dbrelay.failure_count += 1;
             if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
-                error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
+                tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
             }
         }
 
-        debug!("{}: minion exiting", self.url);
+        tracing::info!("{}: minion exiting", self.url);
     }
 
     async fn handle_inner(&mut self) -> Result<(), Error> {
-        info!("{}: Minion handling started", &self.url);
+        tracing::trace!("{}: Minion handling started", &self.url); // minion will log when it connects
 
         // Connect to the relay
         let websocket_stream = {
@@ -107,11 +106,11 @@ impl Minion {
             {
                 match response.json::<RelayInformationDocument>().await {
                     Ok(nip11) => {
-                        info!("{}: {}", &self.url, nip11);
+                        tracing::info!("{}: {}", &self.url, nip11);
                         self.nip11 = Some(nip11);
                     }
                     Err(e) => {
-                        error!("{}: Unable to parse response as NIP-11: {}", &self.url, e);
+                        tracing::warn!("{}: Unable to parse response as NIP-11: {}", &self.url, e);
                     }
                 }
             }
@@ -140,7 +139,7 @@ impl Minion {
                 tokio_tungstenite::connect_async_with_config(req, Some(config)),
             )
             .await??;
-            info!("{}: Connected", &self.url);
+            tracing::info!("{}: Connected", &self.url);
 
             websocket_stream
         };
@@ -167,7 +166,7 @@ impl Minion {
                 }
                 Err(e) => {
                     // Log them and keep going
-                    error!("{}: {}", &self.url, e);
+                    tracing::error!("{}: {}", &self.url, e);
                 }
             }
         }
@@ -195,7 +194,7 @@ impl Minion {
                     None => return Ok(false), // probably connection reset
                 }?;
 
-                trace!("{}: Handling message", &self.url);
+                tracing::trace!("{}: Handling message", &self.url);
                 match ws_message {
                     WsMessage::Text(t) => {
                         // MAYBE FIXME, spawn a separate task here so that
@@ -204,11 +203,11 @@ impl Minion {
                         // FIXME: some errors we should probably bail on.
                         // For now, try to continue.
                     },
-                    WsMessage::Binary(_) => warn!("{}, Unexpected binary message", &self.url),
+                    WsMessage::Binary(_) => tracing::warn!("{}, Unexpected binary message", &self.url),
                     WsMessage::Ping(x) => ws_sink.send(WsMessage::Pong(x)).await?,
                     WsMessage::Pong(_) => { }, // we just ignore pongs
                     WsMessage::Close(_) => keepgoing = false,
-                    WsMessage::Frame(_) => warn!("{}: Unexpected frame message", &self.url),
+                    WsMessage::Frame(_) => tracing::warn!("{}: Unexpected frame message", &self.url),
                 }
             },
             bus_message = self.from_overlord.recv() => {
@@ -224,7 +223,7 @@ impl Minion {
                     self.handle_bus_message(bus_message).await?;
                 } else if &*bus_message.target == "all" {
                     if &*bus_message.kind == "shutdown" {
-                        info!("{}: Websocket listener shutting down", &self.url);
+                        tracing::info!("{}: Websocket listener shutting down", &self.url);
                         keepgoing = false;
                     }
                 }
@@ -310,7 +309,7 @@ impl Minion {
         feed_filter.add_event_kind(EventKind::EventDeletion);
         feed_filter.since = Some(feed_since);
 
-        debug!(
+        tracing::trace!(
             "{}: Feed Filter: {} authors",
             &self.url,
             feed_filter.authors.len()
@@ -326,7 +325,8 @@ impl Minion {
         special_filter.add_event_kind(EventKind::ContactList);
         special_filter.add_event_kind(EventKind::RelaysList);
         special_filter.since = Some(special_since);
-        debug!(
+
+        tracing::trace!(
             "{}: Special Filter: {} authors",
             &self.url,
             special_filter.authors.len()
@@ -350,7 +350,7 @@ impl Minion {
         let wire = serde_json::to_string(&req_message)?;
         websocket_sink.send(WsMessage::Text(wire.clone())).await?;
 
-        trace!("{}: Sent {}", &self.url, &wire);
+        tracing::trace!("{}: Sent {}", &self.url, &wire);
 
         Ok(())
     }
@@ -364,7 +364,7 @@ impl Minion {
         let mut filter = Filter::new();
         filter.ids = ids;
 
-        debug!("{}: Event Filter: {} events", &self.url, filter.ids.len());
+        tracing::trace!("{}: Event Filter: {} events", &self.url, filter.ids.len());
 
         // create a handle for ourselves
         let handle = format!("temp_events_{}", self.next_events_subscription_id);
@@ -381,7 +381,7 @@ impl Minion {
         let wire = serde_json::to_string(&req_message)?;
         websocket_sink.send(WsMessage::Text(wire.clone())).await?;
 
-        trace!("{}: Sent {}", &self.url, &wire);
+        tracing::trace!("{}: Sent {}", &self.url, &wire);
 
         Ok(())
     }
@@ -411,7 +411,7 @@ impl Minion {
         let wire = serde_json::to_string(&req_message)?;
         let websocket_sink = self.sink.as_mut().unwrap();
         websocket_sink.send(WsMessage::Text(wire.clone())).await?;
-        trace!("{}: Sent {}", &self.url, &wire);
+        tracing::trace!("{}: Sent {}", &self.url, &wire);
         Ok(())
     }
 
@@ -424,7 +424,7 @@ impl Minion {
         let wire = serde_json::to_string(&close_message)?;
         let websocket_sink = self.sink.as_mut().unwrap();
         websocket_sink.send(WsMessage::Text(wire.clone())).await?;
-        trace!("{}: Sent {}", &self.url, &wire);
+        tracing::trace!("{}: Sent {}", &self.url, &wire);
         self.subscriptions.remove(handle);
         Ok(())
     }

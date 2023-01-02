@@ -32,7 +32,6 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use rusqlite::Connection;
 use std::fs;
-use tracing::info;
 
 // This sets up the database
 #[allow(clippy::or_fun_call)]
@@ -88,7 +87,7 @@ fn check_and_upgrade() -> Result<(), Error> {
 macro_rules! apply_sql {
     ($db:ident, $version:ident, $thisversion:expr, $file:expr) => {{
         if $version < $thisversion {
-            info!("Upgrading database to version {}", $thisversion);
+            tracing::info!("Upgrading database to version {}", $thisversion);
             $db.execute_batch(include_str!($file))?;
             $db.execute(
                 &format!(
@@ -110,6 +109,6 @@ fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
     apply_sql!(db, version, 5, "schema5.sql");
     apply_sql!(db, version, 6, "schema6.sql");
     apply_sql!(db, version, 7, "schema7.sql");
-    info!("Database is at version {}", version);
+    tracing::info!("Database is at version {}", version);
     Ok(())
 }

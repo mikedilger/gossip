@@ -12,7 +12,6 @@ use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
-use tracing::info;
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -169,7 +168,7 @@ impl Globals {
                 count += 1;
                 crate::process::process_new_event(event, false, None).await?;
             }
-            info!("Loaded {} desired events from the database", count);
+            tracing::info!("Loaded {} desired events from the database", count);
         }
 
         Self::trim_desired_events().await; // again

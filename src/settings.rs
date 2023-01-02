@@ -2,7 +2,6 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{EncryptedPrivateKey, PublicKey};
 use serde::{Deserialize, Serialize};
-use tracing::error;
 
 pub const DEFAULT_FEED_CHUNK: u64 = 43200; // 12 hours
 pub const DEFAULT_OVERLAP: u64 = 600; // 10 minutes
@@ -92,7 +91,7 @@ impl Settings {
                     settings.public_key = match PublicKey::try_from_hex_string(&row.1) {
                         Ok(pk) => Some(pk),
                         Err(e) => {
-                            error!("Public key in database is invalid or corrupt: {}", e);
+                            tracing::error!("Public key in database is invalid or corrupt: {}", e);
                             None
                         }
                     }

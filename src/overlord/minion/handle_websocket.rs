@@ -3,7 +3,6 @@ use crate::globals::GLOBALS;
 use crate::Error;
 use futures::SinkExt;
 use nostr_types::{EventKind, RelayMessage, Unixtime};
-use tracing::{debug, error, info, warn};
 use tungstenite::protocol::Message as WsMessage;
 
 impl Minion {
@@ -19,7 +18,7 @@ impl Minion {
         match relay_message {
             RelayMessage::Event(subid, event) => {
                 if let Err(e) = event.verify(Some(maxtime)) {
-                    error!(
+                    tracing::error!(
                         "{}: VERIFY ERROR: {}, {}",
                         &self.url,
                         e,
@@ -30,7 +29,7 @@ impl Minion {
                         .subscriptions
                         .get_handle_by_id(&subid.0)
                         .unwrap_or_else(|| "_".to_owned());
-                    debug!("{}: {}: NEW EVENT", &self.url, handle);
+                    tracing::trace!("{}: {}: NEW EVENT", &self.url, handle);
 
                     if event.kind == EventKind::TextNote {
                         // Just store text notes in incoming
@@ -47,7 +46,7 @@ impl Minion {
                 }
             }
             RelayMessage::Notice(msg) => {
-                info!("{}: NOTICE: {}", &self.url, msg);
+                tracing::info!("{}: NOTICE: {}", &self.url, msg);
             }
             RelayMessage::Eose(subid) => {
                 let handle = self
@@ -60,7 +59,7 @@ impl Minion {
                 // Update the matching subscription
                 match self.subscriptions.get_mut_by_id(&subid.0) {
                     Some(sub) => {
-                        info!("{}: {}: EOSE: {:?}", &self.url, handle, subid);
+                        tracing::trace!("{}: {}: EOSE: {:?}", &self.url, handle, subid);
                         if close {
                             let close_message = sub.close_message();
                             let websocket_sink = self.sink.as_mut().unwrap();
@@ -71,16 +70,18 @@ impl Minion {
                         }
                     }
                     None => {
-                        warn!(
+                        tracing::debug!(
                             "{}: {} EOSE for unknown subscription {:?}",
-                            &self.url, handle, subid
+                            &self.url,
+                            handle,
+                            subid
                         );
                     }
                 }
             }
             RelayMessage::Ok(id, ok, ok_message) => {
                 // These don't have to be processed.
-                info!(
+                tracing::info!(
                     "{}: OK: id={} ok={} message=\"{}\"",
                     &self.url,
                     id.as_hex_string(),

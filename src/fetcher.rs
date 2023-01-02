@@ -95,7 +95,6 @@ impl Fetcher {
         let cache_file = self.cache_file(&url);
         match fs::read(cache_file) {
             Ok(contents) => {
-                tracing::debug!("cache hit");
                 return Ok(Some(contents));
             }
             Err(e) => {

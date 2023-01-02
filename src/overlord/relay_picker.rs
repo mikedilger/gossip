@@ -2,7 +2,6 @@ use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
 use nostr_types::PublicKeyHex;
 use std::collections::HashMap;
-use tracing::info;
 
 /// See RelayPicker::best()
 pub struct RelayPicker {
@@ -33,7 +32,7 @@ impl RelayPicker {
             ));
         }
 
-        info!(
+        tracing::info!(
             "Searching for the best relay among {} for {} people",
             self.relays.len(),
             self.pubkey_counts.len()

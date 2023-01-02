@@ -2,7 +2,6 @@ use super::Minion;
 use crate::{BusMessage, Error};
 use futures::SinkExt;
 use nostr_types::{ClientMessage, Event, IdHex, PublicKeyHex};
-use tracing::{info, warn};
 use tungstenite::protocol::Message as WsMessage;
 
 impl Minion {
@@ -25,16 +24,17 @@ impl Minion {
                 let wire = serde_json::to_string(&msg)?;
                 let ws_sink = self.sink.as_mut().unwrap();
                 ws_sink.send(WsMessage::Text(wire)).await?;
-                info!("Posted event to {}", &self.url);
+                tracing::info!("Posted event to {}", &self.url);
             }
             "temp_subscribe_metadata" => {
                 let pubkeyhex: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
                 self.temp_subscribe_metadata(pubkeyhex).await?;
             }
             _ => {
-                warn!(
+                tracing::warn!(
                     "{} Unrecognized bus message kind received by minion: {}",
-                    &self.url, bus_message.kind
+                    &self.url,
+                    bus_message.kind
                 );
             }
         }
