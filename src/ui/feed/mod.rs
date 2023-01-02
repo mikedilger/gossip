@@ -10,6 +10,9 @@ use egui::{
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{EventKind, Id, PublicKeyHex};
 
+mod person;
+mod thread;
+
 struct FeedPostParams {
     id: Id,
     indent: usize,
@@ -18,161 +21,181 @@ struct FeedPostParams {
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    let feed = GLOBALS.feed.blocking_lock().get();
-
-    Globals::trim_desired_events_sync();
-    let desired_count: isize = match GLOBALS.desired_events.try_read() {
-        Ok(v) => v.len() as isize,
-        Err(_) => -1,
-    };
-    let incoming_count: isize = match GLOBALS.incoming_events.try_read() {
-        Ok(v) => v.len() as isize,
-        Err(_) => -1,
-    };
-
-    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-        if ui
-            .button(&format!("QM {}", desired_count))
-            .on_hover_text("Query Relays for Missing Events")
-            .clicked()
-        {
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(BusMessage {
-                target: "overlord".to_string(),
-                kind: "get_missing_events".to_string(),
-                json_payload: serde_json::to_string("").unwrap(),
-            });
+    ui.horizontal(|ui| {
+        ui.selectable_value(&mut app.page, Page::FeedGeneral, "Following");
+        ui.separator();
+        if app.feed_thread_id.is_some() {
+            ui.selectable_value(&mut app.page, Page::FeedThread, "Thread");
+            ui.separator();
         }
-
-        if ui
-            .button(&format!("PQ {}", incoming_count))
-            .on_hover_text("Process Queue of Incoming Events")
-            .clicked()
-        {
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(BusMessage {
-                target: "overlord".to_string(),
-                kind: "process_incoming_events".to_string(),
-                json_payload: serde_json::to_string("").unwrap(),
-            });
-        }
-
-        if ui.button("close all").clicked() {
-            app.hides = feed.clone();
-        }
-        if ui.button("open all").clicked() {
-            app.hides.clear();
-        }
-        ui.label(&format!(
-            "RIF={}",
-            GLOBALS
-                .fetcher
-                .requests_in_flight
-                .load(std::sync::atomic::Ordering::Relaxed)
-        ));
-    });
-
-    ui.vertical(|ui| {
-        if !GLOBALS.signer.blocking_read().is_ready() {
-            ui.horizontal(|ui| {
-                ui.label("You need to ");
-                if ui.link("setup your identity").clicked() {
-                    app.page = Page::You;
-                }
-                ui.label(" to post.");
-            });
-        } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
-            ui.horizontal(|ui| {
-                ui.label("You need to ");
-                if ui.link("choose relays").clicked() {
-                    app.page = Page::Relays;
-                }
-                ui.label(" to post.");
-            });
-        } else {
-            if let Some(id) = app.replying_to {
-                render_post_actual(
-                    app,
-                    ctx,
-                    frame,
-                    ui,
-                    FeedPostParams {
-                        id,
-                        indent: 0,
-                        as_reply_to: true,
-                        threaded: false,
-                    },
-                );
-            }
-
-            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                if ui.button("Send").clicked() && !app.draft.is_empty() {
-                    let tx = GLOBALS.to_overlord.clone();
-                    match app.replying_to {
-                        Some(_id) => {
-                            let _ = tx.send(BusMessage {
-                                target: "overlord".to_string(),
-                                kind: "post_reply".to_string(),
-                                json_payload: serde_json::to_string(&(
-                                    &app.draft,
-                                    &app.replying_to,
-                                ))
-                                .unwrap(),
-                            });
-                        }
-                        None => {
-                            let _ = tx.send(BusMessage {
-                                target: "overlord".to_string(),
-                                kind: "post_textnote".to_string(),
-                                json_payload: serde_json::to_string(&app.draft).unwrap(),
-                            });
-                        }
-                    }
-                    app.draft = "".to_owned();
-                    app.replying_to = None;
-                }
-                if ui.button("Cancel").clicked() {
-                    app.draft = "".to_owned();
-                    app.replying_to = None;
-                }
-
-                ui.add(
-                    TextEdit::multiline(&mut app.draft)
-                        .hint_text("Type your message here")
-                        .desired_width(f32::INFINITY)
-                        .lock_focus(true),
-                );
-            });
+        if app.feed_person_pubkey.is_some() {
+            ui.selectable_value(&mut app.page, Page::FeedPerson, "Person");
+            ui.separator();
         }
     });
-
     ui.separator();
 
-    let threaded = GLOBALS.settings.blocking_read().view_threaded;
+    if app.page == Page::FeedGeneral {
+        let feed = GLOBALS.feed.blocking_lock().get();
 
-    ScrollArea::vertical().show(ui, |ui| {
-        let bgcolor = if ctx.style().visuals.dark_mode {
-            Color32::BLACK
-        } else {
-            Color32::WHITE
+        Globals::trim_desired_events_sync();
+        let desired_count: isize = match GLOBALS.desired_events.try_read() {
+            Ok(v) => v.len() as isize,
+            Err(_) => -1,
         };
-        Frame::none().fill(bgcolor).show(ui, |ui| {
-            for id in feed.iter() {
-                render_post_maybe_fake(
-                    app,
-                    ctx,
-                    frame,
-                    ui,
-                    FeedPostParams {
-                        id: *id,
-                        indent: 0,
-                        as_reply_to: false,
-                        threaded,
-                    },
-                );
+        let incoming_count: isize = match GLOBALS.incoming_events.try_read() {
+            Ok(v) => v.len() as isize,
+            Err(_) => -1,
+        };
+
+        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+            if ui
+                .button(&format!("QM {}", desired_count))
+                .on_hover_text("Query Relays for Missing Events")
+                .clicked()
+            {
+                let tx = GLOBALS.to_overlord.clone();
+                let _ = tx.send(BusMessage {
+                    target: "overlord".to_string(),
+                    kind: "get_missing_events".to_string(),
+                    json_payload: serde_json::to_string("").unwrap(),
+                });
+            }
+
+            if ui
+                .button(&format!("PQ {}", incoming_count))
+                .on_hover_text("Process Queue of Incoming Events")
+                .clicked()
+            {
+                let tx = GLOBALS.to_overlord.clone();
+                let _ = tx.send(BusMessage {
+                    target: "overlord".to_string(),
+                    kind: "process_incoming_events".to_string(),
+                    json_payload: serde_json::to_string("").unwrap(),
+                });
+            }
+
+            if ui.button("close all").clicked() {
+                app.hides = feed.clone();
+            }
+            if ui.button("open all").clicked() {
+                app.hides.clear();
+            }
+            ui.label(&format!(
+                "RIF={}",
+                GLOBALS
+                    .fetcher
+                    .requests_in_flight
+                    .load(std::sync::atomic::Ordering::Relaxed)
+            ));
+        });
+
+        ui.vertical(|ui| {
+            if !GLOBALS.signer.blocking_read().is_ready() {
+                ui.horizontal(|ui| {
+                    ui.label("You need to ");
+                    if ui.link("setup your identity").clicked() {
+                        app.page = Page::You;
+                    }
+                    ui.label(" to post.");
+                });
+            } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
+                ui.horizontal(|ui| {
+                    ui.label("You need to ");
+                    if ui.link("choose relays").clicked() {
+                        app.page = Page::Relays;
+                    }
+                    ui.label(" to post.");
+                });
+            } else {
+                if let Some(id) = app.replying_to {
+                    render_post_actual(
+                        app,
+                        ctx,
+                        frame,
+                        ui,
+                        FeedPostParams {
+                            id,
+                            indent: 0,
+                            as_reply_to: true,
+                            threaded: false,
+                        },
+                    );
+                }
+
+                ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                    if ui.button("Send").clicked() && !app.draft.is_empty() {
+                        let tx = GLOBALS.to_overlord.clone();
+                        match app.replying_to {
+                            Some(_id) => {
+                                let _ = tx.send(BusMessage {
+                                    target: "overlord".to_string(),
+                                    kind: "post_reply".to_string(),
+                                    json_payload: serde_json::to_string(&(
+                                        &app.draft,
+                                        &app.replying_to,
+                                    ))
+                                    .unwrap(),
+                                });
+                            }
+                            None => {
+                                let _ = tx.send(BusMessage {
+                                    target: "overlord".to_string(),
+                                    kind: "post_textnote".to_string(),
+                                    json_payload: serde_json::to_string(&app.draft).unwrap(),
+                                });
+                            }
+                        }
+                        app.draft = "".to_owned();
+                        app.replying_to = None;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        app.draft = "".to_owned();
+                        app.replying_to = None;
+                    }
+
+                    ui.add(
+                        TextEdit::multiline(&mut app.draft)
+                            .hint_text("Type your message here")
+                            .desired_width(f32::INFINITY)
+                            .lock_focus(true),
+                    );
+                });
             }
         });
-    });
+
+        ui.separator();
+
+        let threaded = GLOBALS.settings.blocking_read().view_threaded;
+
+        ScrollArea::vertical().show(ui, |ui| {
+            let bgcolor = if ctx.style().visuals.dark_mode {
+                Color32::BLACK
+            } else {
+                Color32::WHITE
+            };
+            Frame::none().fill(bgcolor).show(ui, |ui| {
+                for id in feed.iter() {
+                    render_post_maybe_fake(
+                        app,
+                        ctx,
+                        frame,
+                        ui,
+                        FeedPostParams {
+                            id: *id,
+                            indent: 0,
+                            as_reply_to: false,
+                            threaded,
+                        },
+                    );
+                }
+            });
+        });
+    } else if app.page == Page::FeedThread {
+        thread::update(app, ctx, frame, ui);
+    } else if app.page == Page::FeedPerson {
+        person::update(app, ctx, frame, ui);
+    }
 }
 
 fn render_post_maybe_fake(
