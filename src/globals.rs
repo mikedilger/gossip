@@ -71,7 +71,7 @@ pub struct Globals {
     pub event_is_new: RwLock<Vec<Id>>,
 
     /// Feed
-    pub feed: Mutex<Feed>,
+    pub feed: Feed,
 
     /// Fetcher
     pub fetcher: Fetcher,
@@ -106,7 +106,7 @@ lazy_static! {
             signer: RwLock::new(Signer::default()),
             dismissed: RwLock::new(Vec::new()),
             event_is_new: RwLock::new(Vec::new()),
-            feed: Mutex::new(Feed::new()),
+            feed: Feed::new(),
             fetcher: Fetcher::new(),
             failed_avatars: RwLock::new(HashSet::new()),
         }

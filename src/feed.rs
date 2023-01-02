@@ -1,55 +1,56 @@
 use crate::globals::GLOBALS;
 use nostr_types::{Event, EventKind, Id};
 use std::time::{Duration, Instant};
+use parking_lot::RwLock;
 
 pub struct Feed {
-    feed: Vec<Id>,
+    feed: RwLock<Vec<Id>>,
 
     // We only recompute the feed at specified intervals
-    interval_ms: u32,
-    last_computed: Instant,
+    interval_ms: RwLock<u32>,
+    last_computed: RwLock<Instant>,
 
     // We track these to update subscriptions on them
-    my_event_ids: Vec<Id>,
-    followed_event_ids: Vec<Id>,
+    my_event_ids: RwLock<Vec<Id>>,
+    followed_event_ids: RwLock<Vec<Id>>,
 }
 
 impl Feed {
     pub fn new() -> Feed {
         Feed {
-            feed: Vec::new(),
-            interval_ms: 1000, // Every second, until we load from settings
-            last_computed: Instant::now(),
-            my_event_ids: Vec::new(),
-            followed_event_ids: Vec::new(),
+            feed: RwLock::new(Vec::new()),
+            interval_ms: RwLock::new(1000), // Every second, until we load from settings
+            last_computed: RwLock::new(Instant::now()),
+            my_event_ids: RwLock::new(Vec::new()),
+            followed_event_ids: RwLock::new(Vec::new()),
         }
     }
 
-    pub fn get(&mut self) -> Vec<Id> {
+    pub fn get(&self) -> Vec<Id> {
         let now = Instant::now();
-        if self.last_computed + Duration::from_millis(self.interval_ms as u64) < now {
+        if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now {
             self.recompute();
-            self.last_computed = now;
+            *self.last_computed.write() = now;
         }
 
-        self.feed.clone()
+        self.feed.read().clone()
     }
 
     #[allow(dead_code)]
     pub fn get_my_event_ids(&self) -> Vec<Id> {
         // we assume the main get() happens fast enough to recompute for us.
-        self.my_event_ids.clone()
+        self.my_event_ids.read().clone()
     }
 
     #[allow(dead_code)]
     pub fn get_followed_event_ids(&self) -> Vec<Id> {
         // we assume the main get() happens fast enough to recompute for us.
-        self.followed_event_ids.clone()
+        self.followed_event_ids.read().clone()
     }
 
-    fn recompute(&mut self) {
+    fn recompute(&self) {
         let settings = GLOBALS.settings.blocking_read().clone();
-        self.interval_ms = settings.feed_recompute_interval_ms;
+        *self.interval_ms.write() = settings.feed_recompute_interval_ms;
 
         let events: Vec<Event> = GLOBALS
             .events
@@ -62,17 +63,17 @@ impl Feed {
 
         // My event ids
         if let Some(pubkey) = GLOBALS.signer.blocking_read().public_key() {
-            self.my_event_ids = events
+            *self.my_event_ids.write() = events
                 .iter()
                 .filter_map(|e| if e.pubkey == pubkey { Some(e.id) } else { None })
                 .collect();
         } else {
-            self.my_event_ids = vec![];
+            *self.my_event_ids.write() = vec![];
         }
 
         // Followed event ids
         let followed_pubkeys = GLOBALS.people.blocking_read().get_followed_pubkeys();
-        self.followed_event_ids = events
+        *self.followed_event_ids.write() = events
             .iter()
             .filter_map(|e| {
                 if followed_pubkeys.contains(&e.pubkey.into()) {
@@ -107,6 +108,6 @@ impl Feed {
 
         events.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
 
-        self.feed = events.iter().map(|e| e.id).collect();
+        *self.feed.write() = events.iter().map(|e| e.id).collect();
     }
 }

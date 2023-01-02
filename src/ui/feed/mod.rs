@@ -36,7 +36,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.separator();
 
     if app.page == Page::FeedGeneral {
-        let feed = GLOBALS.feed.blocking_lock().get();
+        let feed = GLOBALS.feed.get();
 
         Globals::trim_desired_events_sync();
         let desired_count: isize = match GLOBALS.desired_events.try_read() {
