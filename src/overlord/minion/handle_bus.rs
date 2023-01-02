@@ -19,6 +19,9 @@ impl Minion {
                 let v: Vec<IdHex> = serde_json::from_str(&bus_message.json_payload)?;
                 self.get_events(v).await?;
             }
+            "follow_event_reactions" => {
+                warn!("{}: follow event reactions unimplemented", &self.url);
+            }
             "post_event" => {
                 let event: Event = serde_json::from_str(&bus_message.json_payload)?;
                 let msg = ClientMessage::Event(Box::new(event));
@@ -26,41 +29,6 @@ impl Minion {
                 let ws_sink = self.sink.as_mut().unwrap();
                 ws_sink.send(WsMessage::Text(wire)).await?;
                 info!("Posted event to {}", &self.url);
-            }
-            //
-            // NEW handling
-            //
-            "subscribe_ephemeral_for_all" => {
-                let data: Vec<PublicKeyHex> = serde_json::from_str(&bus_message.json_payload)?;
-                self.subscribe_ephemeral_for_all(data).await?;
-            }
-            "subscribe_posts_by_me" => {
-                let data: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
-                self.subscribe_posts_by_me(data).await?;
-            }
-            "subscribe_posts_by_followed" => {
-                let data: Vec<PublicKeyHex> = serde_json::from_str(&bus_message.json_payload)?;
-                self.subscribe_posts_by_followed(data).await?;
-            }
-            "subscribe_ancestors" => {
-                let data: Vec<IdHex> = serde_json::from_str(&bus_message.json_payload)?;
-                self.subscribe_ancestors(data).await?;
-            }
-            "subscribe_my_descendants" => {
-                let data: Vec<IdHex> = serde_json::from_str(&bus_message.json_payload)?;
-                self.subscribe_my_descendants(data).await?;
-            }
-            "subscribe_follower_descendants" => {
-                let data: Vec<IdHex> = serde_json::from_str(&bus_message.json_payload)?;
-                self.subscribe_follower_descendants(data).await?;
-            }
-            "subscribe_my_mentions" => {
-                let data: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
-                self.subscribe_my_mentions(data).await?;
-            }
-            "subscribe_follower_mentions" => {
-                let data: Vec<PublicKeyHex> = serde_json::from_str(&bus_message.json_payload)?;
-                self.subscribe_follower_mentions(data).await?;
             }
             _ => {
                 warn!(
