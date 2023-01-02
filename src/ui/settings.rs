@@ -57,10 +57,6 @@ pub(super) fn update(
 
     ui.heading("Feed");
 
-    ui.checkbox(&mut app.settings.view_threaded, "Threaded feed")
-        .on_hover_text("If selected, replies are under what they reply to and the newest replied-to thread comes first. Otherwise all posts are independent and in time order.");
-
-    ui.add_space(24.0);
     ui.horizontal(|ui| {
         ui.label("Recompute feed every (milliseconds): ")
             .on_hover_text(

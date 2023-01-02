@@ -166,7 +166,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         ui.separator();
 
-        let threaded = GLOBALS.settings.blocking_read().view_threaded;
+        let threaded = false;
 
         ScrollArea::vertical().show(ui, |ui| {
             let bgcolor = if ctx.style().visuals.dark_mode {

@@ -87,16 +87,13 @@ impl Feed {
         let mut events: Vec<Event> = events
             .iter()
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
-            .filter(|e| {
-                if settings.view_threaded {
-                    e.replies_to().is_none()
-                } else {
-                    true
-                }
-            })
+            //.filter(|e| {   for Threaded
+            //e.replies_to().is_none()
+            //})
             .cloned()
             .collect();
 
+        /* for threaded
         if settings.view_threaded {
             events.sort_unstable_by(|a, b| {
                 let a_last = GLOBALS.last_reply.blocking_read().get(&a.id).cloned();
@@ -105,9 +102,10 @@ impl Feed {
                 let b_time = b_last.unwrap_or(b.created_at);
                 b_time.cmp(&a_time)
             });
-        } else {
-            events.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
         }
+         */
+
+        events.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
 
         self.feed = events.iter().map(|e| e.id).collect();
     }
