@@ -146,6 +146,11 @@ impl Feed {
             .map(|e| e.to_owned())
             .collect();
 
+        let mut pubkeys = GLOBALS.people.blocking_read().get_followed_pubkeys();
+        if let Some(pubkey) = GLOBALS.signer.blocking_read().public_key() {
+            pubkeys.push(pubkey.into()); // add the user
+        }
+
         // My event ids
         if let Some(pubkey) = GLOBALS.signer.blocking_read().public_key() {
             *self.my_event_ids.write() = events
@@ -157,11 +162,10 @@ impl Feed {
         }
 
         // Followed event ids
-        let followed_pubkeys = GLOBALS.people.blocking_read().get_followed_pubkeys();
         *self.followed_event_ids.write() = events
             .iter()
             .filter_map(|e| {
-                if followed_pubkeys.contains(&e.pubkey.into()) {
+                if pubkeys.contains(&e.pubkey.into()) {
                     Some(e.id)
                 } else {
                     None
@@ -172,11 +176,13 @@ impl Feed {
         // Filter further for the feed
         let mut events: Vec<Event> = events
             .iter()
+            .filter(|e| pubkeys.contains(&e.pubkey.into())) // something we follow
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
             .cloned()
             .collect();
 
-        events.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
+        // In time order
+        events.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
         *self.general_feed.write() = events.iter().map(|e| e.id).collect();
     }
