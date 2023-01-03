@@ -1,3 +1,4 @@
+use crate::comms::BusMessage;
 use crate::globals::GLOBALS;
 use nostr_types::PublicKeyHex;
 use nostr_types::{Event, EventKind, Id};
@@ -38,16 +39,27 @@ impl Feed {
     }
 
     pub fn set_feed_to_general(&self) {
+        // We are always subscribed to the general feed. Don't resubscribe here
+        // because it won't have changed, but the relays will shower you with
+        // all those events again.
         *self.current_feed_kind.write() = FeedKind::General;
     }
 
     pub fn set_feed_to_thread(&self, id: Id) {
-        // get parent?
+        let _ = GLOBALS.to_minions.send(BusMessage {
+            target: "all".to_string(),
+            kind: "subscribe_thread_feed".to_string(),
+            json_payload: serde_json::to_string(&id).unwrap(),
+        });
         *self.current_feed_kind.write() = FeedKind::Thread(id);
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {
-        // FIXME - TRIGGER OVERLORD TO FETCH THEIR EVENTS FURTHER BACK
+        let _ = GLOBALS.to_minions.send(BusMessage {
+            target: "all".to_string(),
+            kind: "subscribe_person_feed".to_string(),
+            json_payload: serde_json::to_string(&pubkey).unwrap(),
+        });
         *self.current_feed_kind.write() = FeedKind::Person(pubkey);
     }
 
@@ -67,7 +79,6 @@ impl Feed {
     }
 
     pub fn get_thread_parent(&self, id: Id) -> Id {
-        // FIXME - TRIGGER OVERLORD TO FETCH THIS FEED
         let mut event = match GLOBALS.events.blocking_read().get(&id).cloned() {
             None => return id,
             Some(e) => e,

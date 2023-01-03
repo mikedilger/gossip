@@ -10,8 +10,9 @@ use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
 use nostr_types::{
-    EventKind, Filter, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
+    EventKind, Filter, Id, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
 };
+use std::time::Duration;
 use subscription::Subscriptions;
 use tokio::net::TcpStream;
 use tokio::select;
@@ -219,13 +220,8 @@ impl Minion {
                     Err(e) => return Err(e.into())
                 };
                 #[allow(clippy::collapsible_if)]
-                if bus_message.target == self.url.inner() {
-                    self.handle_bus_message(bus_message).await?;
-                } else if &*bus_message.target == "all" {
-                    if &*bus_message.kind == "shutdown" {
-                        tracing::info!("{}: Websocket listener shutting down", &self.url);
-                        keepgoing = false;
-                    }
+                if bus_message.target == self.url.inner() || bus_message.target == "all" {
+                    keepgoing = self.handle_bus_message(bus_message).await?;
                 }
             },
         }
@@ -243,7 +239,180 @@ impl Minion {
         Ok(())
     }
 
+    async fn subscribe_general_feed(&mut self) -> Result<(), Error> {
+        // NOTE if the general feed is already subscribed we shoudn't do anything
+        // but we may need to update the subscription
+
+        let mut filters: Vec<Filter> = Vec::new();
+        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+
+        let followed_pubkeys = GLOBALS.people.read().await.get_followed_pubkeys();
+
+        if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+            // feed related by me
+            filters.push(Filter {
+                authors: vec![pubkey.into()],
+                kinds: vec![
+                    EventKind::TextNote,
+                    EventKind::Reaction,
+                    EventKind::EventDeletion,
+                ],
+                since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+                ..Default::default()
+            });
+
+            // Any mentions of me
+            filters.push(Filter {
+                p: vec![pubkey.into()],
+                since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+                ..Default::default()
+            });
+
+            // my metadata
+            // FIXME TBD
+            /*
+            filters.push(Filter {
+                authors: vec![pubkey],
+                kinds: vec![EventKind::Metadata, EventKind::RecommendRelay, EventKind::ContactList, EventKind::RelaysList],
+                since: // last we last checked
+                .. Default::default()
+            });
+             */
+        }
+
+        if !followed_pubkeys.is_empty() {
+            // feed related by people followed
+            filters.push(Filter {
+                authors: followed_pubkeys.clone(),
+                kinds: vec![
+                    EventKind::TextNote,
+                    EventKind::Reaction,
+                    EventKind::EventDeletion,
+                ],
+                since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+                ..Default::default()
+            });
+
+            // metadata by people followed
+            // FIXME TBD
+            /*
+            filters.push(Filter {
+                authors: pubkeys.clone(),
+                kinds: vec![EventKind::Metadata, EventKind::RecommendRelay, EventKind::ContactList, EventKind::RelaysList],
+                since: // last we last checked
+                .. Default::default()
+            });
+            */
+        }
+
+        // reactions to posts by me
+        // FIXME TBD
+
+        // reactions to posts by people followed
+        // FIXME TBD
+
+        // NO REPLIES OR ANCESTORS
+
+        if filters.is_empty() {
+            self.unsubscribe("general_feed").await?;
+        } else {
+            self.subscribe(filters, "general_feed").await?;
+        }
+
+        Ok(())
+    }
+
+    async fn subscribe_person_feed(&mut self, pubkey: PublicKeyHex) -> Result<(), Error> {
+        // NOTE we do not unsubscribe to the general feed
+
+        let mut filters: Vec<Filter> = Vec::new();
+        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+
+        // feed related by person
+        filters.push(Filter {
+            authors: vec![pubkey],
+            kinds: vec![
+                EventKind::TextNote,
+                EventKind::Reaction,
+                EventKind::EventDeletion,
+            ],
+            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+            ..Default::default()
+        });
+
+        // persons metadata
+        // FIXME TBD
+        /*
+        filters.push(Filter {
+            authors: vec![pubkey],
+            kinds: vec![EventKind::Metadata, EventKind::RecommendRelay, EventKind::ContactList, EventKind::RelaysList],
+            since: // last we last checked
+            .. Default::default()
+        });
+         */
+
+        // reactions to post by person
+        // FIXME TBD
+
+        // NO REPLIES OR ANCESTORS
+
+        if filters.is_empty() {
+            self.unsubscribe("person_feed").await?;
+        } else {
+            self.subscribe(filters, "person_feed").await?;
+        }
+
+        Ok(())
+    }
+
+    async fn subscribe_thread_feed(&mut self, id: Id) -> Result<(), Error> {
+        // NOTE we do not unsubscribe to the general feed
+
+        let mut filters: Vec<Filter> = Vec::new();
+        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+
+        // This post and ancestors
+        let mut ids: Vec<IdHex> = vec![id.into()];
+        // FIXME - We could have this precalculated like GLOBALS.relationships
+        //         in reverse. It would be potentially more complete having
+        //         iteratively climbed the chain.
+        if let Some(event) = GLOBALS.events.read().await.get(&id) {
+            for (id, url) in &event.replies_to_ancestors() {
+                if let Some(url) = url {
+                    if url == &self.url {
+                        ids.push((*id).into());
+                    }
+                } else {
+                    ids.push((*id).into());
+                }
+            }
+        }
+        filters.push(Filter {
+            ids: ids.clone(),
+            ..Default::default()
+        });
+
+        // Replies and reactions to this post and ancestors
+        filters.push(Filter {
+            e: ids,
+            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+            ..Default::default()
+        });
+
+        // Metadata for people in those events
+        // TBD
+
+        if filters.is_empty() {
+            self.unsubscribe("thread_feed").await?;
+        } else {
+            self.subscribe(filters, "thread_feed").await?;
+        }
+
+        Ok(())
+    }
+
     // Create or replace the following subscription
+    /*
     async fn upsert_following(&mut self, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
         let websocket_sink = self.sink.as_mut().unwrap();
 
@@ -354,6 +523,7 @@ impl Minion {
 
         Ok(())
     }
+     */
 
     async fn get_events(&mut self, ids: Vec<IdHex>) -> Result<(), Error> {
         if ids.is_empty() {

@@ -1,18 +1,33 @@
 use super::Minion;
 use crate::{BusMessage, Error};
 use futures::SinkExt;
-use nostr_types::{ClientMessage, Event, IdHex, PublicKeyHex};
+use nostr_types::{ClientMessage, Event, Id, IdHex, PublicKeyHex};
 use tungstenite::protocol::Message as WsMessage;
 
 impl Minion {
     pub(super) async fn handle_bus_message(
         &mut self,
         bus_message: BusMessage,
-    ) -> Result<(), Error> {
+    ) -> Result<bool, Error> {
         match &*bus_message.kind {
-            "set_followed_people" => {
-                let v: Vec<PublicKeyHex> = serde_json::from_str(&bus_message.json_payload)?;
-                self.upsert_following(v).await?;
+            "shutdown" => {
+                tracing::info!("{}: Websocket listener shutting down", &self.url);
+                return Ok(false);
+            }
+            //"set_followed_people" => {
+            //    let v: Vec<PublicKeyHex> = serde_json::from_str(&bus_message.json_payload)?;
+            //    self.upsert_following(v).await?;
+            //}
+            "subscribe_general_feed" => {
+                self.subscribe_general_feed().await?;
+            }
+            "subscribe_person_feed" => {
+                let pubkeyhex: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
+                self.subscribe_person_feed(pubkeyhex).await?;
+            }
+            "subscribe_thread_feed" => {
+                let id: Id = serde_json::from_str(&bus_message.json_payload)?;
+                self.subscribe_thread_feed(id).await?;
             }
             "fetch_events" => {
                 let v: Vec<IdHex> = serde_json::from_str(&bus_message.json_payload)?;
@@ -38,6 +53,6 @@ impl Minion {
                 );
             }
         }
-        Ok(())
+        Ok(true)
     }
 }

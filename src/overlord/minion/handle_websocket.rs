@@ -29,7 +29,7 @@ impl Minion {
                         .subscriptions
                         .get_handle_by_id(&subid.0)
                         .unwrap_or_else(|| "_".to_owned());
-                    tracing::trace!("{}: {}: NEW EVENT", &self.url, handle);
+                    tracing::debug!("{}: {}: NEW EVENT", &self.url, handle);
 
                     if event.kind == EventKind::TextNote {
                         // Just store text notes in incoming
