@@ -85,12 +85,9 @@ struct GossipUi {
     import_bech32: String,
     import_hex: String,
     replying_to: Option<Id>,
-    hides: Vec<Id>,
     person_view_pubkey: Option<PublicKeyHex>,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     new_relay_url: String,
-    feed_thread_id: Option<Id>,
-    feed_person_pubkey: Option<PublicKeyHex>,
 }
 
 impl Drop for GossipUi {
@@ -160,12 +157,9 @@ impl GossipUi {
             import_bech32: "".to_owned(),
             import_hex: "".to_owned(),
             replying_to: None,
-            hides: Vec::new(),
             person_view_pubkey: None,
             avatars: HashMap::new(),
             new_relay_url: "".to_owned(),
-            feed_thread_id: None,
-            feed_person_pubkey: None,
         }
     }
 }

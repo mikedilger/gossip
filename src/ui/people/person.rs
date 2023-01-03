@@ -1,4 +1,4 @@
-use super::GossipUi;
+use super::{GossipUi, Page};
 use crate::comms::BusMessage;
 use crate::db::DbPerson;
 use crate::globals::GLOBALS;
@@ -62,6 +62,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 kind: "update_metadata".to_string(),
                 json_payload: serde_json::to_string(&pubkeyhex).unwrap(),
             });
+        }
+
+        if ui.button("VIEW THEIR FEED").clicked() {
+            GLOBALS.feed.set_feed_to_person(pubkeyhex.clone());
+            app.page = Page::FeedPerson;
         }
     }
 }

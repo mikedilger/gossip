@@ -1,10 +1,20 @@
 use crate::globals::GLOBALS;
+use nostr_types::PublicKeyHex;
 use nostr_types::{Event, EventKind, Id};
-use std::time::{Duration, Instant};
 use parking_lot::RwLock;
+use std::time::{Duration, Instant};
+
+#[derive(Clone, Debug)]
+pub enum FeedKind {
+    General,
+    Thread(Id),
+    Person(PublicKeyHex),
+}
 
 pub struct Feed {
-    feed: RwLock<Vec<Id>>,
+    current_feed_kind: RwLock<FeedKind>,
+
+    general_feed: RwLock<Vec<Id>>,
 
     // We only recompute the feed at specified intervals
     interval_ms: RwLock<u32>,
@@ -18,7 +28,8 @@ pub struct Feed {
 impl Feed {
     pub fn new() -> Feed {
         Feed {
-            feed: RwLock::new(Vec::new()),
+            current_feed_kind: RwLock::new(FeedKind::General),
+            general_feed: RwLock::new(Vec::new()),
             interval_ms: RwLock::new(1000), // Every second, until we load from settings
             last_computed: RwLock::new(Instant::now()),
             my_event_ids: RwLock::new(Vec::new()),
@@ -26,14 +37,77 @@ impl Feed {
         }
     }
 
-    pub fn get(&self) -> Vec<Id> {
+    pub fn set_feed_to_general(&self) {
+        *self.current_feed_kind.write() = FeedKind::General;
+    }
+
+    pub fn set_feed_to_thread(&self, id: Id) {
+        // get parent?
+        *self.current_feed_kind.write() = FeedKind::Thread(id);
+    }
+
+    pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {
+        // FIXME - TRIGGER OVERLORD TO FETCH THEIR EVENTS FURTHER BACK
+        *self.current_feed_kind.write() = FeedKind::Person(pubkey);
+    }
+
+    pub fn get_feed_kind(&self) -> FeedKind {
+        self.current_feed_kind.read().to_owned()
+    }
+
+    pub fn get_general(&self) -> Vec<Id> {
         let now = Instant::now();
-        if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now {
+        if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now
+        {
             self.recompute();
             *self.last_computed.write() = now;
         }
 
-        self.feed.read().clone()
+        self.general_feed.read().clone()
+    }
+
+    pub fn get_thread_parent(&self, id: Id) -> Id {
+        // FIXME - TRIGGER OVERLORD TO FETCH THIS FEED
+        let mut event = match GLOBALS.events.blocking_read().get(&id).cloned() {
+            None => return id,
+            Some(e) => e,
+        };
+
+        // Try for root
+        if let Some((root, _)) = event.replies_to_root() {
+            if GLOBALS.events.blocking_read().contains_key(&root) {
+                return root;
+            }
+        }
+
+        // Climb parents as high as we can
+        while let Some((parent, _)) = event.replies_to() {
+            if let Some(e) = GLOBALS.events.blocking_read().get(&parent) {
+                event = e.to_owned();
+            } else {
+                break;
+            }
+        }
+
+        // The highest event id we have
+        event.id
+    }
+
+    pub fn get_person_feed(&self, person: PublicKeyHex) -> Vec<Id> {
+        let mut events: Vec<Event> = GLOBALS
+            .events
+            .blocking_read()
+            .iter()
+            .map(|(_, e)| e)
+            .filter(|e| e.kind == EventKind::TextNote)
+            .filter(|e| e.pubkey.as_hex_string() == person.0)
+            .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
+            .map(|e| e.to_owned())
+            .collect();
+
+        events.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
+
+        events.iter().map(|e| e.id).collect()
     }
 
     #[allow(dead_code)]
@@ -88,26 +162,11 @@ impl Feed {
         let mut events: Vec<Event> = events
             .iter()
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
-            //.filter(|e| {   for Threaded
-            //e.replies_to().is_none()
-            //})
             .cloned()
             .collect();
 
-        /* for threaded
-        if settings.view_threaded {
-            events.sort_unstable_by(|a, b| {
-                let a_last = GLOBALS.last_reply.blocking_read().get(&a.id).cloned();
-                let b_last = GLOBALS.last_reply.blocking_read().get(&b.id).cloned();
-                let a_time = a_last.unwrap_or(a.created_at);
-                let b_time = b_last.unwrap_or(b.created_at);
-                b_time.cmp(&a_time)
-            });
-        }
-         */
-
         events.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
 
-        *self.feed.write() = events.iter().map(|e| e.id).collect();
+        *self.general_feed.write() = events.iter().map(|e| e.id).collect();
     }
 }
