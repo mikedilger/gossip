@@ -7,7 +7,6 @@ pub const DEFAULT_FEED_CHUNK: u64 = 43200; // 12 hours
 pub const DEFAULT_OVERLAP: u64 = 600; // 10 minutes
 pub const DEFAULT_VIEW_POSTS_REFERRED_TO: bool = true;
 pub const DEFAULT_VIEW_POSTS_REFERRING_TO: bool = false;
-pub const DEFAULT_VIEW_THREADED: bool = true;
 pub const DEFAULT_NUM_RELAYS_PER_PERSON: u8 = 4;
 pub const DEFAULT_MAX_RELAYS: u8 = 15;
 pub const DEFAULT_MAX_FPS: u32 = 30;
@@ -21,7 +20,6 @@ pub struct Settings {
     pub overlap: u64,
     pub view_posts_referred_to: bool,
     pub view_posts_referring_to: bool,
-    pub view_threaded: bool,
     pub num_relays_per_person: u8,
     pub max_relays: u8,
     pub public_key: Option<PublicKey>,
@@ -39,7 +37,6 @@ impl Default for Settings {
             overlap: DEFAULT_OVERLAP,
             view_posts_referred_to: DEFAULT_VIEW_POSTS_REFERRED_TO,
             view_posts_referring_to: DEFAULT_VIEW_POSTS_REFERRING_TO,
-            view_threaded: DEFAULT_VIEW_THREADED,
             num_relays_per_person: DEFAULT_NUM_RELAYS_PER_PERSON,
             max_relays: DEFAULT_MAX_RELAYS,
             public_key: None,
@@ -76,7 +73,6 @@ impl Settings {
                 "view_posts_referring_to" => {
                     settings.view_posts_referring_to = numstr_to_bool(row.1)
                 }
-                "view_threaded" => settings.view_threaded = numstr_to_bool(row.1),
                 "num_relays_per_person" => {
                     settings.num_relays_per_person =
                         row.1.parse::<u8>().unwrap_or(DEFAULT_NUM_RELAYS_PER_PERSON)
@@ -130,7 +126,6 @@ impl Settings {
              ('overlap', ?),\
              ('view_posts_referred_to', ?),\
              ('view_posts_referring_to', ?),\
-             ('view_threaded', ?),\
              ('num_relays_per_person', ?),\
              ('max_relays', ?),\
              ('max_fps', ?),\
@@ -143,7 +138,6 @@ impl Settings {
             self.overlap,
             bool_to_numstr(self.view_posts_referred_to),
             bool_to_numstr(self.view_posts_referring_to),
-            bool_to_numstr(self.view_threaded),
             self.num_relays_per_person,
             self.max_relays,
             self.max_fps,

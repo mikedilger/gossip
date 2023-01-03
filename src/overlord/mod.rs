@@ -220,10 +220,10 @@ impl Overlord {
                 // Fire off a minion to handle this relay
                 self.start_minion(best_relay.relay.url.clone()).await?;
 
-                // Tell it to follow the chosen people
+                // Subscribe to the general feed
                 let _ = self.to_minions.send(BusMessage {
                     target: best_relay.relay.url.clone(),
-                    kind: "set_followed_people".to_string(),
+                    kind: "subscribe_general_feed".to_string(),
                     json_payload: serde_json::to_string(&best_relay.pubkeys).unwrap(),
                 });
 

@@ -1,11 +1,12 @@
 use super::{GossipUi, Page};
 use crate::comms::BusMessage;
+use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::{CopyButton, ReplyButton};
 use eframe::egui;
 use egui::{
-    Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, Sense, TextEdit,
-    Ui, Vec2,
+    Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense,
+    TextEdit, Ui, Vec2,
 };
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{EventKind, Id, PublicKeyHex};
@@ -18,7 +19,36 @@ struct FeedPostParams {
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    let feed = GLOBALS.feed.blocking_lock().get();
+    let mut feed_kind = GLOBALS.feed.get_feed_kind();
+    app.page = match feed_kind {
+        FeedKind::General => Page::FeedGeneral,
+        FeedKind::Thread(_) => Page::FeedThread,
+        FeedKind::Person(_) => Page::FeedPerson,
+    };
+
+    ui.horizontal(|ui| {
+        if ui
+            .add(SelectableLabel::new(
+                app.page == Page::FeedGeneral,
+                "Following",
+            ))
+            .clicked()
+        {
+            app.page = Page::FeedGeneral;
+            GLOBALS.feed.set_feed_to_general();
+            feed_kind = FeedKind::General;
+        }
+        ui.separator();
+        if matches!(feed_kind, FeedKind::Thread(..)) {
+            ui.selectable_value(&mut app.page, Page::FeedThread, "Thread");
+            ui.separator();
+        }
+        if matches!(feed_kind, FeedKind::Person(..)) {
+            ui.selectable_value(&mut app.page, Page::FeedPerson, "Person");
+            ui.separator();
+        }
+    });
+    ui.separator();
 
     Globals::trim_desired_events_sync();
     let desired_count: isize = match GLOBALS.desired_events.try_read() {
@@ -57,12 +87,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             });
         }
 
-        if ui.button("close all").clicked() {
-            app.hides = feed.clone();
-        }
-        if ui.button("open all").clicked() {
-            app.hides.clear();
-        }
         ui.label(&format!(
             "RIF={}",
             GLOBALS
@@ -148,8 +172,30 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     ui.separator();
 
-    let threaded = GLOBALS.settings.blocking_read().view_threaded;
+    match feed_kind {
+        FeedKind::General => {
+            let feed = GLOBALS.feed.get_general();
+            render_a_feed(app, ctx, frame, ui, feed, false);
+        }
+        FeedKind::Thread(id) => {
+            let parent = GLOBALS.feed.get_thread_parent(id);
+            render_a_feed(app, ctx, frame, ui, vec![parent], true);
+        }
+        FeedKind::Person(pubkeyhex) => {
+            let feed = GLOBALS.feed.get_person_feed(pubkeyhex);
+            render_a_feed(app, ctx, frame, ui, feed, false);
+        }
+    }
+}
 
+fn render_a_feed(
+    app: &mut GossipUi,
+    ctx: &Context,
+    frame: &mut eframe::Frame,
+    ui: &mut Ui,
+    feed: Vec<Id>,
+    threaded: bool,
+) {
     ScrollArea::vertical().show(ui, |ui| {
         let bgcolor = if ctx.style().visuals.dark_mode {
             Color32::BLACK
@@ -215,7 +261,7 @@ fn render_post_maybe_fake(
         ui.add_space(height);
 
         // Yes, and we need to fake render threads to get their approx height too.
-        if threaded && !as_reply_to && !app.hides.contains(&id) {
+        if threaded && !as_reply_to {
             let replies = Globals::get_replies_sync(event.id);
             for reply_id in replies {
                 render_post_maybe_fake(
@@ -329,17 +375,6 @@ fn render_post_actual(
         ui.horizontal(|ui| {
             // Indents first (if threaded)
             if threaded {
-                #[allow(clippy::collapsible_else_if)]
-                if app.hides.contains(&id) {
-                    if ui.add(Label::new("▶").sense(Sense::click())).clicked() {
-                        app.hides.retain(|e| *e != id)
-                    }
-                } else {
-                    if ui.add(Label::new("▼").sense(Sense::click())).clicked() {
-                        app.hides.push(id);
-                    }
-                }
-
                 let space = 16.0 * (10.0 - (100.0 / (indent as f32 + 10.0)));
                 ui.add_space(space);
                 if indent > 0 {
@@ -383,6 +418,10 @@ fn render_post_actual(
 
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         ui.menu_button(RichText::new("≡").size(28.0), |ui| {
+                            if ui.button("View Thread").clicked() {
+                                GLOBALS.feed.set_feed_to_thread(event.id);
+                                app.page = Page::FeedThread;
+                            }
                             if ui.button("Copy ID").clicked() {
                                 ui.output().copied_text = event.id.as_hex_string();
                             }
@@ -400,6 +439,11 @@ fn render_post_actual(
                                 });
                             }
                         });
+
+                        if ui.button("➤").clicked() {
+                            GLOBALS.feed.set_feed_to_thread(event.id);
+                            app.page = Page::FeedThread;
+                        }
 
                         ui.label(
                             RichText::new(crate::date_ago::date_ago(event.created_at))
@@ -452,7 +496,7 @@ fn render_post_actual(
 
     ui.separator();
 
-    if threaded && !as_reply_to && !app.hides.contains(&id) {
+    if threaded && !as_reply_to {
         let replies = Globals::get_replies_sync(event.id);
         for reply_id in replies {
             render_post_maybe_fake(

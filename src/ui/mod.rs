@@ -3,7 +3,6 @@ mod help;
 mod people;
 mod relays;
 mod settings;
-mod stats;
 mod style;
 mod widgets;
 mod you;
@@ -16,8 +15,8 @@ use crate::settings::Settings;
 use crate::ui::widgets::CopyButton;
 use eframe::{egui, IconData, Theme};
 use egui::{
-    ColorImage, Context, ImageData, Label, RichText, Sense, TextStyle, TextureHandle,
-    TextureOptions, Ui,
+    ColorImage, Context, ImageData, Label, RichText, SelectableLabel, Sense, TextStyle,
+    TextureHandle, TextureOptions, Ui,
 };
 use nostr_types::{Id, PublicKey, PublicKeyHex};
 use std::collections::HashMap;
@@ -55,15 +54,17 @@ pub fn run() -> Result<(), Error> {
 
 #[derive(PartialEq)]
 enum Page {
-    Feed,
-    PeopleFollow,
+    FeedGeneral,
+    FeedThread,
+    FeedPerson,
     PeopleList,
+    PeopleFollow,
     Person,
     You,
     Relays,
     Settings,
-    Stats,
     HelpHelp,
+    HelpStats,
     HelpAbout,
 }
 
@@ -84,7 +85,6 @@ struct GossipUi {
     import_bech32: String,
     import_hex: String,
     replying_to: Option<Id>,
-    hides: Vec<Id>,
     person_view_pubkey: Option<PublicKeyHex>,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     new_relay_url: String,
@@ -140,7 +140,7 @@ impl GossipUi {
 
         GossipUi {
             next_frame: Instant::now(),
-            page: Page::Feed,
+            page: Page::FeedGeneral,
             status:
                 "Welcome to Gossip. Status messages will appear here. Click them to dismiss them."
                     .to_owned(),
@@ -157,7 +157,6 @@ impl GossipUi {
             import_bech32: "".to_owned(),
             import_hex: "".to_owned(),
             replying_to: None,
-            hides: Vec::new(),
             person_view_pubkey: None,
             avatars: HashMap::new(),
             new_relay_url: "".to_owned(),
@@ -187,19 +186,65 @@ impl eframe::App for GossipUi {
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.page, Page::Feed, "Feed");
+                if ui
+                    .add(SelectableLabel::new(
+                        self.page == Page::FeedGeneral
+                            || self.page == Page::FeedThread
+                            || self.page == Page::FeedPerson,
+                        "Feed",
+                    ))
+                    .clicked()
+                {
+                    self.page = Page::FeedGeneral;
+                }
                 ui.separator();
-                ui.selectable_value(&mut self.page, Page::PeopleList, "People");
+                if ui
+                    .add(SelectableLabel::new(
+                        self.page == Page::PeopleList
+                            || self.page == Page::PeopleFollow
+                            || self.page == Page::Person,
+                        "People",
+                    ))
+                    .clicked()
+                {
+                    self.page = Page::PeopleList;
+                }
                 ui.separator();
-                ui.selectable_value(&mut self.page, Page::You, "You");
+                if ui
+                    .add(SelectableLabel::new(self.page == Page::You, "You"))
+                    .clicked()
+                {
+                    self.page = Page::You;
+                }
                 ui.separator();
-                ui.selectable_value(&mut self.page, Page::Relays, "Relays");
+                if ui
+                    .add(SelectableLabel::new(self.page == Page::Relays, "Relays"))
+                    .clicked()
+                {
+                    self.page = Page::Relays;
+                }
                 ui.separator();
-                ui.selectable_value(&mut self.page, Page::Settings, "Settings");
+                if ui
+                    .add(SelectableLabel::new(
+                        self.page == Page::Settings,
+                        "Settings",
+                    ))
+                    .clicked()
+                {
+                    self.page = Page::Settings;
+                }
                 ui.separator();
-                ui.selectable_value(&mut self.page, Page::Stats, "Stats");
-                ui.separator();
-                ui.selectable_value(&mut self.page, Page::HelpHelp, "Help");
+                if ui
+                    .add(SelectableLabel::new(
+                        self.page == Page::HelpHelp
+                            || self.page == Page::HelpStats
+                            || self.page == Page::HelpAbout,
+                        "Help",
+                    ))
+                    .clicked()
+                {
+                    self.page = Page::HelpHelp;
+                }
                 ui.separator();
             });
         });
@@ -216,16 +261,18 @@ impl eframe::App for GossipUi {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.page {
-            Page::Feed => feed::update(self, ctx, frame, ui),
-            Page::PeopleList => people::update(self, ctx, frame, ui),
-            Page::PeopleFollow => people::update(self, ctx, frame, ui),
-            Page::Person => people::update(self, ctx, frame, ui),
+            Page::FeedGeneral | Page::FeedThread | Page::FeedPerson => {
+                feed::update(self, ctx, frame, ui)
+            }
+            Page::PeopleList | Page::PeopleFollow | Page::Person => {
+                people::update(self, ctx, frame, ui)
+            }
             Page::You => you::update(self, ctx, frame, ui),
             Page::Relays => relays::update(self, ctx, frame, ui),
             Page::Settings => settings::update(self, ctx, frame, ui, darkmode),
-            Page::Stats => stats::update(self, ctx, frame, ui),
-            Page::HelpHelp => help::update(self, ctx, frame, ui),
-            Page::HelpAbout => help::update(self, ctx, frame, ui),
+            Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
+                help::update(self, ctx, frame, ui)
+            }
         });
     }
 }

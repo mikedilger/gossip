@@ -141,18 +141,6 @@ pub async fn process_new_event(
 
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Reply).await;
-
-            // Update last_reply
-            let mut id = id;
-            Globals::update_last_reply(id, event.created_at).await;
-            while let Some(ev) = GLOBALS.events.read().await.get(&id).cloned() {
-                if let Some((pid, _)) = ev.replies_to() {
-                    id = pid;
-                    Globals::update_last_reply(id, event.created_at).await;
-                } else {
-                    break;
-                }
-            }
         }
 
         // We desire all ancestors
