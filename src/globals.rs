@@ -7,7 +7,7 @@ use crate::people::People;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
-use nostr_types::{Event, Id, IdHex, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Event, Id, IdHex, PublicKeyHex, Url};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
@@ -39,10 +39,6 @@ pub struct Globals {
 
     /// All relationships between events
     pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
-
-    /// The date of the latest reply. Only reply relationships count, not reactions,
-    /// deletions, or quotes
-    pub last_reply: RwLock<HashMap<Id, Unixtime>>,
 
     /// Desired events, referred to by others, with possible URLs where we can
     /// get them.  We may already have these, but if not we should ask for them.
@@ -97,7 +93,6 @@ lazy_static! {
             events: RwLock::new(HashMap::new()),
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
-            last_reply: RwLock::new(HashMap::new()),
             desired_events: RwLock::new(HashMap::new()),
             people: RwLock::new(People::new()),
             relays: RwLock::new(HashMap::new()),
@@ -225,18 +220,6 @@ impl Globals {
                 }
             })
             .or_insert_with(|| vec![r]);
-    }
-
-    pub async fn update_last_reply(id: Id, time: Unixtime) {
-        let mut last_reply = GLOBALS.last_reply.write().await;
-        last_reply
-            .entry(id)
-            .and_modify(|lasttime| {
-                if time > *lasttime {
-                    *lasttime = time;
-                }
-            })
-            .or_insert_with(|| time);
     }
 
     pub fn get_replies_sync(id: Id) -> Vec<Id> {
