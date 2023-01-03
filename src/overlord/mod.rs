@@ -505,6 +505,11 @@ impl Overlord {
                         serde_json::from_str(&bus_message.json_payload)?;
                     self.post_reply(content, reply_to).await?;
                 }
+                "like" => {
+                    let (id, pubkey): (Id, PublicKey) =
+                        serde_json::from_str(&bus_message.json_payload)?;
+                    self.post_like(id, pubkey).await?;
+                }
                 "process_incoming_events" => {
                     // Clear new events
                     GLOBALS.event_is_new.write().await.clear();
@@ -815,6 +820,71 @@ impl Overlord {
                     marker: Some("reply".to_string()),
                 }],
                 content,
+                ots: None,
+            };
+
+            let powint = GLOBALS.settings.read().await.pow;
+            let pow = if powint > 0 { Some(powint) } else { None };
+            GLOBALS.signer.read().await.sign_preevent(pre_event, pow)?
+        };
+
+        let relays: Vec<DbRelay> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .collect();
+
+        for relay in relays {
+            // Start a minion for it, if there is none
+            if !self.urls_watching.contains(&Url::new(&relay.url)) {
+                self.start_minion(relay.url.clone()).await?;
+            }
+
+            // Send it the event to post
+            tracing::debug!("Asking {} to post", &relay.url);
+
+            let _ = self.to_minions.send(BusMessage {
+                target: relay.url.clone(),
+                kind: "post_event".to_string(),
+                json_payload: serde_json::to_string(&event).unwrap(),
+            });
+        }
+
+        // Process the message for ourself
+        crate::process::process_new_event(&event, false, None).await?;
+
+        Ok(())
+    }
+
+    async fn post_like(&mut self, id: Id, pubkey: PublicKey) -> Result<(), Error> {
+        let event = {
+            let public_key = match GLOBALS.signer.read().await.public_key() {
+                Some(pk) => pk,
+                None => {
+                    tracing::warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::Reaction,
+                tags: vec![
+                    Tag::Event {
+                        id,
+                        recommended_relay_url: DbRelay::recommended_relay_for_reply(id).await?,
+                        marker: None,
+                    },
+                    Tag::Pubkey {
+                        pubkey,
+                        recommended_relay_url: None,
+                        petname: None,
+                    },
+                ],
+                content: "+".to_owned(),
                 ots: None,
             };
 

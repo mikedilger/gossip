@@ -2,7 +2,7 @@ use super::{GossipUi, Page};
 use crate::comms::BusMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
-use crate::ui::widgets::{CopyButton, ReplyButton};
+use crate::ui::widgets::{CopyButton, LikeButton, ReplyButton};
 use eframe::egui;
 use egui::{
     Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense,
@@ -453,27 +453,6 @@ fn render_post_actual(
                     });
                 });
 
-                // Second row
-                ui.horizontal(|ui| {
-                    for (ch, count) in reactions.iter() {
-                        if *ch == '+' {
-                            ui.label(
-                                RichText::new(format!("{} {}", ch, count))
-                                    .strong()
-                                    .color(Color32::DARK_GREEN),
-                            );
-                        } else if *ch == '-' {
-                            ui.label(
-                                RichText::new(format!("{} {}", ch, count))
-                                    .strong()
-                                    .color(Color32::DARK_RED),
-                            );
-                        } else {
-                            ui.label(RichText::new(format!("{} {}", ch, count)).strong());
-                        }
-                    }
-                });
-
                 render_content(ui, &event.content);
 
                 // Under row
@@ -487,6 +466,29 @@ fn render_post_actual(
 
                         if ui.add(ReplyButton {}).clicked() {
                             app.replying_to = Some(event.id);
+                        }
+
+                        ui.add_space(24.0);
+
+                        if ui.add(LikeButton {}).clicked() {
+                            let tx = GLOBALS.to_overlord.clone();
+                            let _ = tx.send(BusMessage {
+                                target: "overlord".to_string(),
+                                kind: "like".to_string(),
+                                json_payload: serde_json::to_string(&(&event.id, &event.pubkey))
+                                    .unwrap(),
+                            });
+                        }
+                        for (ch, count) in reactions.iter() {
+                            if *ch == '+' {
+                                ui.label(format!("{}", count));
+                            }
+                        }
+                        ui.add_space(12.0);
+                        for (ch, count) in reactions.iter() {
+                            if *ch != '+' {
+                                ui.label(RichText::new(format!("{} {}", ch, count)).strong());
+                            }
                         }
                     });
                 }

@@ -31,8 +31,7 @@ impl Minion {
                     tracing::debug!("{}: {}: NEW EVENT", &self.url, handle);
 
                     // Try processing everything immediately
-                    crate::process::process_new_event(&event, true, Some(self.url.clone()))
-                        .await?;
+                    crate::process::process_new_event(&event, true, Some(self.url.clone())).await?;
 
                     /*
                     if event.kind == EventKind::TextNote {
@@ -48,7 +47,6 @@ impl Minion {
                             .await?;
                     }
                      */
-
                 }
             }
             RelayMessage::Notice(msg) => {

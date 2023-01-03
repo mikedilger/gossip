@@ -2,59 +2,95 @@ use eframe::{egui, epaint};
 use egui::{Color32, Pos2, Response, Sense, Shape, Ui, Vec2, Widget};
 use epaint::{PathShape, Stroke};
 
-pub struct ReplyButton {}
+pub struct LikeButton {}
 
-impl ReplyButton {
+impl LikeButton {
     fn paint(ui: &mut Ui, corner: Pos2) {
         ui.painter().add(Shape::Path(PathShape {
             points: vec![
                 Pos2 {
-                    x: corner.x + 2.0,
-                    y: corner.y + 0.0,
+                    x: corner.x + 8.0,
+                    y: corner.y + 16.0,
                 },
                 Pos2 {
-                    x: corner.x + 14.0,
-                    y: corner.y + 0.0,
-                },
-                Pos2 {
-                    x: corner.x + 16.0,
-                    y: corner.y + 2.0,
-                },
-                Pos2 {
-                    x: corner.x + 16.0,
-                    y: corner.y + 8.0,
-                },
-                Pos2 {
-                    x: corner.x + 14.0,
-                    y: corner.y + 10.0,
-                },
-                Pos2 {
-                    x: corner.x + 12.0,
-                    y: corner.y + 10.0,
-                },
-                Pos2 {
-                    x: corner.x + 4.0,
+                    x: corner.x + 9.0,
                     y: corner.y + 15.0,
                 },
                 Pos2 {
-                    x: corner.x + 6.0,
-                    y: corner.y + 10.0,
+                    x: corner.x + 12.0,
+                    y: corner.y + 13.0,
                 },
                 Pos2 {
-                    x: corner.x + 2.0,
-                    y: corner.y + 10.0,
+                    x: corner.x + 15.0,
+                    y: corner.y + 9.0,
                 },
                 Pos2 {
-                    x: corner.x + 0.0,
-                    y: corner.y + 8.0,
+                    x: corner.x + 16.0,
+                    y: corner.y + 6.0,
                 },
                 Pos2 {
-                    x: corner.x + 0.0,
+                    x: corner.x + 16.0,
+                    y: corner.y + 4.0,
+                },
+                Pos2 {
+                    x: corner.x + 15.0,
                     y: corner.y + 2.0,
                 },
                 Pos2 {
-                    x: corner.x + 2.0,
+                    x: corner.x + 13.0,
                     y: corner.y + 0.0,
+                },
+                Pos2 {
+                    x: corner.x + 12.0,
+                    y: corner.y + 0.0,
+                },
+                Pos2 {
+                    x: corner.x + 10.0,
+                    y: corner.y + 1.0,
+                },
+                Pos2 {
+                    x: corner.x + 8.0,
+                    y: corner.y + 3.0,
+                },
+                Pos2 {
+                    x: corner.x + 6.0,
+                    y: corner.y + 1.0,
+                },
+                Pos2 {
+                    x: corner.x + 4.0,
+                    y: corner.y + 0.0,
+                },
+                Pos2 {
+                    x: corner.x + 3.0,
+                    y: corner.y + 0.0,
+                },
+                Pos2 {
+                    x: corner.x + 1.0,
+                    y: corner.y + 2.0,
+                },
+                Pos2 {
+                    x: corner.x + 0.0,
+                    y: corner.y + 4.0,
+                },
+                Pos2 {
+                    x: corner.x + 0.0,
+                    y: corner.y + 6.0,
+                },
+                Pos2 {
+                    x: corner.x + 1.0,
+                    y: corner.y + 9.0,
+                },
+                Pos2 {
+                    x: corner.x + 4.0,
+                    y: corner.y + 13.0,
+                },
+                Pos2 {
+                    x: corner.x + 7.0,
+                    y: corner.y + 15.0,
+                },
+                Pos2 {
+                    x: corner.x + 8.0,
+                    y: corner.y + 16.0,
                 },
             ],
             closed: true,
@@ -67,7 +103,7 @@ impl ReplyButton {
     }
 }
 
-impl Widget for ReplyButton {
+impl Widget for LikeButton {
     fn ui(self, ui: &mut Ui) -> Response {
         let padding = ui.spacing().button_padding;
         let space = Vec2 {

@@ -74,8 +74,8 @@ impl Widget for CopyButton {
     fn ui(self, ui: &mut Ui) -> Response {
         let padding = ui.spacing().button_padding;
         let space = Vec2 {
-            x: 12.0 + padding.x * 2.0,
-            y: 12.0 + padding.y * 2.0,
+            x: 16.0 + padding.x * 2.0,
+            y: 16.0 + padding.y * 2.0,
         };
         let (id, rect) = ui.allocate_space(space);
         let response = ui.interact(rect, id, Sense::click());
