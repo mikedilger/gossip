@@ -1,8 +1,7 @@
 use super::Minion;
-use crate::globals::GLOBALS;
 use crate::Error;
 use futures::SinkExt;
-use nostr_types::{EventKind, RelayMessage, Unixtime};
+use nostr_types::{RelayMessage, Unixtime};
 use tungstenite::protocol::Message as WsMessage;
 
 impl Minion {
