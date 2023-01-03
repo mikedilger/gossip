@@ -356,6 +356,7 @@ fn render_post_actual(
 
     // Try LayoutJob
 
+    /* currently all events are new because the code that stales them is now gone
     #[allow(clippy::collapsible_else_if)]
     let bgcolor = if GLOBALS.event_is_new.blocking_read().contains(&event.id) {
         if ctx.style().visuals.dark_mode {
@@ -369,6 +370,13 @@ fn render_post_actual(
         } else {
             Color32::WHITE
         }
+    };
+     */
+
+    let bgcolor = if ctx.style().visuals.dark_mode {
+        Color32::BLACK
+    } else {
+        Color32::WHITE
     };
 
     Frame::none().fill(bgcolor).show(ui, |ui| {
