@@ -28,7 +28,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
             ui.heading("Gossip follows people AT RELAYS");
             ui.add_space(10.0);
-            ui.label("This is a core concept. We don't connect to a community relay and see what is going on. Gossip only follows the specific people you configure it to follow, wherever they post. Therefore, you cannot just add a pubkey to follow somebody and hope they post to the relays you listen to (a pattern that doesn't work well given that there are hundreds of relays). No, instead you also need to tell gossip what relays they post to (at least one) so we can pull their posts.");
+            ui.label("This is a core concept. Gossip doesn't fetch posts from the same relays it is configured to post to. It trys to fetch posts from whereever your followers post them, so you need to configure at least one relay for each person you follow. Gossip will then dynamically figure out where they actually post (if it finds them at all) and keep things updated as they change where they post to. A lot of other clients are not operating like this, they are pulling from the same relays they push to and this author thinks that will not scale. Right now, these other clients work because relays are copying messages from each other somehow.");
             ui.add_space(10.0);
 
             ui.label("NIP-35 makes this easy, since it specifies how users can share their public key AND their relays via a webserver that they control. For example, you can follow me at `mike@mikedilger.com`. That's all you need to type in.");
@@ -46,9 +46,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             });
             ui.add_space(10.0);
 
-            ui.label("FOR THE MOMENT you need to restart gossip after you add someone to follow. This will be fixed soon.");
-            ui.add_space(10.0);
-
             ui.label("Gossip currently does not fetch your following list from nostr. Nor does it publish the list of follows you configure on gossip so you don't have to worry about it clobbering anything.");
 
             ui.add_space(10.0);
@@ -58,13 +55,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.heading("Driving the Feed");
             ui.add_space(10.0);
 
-            ui.label("As events come in, the feed does not update. This is to avoid the annoying problem of stuff moving while you are trying to read it, or worse yet, trying to interact with it.");
+            ui.label("As events come in, they often refer to other events that have not come in yet. If you want to query the relays for these missing events, you can by pressing the QM (Query Missing) button on the feed page. Usually some but not all missing events can be found this way.");
             ui.add_space(10.0);
 
-            ui.label("So watch the button at the top which says \"Process N incoming events\". If N is a positive integer, pressing that button will update the feed with these new events. Once you do, all existing events will become black/white, and the new events will become red/yellow to highlight them. NOTE, if N=-1, that just means the UI couldn't get a lock on the object needed to count them, and it doesn't cache the data. Also, the same event can come in multiple times and get highlighted again, and some events are not posts so they wont highlight anything - don't expect the number of highlights to match the number on the button.");
-            ui.add_space(10.0);
-
-            ui.label("Events often refer to other events as replies, quotes, etc. When gossip finds out about these other events, but doesn't have them, it adds them to it's desired event list. A button at the top \"Query relays for N missing events\" allows you to try to get these events. Usually you won't be able to get them all, as most references to other events on nostr still don't include the Url where the event can be found. In those cases, we try all the relays you are currently connected to, but it's a long shot. Every time you press this button it bothers the relays, so while the \"Process N incoming events\" button can be pressed as much as you like, be courteous with the \"Query relays for N events\" button and don't spam it over and over.");
             ui.add_space(10.0);
 
             ui.label("Each post has a little triangle to the left of it. You can \"tip\" this triangle to open/close all replies to that post. Buttons at the top let you open/close all the posts.");
@@ -108,8 +101,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             });
             ui.add_space(10.0);
 
-            ui.label("Gossip currently doesn't let you type in relays here. This will be fixed soon.");
-
             ui.label("Gossip currently does not synchronize this list of relays on the nostr network, so it will not get data you use with other clients. Nor will it clobber that data. The list is local and independent.");
 
             ui.add_space(10.0);
@@ -125,7 +116,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.label("To reply, press the reply icon at the bottom of the post you want to reply to. That post will be copied to the top of the page to make it clear what you are replying to. Type your reply and press Send.");
             ui.add_space(10.0);
 
-            ui.label("Reacting is not implemented yet. You can see other people's reactions with +1 -1 markings on posts.");
+            ui.label("To react, you can click the heart. Other kinds of reactions are not yet implemented. You can see other people's reactions belo the posts.");
             ui.add_space(10.0);
 
             ui.add_space(10.0);
