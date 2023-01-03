@@ -31,6 +31,11 @@ impl Minion {
                         .unwrap_or_else(|| "_".to_owned());
                     tracing::debug!("{}: {}: NEW EVENT", &self.url, handle);
 
+                    // Try processing everything immediately
+                    crate::process::process_new_event(&event, true, Some(self.url.clone()))
+                        .await?;
+
+                    /*
                     if event.kind == EventKind::TextNote {
                         // Just store text notes in incoming
                         GLOBALS
@@ -43,6 +48,8 @@ impl Minion {
                         crate::process::process_new_event(&event, true, Some(self.url.clone()))
                             .await?;
                     }
+                     */
+
                 }
             }
             RelayMessage::Notice(msg) => {
