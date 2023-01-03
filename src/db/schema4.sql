@@ -17,7 +17,7 @@ CREATE TABLE event_tag (
       FOREIGN KEY (event) REFERENCES event (id)
       ON DELETE CASCADE
 );
-INSERT INTO event_tag SELECT * FROM event_tag_old;
+INSERT OR IGNORE INTO event_tag SELECT * FROM event_tag_old;
 COMMIT;
 PRAGMA foreign_keys=on;
 DROP TABLE event_tag_old;
