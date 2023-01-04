@@ -38,6 +38,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             app.page = Page::FeedGeneral;
             GLOBALS.feed.set_feed_to_general();
             feed_kind = FeedKind::General;
+            GLOBALS.event_is_new.blocking_write().clear();
         }
         ui.separator();
         if ui
@@ -50,14 +51,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             app.page = Page::FeedReplies;
             GLOBALS.feed.set_feed_to_replies();
             feed_kind = FeedKind::Replies;
+            GLOBALS.event_is_new.blocking_write().clear();
         }
         if matches!(feed_kind, FeedKind::Thread(..)) {
             ui.separator();
             ui.selectable_value(&mut app.page, Page::FeedThread, "Thread");
+            GLOBALS.event_is_new.blocking_write().clear();
         }
         if matches!(feed_kind, FeedKind::Person(..)) {
             ui.separator();
             ui.selectable_value(&mut app.page, Page::FeedPerson, "Person");
+            GLOBALS.event_is_new.blocking_write().clear();
         }
     });
     ui.separator();
@@ -373,7 +377,6 @@ fn render_post_actual(
 
     // Try LayoutJob
 
-    /* currently all events are new because the code that stales them is now gone
     #[allow(clippy::collapsible_else_if)]
     let bgcolor = if GLOBALS.event_is_new.blocking_read().contains(&event.id) {
         if ctx.style().visuals.dark_mode {
@@ -387,13 +390,6 @@ fn render_post_actual(
         } else {
             Color32::WHITE
         }
-    };
-     */
-
-    let bgcolor = if ctx.style().visuals.dark_mode {
-        Color32::BLACK
-    } else {
-        Color32::WHITE
     };
 
     Frame::none().fill(bgcolor).show(ui, |ui| {

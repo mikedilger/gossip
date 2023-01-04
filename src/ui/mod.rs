@@ -198,6 +198,7 @@ impl eframe::App for GossipUi {
                     .clicked()
                 {
                     self.page = Page::FeedGeneral;
+                    GLOBALS.event_is_new.blocking_write().clear();
                 }
                 ui.separator();
                 if ui
