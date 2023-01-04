@@ -150,15 +150,26 @@ impl Fetcher {
         let maybe_response = client.get(url.inner()).timeout(timeout).send().await;
 
         // Deal with response errors
-        let response = maybe_response?;
+        let response = match maybe_response {
+            Ok(r) => r,
+            Err(e) => {
+                GLOBALS
+                    .fetcher
+                    .requests_in_flight
+                    .fetch_sub(1, Ordering::SeqCst);
+                return Err(e.into());
+            }
+        };
 
         // Convert to bytes
-        let bytes = response.bytes().await?;
+        let maybe_bytes = response.bytes().await;
 
         GLOBALS
             .fetcher
             .requests_in_flight
             .fetch_sub(1, Ordering::SeqCst);
+
+        let bytes = maybe_bytes?;
 
         let cache_file = GLOBALS.fetcher.cache_file(&url);
 
