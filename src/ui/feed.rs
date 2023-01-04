@@ -9,7 +9,7 @@ use egui::{
     TextEdit, Ui, Vec2,
 };
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{EventKind, Id, PublicKeyHex};
+use nostr_types::{Event, EventKind, Id, IdHex, PublicKeyHex, Tag};
 
 struct FeedPostParams {
     id: Id,
@@ -344,6 +344,8 @@ fn render_post_actual(
 
     let reactions = Globals::get_reactions_sync(event.id);
 
+    let tag_re = app.tag_re.clone();
+
     // Person Things we can render:
     // pubkey
     // name
@@ -476,7 +478,9 @@ fn render_post_actual(
                     });
                 });
 
-                render_content(ui, &event.content);
+                ui.horizontal_wrapped(|ui| {
+                    render_content(app, ui, &tag_re, &event);
+                });
 
                 // Under row
                 if !as_reply_to {
@@ -540,12 +544,58 @@ fn render_post_actual(
     }
 }
 
-fn render_content(ui: &mut Ui, content: &str) {
-    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
+fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event: &Event) {
+    for span in LinkFinder::new()
+        .kinds(&[LinkKind::Url])
+        .spans(&event.content)
+    {
         if span.kind().is_some() {
             ui.hyperlink_to(span.as_str(), span.as_str());
         } else {
-            ui.label(span.as_str());
+            let s = span.as_str();
+            let mut pos = 0;
+            for mat in tag_re.find_iter(s) {
+                ui.label(&s[pos..mat.start()]);
+                let num: usize = s[mat.start() + 2..mat.end() - 1].parse::<usize>().unwrap();
+                if let Some(tag) = event.tags.get(num) {
+                    match tag {
+                        Tag::Pubkey { pubkey, .. } => {
+                            let pkhex: PublicKeyHex = (*pubkey).into();
+                            let nam = match GLOBALS.people.blocking_write().get(&pkhex) {
+                                Some(p) => match p.name {
+                                    Some(n) => format!("@{}", n),
+                                    None => format!("@{}", GossipUi::hex_pubkey_short(&pkhex)),
+                                },
+                                None => format!("@{}", GossipUi::hex_pubkey_short(&pkhex)),
+                            };
+                            if ui.link(&nam).clicked() {
+                                set_person_view(app, &pkhex);
+                            };
+                        }
+                        Tag::Event { id, .. } => {
+                            let idhex: IdHex = (*id).into();
+                            let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
+                            if ui.link(&nam).clicked() {
+                                GLOBALS.feed.set_feed_to_thread(event.id);
+                                app.page = Page::FeedThread;
+                            };
+                        }
+                        Tag::Hashtag(s) => {
+                            if ui.link(format!("#{}", s)).clicked() {
+                                app.status = "Gossip doesn't have a hashtag feed yet.".to_owned();
+                            }
+                        }
+                        _ => {
+                            if ui.link(format!("#[{}]", num)).clicked() {
+                                app.status =
+                                    "Gossip can't handle this kind of tag link yet.".to_owned();
+                            }
+                        }
+                    }
+                }
+                pos = mat.end();
+            }
+            ui.label(&s[pos..]);
         }
     }
 }

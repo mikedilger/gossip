@@ -18,7 +18,7 @@ use egui::{
     ColorImage, Context, ImageData, Label, RichText, SelectableLabel, Sense, TextStyle,
     TextureHandle, TextureOptions, Ui,
 };
-use nostr_types::{Id, PublicKey, PublicKeyHex};
+use nostr_types::{Id, IdHex, PublicKey, PublicKeyHex};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
@@ -89,6 +89,7 @@ struct GossipUi {
     person_view_pubkey: Option<PublicKeyHex>,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     new_relay_url: String,
+    tag_re: regex::Regex,
 }
 
 impl Drop for GossipUi {
@@ -161,6 +162,7 @@ impl GossipUi {
             person_view_pubkey: None,
             avatars: HashMap::new(),
             new_relay_url: "".to_owned(),
+            tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
         }
     }
 }
@@ -289,6 +291,10 @@ impl GossipUi {
             &pubkeyhex.0[56..60],
             &pubkeyhex.0[60..64]
         )
+    }
+
+    pub fn hex_id_short(idhex: &IdHex) -> String {
+        idhex.0[0..8].to_string()
     }
 
     #[allow(dead_code)]
