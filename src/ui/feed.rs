@@ -426,7 +426,7 @@ fn render_post_actual(
 
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         ui.menu_button(RichText::new("≡").size(28.0), |ui| {
-                            if ui.button("View Thread").clicked() {
+                            if app.page != Page::FeedThread && ui.button("View Thread").clicked() {
                                 GLOBALS.feed.set_feed_to_thread(event.id);
                                 app.page = Page::FeedThread;
                             }
@@ -448,7 +448,7 @@ fn render_post_actual(
                             }
                         });
 
-                        if ui.button("➤").clicked() {
+                        if app.page != Page::FeedThread && ui.button("➤").clicked() {
                             GLOBALS.feed.set_feed_to_thread(event.id);
                             app.page = Page::FeedThread;
                         }
