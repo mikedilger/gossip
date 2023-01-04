@@ -23,6 +23,7 @@ As of right now you can (if you aren't stopped by some bug):
 - [x] **Creting content**
     - [x] Generating a key that is kept securely within the client encrypted under a password that you need to unlock it every time you start the client.
     - [x] Generate or import (hex or bech32) a private key (your identity) (also kept under a password)
+    - [x] Exporting your private key encrypted, or decrypted as bech32 or hex
     - [x] Choose relays to post to (from among some starting relays, plus ones the client has seen in events), including entering a relay URL directly.
     - [x] Post root-level text messages
     - [x] Post replies to other people's text messages
@@ -30,7 +31,6 @@ As of right now you can (if you aren't stopped by some bug):
 
 ### Missing Critical Features
 
-- [ ] Exporting your private key in any format (encrypted or unencrypted in bech32/hex format), although you can pull the encrypted private key from the database with an SQL command.
 - [ ] An inbox of replies to your posts (they are loaded, but you have to go into each feed to find them, they are not collated into an inbox)
 - [ ] Setting your metadata and syncing it with the network.
 - [ ] Syncing the relays you use with the network
@@ -96,8 +96,8 @@ We do not intend to support the following features/NIPs:
 
 - [x] configurable look-back time
 - [x] dark/light mode
-- [ ] semi-secure handling of private keys by zeroing memory and marking them Weak if displayed or exported (partial)
-- [ ] exporting/importing of private keys with a passphrase (partial, no export yet)
+- [x] secure handling of private keys by zeroing memory and marking them Weak if displayed or exported
+- [x] exporting/importing of private keys with a passphrase
 - [ ] multiple identities
 - [ ] user management of relays (read/write), including ranking (partial, no ranking ui yet)
 - [ ] choose to load from another relay with a button press

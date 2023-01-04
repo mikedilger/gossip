@@ -1,6 +1,7 @@
 use super::GossipUi;
 use crate::comms::BusMessage;
 use crate::globals::GLOBALS;
+use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::{Context, TextEdit, Ui};
 use nostr_types::{KeySecurity, PublicKeyHex};
@@ -18,6 +19,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if GLOBALS.signer.blocking_read().is_ready() {
         ui.heading("Ready to sign events");
 
+        ui.add_space(10.0);
+
         let key_security = GLOBALS.signer.blocking_read().key_security().unwrap();
         let public_key = GLOBALS.signer.blocking_read().public_key().unwrap();
 
@@ -30,7 +33,81 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ));
 
         let pkhex: PublicKeyHex = public_key.into();
-        ui.label(&format!("Public Key: {}", pkhex.0));
+        ui.horizontal(|ui| {
+            ui.label(&format!("Public Key (Hex): {}", pkhex.0));
+            if ui.add(CopyButton {}).clicked() {
+                ui.output().copied_text = pkhex.0;
+            }
+        });
+
+        if let Ok(bech32) = public_key.try_as_bech32_string() {
+            ui.horizontal(|ui| {
+                ui.label(&format!("Public Key (bech32): {}", bech32));
+                if ui.add(CopyButton {}).clicked() {
+                    ui.output().copied_text = bech32;
+                }
+            });
+        }
+
+        ui.add_space(10.0);
+
+        if let Some(epk) = GLOBALS.signer.blocking_read().encrypted_private_key() {
+            ui.horizontal(|ui| {
+                ui.label(&format!("Encrypted Private Key: {}", epk));
+                if ui.add(CopyButton {}).clicked() {
+                    ui.output().copied_text = epk.to_string();
+                }
+            });
+        }
+
+        ui.add_space(10.0);
+        ui.separator();
+        ui.add_space(10.0);
+        ui.heading("Raw Export");
+        if key_security == KeySecurity::Medium {
+            ui.label("WARNING: This will downgrade your key security to WEAK");
+        }
+
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.label("Enter Password To Export: ");
+            ui.add(TextEdit::singleline(&mut app.password).password(true));
+        });
+
+        if ui.button("Export Private Key as bech32").clicked() {
+            match GLOBALS
+                .signer
+                .blocking_write()
+                .export_private_key_bech32(&app.password)
+            {
+                Ok(mut bech32) => {
+                    println!("Exported private key (bech32): {}", bech32);
+                    bech32.zeroize();
+                    app.status =
+                        "Exported key has been printed to the console standard output.".to_owned();
+                }
+                Err(e) => app.status = format!("{}", e),
+            }
+            app.password.zeroize();
+            app.password = "".to_owned();
+        }
+        if ui.button("Export Private Key as hex").clicked() {
+            match GLOBALS
+                .signer
+                .blocking_write()
+                .export_private_key_hex(&app.password)
+            {
+                Ok(mut hex) => {
+                    println!("Exported private key (hex): {}", hex);
+                    hex.zeroize();
+                    app.status =
+                        "Exported key has been printed to the console standard output.".to_owned();
+                }
+                Err(e) => app.status = format!("{}", e),
+            }
+            app.password.zeroize();
+            app.password = "".to_owned();
+        }
     } else if GLOBALS.signer.blocking_read().is_loaded() {
         ui.heading("Password Needed");
 

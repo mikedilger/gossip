@@ -79,7 +79,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             });
             ui.add_space(10.0);
 
-            ui.label("After generating or importing your key, gossip will save it encrypted under a password. You will need this password to unlock it every time you start gossip. Gossip handles keys securely by never displaying them and zeroing memory used for private keys and passwords before freeing it.");
+            ui.label("After generating or importing your key, gossip will save it encrypted under a password. You will need this password to unlock it every time you start gossip. Gossip handles keys securely by never displaying them and zeroing memory used for private keys and passwords before freeing it (unless you explicitly request it to be exported).");
             ui.add_space(10.0);
 
             ui.add_space(10.0);
