@@ -23,7 +23,7 @@ As of right now you can (if you aren't stopped by some bug):
 - [x] **Creting content**
     - [x] Generating a key that is kept securely within the client encrypted under a password that you need to unlock it every time you start the client.
     - [x] Generate or import (hex or bech32) a private key (your identity) (also kept under a password)
-    - [x] Exporting your private key encrypted, or decrypted as bech32 or hex
+    - [x] Exporting your private key encrypted, or decrypted as bech32 or hex, or delete your identity
     - [x] Choose relays to post to (from among some starting relays, plus ones the client has seen in events), including entering a relay URL directly.
     - [x] Post root-level text messages
     - [x] Post replies to other people's text messages

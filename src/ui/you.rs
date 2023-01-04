@@ -108,6 +108,30 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             app.password.zeroize();
             app.password = "".to_owned();
         }
+
+        ui.add_space(10.0);
+        ui.separator();
+        ui.add_space(10.0);
+        ui.heading("DELETE This Identity");
+
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.label("Enter Password To Delete: ");
+            ui.add(TextEdit::singleline(&mut app.password).password(true));
+        });
+
+        if ui.button("DELETE (Cannot be undone!)").clicked() {
+            match GLOBALS
+                .signer
+                .blocking_write()
+                .delete_identity(&app.password)
+            {
+                Ok(_) => app.status = "Identity deleted.".to_string(),
+                Err(e) => app.status = format!("{}", e),
+            }
+            app.password.zeroize();
+            app.password = "".to_owned();
+        }
     } else if GLOBALS.signer.blocking_read().is_loaded() {
         ui.heading("Password Needed");
 

@@ -129,4 +129,25 @@ impl Signer {
             _ => Err(Error::NoPrivateKey),
         }
     }
+
+    pub fn delete_identity(&mut self, pass: &str) -> Result<(), Error> {
+        match self {
+            Signer::Ready(_, epk) => {
+                // Verify their password
+                let _pk = epk.decrypt(pass)?;
+
+                // Delete from database
+                let mut settings = GLOBALS.settings.blocking_write();
+                settings.encrypted_private_key = None;
+                task::spawn(async move {
+                    if let Err(e) = settings.save().await {
+                        tracing::error!("{}", e);
+                    }
+                });
+                *self = Signer::Fresh;
+                Ok(())
+            }
+            _ => Err(Error::NoPrivateKey),
+        }
+    }
 }
