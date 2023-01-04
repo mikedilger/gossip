@@ -12,6 +12,8 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 Gossip is currently alpha-quality code and I do not recommend using it as your main client at this point. But it is getting close to the point where I will be able to remove that reommendation to not use. So adventurous souls may try it out to see what it will be like.
 
+Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form follows function, and only after the function is sufficiently complete will I work on the GUI. Also, the GUI tech may still change entirely if egui isn't up to the challenge. So don't be put off too much by the ugliness. We will have hinted fonts and full color emoji support one way or another as a high priority.
+
 As of right now you can (if you aren't stopped by some bug):
 
 - [x] **Seeing other people's posts**
