@@ -59,11 +59,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.add_space(10.0);
 
             ui.add_space(10.0);
-
-            ui.label("Each post has a little triangle to the left of it. You can \"tip\" this triangle to open/close all replies to that post. Buttons at the top let you open/close all the posts.");
-            ui.add_space(10.0);
-
-            ui.add_space(10.0);
             ui.separator();
             ui.add_space(10.0);
 
