@@ -22,6 +22,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     let mut feed_kind = GLOBALS.feed.get_feed_kind();
     app.page = match feed_kind {
         FeedKind::General => Page::FeedGeneral,
+        FeedKind::Replies => Page::FeedReplies,
         FeedKind::Thread(_) => Page::FeedThread,
         FeedKind::Person(_) => Page::FeedPerson,
     };
@@ -39,13 +40,24 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             feed_kind = FeedKind::General;
         }
         ui.separator();
+        if ui
+            .add(SelectableLabel::new(
+                app.page == Page::FeedReplies,
+                "Replies",
+            ))
+            .clicked()
+        {
+            app.page = Page::FeedReplies;
+            GLOBALS.feed.set_feed_to_replies();
+            feed_kind = FeedKind::Replies;
+        }
         if matches!(feed_kind, FeedKind::Thread(..)) {
-            ui.selectable_value(&mut app.page, Page::FeedThread, "Thread");
             ui.separator();
+            ui.selectable_value(&mut app.page, Page::FeedThread, "Thread");
         }
         if matches!(feed_kind, FeedKind::Person(..)) {
-            ui.selectable_value(&mut app.page, Page::FeedPerson, "Person");
             ui.separator();
+            ui.selectable_value(&mut app.page, Page::FeedPerson, "Person");
         }
     });
     ui.separator();
@@ -103,7 +115,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 if ui.link("setup your identity").clicked() {
                     app.page = Page::You;
                 }
-                ui.label(" to post.");
+                ui.label(" to post or see your replies.");
             });
         } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
             ui.horizontal(|ui| {
@@ -176,6 +188,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         FeedKind::General => {
             let feed = GLOBALS.feed.get_general();
             render_a_feed(app, ctx, frame, ui, feed, false);
+        }
+        FeedKind::Replies => {
+            let feed = GLOBALS.feed.get_replies();
+            render_a_feed(app, ctx, frame, ui, feed, true);
         }
         FeedKind::Thread(id) => {
             let parent = GLOBALS.feed.get_thread_parent(id);

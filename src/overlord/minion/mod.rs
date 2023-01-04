@@ -264,7 +264,7 @@ impl Minion {
             // Any mentions of me
             filters.push(Filter {
                 p: vec![pubkey.into()],
-                since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+                since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk * 10)), // further back
                 ..Default::default()
             });
 

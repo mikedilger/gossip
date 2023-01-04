@@ -55,6 +55,7 @@ pub fn run() -> Result<(), Error> {
 #[derive(PartialEq)]
 enum Page {
     FeedGeneral,
+    FeedReplies,
     FeedThread,
     FeedPerson,
     PeopleList,
@@ -189,6 +190,7 @@ impl eframe::App for GossipUi {
                 if ui
                     .add(SelectableLabel::new(
                         self.page == Page::FeedGeneral
+                            || self.page == Page::FeedReplies
                             || self.page == Page::FeedThread
                             || self.page == Page::FeedPerson,
                         "Feed",
@@ -261,7 +263,7 @@ impl eframe::App for GossipUi {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.page {
-            Page::FeedGeneral | Page::FeedThread | Page::FeedPerson => {
+            Page::FeedGeneral | Page::FeedReplies | Page::FeedThread | Page::FeedPerson => {
                 feed::update(self, ctx, frame, ui)
             }
             Page::PeopleList | Page::PeopleFollow | Page::Person => {

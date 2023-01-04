@@ -3,11 +3,13 @@ use crate::globals::GLOBALS;
 use nostr_types::PublicKeyHex;
 use nostr_types::{Event, EventKind, Id};
 use parking_lot::RwLock;
+use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug)]
 pub enum FeedKind {
     General,
+    Replies,
     Thread(Id),
     Person(PublicKeyHex),
 }
@@ -16,6 +18,7 @@ pub struct Feed {
     current_feed_kind: RwLock<FeedKind>,
 
     general_feed: RwLock<Vec<Id>>,
+    replies_feed: RwLock<Vec<Id>>,
 
     // We only recompute the feed at specified intervals
     interval_ms: RwLock<u32>,
@@ -31,6 +34,7 @@ impl Feed {
         Feed {
             current_feed_kind: RwLock::new(FeedKind::General),
             general_feed: RwLock::new(Vec::new()),
+            replies_feed: RwLock::new(Vec::new()),
             interval_ms: RwLock::new(1000), // Every second, until we load from settings
             last_computed: RwLock::new(Instant::now()),
             my_event_ids: RwLock::new(Vec::new()),
@@ -43,6 +47,10 @@ impl Feed {
         // because it won't have changed, but the relays will shower you with
         // all those events again.
         *self.current_feed_kind.write() = FeedKind::General;
+    }
+
+    pub fn set_feed_to_replies(&self) {
+        *self.current_feed_kind.write() = FeedKind::Replies;
     }
 
     pub fn set_feed_to_thread(&self, id: Id) {
@@ -76,6 +84,17 @@ impl Feed {
         }
 
         self.general_feed.read().clone()
+    }
+
+    pub fn get_replies(&self) -> Vec<Id> {
+        let now = Instant::now();
+        if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now
+        {
+            self.recompute();
+            *self.last_computed.write() = now;
+        }
+
+        self.replies_feed.read().clone()
     }
 
     pub fn get_thread_parent(&self, id: Id) -> Id {
@@ -173,17 +192,33 @@ impl Feed {
             })
             .collect();
 
-        // Filter further for the feed
-        let mut events: Vec<Event> = events
+        // Filter further for the general feed
+        let mut fevents: Vec<Event> = events
             .iter()
-            .filter(|e| pubkeys.contains(&e.pubkey.into())) // something we follow
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
+            .filter(|e| pubkeys.contains(&e.pubkey.into())) // something we follow
             .cloned()
             .collect();
+        fevents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        *self.general_feed.write() = fevents.iter().map(|e| e.id).collect();
 
-        // In time order
-        events.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-
-        *self.general_feed.write() = events.iter().map(|e| e.id).collect();
+        // Filter differently for the replies feed
+        let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();
+        let mut revents: Vec<Event> = events
+            .iter()
+            .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
+            .filter(|e| {
+                // FIXME: maybe try replies_to_ancestors to go deeper
+                if let Some((id, _)) = e.replies_to() {
+                    if my_events.contains(&id) {
+                        return true;
+                    }
+                }
+                false
+            })
+            .cloned()
+            .collect();
+        revents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        *self.replies_feed.write() = revents.iter().map(|e| e.id).collect();
     }
 }
