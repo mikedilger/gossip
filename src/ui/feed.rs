@@ -71,10 +71,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         Ok(v) => v.len() as isize,
         Err(_) => -1,
     };
+    /*
     let incoming_count: isize = match GLOBALS.incoming_events.try_read() {
         Ok(v) => v.len() as isize,
         Err(_) => -1,
-    };
+};
+    */
 
     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
         if ui
@@ -90,6 +92,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             });
         }
 
+        /* Hide for now, as they are processed automatically at present
         if ui
             .button(&format!("PQ {}", incoming_count))
             .on_hover_text("Process Queue of Incoming Events")
@@ -102,6 +105,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 json_payload: serde_json::to_string("").unwrap(),
             });
         }
+         */
 
         ui.label(&format!(
             "RIF={}",
