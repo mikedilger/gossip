@@ -105,7 +105,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 .fetcher
                 .requests_in_flight
                 .load(std::sync::atomic::Ordering::Relaxed)
-        ));
+        ))
+        .on_hover_text("Requests In Flight (http, not wss)");
     });
 
     ui.vertical(|ui| {
@@ -464,7 +465,9 @@ fn render_post_actual(
                             }
                         });
 
-                        if app.page != Page::FeedThread && ui.button("➤").clicked() {
+                        if app.page != Page::FeedThread
+                            && ui.button("➤").on_hover_text("View Thread").clicked()
+                        {
                             GLOBALS.feed.set_feed_to_thread(event.id);
                             app.page = Page::FeedThread;
                         }
