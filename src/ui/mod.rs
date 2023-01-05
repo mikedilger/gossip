@@ -316,13 +316,18 @@ impl GossipUi {
                     ui.label("🚶");
                 }
 
-                if let Some(dns_id) = &person.dns_id {
+                if let Some(mut dns_id) = person.dns_id.clone() {
+                    if dns_id.starts_with("_@") {
+                        dns_id = dns_id.get(2..).unwrap().to_string();
+                    }
+
                     if person.dns_id_valid > 0 {
                         ui.label(RichText::new(dns_id).monospace().small());
                     } else {
                         ui.label(RichText::new(dns_id).monospace().small().strikethrough());
                     }
                 }
+
                 ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
                 if ui.add(CopyButton {}).clicked() {
                     ui.output().copied_text = person.pubkey.0.to_owned();
