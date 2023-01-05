@@ -78,17 +78,8 @@ impl Overlord {
     }
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
-        // Load Signer (we cannot unlock yet, UI will have to drive that after
-        // prompting for a password)
-        if let Some(epk) = GLOBALS
-            .settings
-            .read()
-            .await
-            .encrypted_private_key
-            .to_owned()
-        {
-            GLOBALS.signer.write().await.load_encrypted_private_key(epk);
-        }
+        // Load signer from settings
+        GLOBALS.signer.write().await.load_from_settings().await;
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
@@ -417,65 +408,27 @@ impl Overlord {
                 }
                 "generate_private_key" => {
                     let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
-                    let epk = GLOBALS
-                        .signer
-                        .write()
-                        .await
-                        .generate_private_key(&password)?;
+                    GLOBALS.signer.write().await.generate_private_key(&password)?;
                     password.zeroize();
-
-                    // Export and save private key
-                    let public_key = GLOBALS.signer.read().await.public_key().unwrap();
-                    {
-                        let mut settings = GLOBALS.settings.write().await;
-                        settings.encrypted_private_key = Some(epk);
-                        settings.public_key = Some(public_key);
-                        settings.save().await?;
-                    }
+                    GLOBALS.signer.read().await.save_through_settings().await?;
                 }
                 "import_bech32" => {
                     let (mut import_bech32, mut password): (String, String) =
                         serde_json::from_str(&bus_message.json_payload)?;
                     let pk = PrivateKey::try_from_bech32_string(&import_bech32)?;
                     import_bech32.zeroize();
-                    let epk = pk.export_encrypted(&password)?;
-                    {
-                        let mut signer = GLOBALS.signer.write().await;
-                        signer.load_encrypted_private_key(epk.clone());
-                        signer.unlock_encrypted_private_key(&password)?;
-                    }
+                    GLOBALS.signer.write().await.set_private_key(pk, &password)?;
                     password.zeroize();
-
-                    // Save
-                    let public_key = GLOBALS.signer.read().await.public_key().unwrap();
-                    {
-                        let mut settings = GLOBALS.settings.write().await;
-                        settings.encrypted_private_key = Some(epk);
-                        settings.public_key = Some(public_key);
-                        settings.save().await?;
-                    }
+                    GLOBALS.signer.read().await.save_through_settings().await?;
                 }
                 "import_hex" => {
                     let (mut import_hex, mut password): (String, String) =
                         serde_json::from_str(&bus_message.json_payload)?;
                     let pk = PrivateKey::try_from_hex_string(&import_hex)?;
                     import_hex.zeroize();
-                    let epk = pk.export_encrypted(&password)?;
-                    {
-                        let mut signer = GLOBALS.signer.write().await;
-                        signer.load_encrypted_private_key(epk.clone());
-                        signer.unlock_encrypted_private_key(&password)?;
-                    }
+                    GLOBALS.signer.write().await.set_private_key(pk, &password)?;
                     password.zeroize();
-
-                    // Save
-                    let public_key = GLOBALS.signer.read().await.public_key().unwrap();
-                    {
-                        let mut settings = GLOBALS.settings.write().await;
-                        settings.encrypted_private_key = Some(epk);
-                        settings.public_key = Some(public_key);
-                        settings.save().await?;
-                    }
+                    GLOBALS.signer.read().await.save_through_settings().await?;
                 }
                 "save_relays" => {
                     let dirty_relays: Vec<DbRelay> = GLOBALS
