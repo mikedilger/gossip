@@ -172,13 +172,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.separator();
         ui.add_space(10.0);
 
-        ui.heading("Import a bech32 private key");
+        ui.heading("Import a Private Key");
 
         ui.horizontal(|ui| {
-            ui.label("Enter bech32 private key");
+            ui.label("Enter private key");
             ui.add(
-                TextEdit::singleline(&mut app.import_bech32)
-                    .hint_text("nsec1...")
+                TextEdit::singleline(&mut app.import_priv)
+                    .hint_text("nsec1 or hex")
                     .password(true),
             );
         });
@@ -190,40 +190,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             let tx = GLOBALS.to_overlord.clone();
             let _ = tx.send(BusMessage {
                 target: "overlord".to_string(),
-                kind: "import_bech32".to_string(),
-                json_payload: serde_json::to_string(&(&app.import_bech32, &app.password)).unwrap(),
+                kind: "import_priv".to_string(),
+                json_payload: serde_json::to_string(&(&app.import_priv, &app.password)).unwrap(),
             });
-            app.import_bech32.zeroize();
-            app.import_bech32 = "".to_owned();
-            app.password.zeroize();
-            app.password = "".to_owned();
-        }
-
-        ui.add_space(20.0);
-
-        ui.heading("Import a hex private key");
-
-        ui.horizontal(|ui| {
-            ui.label("Enter hex-encoded private key");
-            ui.add(
-                TextEdit::singleline(&mut app.import_hex)
-                    .hint_text("0123456789abcdef...")
-                    .password(true),
-            );
-        });
-        ui.horizontal(|ui| {
-            ui.label("Enter a password to keep it encrypted under");
-            ui.add(TextEdit::singleline(&mut app.password).password(true));
-        });
-        if ui.button("import").clicked() {
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(BusMessage {
-                target: "overlord".to_string(),
-                kind: "import_hex".to_string(),
-                json_payload: serde_json::to_string(&(&app.import_hex, &app.password)).unwrap(),
-            });
-            app.import_hex.zeroize();
-            app.import_hex = "".to_owned();
+            app.import_priv.zeroize();
+            app.import_priv = "".to_owned();
             app.password.zeroize();
             app.password = "".to_owned();
         }
@@ -232,10 +203,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.separator();
         ui.add_space(10.0);
 
-        ui.heading("Public Key");
+        ui.heading("Import a Public Key");
         ui.add_space(10.0);
 
-        ui.label("You can just import your public key if you only want to view events and don't want to use gossip to create events. This will allow you to (eventually) sync your follow list and follow people on gossip without copying your private key here.");
+        ui.label("This won't let you post or react to posts, but you can view other people's posts (and fetch your following list) with just a public key.");
 
         if let Some(pk) = GLOBALS.signer.blocking_read().public_key() {
             let pkhex: PublicKeyHex = pk.into();

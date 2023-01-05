@@ -416,31 +416,26 @@ impl Overlord {
                     password.zeroize();
                     GLOBALS.signer.read().await.save_through_settings().await?;
                 }
-                "import_bech32" => {
-                    let (mut import_bech32, mut password): (String, String) =
+                "import_priv" => {
+                    let (mut import_priv, mut password): (String, String) =
                         serde_json::from_str(&bus_message.json_payload)?;
-                    let pk = PrivateKey::try_from_bech32_string(&import_bech32)?;
-                    import_bech32.zeroize();
-                    GLOBALS
-                        .signer
-                        .write()
-                        .await
-                        .set_private_key(pk, &password)?;
-                    password.zeroize();
-                    GLOBALS.signer.read().await.save_through_settings().await?;
-                }
-                "import_hex" => {
-                    let (mut import_hex, mut password): (String, String) =
-                        serde_json::from_str(&bus_message.json_payload)?;
-                    let pk = PrivateKey::try_from_hex_string(&import_hex)?;
-                    import_hex.zeroize();
-                    GLOBALS
-                        .signer
-                        .write()
-                        .await
-                        .set_private_key(pk, &password)?;
-                    password.zeroize();
-                    GLOBALS.signer.read().await.save_through_settings().await?;
+                    let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
+                    let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
+                    import_priv.zeroize();
+                    if maybe_pk1.is_err() && maybe_pk2.is_err() {
+                        password.zeroize();
+                        *GLOBALS.status_message.write().await =
+                            "Private key not recognized.".to_owned();
+                    } else {
+                        let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
+                        GLOBALS
+                            .signer
+                            .write()
+                            .await
+                            .set_private_key(privkey, &password)?;
+                        password.zeroize();
+                        GLOBALS.signer.read().await.save_through_settings().await?;
+                    }
                 }
                 "import_pub" => {
                     let pubstr: String = serde_json::from_str(&bus_message.json_payload)?;
