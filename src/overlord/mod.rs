@@ -121,7 +121,7 @@ impl Overlord {
                 };
 
                 // Process this metadata event to update people
-                crate::process::process_new_event(&e, false, None).await?;
+                crate::process::process_new_event(&e, false, None, None).await?;
             }
         }
 
@@ -147,7 +147,7 @@ impl Overlord {
             let mut count = 0;
             for event in events.iter() {
                 count += 1;
-                crate::process::process_new_event(event, false, None).await?;
+                crate::process::process_new_event(event, false, None, None).await?;
             }
             tracing::info!("Loaded {} events from the database", count);
         }
@@ -492,9 +492,9 @@ impl Overlord {
                     GLOBALS.event_is_new.write().await.clear();
 
                     let _ = tokio::spawn(async move {
-                        for (event, url) in GLOBALS.incoming_events.write().await.drain(..) {
-                            let _ =
-                                crate::process::process_new_event(&event, true, Some(url)).await;
+                        for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
+                            let _ = crate::process::process_new_event(&event, true, Some(url), sub)
+                                .await;
                         }
                     });
                 }
@@ -774,7 +774,7 @@ impl Overlord {
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, false, None).await?;
+        crate::process::process_new_event(&event, false, None, None).await?;
 
         Ok(())
     }
@@ -832,7 +832,7 @@ impl Overlord {
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, false, None).await?;
+        crate::process::process_new_event(&event, false, None, None).await?;
 
         Ok(())
     }
@@ -897,7 +897,7 @@ impl Overlord {
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, false, None).await?;
+        crate::process::process_new_event(&event, false, None, None).await?;
 
         Ok(())
     }

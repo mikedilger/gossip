@@ -31,7 +31,13 @@ impl Minion {
                     tracing::debug!("{}: {}: NEW EVENT", &self.url, handle);
 
                     // Try processing everything immediately
-                    crate::process::process_new_event(&event, true, Some(self.url.clone())).await?;
+                    crate::process::process_new_event(
+                        &event,
+                        true,
+                        Some(self.url.clone()),
+                        Some(handle),
+                    )
+                    .await?;
 
                     /*
                     if event.kind == EventKind::TextNote {
@@ -40,7 +46,7 @@ impl Minion {
                             .incoming_events
                             .write()
                             .await
-                            .push((*event, self.url.clone()));
+                            .push((*event, self.url.clone(), handle));
                     } else {
                         // Process everything else immediately
                         crate::process::process_new_event(&event, true, Some(self.url.clone()))

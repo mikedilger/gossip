@@ -12,6 +12,7 @@ pub async fn process_new_event(
     event: &Event,
     from_relay: bool,
     seen_on: Option<Url>,
+    _subscription: Option<String>,
 ) -> Result<(), Error> {
     // Save the event into the database
     if from_relay {

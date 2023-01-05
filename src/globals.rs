@@ -35,7 +35,8 @@ pub struct Globals {
     pub events: RwLock<HashMap<Id, Event>>,
 
     /// Events coming in from relays that are not processed yet
-    pub incoming_events: RwLock<Vec<(Event, Url)>>,
+    /// stored with Url they came from and Subscription they came in on
+    pub incoming_events: RwLock<Vec<(Event, Url, Option<String>)>>,
 
     /// All relationships between events
     pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
@@ -165,7 +166,7 @@ impl Globals {
             let mut count = 0;
             for event in events.iter() {
                 count += 1;
-                crate::process::process_new_event(event, false, None).await?;
+                crate::process::process_new_event(event, false, None, None).await?;
             }
             tracing::info!("Loaded {} desired events from the database", count);
         }
