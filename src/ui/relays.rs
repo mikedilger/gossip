@@ -31,12 +31,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     json_payload: serde_json::to_string(&app.new_relay_url).unwrap(),
                 });
                 app.new_relay_url = "".to_owned();
-                app.status = format!(
+                *GLOBALS.status_message.blocking_write() = format!(
                     "I asked the overlord to add relay {}. Check for it below.",
                     &app.new_relay_url
                 );
             } else {
-                app.status = "That's not a valid relay URL.".to_owned();
+                *GLOBALS.status_message.blocking_write() = "That's not a valid relay URL.".to_owned();
             }
         }
     });

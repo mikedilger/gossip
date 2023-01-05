@@ -74,6 +74,9 @@ pub struct Globals {
 
     /// Failed Avatar Fetches
     pub failed_avatars: RwLock<HashSet<PublicKeyHex>>,
+
+    /// UI status message
+    pub status_message: RwLock<String>,
 }
 
 lazy_static! {
@@ -104,6 +107,7 @@ lazy_static! {
             feed: Feed::new(),
             fetcher: Fetcher::new(),
             failed_avatars: RwLock::new(HashSet::new()),
+            status_message: RwLock::new("Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()),
         }
     };
 }

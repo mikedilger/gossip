@@ -72,7 +72,6 @@ enum Page {
 struct GossipUi {
     next_frame: Instant,
     page: Page,
-    status: String,
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
@@ -143,9 +142,6 @@ impl GossipUi {
         GossipUi {
             next_frame: Instant::now(),
             page: Page::FeedGeneral,
-            status:
-                "Welcome to Gossip. Status messages will appear here. Click them to dismiss them."
-                    .to_owned(),
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
@@ -257,10 +253,10 @@ impl eframe::App for GossipUi {
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if ui
-                    .add(Label::new(&self.status).sense(Sense::click()))
+                    .add(Label::new(GLOBALS.status_message.blocking_read().clone()).sense(Sense::click()))
                     .clicked()
                 {
-                    self.status = "".to_string();
+                    *GLOBALS.status_message.blocking_write() = "".to_string();
                 }
             });
         });

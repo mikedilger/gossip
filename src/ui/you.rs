@@ -83,10 +83,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 Ok(mut bech32) => {
                     println!("Exported private key (bech32): {}", bech32);
                     bech32.zeroize();
-                    app.status =
+                    *GLOBALS.status_message.blocking_write() =
                         "Exported key has been printed to the console standard output.".to_owned();
                 }
-                Err(e) => app.status = format!("{}", e),
+                Err(e) =>
+                    *GLOBALS.status_message.blocking_write() = format!("{}", e),
             }
             app.password.zeroize();
             app.password = "".to_owned();
@@ -100,10 +101,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 Ok(mut hex) => {
                     println!("Exported private key (hex): {}", hex);
                     hex.zeroize();
-                    app.status =
+                    *GLOBALS.status_message.blocking_write() =
                         "Exported key has been printed to the console standard output.".to_owned();
                 }
-                Err(e) => app.status = format!("{}", e),
+                Err(e) => *GLOBALS.status_message.blocking_write() = format!("{}", e),
             }
             app.password.zeroize();
             app.password = "".to_owned();
@@ -126,8 +127,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .blocking_write()
                 .delete_identity(&app.password)
             {
-                Ok(_) => app.status = "Identity deleted.".to_string(),
-                Err(e) => app.status = format!("{}", e),
+                Ok(_) => *GLOBALS.status_message.blocking_write() = "Identity deleted.".to_string(),
+                Err(e) => *GLOBALS.status_message.blocking_write() = format!("{}", e),
             }
             app.password.zeroize();
             app.password = "".to_owned();

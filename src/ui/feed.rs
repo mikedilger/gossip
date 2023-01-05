@@ -586,12 +586,12 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                         }
                         Tag::Hashtag(s) => {
                             if ui.link(format!("#{}", s)).clicked() {
-                                app.status = "Gossip doesn't have a hashtag feed yet.".to_owned();
+                                *GLOBALS.status_message.blocking_write() = "Gossip doesn't have a hashtag feed yet.".to_owned();
                             }
                         }
                         _ => {
                             if ui.link(format!("#[{}]", num)).clicked() {
-                                app.status =
+                                *GLOBALS.status_message.blocking_write() =
                                     "Gossip can't handle this kind of tag link yet.".to_owned();
                             }
                         }
