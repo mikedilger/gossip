@@ -603,7 +603,7 @@ impl Overlord {
     async fn get_and_follow_nip35(nip35: String) -> Result<(), Error> {
         let mut parts: Vec<&str> = nip35.split('@').collect();
         if parts.len() == 1 {
-            parts = Vec::from(["_", parts.get(0).unwrap()])
+            parts = Vec::from(["_", parts.first().unwrap()])
         }
         if parts.len() != 2 {
             return Err(Error::InvalidDnsId);
