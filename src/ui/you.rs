@@ -86,8 +86,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     *GLOBALS.status_message.blocking_write() =
                         "Exported key has been printed to the console standard output.".to_owned();
                 }
-                Err(e) =>
-                    *GLOBALS.status_message.blocking_write() = format!("{}", e),
+                Err(e) => *GLOBALS.status_message.blocking_write() = format!("{}", e),
             }
             app.password.zeroize();
             app.password = "".to_owned();
@@ -200,9 +199,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             app.password = "".to_owned();
         }
 
-        ui.add_space(10.0);
-        ui.separator();
-        ui.add_space(10.0);
+        ui.add_space(20.0);
 
         ui.heading("Import a hex private key");
 
@@ -229,6 +226,55 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             app.import_hex = "".to_owned();
             app.password.zeroize();
             app.password = "".to_owned();
+        }
+
+        ui.add_space(10.0);
+        ui.separator();
+        ui.add_space(10.0);
+
+        ui.heading("Public Key");
+        ui.add_space(10.0);
+
+        ui.label("You can just import your public key if you only want to view events and don't want to use gossip to create events. This will allow you to (eventually) sync your follow list and follow people on gossip without copying your private key here.");
+
+        if let Some(pk) = GLOBALS.signer.blocking_read().public_key() {
+            let pkhex: PublicKeyHex = pk.into();
+            ui.horizontal(|ui| {
+                ui.label(&format!("Public Key (Hex): {}", pkhex.0));
+                if ui.add(CopyButton {}).clicked() {
+                    ui.output().copied_text = pkhex.0;
+                }
+            });
+
+            if let Ok(bech32) = pk.try_as_bech32_string() {
+                ui.horizontal(|ui| {
+                    ui.label(&format!("Public Key (bech32): {}", bech32));
+                    if ui.add(CopyButton {}).clicked() {
+                        ui.output().copied_text = bech32;
+                    }
+                });
+            }
+
+            if ui.button("Delete this public key").clicked() {
+                let _ = GLOBALS.to_overlord.send(BusMessage {
+                    target: "overlord".to_string(),
+                    kind: "delete_pub".to_string(),
+                    json_payload: serde_json::to_string(&app.import_pub).unwrap(),
+                });
+            }
+        } else {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Enter your public key");
+                ui.add(TextEdit::singleline(&mut app.import_pub).hint_text("npub1 or hex"));
+                if ui.button("Import a Public Key").clicked() {
+                    let _ = GLOBALS.to_overlord.send(BusMessage {
+                        target: "overlord".to_string(),
+                        kind: "import_pub".to_string(),
+                        json_payload: serde_json::to_string(&app.import_pub).unwrap(),
+                    });
+                    app.import_pub = "".to_owned();
+                }
+            });
         }
     }
 }

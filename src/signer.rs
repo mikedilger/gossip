@@ -3,20 +3,11 @@ use crate::globals::GLOBALS;
 use nostr_types::{EncryptedPrivateKey, Event, KeySecurity, PreEvent, PrivateKey, PublicKey};
 use tokio::task;
 
+#[derive(Default)]
 pub struct Signer {
     public: Option<PublicKey>,
     encrypted: Option<EncryptedPrivateKey>,
     private: Option<PrivateKey>,
-}
-
-impl Default for Signer {
-    fn default() -> Signer {
-        Signer {
-            public: None,
-            encrypted: None,
-            private: None,
-        }
-    }
 }
 
 impl Signer {
@@ -25,13 +16,13 @@ impl Signer {
         *self = Signer {
             public: settings.public_key,
             encrypted: settings.encrypted_private_key.clone(),
-            private: None
+            private: None,
         };
     }
 
     pub async fn save_through_settings(&self) -> Result<(), Error> {
         let mut settings = GLOBALS.settings.write().await;
-        settings.public_key = self.public.clone();
+        settings.public_key = self.public;
         settings.encrypted_private_key = self.encrypted.clone();
         settings.save().await
     }
@@ -39,9 +30,20 @@ impl Signer {
     #[allow(dead_code)]
     pub fn set_public_key(&mut self, pk: PublicKey) {
         if self.private.is_some() {
-            *GLOBALS.status_message.blocking_write() = "Ignored setting of public key (private key supercedes)".to_string();
+            *GLOBALS.status_message.blocking_write() =
+                "Ignored setting of public key (private key supercedes)".to_string();
         } else {
             self.public = Some(pk);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn clear_public_key(&mut self) {
+        if self.private.is_some() {
+            *GLOBALS.status_message.blocking_write() =
+                "Ignored clearing of public key (private key supercedes)".to_string();
+        } else {
+            self.public = None;
         }
     }
 
@@ -55,7 +57,7 @@ impl Signer {
     }
 
     pub fn set_private_key(&mut self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
-        self.encrypted = Some(pk.export_encrypted(&pass)?);
+        self.encrypted = Some(pk.export_encrypted(pass)?);
         self.public = Some(pk.public_key());
         self.private = Some(pk);
         Ok(())
@@ -65,8 +67,7 @@ impl Signer {
         if self.private.is_some() {
             // ignore, already unlocked
             Ok(())
-        }
-        else if let Some(epk) = &self.encrypted {
+        } else if let Some(epk) = &self.encrypted {
             self.private = Some(epk.decrypt(pass)?);
             Ok(())
         } else {
@@ -91,7 +92,7 @@ impl Signer {
     }
 
     pub fn public_key(&self) -> Option<PublicKey> {
-        self.public.clone()
+        self.public
     }
 
     pub fn encrypted_private_key(&self) -> Option<EncryptedPrivateKey> {
@@ -99,18 +100,14 @@ impl Signer {
     }
 
     pub fn key_security(&self) -> Option<KeySecurity> {
-        if let Some(pk) = &self.private {
-            Some(pk.key_security())
-        } else {
-            None
-        }
+        self.private.as_ref().map(|pk| pk.key_security())
     }
 
     pub fn sign_preevent(&self, preevent: PreEvent, pow: Option<u8>) -> Result<Event, Error> {
         match &self.private {
             Some(pk) => match pow {
-                Some(pow) => Ok(Event::new_with_pow(preevent, &pk, pow)?),
-                None => Ok(Event::new(preevent, &pk)?),
+                Some(pow) => Ok(Event::new_with_pow(preevent, pk, pow)?),
+                None => Ok(Event::new(preevent, pk)?),
             },
             _ => Err(Error::NoPrivateKey),
         }

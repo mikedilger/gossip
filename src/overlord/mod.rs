@@ -408,7 +408,11 @@ impl Overlord {
                 }
                 "generate_private_key" => {
                     let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
-                    GLOBALS.signer.write().await.generate_private_key(&password)?;
+                    GLOBALS
+                        .signer
+                        .write()
+                        .await
+                        .generate_private_key(&password)?;
                     password.zeroize();
                     GLOBALS.signer.read().await.save_through_settings().await?;
                 }
@@ -417,7 +421,11 @@ impl Overlord {
                         serde_json::from_str(&bus_message.json_payload)?;
                     let pk = PrivateKey::try_from_bech32_string(&import_bech32)?;
                     import_bech32.zeroize();
-                    GLOBALS.signer.write().await.set_private_key(pk, &password)?;
+                    GLOBALS
+                        .signer
+                        .write()
+                        .await
+                        .set_private_key(pk, &password)?;
                     password.zeroize();
                     GLOBALS.signer.read().await.save_through_settings().await?;
                 }
@@ -426,8 +434,29 @@ impl Overlord {
                         serde_json::from_str(&bus_message.json_payload)?;
                     let pk = PrivateKey::try_from_hex_string(&import_hex)?;
                     import_hex.zeroize();
-                    GLOBALS.signer.write().await.set_private_key(pk, &password)?;
+                    GLOBALS
+                        .signer
+                        .write()
+                        .await
+                        .set_private_key(pk, &password)?;
                     password.zeroize();
+                    GLOBALS.signer.read().await.save_through_settings().await?;
+                }
+                "import_pub" => {
+                    let pubstr: String = serde_json::from_str(&bus_message.json_payload)?;
+                    let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
+                    let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
+                    if maybe_pk1.is_err() && maybe_pk2.is_err() {
+                        *GLOBALS.status_message.write().await =
+                            "Public key not recognized.".to_owned();
+                    } else {
+                        let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
+                        GLOBALS.signer.write().await.set_public_key(pubkey);
+                        GLOBALS.signer.read().await.save_through_settings().await?;
+                    }
+                }
+                "delete_pub" => {
+                    GLOBALS.signer.write().await.clear_public_key();
                     GLOBALS.signer.read().await.save_through_settings().await?;
                 }
                 "save_relays" => {

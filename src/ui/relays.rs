@@ -36,7 +36,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     &app.new_relay_url
                 );
             } else {
-                *GLOBALS.status_message.blocking_write() = "That's not a valid relay URL.".to_owned();
+                *GLOBALS.status_message.blocking_write() =
+                    "That's not a valid relay URL.".to_owned();
             }
         }
     });

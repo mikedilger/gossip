@@ -84,6 +84,7 @@ struct GossipUi {
     password: String,
     import_bech32: String,
     import_hex: String,
+    import_pub: String,
     replying_to: Option<Id>,
     person_view_pubkey: Option<PublicKeyHex>,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
@@ -154,6 +155,7 @@ impl GossipUi {
             password: "".to_owned(),
             import_bech32: "".to_owned(),
             import_hex: "".to_owned(),
+            import_pub: "".to_owned(),
             replying_to: None,
             person_view_pubkey: None,
             avatars: HashMap::new(),
@@ -253,7 +255,10 @@ impl eframe::App for GossipUi {
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if ui
-                    .add(Label::new(GLOBALS.status_message.blocking_read().clone()).sense(Sense::click()))
+                    .add(
+                        Label::new(GLOBALS.status_message.blocking_read().clone())
+                            .sense(Sense::click()),
+                    )
                     .clicked()
                 {
                     *GLOBALS.status_message.blocking_write() = "".to_string();

@@ -72,11 +72,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         Err(_) => -1,
     };
     /*
-    let incoming_count: isize = match GLOBALS.incoming_events.try_read() {
-        Ok(v) => v.len() as isize,
-        Err(_) => -1,
-};
-    */
+        let incoming_count: isize = match GLOBALS.incoming_events.try_read() {
+            Ok(v) => v.len() as isize,
+            Err(_) => -1,
+    };
+        */
 
     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
         if ui
@@ -586,7 +586,8 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                         }
                         Tag::Hashtag(s) => {
                             if ui.link(format!("#{}", s)).clicked() {
-                                *GLOBALS.status_message.blocking_write() = "Gossip doesn't have a hashtag feed yet.".to_owned();
+                                *GLOBALS.status_message.blocking_write() =
+                                    "Gossip doesn't have a hashtag feed yet.".to_owned();
                             }
                         }
                         _ => {
