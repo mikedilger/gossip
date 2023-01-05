@@ -31,7 +31,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.label("This is a core concept. Gossip doesn't fetch posts from the same relays it is configured to post to. It trys to fetch posts from whereever your followers post them, so you need to configure at least one relay for each person you follow. Gossip will then dynamically figure out where they actually post (if it finds them at all) and keep things updated as they change where they post to. A lot of other clients are not operating like this, they are pulling from the same relays they push to and this author thinks that will not scale. Right now, these other clients work because relays are copying messages from each other somehow.");
             ui.add_space(10.0);
 
-            ui.label("NIP-35 makes this easy, since it specifies how users can share their public key AND their relays via a webserver that they control. For example, you can follow me at `mike@mikedilger.com`. That's all you need to type in.");
+            ui.label("NIP-05 makes this easy, since it specifies how users can share their public key AND their relays via a webserver that they control. For example, you can follow me at `mike@mikedilger.com`. That's all you need to type in.");
             ui.add_space(10.0);
 
             ui.label("Other ways of following people include pasting their public key (hex or bech32 format) and typing in a relay URL which should start with 'ws'.  NOTE: use CTRL-V to paste, other forms of pasting (X11 middle click) won't work.");
@@ -42,7 +42,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if ui.link("People > Follow Someone New").clicked() {
                     app.page = Page::PeopleFollow;
                 }
-                ui.label("page and add people to follow. If you don't know anybody, you can follow me at NIP-35 DNS ID mike@mikedilger.com and you can find other people through me (posts I reply to or quote).");
+                ui.label("page and add people to follow. If you don't know anybody, you can follow me at NIP-05 DNS ID mike@mikedilger.com and you can find other people through me (posts I reply to or quote).");
             });
             ui.add_space(10.0);
 
@@ -92,7 +92,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if ui.link("Relays").clicked() {
                     app.page = Page::Relays;
                 }
-                ui.label("page and tick a half dozen relays that you intend to post to. If your webserver serves a nostr.json file, you can follow NIP-35 and use the same relays in that file.");
+                ui.label("page and tick a half dozen relays that you intend to post to. If your webserver serves a nostr.json file, you can follow NIP-05 and use the same relays in that file.");
             });
             ui.add_space(10.0);
 

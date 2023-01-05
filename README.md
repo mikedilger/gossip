@@ -17,7 +17,7 @@ Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form fol
 As of right now you can (if you aren't stopped by some bug):
 
 - [x] **Seeing other people's posts**
-    - [x] **Follow people** by user@domain (NIP-35) or by public key (hex or bech32) plus a relay where they can be found, or by finding them in the feed, clicking their avatar, and choosing to follow them on their page... and unfollow people.
+    - [x] **Follow people** by user@domain (NIP-05) or by public key (hex or bech32) plus a relay where they can be found, or by finding them in the feed, clicking their avatar, and choosing to follow them on their page... and unfollow people.
     - [x] **See a feed of posts from people you follow** including avatars and other user metadata, and reactions to these posts.
     - [X] **See threads related to a post** including ancestors and replies, although it may not be working as good as it will eventually work just yet.
     - [X] **See a list of posts of a person** on their person page
@@ -67,8 +67,8 @@ We intend to support the following features/NIPs:
 
 - [x] NIP-01 - Basic protocol flow description
 - [ ] NIP-02 - Contact List and Petnames
-- [ ] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers (partial)
 - [ ] NIP-04 - Encrypted Direct Message: I doesn't believe this is a good idea to do encrypted messaging this way, as it leaks metadata and has a cryptographic weakness. But it is in common enough usage.
+- [ ] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers (partial)
 - [ ] NIP-08 - Handling Mentions
 - [x] NIP-09 - Event Deletion
 - [x] NIP-10 - Conventions for clients' use of e and p tags in text events
@@ -84,7 +84,6 @@ We intend to support the following features/NIPs:
 - [ ] NIP-25 - Reactions (viewing, not yet creating)
 - [ ] NIP-26 - Delegated Event Signing
 - [ ] NIP-28 - Public Chat
-- [x] NIP-35 - User Discovery
 - [ ] NIP-36 - Sensitive Content
 - [ ] NIP-40 - Expiration Timestamp
 
@@ -199,7 +198,7 @@ terms or conditions.
 
 My public key is ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49
 
-You can also my NIP-05/NIP-35 address of `mike@mikedilger.com` which will also hook you up with the relays I post to.
+You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you up with the relays I post to.
 
 Note: I will rollover my public key once gossip is my daily driver.
 

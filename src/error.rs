@@ -24,7 +24,7 @@ pub enum Error {
     #[error("NIP-05 public key not found")]
     Nip05NotFound,
 
-    #[error("NIP-35 relays not found")]
+    #[error("NIP-05 relays not found")]
     Nip35NotFound,
 
     #[error("Nostr: {0}")]

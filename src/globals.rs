@@ -140,7 +140,7 @@ impl Globals {
         desired_events.retain(|&id, _| !events.contains_key(&id));
     }
 
-    async fn get_desired_events_prelude() -> Result<(), Error> {
+    pub async fn get_local_desired_events() -> Result<(), Error> {
         Self::trim_desired_events().await;
 
         // Load from database
@@ -172,7 +172,7 @@ impl Globals {
     }
 
     pub async fn get_desired_events() -> Result<(HashMap<Url, Vec<Id>>, Vec<Id>), Error> {
-        Globals::get_desired_events_prelude().await?;
+        Globals::get_local_desired_events().await?;
 
         let desired_events = GLOBALS.desired_events.read().await;
         let mut output: HashMap<Url, Vec<Id>> = HashMap::new();

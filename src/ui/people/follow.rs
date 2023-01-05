@@ -17,7 +17,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.separator();
     ui.add_space(10.0);
 
-    ui.heading("NIP-35: Follow a DNS ID");
+    ui.heading("NIP-05: Follow a DNS ID");
 
     ui.horizontal(|ui| {
         ui.label("Enter user@domain");
