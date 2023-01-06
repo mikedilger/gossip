@@ -18,7 +18,7 @@ pub(super) fn dark_mode_visuals() -> Visuals {
 
         // Foreground colors
         window_stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)), // DONE
-        override_text_color: None,
+        override_text_color: Some(Color32::LIGHT_GRAY),
         warn_fg_color: Color32::from_rgb(255, 143, 0), // orange
         error_fg_color: Color32::from_rgb(255, 0, 0),  // red
         hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae), // DONE
