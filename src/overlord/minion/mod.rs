@@ -275,9 +275,44 @@ impl Minion {
         // but we may need to update the subscription
 
         let mut filters: Vec<Filter> = Vec::new();
-        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+        let (overlap, feed_chunk) = {
+            let settings = GLOBALS.settings.read().await.clone();
+            (Duration::from_secs(settings.overlap), Duration::from_secs(settings.feed_chunk))
+        };
 
         let followed_pubkeys = GLOBALS.people.read().await.get_followed_pubkeys();
+
+        // Compute how far to look back
+        let (feed_since, special_since) = {
+            /*
+            // Find the oldest 'last_fetched' among the 'person_relay' table.
+            // Null values will come through as 0.
+            let mut special_since: i64 =
+                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
+             */
+
+            // Start with where we left off, the time we last got something from
+            // this relay.
+            let mut special_since: Unixtime = match self.dbrelay.last_success_at {
+                Some(u) => Unixtime(u as i64),
+                None => Unixtime(0),
+            };
+
+            // Subtract overlap to avoid gaps due to clock sync and event
+            // propogation delay
+            special_since = special_since - overlap;
+
+            // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
+            if special_since.0 < 1577836800 {
+                special_since.0 = 1577836800;
+            }
+
+            // For feed related events, don't look back more than one feed_chunk ago
+            let one_feedchunk_ago = Unixtime::now().unwrap() - feed_chunk;
+            let feed_since = special_since.max(one_feedchunk_ago);
+
+            (feed_since, special_since)
+        };
 
         if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
             // feed related by me
@@ -288,14 +323,14 @@ impl Minion {
                     EventKind::Reaction,
                     EventKind::EventDeletion,
                 ],
-                since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+                since: Some(feed_since),
                 ..Default::default()
             });
 
             // Any mentions of me
             filters.push(Filter {
                 p: vec![pubkey.into()],
-                since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk * 10)), // further back
+                since: Some(special_since),
                 ..Default::default()
             });
 
@@ -320,7 +355,7 @@ impl Minion {
                     EventKind::Reaction,
                     EventKind::EventDeletion,
                 ],
-                since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+                since: Some(feed_since),
                 ..Default::default()
             });
 
