@@ -38,12 +38,6 @@ impl Subscriptions {
         }
     }
 
-    /*
-    pub fn get_by_id(&self, id: &str) -> Option<Subscription> {
-        self.by_id.get(id).cloned()
-    }
-     */
-
     pub fn get_handle_by_id(&self, id: &str) -> Option<String> {
         for (handle, xid) in self.handle_to_id.iter() {
             if id == xid {

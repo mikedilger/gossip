@@ -2,6 +2,7 @@ use super::Minion;
 use crate::Error;
 use futures::SinkExt;
 use nostr_types::{RelayMessage, Unixtime};
+use std::sync::atomic::Ordering;
 use tungstenite::protocol::Message as WsMessage;
 
 impl Minion {
@@ -22,38 +23,54 @@ impl Minion {
                         &self.url,
                         e,
                         serde_json::to_string(&event)?
-                    )
-                } else {
-                    let handle = self
-                        .subscriptions
-                        .get_handle_by_id(&subid.0)
-                        .unwrap_or_else(|| "_".to_owned());
-                    tracing::debug!("{}: {}: NEW EVENT", &self.url, handle);
+                    );
+                    return Err(e.into());
+                }
 
-                    // Try processing everything immediately
-                    crate::process::process_new_event(
-                        &event,
-                        true,
-                        Some(self.url.clone()),
-                        Some(handle),
-                    )
+                let handle = self
+                    .subscriptions
+                    .get_handle_by_id(&subid.0)
+                    .unwrap_or_else(|| "_".to_owned());
+
+                tracing::debug!("{}: {}: NEW EVENT", &self.url, handle);
+
+                if let Some(sub) = self.subscriptions.get_mut_by_id(&subid.0) {
+                    if let Some(esd) = &sub.event_stream_data {
+                        // Push a new event onto this event stream
+                        (*esd.events.lock().await).push_back(*event);
+
+                        // Wake up the event stream waiting for it
+                        esd.waker.lock().await.as_ref().unwrap().wake_by_ref();
+
+                        return Ok(());
+                    }
+                }
+
+                // Old event handling
+
+                // Try processing everything immediately
+                crate::process::process_new_event(
+                    &event,
+                    true,
+                    Some(self.url.clone()),
+                    Some(handle),
+                )
                     .await?;
 
-                    /*
-                    if event.kind == EventKind::TextNote {
-                        // Just store text notes in incoming
-                        GLOBALS
-                            .incoming_events
-                            .write()
-                            .await
-                            .push((*event, self.url.clone(), handle));
-                    } else {
-                        // Process everything else immediately
-                        crate::process::process_new_event(&event, true, Some(self.url.clone()))
-                            .await?;
-                    }
-                     */
-                }
+                /*
+                if event.kind == EventKind::TextNote {
+                // Just store text notes in incoming
+                GLOBALS
+                .incoming_events
+                .write()
+                .await
+                .push((*event, self.url.clone(), handle));
+            } else {
+                // Process everything else immediately
+                crate::process::process_new_event(&event, true, Some(self.url.clone()))
+                .await?;
+            }
+                 */
             }
             RelayMessage::Notice(msg) => {
                 tracing::info!("{}: NOTICE: {}", &self.url, msg);
@@ -77,6 +94,13 @@ impl Minion {
                             websocket_sink.send(WsMessage::Text(wire.clone())).await?;
                         } else {
                             sub.set_eose();
+                            if let Some(esd) = &sub.event_stream_data {
+                                // Mark the stream as at an end
+                                esd.end.store(true, Ordering::Relaxed);
+
+                                // Wake up the event stream waiting on it
+                                esd.waker.lock().await.as_ref().unwrap().wake_by_ref();
+                            }
                         }
                     }
                     None => {
