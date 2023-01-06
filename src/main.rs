@@ -11,6 +11,7 @@ mod error;
 mod feed;
 mod fetcher;
 mod globals;
+mod nip05;
 mod overlord;
 mod people;
 mod process;
