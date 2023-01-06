@@ -99,7 +99,10 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-        if cctx.egui_ctx.style().visuals.dark_mode {
+        // grab settings to determine whether to render dark_mode or light_mode
+        let settings = GLOBALS.settings.blocking_read().clone();
+
+        if ! settings.light_mode {
             cctx.egui_ctx.set_visuals(style::dark_mode_visuals());
         } else {
             cctx.egui_ctx.set_visuals(style::light_mode_visuals());
@@ -136,8 +139,6 @@ impl GossipUi {
                 TextureOptions::default(), // magnification, minification
             )
         };
-
-        let settings = GLOBALS.settings.blocking_read().clone();
 
         GossipUi {
             next_frame: Instant::now(),
@@ -180,8 +181,6 @@ impl eframe::App for GossipUi {
         {
             frame.close();
         }
-
-        let darkmode: bool = ctx.style().visuals.dark_mode;
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -273,7 +272,7 @@ impl eframe::App for GossipUi {
             }
             Page::You => you::update(self, ctx, frame, ui),
             Page::Relays => relays::update(self, ctx, frame, ui),
-            Page::Settings => settings::update(self, ctx, frame, ui, darkmode),
+            Page::Settings => settings::update(self, ctx, frame, ui),
             Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                 help::update(self, ctx, frame, ui)
             }
