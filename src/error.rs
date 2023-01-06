@@ -22,10 +22,10 @@ pub enum Error {
     MpscSend(#[from] tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
 
     #[error("NIP-05 public key not found")]
-    Nip05NotFound,
+    Nip05KeyNotFound,
 
     #[error("NIP-05 relays not found")]
-    Nip35NotFound,
+    Nip05RelaysNotFound,
 
     #[error("Nostr: {0}")]
     Nostr(#[from] nostr_types::Error),
@@ -42,7 +42,7 @@ pub enum Error {
     #[error("INTERNAL: {0}")]
     Internal(String),
 
-    #[error("Invalid DNS ID (nip-05 / nip-35), should be user@domain")]
+    #[error("Invalid DNS ID (nip-05), should be user@domain")]
     InvalidDnsId,
 
     #[error("Invalid URI: {0}")]

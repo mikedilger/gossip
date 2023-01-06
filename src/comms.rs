@@ -7,7 +7,7 @@ pub enum ToOverlordMessage {
     DeletePub,
     FollowBech32(String, String),
     FollowHex(String, String),
-    FollowNip35(String),
+    FollowNip05(String),
     GeneratePrivateKey(String),
     GetMissingEvents,
     ImportPriv(String, String),

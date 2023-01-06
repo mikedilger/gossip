@@ -21,13 +21,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Enter user@domain");
-        ui.add(TextEdit::singleline(&mut app.nip35follow).hint_text("user@domain"));
+        ui.add(TextEdit::singleline(&mut app.nip05follow).hint_text("user@domain"));
     });
     if ui.button("follow").clicked() {
         let _ = GLOBALS
             .to_overlord
-            .send(ToOverlordMessage::FollowNip35(app.nip35follow.clone()));
-        app.nip35follow = "".to_owned();
+            .send(ToOverlordMessage::FollowNip05(app.nip05follow.clone()));
+        app.nip05follow = "".to_owned();
     }
 
     ui.add_space(10.0);

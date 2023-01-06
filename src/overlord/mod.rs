@@ -371,9 +371,9 @@ impl Overlord {
             ToOverlordMessage::FollowHex(hex, relay) => {
                 Overlord::follow_hexkey(hex, relay).await?;
             }
-            ToOverlordMessage::FollowNip35(dns_id) => {
+            ToOverlordMessage::FollowNip05(dns_id) => {
                 let _ = tokio::spawn(async move {
-                    if let Err(e) = Overlord::get_and_follow_nip35(dns_id).await {
+                    if let Err(e) = Overlord::get_and_follow_nip05(dns_id).await {
                         tracing::error!("{}", e);
                     }
                 });
@@ -554,8 +554,8 @@ impl Overlord {
         Ok(())
     }
 
-    async fn get_and_follow_nip35(nip35: String) -> Result<(), Error> {
-        let mut parts: Vec<&str> = nip35.split('@').collect();
+    async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
+        let mut parts: Vec<&str> = nip05.split('@').collect();
         if parts.len() == 1 {
             parts = Vec::from(["_", parts.first().unwrap()])
         }
@@ -575,16 +575,16 @@ impl Overlord {
         let timeout_future = tokio::time::timeout(std::time::Duration::new(15, 0), nip05_future);
         let response = timeout_future.await??;
         let nip05 = response.json::<Nip05>().await?;
-        Overlord::follow_nip35(nip05, user.to_string(), domain.to_string()).await?;
+        Overlord::follow_nip05(nip05, user.to_string(), domain.to_string()).await?;
         Ok(())
     }
 
-    async fn follow_nip35(nip05: Nip05, user: String, domain: String) -> Result<(), Error> {
+    async fn follow_nip05(nip05: Nip05, user: String, domain: String) -> Result<(), Error> {
         let dns_id = format!("{}@{}", user, domain);
 
         let pubkey = match nip05.names.get(&user) {
             Some(pk) => pk,
-            None => return Err(Error::Nip05NotFound),
+            None => return Err(Error::Nip05KeyNotFound),
         };
 
         // Save person
@@ -612,7 +612,7 @@ impl Overlord {
 
         let relays = match nip05.relays.get(pubkey) {
             Some(relays) => relays,
-            None => return Err(Error::Nip35NotFound),
+            None => return Err(Error::Nip05RelaysNotFound),
         };
 
         for relay in relays.iter() {
@@ -623,7 +623,7 @@ impl Overlord {
                 DbRelay::insert(db_relay).await?;
 
                 // Save person_relay
-                DbPersonRelay::upsert_last_suggested_nip35(
+                DbPersonRelay::upsert_last_suggested_nip05(
                     (*pubkey).into(),
                     relay.inner().to_owned(),
                     Unixtime::now().unwrap().0 as u64,

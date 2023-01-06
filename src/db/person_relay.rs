@@ -12,14 +12,14 @@ pub struct DbPersonRelay {
     pub last_suggested_kind2: Option<u64>,
     pub last_suggested_kind3: Option<u64>,
     pub last_suggested_nip23: Option<u64>,
-    pub last_suggested_nip35: Option<u64>,
+    pub last_suggested_nip05: Option<u64>,
     pub last_suggested_bytag: Option<u64>,
 }
 
 impl DbPersonRelay {
     /*
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPersonRelay>, Error> {
-        let sql = "SELECT person, relay, last_fetched, last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, last_suggested_nip35, last_suggested_bytag FROM person_relay".to_owned();
+        let sql = "SELECT person, relay, last_fetched, last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, last_suggested_nip05, last_suggested_bytag FROM person_relay".to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -38,7 +38,7 @@ impl DbPersonRelay {
                     last_suggested_kind2: row.get(3)?,
                     last_suggested_kind3: row.get(4)?,
                     last_suggested_nip23: row.get(5)?,
-                    last_suggested_nip35: row.get(6)?,
+                    last_suggested_nip05: row.get(6)?,
                     last_suggested_bytag: row.get(7)?,
                 })
             })?;
@@ -64,7 +64,7 @@ impl DbPersonRelay {
         let sql = format!(
             "SELECT person, relay, person_relay.last_fetched, \
              last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
-             last_suggested_nip35, last_suggested_bytag \
+             last_suggested_nip05, last_suggested_bytag \
              FROM person_relay \
              INNER JOIN relay ON person_relay.relay=relay.url \
              WHERE person IN ({}) ORDER BY person, relay.rank DESC",
@@ -86,7 +86,7 @@ impl DbPersonRelay {
                     last_suggested_kind2: row.get(3)?,
                     last_suggested_kind3: row.get(4)?,
                     last_suggested_nip23: row.get(5)?,
-                    last_suggested_nip35: row.get(6)?,
+                    last_suggested_nip05: row.get(6)?,
                     last_suggested_bytag: row.get(7)?,
                 })
             })?;
@@ -142,7 +142,7 @@ impl DbPersonRelay {
     pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, \
                    last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
-                   last_suggested_nip35, last_suggested_bytag) \
+                   last_suggested_nip05, last_suggested_bytag) \
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         spawn_blocking(move || {
@@ -157,7 +157,7 @@ impl DbPersonRelay {
                 &person_relay.last_suggested_kind2,
                 &person_relay.last_suggested_kind3,
                 &person_relay.last_suggested_nip23,
-                &person_relay.last_suggested_nip35,
+                &person_relay.last_suggested_nip05,
                 &person_relay.last_suggested_bytag,
             ))?;
             Ok::<(), Error>(())
@@ -216,14 +216,14 @@ impl DbPersonRelay {
         Ok(())
     }
 
-    pub async fn upsert_last_suggested_nip35(
+    pub async fn upsert_last_suggested_nip05(
         person: PublicKeyHex,
         relay: String,
-        last_suggested_nip35: u64,
+        last_suggested_nip05: u64,
     ) -> Result<(), Error> {
-        let sql = "INSERT INTO person_relay (person, relay, last_suggested_nip35) \
+        let sql = "INSERT INTO person_relay (person, relay, last_suggested_nip05) \
                    VALUES (?, ?, ?) \
-                   ON CONFLICT(person, relay) DO UPDATE SET last_suggested_nip35=?";
+                   ON CONFLICT(person, relay) DO UPDATE SET last_suggested_nip05=?";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -233,8 +233,8 @@ impl DbPersonRelay {
             stmt.execute((
                 &person.0,
                 &relay,
-                &last_suggested_nip35,
-                &last_suggested_nip35,
+                &last_suggested_nip05,
+                &last_suggested_nip05,
             ))?;
             Ok::<(), Error>(())
         })
@@ -259,7 +259,7 @@ impl DbPersonRelay {
             "SELECT \
              person, relay, person_relay.last_fetched, \
              last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
-             last_suggested_nip35, last_suggested_bytag \
+             last_suggested_nip05, last_suggested_bytag \
              FROM person_relay
              INNER JOIN relay ON person_relay.relay=relay.url \
              WHERE person IN ({}) and relay in ({}) \
@@ -286,7 +286,7 @@ impl DbPersonRelay {
                     last_suggested_kind2: row.get(3)?,
                     last_suggested_kind3: row.get(4)?,
                     last_suggested_nip23: row.get(5)?,
-                    last_suggested_nip35: row.get(6)?,
+                    last_suggested_nip05: row.get(6)?,
                     last_suggested_bytag: row.get(7)?,
                 })
             })?;
