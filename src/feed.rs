@@ -129,7 +129,6 @@ impl Feed {
             .filter(|e| e.kind == EventKind::TextNote)
             .filter(|e| e.pubkey.as_hex_string() == person.0)
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
-            .map(|e| e.to_owned())
             .collect();
 
         events.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
@@ -158,7 +157,6 @@ impl Feed {
             .iter()
             .map(|r| r.value().to_owned())
             .filter(|e| e.kind == EventKind::TextNote)
-            .map(|e| e.to_owned())
             .collect();
 
         let mut pubkeys = GLOBALS.people.blocking_read().get_followed_pubkeys();

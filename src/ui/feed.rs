@@ -27,6 +27,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         FeedKind::Person(_) => Page::FeedPerson,
     };
 
+    // Feed Page Selection
     ui.horizontal(|ui| {
         if ui
             .add(SelectableLabel::new(
@@ -66,6 +67,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     });
     ui.separator();
 
+    // Top Buttons
     Globals::trim_desired_events_sync();
     let desired_count: isize = match GLOBALS.desired_events.try_read() {
         Ok(v) => v.len() as isize,
@@ -77,7 +79,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             Err(_) => -1,
     };
         */
-
     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
         if ui
             .button(&format!("QM {}", desired_count))
@@ -109,6 +110,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         .on_hover_text("Requests In Flight (http, not wss)");
     });
 
+    // Posting Area
     ui.vertical(|ui| {
         if !GLOBALS.signer.blocking_read().is_ready() {
             ui.horizontal(|ui| {
@@ -116,7 +118,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 if ui.link("setup your identity").clicked() {
                     app.page = Page::You;
                 }
-                ui.label(" to post or see your replies.");
+                ui.label(" to post.");
             });
         } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
             ui.horizontal(|ui| {
@@ -183,6 +185,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false);
         }
         FeedKind::Replies => {
+            if GLOBALS.signer.blocking_read().public_key().is_none() {
+                ui.horizontal(|ui| {
+                    ui.label("You need to ");
+                    if ui.link("setup an identity").clicked() {
+                        app.page = Page::Relays;
+                    }
+                    ui.label(" to see any replies to that identity.");
+                });
+            }
             let feed = GLOBALS.feed.get_replies();
             render_a_feed(app, ctx, frame, ui, feed, true);
         }
