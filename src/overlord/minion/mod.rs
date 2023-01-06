@@ -1,7 +1,7 @@
 mod handle_websocket;
 mod subscription;
 
-use crate::comms::{BusMessage, ToMinionMessage, ToMinionPayload};
+use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::DbRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -23,7 +23,7 @@ use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 
 pub struct Minion {
     url: Url,
-    to_overlord: UnboundedSender<BusMessage>,
+    to_overlord: UnboundedSender<ToOverlordMessage>,
     from_overlord: Receiver<ToMinionMessage>,
     dbrelay: DbRelay,
     nip11: Option<RelayInformationDocument>,
@@ -221,7 +221,7 @@ impl Minion {
                 };
                 #[allow(clippy::collapsible_if)]
                 if to_minion_message.target == self.url.inner() || to_minion_message.target == "all" {
-                    keepgoing = self.handle_bus_message(to_minion_message).await?;
+                    keepgoing = self.handle_message(to_minion_message).await?;
                 }
             },
         }
@@ -229,7 +229,7 @@ impl Minion {
         Ok(keepgoing)
     }
 
-    pub async fn handle_bus_message(&mut self, message: ToMinionMessage) -> Result<bool, Error> {
+    pub async fn handle_message(&mut self, message: ToMinionMessage) -> Result<bool, Error> {
         match message.payload {
             ToMinionPayload::Shutdown => {
                 tracing::info!("{}: Websocket listener shutting down", &self.url);
@@ -262,7 +262,7 @@ impl Minion {
     }
 
     async fn tell_overlord_we_are_ready(&self) -> Result<(), Error> {
-        self.to_overlord.send(BusMessage {
+        self.to_overlord.send(ToOverlordMessage {
             kind: "minion_is_ready".to_string(),
             json_payload: "".to_owned(),
         })?;

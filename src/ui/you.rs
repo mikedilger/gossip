@@ -1,5 +1,5 @@
 use super::GossipUi;
-use crate::comms::BusMessage;
+use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
@@ -142,7 +142,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         if ui.button("Unlock Private Key").clicked() {
             let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(BusMessage {
+            let _ = tx.send(ToOverlordMessage {
                 kind: "unlock_key".to_string(),
                 json_payload: serde_json::to_string(&app.password).unwrap(),
             });
@@ -158,7 +158,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
         if ui.button("Generate Now").clicked() {
             let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(BusMessage {
+            let _ = tx.send(ToOverlordMessage {
                 kind: "generate_private_key".to_string(),
                 json_payload: serde_json::to_string(&app.password).unwrap(),
             });
@@ -186,7 +186,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
         if ui.button("import").clicked() {
             let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(BusMessage {
+            let _ = tx.send(ToOverlordMessage {
                 kind: "import_priv".to_string(),
                 json_payload: serde_json::to_string(&(&app.import_priv, &app.password)).unwrap(),
             });
@@ -224,7 +224,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             }
 
             if ui.button("Delete this public key").clicked() {
-                let _ = GLOBALS.to_overlord.send(BusMessage {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                     kind: "delete_pub".to_string(),
                     json_payload: serde_json::to_string(&app.import_pub).unwrap(),
                 });
@@ -234,7 +234,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 ui.label("Enter your public key");
                 ui.add(TextEdit::singleline(&mut app.import_pub).hint_text("npub1 or hex"));
                 if ui.button("Import a Public Key").clicked() {
-                    let _ = GLOBALS.to_overlord.send(BusMessage {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                         kind: "import_pub".to_string(),
                         json_payload: serde_json::to_string(&app.import_pub).unwrap(),
                     });

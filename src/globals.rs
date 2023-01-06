@@ -1,4 +1,4 @@
-use crate::comms::{BusMessage, ToMinionMessage};
+use crate::comms::{ToMinionMessage, ToOverlordMessage};
 use crate::db::{DbEvent, DbRelay};
 use crate::error::Error;
 use crate::feed::Feed;
@@ -25,11 +25,11 @@ pub struct Globals {
 
     /// This is a mpsc channel. The Overlord listens on it.
     /// To create a sender, just clone() it.
-    pub to_overlord: mpsc::UnboundedSender<BusMessage>,
+    pub to_overlord: mpsc::UnboundedSender<ToOverlordMessage>,
 
     /// This is ephemeral. It is filled during lazy_static initialization,
     /// and stolen away when the Overlord is created.
-    pub tmp_overlord_receiver: Mutex<Option<mpsc::UnboundedReceiver<BusMessage>>>,
+    pub tmp_overlord_receiver: Mutex<Option<mpsc::UnboundedReceiver<ToOverlordMessage>>>,
 
     /// All nostr events, keyed by the event Id
     pub events: RwLock<HashMap<Id, Event>>,

@@ -1,5 +1,5 @@
 use super::{GossipUi, Page};
-use crate::comms::BusMessage;
+use crate::comms::ToOverlordMessage;
 use crate::db::DbPerson;
 use crate::globals::GLOBALS;
 use eframe::egui;
@@ -57,7 +57,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
 
         if ui.button("UPDATE METADATA").clicked() {
-            let _ = GLOBALS.to_overlord.send(BusMessage {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                 kind: "update_metadata".to_string(),
                 json_payload: serde_json::to_string(&pubkeyhex).unwrap(),
             });

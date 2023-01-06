@@ -19,7 +19,7 @@ mod settings;
 mod signer;
 mod ui;
 
-use crate::comms::BusMessage;
+use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use std::ops::DerefMut;
@@ -92,7 +92,7 @@ async fn tokio_main() {
 // Any task can call this to shutdown
 pub fn initiate_shutdown() -> Result<(), Error> {
     let to_overlord = GLOBALS.to_overlord.clone();
-    let _ = to_overlord.send(BusMessage {
+    let _ = to_overlord.send(ToOverlordMessage {
         kind: "shutdown".to_string(),
         json_payload: serde_json::to_string("").unwrap(),
     }); // ignore errors

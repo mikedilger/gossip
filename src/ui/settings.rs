@@ -1,5 +1,5 @@
 use super::GossipUi;
-use crate::comms::BusMessage;
+use crate::comms::ToOverlordMessage;
 use crate::GLOBALS;
 use eframe::egui;
 use egui::widgets::{Button, Slider};
@@ -152,7 +152,7 @@ pub(super) fn update(
 
             // Tell the overlord to save them
             let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(BusMessage {
+            let _ = tx.send(ToOverlordMessage {
                 kind: "save_settings".to_string(),
                 json_payload: serde_json::to_string("").unwrap(),
             });

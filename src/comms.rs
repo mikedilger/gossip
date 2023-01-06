@@ -5,7 +5,7 @@ use zeroize::Zeroize;
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone, Serialize)]
-pub struct BusMessage {
+pub struct ToOverlordMessage {
     /// What kind of message is this
     pub kind: String,
 
@@ -13,9 +13,9 @@ pub struct BusMessage {
     pub json_payload: String,
 }
 
-/// We may send passwords through BusMessage objects, so we zeroize
+/// We may send passwords through ToOverlordMessage objects, so we zeroize
 /// bus message payloads upon drop.
-impl Drop for BusMessage {
+impl Drop for ToOverlordMessage {
     fn drop(&mut self) {
         self.json_payload.zeroize();
     }

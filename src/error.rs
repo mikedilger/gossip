@@ -1,4 +1,4 @@
-use crate::comms::{BusMessage, ToMinionMessage};
+use crate::comms::{ToMinionMessage, ToOverlordMessage};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -19,7 +19,7 @@ pub enum Error {
     JoinError(#[from] tokio::task::JoinError),
 
     #[error("Error sending mpsc: {0}")]
-    MpscSend(#[from] tokio::sync::mpsc::error::SendError<BusMessage>),
+    MpscSend(#[from] tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
 
     #[error("NIP-05 public key not found")]
     Nip05NotFound,

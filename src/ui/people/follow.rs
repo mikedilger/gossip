@@ -1,5 +1,5 @@
 use super::GossipUi;
-use crate::comms::BusMessage;
+use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, TextEdit, Ui};
@@ -25,7 +25,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
     if ui.button("follow").clicked() {
         let tx = GLOBALS.to_overlord.clone();
-        let _ = tx.send(BusMessage {
+        let _ = tx.send(ToOverlordMessage {
             kind: "follow_nip35".to_string(),
             json_payload: serde_json::to_string(&app.nip35follow).unwrap(),
         });
@@ -48,7 +48,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
     if ui.button("follow").clicked() {
         let tx = GLOBALS.to_overlord.clone();
-        let _ = tx.send(BusMessage {
+        let _ = tx.send(ToOverlordMessage {
             kind: "follow_bech32".to_string(),
             json_payload: serde_json::to_string(&(
                 &app.follow_bech32_pubkey,
@@ -76,7 +76,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
     if ui.button("follow").clicked() {
         let tx = GLOBALS.to_overlord.clone();
-        let _ = tx.send(BusMessage {
+        let _ = tx.send(ToOverlordMessage {
             kind: "follow_hexkey".to_string(),
             json_payload: serde_json::to_string(&(
                 &app.follow_hex_pubkey,

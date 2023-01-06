@@ -1,7 +1,7 @@
 mod minion;
 mod relay_picker;
 
-use crate::comms::{BusMessage, ToMinionMessage, ToMinionPayload};
+use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::{DbEvent, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
@@ -20,7 +20,7 @@ use zeroize::Zeroize;
 
 pub struct Overlord {
     to_minions: Sender<ToMinionMessage>,
-    inbox: UnboundedReceiver<BusMessage>,
+    inbox: UnboundedReceiver<ToOverlordMessage>,
 
     // All the minion tasks running.
     minions: task::JoinSet<()>,
@@ -33,7 +33,7 @@ pub struct Overlord {
 }
 
 impl Overlord {
-    pub fn new(inbox: UnboundedReceiver<BusMessage>) -> Overlord {
+    pub fn new(inbox: UnboundedReceiver<ToOverlordMessage>) -> Overlord {
         let to_minions = GLOBALS.to_minions.clone();
         Overlord {
             to_minions,
@@ -276,27 +276,27 @@ impl Overlord {
 
         if self.minions.is_empty() {
             // Just listen on inbox
-            let bus_message = self.inbox.recv().await;
-            let bus_message = match bus_message {
+            let message = self.inbox.recv().await;
+            let message = match message {
                 Some(bm) => bm,
                 None => {
                     // All senders dropped, or one of them closed.
                     return Ok(false);
                 }
             };
-            keepgoing = self.handle_bus_message(bus_message).await?;
+            keepgoing = self.handle_message(message).await?;
         } else {
             // Listen on inbox, and dying minions
             select! {
-                bus_message = self.inbox.recv() => {
-                    let bus_message = match bus_message {
+                message = self.inbox.recv() => {
+                    let message = match message {
                         Some(bm) => bm,
                         None => {
                             // All senders dropped, or one of them closed.
                             return Ok(false);
                         }
                     };
-                    keepgoing = self.handle_bus_message(bus_message).await?;
+                    keepgoing = self.handle_message(message).await?;
                 },
                 task_nextjoined = self.minions.join_next_with_id() => {
                     self.handle_task_nextjoined(task_nextjoined).await;
@@ -355,9 +355,9 @@ impl Overlord {
         }
     }
 
-    async fn handle_bus_message(&mut self, bus_message: BusMessage) -> Result<bool, Error> {
+    async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         #[allow(clippy::single_match)] // because temporarily so
-        match &*bus_message.kind {
+        match &*message.kind {
             "shutdown" => {
                 tracing::info!("Overlord shutting down");
                 return Ok(false);
@@ -371,7 +371,7 @@ impl Overlord {
                 self.get_missing_events().await?;
             }
             "follow_nip35" => {
-                let dns_id: String = serde_json::from_str(&bus_message.json_payload)?;
+                let dns_id: String = serde_json::from_str(&message.json_payload)?;
                 let _ = tokio::spawn(async move {
                     if let Err(e) = Overlord::get_and_follow_nip35(dns_id).await {
                         tracing::error!("{}", e);
@@ -379,15 +379,15 @@ impl Overlord {
                 });
             }
             "follow_bech32" => {
-                let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
+                let data: (String, String) = serde_json::from_str(&message.json_payload)?;
                 Overlord::follow_bech32(data.0, data.1).await?;
             }
             "follow_hexkey" => {
-                let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
+                let data: (String, String) = serde_json::from_str(&message.json_payload)?;
                 Overlord::follow_hexkey(data.0, data.1).await?;
             }
             "unlock_key" => {
-                let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
+                let mut password: String = serde_json::from_str(&message.json_payload)?;
                 GLOBALS
                     .signer
                     .write()
@@ -404,7 +404,7 @@ impl Overlord {
                 }
             }
             "generate_private_key" => {
-                let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
+                let mut password: String = serde_json::from_str(&message.json_payload)?;
                 GLOBALS
                     .signer
                     .write()
@@ -415,7 +415,7 @@ impl Overlord {
             }
             "import_priv" => {
                 let (mut import_priv, mut password): (String, String) =
-                    serde_json::from_str(&bus_message.json_payload)?;
+                    serde_json::from_str(&message.json_payload)?;
                 let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
                 let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
                 import_priv.zeroize();
@@ -435,7 +435,7 @@ impl Overlord {
                 }
             }
             "import_pub" => {
-                let pubstr: String = serde_json::from_str(&bus_message.json_payload)?;
+                let pubstr: String = serde_json::from_str(&message.json_payload)?;
                 let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
                 let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
                 if maybe_pk1.is_err() && maybe_pk2.is_err() {
@@ -469,17 +469,16 @@ impl Overlord {
                 }
             }
             "post_textnote" => {
-                let content: String = serde_json::from_str(&bus_message.json_payload)?;
+                let content: String = serde_json::from_str(&message.json_payload)?;
                 self.post_textnote(content).await?;
             }
             "post_reply" => {
                 let (content, reply_to): (String, Id) =
-                    serde_json::from_str(&bus_message.json_payload)?;
+                    serde_json::from_str(&message.json_payload)?;
                 self.post_reply(content, reply_to).await?;
             }
             "like" => {
-                let (id, pubkey): (Id, PublicKey) =
-                    serde_json::from_str(&bus_message.json_payload)?;
+                let (id, pubkey): (Id, PublicKey) = serde_json::from_str(&message.json_payload)?;
                 self.post_like(id, pubkey).await?;
             }
             "process_incoming_events" => {
@@ -494,12 +493,12 @@ impl Overlord {
                 });
             }
             "add_relay" => {
-                let relay_str: String = serde_json::from_str(&bus_message.json_payload)?;
+                let relay_str: String = serde_json::from_str(&message.json_payload)?;
                 let dbrelay = DbRelay::new(relay_str)?;
                 DbRelay::insert(dbrelay).await?;
             }
             "update_metadata" => {
-                let pubkey: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
+                let pubkey: PublicKeyHex = serde_json::from_str(&message.json_payload)?;
                 let person_relays = DbPersonRelay::fetch_for_pubkeys(&[pubkey.clone()]).await?;
 
                 for person_relay in person_relays.iter() {
