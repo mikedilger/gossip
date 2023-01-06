@@ -86,7 +86,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         {
             let tx = GLOBALS.to_overlord.clone();
             let _ = tx.send(BusMessage {
-                target: "overlord".to_string(),
                 kind: "get_missing_events".to_string(),
                 json_payload: serde_json::to_string("").unwrap(),
             });
@@ -100,7 +99,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         {
             let tx = GLOBALS.to_overlord.clone();
             let _ = tx.send(BusMessage {
-                target: "overlord".to_string(),
                 kind: "process_incoming_events".to_string(),
                 json_payload: serde_json::to_string("").unwrap(),
             });
@@ -156,7 +154,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     match app.replying_to {
                         Some(_id) => {
                             let _ = tx.send(BusMessage {
-                                target: "overlord".to_string(),
                                 kind: "post_reply".to_string(),
                                 json_payload: serde_json::to_string(&(
                                     &app.draft,
@@ -167,7 +164,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         }
                         None => {
                             let _ = tx.send(BusMessage {
-                                target: "overlord".to_string(),
                                 kind: "post_textnote".to_string(),
                                 json_payload: serde_json::to_string(&app.draft).unwrap(),
                             });
@@ -457,7 +453,6 @@ fn render_post_actual(
                             }
                             if ui.button("Update Metadata").clicked() {
                                 let _ = GLOBALS.to_overlord.send(BusMessage {
-                                    target: "overlord".to_string(),
                                     kind: "update_metadata".to_string(),
                                     json_payload: serde_json::to_string(
                                         &event.pubkey.as_hex_string(),
@@ -504,7 +499,6 @@ fn render_post_actual(
                         if ui.add(LikeButton {}).clicked() {
                             let tx = GLOBALS.to_overlord.clone();
                             let _ = tx.send(BusMessage {
-                                target: "overlord".to_string(),
                                 kind: "like".to_string(),
                                 json_payload: serde_json::to_string(&(&event.id, &event.pubkey))
                                     .unwrap(),

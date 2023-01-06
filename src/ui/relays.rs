@@ -26,7 +26,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             if test_url.is_valid_relay_url() {
                 let tx = GLOBALS.to_overlord.clone();
                 let _ = tx.send(BusMessage {
-                    target: "overlord".to_string(),
                     kind: "add_relay".to_string(),
                     json_payload: serde_json::to_string(&app.new_relay_url).unwrap(),
                 });
@@ -63,7 +62,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         if ui.button("SAVE CHANGES").clicked() {
             let tx = GLOBALS.to_overlord.clone();
             let _ = tx.send(BusMessage {
-                target: "overlord".to_string(),
                 kind: "save_relays".to_string(),
                 json_payload: serde_json::to_string("").unwrap(),
             });

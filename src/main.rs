@@ -93,7 +93,6 @@ async fn tokio_main() {
 pub fn initiate_shutdown() -> Result<(), Error> {
     let to_overlord = GLOBALS.to_overlord.clone();
     let _ = to_overlord.send(BusMessage {
-        target: "all".to_string(),
         kind: "shutdown".to_string(),
         json_payload: serde_json::to_string("").unwrap(),
     }); // ignore errors

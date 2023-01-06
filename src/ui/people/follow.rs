@@ -26,7 +26,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if ui.button("follow").clicked() {
         let tx = GLOBALS.to_overlord.clone();
         let _ = tx.send(BusMessage {
-            target: "overlord".to_string(),
             kind: "follow_nip35".to_string(),
             json_payload: serde_json::to_string(&app.nip35follow).unwrap(),
         });
@@ -50,7 +49,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if ui.button("follow").clicked() {
         let tx = GLOBALS.to_overlord.clone();
         let _ = tx.send(BusMessage {
-            target: "overlord".to_string(),
             kind: "follow_bech32".to_string(),
             json_payload: serde_json::to_string(&(
                 &app.follow_bech32_pubkey,
@@ -79,7 +77,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if ui.button("follow").clicked() {
         let tx = GLOBALS.to_overlord.clone();
         let _ = tx.send(BusMessage {
-            target: "overlord".to_string(),
             kind: "follow_hexkey".to_string(),
             json_payload: serde_json::to_string(&(
                 &app.follow_hex_pubkey,

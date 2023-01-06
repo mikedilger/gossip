@@ -357,172 +357,164 @@ impl Overlord {
 
     async fn handle_bus_message(&mut self, bus_message: BusMessage) -> Result<bool, Error> {
         #[allow(clippy::single_match)] // because temporarily so
-        match &*bus_message.target {
-            "all" => match &*bus_message.kind {
-                "shutdown" => {
-                    tracing::info!("Overlord shutting down");
-                    return Ok(false);
+        match &*bus_message.kind {
+            "shutdown" => {
+                tracing::info!("Overlord shutting down");
+                return Ok(false);
+            }
+            "minion_is_ready" => {}
+            "save_settings" => {
+                GLOBALS.settings.read().await.save().await?;
+                tracing::debug!("Settings saved.");
+            }
+            "get_missing_events" => {
+                self.get_missing_events().await?;
+            }
+            "follow_nip35" => {
+                let dns_id: String = serde_json::from_str(&bus_message.json_payload)?;
+                let _ = tokio::spawn(async move {
+                    if let Err(e) = Overlord::get_and_follow_nip35(dns_id).await {
+                        tracing::error!("{}", e);
+                    }
+                });
+            }
+            "follow_bech32" => {
+                let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
+                Overlord::follow_bech32(data.0, data.1).await?;
+            }
+            "follow_hexkey" => {
+                let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
+                Overlord::follow_hexkey(data.0, data.1).await?;
+            }
+            "unlock_key" => {
+                let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
+                GLOBALS
+                    .signer
+                    .write()
+                    .await
+                    .unlock_encrypted_private_key(&password)?;
+                password.zeroize();
+
+                // Update public key from private key
+                let public_key = GLOBALS.signer.read().await.public_key().unwrap();
+                {
+                    let mut settings = GLOBALS.settings.write().await;
+                    settings.public_key = Some(public_key);
+                    settings.save().await?;
                 }
-                _ => {}
-            },
-            "overlord" => match &*bus_message.kind {
-                "minion_is_ready" => {}
-                "save_settings" => {
-                    GLOBALS.settings.read().await.save().await?;
-                    tracing::debug!("Settings saved.");
-                }
-                "get_missing_events" => {
-                    self.get_missing_events().await?;
-                }
-                "follow_nip35" => {
-                    let dns_id: String = serde_json::from_str(&bus_message.json_payload)?;
-                    let _ = tokio::spawn(async move {
-                        if let Err(e) = Overlord::get_and_follow_nip35(dns_id).await {
-                            tracing::error!("{}", e);
-                        }
-                    });
-                }
-                "follow_bech32" => {
-                    let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
-                    Overlord::follow_bech32(data.0, data.1).await?;
-                }
-                "follow_hexkey" => {
-                    let data: (String, String) = serde_json::from_str(&bus_message.json_payload)?;
-                    Overlord::follow_hexkey(data.0, data.1).await?;
-                }
-                "unlock_key" => {
-                    let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
+            }
+            "generate_private_key" => {
+                let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
+                GLOBALS
+                    .signer
+                    .write()
+                    .await
+                    .generate_private_key(&password)?;
+                password.zeroize();
+                GLOBALS.signer.read().await.save_through_settings().await?;
+            }
+            "import_priv" => {
+                let (mut import_priv, mut password): (String, String) =
+                    serde_json::from_str(&bus_message.json_payload)?;
+                let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
+                let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
+                import_priv.zeroize();
+                if maybe_pk1.is_err() && maybe_pk2.is_err() {
+                    password.zeroize();
+                    *GLOBALS.status_message.write().await =
+                        "Private key not recognized.".to_owned();
+                } else {
+                    let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                     GLOBALS
                         .signer
                         .write()
                         .await
-                        .unlock_encrypted_private_key(&password)?;
+                        .set_private_key(privkey, &password)?;
                     password.zeroize();
-
-                    // Update public key from private key
-                    let public_key = GLOBALS.signer.read().await.public_key().unwrap();
+                    GLOBALS.signer.read().await.save_through_settings().await?;
+                }
+            }
+            "import_pub" => {
+                let pubstr: String = serde_json::from_str(&bus_message.json_payload)?;
+                let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
+                let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
+                if maybe_pk1.is_err() && maybe_pk2.is_err() {
+                    *GLOBALS.status_message.write().await = "Public key not recognized.".to_owned();
+                } else {
+                    let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
+                    GLOBALS.signer.write().await.set_public_key(pubkey);
+                    GLOBALS.signer.read().await.save_through_settings().await?;
+                }
+            }
+            "delete_pub" => {
+                GLOBALS.signer.write().await.clear_public_key();
+                GLOBALS.signer.read().await.save_through_settings().await?;
+            }
+            "save_relays" => {
+                let dirty_relays: Vec<DbRelay> = GLOBALS
+                    .relays
+                    .read()
+                    .await
+                    .iter()
+                    .filter_map(|(_, r)| if r.dirty { Some(r.to_owned()) } else { None })
+                    .collect();
+                tracing::info!("Saving {} relays", dirty_relays.len());
+                for relay in dirty_relays.iter() {
+                    // Just update 'post' since that's all 'dirty' indicates currently
+                    DbRelay::update_post(relay.url.to_owned(), relay.post).await?;
+                    if let Some(relay) = GLOBALS.relays.write().await.get_mut(&Url::new(&relay.url))
                     {
-                        let mut settings = GLOBALS.settings.write().await;
-                        settings.public_key = Some(public_key);
-                        settings.save().await?;
+                        relay.dirty = false;
                     }
                 }
-                "generate_private_key" => {
-                    let mut password: String = serde_json::from_str(&bus_message.json_payload)?;
-                    GLOBALS
-                        .signer
-                        .write()
-                        .await
-                        .generate_private_key(&password)?;
-                    password.zeroize();
-                    GLOBALS.signer.read().await.save_through_settings().await?;
-                }
-                "import_priv" => {
-                    let (mut import_priv, mut password): (String, String) =
-                        serde_json::from_str(&bus_message.json_payload)?;
-                    let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
-                    let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
-                    import_priv.zeroize();
-                    if maybe_pk1.is_err() && maybe_pk2.is_err() {
-                        password.zeroize();
-                        *GLOBALS.status_message.write().await =
-                            "Private key not recognized.".to_owned();
-                    } else {
-                        let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-                        GLOBALS
-                            .signer
-                            .write()
-                            .await
-                            .set_private_key(privkey, &password)?;
-                        password.zeroize();
-                        GLOBALS.signer.read().await.save_through_settings().await?;
-                    }
-                }
-                "import_pub" => {
-                    let pubstr: String = serde_json::from_str(&bus_message.json_payload)?;
-                    let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
-                    let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
-                    if maybe_pk1.is_err() && maybe_pk2.is_err() {
-                        *GLOBALS.status_message.write().await =
-                            "Public key not recognized.".to_owned();
-                    } else {
-                        let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-                        GLOBALS.signer.write().await.set_public_key(pubkey);
-                        GLOBALS.signer.read().await.save_through_settings().await?;
-                    }
-                }
-                "delete_pub" => {
-                    GLOBALS.signer.write().await.clear_public_key();
-                    GLOBALS.signer.read().await.save_through_settings().await?;
-                }
-                "save_relays" => {
-                    let dirty_relays: Vec<DbRelay> = GLOBALS
-                        .relays
-                        .read()
-                        .await
-                        .iter()
-                        .filter_map(|(_, r)| if r.dirty { Some(r.to_owned()) } else { None })
-                        .collect();
-                    tracing::info!("Saving {} relays", dirty_relays.len());
-                    for relay in dirty_relays.iter() {
-                        // Just update 'post' since that's all 'dirty' indicates currently
-                        DbRelay::update_post(relay.url.to_owned(), relay.post).await?;
-                        if let Some(relay) =
-                            GLOBALS.relays.write().await.get_mut(&Url::new(&relay.url))
-                        {
-                            relay.dirty = false;
-                        }
-                    }
-                }
-                "post_textnote" => {
-                    let content: String = serde_json::from_str(&bus_message.json_payload)?;
-                    self.post_textnote(content).await?;
-                }
-                "post_reply" => {
-                    let (content, reply_to): (String, Id) =
-                        serde_json::from_str(&bus_message.json_payload)?;
-                    self.post_reply(content, reply_to).await?;
-                }
-                "like" => {
-                    let (id, pubkey): (Id, PublicKey) =
-                        serde_json::from_str(&bus_message.json_payload)?;
-                    self.post_like(id, pubkey).await?;
-                }
-                "process_incoming_events" => {
-                    // Clear new events
-                    GLOBALS.event_is_new.write().await.clear();
+            }
+            "post_textnote" => {
+                let content: String = serde_json::from_str(&bus_message.json_payload)?;
+                self.post_textnote(content).await?;
+            }
+            "post_reply" => {
+                let (content, reply_to): (String, Id) =
+                    serde_json::from_str(&bus_message.json_payload)?;
+                self.post_reply(content, reply_to).await?;
+            }
+            "like" => {
+                let (id, pubkey): (Id, PublicKey) =
+                    serde_json::from_str(&bus_message.json_payload)?;
+                self.post_like(id, pubkey).await?;
+            }
+            "process_incoming_events" => {
+                // Clear new events
+                GLOBALS.event_is_new.write().await.clear();
 
-                    let _ = tokio::spawn(async move {
-                        for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
-                            let _ = crate::process::process_new_event(&event, true, Some(url), sub)
-                                .await;
-                        }
+                let _ = tokio::spawn(async move {
+                    for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
+                        let _ =
+                            crate::process::process_new_event(&event, true, Some(url), sub).await;
+                    }
+                });
+            }
+            "add_relay" => {
+                let relay_str: String = serde_json::from_str(&bus_message.json_payload)?;
+                let dbrelay = DbRelay::new(relay_str)?;
+                DbRelay::insert(dbrelay).await?;
+            }
+            "update_metadata" => {
+                let pubkey: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
+                let person_relays = DbPersonRelay::fetch_for_pubkeys(&[pubkey.clone()]).await?;
+
+                for person_relay in person_relays.iter() {
+                    // Start a minion for this relay if there is none
+                    if !self.urls_watching.contains(&Url::new(&person_relay.relay)) {
+                        self.start_minion(person_relay.relay.clone()).await?;
+                    }
+
+                    // Subscribe to metadata and contact lists for this person
+                    let _ = self.to_minions.send(ToMinionMessage {
+                        target: person_relay.relay.to_string(),
+                        payload: ToMinionPayload::TempSubscribeMetadata(pubkey.clone()),
                     });
                 }
-                "add_relay" => {
-                    let relay_str: String = serde_json::from_str(&bus_message.json_payload)?;
-                    let dbrelay = DbRelay::new(relay_str)?;
-                    DbRelay::insert(dbrelay).await?;
-                }
-                "update_metadata" => {
-                    let pubkey: PublicKeyHex = serde_json::from_str(&bus_message.json_payload)?;
-                    let person_relays = DbPersonRelay::fetch_for_pubkeys(&[pubkey.clone()]).await?;
-
-                    for person_relay in person_relays.iter() {
-                        // Start a minion for this relay if there is none
-                        if !self.urls_watching.contains(&Url::new(&person_relay.relay)) {
-                            self.start_minion(person_relay.relay.clone()).await?;
-                        }
-
-                        // Subscribe to metadata and contact lists for this person
-                        let _ = self.to_minions.send(ToMinionMessage {
-                            target: person_relay.relay.to_string(),
-                            payload: ToMinionPayload::TempSubscribeMetadata(pubkey.clone()),
-                        });
-                    }
-                }
-                _ => {}
-            },
+            }
             _ => {}
         }
 

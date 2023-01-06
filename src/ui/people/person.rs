@@ -58,7 +58,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
         if ui.button("UPDATE METADATA").clicked() {
             let _ = GLOBALS.to_overlord.send(BusMessage {
-                target: "overlord".to_string(),
                 kind: "update_metadata".to_string(),
                 json_payload: serde_json::to_string(&pubkeyhex).unwrap(),
             });

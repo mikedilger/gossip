@@ -6,9 +6,6 @@ use zeroize::Zeroize;
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone, Serialize)]
 pub struct BusMessage {
-    /// Indended recipient of the message
-    pub target: String,
-
     /// What kind of message is this
     pub kind: String,
 
