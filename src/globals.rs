@@ -7,6 +7,7 @@ use crate::people::People;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
+use dashmap::DashMap;
 use nostr_types::{Event, Id, IdHex, PublicKeyHex, Url};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -32,7 +33,7 @@ pub struct Globals {
     pub tmp_overlord_receiver: Mutex<Option<mpsc::UnboundedReceiver<ToOverlordMessage>>>,
 
     /// All nostr events, keyed by the event Id
-    pub events: RwLock<HashMap<Id, Event>>,
+    pub events: DashMap<Id, Event>,
 
     /// Events coming in from relays that are not processed yet
     /// stored with Url they came from and Subscription they came in on
@@ -94,7 +95,7 @@ lazy_static! {
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
-            events: RwLock::new(HashMap::new()),
+            events: DashMap::new(),
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             desired_events: RwLock::new(HashMap::new()),
@@ -130,19 +131,13 @@ impl Globals {
     }
 
     pub fn trim_desired_events_sync() {
-        // danger - two locks could lead to deadlock, check other code locking these
-        // don't change the order, or else change it everywhere
         let mut desired_events = GLOBALS.desired_events.blocking_write();
-        let events = GLOBALS.events.blocking_read();
-        desired_events.retain(|&id, _| !events.contains_key(&id));
+        desired_events.retain(|&id, _| !GLOBALS.events.contains_key(&id));
     }
 
     pub async fn trim_desired_events() {
-        // danger - two locks could lead to deadlock, check other code locking these
-        // don't change the order, or else change it everywhere
         let mut desired_events = GLOBALS.desired_events.write().await;
-        let events = GLOBALS.events.read().await;
-        desired_events.retain(|&id, _| !events.contains_key(&id));
+        desired_events.retain(|&id, _| !GLOBALS.events.contains_key(&id));
     }
 
     pub async fn get_local_desired_events() -> Result<(), Error> {

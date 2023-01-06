@@ -13,6 +13,7 @@ edition = "2021"
 
 [dependencies]
 base64 = "0.20"
+dashmap = "5.4"
 dirs = "4.0"
 eframe = { version = "0.20", features = [ "dark-light", "persistence" ] }
 egui_extras = { version = "0.20", features = [ "svg", "tracing" ] }

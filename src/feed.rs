@@ -96,21 +96,21 @@ impl Feed {
     }
 
     pub fn get_thread_parent(&self, id: Id) -> Id {
-        let mut event = match GLOBALS.events.blocking_read().get(&id).cloned() {
+        let mut event = match GLOBALS.events.get(&id).map(|r| r.value().to_owned()) {
             None => return id,
             Some(e) => e,
         };
 
         // Try for root
         if let Some((root, _)) = event.replies_to_root() {
-            if GLOBALS.events.blocking_read().contains_key(&root) {
+            if GLOBALS.events.contains_key(&root) {
                 return root;
             }
         }
 
         // Climb parents as high as we can
         while let Some((parent, _)) = event.replies_to() {
-            if let Some(e) = GLOBALS.events.blocking_read().get(&parent) {
+            if let Some(e) = GLOBALS.events.get(&parent) {
                 event = e.to_owned();
             } else {
                 break;
@@ -124,9 +124,8 @@ impl Feed {
     pub fn get_person_feed(&self, person: PublicKeyHex) -> Vec<Id> {
         let mut events: Vec<Event> = GLOBALS
             .events
-            .blocking_read()
             .iter()
-            .map(|(_, e)| e)
+            .map(|r| r.value().to_owned())
             .filter(|e| e.kind == EventKind::TextNote)
             .filter(|e| e.pubkey.as_hex_string() == person.0)
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
@@ -156,9 +155,8 @@ impl Feed {
 
         let events: Vec<Event> = GLOBALS
             .events
-            .blocking_read()
             .iter()
-            .map(|(_, e)| e)
+            .map(|r| r.value().to_owned())
             .filter(|e| e.kind == EventKind::TextNote)
             .map(|e| e.to_owned())
             .collect();

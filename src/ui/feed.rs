@@ -245,7 +245,7 @@ fn render_post_maybe_fake(
     } = feed_post_params;
 
     // We always get the event even offscreen so we can estimate its height
-    let maybe_event = GLOBALS.events.blocking_read().get(&id).cloned();
+    let maybe_event = GLOBALS.events.get(&id).map(|r| r.value().to_owned());
     if maybe_event.is_none() {
         return;
     }
@@ -317,7 +317,7 @@ fn render_post_actual(
         threaded,
     } = feed_post_params;
 
-    let maybe_event = GLOBALS.events.blocking_read().get(&id).cloned();
+    let maybe_event = GLOBALS.events.get(&id).map(|r| r.value().to_owned());
     if maybe_event.is_none() {
         return;
     }

@@ -441,7 +441,7 @@ impl Minion {
         // FIXME - We could have this precalculated like GLOBALS.relationships
         //         in reverse. It would be potentially more complete having
         //         iteratively climbed the chain.
-        if let Some(event) = GLOBALS.events.read().await.get(&id) {
+        if let Some(event) = GLOBALS.events.get(&id) {
             for (id, url) in &event.replies_to_ancestors() {
                 if let Some(url) = url {
                     if url == &self.url {

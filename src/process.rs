@@ -62,10 +62,7 @@ pub async fn process_new_event(
     }
 
     // Insert the event into globals map
-    {
-        let mut events = GLOBALS.events.write().await;
-        let _ = events.insert(event.id, event.clone());
-    }
+    GLOBALS.events.insert(event.id, event.clone());
 
     // Save the tags into event_tag table
     if from_relay {
@@ -147,7 +144,7 @@ pub async fn process_new_event(
         // We desire all ancestors
         for (id, maybe_url) in event.replies_to_ancestors() {
             // Insert desired event if relevant
-            if !GLOBALS.events.read().await.contains_key(&id) {
+            if !GLOBALS.events.contains_key(&id) {
                 Globals::store_desired_event(id, maybe_url).await;
             }
         }
@@ -165,7 +162,7 @@ pub async fn process_new_event(
             }
 
             // Insert desired event if relevant
-            if !GLOBALS.events.read().await.contains_key(&id) {
+            if !GLOBALS.events.contains_key(&id) {
                 Globals::store_desired_event(id, maybe_url).await;
             }
 
