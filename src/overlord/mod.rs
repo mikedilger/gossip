@@ -12,6 +12,7 @@ use nostr_types::{
 };
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
@@ -50,9 +51,7 @@ impl Overlord {
 
         tracing::info!("Overlord signalling UI to shutdown");
 
-        GLOBALS
-            .shutting_down
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
 
         tracing::info!("Overlord signalling minions to shutdown");
 
@@ -441,6 +440,15 @@ impl Overlord {
             }
             ToOverlordMessage::PostTextNote(content, tags) => {
                 self.post_textnote(content, tags).await?;
+            }
+            ToOverlordMessage::PullFollowMerge => {
+                self.pull_following(true).await?;
+            }
+            ToOverlordMessage::PullFollowOverwrite => {
+                self.pull_following(false).await?;
+            }
+            ToOverlordMessage::PushFollow => {
+                tracing::error!("Push Follow Unimplemented");
             }
             ToOverlordMessage::SaveRelays => {
                 let dirty_relays: Vec<DbRelay> = GLOBALS
@@ -856,6 +864,41 @@ impl Overlord {
 
         // Process the message for ourself
         crate::process::process_new_event(&event, false, None, None).await?;
+
+        Ok(())
+    }
+
+    async fn pull_following(&mut self, merge: bool) -> Result<(), Error> {
+        // Set globally whether we are merging or not when newer following lists
+        // come in.
+        GLOBALS.pull_following_merge.store(merge, Ordering::Relaxed);
+
+        // Pull our list from all of the relays we post to
+        let relays: Vec<DbRelay> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .collect();
+
+        for relay in relays {
+            // Start a minion for it, if there is none
+            if !self.urls_watching.contains(&Url::new(&relay.url)) {
+                self.start_minion(relay.url.clone()).await?;
+            }
+
+            // Send it the event to pull our followers
+            tracing::debug!("Asking {} to pull our followers", &relay.url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay.url.clone(),
+                payload: ToMinionPayload::PullFollowing,
+            });
+        }
+
+        // When the event comes in, process will handle it with our global
+        // merge preference.
 
         Ok(())
     }
