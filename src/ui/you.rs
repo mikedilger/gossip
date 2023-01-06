@@ -141,10 +141,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
 
         if ui.button("Unlock Private Key").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                kind: "unlock_key".to_string(),
-                json_payload: serde_json::to_string(&app.password).unwrap(),
-            });
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::UnlockKey(app.password.clone()));
             app.password.zeroize();
             app.password = "".to_owned();
         }
@@ -156,10 +155,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.add(TextEdit::singleline(&mut app.password).password(true));
         });
         if ui.button("Generate Now").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                kind: "generate_private_key".to_string(),
-                json_payload: serde_json::to_string(&app.password).unwrap(),
-            });
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::GeneratePrivateKey(app.password.clone()));
             app.password.zeroize();
             app.password = "".to_owned();
         }
@@ -183,10 +181,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.add(TextEdit::singleline(&mut app.password).password(true));
         });
         if ui.button("import").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                kind: "import_priv".to_string(),
-                json_payload: serde_json::to_string(&(&app.import_priv, &app.password)).unwrap(),
-            });
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
+                app.import_priv.clone(),
+                app.password.clone(),
+            ));
             app.import_priv.zeroize();
             app.import_priv = "".to_owned();
             app.password.zeroize();
@@ -221,20 +219,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             }
 
             if ui.button("Delete this public key").clicked() {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                    kind: "delete_pub".to_string(),
-                    json_payload: serde_json::to_string(&app.import_pub).unwrap(),
-                });
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::DeletePub);
             }
         } else {
             ui.horizontal_wrapped(|ui| {
                 ui.label("Enter your public key");
                 ui.add(TextEdit::singleline(&mut app.import_pub).hint_text("npub1 or hex"));
                 if ui.button("Import a Public Key").clicked() {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                        kind: "import_pub".to_string(),
-                        json_payload: serde_json::to_string(&app.import_pub).unwrap(),
-                    });
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::ImportPub(app.import_pub.clone()));
                     app.import_pub = "".to_owned();
                 }
             });

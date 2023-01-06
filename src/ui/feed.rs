@@ -84,10 +84,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             .on_hover_text("Query Relays for Missing Events")
             .clicked()
         {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                kind: "get_missing_events".to_string(),
-                json_payload: serde_json::to_string("").unwrap(),
-            });
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::GetMissingEvents);
         }
 
         /* Hide for now, as they are processed automatically at present
@@ -96,10 +95,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             .on_hover_text("Process Queue of Incoming Events")
             .clicked()
         {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                kind: "process_incoming_events".to_string(),
-                json_payload: serde_json::to_string("").unwrap(),
-            });
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ProcessIncomingEvents);
         }
          */
 
@@ -149,21 +145,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 if ui.button("Send").clicked() && !app.draft.is_empty() {
                     match app.replying_to {
-                        Some(_id) => {
-                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                                kind: "post_reply".to_string(),
-                                json_payload: serde_json::to_string(&(
-                                    &app.draft,
-                                    &app.replying_to,
-                                ))
-                                .unwrap(),
-                            });
+                        Some(replying_to_id) => {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostReply(
+                                app.draft.clone(),
+                                replying_to_id,
+                            ));
                         }
                         None => {
-                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                                kind: "post_textnote".to_string(),
-                                json_payload: serde_json::to_string(&app.draft).unwrap(),
-                            });
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::PostTextNote(app.draft.clone()));
                         }
                     }
                     app.draft = "".to_owned();
@@ -449,13 +440,9 @@ fn render_post_actual(
                                 GLOBALS.dismissed.blocking_write().push(event.id);
                             }
                             if ui.button("Update Metadata").clicked() {
-                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                                    kind: "update_metadata".to_string(),
-                                    json_payload: serde_json::to_string(
-                                        &event.pubkey.as_hex_string(),
-                                    )
-                                    .unwrap(),
-                                });
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::UpdateMetadata(event.pubkey.into()));
                             }
                         });
 
@@ -494,11 +481,9 @@ fn render_post_actual(
                         ui.add_space(24.0);
 
                         if ui.add(LikeButton {}).clicked() {
-                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                                kind: "like".to_string(),
-                                json_payload: serde_json::to_string(&(&event.id, &event.pubkey))
-                                    .unwrap(),
-                            });
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::Like(event.id, event.pubkey));
                         }
                         for (ch, count) in reactions.iter() {
                             if *ch == '+' {

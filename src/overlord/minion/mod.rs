@@ -262,11 +262,7 @@ impl Minion {
     }
 
     async fn tell_overlord_we_are_ready(&self) -> Result<(), Error> {
-        self.to_overlord.send(ToOverlordMessage {
-            kind: "minion_is_ready".to_string(),
-            json_payload: "".to_owned(),
-        })?;
-
+        self.to_overlord.send(ToOverlordMessage::MinionIsReady)?;
         Ok(())
     }
 

@@ -24,10 +24,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         if ui.button("Add").clicked() {
             let test_url = Url::new(&app.new_relay_url);
             if test_url.is_valid_relay_url() {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                    kind: "add_relay".to_string(),
-                    json_payload: serde_json::to_string(&app.new_relay_url).unwrap(),
-                });
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AddRelay(app.new_relay_url.clone()));
                 app.new_relay_url = "".to_owned();
                 *GLOBALS.status_message.blocking_write() = format!(
                     "I asked the overlord to add relay {}. Check for it below.",
@@ -59,10 +58,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
         if ui.button("SAVE CHANGES").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                kind: "save_relays".to_string(),
-                json_payload: serde_json::to_string("").unwrap(),
-            });
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SaveRelays);
         }
 
         ui.with_layout(Layout::top_down(Align::Center), |ui| {

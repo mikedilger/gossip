@@ -356,55 +356,29 @@ impl Overlord {
     }
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
-        #[allow(clippy::single_match)] // because temporarily so
-        match &*message.kind {
-            "shutdown" => {
-                tracing::info!("Overlord shutting down");
-                return Ok(false);
+        match message {
+            ToOverlordMessage::AddRelay(relay_str) => {
+                let dbrelay = DbRelay::new(relay_str)?;
+                DbRelay::insert(dbrelay).await?;
             }
-            "minion_is_ready" => {}
-            "save_settings" => {
-                GLOBALS.settings.read().await.save().await?;
-                tracing::debug!("Settings saved.");
+            ToOverlordMessage::DeletePub => {
+                GLOBALS.signer.write().await.clear_public_key();
+                GLOBALS.signer.read().await.save_through_settings().await?;
             }
-            "get_missing_events" => {
-                self.get_missing_events().await?;
+            ToOverlordMessage::FollowBech32(bech32, relay) => {
+                Overlord::follow_bech32(bech32, relay).await?;
             }
-            "follow_nip35" => {
-                let dns_id: String = serde_json::from_str(&message.json_payload)?;
+            ToOverlordMessage::FollowHex(hex, relay) => {
+                Overlord::follow_hexkey(hex, relay).await?;
+            }
+            ToOverlordMessage::FollowNip35(dns_id) => {
                 let _ = tokio::spawn(async move {
                     if let Err(e) = Overlord::get_and_follow_nip35(dns_id).await {
                         tracing::error!("{}", e);
                     }
                 });
             }
-            "follow_bech32" => {
-                let data: (String, String) = serde_json::from_str(&message.json_payload)?;
-                Overlord::follow_bech32(data.0, data.1).await?;
-            }
-            "follow_hexkey" => {
-                let data: (String, String) = serde_json::from_str(&message.json_payload)?;
-                Overlord::follow_hexkey(data.0, data.1).await?;
-            }
-            "unlock_key" => {
-                let mut password: String = serde_json::from_str(&message.json_payload)?;
-                GLOBALS
-                    .signer
-                    .write()
-                    .await
-                    .unlock_encrypted_private_key(&password)?;
-                password.zeroize();
-
-                // Update public key from private key
-                let public_key = GLOBALS.signer.read().await.public_key().unwrap();
-                {
-                    let mut settings = GLOBALS.settings.write().await;
-                    settings.public_key = Some(public_key);
-                    settings.save().await?;
-                }
-            }
-            "generate_private_key" => {
-                let mut password: String = serde_json::from_str(&message.json_payload)?;
+            ToOverlordMessage::GeneratePrivateKey(mut password) => {
                 GLOBALS
                     .signer
                     .write()
@@ -413,9 +387,10 @@ impl Overlord {
                 password.zeroize();
                 GLOBALS.signer.read().await.save_through_settings().await?;
             }
-            "import_priv" => {
-                let (mut import_priv, mut password): (String, String) =
-                    serde_json::from_str(&message.json_payload)?;
+            ToOverlordMessage::GetMissingEvents => {
+                self.get_missing_events().await?;
+            }
+            ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
                 let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
                 let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
                 import_priv.zeroize();
@@ -434,8 +409,7 @@ impl Overlord {
                     GLOBALS.signer.read().await.save_through_settings().await?;
                 }
             }
-            "import_pub" => {
-                let pubstr: String = serde_json::from_str(&message.json_payload)?;
+            ToOverlordMessage::ImportPub(pubstr) => {
                 let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
                 let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
                 if maybe_pk1.is_err() && maybe_pk2.is_err() {
@@ -446,11 +420,30 @@ impl Overlord {
                     GLOBALS.signer.read().await.save_through_settings().await?;
                 }
             }
-            "delete_pub" => {
-                GLOBALS.signer.write().await.clear_public_key();
-                GLOBALS.signer.read().await.save_through_settings().await?;
+            ToOverlordMessage::Like(id, pubkey) => {
+                self.post_like(id, pubkey).await?;
             }
-            "save_relays" => {
+            ToOverlordMessage::MinionIsReady => {
+                // currently ignored
+            }
+            ToOverlordMessage::ProcessIncomingEvents => {
+                // Clear new events
+                GLOBALS.event_is_new.write().await.clear();
+
+                let _ = tokio::spawn(async move {
+                    for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
+                        let _ =
+                            crate::process::process_new_event(&event, true, Some(url), sub).await;
+                    }
+                });
+            }
+            ToOverlordMessage::PostReply(content, reply_to) => {
+                self.post_reply(content, reply_to).await?;
+            }
+            ToOverlordMessage::PostTextNote(content) => {
+                self.post_textnote(content).await?;
+            }
+            ToOverlordMessage::SaveRelays => {
                 let dirty_relays: Vec<DbRelay> = GLOBALS
                     .relays
                     .read()
@@ -468,37 +461,31 @@ impl Overlord {
                     }
                 }
             }
-            "post_textnote" => {
-                let content: String = serde_json::from_str(&message.json_payload)?;
-                self.post_textnote(content).await?;
+            ToOverlordMessage::SaveSettings => {
+                GLOBALS.settings.read().await.save().await?;
+                tracing::debug!("Settings saved.");
             }
-            "post_reply" => {
-                let (content, reply_to): (String, Id) =
-                    serde_json::from_str(&message.json_payload)?;
-                self.post_reply(content, reply_to).await?;
+            ToOverlordMessage::Shutdown => {
+                tracing::info!("Overlord shutting down");
+                return Ok(false);
             }
-            "like" => {
-                let (id, pubkey): (Id, PublicKey) = serde_json::from_str(&message.json_payload)?;
-                self.post_like(id, pubkey).await?;
-            }
-            "process_incoming_events" => {
-                // Clear new events
-                GLOBALS.event_is_new.write().await.clear();
+            ToOverlordMessage::UnlockKey(mut password) => {
+                GLOBALS
+                    .signer
+                    .write()
+                    .await
+                    .unlock_encrypted_private_key(&password)?;
+                password.zeroize();
 
-                let _ = tokio::spawn(async move {
-                    for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
-                        let _ =
-                            crate::process::process_new_event(&event, true, Some(url), sub).await;
-                    }
-                });
+                // Update public key from private key
+                let public_key = GLOBALS.signer.read().await.public_key().unwrap();
+                {
+                    let mut settings = GLOBALS.settings.write().await;
+                    settings.public_key = Some(public_key);
+                    settings.save().await?;
+                }
             }
-            "add_relay" => {
-                let relay_str: String = serde_json::from_str(&message.json_payload)?;
-                let dbrelay = DbRelay::new(relay_str)?;
-                DbRelay::insert(dbrelay).await?;
-            }
-            "update_metadata" => {
-                let pubkey: PublicKeyHex = serde_json::from_str(&message.json_payload)?;
+            ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let person_relays = DbPersonRelay::fetch_for_pubkeys(&[pubkey.clone()]).await?;
 
                 for person_relay in person_relays.iter() {
@@ -514,7 +501,6 @@ impl Overlord {
                     });
                 }
             }
-            _ => {}
         }
 
         Ok(true)

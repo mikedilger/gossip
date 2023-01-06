@@ -57,10 +57,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
 
         if ui.button("UPDATE METADATA").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
-                kind: "update_metadata".to_string(),
-                json_payload: serde_json::to_string(&pubkeyhex).unwrap(),
-            });
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::UpdateMetadata(pubkeyhex.clone()));
         }
 
         if ui.button("VIEW THEIR FEED").clicked() {

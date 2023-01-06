@@ -1,24 +1,27 @@
-use nostr_types::{Event, Id, IdHex, PublicKeyHex};
-use serde::Serialize;
-use std::ops::Drop;
-use zeroize::Zeroize;
+use nostr_types::{Event, Id, IdHex, PublicKey, PublicKeyHex};
 
 /// This is a message sent to the Overlord
-#[derive(Debug, Clone, Serialize)]
-pub struct ToOverlordMessage {
-    /// What kind of message is this
-    pub kind: String,
-
-    /// The payload, serialized as a JSON string
-    pub json_payload: String,
-}
-
-/// We may send passwords through ToOverlordMessage objects, so we zeroize
-/// bus message payloads upon drop.
-impl Drop for ToOverlordMessage {
-    fn drop(&mut self) {
-        self.json_payload.zeroize();
-    }
+#[derive(Debug, Clone)]
+pub enum ToOverlordMessage {
+    AddRelay(String),
+    DeletePub,
+    FollowBech32(String, String),
+    FollowHex(String, String),
+    FollowNip35(String),
+    GeneratePrivateKey(String),
+    GetMissingEvents,
+    ImportPriv(String, String),
+    ImportPub(String),
+    Like(Id, PublicKey),
+    MinionIsReady,
+    ProcessIncomingEvents,
+    PostReply(String, Id),
+    PostTextNote(String),
+    SaveRelays,
+    SaveSettings,
+    Shutdown,
+    UnlockKey(String),
+    UpdateMetadata(PublicKeyHex),
 }
 
 /// This is a message sent to the minions
