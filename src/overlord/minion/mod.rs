@@ -391,21 +391,36 @@ impl Minion {
         // NOTE we do not unsubscribe to the general feed
 
         let mut filters: Vec<Filter> = Vec::new();
+
         let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
 
-        // feed related by person
+        // Posts made by the person
         filters.push(Filter {
-            authors: vec![pubkey],
+            authors: vec![pubkey.clone()],
             kinds: vec![
                 EventKind::TextNote,
-                EventKind::Reaction,
                 EventKind::EventDeletion,
             ],
-            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
+            // No since, just a limit on quantity of posts
+            limit: Some(25),
+            ..Default::default()
+        });
+
+        // Reactions to posts made by the person
+        // (presuming people include a 'p' tag in their reactions)
+        filters.push(Filter {
+            kinds: vec![
+                EventKind::Reaction
+            ],
+            p: vec![pubkey],
+            // Limited in time just so we aren't overwhelmed. Generally we only need reactions
+            // to their most recent posts. This is a very sloppy and approximate solution.
+            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk*25)),
             ..Default::default()
         });
 
         // persons metadata
+        // we don't display this stuff in their feed, so probably take this out.
         // FIXME TBD
         /*
         filters.push(Filter {
@@ -415,9 +430,6 @@ impl Minion {
             .. Default::default()
         });
          */
-
-        // reactions to post by person
-        // FIXME TBD
 
         // NO REPLIES OR ANCESTORS
 
