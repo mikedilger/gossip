@@ -592,9 +592,10 @@ impl Overlord {
             .people
             .write()
             .await
-            .upsert_valid_nip05(
+            .upsert_nip05_validity(
                 &(*pubkey).into(),
-                dns_id.clone(),
+                Some(dns_id.clone()),
+                true,
                 Unixtime::now().unwrap().0 as u64,
             )
             .await?;

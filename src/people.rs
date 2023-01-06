@@ -353,22 +353,24 @@ impl People {
         Ok(())
     }
 
-    pub async fn upsert_valid_nip05(
+    pub async fn upsert_nip05_validity(
         &mut self,
         pubkeyhex: &PublicKeyHex,
-        dns_id: String,
+        dns_id: Option<String>,
+        dns_id_valid: bool,
         dns_id_last_checked: u64,
     ) -> Result<(), Error> {
         // Update memory
         if let Some(dbperson) = self.people.get_mut(pubkeyhex) {
-            dbperson.dns_id = Some(dns_id.clone());
+            dbperson.dns_id = dns_id.clone();
+            dbperson.dns_id_valid = u8::from(dns_id_valid);
             dbperson.dns_id_last_checked = Some(dns_id_last_checked);
         }
 
         // Update in database
         let sql = "INSERT INTO person (pubkey, dns_id, dns_id_valid, dns_id_last_checked) \
-                   values (?, ?, 1, ?) \
-                   ON CONFLICT(pubkey) DO UPDATE SET dns_id=?, dns_id_valid=1, dns_id_last_checked=?";
+                   values (?, ?, ?, ?) \
+                   ON CONFLICT(pubkey) DO UPDATE SET dns_id=?, dns_id_valid=?, dns_id_last_checked=?";
 
         let pubkeyhex2 = pubkeyhex.to_owned();
         task::spawn_blocking(move || {
@@ -379,8 +381,10 @@ impl People {
             stmt.execute((
                 &pubkeyhex2.0,
                 &dns_id,
+                &dns_id_valid,
                 &dns_id_last_checked,
                 &dns_id,
+                &dns_id_valid,
                 &dns_id_last_checked,
             ))?;
             Ok::<(), Error>(())
