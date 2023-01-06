@@ -141,8 +141,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
 
         if ui.button("Unlock Private Key").clicked() {
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(ToOverlordMessage {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                 kind: "unlock_key".to_string(),
                 json_payload: serde_json::to_string(&app.password).unwrap(),
             });
@@ -157,8 +156,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.add(TextEdit::singleline(&mut app.password).password(true));
         });
         if ui.button("Generate Now").clicked() {
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(ToOverlordMessage {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                 kind: "generate_private_key".to_string(),
                 json_payload: serde_json::to_string(&app.password).unwrap(),
             });
@@ -185,8 +183,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.add(TextEdit::singleline(&mut app.password).password(true));
         });
         if ui.button("import").clicked() {
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(ToOverlordMessage {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                 kind: "import_priv".to_string(),
                 json_payload: serde_json::to_string(&(&app.import_priv, &app.password)).unwrap(),
             });

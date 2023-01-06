@@ -84,8 +84,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             .on_hover_text("Query Relays for Missing Events")
             .clicked()
         {
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(ToOverlordMessage {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                 kind: "get_missing_events".to_string(),
                 json_payload: serde_json::to_string("").unwrap(),
             });
@@ -97,8 +96,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             .on_hover_text("Process Queue of Incoming Events")
             .clicked()
         {
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(ToOverlordMessage {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                 kind: "process_incoming_events".to_string(),
                 json_payload: serde_json::to_string("").unwrap(),
             });
@@ -150,10 +148,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 if ui.button("Send").clicked() && !app.draft.is_empty() {
-                    let tx = GLOBALS.to_overlord.clone();
                     match app.replying_to {
                         Some(_id) => {
-                            let _ = tx.send(ToOverlordMessage {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                                 kind: "post_reply".to_string(),
                                 json_payload: serde_json::to_string(&(
                                     &app.draft,
@@ -163,7 +160,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             });
                         }
                         None => {
-                            let _ = tx.send(ToOverlordMessage {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                                 kind: "post_textnote".to_string(),
                                 json_payload: serde_json::to_string(&app.draft).unwrap(),
                             });
@@ -497,8 +494,7 @@ fn render_post_actual(
                         ui.add_space(24.0);
 
                         if ui.add(LikeButton {}).clicked() {
-                            let tx = GLOBALS.to_overlord.clone();
-                            let _ = tx.send(ToOverlordMessage {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                                 kind: "like".to_string(),
                                 json_payload: serde_json::to_string(&(&event.id, &event.pubkey))
                                     .unwrap(),

@@ -151,8 +151,7 @@ pub(super) fn update(
             *GLOBALS.settings.blocking_write() = app.settings.clone();
 
             // Tell the overlord to save them
-            let tx = GLOBALS.to_overlord.clone();
-            let _ = tx.send(ToOverlordMessage {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
                 kind: "save_settings".to_string(),
                 json_payload: serde_json::to_string("").unwrap(),
             });
