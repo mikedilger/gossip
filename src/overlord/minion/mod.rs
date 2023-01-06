@@ -277,7 +277,10 @@ impl Minion {
         let mut filters: Vec<Filter> = Vec::new();
         let (overlap, feed_chunk) = {
             let settings = GLOBALS.settings.read().await.clone();
-            (Duration::from_secs(settings.overlap), Duration::from_secs(settings.feed_chunk))
+            (
+                Duration::from_secs(settings.overlap),
+                Duration::from_secs(settings.feed_chunk),
+            )
         };
 
         let followed_pubkeys = GLOBALS.people.read().await.get_followed_pubkeys();
