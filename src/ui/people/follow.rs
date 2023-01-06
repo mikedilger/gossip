@@ -24,8 +24,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(TextEdit::singleline(&mut app.nip35follow).hint_text("user@domain"));
     });
     if ui.button("follow").clicked() {
-        let tx = GLOBALS.to_overlord.clone();
-        let _ = tx.send(ToOverlordMessage {
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
             kind: "follow_nip35".to_string(),
             json_payload: serde_json::to_string(&app.nip35follow).unwrap(),
         });
@@ -47,8 +46,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(TextEdit::singleline(&mut app.follow_pubkey_at_relay).hint_text("wss://..."));
     });
     if ui.button("follow").clicked() {
-        let tx = GLOBALS.to_overlord.clone();
-        let _ = tx.send(ToOverlordMessage {
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
             kind: "follow_bech32".to_string(),
             json_payload: serde_json::to_string(&(
                 &app.follow_bech32_pubkey,
@@ -75,8 +73,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(TextEdit::singleline(&mut app.follow_pubkey_at_relay).hint_text("wss://..."));
     });
     if ui.button("follow").clicked() {
-        let tx = GLOBALS.to_overlord.clone();
-        let _ = tx.send(ToOverlordMessage {
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage {
             kind: "follow_hexkey".to_string(),
             json_payload: serde_json::to_string(&(
                 &app.follow_hex_pubkey,
