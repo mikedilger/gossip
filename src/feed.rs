@@ -1,4 +1,4 @@
-use crate::comms::BusMessage;
+use crate::comms::{ToMinionMessage, ToMinionPayload};
 use crate::globals::GLOBALS;
 use nostr_types::PublicKeyHex;
 use nostr_types::{Event, EventKind, Id};
@@ -54,19 +54,17 @@ impl Feed {
     }
 
     pub fn set_feed_to_thread(&self, id: Id) {
-        let _ = GLOBALS.to_minions.send(BusMessage {
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            kind: "subscribe_thread_feed".to_string(),
-            json_payload: serde_json::to_string(&id).unwrap(),
+            payload: ToMinionPayload::SubscribeThreadFeed(id),
         });
         *self.current_feed_kind.write() = FeedKind::Thread(id);
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {
-        let _ = GLOBALS.to_minions.send(BusMessage {
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            kind: "subscribe_person_feed".to_string(),
-            json_payload: serde_json::to_string(&pubkey).unwrap(),
+            payload: ToMinionPayload::SubscribePersonFeed(pubkey.clone()),
         });
         *self.current_feed_kind.write() = FeedKind::Person(pubkey);
     }

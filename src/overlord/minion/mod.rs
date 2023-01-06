@@ -1,8 +1,7 @@
-mod handle_bus;
 mod handle_websocket;
 mod subscription;
 
-use crate::comms::BusMessage;
+use crate::comms::{BusMessage, ToMinionMessage, ToMinionPayload};
 use crate::db::DbRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -10,7 +9,8 @@ use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
 use nostr_types::{
-    EventKind, Filter, Id, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
+    ClientMessage, EventKind, Filter, Id, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime,
+    Url,
 };
 use std::time::Duration;
 use subscription::Subscriptions;
@@ -24,7 +24,7 @@ use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 pub struct Minion {
     url: Url,
     to_overlord: UnboundedSender<BusMessage>,
-    from_overlord: Receiver<BusMessage>,
+    from_overlord: Receiver<ToMinionMessage>,
     dbrelay: DbRelay,
     nip11: Option<RelayInformationDocument>,
     stream: Option<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
@@ -211,22 +211,54 @@ impl Minion {
                     WsMessage::Frame(_) => tracing::warn!("{}: Unexpected frame message", &self.url),
                 }
             },
-            bus_message = self.from_overlord.recv() => {
-                let bus_message = match bus_message {
-                    Ok(bm) => bm,
+            to_minion_message = self.from_overlord.recv() => {
+                let to_minion_message = match to_minion_message {
+                    Ok(m) => m,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
                         return Ok(false);
                     },
                     Err(e) => return Err(e.into())
                 };
                 #[allow(clippy::collapsible_if)]
-                if bus_message.target == self.url.inner() || bus_message.target == "all" {
-                    keepgoing = self.handle_bus_message(bus_message).await?;
+                if to_minion_message.target == self.url.inner() || to_minion_message.target == "all" {
+                    keepgoing = self.handle_bus_message(to_minion_message).await?;
                 }
             },
         }
 
         Ok(keepgoing)
+    }
+
+    pub async fn handle_bus_message(&mut self, message: ToMinionMessage) -> Result<bool, Error> {
+        match message.payload {
+            ToMinionPayload::Shutdown => {
+                tracing::info!("{}: Websocket listener shutting down", &self.url);
+                return Ok(false);
+            }
+            ToMinionPayload::SubscribeGeneralFeed => {
+                self.subscribe_general_feed().await?;
+            }
+            ToMinionPayload::SubscribePersonFeed(pubkeyhex) => {
+                self.subscribe_person_feed(pubkeyhex).await?;
+            }
+            ToMinionPayload::SubscribeThreadFeed(id) => {
+                self.subscribe_thread_feed(id).await?;
+            }
+            ToMinionPayload::FetchEvents(vec) => {
+                self.get_events(vec).await?;
+            }
+            ToMinionPayload::PostEvent(event) => {
+                let msg = ClientMessage::Event(event);
+                let wire = serde_json::to_string(&msg)?;
+                let ws_sink = self.sink.as_mut().unwrap();
+                ws_sink.send(WsMessage::Text(wire)).await?;
+                tracing::info!("Posted event to {}", &self.url);
+            }
+            ToMinionPayload::TempSubscribeMetadata(pubkeyhex) => {
+                self.temp_subscribe_metadata(pubkeyhex).await?;
+            }
+        }
+        Ok(true)
     }
 
     async fn tell_overlord_we_are_ready(&self) -> Result<(), Error> {

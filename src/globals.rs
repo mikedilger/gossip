@@ -1,4 +1,4 @@
-use crate::comms::BusMessage;
+use crate::comms::{BusMessage, ToMinionMessage};
 use crate::db::{DbEvent, DbRelay};
 use crate::error::Error;
 use crate::feed::Feed;
@@ -21,7 +21,7 @@ pub struct Globals {
 
     /// This is a broadcast channel. All Minions should listen on it.
     /// To create a receiver, just run .subscribe() on it.
-    pub to_minions: broadcast::Sender<BusMessage>,
+    pub to_minions: broadcast::Sender<ToMinionMessage>,
 
     /// This is a mpsc channel. The Overlord listens on it.
     /// To create a sender, just clone() it.

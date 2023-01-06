@@ -1,10 +1,10 @@
-use crate::comms::BusMessage;
+use crate::comms::{BusMessage, ToMinionMessage};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Error broadcasting: {0}")]
-    BroadcastSend(#[from] tokio::sync::broadcast::error::SendError<BusMessage>),
+    BroadcastSend(#[from] tokio::sync::broadcast::error::SendError<ToMinionMessage>),
 
     #[error("Error receiving broadcast: {0}")]
     BroadcastReceive(#[from] tokio::sync::broadcast::error::RecvError),

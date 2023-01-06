@@ -1,14 +1,15 @@
 mod minion;
 mod relay_picker;
 
-use crate::comms::BusMessage;
+use crate::comms::{BusMessage, ToMinionMessage, ToMinionPayload};
 use crate::db::{DbEvent, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::people::People;
 use minion::Minion;
 use nostr_types::{
-    Event, EventKind, Id, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
+    Event, EventKind, Id, IdHex, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag,
+    Unixtime, Url,
 };
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
@@ -18,7 +19,7 @@ use tokio::{select, task};
 use zeroize::Zeroize;
 
 pub struct Overlord {
-    to_minions: Sender<BusMessage>,
+    to_minions: Sender<ToMinionMessage>,
     inbox: UnboundedReceiver<BusMessage>,
 
     // All the minion tasks running.
@@ -59,10 +60,9 @@ impl Overlord {
         // Send shutdown message to all minions (and ui)
         // If this fails, it's probably because there are no more listeners
         // so just ignore it and keep shutting down.
-        let _ = self.to_minions.send(BusMessage {
+        let _ = self.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            kind: "shutdown".to_string(),
-            json_payload: serde_json::to_string("shutdown").unwrap(),
+            payload: ToMinionPayload::Shutdown,
         });
 
         tracing::info!("Overlord waiting for minions to all shutdown");
@@ -212,10 +212,11 @@ impl Overlord {
                 self.start_minion(best_relay.relay.url.clone()).await?;
 
                 // Subscribe to the general feed
-                let _ = self.to_minions.send(BusMessage {
+                // FIXME: older code sent in &best_relay.pubkeys, but minions
+                // stopped doing anything with that.
+                let _ = self.to_minions.send(ToMinionMessage {
                     target: best_relay.relay.url.clone(),
-                    kind: "subscribe_general_feed".to_string(),
-                    json_payload: serde_json::to_string(&best_relay.pubkeys).unwrap(),
+                    payload: ToMinionPayload::SubscribeGeneralFeed,
                 });
 
                 tracing::info!(
@@ -514,10 +515,9 @@ impl Overlord {
                         }
 
                         // Subscribe to metadata and contact lists for this person
-                        let _ = self.to_minions.send(BusMessage {
+                        let _ = self.to_minions.send(ToMinionMessage {
                             target: person_relay.relay.to_string(),
-                            kind: "temp_subscribe_metadata".to_string(),
-                            json_payload: serde_json::to_string(&pubkey).unwrap(),
+                            payload: ToMinionPayload::TempSubscribeMetadata(pubkey.clone()),
                         });
                     }
                 }
@@ -566,11 +566,11 @@ impl Overlord {
 
             tracing::debug!("{}: Asking to fetch {} events", url.inner(), ids.len());
 
+            let ids: Vec<IdHex> = ids.iter().map(|id| (*id).into()).collect();
             // Tell it to get these events
-            let _ = self.to_minions.send(BusMessage {
+            let _ = self.to_minions.send(ToMinionMessage {
                 target: url.inner().to_owned(),
-                kind: "fetch_events".to_string(),
-                json_payload: serde_json::to_string(&ids).unwrap(),
+                payload: ToMinionPayload::FetchEvents(ids),
             });
         }
 
@@ -766,10 +766,9 @@ impl Overlord {
             // Send it the event to post
             tracing::debug!("Asking {} to post", &relay.url);
 
-            let _ = self.to_minions.send(BusMessage {
+            let _ = self.to_minions.send(ToMinionMessage {
                 target: relay.url.clone(),
-                kind: "post_event".to_string(),
-                json_payload: serde_json::to_string(&event).unwrap(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
             });
         }
 
@@ -824,10 +823,9 @@ impl Overlord {
             // Send it the event to post
             tracing::debug!("Asking {} to post", &relay.url);
 
-            let _ = self.to_minions.send(BusMessage {
+            let _ = self.to_minions.send(ToMinionMessage {
                 target: relay.url.clone(),
-                kind: "post_event".to_string(),
-                json_payload: serde_json::to_string(&event).unwrap(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
             });
         }
 
@@ -889,10 +887,9 @@ impl Overlord {
             // Send it the event to post
             tracing::debug!("Asking {} to post", &relay.url);
 
-            let _ = self.to_minions.send(BusMessage {
+            let _ = self.to_minions.send(ToMinionMessage {
                 target: relay.url.clone(),
-                kind: "post_event".to_string(),
-                json_payload: serde_json::to_string(&event).unwrap(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
             });
         }
 
