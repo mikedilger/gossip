@@ -1,5 +1,7 @@
+use crate::event_stream::EventStreamData;
 use nostr_types::{ClientMessage, Filter, SubscriptionId};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub struct Subscriptions {
     handle_to_id: HashMap<String, String>,
@@ -14,9 +16,10 @@ impl Subscriptions {
         }
     }
 
-    pub fn add(&mut self, handle: &str, filters: Vec<Filter>) {
+    pub fn add(&mut self, handle: &str, filters: Vec<Filter>, data: Option<Arc<EventStreamData>>) {
         let mut sub = Subscription::new();
         sub.filters = filters;
+        sub.event_stream_data = data;
         self.handle_to_id.insert(handle.to_owned(), sub.get_id());
         self.by_id.insert(sub.get_id(), sub);
     }
@@ -80,6 +83,7 @@ pub struct Subscription {
     id: String,
     filters: Vec<Filter>,
     eose: bool,
+    pub event_stream_data: Option<Arc<EventStreamData>>
 }
 
 impl Subscription {
@@ -88,6 +92,7 @@ impl Subscription {
             id: textnonce::TextNonce::new().to_string(),
             filters: vec![],
             eose: false,
+            event_stream_data: None,
         }
     }
 

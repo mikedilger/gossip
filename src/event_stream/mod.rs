@@ -1,7 +1,7 @@
 
 mod event_stream_data;
 
-use event_stream_data::EventStreamData;
+pub use event_stream_data::EventStreamData;
 use futures::stream::Stream;
 use futures::task::Context;
 use nostr_types::{Event, Url};
@@ -25,8 +25,8 @@ impl EventStream {
     pub fn new(url: Url, sub_handle: String) -> EventStream {
         EventStream {
             url,
-            sub_handle,
-            data: Arc::new(EventStreamData::new())
+            sub_handle: sub_handle.clone(),
+            data: Arc::new(EventStreamData::new(sub_handle))
         }
     }
 }

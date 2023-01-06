@@ -1,4 +1,6 @@
-use nostr_types::{Event, Id, IdHex, PublicKey, PublicKeyHex};
+use crate::event_stream::EventStreamData;
+use nostr_types::{Event, Filter, Id, IdHex, PublicKey, PublicKeyHex};
+use std::sync::Arc;
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
@@ -37,6 +39,7 @@ pub struct ToMinionMessage {
 #[derive(Debug, Clone)]
 pub enum ToMinionPayload {
     Shutdown,
+    SubscribeEventStream(Arc<EventStreamData>, Vec<Filter>),
     SubscribeGeneralFeed,
     SubscribePersonFeed(PublicKeyHex),
     SubscribeThreadFeed(Id),

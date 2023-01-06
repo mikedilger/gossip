@@ -4,6 +4,7 @@ mod subscription;
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::DbRelay;
 use crate::error::Error;
+use crate::event_stream::EventStreamData;
 use crate::globals::GLOBALS;
 use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
@@ -12,6 +13,7 @@ use nostr_types::{
     ClientMessage, EventKind, Filter, Id, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime,
     Url,
 };
+use std::sync::Arc;
 use std::time::Duration;
 use subscription::Subscriptions;
 use tokio::net::TcpStream;
@@ -235,6 +237,9 @@ impl Minion {
                 tracing::info!("{}: Websocket listener shutting down", &self.url);
                 return Ok(false);
             }
+            ToMinionPayload::SubscribeEventStream(aesd, vf) => {
+                self.subscribe_event_stream(aesd, vf).await?;
+            }
             ToMinionPayload::SubscribeGeneralFeed => {
                 self.subscribe_general_feed().await?;
             }
@@ -264,6 +269,13 @@ impl Minion {
     async fn tell_overlord_we_are_ready(&self) -> Result<(), Error> {
         self.to_overlord.send(ToOverlordMessage::MinionIsReady)?;
         Ok(())
+    }
+
+    async fn subscribe_event_stream(&mut self, data: Arc<EventStreamData>, filters: Vec<Filter>)
+                                    -> Result<(), Error>
+    {
+        let handle = data.handle.clone();
+        self.subscribe(filters, &handle, Some(data)).await
     }
 
     async fn subscribe_general_feed(&mut self) -> Result<(), Error> {
@@ -381,7 +393,7 @@ impl Minion {
         if filters.is_empty() {
             self.unsubscribe("general_feed").await?;
         } else {
-            self.subscribe(filters, "general_feed").await?;
+            self.subscribe(filters, "general_feed", None).await?;
         }
 
         Ok(())
@@ -424,7 +436,7 @@ impl Minion {
         if filters.is_empty() {
             self.unsubscribe("person_feed").await?;
         } else {
-            self.subscribe(filters, "person_feed").await?;
+            self.subscribe(filters, "person_feed", None).await?;
         }
 
         Ok(())
@@ -470,7 +482,7 @@ impl Minion {
         if filters.is_empty() {
             self.unsubscribe("thread_feed").await?;
         } else {
-            self.subscribe(filters, "thread_feed").await?;
+            self.subscribe(filters, "thread_feed", None).await?;
         }
 
         Ok(())
@@ -606,7 +618,7 @@ impl Minion {
         self.next_events_subscription_id += 1;
 
         // save the subscription
-        self.subscriptions.add(&handle, vec![filter]);
+        self.subscriptions.add(&handle, vec![filter], None);
 
         // get the request message
         let req_message = self.subscriptions.get(&handle).unwrap().req_message();
@@ -630,17 +642,19 @@ impl Minion {
             //        but relays should just return the lastest of these.
             ..Default::default()
         };
-        self.subscribe(vec![filter], &handle).await
+        self.subscribe(vec![filter], &handle, None).await
     }
 
     #[allow(dead_code)]
-    async fn subscribe(&mut self, filters: Vec<Filter>, handle: &str) -> Result<(), Error> {
+    async fn subscribe(&mut self, filters: Vec<Filter>, handle: &str, data: Option<Arc<EventStreamData>>)
+                       -> Result<(), Error>
+    {
         let req_message = if self.subscriptions.has(handle) {
             let sub = self.subscriptions.get_mut(handle).unwrap();
             *sub.get_mut() = filters;
             sub.req_message()
         } else {
-            self.subscriptions.add(handle, filters);
+            self.subscriptions.add(handle, filters, data);
             self.subscriptions.get(handle).unwrap().req_message()
         };
         let wire = serde_json::to_string(&req_message)?;

@@ -4,7 +4,11 @@ use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
 use tokio::sync::Mutex;
 
+#[derive(Debug)]
 pub struct EventStreamData {
+    /// The subscription handle
+    pub handle: String,
+
     /// These are the events streaming in
     pub events: Mutex<VecDeque<Event>>,
 
@@ -18,8 +22,9 @@ pub struct EventStreamData {
 
 impl EventStreamData {
     #[allow(dead_code)]
-    pub fn new() -> EventStreamData {
+    pub fn new(handle: String) -> EventStreamData {
         EventStreamData {
+            handle,
             events: Mutex::new(VecDeque::new()),
             end: AtomicBool::new(false),
             waker: Mutex::new(None)

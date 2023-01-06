@@ -4,15 +4,17 @@ mod relay_picker;
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::{DbEvent, DbPersonRelay, DbRelay};
 use crate::error::Error;
+use crate::event_stream::{EventStream, EventStreamData};
 use crate::globals::{Globals, GLOBALS};
 use crate::people::People;
 use minion::Minion;
 use nostr_types::{
-    Event, EventKind, Id, IdHex, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag,
+    Event, EventKind, Filter, Id, IdHex, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag,
     Unixtime, Url,
 };
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
@@ -874,5 +876,35 @@ impl Overlord {
         crate::process::process_new_event(&event, false, None, None).await?;
 
         Ok(())
+    }
+
+    #[allow(dead_code)]
+    async fn subscribe_to_event_stream(&mut self, url: Url, filters: Vec<Filter>)
+                                       -> Result<EventStream, Error> {
+        // Start a minion for it, if there is none
+        if !self.urls_watching.contains(&Url::new(&url)) {
+            self.start_minion(url.inner().to_owned()).await?;
+        }
+
+        // Generate a random handle for this query to avoid collisions
+        let handle = textnonce::TextNonce::new().into_string();
+
+        // Create a place for events to be returned to us
+        let data = EventStreamData::new(handle.clone());
+
+        // Build the object that impls Stream
+        let event_stream = EventStream {
+            url: url.clone(),
+            sub_handle: handle,
+            data: Arc::new(data)
+        };
+
+        // Send an Arc of the data part to the minion
+        self.to_minions.send(ToMinionMessage {
+            target: url.to_string(),
+            payload: ToMinionPayload::SubscribeEventStream(event_stream.data.clone(), filters)
+        })?;
+
+        Ok(event_stream)
     }
 }
