@@ -8,6 +8,7 @@ mod comms;
 mod date_ago;
 mod db;
 mod error;
+mod event_stream;
 mod feed;
 mod fetcher;
 mod globals;
