@@ -6,7 +6,7 @@ use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum FeedKind {
     General,
     Replies,
