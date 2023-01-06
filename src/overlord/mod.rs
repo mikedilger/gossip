@@ -7,6 +7,7 @@ use crate::error::Error;
 use crate::event_stream::{EventStream, EventStreamData};
 use crate::globals::{Globals, GLOBALS};
 use crate::people::People;
+use futures::StreamExt;
 use minion::Minion;
 use nostr_types::{
     Event, EventKind, Filter, Id, IdHex, Nip05, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag,
@@ -490,16 +491,35 @@ impl Overlord {
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let person_relays = DbPersonRelay::fetch_for_pubkeys(&[pubkey.clone()]).await?;
 
+                let filter = Filter {
+                    authors: vec![pubkey.clone()],
+                    kinds: vec![EventKind::Metadata, EventKind::ContactList],
+                    // FIXME: we could probably get a since-last-fetched-their-metadata here.
+                    //        but relays should just return the lastest of these.
+                    ..Default::default()
+                };
+
                 for person_relay in person_relays.iter() {
                     // Start a minion for this relay if there is none
                     if !self.urls_watching.contains(&Url::new(&person_relay.relay)) {
                         self.start_minion(person_relay.relay.clone()).await?;
                     }
 
-                    // Subscribe to metadata and contact lists for this person
-                    let _ = self.to_minions.send(ToMinionMessage {
-                        target: person_relay.relay.to_string(),
-                        payload: ToMinionPayload::TempSubscribeMetadata(pubkey.clone()),
+                    let mut event_stream = self.subscribe_to_event_stream(
+                        Url::new(&person_relay.relay),
+                        vec![filter.clone()]
+                    ).await?;
+
+                    let url = person_relay.relay.clone();
+                    task::spawn(async move {
+                        while let Some(event) = event_stream.next().await {
+                            tracing::debug!("GOT AN EVENT THROUGH AN EVENT STREAM, URL {}", &url);
+                            if let Err(e) = crate::process::process_new_event(&event, false, None, None).await {
+                                tracing::error!("{}", e);
+                            }
+                            // FIXME this is where we would do NIP-05 check in a separate async task.
+                        }
+                        tracing::debug!("Event stream ended for URL {}", &url);
                     });
                 }
             }
@@ -881,6 +901,8 @@ impl Overlord {
     #[allow(dead_code)]
     async fn subscribe_to_event_stream(&mut self, url: Url, filters: Vec<Filter>)
                                        -> Result<EventStream, Error> {
+        tracing::debug!("SUBSCRIBING TO EVENT STREAM ON URL = {}", url);
+
         // Start a minion for it, if there is none
         if !self.urls_watching.contains(&Url::new(&url)) {
             self.start_minion(url.inner().to_owned()).await?;
