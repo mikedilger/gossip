@@ -16,22 +16,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.separator();
     ui.add_space(10.0);
 
-    if GLOBALS.signer.blocking_read().is_ready() {
-        ui.heading("Ready to sign events");
-
-        ui.add_space(10.0);
-
-        let key_security = GLOBALS.signer.blocking_read().key_security().unwrap();
-        let public_key = GLOBALS.signer.blocking_read().public_key().unwrap();
-
-        ui.label(&*format!(
-            "Private Key security is {}",
-            match key_security {
-                KeySecurity::Weak => "weak",
-                KeySecurity::Medium => "medium",
-            }
-        ));
-
+    // Render public key if available
+    if let Some(public_key) = GLOBALS.signer.blocking_read().public_key() {
         let pkhex: PublicKeyHex = public_key.into();
         ui.horizontal(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.0));
@@ -48,6 +34,26 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 }
             });
         }
+    }
+
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(10.0);
+
+    if GLOBALS.signer.blocking_read().is_ready() {
+        ui.heading("Ready to sign events");
+
+        ui.add_space(10.0);
+
+        let key_security = GLOBALS.signer.blocking_read().key_security().unwrap();
+
+        ui.label(&*format!(
+            "Private Key security is {}",
+            match key_security {
+                KeySecurity::Weak => "weak",
+                KeySecurity::Medium => "medium",
+            }
+        ));
 
         ui.add_space(10.0);
 
