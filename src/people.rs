@@ -5,6 +5,7 @@ use image::RgbaImage;
 use nostr_types::{Metadata, PublicKeyHex, Unixtime, Url};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 use tokio::task;
 
 pub struct People {
@@ -86,45 +87,77 @@ impl People {
         // Update the map
         let person = self.people.get_mut(pubkeyhex).unwrap();
         if let Some(metadata_at) = person.metadata_at {
-            if asof.0 <= metadata_at {
-                // Old metadata. Ignore it
-                return Ok(());
+            if asof.0 > metadata_at {
+                // Process fresh metadata
+
+                person.name = metadata.name;
+                person.about = metadata.about;
+                person.picture = metadata.picture;
+                if person.dns_id != metadata.nip05 {
+                    person.dns_id = metadata.nip05;
+                    person.dns_id_valid = 0; // changed, so reset to invalid
+                    person.dns_id_last_checked = None; // we haven't checked this one yet
+                }
+                person.metadata_at = Some(asof.0);
+
+                // Update the database
+                let person = person.clone();
+                let pubkeyhex2 = pubkeyhex.to_owned();
+                task::spawn_blocking(move || {
+                    let maybe_db = GLOBALS.db.blocking_lock();
+                    let db = maybe_db.as_ref().unwrap();
+
+                    let mut stmt = db.prepare(
+                        "UPDATE person SET name=?, about=?, picture=?, dns_id=?, metadata_at=? WHERE pubkey=?"
+                    )?;
+                    stmt.execute((
+                        &person.name,
+                        &person.about,
+                        &person.picture,
+                        &person.dns_id,
+                        &person.metadata_at,
+                        &pubkeyhex2.0,
+                    ))?;
+                    Ok::<(), Error>(())
+                })
+                    .await??;
             }
         }
-        person.name = metadata.name;
-        person.about = metadata.about;
-        person.picture = metadata.picture;
-        if person.dns_id != metadata.nip05 {
-            person.dns_id = metadata.nip05;
-            person.dns_id_valid = 0; // changed, so reset to invalid
-            person.dns_id_last_checked = None; // we haven't checked this one yet
-        }
-        person.metadata_at = Some(asof.0);
-
-        // Update the database
-        let person = person.clone();
-        let pubkeyhex2 = pubkeyhex.to_owned();
-        task::spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(
-                "UPDATE person SET name=?, about=?, picture=?, dns_id=?, metadata_at=? WHERE pubkey=?"
-            )?;
-            stmt.execute((
-                &person.name,
-                &person.about,
-                &person.picture,
-                &person.dns_id,
-                &person.metadata_at,
-                &pubkeyhex2.0,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again
         GLOBALS.failed_avatars.write().await.remove(pubkeyhex);
+
+        let person = person.to_owned();
+
+        // Recheck nip05 every day if invalid, and every two weeks if valid
+        // FIXME make these settings
+        let recheck_duration = if person.dns_id_valid > 0 {
+            Duration::from_secs(60 * 60 * 24 * 14)
+        } else {
+            Duration::from_secs(60 * 60 * 24)
+        };
+
+        // Maybe validate nip05
+        if let Some(last) = person.dns_id_last_checked {
+            if Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration {
+                // recheck
+                self.update_dns_id_last_checked(person.pubkey.clone())
+                    .await?;
+                task::spawn(async move {
+                    if let Err(e) = crate::nip05::validate_nip05(person).await {
+                        tracing::error!("{}", e);
+                    }
+                });
+            }
+        } else {
+            self.update_dns_id_last_checked(person.pubkey.clone())
+                .await?;
+            task::spawn(async move {
+                if let Err(e) = crate::nip05::validate_nip05(person).await {
+                    tracing::error!("{}", e);
+                }
+            });
+        }
 
         Ok(())
     }
@@ -350,6 +383,22 @@ impl People {
             }
         }
 
+        Ok(())
+    }
+
+    pub async fn update_dns_id_last_checked(
+        &mut self,
+        pubkeyhex: PublicKeyHex,
+    ) -> Result<(), Error> {
+        task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare("UPDATE person SET dns_id_last_checked=? WHERE pubkey=?")?;
+            let now = Unixtime::now().unwrap().0;
+            stmt.execute((&now, &pubkeyhex.0))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
         Ok(())
     }
 
