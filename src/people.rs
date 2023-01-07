@@ -65,6 +65,7 @@ impl People {
                 dns_id_last_checked: None,
                 metadata_at: None,
                 followed: 0,
+                followed_last_updated: 0,
             };
             // Insert into the map
             self.people.insert(pubkeyhex.to_owned(), dbperson.clone());
@@ -178,7 +179,7 @@ impl People {
 
         let sql =
             "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, \
-             metadata_at, followed FROM person WHERE followed=1"
+             metadata_at, followed, followed_last_updated FROM person WHERE followed=1"
                 .to_owned();
 
         let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
@@ -197,6 +198,7 @@ impl People {
                     dns_id_last_checked: row.get(6)?,
                     metadata_at: row.get(7)?,
                     followed: row.get(8)?,
+                    followed_last_updated: row.get(9)?,
                 })
             })?;
             let mut output: Vec<DbPerson> = Vec::new();
@@ -473,7 +475,9 @@ impl People {
 
     async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql =
-            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed FROM person".to_owned();
+            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, \
+             metadata_at, followed, followed_last_updated FROM person"
+                .to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -495,6 +499,7 @@ impl People {
                     dns_id_last_checked: row.get(6)?,
                     metadata_at: row.get(7)?,
                     followed: row.get(8)?,
+                    followed_last_updated: row.get(9)?,
                 })
             })?;
 
@@ -521,8 +526,9 @@ impl People {
 
     async fn insert(person: DbPerson) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO person (pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+            "INSERT OR IGNORE INTO person (pubkey, name, about, picture, dns_id, dns_id_valid, \
+             dns_id_last_checked, metadata_at, followed, followed_last_updated) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)";
 
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -539,6 +545,7 @@ impl People {
                 &person.dns_id_last_checked,
                 &person.metadata_at,
                 &person.followed,
+                &person.followed_last_updated,
             ))?;
             Ok::<(), Error>(())
         })
