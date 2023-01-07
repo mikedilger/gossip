@@ -397,10 +397,14 @@ fn render_post_actual(
         ui.horizontal(|ui| {
             // Indents first (if threaded)
             if threaded {
-                let space = 16.0 * (10.0 - (100.0 / (indent as f32 + 10.0)));
+                let space = 100.0 * (10.0 - (1000.0 / (indent as f32 + 100.0)));
                 ui.add_space(space);
                 if indent > 0 {
-                    ui.separator();
+                    ui.label(
+                        RichText::new(format!("{}>", indent))
+                            .italics()
+                            .weak()
+                    );
                 }
             }
 
