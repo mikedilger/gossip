@@ -18,10 +18,11 @@ As of right now you can (if you aren't stopped by some bug):
 
 - [x] **Seeing other people's posts**
     - [x] **Follow people** by user@domain (NIP-05) or by public key (hex or bech32) plus a relay where they can be found, or by finding them in the feed, clicking their avatar, and choosing to follow them on their page... and unfollow people.
-    - [x] **See a feed of posts from people you follow** including avatars and other user metadata, and reactions to these posts.
+    - [x] **See a feed of posts from people you follow** including avatars and other user metadata, and NIP-05 verification, as well as reactions to posts.
     - [X] **See threads related to a post** including ancestors and replies, although it may not be working as good as it will eventually work just yet.
     - [X] **See a list of posts of a person** on their person page
     - [X] **An ability to query relays for missing referred-to events** by pressing a button.
+    - [X] **Replies** to your posts in it's own feed page.
 - [x] **Creting content**
     - [x] Generating a key that is kept securely within the client encrypted under a password that you need to unlock it every time you start the client.
     - [x] Generate or import (hex or bech32) a private key (your identity) (also kept under a password)
@@ -33,7 +34,6 @@ As of right now you can (if you aren't stopped by some bug):
 
 ### Missing Critical Features
 
-- [ ] An inbox of replies to your posts (they are loaded, but you have to go into each feed to find them, they are not collated into an inbox)
 - [ ] Setting your metadata and syncing it with the network.
 - [ ] Syncing the relays you use with the network
 - [ ] Seeing who other people follow (contact lists)
@@ -42,7 +42,6 @@ As of right now you can (if you aren't stopped by some bug):
 - [ ] Quoting and/or boosting posts
 - [ ] Muting people
 - [ ] Content of posts being rendered well (references, images, videos, etc)
-- [ ] NIP-05 backend verification (many are crossed out because it's not trying)
 - [ ] Controlling which relays the client may connect to (currently it will dynamically find relays and connect if it thinks those relays have the event it wants, and you can't configure it to not do that)
 
 ## Development Ideology
@@ -110,11 +109,11 @@ We do not intend to support the following features/NIPs:
 
 ### What Gossip Isn't
 
-Gossip doesn't use web technology (except for Websockets and HTTP fetch). There is no javascript. There is no HTML parsing. There is no HTML-based layout. There is no CSS. Because of this, there are no suprises. There are no XSS vulnerabilities. There are no CORS errors.
+Gossip doesn't use web technology (except for Websockets and HTTP GET). There is no JavaScript, no HTML parsing, no automatic fetch of other resources in order to draw the page, and no HTML/CSS-based layout. Because of this, there are no suprises, no XSS vulnerabilities, no JavaScript attack vectors, no CORS errors, and especially no fetching of page-referenced resources that you never intended to fetch.
 
 On the flip side, we have (currently) shitty fonts, no color emojis, and we render many frames per second which has a computation cost.
 
-This is a trade off that works for the developer, who wants a reliable and secure client, not necessarily a flashy one.
+This is a trade off that works for the developer, who wants a reliable, secure and privacy-oriented client, not necessarily a flashy one.
 
 ## Building and Installing
 
@@ -190,9 +189,11 @@ $ ./target/release/gossip
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, shall be licensed as above, without any additional
-terms or conditions.
+All contributions welcome.
+
+Anyone interested in replacing the GUI with something much better, or keeping it as egui but making it much better, would be greatly appreciated.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, shall be licensed as above, without any additional terms or conditions.
 
 ## Follow me on Nostr
 
@@ -200,10 +201,10 @@ My public key is ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e4
 
 You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you up with the relays I post to.
 
-Note: I will rollover my public key once gossip is my daily driver.
+I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term keypair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
 
 ## Tips
 
 You can tip me at my Bitcoin Lighting address (lud16): lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
 
-You can also do that with the [Damus](https://damus.io) iOS nostr app (not yet available in gossip).
+You can also do that with the [Damus](https://damus.io) iOS nostr app.
