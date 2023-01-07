@@ -435,6 +435,85 @@ impl People {
         Ok(())
     }
 
+    pub async fn follow_all(
+        &mut self,
+        pubkeys: &[PublicKeyHex],
+        merge: bool,
+        asof: Unixtime,
+    ) -> Result<(), Error> {
+        tracing::debug!(
+            "Updating following list, {} people long, merge={}",
+            pubkeys.len(),
+            merge
+        );
+
+        // Make sure they are all in the database (and memory) first.
+        self.create_all_if_missing(pubkeys).await?;
+
+        // Follow in database
+        let sql = format!(
+            "UPDATE person SET followed=1, followed_last_updated=? WHERE pubkey IN ({}) and followed_last_updated<?",
+            repeat_vars(pubkeys.len())
+        );
+
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+
+        task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(&sql)?;
+            stmt.raw_bind_parameter(1, asof.0)?;
+            let mut pos = 2;
+            for pk in pubkey_strings.iter() {
+                stmt.raw_bind_parameter(pos, pk)?;
+                pos += 1;
+            }
+            stmt.raw_bind_parameter(pos, asof.0)?;
+            stmt.raw_execute()?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        if !merge {
+            // Unfollow in database
+            let sql = format!(
+                "UPDATE person SET followed=0, followed_last_updated=? WHERE pubkey NOT IN ({}) and followed_last_updated<?",
+                repeat_vars(pubkeys.len())
+            );
+
+            let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+
+            task::spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                let mut stmt = db.prepare(&sql)?;
+                stmt.raw_bind_parameter(1, asof.0)?;
+                let mut pos = 2;
+                for pk in pubkey_strings.iter() {
+                    stmt.raw_bind_parameter(pos, pk)?;
+                    pos += 1;
+                }
+                stmt.raw_bind_parameter(pos, asof.0)?;
+                stmt.raw_execute()?;
+                Ok::<(), Error>(())
+            })
+            .await??;
+        }
+
+        // Make sure memory matches
+        for (pkh, person) in self.people.iter_mut() {
+            if person.followed_last_updated < asof.0 {
+                if pubkeys.contains(pkh) {
+                    person.followed = 1;
+                } else if !merge {
+                    person.followed = 0;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn update_dns_id_last_checked(
         &mut self,
         pubkeyhex: PublicKeyHex,
@@ -589,4 +668,12 @@ impl People {
            Ok(())
        }
     */
+}
+
+fn repeat_vars(count: usize) -> String {
+    assert_ne!(count, 0);
+    let mut s = "?,".repeat(count);
+    // Remove trailing comma
+    s.pop();
+    s
 }
