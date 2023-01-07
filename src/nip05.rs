@@ -147,14 +147,16 @@ fn parse_dns_id(dns_id: &str) -> Result<(String, String), Error> {
 }
 
 async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
-    let nip05_future = reqwest::Client::new()
+    let nip05_future = reqwest::Client::builder()
+        .timeout(std::time::Duration::new(60, 0))
+        .redirect(reqwest::redirect::Policy::none()) // see NIP-05
+        .build()?
         .get(format!(
             "https://{}/.well-known/nostr.json?name={}",
             domain, user
         ))
         .header("Host", domain)
         .send();
-    let timeout_future = tokio::time::timeout(std::time::Duration::new(15, 0), nip05_future);
-    let response = timeout_future.await??;
+    let response = nip05_future.await?;
     Ok(response.json::<Nip05>().await?)
 }
