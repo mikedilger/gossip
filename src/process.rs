@@ -48,7 +48,7 @@ pub async fn process_new_event(
                 .people
                 .write()
                 .await
-                .create_if_missing(&event.pubkey.into())
+                .create_all_if_missing(&[event.pubkey.into()])
                 .await?;
 
             // Update person_relay.last_fetched
