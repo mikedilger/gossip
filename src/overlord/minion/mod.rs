@@ -397,10 +397,7 @@ impl Minion {
         // Posts made by the person
         filters.push(Filter {
             authors: vec![pubkey.clone()],
-            kinds: vec![
-                EventKind::TextNote,
-                EventKind::EventDeletion,
-            ],
+            kinds: vec![EventKind::TextNote, EventKind::EventDeletion],
             // No since, just a limit on quantity of posts
             limit: Some(25),
             ..Default::default()
@@ -409,13 +406,11 @@ impl Minion {
         // Reactions to posts made by the person
         // (presuming people include a 'p' tag in their reactions)
         filters.push(Filter {
-            kinds: vec![
-                EventKind::Reaction
-            ],
+            kinds: vec![EventKind::Reaction],
             p: vec![pubkey],
             // Limited in time just so we aren't overwhelmed. Generally we only need reactions
             // to their most recent posts. This is a very sloppy and approximate solution.
-            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk*25)),
+            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk * 25)),
             ..Default::default()
         });
 

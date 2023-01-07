@@ -400,11 +400,7 @@ fn render_post_actual(
                 let space = 100.0 * (10.0 - (1000.0 / (indent as f32 + 100.0)));
                 ui.add_space(space);
                 if indent > 0 {
-                    ui.label(
-                        RichText::new(format!("{}>", indent))
-                            .italics()
-                            .weak()
-                    );
+                    ui.label(RichText::new(format!("{}>", indent)).italics().weak());
                 }
             }
 
