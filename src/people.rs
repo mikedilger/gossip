@@ -86,42 +86,48 @@ impl People {
 
         // Update the map
         let person = self.people.get_mut(pubkeyhex).unwrap();
+
+        // Determine whether to update it
+        let mut doit = person.metadata_at.is_none();
         if let Some(metadata_at) = person.metadata_at {
             if asof.0 > metadata_at {
-                // Process fresh metadata
-
-                person.name = metadata.get("name");
-                person.about = metadata.get("about");
-                person.picture = metadata.get("picture");
-                if person.dns_id != metadata.get("nip05") {
-                    person.dns_id = metadata.get("nip05");
-                    person.dns_id_valid = 0; // changed, so reset to invalid
-                    person.dns_id_last_checked = None; // we haven't checked this one yet
-                }
-                person.metadata_at = Some(asof.0);
-
-                // Update the database
-                let person = person.clone();
-                let pubkeyhex2 = pubkeyhex.to_owned();
-                task::spawn_blocking(move || {
-                    let maybe_db = GLOBALS.db.blocking_lock();
-                    let db = maybe_db.as_ref().unwrap();
-
-                    let mut stmt = db.prepare(
-                        "UPDATE person SET name=?, about=?, picture=?, dns_id=?, metadata_at=? WHERE pubkey=?"
-                    )?;
-                    stmt.execute((
-                        &person.name,
-                        &person.about,
-                        &person.picture,
-                        &person.dns_id,
-                        &person.metadata_at,
-                        &pubkeyhex2.0,
-                    ))?;
-                    Ok::<(), Error>(())
-                })
-                    .await??;
+                doit = true;
             }
+        }
+        if doit {
+            // Process fresh metadata
+
+            person.name = metadata.get("name");
+            person.about = metadata.get("about");
+            person.picture = metadata.get("picture");
+            if person.dns_id != metadata.get("nip05") {
+                person.dns_id = metadata.get("nip05");
+                person.dns_id_valid = 0; // changed, so reset to invalid
+                person.dns_id_last_checked = None; // we haven't checked this one yet
+            }
+            person.metadata_at = Some(asof.0);
+
+            // Update the database
+            let person = person.clone();
+            let pubkeyhex2 = pubkeyhex.to_owned();
+            task::spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+
+                let mut stmt = db.prepare(
+                    "UPDATE person SET name=?, about=?, picture=?, dns_id=?, metadata_at=? WHERE pubkey=?"
+                )?;
+                stmt.execute((
+                    &person.name,
+                    &person.about,
+                    &person.picture,
+                    &person.dns_id,
+                    &person.metadata_at,
+                    &pubkeyhex2.0,
+                ))?;
+                Ok::<(), Error>(())
+            })
+                .await??;
         }
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again
