@@ -2,7 +2,7 @@ use crate::db::DbPerson;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use image::RgbaImage;
-use nostr_types::{Metadata, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Metadata, PublicKey, PublicKeyHex, Unixtime, Url};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -331,6 +331,28 @@ impl People {
                 Err(())
             }
         }
+    }
+
+    /// This lets you start typing a name, and autocomplete the results for tagging
+    /// someone in a post.  It returns maximum 10 results.
+    pub fn get_ids_from_prefix(&self, mut prefix: &str) -> Vec<(String, PublicKey)> {
+        // work with or without the @ symbol:
+        if prefix.starts_with('@') {
+            prefix = &prefix[1..]
+        }
+        self.people
+            .iter()
+            .filter_map(|(_, person)| {
+                if let Some(name) = &person.name {
+                    if name.starts_with(prefix) {
+                        let pubkey = PublicKey::try_from_hex_string(&person.pubkey).unwrap(); // FIXME
+                        return Some((name.clone(), pubkey));
+                    }
+                }
+                None
+            })
+            .take(10)
+            .collect()
     }
 
     /// This is a 'just in case' the main code isn't keeping them in sync.

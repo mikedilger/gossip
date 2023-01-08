@@ -436,11 +436,11 @@ impl Overlord {
                     }
                 });
             }
-            ToOverlordMessage::PostReply(content, reply_to) => {
-                self.post_reply(content, reply_to).await?;
+            ToOverlordMessage::PostReply(content, tags, reply_to) => {
+                self.post_reply(content, tags, reply_to).await?;
             }
-            ToOverlordMessage::PostTextNote(content) => {
-                self.post_textnote(content).await?;
+            ToOverlordMessage::PostTextNote(content, tags) => {
+                self.post_textnote(content, tags).await?;
             }
             ToOverlordMessage::SaveRelays => {
                 let dirty_relays: Vec<DbRelay> = GLOBALS
@@ -619,7 +619,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn post_textnote(&mut self, content: String) -> Result<(), Error> {
+    async fn post_textnote(&mut self, content: String, tags: Vec<Tag>) -> Result<(), Error> {
         let event = {
             let public_key = match GLOBALS.signer.read().await.public_key() {
                 Some(pk) => pk,
@@ -633,7 +633,7 @@ impl Overlord {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
                 kind: EventKind::TextNote,
-                tags: vec![],
+                tags,
                 content,
                 ots: None,
             };
@@ -672,9 +672,12 @@ impl Overlord {
         Ok(())
     }
 
-    async fn post_reply(&mut self, content: String, reply_to: Id) -> Result<(), Error> {
-        let mut tags: Vec<Tag> = Vec::new();
-
+    async fn post_reply(
+        &mut self,
+        content: String,
+        mut tags: Vec<Tag>,
+        reply_to: Id,
+    ) -> Result<(), Error> {
         let event = {
             let public_key = match GLOBALS.signer.read().await.public_key() {
                 Some(pk) => pk,
@@ -719,6 +722,8 @@ impl Overlord {
                 .map(|t| t.to_owned())
                 .collect();
             tags.extend(parent_p_tags);
+
+            // FIXME deduplicate 'p' tags
 
             let pre_event = PreEvent {
                 pubkey: public_key,

@@ -145,28 +145,60 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                if ui.button("Send").clicked() && !app.draft.is_empty() {
-                    match app.replying_to {
-                        Some(replying_to_id) => {
-                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostReply(
-                                app.draft.clone(),
-                                replying_to_id,
-                            ));
+                ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                    if ui.button("Send").clicked() && !app.draft.is_empty() {
+                        match app.replying_to {
+                            Some(replying_to_id) => {
+                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostReply(
+                                    app.draft.clone(),
+                                    app.draft_tags.clone(),
+                                    replying_to_id,
+                                ));
+                            }
+                            None => {
+                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostTextNote(
+                                    app.draft.clone(),
+                                    app.draft_tags.clone(),
+                                ));
+                            }
                         }
-                        None => {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::PostTextNote(app.draft.clone()));
+                        app.draft = "".to_owned();
+                        app.replying_to = None;
+                    }
+
+                    if ui.button("Cancel").clicked() {
+                        app.draft = "".to_owned();
+                        app.replying_to = None;
+                    }
+
+                    ui.add(
+                        TextEdit::singleline(&mut app.tag_someone)
+                            .desired_width(100.0)
+                            .hint_text("@username"),
+                    );
+                    if !app.tag_someone.is_empty() {
+                        let pairs = GLOBALS
+                            .people
+                            .blocking_read()
+                            .get_ids_from_prefix(&app.tag_someone);
+                        if !pairs.is_empty() {
+                            ui.menu_button("@", |ui| {
+                                for pair in pairs {
+                                    if ui.button(pair.0).clicked() {
+                                        app.draft_tags.push(Tag::Pubkey {
+                                            pubkey: pair.1,
+                                            recommended_relay_url: None, // FIXME
+                                            petname: None,
+                                        });
+                                        app.draft
+                                            .push_str(&format!("#[{}]", app.draft_tags.len() - 1));
+                                        app.tag_someone = "".to_owned();
+                                    }
+                                }
+                            });
                         }
                     }
-                    app.draft = "".to_owned();
-                    app.replying_to = None;
-                }
-                if ui.button("Cancel").clicked() {
-                    app.draft = "".to_owned();
-                    app.replying_to = None;
-                }
-
+                });
                 ui.add(
                     TextEdit::multiline(&mut app.draft)
                         .hint_text("Type your message here")

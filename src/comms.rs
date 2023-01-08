@@ -1,4 +1,4 @@
-use nostr_types::{Event, Id, IdHex, PublicKey, PublicKeyHex};
+use nostr_types::{Event, Id, IdHex, PublicKey, PublicKeyHex, Tag};
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
@@ -15,8 +15,8 @@ pub enum ToOverlordMessage {
     Like(Id, PublicKey),
     MinionIsReady,
     ProcessIncomingEvents,
-    PostReply(String, Id),
-    PostTextNote(String),
+    PostReply(String, Vec<Tag>, Id),
+    PostTextNote(String, Vec<Tag>),
     SaveRelays,
     SaveSettings,
     Shutdown,
