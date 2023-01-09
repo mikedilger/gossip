@@ -257,7 +257,20 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     // List of tags to be applied
     for (i, tag) in app.draft_tags.iter().enumerate() {
-        ui.label(format!("{}: {}", i, serde_json::to_string(tag).unwrap()));
+        let rendered = match tag {
+            Tag::Pubkey { pubkey, .. } => {
+                if let Some(person) = GLOBALS.people.blocking_write().get(&(*pubkey).into()) {
+                    match person.name {
+                        Some(name) => name,
+                        None => GossipUi::pubkey_long(pubkey),
+                    }
+                } else {
+                    GossipUi::pubkey_long(pubkey)
+                }
+            }
+            _ => serde_json::to_string(tag).unwrap(),
+        };
+        ui.label(format!("{}: {}", i, rendered));
     }
 }
 
