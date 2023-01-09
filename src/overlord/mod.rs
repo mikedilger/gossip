@@ -695,6 +695,7 @@ impl Overlord {
             };
 
             // Get the event we are replying to
+            /*
             let event = match GLOBALS.events.get(&reply_to) {
                 Some(e) => e,
                 None => {
@@ -703,6 +704,7 @@ impl Overlord {
                     ))
                 }
             };
+            */
 
             // Add an 'e' tag for the note we are replying to
             tags.push(Tag::Event {
@@ -710,6 +712,8 @@ impl Overlord {
                 recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
                 marker: Some("reply".to_string()),
             });
+
+            /* These are now done in the UI so the poster can refer to them
 
             // Add a 'p' tag for the author we are replying to
             tags.push(Tag::Pubkey {
@@ -731,6 +735,7 @@ impl Overlord {
             tags.extend(parent_p_tags);
 
             // FIXME deduplicate 'p' tags
+            */
 
             if GLOBALS.settings.read().await.set_client_tag {
                 tags.push(Tag::Other {
