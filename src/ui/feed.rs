@@ -163,11 +163,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             }
                         }
                         app.draft = "".to_owned();
+                        app.draft_tags = vec![];
                         app.replying_to = None;
                     }
 
                     if ui.button("Cancel").clicked() {
                         app.draft = "".to_owned();
+                        app.draft_tags = vec![];
                         app.replying_to = None;
                     }
 
