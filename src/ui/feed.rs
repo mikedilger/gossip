@@ -67,6 +67,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     });
     ui.separator();
 
+    posting_area(app, ctx, frame, ui);
+
+    ui.separator();
+
     // Top Buttons
     Globals::trim_desired_events_sync();
     let desired_count: isize = match GLOBALS.desired_events.try_read() {
@@ -110,107 +114,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         .on_hover_text("Requests In Flight (http, not wss)");
     });
 
-    // Posting Area
-    ui.vertical(|ui| {
-        if !GLOBALS.signer.blocking_read().is_ready() {
-            ui.horizontal(|ui| {
-                ui.label("You need to ");
-                if ui.link("setup your identity").clicked() {
-                    app.page = Page::You;
-                }
-                ui.label(" to post.");
-            });
-        } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
-            ui.horizontal(|ui| {
-                ui.label("You need to ");
-                if ui.link("choose relays").clicked() {
-                    app.page = Page::Relays;
-                }
-                ui.label(" to post.");
-            });
-        } else {
-            if let Some(id) = app.replying_to {
-                render_post_actual(
-                    app,
-                    ctx,
-                    frame,
-                    ui,
-                    FeedPostParams {
-                        id,
-                        indent: 0,
-                        as_reply_to: true,
-                        threaded: false,
-                    },
-                );
-            }
-
-            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
-                    if ui.button("Send").clicked() && !app.draft.is_empty() {
-                        match app.replying_to {
-                            Some(replying_to_id) => {
-                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostReply(
-                                    app.draft.clone(),
-                                    app.draft_tags.clone(),
-                                    replying_to_id,
-                                ));
-                            }
-                            None => {
-                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostTextNote(
-                                    app.draft.clone(),
-                                    app.draft_tags.clone(),
-                                ));
-                            }
-                        }
-                        app.draft = "".to_owned();
-                        app.draft_tags = vec![];
-                        app.replying_to = None;
-                    }
-
-                    if ui.button("Cancel").clicked() {
-                        app.draft = "".to_owned();
-                        app.draft_tags = vec![];
-                        app.replying_to = None;
-                    }
-
-                    ui.add(
-                        TextEdit::singleline(&mut app.tag_someone)
-                            .desired_width(100.0)
-                            .hint_text("@username"),
-                    );
-                    if !app.tag_someone.is_empty() {
-                        let pairs = GLOBALS
-                            .people
-                            .blocking_read()
-                            .get_ids_from_prefix(&app.tag_someone);
-                        if !pairs.is_empty() {
-                            ui.menu_button("@", |ui| {
-                                for pair in pairs {
-                                    if ui.button(pair.0).clicked() {
-                                        app.draft_tags.push(Tag::Pubkey {
-                                            pubkey: pair.1,
-                                            recommended_relay_url: None, // FIXME
-                                            petname: None,
-                                        });
-                                        app.draft
-                                            .push_str(&format!("#[{}]", app.draft_tags.len() - 1));
-                                        app.tag_someone = "".to_owned();
-                                    }
-                                }
-                            });
-                        }
-                    }
-                });
-                ui.add(
-                    TextEdit::multiline(&mut app.draft)
-                        .hint_text("Type your message here")
-                        .desired_width(f32::INFINITY)
-                        .lock_focus(true),
-                );
-            });
-        }
-    });
-
     ui.separator();
 
     match feed_kind {
@@ -239,6 +142,122 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_person_feed(pubkeyhex);
             render_a_feed(app, ctx, frame, ui, feed, false);
         }
+    }
+}
+
+fn posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
+    // Posting Area
+    ui.vertical(|ui| {
+        if !GLOBALS.signer.blocking_read().is_ready() {
+            ui.horizontal(|ui| {
+                ui.label("You need to ");
+                if ui.link("setup your identity").clicked() {
+                    app.page = Page::You;
+                }
+                ui.label(" to post.");
+            });
+        } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
+            ui.horizontal(|ui| {
+                ui.label("You need to ");
+                if ui.link("choose relays").clicked() {
+                    app.page = Page::Relays;
+                }
+                ui.label(" to post.");
+            });
+        } else {
+            real_posting_area(app, ctx, frame, ui);
+        }
+    });
+}
+
+fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
+    // Maybe render post we are replying to
+    if let Some(id) = app.replying_to {
+        render_post_actual(
+            app,
+            ctx,
+            frame,
+            ui,
+            FeedPostParams {
+                id,
+                indent: 0,
+                as_reply_to: true,
+                threaded: false,
+            },
+        );
+    }
+
+    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+        // Buttons
+        ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+            if ui.button("Send").clicked() && !app.draft.is_empty() {
+                match app.replying_to {
+                    Some(replying_to_id) => {
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostReply(
+                            app.draft.clone(),
+                            app.draft_tags.clone(),
+                            replying_to_id,
+                        ));
+                    }
+                    None => {
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostTextNote(
+                            app.draft.clone(),
+                            app.draft_tags.clone(),
+                        ));
+                    }
+                }
+                app.draft = "".to_owned();
+                app.draft_tags = vec![];
+                app.replying_to = None;
+            }
+
+            if ui.button("Cancel").clicked() {
+                app.draft = "".to_owned();
+                app.draft_tags = vec![];
+                app.replying_to = None;
+            }
+
+            ui.add(
+                TextEdit::singleline(&mut app.tag_someone)
+                    .desired_width(100.0)
+                    .hint_text("@username"),
+            );
+            if !app.tag_someone.is_empty() {
+                let pairs = GLOBALS
+                    .people
+                    .blocking_read()
+                    .get_ids_from_prefix(&app.tag_someone);
+                if !pairs.is_empty() {
+                    ui.menu_button("@", |ui| {
+                        for pair in pairs {
+                            if ui.button(pair.0).clicked() {
+                                app.draft_tags.push(Tag::Pubkey {
+                                    pubkey: pair.1,
+                                    recommended_relay_url: None, // FIXME
+                                    petname: None,
+                                });
+                                app.draft
+                                    .push_str(&format!("#[{}]", app.draft_tags.len() - 1));
+                                app.tag_someone = "".to_owned();
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        // Text area
+        ui.add(
+            TextEdit::multiline(&mut app.draft)
+                .hint_text("Type your message here")
+                .desired_width(f32::INFINITY)
+                .lock_focus(true),
+        );
+    });
+
+    // List of tags to be applied
+    for (i, tag) in app.draft_tags.iter().enumerate() {
+        ui.label(format!("{}: {}", i, serde_json::to_string(tag).unwrap()));
     }
 }
 
