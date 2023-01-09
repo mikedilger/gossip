@@ -566,7 +566,7 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                             let idhex: IdHex = (*id).into();
                             let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
                             if ui.link(&nam).clicked() {
-                                GLOBALS.feed.set_feed_to_thread(event.id);
+                                GLOBALS.feed.set_feed_to_thread(*id);
                                 app.page = Page::FeedThread;
                             };
                         }
