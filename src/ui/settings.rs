@@ -10,7 +10,6 @@ pub(super) fn update(
     _ctx: &Context,
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
-    darkmode: bool,
 ) {
     ui.heading("Settings");
 
@@ -111,23 +110,24 @@ pub(super) fn update(
 
     ui.horizontal(|ui| {
         ui.label("Switch to");
-
         #[allow(clippy::collapsible_else_if)]
-        if darkmode {
-            if ui
-                .add(Button::new("☀ Light"))
-                .on_hover_text("Switch to light mode")
-                .clicked()
-            {
-                ui.ctx().set_visuals(super::style::light_mode_visuals());
-            }
-        } else {
+        if app.settings.light_mode {
             if ui
                 .add(Button::new("🌙 Dark"))
                 .on_hover_text("Switch to dark mode")
                 .clicked()
             {
                 ui.ctx().set_visuals(super::style::dark_mode_visuals());
+                app.settings.light_mode = false;
+            }
+        } else {
+            if ui
+                .add(Button::new("☀ Light"))
+                .on_hover_text("Switch to light mode")
+                .clicked()
+            {
+                ui.ctx().set_visuals(super::style::light_mode_visuals());
+                app.settings.light_mode = true;
             }
         }
     });

@@ -13,6 +13,7 @@ pub const DEFAULT_MAX_FPS: u32 = 30;
 pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 2000;
 pub const DEFAULT_POW: u8 = 0;
 pub const DEFAULT_OFFLINE: bool = false;
+pub const DEFAULT_LIGHT_MODE: bool = true; // true = light false = dark
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
@@ -28,6 +29,7 @@ pub struct Settings {
     pub feed_recompute_interval_ms: u32,
     pub pow: u8,
     pub offline: bool,
+    pub light_mode: bool,
 }
 
 impl Default for Settings {
@@ -45,6 +47,7 @@ impl Default for Settings {
             feed_recompute_interval_ms: DEFAULT_FEED_RECOMPUTE_INTERVAL_MS,
             pow: DEFAULT_POW,
             offline: DEFAULT_OFFLINE,
+            light_mode: DEFAULT_LIGHT_MODE,
         }
     }
 }
@@ -101,6 +104,7 @@ impl Settings {
                 }
                 "pow" => settings.pow = row.1.parse::<u8>().unwrap_or(DEFAULT_POW),
                 "offline" => settings.offline = numstr_to_bool(row.1),
+                "light_mode" => settings.light_mode = numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -131,6 +135,7 @@ impl Settings {
              ('max_fps', ?),\
              ('feed_recompute_interval_ms', ?),\
              ('pow', ?),\
+             ('light_mode', ?),\
              ('offline', ?)",
         )?;
         stmt.execute((
@@ -143,6 +148,7 @@ impl Settings {
             self.max_fps,
             self.feed_recompute_interval_ms,
             self.pow,
+            bool_to_numstr(self.light_mode),
             bool_to_numstr(self.offline),
         ))?;
 

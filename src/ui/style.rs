@@ -17,15 +17,15 @@ pub(super) fn dark_mode_visuals() -> Visuals {
         code_bg_color: Color32::from_gray(64),
 
         // Foreground colors
-        window_stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)), // DONE
-        override_text_color: None,
+        window_stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)),
+        override_text_color: Some(Color32::from_gray(190)),
         warn_fg_color: Color32::from_rgb(255, 143, 0), // orange
         error_fg_color: Color32::from_rgb(255, 0, 0),  // red
-        hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae), // DONE
+        hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae),
 
         selection: Selection {
-            bg_fill: Color32::from_rgb(0xb1, 0xa2, 0x96), // DONE
-            stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)), // DONE
+            bg_fill: Color32::from_rgb(0x57, 0x4a, 0x40),
+            stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)),
         },
 
         window_shadow: Shadow::big_dark(),
