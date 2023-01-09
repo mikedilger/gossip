@@ -390,19 +390,19 @@ impl Minion {
     async fn subscribe_person_feed(&mut self, pubkey: PublicKeyHex) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
-        let mut filters: Vec<Filter> = Vec::new();
-
-        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
-
-        // Posts made by the person
-        filters.push(Filter {
+        let filters: Vec<Filter> = vec![Filter {
             authors: vec![pubkey.clone()],
             kinds: vec![EventKind::TextNote, EventKind::EventDeletion],
             // No since, just a limit on quantity of posts
             limit: Some(25),
             ..Default::default()
-        });
+        }];
 
+        // let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+
+        // Don't do this anymore. It's low value and we can't compute how far back to look
+        // until after we get their 25th oldest post.
+        /*
         // Reactions to posts made by the person
         // (presuming people include a 'p' tag in their reactions)
         filters.push(Filter {
@@ -413,6 +413,7 @@ impl Minion {
             since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk * 25)),
             ..Default::default()
         });
+         */
 
         // persons metadata
         // we don't display this stuff in their feed, so probably take this out.
