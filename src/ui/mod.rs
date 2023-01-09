@@ -105,7 +105,7 @@ impl GossipUi {
         // grab settings to determine whether to render dark_mode or light_mode
         let settings = GLOBALS.settings.blocking_read().clone();
 
-        if ! settings.light_mode {
+        if !settings.light_mode {
             cctx.egui_ctx.set_visuals(style::dark_mode_visuals());
         } else {
             cctx.egui_ctx.set_visuals(style::light_mode_visuals());

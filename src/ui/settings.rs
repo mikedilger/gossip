@@ -5,12 +5,7 @@ use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout, Ui};
 
-pub(super) fn update(
-    app: &mut GossipUi,
-    _ctx: &Context,
-    _frame: &mut eframe::Frame,
-    ui: &mut Ui,
-) {
+pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Settings");
 
     ui.add_space(12.0);
@@ -92,6 +87,14 @@ pub(super) fn update(
             .on_hover_text("The larger the number, the longer it takes.");
         ui.add(Slider::new(&mut app.settings.pow, 0..=40).text("leading zeroes"));
     });
+
+    ui.add_space(12.0);
+
+    ui.checkbox(
+        &mut app.settings.set_client_tag,
+        "Add tag [\"client\",\"gossip\"] to posts",
+    )
+    .on_hover_text("Takes effect immediately.");
 
     ui.add_space(12.0);
     ui.separator();

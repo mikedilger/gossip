@@ -14,6 +14,7 @@ pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 2000;
 pub const DEFAULT_POW: u8 = 0;
 pub const DEFAULT_OFFLINE: bool = false;
 pub const DEFAULT_LIGHT_MODE: bool = true; // true = light false = dark
+pub const DEFAULT_SET_CLIENT_TAG: bool = false;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
@@ -30,6 +31,7 @@ pub struct Settings {
     pub pow: u8,
     pub offline: bool,
     pub light_mode: bool,
+    pub set_client_tag: bool,
 }
 
 impl Default for Settings {
@@ -48,6 +50,7 @@ impl Default for Settings {
             pow: DEFAULT_POW,
             offline: DEFAULT_OFFLINE,
             light_mode: DEFAULT_LIGHT_MODE,
+            set_client_tag: DEFAULT_SET_CLIENT_TAG,
         }
     }
 }
@@ -105,6 +108,7 @@ impl Settings {
                 "pow" => settings.pow = row.1.parse::<u8>().unwrap_or(DEFAULT_POW),
                 "offline" => settings.offline = numstr_to_bool(row.1),
                 "light_mode" => settings.light_mode = numstr_to_bool(row.1),
+                "set_client_tag" => settings.set_client_tag = numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -135,8 +139,9 @@ impl Settings {
              ('max_fps', ?),\
              ('feed_recompute_interval_ms', ?),\
              ('pow', ?),\
+             ('offline', ?),\
              ('light_mode', ?),\
-             ('offline', ?)",
+             ('set_client_tag', ?)",
         )?;
         stmt.execute((
             self.feed_chunk,
@@ -148,8 +153,9 @@ impl Settings {
             self.max_fps,
             self.feed_recompute_interval_ms,
             self.pow,
-            bool_to_numstr(self.light_mode),
             bool_to_numstr(self.offline),
+            bool_to_numstr(self.light_mode),
+            bool_to_numstr(self.set_client_tag),
         ))?;
 
         // Save private key identity

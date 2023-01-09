@@ -619,7 +619,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn post_textnote(&mut self, content: String, tags: Vec<Tag>) -> Result<(), Error> {
+    async fn post_textnote(&mut self, content: String, mut tags: Vec<Tag>) -> Result<(), Error> {
         let event = {
             let public_key = match GLOBALS.signer.read().await.public_key() {
                 Some(pk) => pk,
@@ -628,6 +628,13 @@ impl Overlord {
                     return Ok(());
                 }
             };
+
+            if GLOBALS.settings.read().await.set_client_tag {
+                tags.push(Tag::Other {
+                    tag: "client".to_owned(),
+                    data: vec!["gossip".to_owned()],
+                });
+            }
 
             let pre_event = PreEvent {
                 pubkey: public_key,
@@ -725,6 +732,13 @@ impl Overlord {
 
             // FIXME deduplicate 'p' tags
 
+            if GLOBALS.settings.read().await.set_client_tag {
+                tags.push(Tag::Other {
+                    tag: "client".to_owned(),
+                    data: vec!["gossip".to_owned()],
+                });
+            }
+
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
@@ -778,22 +792,31 @@ impl Overlord {
                 }
             };
 
+            let mut tags: Vec<Tag> = vec![
+                Tag::Event {
+                    id,
+                    recommended_relay_url: DbRelay::recommended_relay_for_reply(id).await?,
+                    marker: None,
+                },
+                Tag::Pubkey {
+                    pubkey,
+                    recommended_relay_url: None,
+                    petname: None,
+                },
+            ];
+
+            if GLOBALS.settings.read().await.set_client_tag {
+                tags.push(Tag::Other {
+                    tag: "client".to_owned(),
+                    data: vec!["gossip".to_owned()],
+                });
+            }
+
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
                 kind: EventKind::Reaction,
-                tags: vec![
-                    Tag::Event {
-                        id,
-                        recommended_relay_url: DbRelay::recommended_relay_for_reply(id).await?,
-                        marker: None,
-                    },
-                    Tag::Pubkey {
-                        pubkey,
-                        recommended_relay_url: None,
-                        petname: None,
-                    },
-                ],
+                tags,
                 content: "+".to_owned(),
                 ots: None,
             };
