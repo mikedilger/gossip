@@ -251,20 +251,20 @@ fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.add_space(10.0);
         ui.label("Enter Password To Delete: ");
-        ui.add(TextEdit::singleline(&mut app.password).password(true));
+        ui.add(TextEdit::singleline(&mut app.del_password).password(true));
     });
 
     if ui.button("DELETE (Cannot be undone!)").clicked() {
         match GLOBALS
             .signer
             .blocking_write()
-            .delete_identity(&app.password)
+            .delete_identity(&app.del_password)
         {
             Ok(_) => *GLOBALS.status_message.blocking_write() = "Identity deleted.".to_string(),
             Err(e) => *GLOBALS.status_message.blocking_write() = format!("{}", e),
         }
-        app.password.zeroize();
-        app.password = "".to_owned();
+        app.del_password.zeroize();
+        app.del_password = "".to_owned();
     }
 }
 
