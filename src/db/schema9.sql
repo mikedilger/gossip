@@ -1,1 +1,0 @@
-INSERT INTO settings (key, value) values ('light_mode', '1');
