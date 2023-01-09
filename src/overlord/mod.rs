@@ -673,6 +673,8 @@ impl Overlord {
     }
 
     async fn post_reply(&mut self, content: String, reply_to: Id) -> Result<(), Error> {
+        let mut tags: Vec<Tag> = Vec::new();
+
         let event = {
             let public_key = match GLOBALS.signer.read().await.public_key() {
                 Some(pk) => pk,
@@ -682,15 +684,47 @@ impl Overlord {
                 }
             };
 
+            // Get the event we are replying to
+            let event = match GLOBALS.events.get(&reply_to) {
+                Some(e) => e,
+                None => {
+                    return Err(Error::General(
+                        "Cannot find event we are replying to.".to_owned(),
+                    ))
+                }
+            };
+
+            // Add an 'e' tag for the note we are replying to
+            tags.push(Tag::Event {
+                id: reply_to,
+                recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
+                marker: Some("reply".to_string()),
+            });
+
+            // Add a 'p' tag for the author we are replying to
+            tags.push(Tag::Pubkey {
+                pubkey: event.pubkey,
+                recommended_relay_url: None, // FIXME
+                petname: None,
+            });
+
+            // Add all the 'p' tags from the note we are replying to
+            let parent_p_tags: Vec<Tag> = event
+                .tags
+                .iter()
+                .filter(|t| match t {
+                    Tag::Pubkey { pubkey, .. } => *pubkey != event.pubkey,
+                    _ => false,
+                })
+                .map(|t| t.to_owned())
+                .collect();
+            tags.extend(parent_p_tags);
+
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
                 kind: EventKind::TextNote,
-                tags: vec![Tag::Event {
-                    id: reply_to,
-                    recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
-                    marker: Some("reply".to_string()),
-                }],
+                tags,
                 content,
                 ots: None,
             };
