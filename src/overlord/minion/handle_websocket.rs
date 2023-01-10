@@ -9,7 +9,16 @@ impl Minion {
         // TODO: pull out the raw event without any deserialization to be sure we don't mangle
         //       it.
 
-        let relay_message: RelayMessage = serde_json::from_str(&ws_message)?;
+        let relay_message: RelayMessage = match serde_json::from_str(&ws_message) {
+            Ok(rm) => rm,
+            Err(e) => {
+                tracing::error!(
+                    "RELAY MESSAGE NOT DESERIALIZING: starts with \"{}\"",
+                    &ws_message.chars().take(300).collect::<String>()
+                );
+                return Err(e.into());
+            }
+        };
 
         let mut maxtime = Unixtime::now()?;
         maxtime.0 += 60 * 15; // 15 minutes into the future
