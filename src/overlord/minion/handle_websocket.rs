@@ -1,5 +1,6 @@
 use super::Minion;
-use crate::Error;
+use crate::db::DbRelay;
+use crate::error::Error;
 use futures::SinkExt;
 use nostr_types::{RelayMessage, Unixtime};
 use tungstenite::protocol::Message as WsMessage;
@@ -38,6 +39,18 @@ impl Minion {
                         .get_handle_by_id(&subid.0)
                         .unwrap_or_else(|| "_".to_owned());
                     tracing::debug!("{}: {}: NEW EVENT", &self.url, handle);
+
+                    // Events that come in after EOSE on the general feed bump the last_general_eose
+                    // timestamp for that relay, so we don't query before them next time we run.
+                    if let Some(sub) = self.subscriptions.get_mut_by_id(&subid.0) {
+                        if handle == "general_feed" && sub.eose() {
+                            DbRelay::update_general_eose(
+                                self.dbrelay.url.clone(),
+                                event.created_at.0 as u64,
+                            )
+                            .await?;
+                        }
+                    }
 
                     // Try processing everything immediately
                     crate::process::process_new_event(
@@ -78,7 +91,7 @@ impl Minion {
                 // Update the matching subscription
                 match self.subscriptions.get_mut_by_id(&subid.0) {
                     Some(sub) => {
-                        tracing::trace!("{}: {}: EOSE: {:?}", &self.url, handle, subid);
+                        tracing::debug!("{}: {}: EOSE: {:?}", &self.url, handle, subid);
                         if close {
                             let close_message = sub.close_message();
                             let websocket_sink = self.sink.as_mut().unwrap();
@@ -86,6 +99,10 @@ impl Minion {
                             websocket_sink.send(WsMessage::Text(wire.clone())).await?;
                         } else {
                             sub.set_eose();
+                        }
+                        if handle == "general_feed" {
+                            let now = Unixtime::now().unwrap().0 as u64;
+                            DbRelay::update_general_eose(self.dbrelay.url.clone(), now).await?;
                         }
                     }
                     None => {

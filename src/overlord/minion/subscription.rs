@@ -103,11 +103,9 @@ impl Subscription {
         self.eose = true;
     }
 
-    /*
     pub fn eose(&self) -> bool {
         self.eose
     }
-     */
 
     pub fn req_message(&self) -> ClientMessage {
         ClientMessage::Req(SubscriptionId(self.get_id()), self.filters.clone())

@@ -152,7 +152,7 @@ impl Minion {
         // Bump the success count for the relay
         {
             let now = Unixtime::now().unwrap().0 as u64;
-            DbRelay::update_success(self.dbrelay.url.clone(), now).await?
+            DbRelay::update_success(self.dbrelay.url.clone(), now).await?;
         }
 
         // Tell the overlord we are ready to receive commands
@@ -300,7 +300,7 @@ impl Minion {
 
             // Start with where we left off, the time we last got something from
             // this relay.
-            let mut special_since: Unixtime = match self.dbrelay.last_success_at {
+            let mut special_since: Unixtime = match self.dbrelay.last_general_eose_at {
                 Some(u) => Unixtime(u as i64),
                 None => Unixtime(0),
             };
@@ -390,6 +390,18 @@ impl Minion {
             self.unsubscribe("general_feed").await?;
         } else {
             self.subscribe(filters, "general_feed").await?;
+
+            if let Some(sub) = self.subscriptions.get_mut("general_feed") {
+                if let Some(nip11) = &self.nip11 {
+                    if !nip11.supports_nip(15) {
+                        // Does not support EOSE.  Set subscription to EOSE now.
+                        sub.set_eose();
+                    }
+                } else {
+                    // Does not support EOSE.  Set subscription to EOSE now.
+                    sub.set_eose();
+                }
+            }
         }
 
         Ok(())
@@ -528,7 +540,7 @@ impl Minion {
 
             // Start with where we left off, the time we last got something from
             // this relay.
-            let mut special_since: i64 = match self.dbrelay.last_success_at {
+            let mut special_since: i64 = match self.dbrelay.last_general_eose_at {
                 Some(u) => u as i64,
                 None => 0,
             };
