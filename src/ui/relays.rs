@@ -56,6 +56,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(32.0);
 
+    ui.heading("Connected to:");
+
+    for url in GLOBALS.relays_watching.blocking_read().iter() {
+        ui.label(url.inner());
+    }
+
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(10.0);
+
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
         if ui.button("SAVE CHANGES").clicked() {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SaveRelays);

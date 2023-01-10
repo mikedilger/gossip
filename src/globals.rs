@@ -52,6 +52,9 @@ pub struct Globals {
     /// All nostr relay records we have
     pub relays: RwLock<HashMap<Url, DbRelay>>,
 
+    /// The relays we are currently connected to
+    pub relays_watching: RwLock<Vec<Url>>,
+
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
     pub shutting_down: AtomicBool,
@@ -103,6 +106,7 @@ lazy_static! {
             desired_events: RwLock::new(HashMap::new()),
             people: RwLock::new(People::new()),
             relays: RwLock::new(HashMap::new()),
+            relays_watching: RwLock::new(Vec::new()),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
             signer: RwLock::new(Signer::default()),

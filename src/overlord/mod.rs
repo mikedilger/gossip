@@ -27,9 +27,6 @@ pub struct Overlord {
 
     // Map from minion task::Id to Url
     minions_task_url: HashMap<task::Id, Url>,
-
-    // Vec of urls our minions are handling
-    urls_watching: Vec<Url>,
 }
 
 impl Overlord {
@@ -40,7 +37,6 @@ impl Overlord {
             inbox,
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
-            urls_watching: Vec::new(),
         }
     }
 
@@ -262,7 +258,7 @@ impl Overlord {
         let abort_handle = self.minions.spawn(async move { minion.handle().await });
         let id = abort_handle.id();
         self.minions_task_url.insert(id, url.clone());
-        self.urls_watching.push(url.clone());
+        GLOBALS.relays_watching.write().await.push(url.clone());
         Ok(())
     }
 
@@ -325,7 +321,11 @@ impl Overlord {
                         // Minion probably already logged failure in relay table
 
                         // Remove from our urls_watching vec
-                        self.urls_watching.retain(|value| value != url);
+                        GLOBALS
+                            .relays_watching
+                            .write()
+                            .await
+                            .retain(|value| value != url);
 
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
@@ -342,7 +342,11 @@ impl Overlord {
                         tracing::info!("Relay Task {} completed", &url);
 
                         // Remove from our urls_watching vec
-                        self.urls_watching.retain(|value| value != url);
+                        GLOBALS
+                            .relays_watching
+                            .write()
+                            .await
+                            .retain(|value| value != url);
 
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
@@ -497,7 +501,12 @@ impl Overlord {
 
                 for person_relay in person_relays.iter() {
                     // Start a minion for this relay if there is none
-                    if !self.urls_watching.contains(&Url::new(&person_relay.relay)) {
+                    if !GLOBALS
+                        .relays_watching
+                        .read()
+                        .await
+                        .contains(&Url::new(&person_relay.relay))
+                    {
                         self.start_minion(person_relay.relay.clone()).await?;
                     }
 
@@ -543,7 +552,7 @@ impl Overlord {
             }
 
             // If we don't have such a minion, start one
-            if !self.urls_watching.contains(url) {
+            if !GLOBALS.relays_watching.read().await.contains(url) {
                 // Start a minion
                 self.start_minion(url.inner().to_owned()).await?;
             }
@@ -668,7 +677,12 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !self.urls_watching.contains(&Url::new(&relay.url)) {
+            if !GLOBALS
+                .relays_watching
+                .read()
+                .await
+                .contains(&Url::new(&relay.url))
+            {
                 self.start_minion(relay.url.clone()).await?;
             }
 
@@ -776,7 +790,12 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !self.urls_watching.contains(&Url::new(&relay.url)) {
+            if !GLOBALS
+                .relays_watching
+                .read()
+                .await
+                .contains(&Url::new(&relay.url))
+            {
                 self.start_minion(relay.url.clone()).await?;
             }
 
@@ -849,7 +868,12 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !self.urls_watching.contains(&Url::new(&relay.url)) {
+            if !GLOBALS
+                .relays_watching
+                .read()
+                .await
+                .contains(&Url::new(&relay.url))
+            {
                 self.start_minion(relay.url.clone()).await?;
             }
 
@@ -884,7 +908,12 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !self.urls_watching.contains(&Url::new(&relay.url)) {
+            if !GLOBALS
+                .relays_watching
+                .read()
+                .await
+                .contains(&Url::new(&relay.url))
+            {
                 self.start_minion(relay.url.clone()).await?;
             }
 
