@@ -42,21 +42,43 @@ impl People {
         output
     }
 
-    pub async fn create_if_missing(&mut self, pubkeyhex: &PublicKeyHex) -> Result<(), Error> {
-        if self.people.contains_key(pubkeyhex) {
+    pub async fn create_all_if_missing(&mut self, pubkeys: &[PublicKeyHex]) -> Result<(), Error> {
+        // Collect the public keys that we don't have already (by checking in memory).
+        // Anything in memory surely already is on disk so we don't have to check disk.
+        let pubkeys: Vec<&PublicKeyHex> = pubkeys
+            .iter()
+            .filter(|pk| !self.people.contains_key(pk))
+            .collect();
+
+        if pubkeys.is_empty() {
             return Ok(());
         }
 
-        // Try loading from the database
-        let maybe_dbperson = Self::fetch_one(pubkeyhex).await?;
+        // Make sure all these people exist in the database
+        let mut sql: String = "INSERT OR IGNORE INTO person (pubkey) VALUES ".to_owned();
+        sql.push_str(&"(?),".repeat(pubkeys.len()));
+        sql.pop(); // remove trailing comma
 
-        if let Some(dbperson) = maybe_dbperson {
-            // Insert into the map
-            self.people.insert(pubkeyhex.to_owned(), dbperson);
-        } else {
-            // Create new
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+
+        task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(&sql)?;
+            let mut pos = 1;
+            for pk in pubkey_strings.iter() {
+                stmt.raw_bind_parameter(pos, pk)?;
+                pos += 1;
+            }
+            stmt.raw_execute()?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        // Make matching records for them in memory
+        for pk in pubkeys {
             let dbperson = DbPerson {
-                pubkey: pubkeyhex.to_owned(),
+                pubkey: pk.to_owned(),
                 name: None,
                 about: None,
                 picture: None,
@@ -65,11 +87,9 @@ impl People {
                 dns_id_last_checked: None,
                 metadata_at: None,
                 followed: 0,
+                followed_last_updated: 0,
             };
-            // Insert into the map
-            self.people.insert(pubkeyhex.to_owned(), dbperson.clone());
-            // Insert into the database
-            Self::insert(dbperson).await?;
+            self.people.insert(pk.to_owned(), dbperson);
         }
 
         Ok(())
@@ -82,7 +102,7 @@ impl People {
         asof: Unixtime,
     ) -> Result<(), Error> {
         // Sync in from database first
-        self.create_if_missing(pubkeyhex).await?;
+        self.create_all_if_missing(&[pubkeyhex.to_owned()]).await?;
 
         // Update the map
         let person = self.people.get_mut(pubkeyhex).unwrap();
@@ -178,7 +198,7 @@ impl People {
 
         let sql =
             "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, \
-             metadata_at, followed FROM person WHERE followed=1"
+             metadata_at, followed, followed_last_updated FROM person WHERE followed=1"
                 .to_owned();
 
         let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
@@ -197,6 +217,7 @@ impl People {
                     dns_id_last_checked: row.get(6)?,
                     metadata_at: row.get(7)?,
                     followed: row.get(8)?,
+                    followed_last_updated: row.get(9)?,
                 })
             })?;
             let mut output: Vec<DbPerson> = Vec::new();
@@ -414,6 +435,85 @@ impl People {
         Ok(())
     }
 
+    pub async fn follow_all(
+        &mut self,
+        pubkeys: &[PublicKeyHex],
+        merge: bool,
+        asof: Unixtime,
+    ) -> Result<(), Error> {
+        tracing::debug!(
+            "Updating following list, {} people long, merge={}",
+            pubkeys.len(),
+            merge
+        );
+
+        // Make sure they are all in the database (and memory) first.
+        self.create_all_if_missing(pubkeys).await?;
+
+        // Follow in database
+        let sql = format!(
+            "UPDATE person SET followed=1, followed_last_updated=? WHERE pubkey IN ({}) and followed_last_updated<?",
+            repeat_vars(pubkeys.len())
+        );
+
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+
+        task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(&sql)?;
+            stmt.raw_bind_parameter(1, asof.0)?;
+            let mut pos = 2;
+            for pk in pubkey_strings.iter() {
+                stmt.raw_bind_parameter(pos, pk)?;
+                pos += 1;
+            }
+            stmt.raw_bind_parameter(pos, asof.0)?;
+            stmt.raw_execute()?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        if !merge {
+            // Unfollow in database
+            let sql = format!(
+                "UPDATE person SET followed=0, followed_last_updated=? WHERE pubkey NOT IN ({}) and followed_last_updated<?",
+                repeat_vars(pubkeys.len())
+            );
+
+            let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+
+            task::spawn_blocking(move || {
+                let maybe_db = GLOBALS.db.blocking_lock();
+                let db = maybe_db.as_ref().unwrap();
+                let mut stmt = db.prepare(&sql)?;
+                stmt.raw_bind_parameter(1, asof.0)?;
+                let mut pos = 2;
+                for pk in pubkey_strings.iter() {
+                    stmt.raw_bind_parameter(pos, pk)?;
+                    pos += 1;
+                }
+                stmt.raw_bind_parameter(pos, asof.0)?;
+                stmt.raw_execute()?;
+                Ok::<(), Error>(())
+            })
+            .await??;
+        }
+
+        // Make sure memory matches
+        for (pkh, person) in self.people.iter_mut() {
+            if person.followed_last_updated < asof.0 {
+                if pubkeys.contains(pkh) {
+                    person.followed = 1;
+                } else if !merge {
+                    person.followed = 0;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn update_dns_id_last_checked(
         &mut self,
         pubkeyhex: PublicKeyHex,
@@ -473,7 +573,9 @@ impl People {
 
     async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql =
-            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed FROM person".to_owned();
+            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, \
+             metadata_at, followed, followed_last_updated FROM person"
+                .to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -495,6 +597,7 @@ impl People {
                     dns_id_last_checked: row.get(6)?,
                     metadata_at: row.get(7)?,
                     followed: row.get(8)?,
+                    followed_last_updated: row.get(9)?,
                 })
             })?;
 
@@ -519,10 +622,12 @@ impl People {
         }
     }
 
+    #[allow(dead_code)]
     async fn insert(person: DbPerson) -> Result<(), Error> {
         let sql =
-            "INSERT OR IGNORE INTO person (pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, metadata_at, followed) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+            "INSERT OR IGNORE INTO person (pubkey, name, about, picture, dns_id, dns_id_valid, \
+             dns_id_last_checked, metadata_at, followed, followed_last_updated) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)";
 
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -539,6 +644,7 @@ impl People {
                 &person.dns_id_last_checked,
                 &person.metadata_at,
                 &person.followed,
+                &person.followed_last_updated,
             ))?;
             Ok::<(), Error>(())
         })
@@ -562,4 +668,12 @@ impl People {
            Ok(())
        }
     */
+}
+
+fn repeat_vars(count: usize) -> String {
+    assert_ne!(count, 0);
+    let mut s = "?,".repeat(count);
+    // Remove trailing comma
+    s.pop();
+    s
 }

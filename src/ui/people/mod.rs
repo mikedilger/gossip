@@ -1,4 +1,5 @@
 use super::{GossipUi, Page};
+use crate::comms::ToOverlordMessage;
 use crate::db::DbPerson;
 use crate::globals::GLOBALS;
 use eframe::egui;
@@ -29,7 +30,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     if app.page == Page::PeopleList {
         ui.add_space(24.0);
 
-        ui.heading("NOTICE: Gossip is not synchronizing with data on the nostr relays. This is a separate list and it won't overwrite anything.");
+        ui.horizontal(|ui| {
+            if ui.button("↓ PULL ↓\nOverwrite").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::PullFollowOverwrite);
+            }
+            if ui.button("↓ PULL ↓\nMerge (Add)").clicked() {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PullFollowMerge);
+            }
+            /* not yet implemented
+            if ui.button("↑ PUSH ↑\n").clicked() {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
+            }
+            */
+        });
 
         ui.add_space(10.0);
         ui.separator();

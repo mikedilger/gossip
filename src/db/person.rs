@@ -12,4 +12,5 @@ pub struct DbPerson {
     pub dns_id_last_checked: Option<u64>,
     pub metadata_at: Option<i64>,
     pub followed: u8,
+    pub followed_last_updated: i64,
 }

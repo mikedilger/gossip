@@ -17,6 +17,9 @@ pub enum ToOverlordMessage {
     ProcessIncomingEvents,
     PostReply(String, Vec<Tag>, Id),
     PostTextNote(String, Vec<Tag>),
+    PullFollowMerge,
+    PullFollowOverwrite,
+    PushFollow,
     SaveRelays,
     SaveSettings,
     Shutdown,
@@ -36,11 +39,12 @@ pub struct ToMinionMessage {
 
 #[derive(Debug, Clone)]
 pub enum ToMinionPayload {
+    FetchEvents(Vec<IdHex>),
+    PostEvent(Box<Event>),
+    PullFollowing,
     Shutdown,
     SubscribeGeneralFeed,
     SubscribePersonFeed(PublicKeyHex),
     SubscribeThreadFeed(Id),
     TempSubscribeMetadata(PublicKeyHex),
-    FetchEvents(Vec<IdHex>),
-    PostEvent(Box<Event>),
 }

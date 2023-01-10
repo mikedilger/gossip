@@ -4,7 +4,8 @@ use crate::db::{
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
-use nostr_types::{Event, EventKind, Metadata, Tag, Unixtime, Url};
+use nostr_types::{Event, EventKind, Metadata, PublicKeyHex, Tag, Unixtime, Url};
+use std::sync::atomic::Ordering;
 
 // This processes a new event, saving the results into the database
 // and also populating the GLOBALS maps.
@@ -48,7 +49,7 @@ pub async fn process_new_event(
                 .people
                 .write()
                 .await
-                .create_if_missing(&event.pubkey.into())
+                .create_all_if_missing(&[event.pubkey.into()])
                 .await?;
 
             // Update person_relay.last_fetched
@@ -217,11 +218,36 @@ pub async fn process_new_event(
             .await?;
     }
 
+    if event.kind == EventKind::ContactList {
+        // We only handle the user's own contact list currently
+        if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+            if event.pubkey == pubkey {
+                let merge: bool = GLOBALS.pull_following_merge.load(Ordering::Relaxed);
+                let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
+
+                // 'p' tags represent the author's contacts
+                for tag in &event.tags {
+                    if let Tag::Pubkey { pubkey, .. } = tag {
+                        pubkeys.push((*pubkey).into());
+                        // FIXME do something with recommended_relay_url and petname
+                    }
+                }
+
+                // Follow all those pubkeys, and unfollow everbody else if merge=false
+                // (and the date is used to ignore if the data is outdated)
+                GLOBALS
+                    .people
+                    .write()
+                    .await
+                    .follow_all(&pubkeys, merge, event.created_at)
+                    .await?;
+            }
+        }
+    }
+
     // FIXME: Handle EventKind::RecommendedRelay
 
-    // FIXME: Handle EventKind::ContactList
-
-    // Save in event_is_new
+    // Save in event_is_new (to highlight it in the feed, if feed related)
     GLOBALS.event_is_new.write().await.push(event.id);
 
     Ok(())

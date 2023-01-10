@@ -79,6 +79,8 @@ pub struct Globals {
 
     /// UI status message
     pub status_message: RwLock<String>,
+
+    pub pull_following_merge: AtomicBool,
 }
 
 lazy_static! {
@@ -110,6 +112,7 @@ lazy_static! {
             fetcher: Fetcher::new(),
             failed_avatars: RwLock::new(HashSet::new()),
             status_message: RwLock::new("Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()),
+            pull_following_merge: AtomicBool::new(true),
         }
     };
 }

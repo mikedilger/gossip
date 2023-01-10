@@ -231,6 +231,19 @@ impl Minion {
 
     pub async fn handle_message(&mut self, message: ToMinionMessage) -> Result<bool, Error> {
         match message.payload {
+            ToMinionPayload::FetchEvents(vec) => {
+                self.get_events(vec).await?;
+            }
+            ToMinionPayload::PostEvent(event) => {
+                let msg = ClientMessage::Event(event);
+                let wire = serde_json::to_string(&msg)?;
+                let ws_sink = self.sink.as_mut().unwrap();
+                ws_sink.send(WsMessage::Text(wire)).await?;
+                tracing::info!("Posted event to {}", &self.url);
+            }
+            ToMinionPayload::PullFollowing => {
+                self.pull_following().await?;
+            }
             ToMinionPayload::Shutdown => {
                 tracing::info!("{}: Websocket listener shutting down", &self.url);
                 return Ok(false);
@@ -243,16 +256,6 @@ impl Minion {
             }
             ToMinionPayload::SubscribeThreadFeed(id) => {
                 self.subscribe_thread_feed(id).await?;
-            }
-            ToMinionPayload::FetchEvents(vec) => {
-                self.get_events(vec).await?;
-            }
-            ToMinionPayload::PostEvent(event) => {
-                let msg = ClientMessage::Event(event);
-                let wire = serde_json::to_string(&msg)?;
-                let ws_sink = self.sink.as_mut().unwrap();
-                ws_sink.send(WsMessage::Text(wire)).await?;
-                tracing::info!("Posted event to {}", &self.url);
             }
             ToMinionPayload::TempSubscribeMetadata(pubkeyhex) => {
                 self.temp_subscribe_metadata(pubkeyhex).await?;
@@ -639,6 +642,18 @@ impl Minion {
             ..Default::default()
         };
         self.subscribe(vec![filter], &handle).await
+    }
+
+    async fn pull_following(&mut self) -> Result<(), Error> {
+        if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+            let filter = Filter {
+                authors: vec![pubkey.into()],
+                kinds: vec![EventKind::ContactList],
+                ..Default::default()
+            };
+            self.subscribe(vec![filter], "following").await?;
+        }
+        Ok(())
     }
 
     #[allow(dead_code)]
