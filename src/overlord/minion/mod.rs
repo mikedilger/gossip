@@ -283,6 +283,7 @@ impl Minion {
         };
 
         let followed_pubkeys = GLOBALS.people.read().await.get_followed_pubkeys();
+        tracing::debug!("Following {} people at {}", followed_pubkeys.len(), &self.url);
 
         // Compute how far to look back
         let (feed_since, special_since) = {
