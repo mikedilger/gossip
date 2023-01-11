@@ -35,7 +35,13 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
     };
 
     // Fetch NIP-05
-    let nip05 = fetch_nip05(&user, &domain).await?;
+    let nip05 = match fetch_nip05(&user, &domain).await {
+        Ok(content) => content,
+        Err(e) => {
+            tracing::error!("NIP-05 fetch issue on {}", domain);
+            return Err(e);
+        }
+    };
 
     // Check if the response matches their public key
     match nip05.names.get(&user) {
