@@ -480,14 +480,21 @@ impl Minion {
                 }
             }
         }
+
+        // Get ancestors we know of
         filters.push(Filter {
             ids: ids.clone(),
             ..Default::default()
         });
 
-        // Replies and reactions to this post and ancestors
+        // Replies and reactions to ancestors
         filters.push(Filter {
             e: ids,
+            kinds: vec![
+                EventKind::TextNote,
+                EventKind::Reaction,
+                EventKind::EventDeletion,
+            ],
             since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
             ..Default::default()
         });
@@ -653,7 +660,7 @@ impl Minion {
         let handle = format!("temp_subscribe_metadata_{}", &pubkeyhex.0);
         let filter = Filter {
             authors: vec![pubkeyhex],
-            kinds: vec![EventKind::Metadata, EventKind::ContactList],
+            kinds: vec![EventKind::Metadata],
             // FIXME: we could probably get a since-last-fetched-their-metadata here.
             //        but relays should just return the lastest of these.
             ..Default::default()
