@@ -46,7 +46,7 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
     // Check if the response matches their public key
     match nip05.names.get(&user) {
         Some(pk) => {
-            if pk.as_hex_string() == person.pubkey.0 {
+            if *pk == person.pubkey {
                 // Validated
                 GLOBALS
                     .people
@@ -89,7 +89,7 @@ pub async fn get_and_follow_nip05(dns_id: String) -> Result<(), Error> {
         .write()
         .await
         .upsert_nip05_validity(
-            &(*pubkey).into(),
+            pubkey,
             Some(dns_id.clone()),
             true,
             Unixtime::now().unwrap().0 as u64,
@@ -101,7 +101,7 @@ pub async fn get_and_follow_nip05(dns_id: String) -> Result<(), Error> {
         .people
         .write()
         .await
-        .async_follow(&(*pubkey).into(), true)
+        .async_follow(pubkey, true)
         .await?;
 
     tracing::info!("Followed {}", &dns_id);
@@ -120,7 +120,7 @@ pub async fn get_and_follow_nip05(dns_id: String) -> Result<(), Error> {
 
             // Save person_relay
             DbPersonRelay::upsert_last_suggested_nip05(
-                (*pubkey).into(),
+                pubkey.clone(),
                 relay.inner().to_owned(),
                 Unixtime::now().unwrap().0 as u64,
             )
