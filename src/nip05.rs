@@ -38,7 +38,7 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
     let nip05 = match fetch_nip05(&user, &domain).await {
         Ok(content) => content,
         Err(e) => {
-            tracing::error!("NIP-05 fetch issue on {}", domain);
+            tracing::error!("NIP-05 fetch issue with {}@{}", user, domain);
             return Err(e);
         }
     };
