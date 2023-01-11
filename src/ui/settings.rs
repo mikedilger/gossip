@@ -15,16 +15,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.heading("How Many Relays to Query");
 
     ui.horizontal(|ui| {
-        ui.label("Number of relays to query per person: ").on_hover_text("We will query N relays per person. Many people share the same relays so those will be queried about multiple people. Takes affect on restart.");
-        ui.add(Slider::new(&mut app.settings.num_relays_per_person, 1..=5).text("relays"));
+        ui.label("Number of relays to query per person: ").on_hover_text("We will query N relays per person. Many people share the same relays so those will be queried about multiple people. Takes affect on restart. I recommend 2 or 3.");
+        ui.add(Slider::new(&mut app.settings.num_relays_per_person, 1..=6).text("relays"));
     });
 
     ui.horizontal(|ui| {
         ui.label("Maximum total number of relays to query: ")
             .on_hover_text(
-                "We will not connect to more than this many relays. Takes affect on restart.",
+                "We will not connect to more than this many relays. Takes affect on restart."
             );
-        ui.add(Slider::new(&mut app.settings.max_relays, 1..=30).text("relays"));
+        ui.add(Slider::new(&mut app.settings.max_relays, 1..=50).text("relays"));
     });
 
     ui.add_space(12.0);
@@ -40,7 +40,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.horizontal(|ui| {
-        ui.label("Overlap: ").on_hover_text("If we recently loaded events up to time T, but restarted, we will now load events starting from time T minus overlap. Takes effect on restart.");
+        ui.label("Overlap: ").on_hover_text("If we recently loaded events up to time T, but restarted, we will now load events starting from time T minus overlap. Takes effect on restart. I recommend 300 (5 minutes).");
         ui.add(Slider::new(&mut app.settings.overlap, 0..=3600).text("seconds, "));
         ui.label(secs_to_string(app.settings.overlap));
     });
@@ -54,7 +54,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("Recompute feed every (milliseconds): ")
             .on_hover_text(
-                "The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes.",
+                "The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes. I recommend 3500.",
             );
         ui.add(Slider::new(&mut app.settings.feed_recompute_interval_ms, 250..=5000).text("milliseconds"));
     });
@@ -139,9 +139,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("Maximum FPS: ")
             .on_hover_text(
-                "The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately.",
+                "The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately. I recommend 10, maybe even less.",
             );
-        ui.add(Slider::new(&mut app.settings.max_fps, 10..=60).text("Frames per second"));
+        ui.add(Slider::new(&mut app.settings.max_fps, 2..=60).text("Frames per second"));
     });
 
     ui.add_space(12.0);

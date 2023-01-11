@@ -4,13 +4,13 @@ use nostr_types::{EncryptedPrivateKey, PublicKey};
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_FEED_CHUNK: u64 = 43200; // 12 hours
-pub const DEFAULT_OVERLAP: u64 = 600; // 10 minutes
+pub const DEFAULT_OVERLAP: u64 = 300; // 5 minutes
 pub const DEFAULT_VIEW_POSTS_REFERRED_TO: bool = true;
 pub const DEFAULT_VIEW_POSTS_REFERRING_TO: bool = false;
-pub const DEFAULT_NUM_RELAYS_PER_PERSON: u8 = 4;
+pub const DEFAULT_NUM_RELAYS_PER_PERSON: u8 = 3;
 pub const DEFAULT_MAX_RELAYS: u8 = 15;
-pub const DEFAULT_MAX_FPS: u32 = 30;
-pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 2000;
+pub const DEFAULT_MAX_FPS: u32 = 15;
+pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 3500;
 pub const DEFAULT_POW: u8 = 0;
 pub const DEFAULT_OFFLINE: bool = false;
 pub const DEFAULT_LIGHT_MODE: bool = true; // true = light false = dark
