@@ -44,7 +44,6 @@ impl People {
 
     pub async fn create_all_if_missing(&mut self, pubkeys: &[PublicKeyHex]) -> Result<(), Error> {
         // Collect the public keys that we don't have already (by checking in memory).
-        // Anything in memory surely already is on disk so we don't have to check disk.
         let pubkeys: Vec<&PublicKeyHex> = pubkeys
             .iter()
             .filter(|pk| !self.people.contains_key(pk))
@@ -75,21 +74,12 @@ impl People {
         })
         .await??;
 
-        // Make matching records for them in memory
-        for pk in pubkeys {
-            let dbperson = DbPerson {
-                pubkey: pk.to_owned(),
-                name: None,
-                about: None,
-                picture: None,
-                dns_id: None,
-                dns_id_valid: 0,
-                dns_id_last_checked: None,
-                metadata_at: None,
-                followed: 0,
-                followed_last_updated: 0,
-            };
-            self.people.insert(pk.to_owned(), dbperson);
+        // Now load them from the database (some of them may have had records already)
+        let mut loaded_people = Self::fetch_many(&pubkeys).await?;
+        for loaded_person in loaded_people.drain(..) {
+            let _ = self
+                .people
+                .insert(loaded_person.pubkey.clone(), loaded_person);
         }
 
         Ok(())
@@ -150,23 +140,34 @@ impl People {
                 .await??;
         }
 
-        // Remove from failed avatars list so the UI will try to fetch the avatar again
+        // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
         GLOBALS.failed_avatars.write().await.remove(pubkeyhex);
 
         let person = person.to_owned();
 
-        // Recheck nip05 every day if invalid, and every two weeks if valid
-        // FIXME make these settings
-        let recheck_duration = if person.dns_id_valid > 0 {
-            Duration::from_secs(60 * 60 * 24 * 14)
-        } else {
-            Duration::from_secs(60 * 60 * 24)
-        };
+        // Only if they have a nip05 dns id set
+        if person.dns_id.is_some() {
+            // Recheck nip05 every day if invalid, and every two weeks if valid
+            // FIXME make these settings
+            let recheck_duration = if person.dns_id_valid > 0 {
+                Duration::from_secs(60 * 60 * 24 * 14)
+            } else {
+                Duration::from_secs(60 * 60 * 24)
+            };
 
-        // Maybe validate nip05
-        if let Some(last) = person.dns_id_last_checked {
-            if Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration {
-                // recheck
+            // Maybe validate nip05
+            if let Some(last) = person.dns_id_last_checked {
+                if Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration {
+                    // recheck
+                    self.update_dns_id_last_checked(person.pubkey.clone())
+                        .await?;
+                    task::spawn(async move {
+                        if let Err(e) = crate::nip05::validate_nip05(person).await {
+                            tracing::error!("{}", e);
+                        }
+                    });
+                }
+            } else {
                 self.update_dns_id_last_checked(person.pubkey.clone())
                     .await?;
                 task::spawn(async move {
@@ -175,14 +176,6 @@ impl People {
                     }
                 });
             }
-        } else {
-            self.update_dns_id_last_checked(person.pubkey.clone())
-                .await?;
-            task::spawn(async move {
-                if let Err(e) = crate::nip05::validate_nip05(person).await {
-                    tracing::error!("{}", e);
-                }
-            });
         }
 
         Ok(())
@@ -518,15 +511,11 @@ impl People {
         &mut self,
         pubkeyhex: PublicKeyHex,
     ) -> Result<(), Error> {
-        task::spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            let mut stmt = db.prepare("UPDATE person SET dns_id_last_checked=? WHERE pubkey=?")?;
-            let now = Unixtime::now().unwrap().0;
-            stmt.execute((&now, &pubkeyhex.0))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let maybe_db = GLOBALS.db.lock().await;
+        let db = maybe_db.as_ref().unwrap();
+        let mut stmt = db.prepare("UPDATE person SET dns_id_last_checked=? WHERE pubkey=?")?;
+        let now = Unixtime::now().unwrap().0;
+        stmt.execute((&now, &pubkeyhex.0))?;
         Ok(())
     }
 
@@ -620,6 +609,51 @@ impl People {
         } else {
             Ok(Some(people[0].clone()))
         }
+    }
+
+    async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<DbPerson>, Error> {
+        let sql = format!(
+            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, \
+             metadata_at, followed, followed_last_updated FROM person WHERE pubkey IN ({})",
+            repeat_vars(pubkeys.len())
+        );
+
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+
+        let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+
+            let mut pos = 1;
+            for pk in pubkey_strings.iter() {
+                stmt.raw_bind_parameter(pos, pk)?;
+                pos += 1;
+            }
+
+            let mut rows = stmt.raw_query();
+            let mut people: Vec<DbPerson> = Vec::new();
+            while let Some(row) = rows.next()? {
+                people.push(DbPerson {
+                    pubkey: PublicKeyHex(row.get(0)?),
+                    name: row.get(1)?,
+                    about: row.get(2)?,
+                    picture: row.get(3)?,
+                    dns_id: row.get(4)?,
+                    dns_id_valid: row.get(5)?,
+                    dns_id_last_checked: row.get(6)?,
+                    metadata_at: row.get(7)?,
+                    followed: row.get(8)?,
+                    followed_last_updated: row.get(9)?,
+                });
+            }
+
+            Ok(people)
+        })
+        .await?;
+
+        output
     }
 
     #[allow(dead_code)]
