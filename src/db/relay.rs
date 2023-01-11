@@ -4,7 +4,7 @@ use nostr_types::{Id, Url};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DbRelay {
     pub dirty: bool,
     pub url: String,
