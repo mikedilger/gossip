@@ -74,14 +74,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 ui.add_space(3.0);
             }
 
-            ui.heading("Known Relays:");
+            ui.heading("Other Known Relays:");
 
             ScrollArea::vertical().show(ui, |ui| {
                 for relay in relays.iter_mut() {
-                    render_relay(ui, relay, false);
-                    ui.add_space(3.0);
-                    ui.separator();
-                    ui.add_space(3.0);
+                    if ! relay.post {
+                        render_relay(ui, relay, false);
+                        ui.add_space(3.0);
+                        ui.separator();
+                        ui.add_space(3.0);
+                    }
                 }
             });
         });
