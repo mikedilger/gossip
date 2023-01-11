@@ -498,6 +498,19 @@ fn render_post_actual(
                 ui.horizontal(|ui| {
                     GossipUi::render_person_name_line(ui, maybe_person.as_ref());
 
+                    if app.page == Page::FeedGeneral || app.page == Page::FeedPerson {
+                        if let Some((irt, _)) = event.replies_to() {
+                            ui.add_space(8.0);
+
+                            let idhex: IdHex = irt.into();
+                            let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
+                            if ui.link(&nam).clicked() {
+                                GLOBALS.feed.set_feed_to_thread(irt);
+                                app.page = Page::FeedThread;
+                            };
+                        }
+                    }
+
                     ui.add_space(8.0);
 
                     if event.pow() > 0 {
