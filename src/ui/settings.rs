@@ -22,7 +22,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("Maximum total number of relays to query: ")
             .on_hover_text(
-                "We will not connect to more than this many relays. Takes affect on restart."
+                "We will not connect to more than this many relays. Takes affect on restart.",
             );
         ui.add(Slider::new(&mut app.settings.max_relays, 1..=50).text("relays"));
     });
