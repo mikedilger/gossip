@@ -8,6 +8,8 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 [^1] and Mastodon, Gab, Post, Gettr, Farcaster, Truth social, BlueSky, Locals, Minds, Spoutable, etc, etc....
 
+![Gossip Screenshot](gossip_screenshot.png)
+
 ## Status
 
 Gossip is currently alpha-quality code and I do not recommend using it as your main client at this point. But it is getting close to the point where I will be able to remove that reommendation to not use. So adventurous souls may try it out to see what it will be like.
