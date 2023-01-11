@@ -722,7 +722,6 @@ impl Overlord {
             };
 
             // Get the event we are replying to
-            /*
             let event = match GLOBALS.events.get(&reply_to) {
                 Some(e) => e,
                 None => {
@@ -731,14 +730,31 @@ impl Overlord {
                     ))
                 }
             };
-            */
 
-            // Add an 'e' tag for the note we are replying to
-            tags.push(Tag::Event {
-                id: reply_to,
-                recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
-                marker: Some("reply".to_string()),
-            });
+            if let Some((root, _maybeurl)) = event.replies_to_root() {
+                // Add an 'e' tag for the root
+                tags.push(Tag::Event {
+                    id: root,
+                    recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
+                    marker: Some("root".to_string()),
+                });
+
+                // Add an 'e' tag for the note we are replying to
+                tags.push(Tag::Event {
+                    id: reply_to,
+                    recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
+                    marker: Some("reply".to_string()),
+                });
+            } else {
+                // We are replying to the root.
+                // NIP-10: "A direct reply to the root of a thread should have a single marked "e" tag of type "root"."
+
+                tags.push(Tag::Event {
+                    id: reply_to,
+                    recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
+                    marker: Some("root".to_string()),
+                });
+            }
 
             /* These are now done in the UI so the poster can refer to them
 
