@@ -76,17 +76,3 @@ INSERT INTO settings (key, value) values ('version', '1');
 INSERT INTO settings (key, value) values ('overlap', '600');
 INSERT INTO settings (key, value) values ('feed_chunk', '43200');
 INSERT INTO settings (key, value) values ('autofollow', '0');
-
-INSERT OR IGNORE INTO relay (url) values
-('wss://nostr-pub.wellorder.net'),
-('wss://nostr.bitcoiner.social'),
-('wss://nostr-relay.wlvs.space'),
-('wss://nostr-pub.semisol.dev'),
-('wss://relay.damus.io'),
-('wss://nostr.openchain.fr'),
-('wss://nostr.delo.software'),
-('wss://relay.nostr.info'),
-('wss://nostr.oxtr.dev'),
-('wss://nostr.ono.re'),
-('wss://relay.grunch.dev'),
-('wss://nostr.sandwich.farm');

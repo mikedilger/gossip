@@ -3,20 +3,13 @@ use crate::comms::ToOverlordMessage;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, TextStyle, Ui};
+use egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, Ui};
 use nostr_types::Url;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(8.0);
     ui.heading("Relays");
     ui.add_space(18.0);
-
-    ui.label(
-        RichText::new(
-            "Relays on this list were selected by the developer, but more relays will show up as they are automatically discovered in various kinds of events.",
-        )
-        .text_style(TextStyle::Body),
-    );
 
     ui.horizontal(|ui| {
         ui.label("Enter a new relay URL:");
