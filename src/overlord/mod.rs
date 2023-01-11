@@ -231,9 +231,6 @@ impl Overlord {
             }
 
             tracing::info!("Listening on {} relays", relay_count);
-
-            // Get desired events from relays
-            self.get_missing_events().await?;
         }
 
         'mainloop: loop {
