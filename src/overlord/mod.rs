@@ -249,8 +249,17 @@ impl Overlord {
     }
 
     async fn start_minion(&mut self, url: String) -> Result<(), Error> {
-        if GLOBALS.settings.read().await.offline {
+        let (offline, max_relays) = {
+            let settings = GLOBALS.settings.read().await;
+            (settings.offline, settings.max_relays)
+        };
+
+        if offline {
             return Ok(());
+        }
+
+        if GLOBALS.relays_watching.read().await.len() >= max_relays.into() {
+            return Err(Error::MaxRelaysReached);
         }
 
         let url = Url::new(&url);

@@ -18,6 +18,9 @@ pub enum Error {
     #[error("Task join error: {0}")]
     JoinError(#[from] tokio::task::JoinError),
 
+    #[error("Maximum relay connections reached, will not connect to another")]
+    MaxRelaysReached,
+
     #[error("Error sending mpsc: {0}")]
     MpscSend(#[from] tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
 
