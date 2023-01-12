@@ -354,7 +354,7 @@ impl GossipUi {
             return Some(th.to_owned());
         }
 
-        match GLOBALS.people.blocking_write().get_avatar(pubkeyhex) {
+        match GLOBALS.people.get_avatar(pubkeyhex) {
             Err(_) => {
                 GLOBALS
                     .failed_avatars

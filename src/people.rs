@@ -1,32 +1,32 @@
 use crate::db::DbPerson;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{Metadata, PublicKey, PublicKeyHex, Unixtime, Url};
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::task;
 
 pub struct People {
-    people: HashMap<PublicKeyHex, DbPerson>,
+    people: DashMap<PublicKeyHex, DbPerson>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
     // and hand them over. This way we can do the work that takes
     // longer and the UI can do as little work as possible.
-    avatars_temp: HashMap<PublicKeyHex, RgbaImage>,
-    avatars_pending_processing: HashSet<PublicKeyHex>,
-    avatars_failed: HashSet<PublicKeyHex>,
+    avatars_temp: DashMap<PublicKeyHex, RgbaImage>,
+    avatars_pending_processing: DashSet<PublicKeyHex>,
+    avatars_failed: DashSet<PublicKeyHex>,
 }
 
 impl People {
     pub fn new() -> People {
         People {
-            people: HashMap::new(),
-            avatars_temp: HashMap::new(),
-            avatars_pending_processing: HashSet::new(),
-            avatars_failed: HashSet::new(),
+            people: DashMap::new(),
+            avatars_temp: DashMap::new(),
+            avatars_pending_processing: DashSet::new(),
+            avatars_failed: DashSet::new(),
         }
     }
 
@@ -35,14 +35,14 @@ impl People {
         for person in self
             .people
             .iter()
-            .filter_map(|(_, p)| if p.followed == 1 { Some(p) } else { None })
+            .filter_map(|p| if p.followed == 1 { Some(p) } else { None })
         {
             output.push(person.pubkey.clone());
         }
         output
     }
 
-    pub async fn create_all_if_missing(&mut self, pubkeys: &[PublicKeyHex]) -> Result<(), Error> {
+    pub async fn create_all_if_missing(&self, pubkeys: &[PublicKeyHex]) -> Result<(), Error> {
         // Collect the public keys that we don't have already (by checking in memory).
         let pubkeys: Vec<&PublicKeyHex> = pubkeys
             .iter()
@@ -86,7 +86,7 @@ impl People {
     }
 
     pub async fn update_metadata(
-        &mut self,
+        &self,
         pubkeyhex: &PublicKeyHex,
         metadata: Metadata,
         asof: Unixtime,
@@ -95,7 +95,7 @@ impl People {
         self.create_all_if_missing(&[pubkeyhex.to_owned()]).await?;
 
         // Update the map
-        let person = self.people.get_mut(pubkeyhex).unwrap();
+        let mut person = self.people.get_mut(pubkeyhex).unwrap();
 
         // Determine whether to update it
         let mut doit = person.metadata_at.is_none();
@@ -181,7 +181,7 @@ impl People {
         Ok(())
     }
 
-    pub async fn load_all_followed(&mut self) -> Result<(), Error> {
+    pub async fn load_all_followed(&self) -> Result<(), Error> {
         if !self.people.is_empty() {
             return Err(Error::Internal(
                 "load_all_followed should only be called before people is otherwise used."
@@ -228,19 +228,18 @@ impl People {
         Ok(())
     }
 
-    pub fn get(&mut self, pubkeyhex: &PublicKeyHex) -> Option<DbPerson> {
+    pub fn get(&self, pubkeyhex: &PublicKeyHex) -> Option<DbPerson> {
         if self.people.contains_key(pubkeyhex) {
-            self.people.get(pubkeyhex).cloned()
+            self.people.get(pubkeyhex).map(|o| o.value().to_owned())
         } else {
             // We can't get it now, but we can setup a task to do it soon
             let pubkeyhex = pubkeyhex.to_owned();
             tokio::spawn(async move {
-                let mut people = GLOBALS.people.write().await;
                 #[allow(clippy::map_entry)]
-                if !people.people.contains_key(&pubkeyhex) {
+                if !GLOBALS.people.people.contains_key(&pubkeyhex) {
                     match People::fetch_one(&pubkeyhex).await {
                         Ok(Some(person)) => {
-                            let _ = people.people.insert(pubkeyhex, person);
+                            let _ = GLOBALS.people.people.insert(pubkeyhex, person);
                         }
                         Err(e) => tracing::error!("{}", e),
                         _ => {}
@@ -252,7 +251,7 @@ impl People {
     }
 
     pub fn get_all(&self) -> Vec<DbPerson> {
-        let mut v: Vec<DbPerson> = self.people.values().map(|p| p.to_owned()).collect();
+        let mut v: Vec<DbPerson> = self.people.iter().map(|e| e.value().to_owned()).collect();
         v.sort_by(|a, b| {
             let c = a.name.cmp(&b.name);
             if c == Ordering::Equal {
@@ -265,10 +264,10 @@ impl People {
     }
 
     // If returns Err, means you're never going to get it so stop trying.
-    pub fn get_avatar(&mut self, pubkeyhex: &PublicKeyHex) -> Result<Option<image::RgbaImage>, ()> {
+    pub fn get_avatar(&self, pubkeyhex: &PublicKeyHex) -> Result<Option<image::RgbaImage>, ()> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.avatars_temp.remove(pubkeyhex) {
-            return Ok(Some(th));
+            return Ok(Some(th.1));
         }
 
         // If it failed before, error out now
@@ -313,12 +312,7 @@ impl People {
                         // DynamicImage
                         Ok(di) => di,
                         Err(_) => {
-                            let _ = GLOBALS
-                                .people
-                                .write()
-                                .await
-                                .avatars_failed
-                                .insert(apubkeyhex.clone());
+                            let _ = GLOBALS.people.avatars_failed.insert(apubkeyhex.clone());
                             return;
                         }
                     };
@@ -329,12 +323,7 @@ impl People {
                     ); // DynamicImage
                     let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
 
-                    GLOBALS
-                        .people
-                        .write()
-                        .await
-                        .avatars_temp
-                        .insert(apubkeyhex, image_buffer);
+                    GLOBALS.people.avatars_temp.insert(apubkeyhex, image_buffer);
                 });
                 self.avatars_pending_processing.insert(pubkeyhex.to_owned());
                 Ok(None)
@@ -356,7 +345,7 @@ impl People {
         }
         self.people
             .iter()
-            .filter_map(|(_, person)| {
+            .filter_map(|person| {
                 if let Some(name) = &person.name {
                     if name.starts_with(prefix) {
                         let pubkey = PublicKey::try_from_hex_string(&person.pubkey).unwrap(); // FIXME
@@ -384,22 +373,17 @@ impl People {
         Ok(())
     }
 
-    pub fn follow(&mut self, pubkeyhex: &PublicKeyHex, follow: bool) {
+    pub fn follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) {
         // We can't do it now, but we spawn a task to do it soon
         let pubkeyhex = pubkeyhex.to_owned();
         tokio::spawn(async move {
-            let mut people = GLOBALS.people.write().await;
-            if let Err(e) = people.async_follow(&pubkeyhex, follow).await {
+            if let Err(e) = GLOBALS.people.async_follow(&pubkeyhex, follow).await {
                 tracing::error!("{}", e);
             }
         });
     }
 
-    pub async fn async_follow(
-        &mut self,
-        pubkeyhex: &PublicKeyHex,
-        follow: bool,
-    ) -> Result<(), Error> {
+    pub async fn async_follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) -> Result<(), Error> {
         let f: u8 = u8::from(follow);
 
         // Follow in database
@@ -416,7 +400,7 @@ impl People {
         .await??;
 
         // Make sure memory matches
-        if let Some(dbperson) = self.people.get_mut(pubkeyhex) {
+        if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
             dbperson.followed = f;
         } else {
             // load
@@ -429,7 +413,7 @@ impl People {
     }
 
     pub async fn follow_all(
-        &mut self,
+        &self,
         pubkeys: &[PublicKeyHex],
         merge: bool,
         asof: Unixtime,
@@ -494,9 +478,11 @@ impl People {
         }
 
         // Make sure memory matches
-        for (pkh, person) in self.people.iter_mut() {
+        for mut elem in self.people.iter_mut() {
+            let pkh = elem.key().clone();
+            let mut person = elem.value_mut();
             if person.followed_last_updated < asof.0 {
-                if pubkeys.contains(pkh) {
+                if pubkeys.contains(&pkh) {
                     person.followed = 1;
                 } else if !merge {
                     person.followed = 0;
@@ -507,10 +493,7 @@ impl People {
         Ok(())
     }
 
-    pub async fn update_dns_id_last_checked(
-        &mut self,
-        pubkeyhex: PublicKeyHex,
-    ) -> Result<(), Error> {
+    pub async fn update_dns_id_last_checked(&self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
         let maybe_db = GLOBALS.db.lock().await;
         let db = maybe_db.as_ref().unwrap();
         let mut stmt = db.prepare("UPDATE person SET dns_id_last_checked=? WHERE pubkey=?")?;
@@ -520,14 +503,14 @@ impl People {
     }
 
     pub async fn upsert_nip05_validity(
-        &mut self,
+        &self,
         pubkeyhex: &PublicKeyHex,
         dns_id: Option<String>,
         dns_id_valid: bool,
         dns_id_last_checked: u64,
     ) -> Result<(), Error> {
         // Update memory
-        if let Some(dbperson) = self.people.get_mut(pubkeyhex) {
+        if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
             dbperson.dns_id = dns_id.clone();
             dbperson.dns_id_valid = u8::from(dns_id_valid);
             dbperson.dns_id_last_checked = Some(dns_id_last_checked);

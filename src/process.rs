@@ -47,8 +47,6 @@ pub async fn process_new_event(
             // Create the person if missing in the database
             GLOBALS
                 .people
-                .write()
-                .await
                 .create_all_if_missing(&[event.pubkey.into()])
                 .await?;
 
@@ -212,8 +210,6 @@ pub async fn process_new_event(
 
         GLOBALS
             .people
-            .write()
-            .await
             .update_metadata(&event.pubkey.into(), metadata, event.created_at)
             .await?;
     }
@@ -237,8 +233,6 @@ pub async fn process_new_event(
                 // (and the date is used to ignore if the data is outdated)
                 GLOBALS
                     .people
-                    .write()
-                    .await
                     .follow_all(&pubkeys, merge, event.created_at)
                     .await?;
             }

@@ -10,7 +10,7 @@ mod person;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let maybe_person = if let Some(pubkeyhex) = &app.person_view_pubkey {
-        GLOBALS.people.blocking_write().get(pubkeyhex)
+        GLOBALS.people.get(pubkeyhex)
     } else {
         None
     };
@@ -53,7 +53,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.heading("People Followed");
         ui.add_space(18.0);
 
-        let people = GLOBALS.people.blocking_write().get_all();
+        let people = GLOBALS.people.get_all();
 
         ScrollArea::vertical().show(ui, |ui| {
             for person in people.iter() {

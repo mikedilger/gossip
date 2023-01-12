@@ -12,8 +12,6 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
     if person.dns_id.is_none() {
         GLOBALS
             .people
-            .write()
-            .await
             .upsert_nip05_validity(&person.pubkey, person.dns_id, false, now.0 as u64)
             .await?;
         return Ok(());
@@ -26,8 +24,6 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
         Err(_) => {
             GLOBALS
                 .people
-                .write()
-                .await
                 .upsert_nip05_validity(&person.pubkey, person.dns_id, false, now.0 as u64)
                 .await?;
             return Ok(());
@@ -50,8 +46,6 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
                 // Validated
                 GLOBALS
                     .people
-                    .write()
-                    .await
                     .upsert_nip05_validity(&person.pubkey, person.dns_id, true, now.0 as u64)
                     .await?;
             }
@@ -60,8 +54,6 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
             // Failed
             GLOBALS
                 .people
-                .write()
-                .await
                 .upsert_nip05_validity(&person.pubkey, person.dns_id, false, now.0 as u64)
                 .await?;
         }
@@ -86,8 +78,6 @@ pub async fn get_and_follow_nip05(dns_id: String) -> Result<(), Error> {
     // Save person
     GLOBALS
         .people
-        .write()
-        .await
         .upsert_nip05_validity(
             pubkey,
             Some(dns_id.clone()),
@@ -97,12 +87,7 @@ pub async fn get_and_follow_nip05(dns_id: String) -> Result<(), Error> {
         .await?;
 
     // Mark as followed
-    GLOBALS
-        .people
-        .write()
-        .await
-        .async_follow(pubkey, true)
-        .await?;
+    GLOBALS.people.async_follow(pubkey, true).await?;
 
     tracing::info!("Followed {}", &dns_id);
 

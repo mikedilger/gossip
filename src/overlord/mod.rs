@@ -100,7 +100,7 @@ impl Overlord {
         }
 
         // Load people from the database
-        GLOBALS.people.write().await.load_all_followed().await?;
+        GLOBALS.people.load_all_followed().await?;
 
         // Load latest metadata per person and update their metadata
         // This can happen in the background
@@ -158,8 +158,6 @@ impl Overlord {
         if !GLOBALS.settings.read().await.offline {
             let pubkeys: Vec<PublicKeyHex> = GLOBALS
                 .people
-                .read()
-                .await
                 .get_followed_pubkeys()
                 .iter()
                 .map(|p| p.to_owned())
@@ -578,12 +576,7 @@ impl Overlord {
     async fn follow_bech32(bech32: String, relay: String) -> Result<(), Error> {
         let pk = PublicKey::try_from_bech32_string(&bech32)?;
         let pkhex: PublicKeyHex = pk.into();
-        GLOBALS
-            .people
-            .write()
-            .await
-            .async_follow(&pkhex, true)
-            .await?;
+        GLOBALS.people.async_follow(&pkhex, true).await?;
 
         tracing::debug!("Followed {}", &pkhex);
 
@@ -611,12 +604,7 @@ impl Overlord {
     async fn follow_hexkey(hexkey: String, relay: String) -> Result<(), Error> {
         let pk = PublicKey::try_from_hex_string(&hexkey)?;
         let pkhex: PublicKeyHex = pk.into();
-        GLOBALS
-            .people
-            .write()
-            .await
-            .async_follow(&pkhex, true)
-            .await?;
+        GLOBALS.people.async_follow(&pkhex, true).await?;
 
         tracing::debug!("Followed {}", &pkhex);
 

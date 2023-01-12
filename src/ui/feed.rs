@@ -223,10 +223,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     .hint_text("@username"),
             );
             if !app.tag_someone.is_empty() {
-                let pairs = GLOBALS
-                    .people
-                    .blocking_read()
-                    .get_ids_from_prefix(&app.tag_someone);
+                let pairs = GLOBALS.people.get_ids_from_prefix(&app.tag_someone);
                 if !pairs.is_empty() {
                     ui.menu_button("@", |ui| {
                         for pair in pairs {
@@ -259,7 +256,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     for (i, tag) in app.draft_tags.iter().enumerate() {
         let rendered = match tag {
             Tag::Pubkey { pubkey, .. } => {
-                if let Some(person) = GLOBALS.people.blocking_write().get(&(*pubkey).into()) {
+                if let Some(person) = GLOBALS.people.get(&(*pubkey).into()) {
                     match person.name {
                         Some(name) => name,
                         None => GossipUi::pubkey_long(pubkey),
@@ -405,7 +402,7 @@ fn render_post_actual(
         return;
     }
 
-    let maybe_person = GLOBALS.people.blocking_write().get(&event.pubkey.into());
+    let maybe_person = GLOBALS.people.get(&event.pubkey.into());
 
     let reactions = Globals::get_reactions_sync(event.id);
 
@@ -649,7 +646,7 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                     match tag {
                         Tag::Pubkey { pubkey, .. } => {
                             let pkhex: PublicKeyHex = (*pubkey).into();
-                            let nam = match GLOBALS.people.blocking_write().get(&pkhex) {
+                            let nam = match GLOBALS.people.get(&pkhex) {
                                 Some(p) => match p.name {
                                     Some(n) => format!("@{}", n),
                                     None => format!("@{}", GossipUi::hex_pubkey_short(&pkhex)),

@@ -282,7 +282,7 @@ impl Minion {
             )
         };
 
-        let followed_pubkeys = GLOBALS.people.read().await.get_followed_pubkeys();
+        let followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
         tracing::debug!(
             "Following {} people at {}",
             followed_pubkeys.len(),

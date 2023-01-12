@@ -159,7 +159,7 @@ impl Feed {
             .filter(|e| e.kind == EventKind::TextNote)
             .collect();
 
-        let mut pubkeys = GLOBALS.people.blocking_read().get_followed_pubkeys();
+        let mut pubkeys = GLOBALS.people.get_followed_pubkeys();
         if let Some(pubkey) = GLOBALS.signer.blocking_read().public_key() {
             pubkeys.push(pubkey.into()); // add the user
         }

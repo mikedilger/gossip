@@ -47,7 +47,7 @@ pub struct Globals {
     pub desired_events: RwLock<HashMap<Id, Vec<Url>>>,
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
-    pub people: RwLock<People>,
+    pub people: People,
 
     /// All nostr relay records we have
     pub relays: RwLock<HashMap<Url, DbRelay>>,
@@ -104,7 +104,7 @@ lazy_static! {
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             desired_events: RwLock::new(HashMap::new()),
-            people: RwLock::new(People::new()),
+            people: People::new(),
             relays: RwLock::new(HashMap::new()),
             relays_watching: RwLock::new(Vec::new()),
             shutting_down: AtomicBool::new(false),

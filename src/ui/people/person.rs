@@ -7,7 +7,7 @@ use egui::{Context, RichText, Ui, Vec2};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let maybe_person = if let Some(pubkeyhex) = &app.person_view_pubkey {
-        GLOBALS.people.blocking_write().get(pubkeyhex)
+        GLOBALS.people.get(pubkeyhex)
     } else {
         None
     };
@@ -48,11 +48,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         #[allow(clippy::collapsible_else_if)]
         if person.followed == 0 {
             if ui.button("FOLLOW").clicked() {
-                GLOBALS.people.blocking_write().follow(&pubkeyhex, true);
+                GLOBALS.people.follow(&pubkeyhex, true);
             }
         } else {
             if ui.button("UNFOLLOW").clicked() {
-                GLOBALS.people.blocking_write().follow(&pubkeyhex, false);
+                GLOBALS.people.follow(&pubkeyhex, false);
             }
         }
 
