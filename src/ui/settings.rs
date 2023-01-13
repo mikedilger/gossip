@@ -66,15 +66,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.heading("What Posts to Include");
 
     ui.checkbox(
-        &mut app.settings.view_posts_referred_to,
-        "View posts referred to by people you follow (not yet implemented)",
-    )
-    .on_hover_text(
-        "Recommended, otherwise it's hard to understand what the person is talking about.",
+        &mut app.settings.thread_view_ancestors,
+        "In thread view, view entire ancestoral line of a post, not just it's parent (not yet implemented)",
     );
 
-    ui.checkbox(&mut app.settings.view_posts_referring_to, "View posts referring to posts by people you follow (not yet implemented)")
-        .on_hover_text("Not recommended, as anyone can reply to them and you'll certainly encounter spam this way.");
+    ui.checkbox(
+        &mut app.settings.thread_view_replies,
+        "In thread view, view all replies to a post recursively on down (not yet implemented)",
+    );
 
     ui.add_space(12.0);
     ui.separator();
