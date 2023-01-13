@@ -20,6 +20,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AddRelay(app.new_relay_url.clone()));
+                if let Ok(db_relay) = DbRelay::new(app.new_relay_url.clone()){
+                    GLOBALS.relays.blocking_write().insert(test_url, db_relay);
+                }
                 app.new_relay_url = "".to_owned();
                 *GLOBALS.status_message.blocking_write() = format!(
                     "I asked the overlord to add relay {}. Check for it below.",
@@ -112,10 +115,6 @@ fn render_relay(ui: &mut Ui, relay: &DbRelay, bold: bool) {
                     relay.dirty = true;
                 }
             }
-
-            //if ui.button("CONNECT").clicked() {
-            //    ui.label("TBD");
-            //}
         });
     });
 }
