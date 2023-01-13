@@ -223,7 +223,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     .hint_text("@username"),
             );
             if !app.tag_someone.is_empty() {
-                let pairs = GLOBALS.people.get_ids_from_prefix(&app.tag_someone);
+                let pairs = GLOBALS.people.search_people_to_tag(&app.tag_someone);
                 if !pairs.is_empty() {
                     ui.menu_button("@", |ui| {
                         for pair in pairs {
