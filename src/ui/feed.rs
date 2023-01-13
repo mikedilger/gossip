@@ -228,13 +228,22 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.menu_button("@", |ui| {
                         for pair in pairs {
                             if ui.button(pair.0).clicked() {
-                                app.draft_tags.push(Tag::Pubkey {
-                                    pubkey: pair.1,
-                                    recommended_relay_url: None, // FIXME
-                                    petname: None,
-                                });
-                                app.draft
-                                    .push_str(&format!("#[{}]", app.draft_tags.len() - 1));
+                                let idx = app
+                                    .draft_tags
+                                    .iter()
+                                    .position(|tag| match tag {
+                                        Tag::Pubkey { pubkey, .. } if pubkey.0 == *pair.1 => true,
+                                        _ => false,
+                                    })
+                                    .unwrap_or_else(|| {
+                                        app.draft_tags.push(Tag::Pubkey {
+                                            pubkey: pair.1,
+                                            recommended_relay_url: None, // FIXME
+                                            petname: None,
+                                        });
+                                        app.draft_tags.len() - 1
+                                    });
+                                app.draft.push_str(&format!("#[{}]", idx));
                                 app.tag_someone = "".to_owned();
                             }
                         }
