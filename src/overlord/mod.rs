@@ -798,7 +798,7 @@ impl Overlord {
                     marker: None,
                 },
                 Tag::Pubkey {
-                    pubkey,
+                    pubkey: pubkey.into(),
                     recommended_relay_url: None,
                     petname: None,
                 },

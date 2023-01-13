@@ -110,7 +110,7 @@ pub async fn process_new_event(
                         // upsert person_relay.last_suggested_bytag
                         let now = Unixtime::now()?.0 as u64;
                         DbPersonRelay::upsert_last_suggested_bytag(
-                            pubkey.as_hex_string(),
+                            pubkey.0.to_owned(),
                             url.inner().to_owned(),
                             now,
                         )
@@ -211,7 +211,7 @@ pub async fn process_new_event(
                 // 'p' tags represent the author's contacts
                 for tag in &event.tags {
                     if let Tag::Pubkey { pubkey, .. } = tag {
-                        pubkeys.push((*pubkey).into());
+                        pubkeys.push(pubkey.to_owned());
                         // FIXME do something with recommended_relay_url and petname
                     }
                 }

@@ -211,13 +211,13 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     for (i, tag) in app.draft_tags.iter().enumerate() {
         let rendered = match tag {
             Tag::Pubkey { pubkey, .. } => {
-                if let Some(person) = GLOBALS.people.get(&(*pubkey).into()) {
+                if let Some(person) = GLOBALS.people.get(pubkey) {
                     match person.name {
                         Some(name) => name,
-                        None => GossipUi::pubkey_long(pubkey),
+                        None => pubkey.0.clone(),
                     }
                 } else {
-                    GossipUi::pubkey_long(pubkey)
+                    pubkey.0.clone()
                 }
             }
             _ => serde_json::to_string(tag).unwrap(),
@@ -521,7 +521,7 @@ fn render_post_actual(
 
                             // Add a 'p' tag for the author we are replying to
                             app.draft_tags.push(Tag::Pubkey {
-                                pubkey: event.pubkey,
+                                pubkey: event.pubkey.into(),
                                 recommended_relay_url: None, // FIXME
                                 petname: None,
                             });
@@ -531,7 +531,7 @@ fn render_post_actual(
                                 .tags
                                 .iter()
                                 .filter(|t| match t {
-                                    Tag::Pubkey { pubkey, .. } => *pubkey != event.pubkey,
+                                    Tag::Pubkey { pubkey, .. } => *pubkey != event.pubkey.into(),
                                     _ => false,
                                 })
                                 .map(|t| t.to_owned())
@@ -600,16 +600,15 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                 if let Some(tag) = event.tags.get(num) {
                     match tag {
                         Tag::Pubkey { pubkey, .. } => {
-                            let pkhex: PublicKeyHex = (*pubkey).into();
-                            let nam = match GLOBALS.people.get(&pkhex) {
+                            let nam = match GLOBALS.people.get(pubkey) {
                                 Some(p) => match p.name {
                                     Some(n) => format!("@{}", n),
-                                    None => format!("@{}", GossipUi::hex_pubkey_short(&pkhex)),
+                                    None => format!("@{}", GossipUi::hex_pubkey_short(pubkey)),
                                 },
-                                None => format!("@{}", GossipUi::hex_pubkey_short(&pkhex)),
+                                None => format!("@{}", GossipUi::hex_pubkey_short(pubkey)),
                             };
                             if ui.link(&nam).clicked() {
-                                set_person_view(app, &pkhex);
+                                set_person_view(app, pubkey);
                             };
                         }
                         Tag::Event { id, .. } => {

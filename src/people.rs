@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
-use nostr_types::{Metadata, PublicKey, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Metadata, PublicKeyHex, Unixtime, Url};
 use std::cmp::Ordering;
 use std::time::Duration;
 use tokio::task;
@@ -338,7 +338,7 @@ impl People {
 
     /// This lets you start typing a name, and autocomplete the results for tagging
     /// someone in a post.  It returns maximum 10 results.
-    pub fn get_ids_from_prefix(&self, mut prefix: &str) -> Vec<(String, PublicKey)> {
+    pub fn get_ids_from_prefix(&self, mut prefix: &str) -> Vec<(String, PublicKeyHex)> {
         // work with or without the @ symbol:
         if prefix.starts_with('@') {
             prefix = &prefix[1..]
@@ -348,8 +348,7 @@ impl People {
             .filter_map(|person| {
                 if let Some(name) = &person.name {
                     if name.starts_with(prefix) {
-                        let pubkey = PublicKey::try_from_hex_string(&person.pubkey).unwrap(); // FIXME
-                        return Some((name.clone(), pubkey));
+                        return Some((name.clone(), person.pubkey.clone()));
                     }
                 }
                 None
