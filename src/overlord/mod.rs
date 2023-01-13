@@ -439,7 +439,7 @@ impl Overlord {
             }
             ToOverlordMessage::ProcessIncomingEvents => {
                 // Clear new events
-                GLOBALS.event_is_new.write().await.clear();
+                GLOBALS.events.clear_new();
 
                 let _ = tokio::spawn(async move {
                     for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {

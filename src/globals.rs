@@ -1,12 +1,12 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
 use crate::db::DbRelay;
+use crate::events::Events;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::people::People;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
-use dashmap::DashMap;
 use nostr_types::{Event, Id, PublicKeyHex, Url};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -31,8 +31,9 @@ pub struct Globals {
     /// and stolen away when the Overlord is created.
     pub tmp_overlord_receiver: Mutex<Option<mpsc::UnboundedReceiver<ToOverlordMessage>>>,
 
-    /// All nostr events, keyed by the event Id
-    pub events: DashMap<Id, Event>,
+    /// All nostr events currently in memory, keyed by the event Id, as well as
+    /// information about if they are new or not, and functions
+    pub events: Events,
 
     /// Events coming in from relays that are not processed yet
     /// stored with Url they came from and Subscription they came in on
@@ -63,9 +64,6 @@ pub struct Globals {
     /// Dismissed Events
     pub dismissed: RwLock<Vec<Id>>,
 
-    /// Event is new
-    pub event_is_new: RwLock<Vec<Id>>,
-
     /// Feed
     pub feed: Feed,
 
@@ -95,7 +93,7 @@ lazy_static! {
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
-            events: DashMap::new(),
+            events: Events::new(),
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
@@ -105,7 +103,6 @@ lazy_static! {
             settings: RwLock::new(Settings::default()),
             signer: RwLock::new(Signer::default()),
             dismissed: RwLock::new(Vec::new()),
-            event_is_new: RwLock::new(Vec::new()),
             feed: Feed::new(),
             fetcher: Fetcher::new(),
             failed_avatars: RwLock::new(HashSet::new()),
@@ -116,6 +113,18 @@ lazy_static! {
 }
 
 impl Globals {
+    /*
+    pub async fn get_local_event(id: Id) -> Option<Event> {
+        // Try memory
+        if let Some(e) = GLOBALS.events.get(&id) {
+            return Some(e.to_owned())
+        }
+
+        // Try the database
+
+    }
+     */
+
     pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {
         let r = (related, relationship);
         let mut relationships = GLOBALS.relationships.write().await;

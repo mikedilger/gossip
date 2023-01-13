@@ -95,7 +95,7 @@ impl Feed {
     }
 
     pub fn get_thread_parent(&self, id: Id) -> Id {
-        let mut event = match GLOBALS.events.get(&id).map(|r| r.value().to_owned()) {
+        let mut event = match GLOBALS.events.get(&id) {
             None => return id,
             Some(e) => e,
         };

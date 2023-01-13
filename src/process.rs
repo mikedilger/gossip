@@ -61,7 +61,7 @@ pub async fn process_new_event(
     }
 
     // Insert the event into globals map
-    GLOBALS.events.insert(event.id, event.clone());
+    GLOBALS.events.insert(event.clone());
 
     // Save the tags into event_tag table
     if from_relay {
@@ -227,9 +227,6 @@ pub async fn process_new_event(
     }
 
     // FIXME: Handle EventKind::RecommendedRelay
-
-    // Save in event_is_new (to highlight it in the feed, if feed related)
-    GLOBALS.event_is_new.write().await.push(event.id);
 
     Ok(())
 }

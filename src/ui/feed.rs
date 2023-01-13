@@ -39,7 +39,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             app.page = Page::FeedGeneral;
             GLOBALS.feed.set_feed_to_general();
             feed_kind = FeedKind::General;
-            GLOBALS.event_is_new.blocking_write().clear();
+            GLOBALS.events.clear_new();
         }
         ui.separator();
         if ui
@@ -52,17 +52,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             app.page = Page::FeedReplies;
             GLOBALS.feed.set_feed_to_replies();
             feed_kind = FeedKind::Replies;
-            GLOBALS.event_is_new.blocking_write().clear();
+            GLOBALS.events.clear_new();
         }
         if matches!(feed_kind, FeedKind::Thread(..)) {
             ui.separator();
             ui.selectable_value(&mut app.page, Page::FeedThread, "Thread");
-            GLOBALS.event_is_new.blocking_write().clear();
+            GLOBALS.events.clear_new();
         }
         if matches!(feed_kind, FeedKind::Person(..)) {
             ui.separator();
             ui.selectable_value(&mut app.page, Page::FeedPerson, "Person");
-            GLOBALS.event_is_new.blocking_write().clear();
+            GLOBALS.events.clear_new();
         }
     });
     ui.separator();
@@ -274,7 +274,7 @@ fn render_post_maybe_fake(
     } = feed_post_params;
 
     // We always get the event even offscreen so we can estimate its height
-    let maybe_event = GLOBALS.events.get(&id).map(|r| r.value().to_owned());
+    let maybe_event = GLOBALS.events.get(&id);
     if maybe_event.is_none() {
         return;
     }
@@ -346,7 +346,7 @@ fn render_post_actual(
         threaded,
     } = feed_post_params;
 
-    let maybe_event = GLOBALS.events.get(&id).map(|r| r.value().to_owned());
+    let maybe_event = GLOBALS.events.get(&id);
     if maybe_event.is_none() {
         return;
     }
@@ -397,7 +397,7 @@ fn render_post_actual(
     // Try LayoutJob
 
     #[allow(clippy::collapsible_else_if)]
-    let bgcolor = if GLOBALS.event_is_new.blocking_read().contains(&event.id) {
+    let bgcolor = if GLOBALS.events.is_new(&event.id) {
         if ctx.style().visuals.dark_mode {
             Color32::from_rgb(60, 0, 0)
         } else {
