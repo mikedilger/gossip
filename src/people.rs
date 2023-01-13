@@ -384,12 +384,12 @@ impl People {
                 if score > 0 {
                     // if there is not a name, fallback to showing the initial chars of the pubkey,
                     // but this is probably unnecessary and will never happen
-                    if result_name == "" {
+                    if result_name.is_empty() {
                         result_name = person.pubkey.to_string();
                     }
 
                     // bigger names have a higher match chance, but they should be scored lower
-                    score = score - result_name.len() as u16;
+                    score -= result_name.len() as u16;
 
                     return Some((score, result_name, person.pubkey.clone()));
                 }
@@ -405,7 +405,7 @@ impl People {
             results.len()
         };
         results[0..max]
-            .into_iter()
+            .iter()
             .map(|r| (r.1.to_owned(), r.2.clone()))
             .collect()
     }

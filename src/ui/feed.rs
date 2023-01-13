@@ -186,9 +186,11 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                 let idx = app
                                     .draft_tags
                                     .iter()
-                                    .position(|tag| match tag {
-                                        Tag::Pubkey { pubkey, .. } if pubkey.0 == *pair.1 => true,
-                                        _ => false,
+                                    .position(|tag| {
+                                        matches!(
+                                            tag,
+                                            Tag::Pubkey { pubkey, .. } if pubkey.0 == *pair.1
+                                        )
                                     })
                                     .unwrap_or_else(|| {
                                         app.draft_tags.push(Tag::Pubkey {
