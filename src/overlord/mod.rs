@@ -4,11 +4,11 @@ mod relay_picker;
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::{DbEvent, DbPersonRelay, DbRelay};
 use crate::error::Error;
-use crate::globals::{Globals, GLOBALS};
+use crate::globals::GLOBALS;
 use crate::people::People;
 use minion::Minion;
 use nostr_types::{
-    Event, EventKind, Id, IdHex, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
+    Event, EventKind, Id, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
 };
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
@@ -401,9 +401,6 @@ impl Overlord {
                 password.zeroize();
                 GLOBALS.signer.read().await.save_through_settings().await?;
             }
-            ToOverlordMessage::GetMissingEvents => {
-                self.get_missing_events().await?;
-            }
             ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
                 let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
                 let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
@@ -532,54 +529,6 @@ impl Overlord {
         }
 
         Ok(true)
-    }
-
-    async fn get_missing_events(&mut self) -> Result<(), Error> {
-        let (desired_events_map, orphans): (HashMap<Url, Vec<Id>>, Vec<Id>) =
-            Globals::get_desired_events().await?;
-
-        let desired_count = GLOBALS.desired_events.read().await.len();
-
-        if desired_count == 0 {
-            return Ok(());
-        }
-
-        tracing::info!("Seeking {} events", desired_count);
-
-        let urls: Vec<Url> = desired_events_map
-            .keys()
-            .map(|u| u.to_owned())
-            .filter(|u| u.is_valid_relay_url())
-            .collect();
-
-        for url in urls.iter() {
-            // Get all the ones slated for this relay
-            let mut ids = desired_events_map.get(url).cloned().unwrap_or_default();
-
-            // Add the orphans
-            ids.extend(&orphans);
-
-            if ids.is_empty() {
-                continue;
-            }
-
-            // If we don't have such a minion, start one
-            if !GLOBALS.relays_watching.read().await.contains(url) {
-                // Start a minion
-                self.start_minion(url.inner().to_owned()).await?;
-            }
-
-            tracing::debug!("{}: Asking to fetch {} events", url.inner(), ids.len());
-
-            let ids: Vec<IdHex> = ids.iter().map(|id| (*id).into()).collect();
-            // Tell it to get these events
-            let _ = self.to_minions.send(ToMinionMessage {
-                target: url.inner().to_owned(),
-                payload: ToMinionPayload::FetchEvents(ids),
-            });
-        }
-
-        Ok(())
     }
 
     async fn follow_bech32(bech32: String, relay: String) -> Result<(), Error> {

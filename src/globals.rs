@@ -1,6 +1,5 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
-use crate::db::{DbEvent, DbRelay};
-use crate::error::Error;
+use crate::db::DbRelay;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::people::People;
@@ -8,7 +7,7 @@ use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
 use dashmap::DashMap;
-use nostr_types::{Event, Id, IdHex, PublicKeyHex, Url};
+use nostr_types::{Event, Id, PublicKeyHex, Url};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
@@ -41,10 +40,6 @@ pub struct Globals {
 
     /// All relationships between events
     pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
-
-    /// Desired events, referred to by others, with possible URLs where we can
-    /// get them.  We may already have these, but if not we should ask for them.
-    pub desired_events: RwLock<HashMap<Id, Vec<Url>>>,
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
@@ -103,7 +98,6 @@ lazy_static! {
             events: DashMap::new(),
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
-            desired_events: RwLock::new(HashMap::new()),
             people: People::new(),
             relays: RwLock::new(HashMap::new()),
             relays_watching: RwLock::new(Vec::new()),
@@ -122,100 +116,6 @@ lazy_static! {
 }
 
 impl Globals {
-    pub async fn store_desired_event(id: Id, url: Option<Url>) {
-        let mut desired_events = GLOBALS.desired_events.write().await;
-        desired_events
-            .entry(id)
-            .and_modify(|urls| {
-                if let Some(ref u) = url {
-                    let n = Url::new(u);
-                    if n.is_valid_relay_url() {
-                        urls.push(n);
-                    }
-                }
-            })
-            .or_insert_with(|| if let Some(u) = url { vec![u] } else { vec![] });
-    }
-
-    pub fn trim_desired_events_sync() {
-        let mut desired_events = GLOBALS.desired_events.blocking_write();
-        desired_events.retain(|&id, _| !GLOBALS.events.contains_key(&id));
-    }
-
-    pub async fn trim_desired_events() {
-        let mut desired_events = GLOBALS.desired_events.write().await;
-        desired_events.retain(|&id, _| !GLOBALS.events.contains_key(&id));
-    }
-
-    pub async fn get_local_desired_events() -> Result<(), Error> {
-        Self::trim_desired_events().await;
-
-        // Load from database
-        {
-            let ids: Vec<IdHex> = GLOBALS
-                .desired_events
-                .read()
-                .await
-                .iter()
-                .map(|(id, _)| Into::<IdHex>::into(*id))
-                .collect();
-            let db_events = DbEvent::fetch_by_ids(ids).await?;
-            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
-            for dbevent in db_events.iter() {
-                let e = serde_json::from_str(&dbevent.raw)?;
-                events.push(e);
-            }
-            let mut count = 0;
-            for event in events.iter() {
-                count += 1;
-                crate::process::process_new_event(event, false, None, None).await?;
-            }
-            tracing::info!("Loaded {} desired events from the database", count);
-        }
-
-        Self::trim_desired_events().await; // again
-
-        Ok(())
-    }
-
-    pub async fn get_desired_events() -> Result<(HashMap<Url, Vec<Id>>, Vec<Id>), Error> {
-        Globals::get_local_desired_events().await?;
-
-        let desired_events = GLOBALS.desired_events.read().await;
-        let mut output: HashMap<Url, Vec<Id>> = HashMap::new();
-        let mut orphans: Vec<Id> = Vec::new();
-        for (id, vec_url) in desired_events.iter() {
-            if vec_url.is_empty() {
-                orphans.push(*id);
-            } else {
-                for url in vec_url.iter() {
-                    output
-                        .entry(url.to_owned())
-                        .and_modify(|vec| vec.push(*id))
-                        .or_insert_with(|| vec![*id]);
-                }
-            }
-        }
-
-        Ok((output, orphans))
-    }
-
-    /*
-    pub async fn get_desired_events_for_url(url: Url) -> Result<Vec<Id>, Error> {
-        Globals::get_desired_events_prelude().await?;
-
-        let desired_events = GLOBALS.desired_events.read().await;
-        let mut output: Vec<Id> = Vec::new();
-        for (id, vec_url) in desired_events.iter() {
-            if vec_url.is_empty() || vec_url.contains(&url) {
-                output.push(*id);
-            }
-        }
-
-        Ok(output)
-    }
-     */
-
     pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {
         let r = (related, relationship);
         let mut relationships = GLOBALS.relationships.write().await;

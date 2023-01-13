@@ -71,51 +71,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     ui.separator();
 
-    // Top Buttons
-    Globals::trim_desired_events_sync();
-    let desired_count: isize = match GLOBALS.desired_events.try_read() {
-        Ok(v) => v.len() as isize,
-        Err(_) => -1,
-    };
-    /*
-        let incoming_count: isize = match GLOBALS.incoming_events.try_read() {
-            Ok(v) => v.len() as isize,
-            Err(_) => -1,
-    };
-        */
-    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-        if ui
-            .button(&format!("QM {}", desired_count))
-            .on_hover_text("Query Relays for Missing Events")
-            .clicked()
-        {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::GetMissingEvents);
-        }
-
-        /* Hide for now, as they are processed automatically at present
-        if ui
-            .button(&format!("PQ {}", incoming_count))
-            .on_hover_text("Process Queue of Incoming Events")
-            .clicked()
-        {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ProcessIncomingEvents);
-        }
-         */
-
-        ui.label(&format!(
-            "RIF={}",
-            GLOBALS
-                .fetcher
-                .requests_in_flight
-                .load(std::sync::atomic::Ordering::Relaxed)
-        ))
-        .on_hover_text("Requests In Flight (http, not wss)");
-    });
-
-    ui.separator();
-
     match feed_kind {
         FeedKind::General => {
             let feed = GLOBALS.feed.get_general();

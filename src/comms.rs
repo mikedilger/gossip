@@ -9,7 +9,6 @@ pub enum ToOverlordMessage {
     FollowHex(String, String),
     FollowNip05(String),
     GeneratePrivateKey(String),
-    GetMissingEvents,
     ImportPriv(String, String),
     ImportPub(String),
     Like(Id, PublicKey),

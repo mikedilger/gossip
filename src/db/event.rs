@@ -51,6 +51,7 @@ impl DbEvent {
         output
     }
 
+    #[allow(dead_code)]
     pub async fn fetch_by_ids(ids: Vec<IdHex>) -> Result<Vec<DbEvent>, Error> {
         if ids.is_empty() {
             return Ok(vec![]);
@@ -183,6 +184,7 @@ impl DbEvent {
         */
 }
 
+#[allow(dead_code)]
 fn repeat_vars(count: usize) -> String {
     assert_ne!(count, 0);
     let mut s = "?,".repeat(count);
