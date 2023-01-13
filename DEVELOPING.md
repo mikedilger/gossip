@@ -42,3 +42,19 @@ The flow generally happens like this
 - crate::process handles the new event regardless of how it got there - generally it is unaware of the sequence of events that happened in the previous steps of this list
 - the result of such processing updates global data
 - the UI on the next frame reads the global data (which is now different) and renders accordingly.
+
+## Pull Requests
+
+I prefer that you run and make pass
+
+````sh
+$ cargo clippy
+````
+
+and then
+
+````sh
+$ cargo fmt
+````
+
+before you issue a pull request. Otherwise I'll have to do it for you.
