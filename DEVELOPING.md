@@ -58,3 +58,5 @@ $ cargo fmt
 ````
 
 before you issue a pull request. Otherwise I'll have to do it for you.
+
+Also, I don't like branches that have a lot of commits that are messed up, but happen to end up in a good state due to the last commit.  If you have a branch like this, create a new branch and one-by-one create a series of commits, each one a single logical step, each one compiling, each one passing clippy and rustfmt, each one documented, and each one doing something useful, such that this series of commits ends up where you originally got to (or somewhere even better). This not only makes it much easier to evaluate the PR, but it makes it possible to revert logical units later on if anything needs to be reverted, without necessarily reverting the entire branch.
