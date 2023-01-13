@@ -133,6 +133,10 @@ fn parse_dns_id(dns_id: &str) -> Result<(String, String), Error> {
     } else {
         let domain = parts.pop().unwrap();
         let user = parts.pop().unwrap();
+        if domain.len() < 4 {
+            // smallest non-TLD domain is like 't.co'
+            return Err(Error::InvalidDnsId);
+        }
         Ok((user.to_string(), domain.to_string()))
     }
 }
