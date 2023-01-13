@@ -338,22 +338,75 @@ impl People {
 
     /// This lets you start typing a name, and autocomplete the results for tagging
     /// someone in a post.  It returns maximum 10 results.
-    pub fn get_ids_from_prefix(&self, mut prefix: &str) -> Vec<(String, PublicKeyHex)> {
+    pub fn search_people_to_tag(&self, mut text: &str) -> Vec<(String, PublicKeyHex)> {
         // work with or without the @ symbol:
-        if prefix.starts_with('@') {
-            prefix = &prefix[1..]
+        if text.starts_with('@') {
+            text = &text[1..]
         }
-        self.people
+        // normalize case
+        let search = String::from(text).to_lowercase();
+
+        // grab all results then sort by score
+        let mut results: Vec<(u16, String, PublicKeyHex)> = self
+            .people
             .iter()
             .filter_map(|person| {
-                if let Some(name) = &person.name {
-                    if name.starts_with(prefix) {
-                        return Some((name.clone(), person.pubkey.clone()));
+                let mut score = 0u16;
+                let mut result_name = String::from("");
+
+                // search for users by name
+                if let Some(name) = &person.name.as_ref() {
+                    let matchable = name.to_lowercase();
+                    if matchable.starts_with(&search) {
+                        score = 300;
+                        result_name = name.to_string();
+                    }
+                    if matchable.contains(&search) {
+                        score = 200;
+                        result_name = name.to_string();
                     }
                 }
+
+                // search for users by nip05 id
+                if score == 0 && person.dns_id_valid > 0 {
+                    if let Some(dns_id) = &person.dns_id.as_ref().map(|n| n.to_lowercase()) {
+                        if dns_id.starts_with(&search) {
+                            score = 400;
+                            result_name = dns_id.to_string();
+                        }
+                        if dns_id.contains(&search) {
+                            score = 100;
+                            result_name = dns_id.to_string();
+                        }
+                    }
+                }
+
+                if score > 0 {
+                    // if there is not a name, fallback to showing the initial chars of the pubkey,
+                    // but this is probably unnecessary and will never happen
+                    if result_name.is_empty() {
+                        result_name = person.pubkey.to_string();
+                    }
+
+                    // bigger names have a higher match chance, but they should be scored lower
+                    score -= result_name.len() as u16;
+
+                    return Some((score, result_name, person.pubkey.clone()));
+                }
+
                 None
             })
-            .take(10)
+            .collect();
+
+        results.sort_by(|a, b| a.0.cmp(&b.0).reverse());
+        let max = if results.len() > 10 {
+            10
+        } else {
+            results.len()
+        };
+        results[0..max]
+            .iter()
+            .map(|r| (r.1.to_owned(), r.2.clone()))
             .collect()
     }
 

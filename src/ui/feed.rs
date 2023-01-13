@@ -178,18 +178,29 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     .hint_text("@username"),
             );
             if !app.tag_someone.is_empty() {
-                let pairs = GLOBALS.people.get_ids_from_prefix(&app.tag_someone);
+                let pairs = GLOBALS.people.search_people_to_tag(&app.tag_someone);
                 if !pairs.is_empty() {
                     ui.menu_button("@", |ui| {
                         for pair in pairs {
                             if ui.button(pair.0).clicked() {
-                                app.draft_tags.push(Tag::Pubkey {
-                                    pubkey: pair.1,
-                                    recommended_relay_url: None, // FIXME
-                                    petname: None,
-                                });
-                                app.draft
-                                    .push_str(&format!("#[{}]", app.draft_tags.len() - 1));
+                                let idx = app
+                                    .draft_tags
+                                    .iter()
+                                    .position(|tag| {
+                                        matches!(
+                                            tag,
+                                            Tag::Pubkey { pubkey, .. } if pubkey.0 == *pair.1
+                                        )
+                                    })
+                                    .unwrap_or_else(|| {
+                                        app.draft_tags.push(Tag::Pubkey {
+                                            pubkey: pair.1,
+                                            recommended_relay_url: None, // FIXME
+                                            petname: None,
+                                        });
+                                        app.draft_tags.len() - 1
+                                    });
+                                app.draft.push_str(&format!("#[{}]", idx));
                                 app.tag_someone = "".to_owned();
                             }
                         }
