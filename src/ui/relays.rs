@@ -20,7 +20,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AddRelay(app.new_relay_url.clone()));
-                if let Ok(db_relay) = DbRelay::new(app.new_relay_url.clone()){
+                if let Ok(db_relay) = DbRelay::new(app.new_relay_url.clone()) {
                     GLOBALS.relays.blocking_write().insert(test_url, db_relay);
                 }
                 app.new_relay_url = "".to_owned();
@@ -81,7 +81,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
             ScrollArea::vertical().show(ui, |ui| {
                 for relay in relays.iter_mut() {
-                    if ! relay.post {
+                    if !relay.post {
                         render_relay(ui, relay, false);
                         ui.add_space(3.0);
                         ui.separator();
