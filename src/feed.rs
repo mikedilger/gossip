@@ -1,7 +1,6 @@
 use crate::comms::{ToMinionMessage, ToMinionPayload};
 use crate::globals::GLOBALS;
-use nostr_types::PublicKeyHex;
-use nostr_types::{Event, EventKind, Id};
+use nostr_types::{Event, EventKind, Id, PublicKeyHex, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
@@ -187,10 +186,12 @@ impl Feed {
             .collect();
 
         // Filter further for the general feed
+        let now = Unixtime::now().unwrap();
         let mut fevents: Vec<Event> = events
             .iter()
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
             .filter(|e| pubkeys.contains(&e.pubkey.into())) // something we follow
+            .filter(|e| e.created_at <= now)
             .cloned()
             .collect();
         fevents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
