@@ -1698,6 +1698,7 @@ dependencies = [
 name = "gossip"
 version = "0.3.1-unstable"
 dependencies = [
+ "async-recursion",
  "base64 0.20.0",
  "dashmap",
  "dirs",
