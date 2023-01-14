@@ -5,7 +5,7 @@ use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::{CopyButton, LikeButton, ReplyButton};
 use eframe::egui;
 use egui::{
-    Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense,
+    Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense, Separator, Stroke,
     TextEdit, Ui, Vec2,
 };
 use linkify::{LinkFinder, LinkKind};
@@ -422,7 +422,20 @@ fn render_post_actual(
         }
     };
 
+    let is_main_event: bool = {
+        let feed_kind = GLOBALS.feed.get_feed_kind();
+        match feed_kind {
+            FeedKind::Thread(id) => id == event.id,
+            _ => false
+        }
+    };
+
     Frame::none().fill(bgcolor).show(ui, |ui| {
+
+        if is_main_event {
+            thin_red_separator(ui);
+        }
+
         ui.horizontal(|ui| {
             // Indents first (if threaded)
             if threaded {
@@ -482,7 +495,7 @@ fn render_post_actual(
 
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         ui.menu_button(RichText::new("≡").size(28.0), |ui| {
-                            if app.page != Page::FeedThread && ui.button("View Thread").clicked() {
+                            if ! is_main_event && ui.button("View Thread").clicked() {
                                 GLOBALS.feed.set_feed_to_thread(event.id);
                                 app.page = Page::FeedThread;
                             }
@@ -499,7 +512,7 @@ fn render_post_actual(
                             }
                         });
 
-                        if app.page != Page::FeedThread
+                        if ! is_main_event
                             && ui.button("➤").on_hover_text("View Thread").clicked()
                         {
                             GLOBALS.feed.set_feed_to_thread(event.id);
@@ -572,6 +585,10 @@ fn render_post_actual(
                 }
             });
         });
+
+        if is_main_event {
+            thin_red_separator(ui);
+        }
     });
 
     ui.separator();
@@ -654,4 +671,14 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
 fn set_person_view(app: &mut GossipUi, pubkeyhex: &PublicKeyHex) {
     app.person_view_pubkey = Some(pubkeyhex.to_owned());
     app.page = Page::Person;
+}
+
+fn thin_red_separator(ui: &mut Ui) {
+    let mut style = ui.style_mut();
+    style.visuals.widgets.noninteractive.bg_stroke = Stroke {
+        width: 1.0,
+        color: Color32::from_rgb(160, 0, 0),
+    };
+    ui.add(Separator::default().spacing(0.0));
+    ui.reset_style();
 }
