@@ -2,13 +2,13 @@ mod minion;
 mod relay_picker;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
-use crate::db::{DbEvent, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
 use minion::Minion;
 use nostr_types::{
-    Event, EventKind, Id, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
+    Event, EventKind, Id, IdHex, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
 };
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
@@ -485,6 +485,9 @@ impl Overlord {
                 GLOBALS.settings.read().await.save().await?;
                 tracing::debug!("Settings saved.");
             }
+            ToOverlordMessage::SetThreadFeed(id) => {
+                self.set_thread_feed(id).await?;
+            }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
                 return Ok(false);
@@ -895,6 +898,57 @@ impl Overlord {
 
         // When the event comes in, process will handle it with our global
         // merge preference.
+
+        Ok(())
+    }
+
+    async fn set_thread_feed(&mut self, id: Id) -> Result<(), Error> {
+        // Cancel current thread subscriptions, if any
+        let _ = self.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribeThreadFeed,
+        });
+
+        // Climb the tree as high as we can, and if there are higher events,
+        // we will ask for those in the initial subscription
+        let highest_parent_id = GLOBALS.events.get_highest_local_parent(&id).await?.unwrap(); // we never SetThreadFeed to an event we don't already have
+
+        // Set that in the feed
+        GLOBALS.feed.set_thread_parent(highest_parent_id);
+
+        // get that highest event
+        let highest_parent = GLOBALS.events.get_local(highest_parent_id).await?.unwrap(); // we never SetThreadFeed to an event we don't already have
+
+        // strictly speaking, we are only certainly missing the next parent up, we might have
+        // parents further above. But this isn't asking for much extra.
+        let mut missing_ancestors: Vec<(Id, Option<Url>)> = highest_parent.replies_to_ancestors();
+        let missing_ids: Vec<Id> = missing_ancestors.iter().map(|(id, _)| *id).collect();
+        let missing_ids_hex: Vec<IdHex> = missing_ids.iter().map(|id| (*id).into()).collect();
+        tracing::debug!("Seeking ancestors {:?}", missing_ids_hex);
+
+        // Determine which relays to subscribe on
+        // (everywhere the main event was seen, and all relays suggested in the 'e' tags)
+        let mut relay_urls = DbEventSeen::get_relays_for_event(id).await?;
+        let suggested_urls: Vec<Url> = missing_ancestors
+            .drain(..)
+            .filter_map(|(_, opturl)| opturl)
+            .collect();
+        relay_urls.extend(suggested_urls);
+        relay_urls.sort();
+        relay_urls.dedup();
+
+        for url in relay_urls.iter() {
+            // Start minion if needed
+            if !GLOBALS.relays_watching.read().await.contains(url) {
+                self.start_minion(url.inner().to_string()).await?;
+            }
+
+            // Subscribe
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: url.inner().to_string(),
+                payload: ToMinionPayload::SubscribeThreadFeed(id.into(), missing_ids_hex.clone()),
+            });
+        }
 
         Ok(())
     }

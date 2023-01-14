@@ -9,8 +9,7 @@ use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, Id, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime,
-    Url,
+    ClientMessage, EventKind, Filter, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
 };
 use std::time::Duration;
 use subscription::Subscriptions;
@@ -254,11 +253,14 @@ impl Minion {
             ToMinionPayload::SubscribePersonFeed(pubkeyhex) => {
                 self.subscribe_person_feed(pubkeyhex).await?;
             }
-            ToMinionPayload::SubscribeThreadFeed(id) => {
-                self.subscribe_thread_feed(id).await?;
+            ToMinionPayload::SubscribeThreadFeed(main, parents) => {
+                self.subscribe_thread_feed(main, parents).await?;
             }
             ToMinionPayload::TempSubscribeMetadata(pubkeyhex) => {
                 self.temp_subscribe_metadata(pubkeyhex).await?;
+            }
+            ToMinionPayload::UnsubscribeThreadFeed => {
+                self.unsubscribe_thread_feed().await?;
             }
         }
         Ok(true)
@@ -462,57 +464,49 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe_thread_feed(&mut self, id: Id) -> Result<(), Error> {
+    async fn subscribe_thread_feed(
+        &mut self,
+        main: IdHex,
+        vec_ids: Vec<IdHex>,
+    ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
         let mut filters: Vec<Filter> = Vec::new();
-        let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
 
-        // This post and ancestors
-        let mut ids: Vec<IdHex> = vec![id.into()];
-        // FIXME - We could have this precalculated like GLOBALS.relationships
-        //         in reverse. It would be potentially more complete having
-        //         iteratively climbed the chain.
-        if let Some(event) = GLOBALS.events.get(&id) {
-            for (id, url) in &event.replies_to_ancestors() {
-                if let Some(url) = url {
-                    if url == &self.url {
-                        ids.push((*id).into());
-                    }
-                } else {
-                    ids.push((*id).into());
-                }
-            }
+        if !vec_ids.is_empty() {
+            // Get ancestors we know of so far
+            filters.push(Filter {
+                ids: vec_ids.clone(),
+                ..Default::default()
+            });
+
+            // Get reactions to ancestors, but not replies
+            filters.push(Filter {
+                e: vec_ids,
+                kinds: vec![EventKind::Reaction, EventKind::EventDeletion],
+                ..Default::default()
+            });
         }
 
-        // Get ancestors we know of
+        // Get replies to main event
         filters.push(Filter {
-            ids: ids.clone(),
-            ..Default::default()
-        });
-
-        // Replies and reactions to ancestors
-        filters.push(Filter {
-            e: ids,
+            e: vec![main],
             kinds: vec![
                 EventKind::TextNote,
                 EventKind::Repost,
                 EventKind::Reaction,
                 EventKind::EventDeletion,
             ],
-            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk)),
             ..Default::default()
         });
 
-        // Metadata for people in those events
-        // TBD
+        self.subscribe(filters, "thread_feed").await?;
 
-        if filters.is_empty() {
-            self.unsubscribe("thread_feed").await?;
-        } else {
-            self.subscribe(filters, "thread_feed").await?;
-        }
+        Ok(())
+    }
 
+    async fn unsubscribe_thread_feed(&mut self) -> Result<(), Error> {
+        self.unsubscribe("thread_feed").await?;
         Ok(())
     }
 

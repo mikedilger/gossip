@@ -89,9 +89,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_replies();
             render_a_feed(app, ctx, frame, ui, feed, true);
         }
-        FeedKind::Thread(id) => {
-            let parent = GLOBALS.feed.get_thread_parent(id);
-            render_a_feed(app, ctx, frame, ui, vec![parent], true);
+        FeedKind::Thread(_id) => {
+            if let Some(parent) = GLOBALS.feed.get_thread_parent() {
+                render_a_feed(app, ctx, frame, ui, vec![parent], true);
+            }
         }
         FeedKind::Person(pubkeyhex) => {
             let feed = GLOBALS.feed.get_person_feed(pubkeyhex);
