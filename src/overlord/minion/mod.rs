@@ -327,6 +327,7 @@ impl Minion {
                 authors: vec![pubkey.into()],
                 kinds: vec![
                     EventKind::TextNote,
+                    EventKind::Repost,
                     EventKind::Reaction,
                     EventKind::EventDeletion,
                 ],
@@ -335,8 +336,10 @@ impl Minion {
             });
 
             // Any mentions of me
+            // (but not in peoples contact lists, for example)
             filters.push(Filter {
                 p: vec![pubkey.into()],
+                kinds: vec![EventKind::TextNote, EventKind::Repost, EventKind::Reaction],
                 since: Some(special_since),
                 ..Default::default()
             });
@@ -359,6 +362,7 @@ impl Minion {
                 authors: followed_pubkeys.clone(),
                 kinds: vec![
                     EventKind::TextNote,
+                    EventKind::Repost,
                     EventKind::Reaction,
                     EventKind::EventDeletion,
                 ],
@@ -492,6 +496,7 @@ impl Minion {
             e: ids,
             kinds: vec![
                 EventKind::TextNote,
+                EventKind::Repost,
                 EventKind::Reaction,
                 EventKind::EventDeletion,
             ],
