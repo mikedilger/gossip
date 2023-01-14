@@ -5,8 +5,8 @@ use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::{CopyButton, LikeButton, ReplyButton};
 use eframe::egui;
 use egui::{
-    Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense, Separator, Stroke,
-    TextEdit, Ui, Vec2,
+    Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense,
+    Separator, Stroke, TextEdit, Ui, Vec2,
 };
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{Event, EventKind, Id, IdHex, PublicKeyHex, Tag};
@@ -426,12 +426,11 @@ fn render_post_actual(
         let feed_kind = GLOBALS.feed.get_feed_kind();
         match feed_kind {
             FeedKind::Thread(id) => id == event.id,
-            _ => false
+            _ => false,
         }
     };
 
     Frame::none().fill(bgcolor).show(ui, |ui| {
-
         if is_main_event {
             thin_red_separator(ui);
         }
@@ -495,7 +494,7 @@ fn render_post_actual(
 
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         ui.menu_button(RichText::new("≡").size(28.0), |ui| {
-                            if ! is_main_event && ui.button("View Thread").clicked() {
+                            if !is_main_event && ui.button("View Thread").clicked() {
                                 GLOBALS.feed.set_feed_to_thread(event.id);
                                 app.page = Page::FeedThread;
                             }
@@ -512,8 +511,7 @@ fn render_post_actual(
                             }
                         });
 
-                        if ! is_main_event
-                            && ui.button("➤").on_hover_text("View Thread").clicked()
+                        if !is_main_event && ui.button("➤").on_hover_text("View Thread").clicked()
                         {
                             GLOBALS.feed.set_feed_to_thread(event.id);
                             app.page = Page::FeedThread;
@@ -543,24 +541,18 @@ fn render_post_actual(
                         if ui.add(ReplyButton {}).clicked() {
                             app.replying_to = Some(event.id);
 
-                            // Add a 'p' tag for the author we are replying to
-                            app.draft_tags.push(Tag::Pubkey {
-                                pubkey: event.pubkey.into(),
-                                recommended_relay_url: None, // FIXME
-                                petname: None,
-                            });
-
-                            // Add all the 'p' tags from the note we are replying to
-                            let parent_p_tags: Vec<Tag> = event
-                                .tags
-                                .iter()
-                                .filter(|t| match t {
-                                    Tag::Pubkey { pubkey, .. } => *pubkey != event.pubkey.into(),
-                                    _ => false,
-                                })
-                                .map(|t| t.to_owned())
-                                .collect();
-                            app.draft_tags.extend(parent_p_tags);
+                            // Cleanup tags
+                            app.draft_tags = vec![];
+                            // Add a 'p' tag for the author we are replying to (except if it is our own key)
+                            if let Some(pubkey) = GLOBALS.signer.blocking_read().public_key() {
+                                if pubkey != event.pubkey {
+                                    app.draft_tags.push(Tag::Pubkey {
+                                        pubkey: event.pubkey.into(),
+                                        recommended_relay_url: None, // FIXME
+                                        petname: None,
+                                    });
+                                }
+                            }
                         }
 
                         ui.add_space(24.0);

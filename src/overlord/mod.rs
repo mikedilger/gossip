@@ -677,11 +677,43 @@ impl Overlord {
                 }
             };
 
+            // Add all the 'p' tags from the note we are replying to
+            for parent_p_tag in event.tags.iter() {
+                match parent_p_tag {
+                    Tag::Pubkey {
+                        pubkey: parent_p_tag_pubkey,
+                        ..
+                    } => {
+                        if parent_p_tag_pubkey.0 == public_key.as_hex_string() {
+                            // do not tag ourselves
+                            continue;
+                        }
+
+                        if tags
+                            .iter()
+                            .find(|existing_tag| {
+                                matches!(
+                                    existing_tag,
+                                    Tag::Pubkey { pubkey: existing_pubkey, .. } if existing_pubkey.0 == parent_p_tag_pubkey.0
+                                )
+                            })
+                            .is_some() {
+                            // we already have this `p` tag, do not add again
+                            continue;
+                        }
+
+                        // add (FIXME: include relay hint it not exists)
+                        tags.push(parent_p_tag.to_owned())
+                    }
+                    _ => {}
+                }
+            }
+
             if let Some((root, _maybeurl)) = event.replies_to_root() {
                 // Add an 'e' tag for the root
                 tags.push(Tag::Event {
                     id: root,
-                    recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
+                    recommended_relay_url: DbRelay::recommended_relay_for_reply(root).await?,
                     marker: Some("root".to_string()),
                 });
 
@@ -701,30 +733,6 @@ impl Overlord {
                     marker: Some("root".to_string()),
                 });
             }
-
-            /* These are now done in the UI so the poster can refer to them
-
-            // Add a 'p' tag for the author we are replying to
-            tags.push(Tag::Pubkey {
-                pubkey: event.pubkey,
-                recommended_relay_url: None, // FIXME
-                petname: None,
-            });
-
-            // Add all the 'p' tags from the note we are replying to
-            let parent_p_tags: Vec<Tag> = event
-                .tags
-                .iter()
-                .filter(|t| match t {
-                    Tag::Pubkey { pubkey, .. } => *pubkey != event.pubkey,
-                    _ => false,
-                })
-                .map(|t| t.to_owned())
-                .collect();
-            tags.extend(parent_p_tags);
-
-            // FIXME deduplicate 'p' tags
-            */
 
             if GLOBALS.settings.read().await.set_client_tag {
                 tags.push(Tag::Other {
