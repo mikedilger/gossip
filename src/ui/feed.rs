@@ -5,8 +5,8 @@ use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::{CopyButton, LikeButton, ReplyButton};
 use eframe::egui;
 use egui::{
-    Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense, Separator, Stroke,
-    TextEdit, Ui, Vec2,
+    Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense,
+    Separator, Stroke, TextEdit, TextStyle, Ui, Vec2,
 };
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{Event, EventKind, Id, IdHex, PublicKeyHex, Tag};
@@ -426,12 +426,11 @@ fn render_post_actual(
         let feed_kind = GLOBALS.feed.get_feed_kind();
         match feed_kind {
             FeedKind::Thread(id) => id == event.id,
-            _ => false
+            _ => false,
         }
     };
 
     Frame::none().fill(bgcolor).show(ui, |ui| {
-
         if is_main_event {
             thin_red_separator(ui);
         }
@@ -474,17 +473,17 @@ fn render_post_actual(
                 ui.horizontal(|ui| {
                     GossipUi::render_person_name_line(ui, maybe_person.as_ref());
 
-                    if app.page == Page::FeedGeneral || app.page == Page::FeedPerson {
-                        if let Some((irt, _)) = event.replies_to() {
-                            ui.add_space(8.0);
+                    if let Some((irt, _)) = event.replies_to() {
+                        ui.add_space(8.0);
 
-                            let idhex: IdHex = irt.into();
-                            let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
-                            if ui.link(&nam).clicked() {
-                                GLOBALS.feed.set_feed_to_thread(irt);
-                                app.page = Page::FeedThread;
-                            };
-                        }
+                        ui.style_mut().override_text_style = Some(TextStyle::Small);
+                        let idhex: IdHex = irt.into();
+                        let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
+                        if ui.link(&nam).clicked() {
+                            GLOBALS.feed.set_feed_to_thread(irt);
+                            app.page = Page::FeedThread;
+                        };
+                        ui.reset_style();
                     }
 
                     ui.add_space(8.0);
@@ -495,7 +494,7 @@ fn render_post_actual(
 
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         ui.menu_button(RichText::new("≡").size(28.0), |ui| {
-                            if ! is_main_event && ui.button("View Thread").clicked() {
+                            if !is_main_event && ui.button("View Thread").clicked() {
                                 GLOBALS.feed.set_feed_to_thread(event.id);
                                 app.page = Page::FeedThread;
                             }
@@ -512,8 +511,7 @@ fn render_post_actual(
                             }
                         });
 
-                        if ! is_main_event
-                            && ui.button("➤").on_hover_text("View Thread").clicked()
+                        if !is_main_event && ui.button("➤").on_hover_text("View Thread").clicked()
                         {
                             GLOBALS.feed.set_feed_to_thread(event.id);
                             app.page = Page::FeedThread;
