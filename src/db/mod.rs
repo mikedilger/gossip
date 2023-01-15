@@ -54,6 +54,9 @@ pub fn setup_database() -> Result<(), Error> {
             | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW,
     )?;
 
+    // Turn on foreign keys
+    connection.execute("PRAGMA foreign_keys = ON", ())?;
+
     // Save the connection globally
     {
         let mut db = GLOBALS.db.blocking_lock();
