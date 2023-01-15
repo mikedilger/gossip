@@ -476,8 +476,13 @@ fn render_post_actual(
                         let idhex: IdHex = irt.into();
                         let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
                         if ui.link(&nam).clicked() {
-                            GLOBALS.feed.set_feed_to_thread(irt);
-                            app.page = Page::Feed(FeedKind::Thread(irt));
+                            // NOTE - We don't set the thread to the thing it replies to,
+                            //        but to the child that has the link.  This is because
+                            //        the parent might not exist and that would leave us
+                            //        stranded, but we KNOW the child exists, and it's
+                            //        ancestors will render when they become available.
+                            GLOBALS.feed.set_feed_to_thread(event.id);
+                            app.page = Page::Feed(FeedKind::Thread(event.id));
                         };
                         ui.reset_style();
                     }
