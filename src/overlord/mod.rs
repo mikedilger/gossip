@@ -911,13 +911,19 @@ impl Overlord {
 
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription
-        let highest_parent_id = GLOBALS.events.get_highest_local_parent(&id).await?.unwrap(); // we never SetThreadFeed to an event we don't already have
+        let highest_parent_id = match GLOBALS.events.get_highest_local_parent(&id).await? {
+            Some(id) => id,
+            None => return Ok(()), // can't do anything
+        };
 
         // Set that in the feed
         GLOBALS.feed.set_thread_parent(highest_parent_id);
 
         // get that highest event
-        let highest_parent = GLOBALS.events.get_local(highest_parent_id).await?.unwrap(); // we never SetThreadFeed to an event we don't already have
+        let highest_parent = match GLOBALS.events.get_local(highest_parent_id).await? {
+            Some(event) => event,
+            None => return Ok(()), // can't do anything
+        };
 
         // strictly speaking, we are only certainly missing the next parent up, we might have
         // parents further above. But this isn't asking for much extra.
