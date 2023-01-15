@@ -16,6 +16,7 @@ pub enum ToOverlordMessage {
     ProcessIncomingEvents,
     PostReply(String, Vec<Tag>, Id),
     PostTextNote(String, Vec<Tag>),
+    PruneDatabase,
     PullFollowMerge,
     PullFollowOverwrite,
     PushFollow,

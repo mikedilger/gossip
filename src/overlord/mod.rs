@@ -448,6 +448,13 @@ impl Overlord {
                     }
                 });
             }
+            ToOverlordMessage::PruneDatabase => {
+                let _ = tokio::spawn(async move {
+                    if let Err(e) = crate::db::prune().await {
+                        tracing::error!("{}", e);
+                    }
+                });
+            }
             ToOverlordMessage::PostReply(content, tags, reply_to) => {
                 self.post_reply(content, tags, reply_to).await?;
             }

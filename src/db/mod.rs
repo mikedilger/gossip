@@ -32,6 +32,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use rusqlite::Connection;
 use std::fs;
+use tokio::task;
 
 // This sets up the database
 #[allow(clippy::or_fun_call)]
@@ -118,5 +119,20 @@ fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
     apply_sql!(db, version, 11, "schema11.sql");
     apply_sql!(db, version, 12, "schema12.sql");
     tracing::info!("Database is at version {}", version);
+    Ok(())
+}
+
+pub async fn prune() -> Result<(), Error> {
+    let sql = include_str!("prune.sql");
+    task::spawn_blocking(move || {
+        let maybe_db = GLOBALS.db.blocking_lock();
+        let db = maybe_db.as_ref().unwrap();
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute(())?;
+        Ok::<(), Error>(())
+    }).await??;
+
+    *GLOBALS.status_message.write().await = "Database prune has completed.".to_owned();
+
     Ok(())
 }

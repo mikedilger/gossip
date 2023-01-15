@@ -145,6 +145,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(12.0);
     ui.separator();
+    ui.add_space(12.0);
+
+    if ui.button("Prune Database")
+        .on_hover_text("This will delete overridden events, events older than a week, and related data while keeping everything important. It make make Gossip somewhat unresponsive until it is complete.")
+        .clicked() {
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase);
+    }
+
+    ui.add_space(12.0);
+    ui.separator();
     ui.add_space(24.0);
 
     ui.with_layout(Layout::top_down(Align::Center), |ui| {
