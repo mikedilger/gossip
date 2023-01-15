@@ -9,7 +9,7 @@ use egui::{
     Separator, Stroke, TextEdit, TextStyle, Ui, Vec2,
 };
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{Event, EventKind, Id, IdHex, PublicKeyHex, Tag};
+use nostr_types::{Event, EventKind, Id, IdHex, Tag};
 
 struct FeedPostParams {
     id: Id,
@@ -19,8 +19,7 @@ struct FeedPostParams {
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    let mut feed_kind = GLOBALS.feed.get_feed_kind();
-    app.page = Page::Feed(feed_kind.clone());
+    let feed_kind = GLOBALS.feed.get_feed_kind();
 
     // Feed Page Selection
     ui.horizontal(|ui| {
@@ -31,10 +30,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ))
             .clicked()
         {
-            feed_kind = FeedKind::General;
-            app.page = Page::Feed(feed_kind.clone());
-            GLOBALS.feed.set_feed_to_general();
-            GLOBALS.events.clear_new();
+            app.set_page(Page::Feed(FeedKind::General));
         }
         ui.separator();
         if ui
@@ -44,10 +40,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ))
             .clicked()
         {
-            feed_kind = FeedKind::Replies;
-            app.page = Page::Feed(feed_kind.clone());
-            GLOBALS.feed.set_feed_to_replies();
-            GLOBALS.events.clear_new();
+            app.set_page(Page::Feed(FeedKind::Replies));
         }
         if matches!(feed_kind.clone(), FeedKind::Thread(..)) {
             ui.separator();
@@ -76,7 +69,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.horizontal(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup an identity").clicked() {
-                        app.page = Page::Relays;
+                        app.set_page(Page::Relays);
                     }
                     ui.label(" to see any replies to that identity.");
                 });
@@ -103,7 +96,7 @@ fn posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui
             ui.horizontal(|ui| {
                 ui.label("You need to ");
                 if ui.link("setup your identity").clicked() {
-                    app.page = Page::You;
+                    app.set_page(Page::You);
                 }
                 ui.label(" to post.");
             });
@@ -111,7 +104,7 @@ fn posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui
             ui.horizontal(|ui| {
                 ui.label("You need to ");
                 if ui.link("choose relays").clicked() {
-                    app.page = Page::Relays;
+                    app.set_page(Page::Relays);
                 }
                 ui.label(" to post.");
             });
@@ -460,7 +453,7 @@ fn render_post_actual(
                 )
                 .clicked()
             {
-                set_person_view(app, &event.pubkey.into());
+                app.set_page(Page::Person(event.pubkey.into()));
             };
 
             // Everything else next
@@ -481,8 +474,7 @@ fn render_post_actual(
                             //        the parent might not exist and that would leave us
                             //        stranded, but we KNOW the child exists, and it's
                             //        ancestors will render when they become available.
-                            GLOBALS.feed.set_feed_to_thread(event.id);
-                            app.page = Page::Feed(FeedKind::Thread(event.id));
+                            app.set_page(Page::Feed(FeedKind::Thread(event.id)));
                         };
                         ui.reset_style();
                     }
@@ -496,8 +488,7 @@ fn render_post_actual(
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         ui.menu_button(RichText::new("≡").size(28.0), |ui| {
                             if !is_main_event && ui.button("View Thread").clicked() {
-                                GLOBALS.feed.set_feed_to_thread(event.id);
-                                app.page = Page::Feed(FeedKind::Thread(event.id));
+                                app.set_page(Page::Feed(FeedKind::Thread(event.id)));
                             }
                             if ui.button("Copy ID").clicked() {
                                 ui.output().copied_text = event.id.as_hex_string();
@@ -514,8 +505,7 @@ fn render_post_actual(
 
                         if !is_main_event && ui.button("➤").on_hover_text("View Thread").clicked()
                         {
-                            GLOBALS.feed.set_feed_to_thread(event.id);
-                            app.page = Page::Feed(FeedKind::Thread(event.id));
+                            app.set_page(Page::Feed(FeedKind::Thread(event.id)));
                         }
 
                         ui.label(
@@ -629,15 +619,14 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                                 None => format!("@{}", GossipUi::hex_pubkey_short(pubkey)),
                             };
                             if ui.link(&nam).clicked() {
-                                set_person_view(app, pubkey);
+                                app.set_page(Page::Person(pubkey.to_owned()));
                             };
                         }
                         Tag::Event { id, .. } => {
                             let idhex: IdHex = (*id).into();
                             let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
                             if ui.link(&nam).clicked() {
-                                GLOBALS.feed.set_feed_to_thread(*id);
-                                app.page = Page::Feed(FeedKind::Thread(*id));
+                                app.set_page(Page::Feed(FeedKind::Thread(*id)));
                             };
                         }
                         Tag::Hashtag(s) => {
@@ -659,10 +648,6 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
             ui.label(&s[pos..]);
         }
     }
-}
-
-fn set_person_view(app: &mut GossipUi, pubkeyhex: &PublicKeyHex) {
-    app.page = Page::Person(pubkeyhex.to_owned());
 }
 
 fn thin_red_separator(ui: &mut Ui) {

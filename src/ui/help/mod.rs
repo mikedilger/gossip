@@ -54,7 +54,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal_wrapped(|ui| {
                 ui.label("To get started, go to the");
                 if ui.link("People > Follow Someone New").clicked() {
-                    app.page = Page::PeopleFollow;
+                    app.set_page(Page::PeopleFollow);
                 }
                 ui.label("page and add people to follow. If you don't know anybody, you can follow me at NIP-05 DNS ID mike@mikedilger.com and you can find other people through me (posts I reply to or quote).");
             });
@@ -90,7 +90,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal_wrapped(|ui| {
                 ui.label("On the");
                 if ui.link("You").clicked() {
-                    app.page = Page::You;
+                    app.set_page(Page::You);
                 }
                 ui.label("page you can setup your identity. If you are new, you should just press \"Generate\" and you are good to go. Otherwise you can import a private key in hex or bech32 format, although it isn't very secure to cut-n-paste and display your private key, so it will mark your key security as \"weak\". Eventually you'll be able to import your password-protected private key from a nostr relay.");
             });
@@ -115,7 +115,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal_wrapped(|ui| {
                 ui.label("Go to the");
                 if ui.link("Relays").clicked() {
-                    app.page = Page::Relays;
+                    app.set_page(Page::Relays);
                 }
                 ui.label("page and tick a half dozen relays that you intend to post to. If your webserver serves a nostr.json file, you can follow NIP-05 and use the same relays in that file.");
             });

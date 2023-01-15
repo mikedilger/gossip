@@ -84,7 +84,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         )
                         .clicked()
                     {
-                        set_person_view(app, person);
+                        app.set_page(Page::Person(person.pubkey.clone()));
                     };
 
                     ui.vertical(|ui| {
@@ -111,8 +111,4 @@ fn get_name(person: &DbPerson) -> String {
     } else {
         GossipUi::hex_pubkey_short(&person.pubkey)
     }
-}
-
-fn set_person_view(app: &mut GossipUi, person: &DbPerson) {
-    app.page = Page::Person(person.pubkey.clone());
 }

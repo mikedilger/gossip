@@ -65,8 +65,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 
     if ui.button("VIEW THEIR FEED").clicked() {
-        GLOBALS.feed.set_feed_to_person(pubkeyhex.clone());
-        app.page = Page::Feed(FeedKind::Person(pubkeyhex.clone()));
+        app.set_page(Page::Feed(FeedKind::Person(pubkeyhex.clone())));
     }
 }
 

@@ -53,7 +53,7 @@ pub fn run() -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum Page {
     Feed(FeedKind),
     PeopleList,
@@ -70,6 +70,7 @@ enum Page {
 struct GossipUi {
     next_frame: Instant,
     page: Page,
+    history: Vec<Page>,
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
@@ -143,6 +144,7 @@ impl GossipUi {
         GossipUi {
             next_frame: Instant::now(),
             page: Page::Feed(FeedKind::General),
+            history: vec![],
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
@@ -163,6 +165,45 @@ impl GossipUi {
             new_relay_url: "".to_owned(),
             tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
         }
+    }
+
+    fn set_page(&mut self, page: Page) {
+        if self.page != page {
+            tracing::debug!("PUSHING HISTORY: {:?}", &self.page);
+            self.history.push(self.page.clone());
+            self.set_page_inner(page);
+        }
+    }
+
+    fn back(&mut self) {
+        if let Some(page) = self.history.pop() {
+            tracing::debug!("POPPING HISTORY: {:?}", &page);
+            self.set_page_inner(page);
+        } else {
+            tracing::debug!("HISTORY STUCK ON NONE");
+        }
+    }
+
+    fn set_page_inner(&mut self, page: Page) {
+        // Setting the page often requires some associated actions:
+        match &page {
+            Page::Feed(FeedKind::General) => {
+                GLOBALS.feed.set_feed_to_general();
+                GLOBALS.events.clear_new();
+            }
+            Page::Feed(FeedKind::Replies) => {
+                GLOBALS.feed.set_feed_to_replies();
+                GLOBALS.events.clear_new();
+            }
+            Page::Feed(FeedKind::Thread(id)) => {
+                GLOBALS.feed.set_feed_to_thread(*id);
+            }
+            Page::Feed(FeedKind::Person(pubkey)) => {
+                GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
+            }
+            _ => {}
+        }
+        self.page = page;
     }
 }
 
@@ -186,6 +227,17 @@ impl eframe::App for GossipUi {
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
+                let len = self.history.len();
+                let back_label_text = RichText::new(format!("< Back {}", len));
+                let label = if self.history.is_empty() {
+                    Label::new(back_label_text.weak())
+                } else {
+                    Label::new(back_label_text).sense(Sense::click())
+                };
+                if ui.add(label).clicked() {
+                    self.back();
+                }
+                ui.separator();
                 if ui
                     .add(SelectableLabel::new(
                         matches!(self.page, Page::Feed(_)),
@@ -193,7 +245,7 @@ impl eframe::App for GossipUi {
                     ))
                     .clicked()
                 {
-                    self.page = Page::Feed(FeedKind::General);
+                    self.set_page(Page::Feed(FeedKind::General));
                     GLOBALS.events.clear_new();
                 }
                 ui.separator();
@@ -206,21 +258,21 @@ impl eframe::App for GossipUi {
                     ))
                     .clicked()
                 {
-                    self.page = Page::PeopleList;
+                    self.set_page(Page::PeopleList);
                 }
                 ui.separator();
                 if ui
                     .add(SelectableLabel::new(self.page == Page::You, "You"))
                     .clicked()
                 {
-                    self.page = Page::You;
+                    self.set_page(Page::You);
                 }
                 ui.separator();
                 if ui
                     .add(SelectableLabel::new(self.page == Page::Relays, "Relays"))
                     .clicked()
                 {
-                    self.page = Page::Relays;
+                    self.set_page(Page::Relays);
                 }
                 ui.separator();
                 if ui
@@ -230,7 +282,7 @@ impl eframe::App for GossipUi {
                     ))
                     .clicked()
                 {
-                    self.page = Page::Settings;
+                    self.set_page(Page::Settings);
                 }
                 ui.separator();
                 if ui
@@ -242,7 +294,7 @@ impl eframe::App for GossipUi {
                     ))
                     .clicked()
                 {
-                    self.page = Page::HelpHelp;
+                    self.set_page(Page::HelpHelp);
                 }
                 ui.separator();
             });
