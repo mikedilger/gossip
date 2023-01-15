@@ -6,7 +6,7 @@ use crate::ui::widgets::{CopyButton, LikeButton, ReplyButton};
 use eframe::egui;
 use egui::{
     Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense,
-    Separator, Stroke, TextEdit, Ui, Vec2,
+    Separator, Stroke, TextEdit, TextStyle, Ui, Vec2,
 };
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{Event, EventKind, Id, IdHex, PublicKeyHex, Tag};
@@ -89,9 +89,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_replies();
             render_a_feed(app, ctx, frame, ui, feed, true);
         }
-        FeedKind::Thread(id) => {
-            let parent = GLOBALS.feed.get_thread_parent(id);
-            render_a_feed(app, ctx, frame, ui, vec![parent], true);
+        FeedKind::Thread(_id) => {
+            if let Some(parent) = GLOBALS.feed.get_thread_parent() {
+                render_a_feed(app, ctx, frame, ui, vec![parent], true);
+            }
         }
         FeedKind::Person(pubkeyhex) => {
             let feed = GLOBALS.feed.get_person_feed(pubkeyhex);
@@ -473,17 +474,17 @@ fn render_post_actual(
                 ui.horizontal(|ui| {
                     GossipUi::render_person_name_line(ui, maybe_person.as_ref());
 
-                    if app.page == Page::FeedGeneral || app.page == Page::FeedPerson {
-                        if let Some((irt, _)) = event.replies_to() {
-                            ui.add_space(8.0);
+                    if let Some((irt, _)) = event.replies_to() {
+                        ui.add_space(8.0);
 
-                            let idhex: IdHex = irt.into();
-                            let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
-                            if ui.link(&nam).clicked() {
-                                GLOBALS.feed.set_feed_to_thread(irt);
-                                app.page = Page::FeedThread;
-                            };
-                        }
+                        ui.style_mut().override_text_style = Some(TextStyle::Small);
+                        let idhex: IdHex = irt.into();
+                        let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
+                        if ui.link(&nam).clicked() {
+                            GLOBALS.feed.set_feed_to_thread(irt);
+                            app.page = Page::FeedThread;
+                        };
+                        ui.reset_style();
                     }
 
                     ui.add_space(8.0);

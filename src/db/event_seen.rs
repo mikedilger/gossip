@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use nostr_types::{Id, Url};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -43,6 +44,28 @@ impl DbEventSeen {
         output
     }
      */
+
+    #[allow(dead_code)]
+    pub async fn get_relays_for_event(id: Id) -> Result<Vec<Url>, Error> {
+        let sql = "SELECT relay FROM event_seen WHERE event=?";
+
+        let relays: Result<Vec<Url>, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(sql)?;
+            stmt.raw_bind_parameter(1, id.as_hex_string())?;
+            let mut rows = stmt.raw_query();
+            let mut relays: Vec<Url> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let s: String = row.get(0)?;
+                relays.push(Url::new(&s));
+            }
+            Ok(relays)
+        })
+        .await?;
+
+        relays
+    }
 
     pub async fn replace(event_seen: DbEventSeen) -> Result<(), Error> {
         let sql = "REPLACE INTO event_seen (event, relay, when_seen) \

@@ -21,6 +21,7 @@ pub enum ToOverlordMessage {
     PushFollow,
     SaveRelays,
     SaveSettings,
+    SetThreadFeed(Id),
     Shutdown,
     UnlockKey(String),
     UpdateMetadata(PublicKeyHex),
@@ -44,6 +45,7 @@ pub enum ToMinionPayload {
     Shutdown,
     SubscribeGeneralFeed,
     SubscribePersonFeed(PublicKeyHex),
-    SubscribeThreadFeed(Id),
+    SubscribeThreadFeed(IdHex, Vec<IdHex>),
     TempSubscribeMetadata(PublicKeyHex),
+    UnsubscribeThreadFeed,
 }

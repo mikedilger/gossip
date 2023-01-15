@@ -107,11 +107,11 @@ impl People {
         if doit {
             // Process fresh metadata
 
-            person.name = metadata.get("name");
-            person.about = metadata.get("about");
-            person.picture = metadata.get("picture");
-            if person.dns_id != metadata.get("nip05") {
-                person.dns_id = metadata.get("nip05");
+            person.name = metadata.name;
+            person.about = metadata.about;
+            person.picture = metadata.picture;
+            if person.dns_id != metadata.nip05 {
+                person.dns_id = metadata.nip05;
                 person.dns_id_valid = 0; // changed, so reset to invalid
                 person.dns_id_last_checked = None; // we haven't checked this one yet
             }

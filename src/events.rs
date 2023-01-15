@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use async_recursion::async_recursion;
 use dashmap::{DashMap, DashSet};
 use nostr_types::{Event, Id};
 use tokio::task;
@@ -22,6 +23,7 @@ impl Events {
         let _ = self.events.insert(event.id, event);
     }
 
+    #[allow(dead_code)]
     pub fn contains_key(&self, id: &Id) -> bool {
         self.events.contains_key(id)
     }
@@ -56,6 +58,23 @@ impl Events {
             Ok(Some(event))
         } else {
             Ok(None)
+        }
+    }
+
+    #[allow(dead_code)]
+    #[async_recursion]
+    pub async fn get_highest_local_parent(&self, id: &Id) -> Result<Option<Id>, Error> {
+        if let Some(event) = self.get_local(*id).await? {
+            if let Some((parent_id, _opturl)) = event.replies_to() {
+                match self.get_highest_local_parent(&parent_id).await? {
+                    Some(top_id) => Ok(Some(top_id)), // went higher
+                    None => Ok(Some(*id)),            // couldn't go higher, stay here
+                }
+            } else {
+                Ok(Some(*id)) // is a root
+            }
+        } else {
+            Ok(None) // not present locally
         }
     }
 
