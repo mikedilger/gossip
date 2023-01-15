@@ -542,24 +542,18 @@ fn render_post_actual(
                         if ui.add(ReplyButton {}).clicked() {
                             app.replying_to = Some(event.id);
 
-                            // Add a 'p' tag for the author we are replying to
-                            app.draft_tags.push(Tag::Pubkey {
-                                pubkey: event.pubkey.into(),
-                                recommended_relay_url: None, // FIXME
-                                petname: None,
-                            });
-
-                            // Add all the 'p' tags from the note we are replying to
-                            let parent_p_tags: Vec<Tag> = event
-                                .tags
-                                .iter()
-                                .filter(|t| match t {
-                                    Tag::Pubkey { pubkey, .. } => *pubkey != event.pubkey.into(),
-                                    _ => false,
-                                })
-                                .map(|t| t.to_owned())
-                                .collect();
-                            app.draft_tags.extend(parent_p_tags);
+                            // Cleanup tags
+                            app.draft_tags = vec![];
+                            // Add a 'p' tag for the author we are replying to (except if it is our own key)
+                            if let Some(pubkey) = GLOBALS.signer.blocking_read().public_key() {
+                                if pubkey != event.pubkey {
+                                    app.draft_tags.push(Tag::Pubkey {
+                                        pubkey: event.pubkey.into(),
+                                        recommended_relay_url: None, // FIXME
+                                        petname: None,
+                                    });
+                                }
+                            }
                         }
 
                         ui.add_space(24.0);
