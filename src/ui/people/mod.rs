@@ -9,10 +9,9 @@ mod follow;
 mod person;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let maybe_person = if let Some(pubkeyhex) = &app.person_view_pubkey {
-        GLOBALS.people.get(pubkeyhex)
-    } else {
-        None
+    let maybe_person = match &app.page {
+        Page::Person(pubkeyhex) => GLOBALS.people.get(pubkeyhex),
+        _ => None,
     };
 
     ui.horizontal(|ui| {
@@ -21,7 +20,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.selectable_value(&mut app.page, Page::PeopleFollow, "Follow Someone New");
         ui.separator();
         if let Some(person) = &maybe_person {
-            ui.selectable_value(&mut app.page, Page::Person, get_name(person));
+            ui.selectable_value(
+                &mut app.page,
+                Page::Person(person.pubkey.clone()),
+                get_name(person),
+            );
             ui.separator();
         }
     });
@@ -97,7 +100,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
     } else if app.page == Page::PeopleFollow {
         follow::update(app, ctx, _frame, ui);
-    } else if app.page == Page::Person {
+    } else if matches!(app.page, Page::Person(_)) {
         person::update(app, ctx, _frame, ui);
     }
 }
@@ -111,6 +114,5 @@ fn get_name(person: &DbPerson) -> String {
 }
 
 fn set_person_view(app: &mut GossipUi, person: &DbPerson) {
-    app.person_view_pubkey = Some(person.pubkey.clone());
-    app.page = Page::Person;
+    app.page = Page::Person(person.pubkey.clone());
 }

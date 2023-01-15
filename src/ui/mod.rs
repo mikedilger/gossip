@@ -10,6 +10,7 @@ mod you;
 use crate::about::About;
 use crate::db::DbPerson;
 use crate::error::Error;
+use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use crate::settings::Settings;
 use crate::ui::widgets::CopyButton;
@@ -54,13 +55,10 @@ pub fn run() -> Result<(), Error> {
 
 #[derive(PartialEq)]
 enum Page {
-    FeedGeneral,
-    FeedReplies,
-    FeedThread,
-    FeedPerson,
+    Feed(FeedKind),
     PeopleList,
     PeopleFollow,
-    Person,
+    Person(PublicKeyHex),
     You,
     Relays,
     Settings,
@@ -88,7 +86,6 @@ struct GossipUi {
     import_priv: String,
     import_pub: String,
     replying_to: Option<Id>,
-    person_view_pubkey: Option<PublicKeyHex>,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     new_relay_url: String,
     tag_re: regex::Regex,
@@ -145,7 +142,7 @@ impl GossipUi {
 
         GossipUi {
             next_frame: Instant::now(),
-            page: Page::FeedGeneral,
+            page: Page::Feed(FeedKind::General),
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
@@ -162,7 +159,6 @@ impl GossipUi {
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
             replying_to: None,
-            person_view_pubkey: None,
             avatars: HashMap::new(),
             new_relay_url: "".to_owned(),
             tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
@@ -192,15 +188,12 @@ impl eframe::App for GossipUi {
             ui.horizontal(|ui| {
                 if ui
                     .add(SelectableLabel::new(
-                        self.page == Page::FeedGeneral
-                            || self.page == Page::FeedReplies
-                            || self.page == Page::FeedThread
-                            || self.page == Page::FeedPerson,
+                        matches!(self.page, Page::Feed(_)),
                         "Feed",
                     ))
                     .clicked()
                 {
-                    self.page = Page::FeedGeneral;
+                    self.page = Page::Feed(FeedKind::General);
                     GLOBALS.events.clear_new();
                 }
                 ui.separator();
@@ -208,7 +201,7 @@ impl eframe::App for GossipUi {
                     .add(SelectableLabel::new(
                         self.page == Page::PeopleList
                             || self.page == Page::PeopleFollow
-                            || self.page == Page::Person,
+                            || matches!(self.page, Page::Person(_)),
                         "People",
                     ))
                     .clicked()
@@ -270,10 +263,8 @@ impl eframe::App for GossipUi {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.page {
-            Page::FeedGeneral | Page::FeedReplies | Page::FeedThread | Page::FeedPerson => {
-                feed::update(self, ctx, frame, ui)
-            }
-            Page::PeopleList | Page::PeopleFollow | Page::Person => {
+            Page::Feed(_) => feed::update(self, ctx, frame, ui),
+            Page::PeopleList | Page::PeopleFollow | Page::Person(_) => {
                 people::update(self, ctx, frame, ui)
             }
             Page::You => you::update(self, ctx, frame, ui),

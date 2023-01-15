@@ -20,48 +20,43 @@ struct FeedPostParams {
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let mut feed_kind = GLOBALS.feed.get_feed_kind();
-    app.page = match feed_kind {
-        FeedKind::General => Page::FeedGeneral,
-        FeedKind::Replies => Page::FeedReplies,
-        FeedKind::Thread(_) => Page::FeedThread,
-        FeedKind::Person(_) => Page::FeedPerson,
-    };
+    app.page = Page::Feed(feed_kind.clone());
 
     // Feed Page Selection
     ui.horizontal(|ui| {
         if ui
             .add(SelectableLabel::new(
-                app.page == Page::FeedGeneral,
+                app.page == Page::Feed(FeedKind::General),
                 "Following",
             ))
             .clicked()
         {
-            app.page = Page::FeedGeneral;
-            GLOBALS.feed.set_feed_to_general();
             feed_kind = FeedKind::General;
+            app.page = Page::Feed(feed_kind.clone());
+            GLOBALS.feed.set_feed_to_general();
             GLOBALS.events.clear_new();
         }
         ui.separator();
         if ui
             .add(SelectableLabel::new(
-                app.page == Page::FeedReplies,
+                app.page == Page::Feed(FeedKind::Replies),
                 "Replies",
             ))
             .clicked()
         {
-            app.page = Page::FeedReplies;
-            GLOBALS.feed.set_feed_to_replies();
             feed_kind = FeedKind::Replies;
+            app.page = Page::Feed(feed_kind.clone());
+            GLOBALS.feed.set_feed_to_replies();
             GLOBALS.events.clear_new();
         }
-        if matches!(feed_kind, FeedKind::Thread(..)) {
+        if matches!(feed_kind.clone(), FeedKind::Thread(..)) {
             ui.separator();
-            ui.selectable_value(&mut app.page, Page::FeedThread, "Thread");
+            ui.selectable_value(&mut app.page, Page::Feed(feed_kind.clone()), "Thread");
             GLOBALS.events.clear_new();
         }
         if matches!(feed_kind, FeedKind::Person(..)) {
             ui.separator();
-            ui.selectable_value(&mut app.page, Page::FeedPerson, "Person");
+            ui.selectable_value(&mut app.page, Page::Feed(feed_kind.clone()), "Person");
             GLOBALS.events.clear_new();
         }
     });
@@ -482,7 +477,7 @@ fn render_post_actual(
                         let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
                         if ui.link(&nam).clicked() {
                             GLOBALS.feed.set_feed_to_thread(irt);
-                            app.page = Page::FeedThread;
+                            app.page = Page::Feed(FeedKind::Thread(irt));
                         };
                         ui.reset_style();
                     }
@@ -497,7 +492,7 @@ fn render_post_actual(
                         ui.menu_button(RichText::new("≡").size(28.0), |ui| {
                             if !is_main_event && ui.button("View Thread").clicked() {
                                 GLOBALS.feed.set_feed_to_thread(event.id);
-                                app.page = Page::FeedThread;
+                                app.page = Page::Feed(FeedKind::Thread(event.id));
                             }
                             if ui.button("Copy ID").clicked() {
                                 ui.output().copied_text = event.id.as_hex_string();
@@ -515,7 +510,7 @@ fn render_post_actual(
                         if !is_main_event && ui.button("➤").on_hover_text("View Thread").clicked()
                         {
                             GLOBALS.feed.set_feed_to_thread(event.id);
-                            app.page = Page::FeedThread;
+                            app.page = Page::Feed(FeedKind::Thread(event.id));
                         }
 
                         ui.label(
@@ -637,7 +632,7 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                             let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
                             if ui.link(&nam).clicked() {
                                 GLOBALS.feed.set_feed_to_thread(*id);
-                                app.page = Page::FeedThread;
+                                app.page = Page::Feed(FeedKind::Thread(*id));
                             };
                         }
                         Tag::Hashtag(s) => {
@@ -662,8 +657,7 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
 }
 
 fn set_person_view(app: &mut GossipUi, pubkeyhex: &PublicKeyHex) {
-    app.person_view_pubkey = Some(pubkeyhex.to_owned());
-    app.page = Page::Person;
+    app.page = Page::Person(pubkeyhex.to_owned());
 }
 
 fn thin_red_separator(ui: &mut Ui) {
