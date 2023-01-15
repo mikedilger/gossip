@@ -682,33 +682,30 @@ impl Overlord {
 
             // Add all the 'p' tags from the note we are replying to
             for parent_p_tag in event.tags.iter() {
-                match parent_p_tag {
-                    Tag::Pubkey {
-                        pubkey: parent_p_tag_pubkey,
-                        ..
-                    } => {
-                        if parent_p_tag_pubkey.0 == public_key.as_hex_string() {
-                            // do not tag ourselves
-                            continue;
-                        }
+                if let Tag::Pubkey {
+                    pubkey: parent_p_tag_pubkey,
+                    ..
+                } = parent_p_tag
+                {
+                    if parent_p_tag_pubkey.0 == public_key.as_hex_string() {
+                        // do not tag ourselves
+                        continue;
+                    }
 
-                        if tags
-                            .iter()
-                            .find(|existing_tag| {
-                                matches!(
-                                    existing_tag,
-                                    Tag::Pubkey { pubkey: existing_pubkey, .. } if existing_pubkey.0 == parent_p_tag_pubkey.0
-                                )
-                            })
-                            .is_some() {
+                    if tags
+                        .iter()
+                        .any(|existing_tag| {
+                            matches!(
+                                existing_tag,
+                                Tag::Pubkey { pubkey: existing_pubkey, .. } if existing_pubkey.0 == parent_p_tag_pubkey.0
+                            )
+                        }) {
                             // we already have this `p` tag, do not add again
                             continue;
                         }
 
-                        // add (FIXME: include relay hint it not exists)
-                        tags.push(parent_p_tag.to_owned())
-                    }
-                    _ => {}
+                    // add (FIXME: include relay hint it not exists)
+                    tags.push(parent_p_tag.to_owned())
                 }
             }
 
