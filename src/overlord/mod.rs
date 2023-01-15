@@ -940,6 +940,10 @@ impl Overlord {
             .filter_map(|(_, opturl)| opturl)
             .collect();
         relay_urls.extend(suggested_urls);
+        relay_urls = relay_urls
+            .drain(..)
+            .filter(|u| u.is_valid_relay_url())
+            .collect();
         relay_urls.sort();
         relay_urls.dedup();
 
