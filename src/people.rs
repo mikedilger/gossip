@@ -1,8 +1,10 @@
 use crate::db::DbPerson;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
-use image::RgbaImage;
+use eframe::egui::ColorImage;
+use egui_extras::image::FitTo;
 use nostr_types::{Metadata, PublicKeyHex, Unixtime, Url};
 use std::cmp::Ordering;
 use std::time::Duration;
@@ -15,7 +17,7 @@ pub struct People {
     // until the UI next asks for them, at which point we remove them
     // and hand them over. This way we can do the work that takes
     // longer and the UI can do as little work as possible.
-    avatars_temp: DashMap<PublicKeyHex, RgbaImage>,
+    avatars_temp: DashMap<PublicKeyHex, ColorImage>,
     avatars_pending_processing: DashSet<PublicKeyHex>,
     avatars_failed: DashSet<PublicKeyHex>,
 }
@@ -264,7 +266,7 @@ impl People {
     }
 
     // If returns Err, means you're never going to get it so stop trying.
-    pub fn get_avatar(&self, pubkeyhex: &PublicKeyHex) -> Result<Option<image::RgbaImage>, ()> {
+    pub fn get_avatar(&self, pubkeyhex: &PublicKeyHex) -> Result<Option<ColorImage>, ()> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.avatars_temp.remove(pubkeyhex) {
             return Ok(Some(th.1));
@@ -305,25 +307,31 @@ impl People {
         match GLOBALS.fetcher.try_get(url) {
             Ok(None) => Ok(None),
             Ok(Some(bytes)) => {
-                // Finish this later
+                // Finish this later (spawn)
                 let apubkeyhex = pubkeyhex.to_owned();
                 tokio::spawn(async move {
-                    let image = match image::load_from_memory(&bytes) {
-                        // DynamicImage
-                        Ok(di) => di,
-                        Err(_) => {
-                            let _ = GLOBALS.people.avatars_failed.insert(apubkeyhex.clone());
-                            return;
-                        }
+                    if let Ok(image) = image::load_from_memory(&bytes) {
+                        // Note: we can't use egui_extras::image::load_image_bytes because we
+                        // need to force a resize
+                        let image = image.resize(
+                            AVATAR_SIZE,
+                            AVATAR_SIZE,
+                            image::imageops::FilterType::Nearest,
+                        ); // DynamicImage
+                        let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
+                        let color_image = ColorImage::from_rgba_unmultiplied(
+                            [image_buffer.width() as usize, image_buffer.height() as usize],
+                            image_buffer.as_flat_samples().as_slice(),
+                        );
+                        GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
+                    } else if let Ok(color_image) = egui_extras::image::load_svg_bytes_with_size(
+                        &bytes,
+                        FitTo::Size(AVATAR_SIZE, AVATAR_SIZE),
+                    ) {
+                        GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
+                    } else {
+                        GLOBALS.people.avatars_failed.insert(apubkeyhex.clone());
                     };
-                    let image = image.resize(
-                        crate::AVATAR_SIZE,
-                        crate::AVATAR_SIZE,
-                        image::imageops::FilterType::Nearest,
-                    ); // DynamicImage
-                    let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
-
-                    GLOBALS.people.avatars_temp.insert(apubkeyhex, image_buffer);
                 });
                 self.avatars_pending_processing.insert(pubkeyhex.to_owned());
                 Ok(None)

@@ -405,14 +405,9 @@ impl GossipUi {
                     .insert(pubkeyhex.to_owned());
                 None
             }
-            Ok(Some(rgbaimage)) => {
-                let size = [rgbaimage.width() as _, rgbaimage.height() as _];
-                let pixels = rgbaimage.as_flat_samples();
-                let texture_handle = ctx.load_texture(
-                    pubkeyhex.0.clone(),
-                    ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
-                    TextureOptions::default(),
-                );
+            Ok(Some(color_image)) => {
+                let texture_handle =
+                    ctx.load_texture(pubkeyhex.0.clone(), color_image, TextureOptions::default());
                 self.avatars
                     .insert(pubkeyhex.to_owned(), texture_handle.clone());
                 Some(texture_handle)

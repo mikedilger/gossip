@@ -17,12 +17,12 @@ base64 = "0.20"
 dashmap = "5.4"
 dirs = "4.0"
 eframe = { version = "0.20", features = [ "dark-light", "persistence" ] }
-egui_extras = { version = "0.20", features = [ "svg", "tracing" ] }
+egui_extras = { version = "0.20", features = [ "image", "svg", "tracing" ] }
 futures = "0.3"
 futures-util = "0.3"
 hex = "0.4"
 http = "0.2"
-image = "0.24"
+image = { version = "0.24", features = [ "png", "jpeg" ] }
 lazy_static = "1.4"
 linkify = "0.9"
 nostr-types = { git = "https://github.com/mikedilger/nostr-types" }

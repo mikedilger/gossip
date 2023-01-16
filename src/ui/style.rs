@@ -1,6 +1,8 @@
 use eframe::{egui, epaint};
 use egui::style::{Selection, Visuals, Widgets};
-use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Rounding, Stroke, TextStyle};
+use egui::{
+    Color32, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Rounding, Stroke, TextStyle,
+};
 use epaint::Shadow;
 use std::collections::BTreeMap;
 
@@ -141,30 +143,23 @@ pub(super) fn font_definitions() -> FontDefinitions {
     // Some good looking emojis. Use as first priority:
     font_data.insert(
         "NotoEmoji-Regular".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/NotoEmoji-Regular.ttf"))
-            .tweak(
-                FontTweak {
-                    scale: 1.1,            // make them a touch larger
-                    y_offset_factor: -0.2, // move them up
-                    y_offset: 0.0,
-                },
-            )
+        FontData::from_static(include_bytes!("../../fonts/NotoEmoji-Regular.ttf")).tweak(
+            FontTweak {
+                scale: 1.1,            // make them a touch larger
+                y_offset_factor: -0.2, // move them up
+                y_offset: 0.0,
+            },
+        ),
     );
 
     families.insert(
         FontFamily::Proportional,
-        vec![
-            "DejaVuSans".to_owned(),
-            "NotoEmoji-Regular".to_owned(),
-        ],
+        vec!["DejaVuSans".to_owned(), "NotoEmoji-Regular".to_owned()],
     );
 
     families.insert(
         FontFamily::Monospace,
-        vec![
-            "Inconsolata".to_owned(),
-            "NotoEmoji-Regular".to_owned(),
-        ],
+        vec!["Inconsolata".to_owned(), "NotoEmoji-Regular".to_owned()],
     );
 
     FontDefinitions {

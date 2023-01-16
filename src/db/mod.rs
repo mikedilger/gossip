@@ -130,7 +130,8 @@ pub async fn prune() -> Result<(), Error> {
         let mut stmt = db.prepare(sql)?;
         stmt.execute(())?;
         Ok::<(), Error>(())
-    }).await??;
+    })
+    .await??;
 
     *GLOBALS.status_message.write().await = "Database prune has completed.".to_owned();
 
