@@ -6,7 +6,7 @@ use tokio::task::spawn_blocking;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEventRelationship {
     pub original: String,
-    pub referring: String,
+    pub refers_to: String,
     pub relationship: String,
     pub content: Option<String>,
 }
@@ -14,15 +14,15 @@ pub struct DbEventRelationship {
 impl DbEventRelationship {
     pub async fn insert(&self) -> Result<(), Error> {
         let original = self.original.clone();
-        let referring = self.referring.clone();
+        let refers_to = self.refers_to.clone();
         let relationship = self.relationship.clone();
         let content = self.content.clone();
-        let sql = "INSERT OR IGNORE INTO event_relationship (original, referring, relationship, content) VALUES (?, ?, ?, ?)";
+        let sql = "INSERT OR IGNORE INTO event_relationship (original, refers_to, relationship, content) VALUES (?, ?, ?, ?)";
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&original, &referring, &relationship, &content))?;
+            stmt.execute((&original, &refers_to, &relationship, &content))?;
             Ok::<(), Error>(())
         })
         .await??;
@@ -30,9 +30,9 @@ impl DbEventRelationship {
     }
 
     /*
-        pub async fn get_events_referring_to(id: Id) -> Result<Vec<DbEventRelationship>, Error> {
+        pub async fn get_events_refers_to(id: Id) -> Result<Vec<DbEventRelationship>, Error> {
             let sql =
-                "SELECT referring, relationship, content FROM event_relationship WHERE original=?";
+                "SELECT refers_to, relationship, content FROM event_relationship WHERE original=?";
             let output: Result<Vec<DbEventRelationship>, Error> = spawn_blocking(move || {
                 let maybe_db = GLOBALS.db.blocking_lock();
                 let db = maybe_db.as_ref().unwrap();
@@ -40,7 +40,7 @@ impl DbEventRelationship {
                 let rows = stmt.query_map([id.as_hex_string()], |row| {
                     Ok(DbEventRelationship {
                         original: id.as_hex_string(),
-                        referring: row.get(0)?,
+                        refers_to: row.get(0)?,
                         relationship: row.get(1)?,
                         content: row.get(2)?,
                     })

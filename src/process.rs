@@ -129,7 +129,7 @@ pub async fn process_new_event(
             if from_relay {
                 let db_event_relationship = DbEventRelationship {
                     original: event.id.as_hex_string(),
-                    referring: id.as_hex_string(),
+                    refers_to: id.as_hex_string(),
                     relationship: "reply".to_string(),
                     content: None,
                 };
@@ -145,7 +145,7 @@ pub async fn process_new_event(
             if from_relay {
                 let db_event_relationship = DbEventRelationship {
                     original: event.id.as_hex_string(),
-                    referring: id.as_hex_string(),
+                    refers_to: id.as_hex_string(),
                     relationship: "reaction".to_string(),
                     content: Some(reaction.clone()),
                 };
@@ -162,7 +162,7 @@ pub async fn process_new_event(
                 if from_relay {
                     let db_event_relationship = DbEventRelationship {
                         original: event.id.as_hex_string(),
-                        referring: id.as_hex_string(),
+                        refers_to: id.as_hex_string(),
                         relationship: "deletion".to_string(),
                         content: Some(reason.clone()),
                         // FIXME: this table should have one more column for optional data
