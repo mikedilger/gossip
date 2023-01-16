@@ -132,11 +132,16 @@ impl Overlord {
             let now = Unixtime::now().unwrap();
             let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
             let then = now.0 - feed_chunk as i64;
-            let db_events = DbEvent::fetch(Some(&format!(
-                " (kind=1 OR kind=5 OR kind=7) AND created_at > {} ORDER BY created_at ASC",
-                then
-            )))
-            .await?;
+
+            let cond = if GLOBALS.settings.read().await.reactions {
+                format!(" (kind=1 OR kind=5 OR kind=6 OR kind=7) AND created_at > {} ORDER BY created_at ASC", then)
+            } else {
+                format!(
+                    " (kind=1 OR kind=5 OR kind=6) AND created_at > {} ORDER BY created_at ASC",
+                    then
+                )
+            };
+            let db_events = DbEvent::fetch(Some(&cond)).await?;
 
             // Map db events into Events
             let mut events: Vec<Event> = Vec::with_capacity(db_events.len());

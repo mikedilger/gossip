@@ -209,23 +209,27 @@ impl Feed {
         *self.general_feed.write() = fevents.iter().map(|e| e.id).collect();
 
         // Filter differently for the replies feed
-        let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();
-        let mut revents: Vec<Event> = events
-            .iter()
-            .filter(|e| !dismissed.contains(&e.id))
-            .filter(|e| {
-                // FIXME: maybe try replies_to_ancestors to go deeper
-                if let Some((id, _)) = e.replies_to() {
-                    if my_events.contains(&id) {
-                        return true;
+        if let Some(my_pubkey) = GLOBALS.signer.read().await.public_key() {
+            let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();
+            let mut revents: Vec<Event> = events
+                .iter()
+                .filter(|e| !dismissed.contains(&e.id))
+                .filter(|e| {
+                    // Include if it directly replies to one of my events
+                    // FIXME: maybe try replies_to_ancestors to go deeper
+                    if let Some((id, _)) = e.replies_to() {
+                        if my_events.contains(&id) {
+                            return true;
+                        }
                     }
-                }
-                false
-            })
-            .cloned()
-            .collect();
-        revents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        *self.replies_feed.write() = revents.iter().map(|e| e.id).collect();
+                    // Include if it tags me
+                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                })
+                .cloned()
+                .collect();
+            revents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            *self.replies_feed.write() = revents.iter().map(|e| e.id).collect();
+        }
 
         // Potentially update thread parent to a higher parent
         let maybe_tp = *self.thread_parent.read();
