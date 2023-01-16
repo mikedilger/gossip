@@ -3,187 +3,189 @@ use crate::comms::ToOverlordMessage;
 use crate::GLOBALS;
 use eframe::egui;
 use egui::widgets::{Button, Slider};
-use egui::{Align, Context, Layout, Ui};
+use egui::{Align, Context, Layout, ScrollArea, Ui};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Settings");
 
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(12.0);
+    ScrollArea::vertical().show(ui, |ui| {
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
 
-    ui.heading("How Many Relays to Query");
+        ui.heading("How Many Relays to Query");
 
-    ui.horizontal(|ui| {
-        ui.label("Number of relays to query per person: ").on_hover_text("We will query N relays per person. Many people share the same relays so those will be queried about multiple people. Takes affect on restart. I recommend 2 or 3.");
-        ui.add(Slider::new(&mut app.settings.num_relays_per_person, 1..=6).text("relays"));
-    });
+        ui.horizontal(|ui| {
+            ui.label("Number of relays to query per person: ").on_hover_text("We will query N relays per person. Many people share the same relays so those will be queried about multiple people. Takes affect on restart. I recommend 2 or 3.");
+            ui.add(Slider::new(&mut app.settings.num_relays_per_person, 1..=6).text("relays"));
+        });
 
-    ui.horizontal(|ui| {
-        ui.label("Maximum total number of relays to query: ")
-            .on_hover_text(
-                "We will not connect to more than this many relays. Takes affect on restart.",
-            );
-        ui.add(Slider::new(&mut app.settings.max_relays, 1..=50).text("relays"));
-    });
+        ui.horizontal(|ui| {
+            ui.label("Maximum total number of relays to query: ")
+                .on_hover_text(
+                    "We will not connect to more than this many relays. Takes affect on restart.",
+                );
+            ui.add(Slider::new(&mut app.settings.max_relays, 1..=50).text("relays"));
+        });
 
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(12.0);
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
 
-    ui.heading("How Many Posts to Load");
+        ui.heading("How Many Posts to Load");
 
-    ui.horizontal(|ui| {
-        ui.label("Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load events from. You'll eventually be able to load more, one chunk at a time. Mostly takes effect on restart.");
-        ui.add(Slider::new(&mut app.settings.feed_chunk, 600..=86400).text("seconds, "));
-        ui.label(secs_to_string(app.settings.feed_chunk));
-    });
+        ui.horizontal(|ui| {
+            ui.label("Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load events from. You'll eventually be able to load more, one chunk at a time. Mostly takes effect on restart.");
+            ui.add(Slider::new(&mut app.settings.feed_chunk, 600..=86400).text("seconds, "));
+            ui.label(secs_to_string(app.settings.feed_chunk));
+        });
 
-    ui.horizontal(|ui| {
-        ui.label("Overlap: ").on_hover_text("If we recently loaded events up to time T, but restarted, we will now load events starting from time T minus overlap. Takes effect on restart. I recommend 300 (5 minutes).");
-        ui.add(Slider::new(&mut app.settings.overlap, 0..=3600).text("seconds, "));
-        ui.label(secs_to_string(app.settings.overlap));
-    });
+        ui.horizontal(|ui| {
+            ui.label("Overlap: ").on_hover_text("If we recently loaded events up to time T, but restarted, we will now load events starting from time T minus overlap. Takes effect on restart. I recommend 300 (5 minutes).");
+            ui.add(Slider::new(&mut app.settings.overlap, 0..=3600).text("seconds, "));
+            ui.label(secs_to_string(app.settings.overlap));
+        });
 
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(12.0);
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
 
-    ui.heading("Feed");
+        ui.heading("Feed");
 
-    ui.horizontal(|ui| {
-        ui.label("Recompute feed every (milliseconds): ")
-            .on_hover_text(
-                "The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes. I recommend 3500.",
-            );
-        ui.add(Slider::new(&mut app.settings.feed_recompute_interval_ms, 250..=5000).text("milliseconds"));
-    });
+        ui.horizontal(|ui| {
+            ui.label("Recompute feed every (milliseconds): ")
+                .on_hover_text(
+                    "The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes. I recommend 3500.",
+                );
+            ui.add(Slider::new(&mut app.settings.feed_recompute_interval_ms, 250..=5000).text("milliseconds"));
+        });
 
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(12.0);
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
 
-    ui.heading("What Posts to Include");
+        ui.heading("What Posts to Include");
 
-    ui.checkbox(
-        &mut app.settings.thread_view_ancestors,
-        "In thread view, view entire ancestoral line of a post, not just it's parent (not yet implemented)",
-    );
-
-    ui.checkbox(
-        &mut app.settings.thread_view_replies,
-        "In thread view, view all replies to a post recursively on down (not yet implemented)",
-    );
-
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(12.0);
-
-    ui.heading("Posting");
-
-    ui.horizontal(|ui| {
-        ui.label("Proof of Work: ")
-            .on_hover_text("The larger the number, the longer it takes.");
-        ui.add(Slider::new(&mut app.settings.pow, 0..=40).text("leading zeroes"));
-    });
-
-    ui.add_space(12.0);
-
-    ui.checkbox(
-        &mut app.settings.set_client_tag,
-        "Add tag [\"client\",\"gossip\"] to posts",
-    )
-    .on_hover_text("Takes effect immediately.");
-
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(12.0);
-
-    ui.heading("Network");
-
-    ui.checkbox(&mut app.settings.offline, "Offline Mode")
-        .on_hover_text("If selected, no network requests will be issued. Takes effect on restart.");
-
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(12.0);
-
-    ui.heading("User Interface");
-
-    ui.horizontal(|ui| {
-        ui.label("Switch to");
-        #[allow(clippy::collapsible_else_if)]
-        if app.settings.light_mode {
-            if ui
-                .add(Button::new("🌙 Dark"))
-                .on_hover_text("Switch to dark mode")
-                .clicked()
-            {
-                ui.ctx().set_visuals(super::style::dark_mode_visuals());
-                app.settings.light_mode = false;
-            }
-        } else {
-            if ui
-                .add(Button::new("☀ Light"))
-                .on_hover_text("Switch to light mode")
-                .clicked()
-            {
-                ui.ctx().set_visuals(super::style::light_mode_visuals());
-                app.settings.light_mode = true;
-            }
-        }
-    });
-
-    ui.horizontal(|ui| {
-        ui.label("Override DPI: ")
-            .on_hover_text(
-                "On some systems, DPI is not reported properly. In other cases, people like to zoom in or out. This lets you.",
-            );
         ui.checkbox(
-            &mut app.override_dpi,
-            "Override to ");
-        ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
+            &mut app.settings.thread_view_ancestors,
+            "In thread view, view entire ancestoral line of a post, not just it's parent (not yet implemented)",
+        );
 
-        // set real setting if changed
-        app.settings.override_dpi = if app.override_dpi {
-            Some(app.override_dpi_value)
-        } else {
-            None
-        };
-    });
+        ui.checkbox(
+            &mut app.settings.thread_view_replies,
+            "In thread view, view all replies to a post recursively on down (not yet implemented)",
+        );
+
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
+
+        ui.heading("Posting");
+
+        ui.horizontal(|ui| {
+            ui.label("Proof of Work: ")
+                .on_hover_text("The larger the number, the longer it takes.");
+            ui.add(Slider::new(&mut app.settings.pow, 0..=40).text("leading zeroes"));
+        });
+
+        ui.add_space(12.0);
+
+        ui.checkbox(
+            &mut app.settings.set_client_tag,
+            "Add tag [\"client\",\"gossip\"] to posts",
+        )
+            .on_hover_text("Takes effect immediately.");
+
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
+
+        ui.heading("Network");
+
+        ui.checkbox(&mut app.settings.offline, "Offline Mode")
+            .on_hover_text("If selected, no network requests will be issued. Takes effect on restart.");
+
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
+
+        ui.heading("User Interface");
+
+        ui.horizontal(|ui| {
+            ui.label("Switch to");
+            #[allow(clippy::collapsible_else_if)]
+            if app.settings.light_mode {
+                if ui
+                    .add(Button::new("🌙 Dark"))
+                    .on_hover_text("Switch to dark mode")
+                    .clicked()
+                {
+                    ui.ctx().set_visuals(super::style::dark_mode_visuals());
+                    app.settings.light_mode = false;
+                }
+            } else {
+                if ui
+                    .add(Button::new("☀ Light"))
+                    .on_hover_text("Switch to light mode")
+                    .clicked()
+                {
+                    ui.ctx().set_visuals(super::style::light_mode_visuals());
+                    app.settings.light_mode = true;
+                }
+            }
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Override DPI: ")
+                .on_hover_text(
+                    "On some systems, DPI is not reported properly. In other cases, people like to zoom in or out. This lets you.",
+                );
+            ui.checkbox(
+                &mut app.override_dpi,
+                "Override to ");
+            ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
+
+            // set real setting if changed
+            app.settings.override_dpi = if app.override_dpi {
+                Some(app.override_dpi_value)
+            } else {
+                None
+            };
+        });
 
 
-    ui.add_space(12.0);
-    ui.horizontal(|ui| {
-        ui.label("Maximum FPS: ")
-            .on_hover_text(
-                "The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately. I recommend 10, maybe even less.",
-            );
-        ui.add(Slider::new(&mut app.settings.max_fps, 2..=60).text("Frames per second"));
-    });
+        ui.add_space(12.0);
+        ui.horizontal(|ui| {
+            ui.label("Maximum FPS: ")
+                .on_hover_text(
+                    "The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately. I recommend 10, maybe even less.",
+                );
+            ui.add(Slider::new(&mut app.settings.max_fps, 2..=60).text("Frames per second"));
+        });
 
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(12.0);
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
 
-    if ui.button("Prune Database")
-        .on_hover_text("This will delete overridden events, events older than a week, and related data while keeping everything important. It make make Gossip somewhat unresponsive until it is complete.")
-        .clicked() {
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase);
-    }
+        if ui.button("Prune Database")
+            .on_hover_text("This will delete overridden events, events older than a week, and related data while keeping everything important. It make make Gossip somewhat unresponsive until it is complete.")
+            .clicked() {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase);
+            }
 
-    ui.add_space(12.0);
-    ui.separator();
-    ui.add_space(24.0);
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(24.0);
 
-    ui.with_layout(Layout::top_down(Align::Center), |ui| {
-        if ui.button("SAVE CHANGES").clicked() {
-            // Copy local settings to global settings
-            *GLOBALS.settings.blocking_write() = app.settings.clone();
+        ui.with_layout(Layout::top_down(Align::Center), |ui| {
+            if ui.button("SAVE CHANGES").clicked() {
+                // Copy local settings to global settings
+                *GLOBALS.settings.blocking_write() = app.settings.clone();
 
-            // Tell the overlord to save them
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SaveSettings);
-        }
+                // Tell the overlord to save them
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SaveSettings);
+            }
+        });
     });
 }
 
