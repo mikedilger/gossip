@@ -317,7 +317,7 @@ impl People {
                         let image = image.resize(
                             size,
                             size,
-                            image::imageops::FilterType::Nearest,
+                            image::imageops::FilterType::CatmullRom,
                         ); // DynamicImage
                         let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
                         let color_image = ColorImage::from_rgba_unmultiplied(
