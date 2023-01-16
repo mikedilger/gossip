@@ -196,7 +196,7 @@ impl GossipUi {
 
     fn set_page(&mut self, page: Page) {
         if self.page != page {
-            tracing::debug!("PUSHING HISTORY: {:?}", &self.page);
+            tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
             self.history.push(self.page.clone());
             self.set_page_inner(page);
         }
@@ -204,10 +204,10 @@ impl GossipUi {
 
     fn back(&mut self) {
         if let Some(page) = self.history.pop() {
-            tracing::debug!("POPPING HISTORY: {:?}", &page);
+            tracing::trace!("POPPING HISTORY: {:?}", &page);
             self.set_page_inner(page);
         } else {
-            tracing::debug!("HISTORY STUCK ON NONE");
+            tracing::trace!("HISTORY STUCK ON NONE");
         }
     }
 
