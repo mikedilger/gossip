@@ -80,9 +80,9 @@ impl Widget for CopyButton {
         let (id, rect) = ui.allocate_space(space);
         let response = ui.interact(rect, id, Sense::click());
         let shift = if response.is_pointer_button_down_on() {
-            2.0
+            6.0
         } else {
-            0.0
+            4.0
         };
         let pos = Pos2 {
             x: rect.min.x + padding.x + shift,

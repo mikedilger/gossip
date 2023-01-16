@@ -2,10 +2,10 @@ use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
-use crate::ui::widgets::{CopyButton, LikeButton, ReplyButton};
+use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::{
-    Align, Color32, Context, Frame, Image, Layout, RichText, ScrollArea, SelectableLabel, Sense,
+    Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, SelectableLabel, Sense,
     Separator, Stroke, TextEdit, TextStyle, Ui, Vec2,
 };
 use linkify::{LinkFinder, LinkKind};
@@ -533,7 +533,7 @@ fn render_post_actual(
 
                         ui.add_space(24.0);
 
-                        if ui.add(ReplyButton {}).clicked() {
+                        if ui.add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click())).clicked() {
                             app.replying_to = Some(event.id);
 
                             // Cleanup tags
@@ -552,7 +552,7 @@ fn render_post_actual(
 
                         ui.add_space(24.0);
 
-                        if ui.add(LikeButton {}).clicked() {
+                        if ui.add(Label::new(RichText::new("♡").size(20.0)).sense(Sense::click())).clicked() {
                             let _ = GLOBALS
                                 .to_overlord
                                 .send(ToOverlordMessage::Like(event.id, event.pubkey));
