@@ -551,23 +551,27 @@ fn render_post_actual(
 
                         ui.add_space(24.0);
 
-                        if ui
-                            .add(Label::new(RichText::new("♡").size(20.0)).sense(Sense::click()))
-                            .clicked()
-                        {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::Like(event.id, event.pubkey));
-                        }
-                        for (ch, count) in reactions.iter() {
-                            if *ch == '+' {
-                                ui.label(format!("{}", count));
+                        if app.settings.reactions {
+                            if ui
+                                .add(
+                                    Label::new(RichText::new("♡").size(20.0)).sense(Sense::click()),
+                                )
+                                .clicked()
+                            {
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::Like(event.id, event.pubkey));
                             }
-                        }
-                        ui.add_space(12.0);
-                        for (ch, count) in reactions.iter() {
-                            if *ch != '+' {
-                                ui.label(RichText::new(format!("{} {}", ch, count)).strong());
+                            for (ch, count) in reactions.iter() {
+                                if *ch == '+' {
+                                    ui.label(format!("{}", count));
+                                }
+                            }
+                            ui.add_space(12.0);
+                            for (ch, count) in reactions.iter() {
+                                if *ch != '+' {
+                                    ui.label(RichText::new(format!("{} {}", ch, count)).strong());
+                                }
                             }
                         }
                     });

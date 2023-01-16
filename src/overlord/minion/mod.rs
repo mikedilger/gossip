@@ -323,25 +323,35 @@ impl Minion {
             (feed_since, special_since)
         };
 
+        let enable_reactions = GLOBALS.settings.read().await.reactions;
+
         if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+            let mut kinds = vec![
+                EventKind::TextNote,
+                EventKind::Repost,
+                EventKind::EventDeletion,
+            ];
+            if enable_reactions {
+                kinds.push(EventKind::Reaction);
+            }
+
             // feed related by me
             filters.push(Filter {
                 authors: vec![pubkey.into()],
-                kinds: vec![
-                    EventKind::TextNote,
-                    EventKind::Repost,
-                    EventKind::Reaction,
-                    EventKind::EventDeletion,
-                ],
+                kinds,
                 since: Some(feed_since),
                 ..Default::default()
             });
 
             // Any mentions of me
             // (but not in peoples contact lists, for example)
+            let mut kinds = vec![EventKind::TextNote, EventKind::Repost];
+            if enable_reactions {
+                kinds.push(EventKind::Reaction);
+            }
             filters.push(Filter {
                 p: vec![pubkey.into()],
-                kinds: vec![EventKind::TextNote, EventKind::Repost, EventKind::Reaction],
+                kinds: vec![EventKind::TextNote, EventKind::Repost],
                 since: Some(special_since),
                 ..Default::default()
             });
@@ -359,15 +369,18 @@ impl Minion {
         }
 
         if !followed_pubkeys.is_empty() {
+            let mut kinds = vec![
+                EventKind::TextNote,
+                EventKind::Repost,
+                EventKind::EventDeletion,
+            ];
+            if enable_reactions {
+                kinds.push(EventKind::Reaction);
+            }
             // feed related by people followed
             filters.push(Filter {
                 authors: followed_pubkeys.clone(),
-                kinds: vec![
-                    EventKind::TextNote,
-                    EventKind::Repost,
-                    EventKind::Reaction,
-                    EventKind::EventDeletion,
-                ],
+                kinds,
                 since: Some(feed_since),
                 ..Default::default()
             });
@@ -473,6 +486,8 @@ impl Minion {
 
         let mut filters: Vec<Filter> = Vec::new();
 
+        let enable_reactions = GLOBALS.settings.read().await.reactions;
+
         if !vec_ids.is_empty() {
             // Get ancestors we know of so far
             filters.push(Filter {
@@ -481,22 +496,29 @@ impl Minion {
             });
 
             // Get reactions to ancestors, but not replies
+            let mut kinds = vec![EventKind::EventDeletion];
+            if enable_reactions {
+                kinds.push(EventKind::Reaction);
+            }
             filters.push(Filter {
                 e: vec_ids,
-                kinds: vec![EventKind::Reaction, EventKind::EventDeletion],
+                kinds,
                 ..Default::default()
             });
         }
 
         // Get replies to main event
+        let mut kinds = vec![
+            EventKind::TextNote,
+            EventKind::Repost,
+            EventKind::EventDeletion,
+        ];
+        if enable_reactions {
+            kinds.push(EventKind::Reaction);
+        }
         filters.push(Filter {
             e: vec![main],
-            kinds: vec![
-                EventKind::TextNote,
-                EventKind::Repost,
-                EventKind::Reaction,
-                EventKind::EventDeletion,
-            ],
+            kinds,
             ..Default::default()
         });
 

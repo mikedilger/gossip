@@ -76,6 +76,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             "In thread view, view all replies to a post recursively on down (not yet implemented)",
         );
 
+        ui.checkbox(
+            &mut app.settings.reactions,
+            "Enable reactions (show and react)",
+        );
+
         ui.add_space(12.0);
         ui.separator();
         ui.add_space(12.0);
