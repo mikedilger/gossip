@@ -152,8 +152,7 @@ impl Settings {
              ('pow', ?),\
              ('offline', ?),\
              ('light_mode', ?),\
-             ('set_client_tag', ?),\
-             ('override_dpi', ?)",
+             ('set_client_tag', ?)",
         )?;
         stmt.execute((
             self.feed_chunk,
@@ -167,9 +166,20 @@ impl Settings {
             self.pow,
             bool_to_numstr(self.offline),
             bool_to_numstr(self.light_mode),
-            bool_to_numstr(self.set_client_tag),
-            self.override_dpi,
+            bool_to_numstr(self.set_client_tag)
         ))?;
+
+        // Save override dpi
+        if let Some(ref dpi) = self.override_dpi {
+            let mut stmt = db.prepare(
+                "REPLACE INTO SETTINGS (key, value) VALUES ('override_dpi', ?)",
+            )?;
+            stmt.execute((&dpi,))?;
+        } else {
+            // Otherwise delete any such setting
+            let mut stmt = db.prepare("DELETE FROM settings WHERE key='override_dpi'")?;
+            stmt.execute(())?;
+        }
 
         // Save private key identity
         if let Some(ref epk) = self.encrypted_private_key {

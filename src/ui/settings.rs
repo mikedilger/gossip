@@ -5,7 +5,7 @@ use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout, ScrollArea, Ui};
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Settings");
 
     ScrollArea::vertical().show(ui, |ui| {
@@ -144,9 +144,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 &mut app.override_dpi,
                 "Override to ");
             ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
+            if ui.button("Do it now").clicked() {
+                let ppt: f32 = app.override_dpi_value as f32 / 72.0;
+                ctx.set_pixels_per_point(ppt);
+            }
 
-            // set real setting if changed
+            // transfer to app.settings
             app.settings.override_dpi = if app.override_dpi {
+                // Set it in settings to be saved on button press
                 Some(app.override_dpi_value)
             } else {
                 None
