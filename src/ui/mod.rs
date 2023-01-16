@@ -103,7 +103,6 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-
         let settings = GLOBALS.settings.blocking_read().clone();
 
         if let Some(dpi) = settings.override_dpi {
@@ -120,7 +119,7 @@ impl GossipUi {
         // Set global pixels_per_point_times_100, used for image scaling.
         GLOBALS.pixels_per_point_times_100.store(
             (cctx.egui_ctx.pixels_per_point() * 100.0) as u32,
-            Ordering::Relaxed
+            Ordering::Relaxed,
         );
 
         if !settings.light_mode {
@@ -164,7 +163,7 @@ impl GossipUi {
         let current_dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;
         let (override_dpi, override_dpi_value): (bool, u32) = match settings.override_dpi {
             Some(v) => (true, v),
-            None => (false, current_dpi)
+            None => (false, current_dpi),
         };
 
         GossipUi {

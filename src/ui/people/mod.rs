@@ -1,8 +1,8 @@
 use super::{GossipUi, Page};
-use crate::AVATAR_SIZE_F32;
 use crate::comms::ToOverlordMessage;
 use crate::db::DbPerson;
 use crate::globals::GLOBALS;
+use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
 use std::sync::atomic::Ordering;
@@ -73,18 +73,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     } else {
                         app.placeholder_avatar.clone()
                     };
-                    let size = AVATAR_SIZE_F32 * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32 / 100.0;
+                    let size = AVATAR_SIZE_F32
+                        * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
+                        / 100.0;
                     if ui
-                        .add(
-                            Image::new(
-                                &avatar,
-                                Vec2 {
-                                    x: size,
-                                    y: size,
-                                },
-                            )
-                            .sense(Sense::click()),
-                        )
+                        .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
                         .clicked()
                     {
                         app.set_page(Page::Person(person.pubkey.clone()));

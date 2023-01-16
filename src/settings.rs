@@ -111,15 +111,15 @@ impl Settings {
                 "light_mode" => settings.light_mode = numstr_to_bool(row.1),
                 "set_client_tag" => settings.set_client_tag = numstr_to_bool(row.1),
                 "override_dpi" => {
-                    if row.1=="" {
+                    if row.1.is_empty() {
                         settings.override_dpi = DEFAULT_OVERRIDE_DPI;
                     } else {
                         settings.override_dpi = match row.1.parse::<u32>() {
                             Ok(number) => Some(number),
-                            _ => DEFAULT_OVERRIDE_DPI
+                            _ => DEFAULT_OVERRIDE_DPI,
                         };
                     }
-                },
+                }
                 _ => {}
             }
         }
@@ -166,14 +166,13 @@ impl Settings {
             self.pow,
             bool_to_numstr(self.offline),
             bool_to_numstr(self.light_mode),
-            bool_to_numstr(self.set_client_tag)
+            bool_to_numstr(self.set_client_tag),
         ))?;
 
         // Save override dpi
         if let Some(ref dpi) = self.override_dpi {
-            let mut stmt = db.prepare(
-                "REPLACE INTO SETTINGS (key, value) VALUES ('override_dpi', ?)",
-            )?;
+            let mut stmt =
+                db.prepare("REPLACE INTO SETTINGS (key, value) VALUES ('override_dpi', ?)")?;
             stmt.execute((&dpi,))?;
         } else {
             // Otherwise delete any such setting

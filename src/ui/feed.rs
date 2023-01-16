@@ -1,9 +1,9 @@
 use super::{GossipUi, Page};
-use crate::AVATAR_SIZE_F32;
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
+use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{
     Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, SelectableLabel,
@@ -444,18 +444,11 @@ fn render_post_actual(
             } else {
                 app.placeholder_avatar.clone()
             };
-            let size = AVATAR_SIZE_F32 * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32 / 100.0;
+            let size = AVATAR_SIZE_F32
+                * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
+                / 100.0;
             if ui
-                .add(
-                    Image::new(
-                        &avatar,
-                        Vec2 {
-                            x: size,
-                            y: size,
-                        },
-                    )
-                    .sense(Sense::click()),
-                )
+                .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
                 .clicked()
             {
                 app.set_page(Page::Person(event.pubkey.into()));
