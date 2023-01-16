@@ -254,8 +254,7 @@ impl eframe::App for GossipUi {
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                let len = self.history.len();
-                let back_label_text = RichText::new(format!("< Back {}", len));
+                let back_label_text = RichText::new("‹ Back");
                 let label = if self.history.is_empty() {
                     Label::new(back_label_text.weak())
                 } else {

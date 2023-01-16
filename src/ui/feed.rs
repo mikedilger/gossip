@@ -575,8 +575,6 @@ fn render_post_actual(
             });
         });
 
-        ui.add_space(4.0);
-
         if is_main_event {
             thin_red_separator(ui);
         }
