@@ -21,6 +21,7 @@ use egui::{
 };
 use nostr_types::{Id, IdHex, PublicKey, PublicKeyHex, Tag};
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
@@ -90,6 +91,8 @@ struct GossipUi {
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     new_relay_url: String,
     tag_re: regex::Regex,
+    override_dpi: bool,
+    override_dpi_value: u32,
 }
 
 impl Drop for GossipUi {
@@ -100,8 +103,23 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-        // grab settings to determine whether to render dark_mode or light_mode
+
         let settings = GLOBALS.settings.blocking_read().clone();
+
+        if let Some(dpi) = settings.override_dpi {
+            let ppt: f32 = dpi as f32 / 72.0;
+            cctx.egui_ctx.set_pixels_per_point(ppt);
+        } else if let Some(ppt) = cctx.integration_info.native_pixels_per_point {
+            cctx.egui_ctx.set_pixels_per_point(ppt);
+        }
+
+        tracing::debug!("Pixels per point: {}", cctx.egui_ctx.pixels_per_point());
+
+        // Set global pixels_per_point_times_100, used for image scaling.
+        GLOBALS.pixels_per_point_times_100.store(
+            (cctx.egui_ctx.pixels_per_point() * 100.0) as u32,
+            Ordering::Relaxed
+        );
 
         if !settings.light_mode {
             cctx.egui_ctx.set_visuals(style::dark_mode_visuals());
@@ -141,6 +159,12 @@ impl GossipUi {
             )
         };
 
+        let current_dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;
+        let (override_dpi, override_dpi_value): (bool, u32) = match settings.override_dpi {
+            Some(v) => (true, v),
+            None => (false, current_dpi)
+        };
+
         GossipUi {
             next_frame: Instant::now(),
             page: Page::Feed(FeedKind::General),
@@ -164,6 +188,8 @@ impl GossipUi {
             avatars: HashMap::new(),
             new_relay_url: "".to_owned(),
             tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
+            override_dpi,
+            override_dpi_value,
         }
     }
 

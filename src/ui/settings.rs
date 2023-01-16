@@ -134,6 +134,25 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     });
 
+    ui.horizontal(|ui| {
+        ui.label("Override DPI: ")
+            .on_hover_text(
+                "On some systems, DPI is not reported properly. In other cases, people like to zoom in or out. This lets you.",
+            );
+        ui.checkbox(
+            &mut app.override_dpi,
+            "Override to ");
+        ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
+
+        // set real setting if changed
+        app.settings.override_dpi = if app.override_dpi {
+            Some(app.override_dpi_value)
+        } else {
+            None
+        };
+    });
+
+
     ui.add_space(12.0);
     ui.horizontal(|ui| {
         ui.label("Maximum FPS: ")

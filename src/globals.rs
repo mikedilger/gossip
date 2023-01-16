@@ -10,7 +10,7 @@ use crate::signer::Signer;
 use nostr_types::{Event, Id, PublicKeyHex, Url};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU32};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 /// Only one of these is ever created, via lazy_static!, and represents
@@ -73,6 +73,8 @@ pub struct Globals {
     /// Failed Avatar Fetches
     pub failed_avatars: RwLock<HashSet<PublicKeyHex>>,
 
+    pub pixels_per_point_times_100: AtomicU32,
+
     /// UI status message
     pub status_message: RwLock<String>,
 
@@ -106,6 +108,7 @@ lazy_static! {
             feed: Feed::new(),
             fetcher: Fetcher::new(),
             failed_avatars: RwLock::new(HashSet::new()),
+            pixels_per_point_times_100: AtomicU32::new(139), // 100 dpi, 1/72th inch => 1.38888
             status_message: RwLock::new("Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()),
             pull_following_merge: AtomicBool::new(true),
         }

@@ -310,12 +310,13 @@ impl People {
                 // Finish this later (spawn)
                 let apubkeyhex = pubkeyhex.to_owned();
                 tokio::spawn(async move {
+                    let size = AVATAR_SIZE * GLOBALS.pixels_per_point_times_100.load(std::sync::atomic::Ordering::Relaxed) / 100;
                     if let Ok(image) = image::load_from_memory(&bytes) {
                         // Note: we can't use egui_extras::image::load_image_bytes because we
                         // need to force a resize
                         let image = image.resize(
-                            AVATAR_SIZE,
-                            AVATAR_SIZE,
+                            size,
+                            size,
                             image::imageops::FilterType::Nearest,
                         ); // DynamicImage
                         let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
@@ -326,7 +327,7 @@ impl People {
                         GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
                     } else if let Ok(color_image) = egui_extras::image::load_svg_bytes_with_size(
                         &bytes,
-                        FitTo::Size(AVATAR_SIZE, AVATAR_SIZE),
+                        FitTo::Size(size, size),
                     ) {
                         GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
                     } else {
