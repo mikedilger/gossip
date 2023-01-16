@@ -1,6 +1,6 @@
 use eframe::{egui, epaint};
 use egui::style::{Selection, Visuals, Widgets};
-use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, Rounding, Stroke, TextStyle};
+use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Rounding, Stroke, TextStyle};
 use epaint::Shadow;
 use std::collections::BTreeMap;
 
@@ -84,7 +84,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Small,
         FontId {
-            size: 12.5,
+            size: 13.0,
             family: FontFamily::Proportional,
         },
     );
@@ -92,7 +92,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Body,
         FontId {
-            size: 15.0,
+            size: 15.5,
             family: FontFamily::Proportional,
         },
     );
@@ -100,7 +100,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Monospace,
         FontId {
-            size: 15.0,
+            size: 15.5,
             family: FontFamily::Monospace,
         },
     );
@@ -108,7 +108,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Button,
         FontId {
-            size: 16.0,
+            size: 17.25,
             family: FontFamily::Proportional,
         },
     );
@@ -116,7 +116,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Heading,
         FontId {
-            size: 17.0,
+            size: 18.5,
             family: FontFamily::Proportional,
         },
     );
@@ -141,25 +141,14 @@ pub(super) fn font_definitions() -> FontDefinitions {
     // Some good looking emojis. Use as first priority:
     font_data.insert(
         "NotoEmoji-Regular".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/NotoEmoji-Regular.ttf")), /*.tweak(
-                                                                                        FontTweak {
-                                                                                            scale: 0.81,           // make it smaller
-                                                                                            y_offset_factor: -0.2, // move it up
-                                                                                            y_offset: 0.0,
-                                                                                        },
-                                                                                    )*/
-    );
-
-    // Bigger emojis, and more. <http://jslegers.github.io/emoji-icon-font/>:
-    font_data.insert(
-        "emoji-icon-font".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/emoji-icon-font.ttf")), /*.tweak(
-                                                                                      FontTweak {
-                                                                                          scale: 0.88,           // make it smaller
-                                                                                          y_offset_factor: 0.07, // move it down slightly
-                                                                                          y_offset: 0.0,
-                                                                                      },
-                                                                                  )*/
+        FontData::from_static(include_bytes!("../../fonts/NotoEmoji-Regular.ttf"))
+            .tweak(
+                FontTweak {
+                    scale: 1.1,            // make them a touch larger
+                    y_offset_factor: -0.2, // move them up
+                    y_offset: 0.0,
+                },
+            )
     );
 
     families.insert(
@@ -167,7 +156,6 @@ pub(super) fn font_definitions() -> FontDefinitions {
         vec![
             "DejaVuSans".to_owned(),
             "NotoEmoji-Regular".to_owned(),
-            "emoji-icon-font".to_owned(),
         ],
     );
 
@@ -176,7 +164,6 @@ pub(super) fn font_definitions() -> FontDefinitions {
         vec![
             "Inconsolata".to_owned(),
             "NotoEmoji-Regular".to_owned(),
-            "emoji-icon-font".to_owned(),
         ],
     );
 

@@ -424,6 +424,8 @@ fn render_post_actual(
             thin_red_separator(ui);
         }
 
+        ui.add_space(4.0);
+
         ui.horizontal(|ui| {
             // Indents first (if threaded)
             if threaded {
@@ -520,6 +522,8 @@ fn render_post_actual(
                     render_content(app, ui, &tag_re, &event);
                 });
 
+                ui.add_space(8.0);
+
                 // Under row
                 if !as_reply_to {
                     ui.horizontal(|ui| {
@@ -568,6 +572,8 @@ fn render_post_actual(
                 }
             });
         });
+
+        ui.add_space(4.0);
 
         if is_main_event {
             thin_red_separator(ui);
