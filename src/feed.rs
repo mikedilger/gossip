@@ -95,36 +95,17 @@ impl Feed {
     }
 
     pub fn get_general(&self) -> Vec<Id> {
-        let now = Instant::now();
-        if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now
-        {
-            let now = now;
-            task::spawn(async move {
-                if let Err(e) = GLOBALS.feed.recompute().await {
-                    tracing::error!("{}", e);
-                }
-                *GLOBALS.feed.last_computed.write() = now;
-            });
-        }
+        self.maybe_recompute();
         self.general_feed.read().clone()
     }
 
     pub fn get_replies(&self) -> Vec<Id> {
-        let now = Instant::now();
-        if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now
-        {
-            let now = now;
-            task::spawn(async move {
-                if let Err(e) = GLOBALS.feed.recompute().await {
-                    tracing::error!("{}", e);
-                }
-                *GLOBALS.feed.last_computed.write() = now;
-            });
-        }
+        self.maybe_recompute();
         self.replies_feed.read().clone()
     }
 
     pub fn get_person_feed(&self, person: PublicKeyHex) -> Vec<Id> {
+        self.maybe_recompute();
         let mut events: Vec<Event> = GLOBALS
             .events
             .iter()
@@ -152,12 +133,27 @@ impl Feed {
     }
 
     pub fn get_thread_parent(&self) -> Option<Id> {
+        self.maybe_recompute();
         *self.thread_parent.read()
     }
 
     // Overlord climbs and sets this
     pub fn set_thread_parent(&self, id: Id) {
         *self.thread_parent.write() = Some(id);
+    }
+
+    pub fn maybe_recompute(&self) {
+        let now = Instant::now();
+        if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now
+        {
+            let now = now;
+            task::spawn(async move {
+                if let Err(e) = GLOBALS.feed.recompute().await {
+                    tracing::error!("{}", e);
+                }
+                *GLOBALS.feed.last_computed.write() = now;
+            });
+        }
     }
 
     pub async fn recompute(&self) -> Result<(), Error> {
