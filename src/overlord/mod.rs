@@ -478,6 +478,9 @@ impl Overlord {
             ToOverlordMessage::PushFollow => {
                 self.push_following().await?;
             }
+            ToOverlordMessage::RefreshFollowedMetadata => {
+                self.refresh_followed_metadata().await?;
+            }
             ToOverlordMessage::SaveRelays => {
                 let dirty_relays: Vec<DbRelay> = GLOBALS
                     .relays
@@ -540,7 +543,7 @@ impl Overlord {
                     // Subscribe to metadata and contact lists for this person
                     let _ = self.to_minions.send(ToMinionMessage {
                         target: person_relay.relay.to_string(),
-                        payload: ToMinionPayload::TempSubscribeMetadata(pubkey.clone()),
+                        payload: ToMinionPayload::TempSubscribeMetadata(vec![pubkey.clone()]),
                     });
                 }
             }
@@ -953,6 +956,43 @@ impl Overlord {
             let _ = self.to_minions.send(ToMinionMessage {
                 target: relay.url.clone(),
                 payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
+            });
+        }
+
+        Ok(())
+    }
+
+    // This gets it whether we had it or not. Because it might have changed.
+    async fn refresh_followed_metadata(&mut self) -> Result<(), Error> {
+        let pubkeys = GLOBALS.people.get_followed_pubkeys();
+
+        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
+
+        let mut map: HashMap<Url, Vec<PublicKeyHex>> = HashMap::new();
+
+        // Sort the people into the relays we will find their metadata at
+        for pubkey in &pubkeys {
+            for relay in DbPersonRelay::get_best_relays(pubkey.to_owned())
+                .await?
+                .drain(..)
+                .take(num_relays_per_person as usize)
+            {
+                map.entry(relay)
+                    .and_modify(|e| e.push(pubkey.to_owned()))
+                    .or_insert_with(|| vec![pubkey.to_owned()]);
+            }
+        }
+
+        for (url, pubkeys) in map.drain() {
+            // Start minion if needed
+            if !GLOBALS.relays_watching.read().await.contains(&url) {
+                self.start_minion(url.inner().to_string()).await?;
+            }
+
+            // Subscribe to their metadata
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: url.inner().to_string(),
+                payload: ToMinionPayload::TempSubscribeMetadata(pubkeys),
             });
         }
 

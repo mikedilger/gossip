@@ -48,6 +48,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             if ui.button("↑ PUSH ↑\n").clicked() {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
             }
+
+            if ui.button("Refresh\nMetadata").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::RefreshFollowedMetadata);
+            }
         });
 
         ui.add_space(10.0);

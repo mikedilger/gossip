@@ -518,7 +518,8 @@ fn render_post_actual(
                 // Under row
                 if !as_reply_to {
                     ui.horizontal(|ui| {
-                        if ui.add(CopyButton {})
+                        if ui
+                            .add(CopyButton {})
                             .on_hover_text("Copy Contents")
                             .clicked()
                         {

@@ -233,7 +233,7 @@ pub async fn process_new_event(
                                     url.inner().to_owned(),
                                     now.0 as u64,
                                 )
-                                    .await?;
+                                .await?;
                             }
                         }
 

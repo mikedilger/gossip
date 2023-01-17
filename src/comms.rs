@@ -20,6 +20,7 @@ pub enum ToOverlordMessage {
     PullFollowMerge,
     PullFollowOverwrite,
     PushFollow,
+    RefreshFollowedMetadata,
     SaveRelays,
     SaveSettings,
     SetThreadFeed(Id, Id),
@@ -47,6 +48,6 @@ pub enum ToMinionPayload {
     SubscribeGeneralFeed,
     SubscribePersonFeed(PublicKeyHex),
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
-    TempSubscribeMetadata(PublicKeyHex),
+    TempSubscribeMetadata(Vec<PublicKeyHex>),
     UnsubscribeThreadFeed,
 }

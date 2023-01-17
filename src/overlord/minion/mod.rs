@@ -256,8 +256,8 @@ impl Minion {
             ToMinionPayload::SubscribeThreadFeed(main, parents) => {
                 self.subscribe_thread_feed(main, parents).await?;
             }
-            ToMinionPayload::TempSubscribeMetadata(pubkeyhex) => {
-                self.temp_subscribe_metadata(pubkeyhex).await?;
+            ToMinionPayload::TempSubscribeMetadata(pubkeyhexs) => {
+                self.temp_subscribe_metadata(pubkeyhexs).await?;
             }
             ToMinionPayload::UnsubscribeThreadFeed => {
                 self.unsubscribe_thread_feed().await?;
@@ -677,10 +677,13 @@ impl Minion {
         Ok(())
     }
 
-    async fn temp_subscribe_metadata(&mut self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
-        let handle = format!("temp_subscribe_metadata_{}", &pubkeyhex.0);
+    async fn temp_subscribe_metadata(
+        &mut self,
+        pubkeyhexs: Vec<PublicKeyHex>,
+    ) -> Result<(), Error> {
+        let handle = "temp_subscribe_metadata".to_string();
         let filter = Filter {
-            authors: vec![pubkeyhex],
+            authors: pubkeyhexs,
             kinds: vec![EventKind::Metadata],
             // FIXME: we could probably get a since-last-fetched-their-metadata here.
             //        but relays should just return the lastest of these.
