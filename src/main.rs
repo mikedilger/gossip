@@ -19,6 +19,7 @@ mod process;
 mod relationship;
 mod settings;
 mod signer;
+mod tags;
 mod ui;
 
 use crate::comms::ToOverlordMessage;

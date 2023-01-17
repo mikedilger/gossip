@@ -19,7 +19,7 @@ use egui::{
     ColorImage, Context, ImageData, Label, RichText, SelectableLabel, Sense, TextStyle,
     TextureHandle, TextureOptions, Ui,
 };
-use nostr_types::{Id, IdHex, PublicKey, PublicKeyHex, Tag};
+use nostr_types::{Id, IdHex, PublicKey, PublicKeyHex};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -76,7 +76,6 @@ struct GossipUi {
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
     draft: String,
-    draft_tags: Vec<Tag>,
     tag_someone: String,
     settings: Settings,
     nip05follow: String,
@@ -174,7 +173,6 @@ impl GossipUi {
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
             draft: "".to_owned(),
-            draft_tags: Vec::new(),
             tag_someone: "".to_owned(),
             settings,
             nip05follow: "".to_owned(),

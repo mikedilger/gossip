@@ -6,6 +6,7 @@ use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
+use crate::tags::{add_pubkey_to_tags, add_tag, keys_from_text};
 use minion::Minion;
 use nostr_types::{
     Event, EventKind, Id, IdHex, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
@@ -602,7 +603,11 @@ impl Overlord {
         Ok(())
     }
 
-    async fn post_textnote(&mut self, content: String, mut tags: Vec<Tag>) -> Result<(), Error> {
+    async fn post_textnote(
+        &mut self,
+        mut content: String,
+        mut tags: Vec<Tag>,
+    ) -> Result<(), Error> {
         let event = {
             let public_key = match GLOBALS.signer.read().await.public_key() {
                 Some(pk) => pk,
@@ -619,6 +624,13 @@ impl Overlord {
                 });
             }
 
+            // Add tags for keys that are in the post body as npub1...
+            for (npub, pubkey) in keys_from_text(&content) {
+                let idx = add_pubkey_to_tags(&mut tags, pubkey);
+                content = content.replace(&npub, &format!("#[{}]", idx));
+            }
+
+            // Finally build the event
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
@@ -669,7 +681,7 @@ impl Overlord {
 
     async fn post_reply(
         &mut self,
-        content: String,
+        mut content: String,
         mut tags: Vec<Tag>,
         reply_to: Id,
     ) -> Result<(), Error> {
@@ -692,33 +704,24 @@ impl Overlord {
                 }
             };
 
-            // Add all the 'p' tags from the note we are replying to
-            for parent_p_tag in event.tags.iter() {
-                if let Tag::Pubkey {
-                    pubkey: parent_p_tag_pubkey,
-                    ..
-                } = parent_p_tag
-                {
-                    if parent_p_tag_pubkey.0 == public_key.as_hex_string() {
-                        // do not tag ourselves
-                        continue;
-                    }
-
-                    if tags
-                        .iter()
-                        .any(|existing_tag| {
-                            matches!(
-                                existing_tag,
-                                Tag::Pubkey { pubkey: existing_pubkey, .. } if existing_pubkey.0 == parent_p_tag_pubkey.0
-                            )
-                        }) {
-                            // we already have this `p` tag, do not add again
-                            continue;
-                        }
-
-                    // add (FIXME: include relay hint it not exists)
-                    tags.push(parent_p_tag.to_owned())
+            // Add a 'p' tag for the author we are replying to (except if it is our own key)
+            if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+                if pubkey != event.pubkey {
+                    add_pubkey_to_tags(&mut tags, pubkey.into());
                 }
+            }
+
+            // Add all the 'p' tags from the note we are replying to (except our own)
+            for tag in &event.tags {
+                if tag.tagname() == "p" {
+                    add_tag(&mut tags, tag);
+                }
+            }
+
+            // Add tags for keys that are in the post body as npub1...
+            for (npub, pubkey) in keys_from_text(&content) {
+                let idx = add_pubkey_to_tags(&mut tags, pubkey);
+                content = content.replace(&npub, &format!("#[{}]", idx));
             }
 
             if let Some((root, _maybeurl)) = event.replies_to_root() {

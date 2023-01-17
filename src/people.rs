@@ -6,7 +6,9 @@ use dashmap::{DashMap, DashSet};
 use eframe::egui::ColorImage;
 use egui_extras::image::FitTo;
 use image::imageops::FilterType;
-use nostr_types::{Event, EventKind, Metadata, PreEvent, PublicKeyHex, Tag, Unixtime, Url};
+use nostr_types::{
+    Event, EventKind, Metadata, PreEvent, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
+};
 use std::cmp::Ordering;
 use std::time::Duration;
 use tokio::task;
@@ -351,7 +353,7 @@ impl People {
 
     /// This lets you start typing a name, and autocomplete the results for tagging
     /// someone in a post.  It returns maximum 10 results.
-    pub fn search_people_to_tag(&self, mut text: &str) -> Vec<(String, PublicKeyHex)> {
+    pub fn search_people_to_tag(&self, mut text: &str) -> Vec<(String, PublicKey)> {
         // work with or without the @ symbol:
         if text.starts_with('@') {
             text = &text[1..]
@@ -419,7 +421,12 @@ impl People {
         };
         results[0..max]
             .iter()
-            .map(|r| (r.1.to_owned(), r.2.clone()))
+            .map(|r| {
+                (
+                    r.1.to_owned(),
+                    PublicKey::try_from_hex_string(&r.2).unwrap(),
+                )
+            })
             .collect()
     }
 
