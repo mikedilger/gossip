@@ -124,12 +124,10 @@ fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
 }
 
 pub async fn prune() -> Result<(), Error> {
-    let sql = include_str!("prune.sql");
     task::spawn_blocking(move || {
         let maybe_db = GLOBALS.db.blocking_lock();
         let db = maybe_db.as_ref().unwrap();
-        let mut stmt = db.prepare(sql)?;
-        stmt.execute(())?;
+        db.execute_batch(include_str!("prune.sql"))?;
         Ok::<(), Error>(())
     })
     .await??;
