@@ -172,8 +172,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.menu_button("@", |ui| {
                         for pair in pairs {
                             if ui.button(pair.0).clicked() {
-                                if !app.draft.ends_with(" ") {
-                                    app.draft.push_str(" ");
+                                if !app.draft.ends_with(' ') {
+                                    app.draft.push(' ');
                                 }
                                 app.draft.push_str(&pair.1.try_as_bech32_string().unwrap());
                                 app.tag_someone = "".to_owned();

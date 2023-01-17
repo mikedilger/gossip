@@ -7,7 +7,7 @@ pub fn keys_from_text(text: &str) -> Vec<(String, PublicKey)> {
             if !npub.starts_with("npub1") {
                 None
             } else {
-                PublicKey::try_from_bech32_string(&npub)
+                PublicKey::try_from_bech32_string(npub)
                     .ok()
                     .map(|pubkey| (npub.to_string(), pubkey))
             }

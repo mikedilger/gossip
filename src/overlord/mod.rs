@@ -707,7 +707,7 @@ impl Overlord {
             // Add a 'p' tag for the author we are replying to (except if it is our own key)
             if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
                 if pubkey != event.pubkey {
-                    add_pubkey_to_tags(&mut tags, pubkey.into());
+                    add_pubkey_to_tags(&mut tags, pubkey);
                 }
             }
 
