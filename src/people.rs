@@ -319,8 +319,7 @@ impl People {
                     if let Ok(image) = image::load_from_memory(&bytes) {
                         // Note: we can't use egui_extras::image::load_image_bytes because we
                         // need to force a resize
-                        let image =
-                            image.resize(size, size, FilterType::CatmullRom); // DynamicImage
+                        let image = image.resize(size, size, FilterType::CatmullRom); // DynamicImage
                         let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
                         let color_image = ColorImage::from_rgba_unmultiplied(
                             [

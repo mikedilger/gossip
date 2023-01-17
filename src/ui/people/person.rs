@@ -34,7 +34,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         } else {
             app.placeholder_avatar.clone()
         };
-        ui.image(&avatar, Vec2 { x: AVATAR_SIZE_F32 * 3.0, y: AVATAR_SIZE_F32 * 3.0 });
+        ui.image(
+            &avatar,
+            Vec2 {
+                x: AVATAR_SIZE_F32 * 3.0,
+                y: AVATAR_SIZE_F32 * 3.0,
+            },
+        );
         ui.vertical(|ui| {
             ui.label(RichText::new(GossipUi::hex_pubkey_short(&pubkeyhex)).weak());
             GossipUi::render_person_name_line(ui, maybe_person.as_ref());
