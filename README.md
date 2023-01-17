@@ -8,43 +8,42 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 [^1] and Mastodon, Gab, Post, Gettr, Farcaster, Truth social, BlueSky, Locals, Minds, Spoutable, etc, etc....
 
-![Gossip Screenshot](gossip_screenshot.png)
-
 ## Status
 
-Gossip is currently alpha-quality code and I do not recommend using it as your main client at this point. But it is getting close to the point where I will be able to remove that reommendation to not use. So adventurous souls may try it out to see what it will be like.
+Gossip is currently alpha-quality code. Given most nostr clients are also alpha quality code, I no longer recommend against its usage. Feel free to use it as it is, just be aware that there are still serious shortcomings.
 
 Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form follows function, and only after the function is sufficiently complete will I work on the GUI. Also, the GUI tech may still change entirely if egui isn't up to the challenge. So don't be put off too much by the ugliness. We will have hinted fonts and full color emoji support one way or another as a high priority.
 
-As of right now you can (if you aren't stopped by some bug):
+### Features
 
-- [x] **Seeing other people's posts**
-    - [x] **Follow people** by user@domain (NIP-05) or by public key (hex or bech32) plus a relay where they can be found, or by finding them in the feed, clicking their avatar, and choosing to follow them on their page... and unfollow people.
-    - [x] **See a feed of posts from people you follow** including avatars and other user metadata, and NIP-05 verification, as well as reactions to posts.
-    - [X] **See threads related to a post** including ancestors and replies, although it may not be working as good as it will eventually work just yet.
-    - [X] **See a list of posts of a person** on their person page
-    - [X] **An ability to query relays for missing referred-to events** by pressing a button.
-    - [X] **Replies** to your posts in it's own feed page.
-- [x] **Creting content**
-    - [x] Generating a key that is kept securely within the client encrypted under a password that you need to unlock it every time you start the client.
-    - [x] Generate or import (hex or bech32) a private key (your identity) (also kept under a password)
-    - [x] Exporting your private key encrypted, or decrypted as bech32 or hex, or delete your identity
-    - [x] Choose relays to post to (from among some starting relays, plus ones the client has seen in events), including entering a relay URL directly.
-    - [x] Post root-level text messages
-    - [x] Post replies to other people's text messages
-    - [x] React to other people's text messages, but only in the simplest way with reaction of "" which is interpreted as a like or upvote.
+I'm no longer listing features as the list is getting to long and hard to keep up to date.
 
 ### Missing Critical Features
 
 - [ ] Setting your metadata and syncing it with the network.
 - [ ] Syncing the relays you use with the network
+- [ ] Encrypted Private Messaging
 - [ ] Seeing who other people follow (contact lists)
-- [ ] Choosing not to see replies and/or reactions to your own posts by people you didn't directly follow
-- [ ] Good Emoji support (many are still tofu characters)
 - [ ] Quoting and/or boosting posts
+- [ ] Choosing not to see replies and/or reactions to your own posts by people you didn't directly follow
 - [ ] Muting people
-- [ ] Content of posts being rendered well (references, images, videos, etc)
-- [ ] Controlling which relays the client may connect to (currently it will dynamically find relays and connect if it thinks those relays have the event it wants, and you can't configure it to not do that)
+
+## Getting Started
+
+In particular, **Gossip is HARD to get started** because there is no way to tell it a set of relays to pull from, and right from the start it doesn't have enough data to figure out what to do. You can however do this to get it started:
+
+- On page `You`, add your key (public or private)
+- On page `Relays` add a relay that you post to (or several), and tick off "Post Here" (otherwise it won't pull your data from there). Remember to press "SAVE CHANGES" at the bottom of that page.
+- On page `People > Follow Someone New` follow yourself (specify your public key AND one of the relays you added in the previous step. If you don't add the relay, gossip can't help you).
+- Restart (sorry this will be fixed one of these days)
+- On page `Feed > Following ` look at your posts (by default only the last 12 hours show up) and their replies (by clicking the right arrow on the right side of post to give the thread), which will give gossip some data to launch from. Hopefully you have some replies. But if not, no worry, the next step helps too.
+- On page `People > Followed` press `Pull Overwrite` to pull down the people you follow. Metadata is not automatically gathered for them yet (but will be in the future).
+- Click any of these people's avatars and press `View Their Feed` to collect more data on where to find them. If you don't get any data for a person, it may be because there is no good way for nostr to know where they post to. This problem goes away after using gossip for awhile, and it remains an outstanding issue to solve.
+- Maybe restart again for good measure.
+
+## Screenshot
+
+![Gossip Screenshot](gossip_screenshot.png)
 
 ## Development Ideology
 
