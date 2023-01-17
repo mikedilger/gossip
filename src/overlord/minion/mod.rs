@@ -292,7 +292,7 @@ impl Minion {
         );
 
         // Compute how far to look back
-        let (feed_since, special_since) = {
+        let (feed_since, _special_since) = {
             /*
             // Find the oldest 'last_fetched' among the 'person_relay' table.
             // Null values will come through as 0.
@@ -352,7 +352,7 @@ impl Minion {
             filters.push(Filter {
                 p: vec![pubkey.into()],
                 kinds: vec![EventKind::TextNote, EventKind::Repost],
-                since: Some(special_since),
+                since: Some(feed_since),
                 ..Default::default()
             });
 
