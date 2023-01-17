@@ -50,17 +50,30 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .map(|r| r.to_owned())
         .collect();
 
-    ui.add_space(32.0);
+    ui.horizontal(|ui| {
+        ui.set_max_height(0.0); // tries to be as short as possible
 
-    ui.heading("Connected to:");
+        ui.with_layout(Layout::top_down(Align::Min), |ui| {
+            ui.heading("Connected to:");
+            for url in GLOBALS.relays_watching.blocking_read().iter() {
+                ui.label(url.inner());
+            }
+        });
 
-    for url in GLOBALS.relays_watching.blocking_read().iter() {
-        ui.label(url.inner());
-    }
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
 
-    ui.add_space(10.0);
-    ui.separator();
-    ui.add_space(10.0);
+        ui.with_layout(Layout::top_down(Align::Min), |ui| {
+            ui.heading("Writing to:");
+            for relay in postrelays.iter() {
+                render_relay(ui, relay, true);
+                ui.add_space(3.0);
+                ui.separator();
+                ui.add_space(3.0);
+            }
+        });
+    });
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
         if ui.button("SAVE CHANGES").clicked() {
@@ -68,15 +81,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
 
         ui.with_layout(Layout::top_down(Align::Center), |ui| {
-            ui.heading("Your Relays (write):");
-
-            for relay in postrelays.iter() {
-                render_relay(ui, relay, true);
-                ui.add_space(3.0);
-                ui.separator();
-                ui.add_space(3.0);
-            }
-
             ui.heading("Other Known Relays:");
 
             ScrollArea::vertical().show(ui, |ui| {
@@ -91,6 +95,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             });
         });
     });
+
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(10.0);
 }
 
 fn render_relay(ui: &mut Ui, relay: &DbRelay, bold: bool) {
