@@ -18,11 +18,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    let person = maybe_person.as_ref().unwrap();
-
     ui.add_space(24.0);
 
-    ui.heading(get_name(person));
+    if let Some(person) = &maybe_person {
+        ui.heading(get_name(person));
+    } else {
+        ui.heading(&pubkeyhex.0);
+    }
 
     ui.horizontal(|ui| {
         // Avatar first
@@ -32,29 +34,32 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             app.placeholder_avatar.clone()
         };
         ui.image(&avatar, Vec2 { x: 36.0, y: 36.0 });
-
         ui.vertical(|ui| {
             ui.label(RichText::new(GossipUi::hex_pubkey_short(&pubkeyhex)).weak());
-            GossipUi::render_person_name_line(ui, Some(person));
+            GossipUi::render_person_name_line(ui, maybe_person.as_ref());
         });
     });
 
     ui.add_space(12.0);
 
-    if let Some(about) = person.about.as_deref() {
-        ui.label(about);
+    if let Some(person) = &maybe_person {
+        if let Some(about) = person.about.as_deref() {
+            ui.label(about);
+        }
     }
 
     ui.add_space(12.0);
 
-    #[allow(clippy::collapsible_else_if)]
-    if person.followed == 0 {
-        if ui.button("FOLLOW").clicked() {
-            GLOBALS.people.follow(&pubkeyhex, true);
-        }
-    } else {
-        if ui.button("UNFOLLOW").clicked() {
-            GLOBALS.people.follow(&pubkeyhex, false);
+    if let Some(person) = &maybe_person {
+        #[allow(clippy::collapsible_else_if)]
+        if maybe_person.is_none() || person.followed == 0 {
+            if ui.button("FOLLOW").clicked() {
+                GLOBALS.people.follow(&pubkeyhex, true);
+            }
+        } else {
+            if ui.button("UNFOLLOW").clicked() {
+                GLOBALS.people.follow(&pubkeyhex, false);
+            }
         }
     }
 
