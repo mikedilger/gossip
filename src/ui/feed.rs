@@ -77,7 +77,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 });
             }
             let feed = GLOBALS.feed.get_replies();
-            render_a_feed(app, ctx, frame, ui, feed, true);
+            render_a_feed(app, ctx, frame, ui, feed, false);
         }
         FeedKind::Thread { .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
