@@ -187,6 +187,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         // Text area
         ui.add(
             TextEdit::multiline(&mut app.draft)
+                .desired_rows(6)
                 .hint_text("Type your message here")
                 .desired_width(f32::INFINITY)
                 .lock_focus(true),
