@@ -445,11 +445,11 @@ impl People {
         let pubkeys = self.get_followed_pubkeys();
         for pubkey in &pubkeys {
             // Get their best relay
-            let maybeurl = DbPersonRelay::get_best_relay(pubkey.clone()).await?;
-
+            let relays = DbPersonRelay::get_best_relays(pubkey.clone()).await?;
+            let maybeurl = relays.get(0);
             p_tags.push(Tag::Pubkey {
                 pubkey: pubkey.clone(),
-                recommended_relay_url: maybeurl,
+                recommended_relay_url: maybeurl.cloned(),
                 petname: None,
             });
         }

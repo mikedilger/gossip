@@ -67,7 +67,10 @@ impl DbPersonRelay {
              last_suggested_nip05, last_suggested_bytag \
              FROM person_relay \
              INNER JOIN relay ON person_relay.relay=relay.url \
-             WHERE person IN ({}) ORDER BY person, relay.rank DESC",
+             WHERE person IN ({}) ORDER BY person, relay.rank DESC, \
+             last_suggested_nip23 DESC, last_suggested_kind3 DESC, \
+             last_suggested_nip05 DESC, last_suggested_kind2 DESC, \
+             last_fetched DESC, last_suggested_bytag DESC",
             repeat_vars(pubkeys.len())
         );
 
@@ -330,32 +333,32 @@ impl DbPersonRelay {
     }
 
     #[allow(dead_code)]
-    pub async fn get_best_relay(pubkey: PublicKeyHex) -> Result<Option<Url>, Error> {
+    pub async fn get_best_relays(pubkey: PublicKeyHex) -> Result<Vec<Url>, Error> {
         // This is the ranking we are using. There might be reasons
         // for ranking differently:
         // nip23 > kind3 > nip05 > kind2 > fetched > bytag
 
         let sql = "SELECT relay FROM person_relay WHERE person=? \
-         ORDER BY last_suggested_nip23 DESC, last_suggested_kind3 DESC, \
-         last_suggested_nip05 DESC, last_suggested_kind2 DESC, \
-         last_fetched DESC, last_suggested_bytag DESC";
+                   ORDER BY last_suggested_nip23 DESC, last_suggested_kind3 DESC, \
+                   last_suggested_nip05 DESC, last_suggested_kind2 DESC, \
+                   last_fetched DESC, last_suggested_bytag DESC";
 
-        let maybe_relay_result: Result<Option<Url>, Error> = spawn_blocking(move || {
+        let relays: Result<Vec<Url>, Error> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
             stmt.raw_bind_parameter(1, &pubkey.0)?;
             let mut rows = stmt.raw_query();
-            let mut maybe_relay: Option<Url> = None;
-            if let Some(row) = rows.next()? {
+            let mut relays: Vec<Url> = Vec::new();
+            while let Some(row) = rows.next()? {
                 let s: String = row.get(0)?;
-                maybe_relay = Some(Url::new(&s));
+                relays.push(Url::new(&s));
             }
-            Ok(maybe_relay)
+            Ok(relays)
         })
         .await?;
 
-        maybe_relay_result
+        relays
     }
 
     /*
