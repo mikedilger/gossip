@@ -2,6 +2,7 @@ use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
+use crate::tags::keys_from_text;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
@@ -141,25 +142,22 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     Some(replying_to_id) => {
                         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostReply(
                             app.draft.clone(),
-                            app.draft_tags.clone(),
+                            vec![],
                             replying_to_id,
                         ));
                     }
                     None => {
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostTextNote(
-                            app.draft.clone(),
-                            app.draft_tags.clone(),
-                        ));
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::PostTextNote(app.draft.clone(), vec![]));
                     }
                 }
                 app.draft = "".to_owned();
-                app.draft_tags = vec![];
                 app.replying_to = None;
             }
 
             if ui.button("Cancel").clicked() {
                 app.draft = "".to_owned();
-                app.draft_tags = vec![];
                 app.replying_to = None;
             }
 
@@ -174,24 +172,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.menu_button("@", |ui| {
                         for pair in pairs {
                             if ui.button(pair.0).clicked() {
-                                let idx = app
-                                    .draft_tags
-                                    .iter()
-                                    .position(|tag| {
-                                        matches!(
-                                            tag,
-                                            Tag::Pubkey { pubkey, .. } if pubkey.0 == *pair.1
-                                        )
-                                    })
-                                    .unwrap_or_else(|| {
-                                        app.draft_tags.push(Tag::Pubkey {
-                                            pubkey: pair.1,
-                                            recommended_relay_url: None, // FIXME
-                                            petname: None,
-                                        });
-                                        app.draft_tags.len() - 1
-                                    });
-                                app.draft.push_str(&format!("#[{}]", idx));
+                                if !app.draft.ends_with(" ") {
+                                    app.draft.push_str(" ");
+                                }
+                                app.draft.push_str(&pair.1.try_as_bech32_string().unwrap());
                                 app.tag_someone = "".to_owned();
                             }
                         }
@@ -209,21 +193,17 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         );
     });
 
-    // List of tags to be applied
-    for (i, tag) in app.draft_tags.iter().enumerate() {
-        let rendered = match tag {
-            Tag::Pubkey { pubkey, .. } => {
-                if let Some(person) = GLOBALS.people.get(pubkey) {
-                    match person.name {
-                        Some(name) => name,
-                        None => pubkey.0.clone(),
-                    }
-                } else {
-                    pubkey.0.clone()
-                }
+    // List tags that will be applied (FIXME: list tags from parent event too in case of reply)
+    for (i, (npub, pubkey)) in keys_from_text(&app.draft).iter().enumerate() {
+        let rendered = if let Some(person) = GLOBALS.people.get(&pubkey.as_hex_string().into()) {
+            match person.name {
+                Some(name) => name,
+                None => npub.to_string(),
             }
-            _ => serde_json::to_string(tag).unwrap(),
+        } else {
+            npub.to_string()
         };
+
         ui.label(format!("{}: {}", i, rendered));
     }
 }
@@ -538,19 +518,6 @@ fn render_post_actual(
                             .clicked()
                         {
                             app.replying_to = Some(event.id);
-
-                            // Cleanup tags
-                            app.draft_tags = vec![];
-                            // Add a 'p' tag for the author we are replying to (except if it is our own key)
-                            if let Some(pubkey) = GLOBALS.signer.blocking_read().public_key() {
-                                if pubkey != event.pubkey {
-                                    app.draft_tags.push(Tag::Pubkey {
-                                        pubkey: event.pubkey.into(),
-                                        recommended_relay_url: None, // FIXME
-                                        petname: None,
-                                    });
-                                }
-                            }
                         }
 
                         ui.add_space(24.0);
