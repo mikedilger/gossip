@@ -5,6 +5,7 @@ use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
 use eframe::egui::ColorImage;
 use egui_extras::image::FitTo;
+use image::imageops::FilterType;
 use nostr_types::{Metadata, PublicKeyHex, Unixtime, Url};
 use std::cmp::Ordering;
 use std::time::Duration;
@@ -310,7 +311,7 @@ impl People {
                 // Finish this later (spawn)
                 let apubkeyhex = pubkeyhex.to_owned();
                 tokio::spawn(async move {
-                    let size = AVATAR_SIZE
+                    let size = AVATAR_SIZE * 3 // 3x feed size, 1x people page size
                         * GLOBALS
                             .pixels_per_point_times_100
                             .load(std::sync::atomic::Ordering::Relaxed)
@@ -319,7 +320,7 @@ impl People {
                         // Note: we can't use egui_extras::image::load_image_bytes because we
                         // need to force a resize
                         let image =
-                            image.resize(size, size, image::imageops::FilterType::CatmullRom); // DynamicImage
+                            image.resize(size, size, FilterType::CatmullRom); // DynamicImage
                         let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
                         let color_image = ColorImage::from_rgba_unmultiplied(
                             [

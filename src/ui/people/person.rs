@@ -3,6 +3,7 @@ use crate::comms::ToOverlordMessage;
 use crate::db::DbPerson;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
+use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, RichText, Ui, Vec2};
 
@@ -33,7 +34,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         } else {
             app.placeholder_avatar.clone()
         };
-        ui.image(&avatar, Vec2 { x: 36.0, y: 36.0 });
+        ui.image(&avatar, Vec2 { x: AVATAR_SIZE_F32 * 3.0, y: AVATAR_SIZE_F32 * 3.0 });
         ui.vertical(|ui| {
             ui.label(RichText::new(GossipUi::hex_pubkey_short(&pubkeyhex)).weak());
             GossipUi::render_person_name_line(ui, maybe_person.as_ref());
