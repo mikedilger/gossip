@@ -497,8 +497,8 @@ impl Overlord {
                 GLOBALS.settings.read().await.save().await?;
                 tracing::debug!("Settings saved.");
             }
-            ToOverlordMessage::SetThreadFeed(id) => {
-                self.set_thread_feed(id).await?;
+            ToOverlordMessage::SetThreadFeed(id, referenced_by) => {
+                self.set_thread_feed(id, referenced_by).await?;
             }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
@@ -919,52 +919,56 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_thread_feed(&mut self, id: Id) -> Result<(), Error> {
+    async fn set_thread_feed(&mut self, id: Id, referenced_by: Id) -> Result<(), Error> {
         // Cancel current thread subscriptions, if any
         let _ = self.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload::UnsubscribeThreadFeed,
         });
 
+        // Collect missing ancestors and relays they might be at.
+        // We will ask all the relays about all the ancestors, which is more than we need to
+        // but isn't too much to ask for.
+        let mut missing_ancestors: Vec<Id> = Vec::new();
+        let mut relays: Vec<Url> = Vec::new();
+
+        // Include the relays where the referenced_by event was seen
+        relays.extend(DbEventSeen::get_relays_for_event(referenced_by).await?);
+        relays.extend(DbEventSeen::get_relays_for_event(id).await?);
+        if relays.is_empty() {
+            panic!("Our method STILL isn't good enough. We need fallback read relays. I hope this panic does not occur.");
+        }
+
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription
-        let highest_parent_id = match GLOBALS.events.get_highest_local_parent(&id).await? {
-            Some(id) => id,
-            None => return Ok(()), // can't do anything
-        };
+        if let Some(highest_parent_id) = GLOBALS.events.get_highest_local_parent(&id).await? {
+            GLOBALS.feed.set_thread_parent(highest_parent_id);
+            if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
+                for (id, opturl) in highest_parent.replies_to_ancestors() {
+                    missing_ancestors.push(id);
+                    if let Some(url) = opturl {
+                        relays.push(url);
+                    }
+                }
+            }
+        } else {
+            GLOBALS.feed.set_thread_parent(id);
+            missing_ancestors.push(id);
+        }
 
-        // Set that in the feed
-        GLOBALS.feed.set_thread_parent(highest_parent_id);
+        let missing_ancestors_hex: Vec<IdHex> =
+            missing_ancestors.iter().map(|id| (*id).into()).collect();
+        tracing::debug!("Seeking ancestors {:?}", missing_ancestors_hex);
 
-        // get that highest event
-        let highest_parent = match GLOBALS.events.get_local(highest_parent_id).await? {
-            Some(event) => event,
-            None => return Ok(()), // can't do anything
-        };
-
-        // strictly speaking, we are only certainly missing the next parent up, we might have
-        // parents further above. But this isn't asking for much extra.
-        let mut missing_ancestors: Vec<(Id, Option<Url>)> = highest_parent.replies_to_ancestors();
-        let missing_ids: Vec<Id> = missing_ancestors.iter().map(|(id, _)| *id).collect();
-        let missing_ids_hex: Vec<IdHex> = missing_ids.iter().map(|id| (*id).into()).collect();
-        tracing::debug!("Seeking ancestors {:?}", missing_ids_hex);
-
-        // Determine which relays to subscribe on
-        // (everywhere the main event was seen, and all relays suggested in the 'e' tags)
-        let mut relay_urls = DbEventSeen::get_relays_for_event(id).await?;
-        let suggested_urls: Vec<Url> = missing_ancestors
-            .drain(..)
-            .filter_map(|(_, opturl)| opturl)
-            .collect();
-        relay_urls.extend(suggested_urls);
-        relay_urls = relay_urls
+        // Clean up relays
+        relays = relays
             .drain(..)
             .filter(|u| u.is_valid_relay_url())
             .collect();
-        relay_urls.sort();
-        relay_urls.dedup();
+        relays.sort();
+        relays.dedup();
 
-        for url in relay_urls.iter() {
+        for url in relays.iter() {
             // Start minion if needed
             if !GLOBALS.relays_watching.read().await.contains(url) {
                 self.start_minion(url.inner().to_string()).await?;
@@ -973,7 +977,10 @@ impl Overlord {
             // Subscribe
             let _ = self.to_minions.send(ToMinionMessage {
                 target: url.inner().to_string(),
-                payload: ToMinionPayload::SubscribeThreadFeed(id.into(), missing_ids_hex.clone()),
+                payload: ToMinionPayload::SubscribeThreadFeed(
+                    id.into(),
+                    missing_ancestors_hex.clone(),
+                ),
             });
         }
 

@@ -222,8 +222,8 @@ impl GossipUi {
                 GLOBALS.feed.set_feed_to_replies();
                 GLOBALS.events.clear_new();
             }
-            Page::Feed(FeedKind::Thread(id)) => {
-                GLOBALS.feed.set_feed_to_thread(*id);
+            Page::Feed(FeedKind::Thread { id, referenced_by }) => {
+                GLOBALS.feed.set_feed_to_thread(*id, *referenced_by);
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());

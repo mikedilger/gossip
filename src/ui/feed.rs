@@ -44,7 +44,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         {
             app.set_page(Page::Feed(FeedKind::Replies));
         }
-        if matches!(feed_kind.clone(), FeedKind::Thread(..)) {
+        if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
             ui.separator();
             ui.selectable_value(&mut app.page, Page::Feed(feed_kind.clone()), "Thread");
             GLOBALS.events.clear_new();
@@ -79,7 +79,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_replies();
             render_a_feed(app, ctx, frame, ui, feed, true);
         }
-        FeedKind::Thread(_id) => {
+        FeedKind::Thread { .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
                 render_a_feed(app, ctx, frame, ui, vec![parent], true);
             }
@@ -416,7 +416,7 @@ fn render_post_actual(
     let is_main_event: bool = {
         let feed_kind = GLOBALS.feed.get_feed_kind();
         match feed_kind {
-            FeedKind::Thread(id) => id == event.id,
+            FeedKind::Thread { id, .. } => id == event.id,
             _ => false,
         }
     };
@@ -467,12 +467,10 @@ fn render_post_actual(
                         let idhex: IdHex = irt.into();
                         let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
                         if ui.link(&nam).clicked() {
-                            // NOTE - We don't set the thread to the thing it replies to,
-                            //        but to the child that has the link.  This is because
-                            //        the parent might not exist and that would leave us
-                            //        stranded, but we KNOW the child exists, and it's
-                            //        ancestors will render when they become available.
-                            app.set_page(Page::Feed(FeedKind::Thread(event.id)));
+                            app.set_page(Page::Feed(FeedKind::Thread {
+                                id: irt,
+                                referenced_by: event.id,
+                            }));
                         };
                         ui.reset_style();
                     }
@@ -486,7 +484,10 @@ fn render_post_actual(
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         ui.menu_button(RichText::new("≡").size(28.0), |ui| {
                             if !is_main_event && ui.button("View Thread").clicked() {
-                                app.set_page(Page::Feed(FeedKind::Thread(event.id)));
+                                app.set_page(Page::Feed(FeedKind::Thread {
+                                    id: event.id,
+                                    referenced_by: event.id,
+                                }));
                             }
                             if ui.button("Copy ID").clicked() {
                                 ui.output().copied_text = event.id.as_hex_string();
@@ -503,7 +504,10 @@ fn render_post_actual(
 
                         if !is_main_event && ui.button("➤").on_hover_text("View Thread").clicked()
                         {
-                            app.set_page(Page::Feed(FeedKind::Thread(event.id)));
+                            app.set_page(Page::Feed(FeedKind::Thread {
+                                id: event.id,
+                                referenced_by: event.id,
+                            }));
                         }
 
                         ui.label(
@@ -636,7 +640,10 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                             let idhex: IdHex = (*id).into();
                             let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
                             if ui.link(&nam).clicked() {
-                                app.set_page(Page::Feed(FeedKind::Thread(*id)));
+                                app.set_page(Page::Feed(FeedKind::Thread {
+                                    id: *id,
+                                    referenced_by: event.id,
+                                }));
                             };
                         }
                         Tag::Hashtag(s) => {

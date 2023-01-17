@@ -11,7 +11,7 @@ use tokio::task;
 pub enum FeedKind {
     General,
     Replies,
-    Thread(Id),
+    Thread { id: Id, referenced_by: Id },
     Person(PublicKeyHex),
 }
 
@@ -67,14 +67,14 @@ impl Feed {
         });
     }
 
-    pub fn set_feed_to_thread(&self, id: Id) {
-        *self.current_feed_kind.write() = FeedKind::Thread(id);
+    pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id) {
+        *self.current_feed_kind.write() = FeedKind::Thread { id, referenced_by };
         // Parent starts with the post itself
         // Overlord will climb it, and recompute will climb it
         *self.thread_parent.write() = Some(id);
         let _ = GLOBALS
             .to_overlord
-            .send(ToOverlordMessage::SetThreadFeed(id));
+            .send(ToOverlordMessage::SetThreadFeed(id, referenced_by));
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {

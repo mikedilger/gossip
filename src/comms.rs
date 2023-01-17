@@ -22,7 +22,7 @@ pub enum ToOverlordMessage {
     PushFollow,
     SaveRelays,
     SaveSettings,
-    SetThreadFeed(Id),
+    SetThreadFeed(Id, Id),
     Shutdown,
     UnlockKey(String),
     UpdateMetadata(PublicKeyHex),
