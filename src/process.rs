@@ -208,11 +208,30 @@ pub async fn process_new_event(
                 let merge: bool = GLOBALS.pull_following_merge.load(Ordering::Relaxed);
                 let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
 
+                let now = Unixtime::now().unwrap();
+
                 // 'p' tags represent the author's contacts
                 for tag in &event.tags {
-                    if let Tag::Pubkey { pubkey, .. } = tag {
+                    if let Tag::Pubkey {
+                        pubkey,
+                        recommended_relay_url,
+                        petname: _,
+                    } = tag
+                    {
+                        // Save the pubkey for actual following them (outside of the loop in a batch)
                         pubkeys.push(pubkey.to_owned());
-                        // FIXME do something with recommended_relay_url and petname
+
+                        // If there is a URL, create or update person_relay last_suggested_kind3
+                        if let Some(url) = recommended_relay_url {
+                            DbPersonRelay::upsert_last_suggested_bytag(
+                                pubkey.0.to_owned(),
+                                url.inner().to_owned(),
+                                now.0 as u64,
+                            )
+                            .await?;
+                        }
+
+                        // TBD: do something with the petname
                     }
                 }
 
