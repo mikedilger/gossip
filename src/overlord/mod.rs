@@ -473,7 +473,7 @@ impl Overlord {
                 self.pull_following(false).await?;
             }
             ToOverlordMessage::PushFollow => {
-                tracing::error!("Push Follow Unimplemented");
+                self.push_following().await?;
             }
             ToOverlordMessage::SaveRelays => {
                 let dirty_relays: Vec<DbRelay> = GLOBALS
@@ -915,6 +915,41 @@ impl Overlord {
 
         // When the event comes in, process will handle it with our global
         // merge preference.
+
+        Ok(())
+    }
+
+    async fn push_following(&mut self) -> Result<(), Error> {
+        let event = GLOBALS.people.generate_contact_list_event().await?;
+
+        // Push to all of the relays we post to
+        let relays: Vec<DbRelay> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .collect();
+
+        for relay in relays {
+            // Start a minion for it, if there is none
+            if !GLOBALS
+                .relays_watching
+                .read()
+                .await
+                .contains(&Url::new(&relay.url))
+            {
+                self.start_minion(relay.url.clone()).await?;
+            }
+
+            // Send it the event to pull our followers
+            tracing::debug!("Pushing ContactList to {}", &relay.url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay.url.clone(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
+            });
+        }
 
         Ok(())
     }

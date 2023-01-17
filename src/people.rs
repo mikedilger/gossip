@@ -1,4 +1,4 @@
-use crate::db::DbPerson;
+use crate::db::{DbPerson, DbPersonRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
@@ -6,7 +6,7 @@ use dashmap::{DashMap, DashSet};
 use eframe::egui::ColorImage;
 use egui_extras::image::FitTo;
 use image::imageops::FilterType;
-use nostr_types::{Metadata, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Event, EventKind, Metadata, PreEvent, PublicKeyHex, Tag, Unixtime, Url};
 use std::cmp::Ordering;
 use std::time::Duration;
 use tokio::task;
@@ -436,6 +436,43 @@ impl People {
         .await??;
 
         Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub async fn generate_contact_list_event(&self) -> Result<Event, Error> {
+        let mut p_tags: Vec<Tag> = Vec::new();
+
+        let pubkeys = self.get_followed_pubkeys();
+        for pubkey in &pubkeys {
+            // Get their best relay
+            let maybeurl = DbPersonRelay::get_best_relay(pubkey.clone()).await?;
+
+            p_tags.push(Tag::Pubkey {
+                pubkey: pubkey.clone(),
+                recommended_relay_url: maybeurl,
+                petname: None,
+            });
+        }
+
+        let public_key = match GLOBALS.signer.read().await.public_key() {
+            Some(pk) => pk,
+            None => return Err(Error::NoPrivateKey), // not even a public key
+        };
+
+        // NOTICE - some clients are stuffing relay following data into the content
+        // of `ContactList`s.  We don't have a set of relays that we read from, so
+        // we could only do half of that even if we wanted to, and I'm not sure only
+        // putting in write relays is of any use.
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::ContactList,
+            tags: p_tags,
+            content: "".to_owned(),
+            ots: None,
+        };
+
+        GLOBALS.signer.read().await.sign_preevent(pre_event, None)
     }
 
     pub fn follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) {

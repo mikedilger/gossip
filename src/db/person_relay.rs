@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::PublicKeyHex;
+use nostr_types::{PublicKeyHex, Url};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -216,7 +216,6 @@ impl DbPersonRelay {
 
         Ok(())
     }
-
     pub async fn upsert_last_suggested_bytag(
         person: String,
         relay: String,
@@ -328,6 +327,35 @@ impl DbPersonRelay {
         .await?;
 
         output
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_best_relay(pubkey: PublicKeyHex) -> Result<Option<Url>, Error> {
+        // This is the ranking we are using. There might be reasons
+        // for ranking differently:
+        // nip23 > kind3 > nip05 > kind2 > fetched > bytag
+
+        let sql = "SELECT relay FROM person_relay WHERE person=? \
+         ORDER BY last_suggested_nip23 DESC, last_suggested_kind3 DESC, \
+         last_suggested_nip05 DESC, last_suggested_kind2 DESC, \
+         last_fetched DESC, last_suggested_bytag DESC";
+
+        let maybe_relay_result: Result<Option<Url>, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(sql)?;
+            stmt.raw_bind_parameter(1, &pubkey.0)?;
+            let mut rows = stmt.raw_query();
+            let mut maybe_relay: Option<Url> = None;
+            if let Some(row) = rows.next()? {
+                let s: String = row.get(0)?;
+                maybe_relay = Some(Url::new(&s));
+            }
+            Ok(maybe_relay)
+        })
+        .await?;
+
+        maybe_relay_result
     }
 
     /*
