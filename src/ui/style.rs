@@ -132,7 +132,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "DejaVuSans".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/DejaVuSans.ttf"))
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSansSansEmoji.ttf")),
     );
 
     font_data.insert(

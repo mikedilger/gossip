@@ -18,3 +18,11 @@ Tools to manage these
 
 
 pyftsubset noto/NotoColorEmoji.ttf --unicodes="1F000-1FFFF" --layout-features='*'  --symbol-cmap --legacy-cmap --no-notdef-glyph --no-notdef-outline --output-file=EmojiOnly.ttf
+
+
+Noto Emoji (monochrome) comes from:
+  https://github.com/googlefonts/noto-emoji
+
+CHARS COVERED
+  NotoEmoji-Regular:
+     From 1F000 forward, we take these. Therefore strip them from the other fonts.
