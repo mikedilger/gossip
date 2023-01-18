@@ -150,6 +150,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             });
 
             ui.add_space(10.0);
+            ui.label("Don't worry. You won't have to do this for everybody that you follow. Mostly you just need to do it to get gossip kick-started. As you browse nostr, it collects person-relay associations automatically from many sources: p-tag recommended_relay_url hints, relay lists, contact lists, their events having being successfully found at a relay before, and more. It is planned to also allow you to manage (add, delete) these person-relay associations manually.");
+
+            ui.add_space(10.0);
             ui.separator();
             ui.add_space(10.0);
 
