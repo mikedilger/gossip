@@ -25,6 +25,7 @@ http = "0.2"
 image = { version = "0.24", features = [ "png", "jpeg" ] }
 lazy_static = "1.4"
 linkify = "0.9"
+memoize = "0.3"
 nostr-types = { git = "https://github.com/mikedilger/nostr-types" }
 parking_lot = "0.12"
 rand = "0.8"

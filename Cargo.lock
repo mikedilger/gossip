@@ -1712,6 +1712,7 @@ dependencies = [
  "image",
  "lazy_static",
  "linkify",
+ "memoize",
  "nostr-types",
  "parking_lot",
  "rand 0.8.5",
@@ -2189,6 +2190,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5de893c32cde5f383baa4c04c5d6dbdd735cfd4a794b0debdb2bb1b421da5ff4"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "memoize"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c25d125e4063f313300d87c8f658e5b3d69257095df9a4221c12ba50b0421bff"
+dependencies = [
+ "lazy_static",
+ "memoize-inner",
+]
+
+[[package]]
+name = "memoize-inner"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8b7d5160e6ffcc59d4c571c38238ec5b7065bc91a5a24f511988dabcddda723"
+dependencies = [
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
