@@ -2,7 +2,7 @@ use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
-use crate::tags::keys_from_text;
+use crate::tags::{keys_from_text, textarea_highlighter};
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
@@ -185,11 +185,18 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         });
 
         // Text area
+        let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
+            let mut layout_job = textarea_highlighter(text.to_owned());
+            layout_job.wrap.max_width = wrap_width;
+            ui.fonts().layout_job(layout_job)
+        };
+
         ui.add(
             TextEdit::multiline(&mut app.draft)
                 .hint_text("Type your message here")
                 .desired_width(f32::INFINITY)
-                .lock_focus(true),
+                .lock_focus(true)
+                .layouter(&mut layouter),
         );
     });
 
