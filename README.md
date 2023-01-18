@@ -8,29 +8,32 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 [^1] and Mastodon, Gab, Post, Gettr, Farcaster, Truth social, BlueSky, Locals, Minds, Spoutable, etc, etc....
 
+### Points of Difference
+
+The following features make gossip different than most other nostr clients so far:
+
+- Gossip follows people wherever they post, dynamically detects where events might be, and dynamically connects, subscribes, and disconnects to various relays as needed to get those events.
+- Gossip handles private keys securely.
+- Gossip avoids complex HTML/CSS/JavaScript web rendering, preferring to render with OpenGL (or similar), and also avoids web fetch technologies, preferring to use simple HTTP GETs and WebSocket upgrade. This avoids web security issues like XSS vulnerabilities, JavaScript attack vectors, CORS issues, cookie issues, etc, etc. The downside is that it isn't as pretty as web-based clients.
+
 ## Status
 
 Gossip is currently alpha-quality code. Given most nostr clients are also alpha quality code, I no longer recommend against its usage. Feel free to use it as it is, just be aware that there are still serious shortcomings.
 
-Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form follows function, and only after the function is sufficiently complete will I work on the GUI. Also, the GUI tech may still change entirely if egui isn't up to the challenge. So don't be put off too much by the ugliness. We will have hinted fonts and full color emoji support one way or another as a high priority.
-
-### Features
-
-I'm no longer listing features as the list is getting to long and hard to keep up to date.
+Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form follows function, and only after the function is sufficiently complete will I work on the GUI.
 
 ### Missing Critical Features
 
+- [ ] Making it much easier to get started
 - [ ] Setting your metadata and syncing it with the network.
 - [ ] Syncing the relays you use with the network
 - [ ] Encrypted Private Messaging
-- [ ] Seeing who other people follow (contact lists)
-- [ ] Quoting and/or boosting posts
-- [ ] Choosing not to see replies and/or reactions to your own posts by people you didn't directly follow
+- [ ] Choosing to hide replies (anybody can reply so they can be spammy)
 - [ ] Muting people
 
 ## Getting Started
 
-In particular, **Gossip is HARD to get started** because there is no way to tell it a set of relays to pull from, and right from the start it doesn't have enough data to figure out what to do. You can however do this to get it started:
+**Gossip is HARD to get started** because there is no way to tell it a set of relays to pull from, and right from the start it doesn't have enough data to figure out what to do. You can however do this to get it started:
 
 - On page `You`, add your key (public or private)
 - On page `Relays` add a relay that you post to (or several), and tick off "Post Here" (otherwise it won't pull your data from there). Remember to press "SAVE CHANGES" at the bottom of that page.
@@ -66,55 +69,34 @@ In particular, **Gossip is HARD to get started** because there is no way to tell
 We intend to support the following features/NIPs:
 
 - [x] NIP-01 - Basic protocol flow description
-- [ ] NIP-02 - Contact List and Petnames
-- [ ] NIP-04 - Encrypted Direct Message: I doesn't believe this is a good idea to do encrypted messaging this way, as it leaks metadata and has a cryptographic weakness. But it is in common enough usage.
-- [ ] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers (partial)
-- [ ] NIP-08 - Handling Mentions
-- [x] NIP-09 - Event Deletion
+- [x] NIP-02 - Contact List and Petnames
+- [ ] NIP-04 - Encrypted Direct Message
+- [x] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers
+- [x] NIP-08 - Handling Mentions
+- [ ] NIP-09 - Event Deletion
 - [x] NIP-10 - Conventions for clients' use of e and p tags in text events
-- [ ] NIP-11 - Relay Information Document (partial)
+- [x] NIP-11 - Relay Information Document
 - [ ] NIP-12 - Generic Tag Queries
 - [x] NIP-13 - Proof of Work
 - [ ] NIP-14 - Subject tag in text events (partial)
 - [x] NIP-15 - End of Stored Events Notice
 - [ ] NIP-16 - Event Treatment
-- [ ] NIP-19 - bech32-encoded entities (keys, not elsewise)
+- [x] NIP-19 - bech32-encoded entities
 - [x] NIP-20 - Command Results
 - [ ] NIP-22 - Event created_at Limits
-- [ ] NIP-25 - Reactions (viewing, not yet creating)
+- [x] NIP-25 - Reactions
 - [ ] NIP-26 - Delegated Event Signing
 - [ ] NIP-28 - Public Chat
+- [ ] NIP-33 - Parameterized Replaceable Events
 - [ ] NIP-36 - Sensitive Content
 - [ ] NIP-40 - Expiration Timestamp
+- [ ] NIP-42 - Authentication of clients to relays
 
 We do not intend to support the following features/NIPs:
 
 - NIP-03 - OpenTimestamp Attestations for Events: We handle such events, but we do nothing about the ots fields in them.
 - NIP-06 - Basic key derivation from mnemonic seed phrase. This is probably not applicable anyways.
 - NIP-07 - window.nostr capability for web browsers. This is not applicable.
-
-### other features worth mentioning
-
-- [x] configurable look-back time
-- [x] dark/light mode
-- [x] secure handling of private keys by zeroing memory and marking them Weak if displayed or exported
-- [x] exporting/importing of private keys with a passphrase
-- [ ] multiple identities
-- [ ] user management of relays (read/write), including ranking (partial, no ranking ui yet)
-- [ ] choose to load from another relay with a button press
-- [ ] choose what kinds of posts to want to see.
-- [ ] block lists, word filters, etc.
-- [ ] mute a specific post
-- [x] dismiss a specific post without blocking for future sessions
-- [ ] follow people privately or publicly (currently entirely private, not synced)
-
-### What Gossip Isn't
-
-Gossip doesn't use web technology (except for Websockets and HTTP GET). There is no JavaScript, no HTML parsing, no automatic fetch of other resources in order to draw the page, and no HTML/CSS-based layout. Because of this, there are no suprises, no XSS vulnerabilities, no JavaScript attack vectors, no CORS errors, and especially no fetching of page-referenced resources that you never intended to fetch.
-
-On the flip side, we have (currently) shitty fonts, no color emojis, and we render many frames per second which has a computation cost.
-
-This is a trade off that works for the developer, who wants a reliable, secure and privacy-oriented client, not necessarily a flashy one.
 
 ## Building and Installing
 

@@ -7,9 +7,8 @@ use egui::{Context, TextEdit, Ui};
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(30.0);
 
-    ui.heading("NOTICE: Gossip doesn't update the filters when you follow someone yet, so you have to restart the client to fetch their events. Will fix soon.");
-
-    ui.heading("NOTICE: Gossip is not synchronizing with data on the nostr relays. This is a separate list and it won't overwrite anything.");
+    ui.label("NOTICE: Gossip doesn't update the filters when you follow someone yet, so you have to restart the client to fetch their events. Will fix soon.
+");
 
     ui.label("NOTICE: use CTRL-V to paste (middle/right click wont work)");
 
