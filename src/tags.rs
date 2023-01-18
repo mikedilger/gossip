@@ -26,7 +26,7 @@ pub fn notes_from_text(text: &str) -> Vec<(String, Id)> {
             if !note.starts_with("note1") {
                 None
             } else {
-                Id::try_from_bech32_string(&note)
+                Id::try_from_bech32_string(note)
                     .ok()
                     .map(|id| (note.to_string(), id))
             }

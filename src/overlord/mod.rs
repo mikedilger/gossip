@@ -721,11 +721,8 @@ impl Overlord {
 
             // Add all the 'p' tags from the note we are replying to (except our own)
             for tag in &event.tags {
-                match tag {
-                    Tag::Pubkey { pubkey, .. } => {
-                        add_pubkey_hex_to_tags(&mut tags, pubkey).await;
-                    }
-                    _ => {}
+                if let Tag::Pubkey { pubkey, .. } = tag {
+                    add_pubkey_hex_to_tags(&mut tags, pubkey).await;
                 }
             }
 

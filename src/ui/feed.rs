@@ -172,7 +172,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.menu_button("@", |ui| {
                         for pair in pairs {
                             if ui.button(pair.0).clicked() {
-                                if !app.draft.ends_with(' ') && app.draft != "" {
+                                if !app.draft.ends_with(' ') && !app.draft.is_empty() {
                                     app.draft.push(' ');
                                 }
                                 app.draft.push_str(&pair.1.try_as_bech32_string().unwrap());
@@ -518,8 +518,8 @@ fn render_post_actual(
                             .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
                             .clicked()
                         {
-                            if !app.draft.ends_with(" ") && app.draft != "" {
-                                app.draft.push_str(" ");
+                            if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                                app.draft.push(' ');
                             }
                             app.draft
                                 .push_str(&event.id.try_as_bech32_string().unwrap());
