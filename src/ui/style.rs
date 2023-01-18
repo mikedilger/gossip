@@ -140,7 +140,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
         FontData::from_static(include_bytes!("../../fonts/Inconsolata-Regular.ttf")).tweak(
             FontTweak {
                 scale: 1.22,            // This font is smaller than DejaVuSans
-                y_offset_factor: -0.21, // and too low
+                y_offset_factor: -0.18, // and too low
                 y_offset: 0.0,
             },
         ),
