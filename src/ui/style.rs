@@ -110,7 +110,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Button,
         FontId {
-            size: 13.5,
+            size: 13.0,
             family: FontFamily::Proportional,
         },
     );
@@ -118,7 +118,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Heading,
         FontId {
-            size: 18.0,
+            size: 17.0,
             family: FontFamily::Proportional,
         },
     );
@@ -132,12 +132,18 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "DejaVuSans".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/DejaVuSans.ttf")),
+        FontData::from_static(include_bytes!("../../fonts/DejaVuSans.ttf"))
     );
 
     font_data.insert(
         "Inconsolata".to_owned(),
-        FontData::from_static(include_bytes!("../../fonts/Inconsolata-Regular.ttf")),
+        FontData::from_static(include_bytes!("../../fonts/Inconsolata-Regular.ttf")).tweak(
+            FontTweak {
+                scale: 1.22,            // This font is smaller than DejaVuSans
+                y_offset_factor: -0.21, // and too low
+                y_offset: 0.0,
+            },
+        ),
     );
 
     // Some good looking emojis. Use as first priority:
@@ -145,8 +151,8 @@ pub(super) fn font_definitions() -> FontDefinitions {
         "NotoEmoji-Regular".to_owned(),
         FontData::from_static(include_bytes!("../../fonts/NotoEmoji-Regular.ttf")).tweak(
             FontTweak {
-                scale: 1.1,            // make them a touch larger
-                y_offset_factor: -0.2, // move them up
+                scale: 1.1,             // make them a touch larger
+                y_offset_factor: -0.26, // move them up
                 y_offset: 0.0,
             },
         ),

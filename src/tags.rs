@@ -137,18 +137,18 @@ pub fn textarea_highlighter(text: String) -> LayoutJob {
             0.0,
             match highlight {
                 HighlightType::Nothing => TextFormat {
-                    font_id: FontId::new(14.0, FontFamily::Proportional),
+                    font_id: FontId::new(12.0, FontFamily::Proportional),
                     color: Color32::BLACK,
                     ..Default::default()
                 },
                 HighlightType::PublicKey => TextFormat {
-                    font_id: FontId::new(16.0, FontFamily::Monospace),
+                    font_id: FontId::new(12.0, FontFamily::Monospace),
                     background: Color32::LIGHT_GRAY,
                     color: Color32::DARK_GREEN,
                     ..Default::default()
                 },
                 HighlightType::Event => TextFormat {
-                    font_id: FontId::new(16.0, FontFamily::Monospace),
+                    font_id: FontId::new(12.0, FontFamily::Monospace),
                     background: Color32::LIGHT_GRAY,
                     color: Color32::DARK_RED,
                     ..Default::default()
