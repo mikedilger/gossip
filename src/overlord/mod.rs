@@ -6,7 +6,9 @@ use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
-use crate::tags::{add_pubkey_to_tags, add_tag, keys_from_text};
+use crate::tags::{
+    add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, keys_from_text, notes_from_text,
+};
 use minion::Minion;
 use nostr_types::{
     Event, EventKind, Id, IdHex, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
@@ -626,7 +628,13 @@ impl Overlord {
 
             // Add tags for keys that are in the post body as npub1...
             for (npub, pubkey) in keys_from_text(&content) {
-                let idx = add_pubkey_to_tags(&mut tags, pubkey);
+                let idx = add_pubkey_to_tags(&mut tags, pubkey).await;
+                content = content.replace(&npub, &format!("#[{}]", idx));
+            }
+
+            // Do the same as above, but now with note1...
+            for (npub, pubkey) in notes_from_text(&content) {
+                let idx = add_event_to_tags(&mut tags, pubkey, "mention").await;
                 content = content.replace(&npub, &format!("#[{}]", idx));
             }
 
@@ -707,46 +715,43 @@ impl Overlord {
             // Add a 'p' tag for the author we are replying to (except if it is our own key)
             if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
                 if pubkey != event.pubkey {
-                    add_pubkey_to_tags(&mut tags, pubkey);
+                    add_pubkey_to_tags(&mut tags, pubkey).await;
                 }
             }
 
             // Add all the 'p' tags from the note we are replying to (except our own)
             for tag in &event.tags {
-                if tag.tagname() == "p" {
-                    add_tag(&mut tags, tag);
+                match tag {
+                    Tag::Pubkey { pubkey, .. } => {
+                        add_pubkey_hex_to_tags(&mut tags, pubkey).await;
+                    }
+                    _ => {}
                 }
             }
 
             // Add tags for keys that are in the post body as npub1...
             for (npub, pubkey) in keys_from_text(&content) {
-                let idx = add_pubkey_to_tags(&mut tags, pubkey);
+                let idx = add_pubkey_to_tags(&mut tags, pubkey).await;
+                content = content.replace(&npub, &format!("#[{}]", idx));
+            }
+
+            // Do the same as above, but now with note1...
+            for (npub, pubkey) in notes_from_text(&content) {
+                // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                let idx = add_event_to_tags(&mut tags, pubkey, "mention").await;
                 content = content.replace(&npub, &format!("#[{}]", idx));
             }
 
             if let Some((root, _maybeurl)) = event.replies_to_root() {
                 // Add an 'e' tag for the root
-                tags.push(Tag::Event {
-                    id: root,
-                    recommended_relay_url: DbRelay::recommended_relay_for_reply(root).await?,
-                    marker: Some("root".to_string()),
-                });
+                add_event_to_tags(&mut tags, root, "root").await;
 
                 // Add an 'e' tag for the note we are replying to
-                tags.push(Tag::Event {
-                    id: reply_to,
-                    recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
-                    marker: Some("reply".to_string()),
-                });
+                add_event_to_tags(&mut tags, reply_to, "reply").await;
             } else {
                 // We are replying to the root.
                 // NIP-10: "A direct reply to the root of a thread should have a single marked "e" tag of type "root"."
-
-                tags.push(Tag::Event {
-                    id: reply_to,
-                    recommended_relay_url: DbRelay::recommended_relay_for_reply(reply_to).await?,
-                    marker: Some("root".to_string()),
-                });
+                add_event_to_tags(&mut tags, reply_to, "root").await;
             }
 
             if GLOBALS.settings.read().await.set_client_tag {

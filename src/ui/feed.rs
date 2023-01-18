@@ -172,7 +172,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.menu_button("@", |ui| {
                         for pair in pairs {
                             if ui.button(pair.0).clicked() {
-                                if !app.draft.ends_with(' ') {
+                                if !app.draft.ends_with(' ') && app.draft != "" {
                                     app.draft.push(' ');
                                 }
                                 app.draft.push_str(&pair.1.try_as_bech32_string().unwrap());
@@ -513,6 +513,21 @@ fn render_post_actual(
 
                         ui.add_space(24.0);
 
+                        // Button to quote note
+                        if ui
+                            .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
+                            .clicked()
+                        {
+                            if !app.draft.ends_with(" ") && app.draft != "" {
+                                app.draft.push_str(" ");
+                            }
+                            app.draft
+                                .push_str(&event.id.try_as_bech32_string().unwrap());
+                        }
+
+                        ui.add_space(24.0);
+
+                        // Button to reply
                         if ui
                             .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
                             .clicked()
@@ -522,6 +537,7 @@ fn render_post_actual(
 
                         ui.add_space(24.0);
 
+                        // Buttons to react and reaction counts
                         if app.settings.reactions {
                             if ui
                                 .add(
