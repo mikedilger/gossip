@@ -469,7 +469,7 @@ fn render_post_actual(
                     }
 
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                        ui.menu_button(RichText::new("≡").size(28.0), |ui| {
+                        ui.menu_button(RichText::new("≡").size(18.0), |ui| {
                             if !is_main_event && ui.button("View Thread").clicked() {
                                 app.set_page(Page::Feed(FeedKind::Thread {
                                     id: event.id,
@@ -489,7 +489,11 @@ fn render_post_actual(
                             }
                         });
 
-                        if !is_main_event && ui.button("➤").on_hover_text("View Thread").clicked()
+                        if !is_main_event
+                            && ui
+                                .button(RichText::new("➤").size(18.0))
+                                .on_hover_text("View Thread")
+                                .clicked()
                         {
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: event.id,
