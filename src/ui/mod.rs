@@ -400,7 +400,10 @@ impl GossipUi {
                 }
 
                 ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
-                if ui.add(CopyButton {}).clicked() {
+                if ui.add(CopyButton {})
+                    .on_hover_text("Copy Public Key")
+                    .clicked()
+                {
                     ui.output().copied_text = person.pubkey.0.to_owned();
                 }
             }

@@ -518,7 +518,10 @@ fn render_post_actual(
                 // Under row
                 if !as_reply_to {
                     ui.horizontal(|ui| {
-                        if ui.add(CopyButton {}).clicked() {
+                        if ui.add(CopyButton {})
+                            .on_hover_text("Copy Contents")
+                            .clicked()
+                        {
                             ui.output().copied_text = event.content.clone();
                         }
 
@@ -527,6 +530,7 @@ fn render_post_actual(
                         // Button to quote note
                         if ui
                             .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
+                            .on_hover_text("Quote")
                             .clicked()
                         {
                             if !app.draft.ends_with(' ') && !app.draft.is_empty() {
@@ -541,6 +545,7 @@ fn render_post_actual(
                         // Button to reply
                         if ui
                             .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
+                            .on_hover_text("Reply")
                             .clicked()
                         {
                             app.replying_to = Some(event.id);
