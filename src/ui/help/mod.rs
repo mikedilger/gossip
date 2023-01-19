@@ -88,13 +88,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     if ui.link("People > Followed").clicked() {
                         app.set_page(Page::PeopleList);
                     }
-                    ui.label("page, press [Pull Overwrite] to pull down the people you follow. Metadata is not automatically gathered for them yet (but will be in the future).");
+                    ui.label("page, press [Pull Overwrite] to pull down the people you follow. Then press [Refresh Metadata] to update their metadata (it might work for some and not others, it depends if gossip knows which relays they are at yet).");
                 });
             });
             ui.label("• Click Avatars to explore people");
             ui.indent("quickstartclickavatars", |ui| {
                 ui.horizontal_wrapped(|ui| {
-                    ui.label("Click any of these people's avatars to get to their page, where you can update their metadata or view their posts. If you don't get any data for a person, it may be because there is no good way for nostr to know where they post to. This problem goes away after using gossip for awhile, and it remains an outstanding issue to solve.");
+                    ui.label("Click any of these people's avatars to get to their page, where you can update their metadata or view their posts. If you don't get any data for a person, it may be because there is no good way for gossip to know where they post to. This problem goes away after using gossip for awhile, and it remains an outstanding issue to solve.");
                 });
             });
 
