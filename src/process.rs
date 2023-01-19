@@ -228,7 +228,7 @@ pub async fn process_new_event(
                             let mut url = url.to_owned();
                             if url.is_valid_relay_url() {
                                 url.trim();
-                                DbPersonRelay::upsert_last_suggested_bytag(
+                                DbPersonRelay::upsert_last_suggested_kind3(
                                     pubkey.0.to_owned(),
                                     url.inner().to_owned(),
                                     now.0 as u64,

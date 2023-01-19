@@ -194,7 +194,7 @@ impl DbPersonRelay {
 
     #[allow(dead_code)]
     pub async fn upsert_last_suggested_kind3(
-        person: PublicKeyHex,
+        person: String,
         relay: String,
         last_suggested_kind3: u64,
     ) -> Result<(), Error> {
@@ -208,7 +208,7 @@ impl DbPersonRelay {
 
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
-                &person.0,
+                &person,
                 &relay,
                 &last_suggested_kind3,
                 &last_suggested_kind3,
