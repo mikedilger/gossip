@@ -89,8 +89,9 @@ pub async fn process_new_event(
                     recommended_relay_url: Some(should_be_url),
                     marker: _,
                 } => {
-                    let url = Url::new(should_be_url);
+                    let mut url = Url::new(should_be_url);
                     if url.is_valid_relay_url() {
+                        url.trim();
                         // Insert (or ignore) into relays table
                         let dbrelay = DbRelay::new(url.inner().to_owned())?;
                         DbRelay::insert(dbrelay).await?;
@@ -101,8 +102,9 @@ pub async fn process_new_event(
                     recommended_relay_url: Some(should_be_url),
                     petname: _,
                 } => {
-                    let url = Url::new(should_be_url);
+                    let mut url = Url::new(should_be_url);
                     if url.is_valid_relay_url() {
+                        url.trim();
                         // Insert (or ignore) into relays table
                         let dbrelay = DbRelay::new(url.inner().to_owned())?;
                         DbRelay::insert(dbrelay).await?;
@@ -222,13 +224,17 @@ pub async fn process_new_event(
                         pubkeys.push(pubkey.to_owned());
 
                         // If there is a URL, create or update person_relay last_suggested_kind3
-                        if let Some(url) = recommended_relay_url {
-                            DbPersonRelay::upsert_last_suggested_bytag(
-                                pubkey.0.to_owned(),
-                                url.inner().to_owned(),
-                                now.0 as u64,
-                            )
-                            .await?;
+                        if let Some(ref url) = recommended_relay_url {
+                            let mut url = url.to_owned();
+                            if url.is_valid_relay_url() {
+                                url.trim();
+                                DbPersonRelay::upsert_last_suggested_bytag(
+                                    pubkey.0.to_owned(),
+                                    url.inner().to_owned(),
+                                    now.0 as u64,
+                                )
+                                    .await?;
+                            }
                         }
 
                         // TBD: do something with the petname
