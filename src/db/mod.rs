@@ -119,6 +119,7 @@ fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
     apply_sql!(db, version, 11, "schema11.sql");
     apply_sql!(db, version, 12, "schema12.sql");
     apply_sql!(db, version, 13, "schema13.sql");
+    apply_sql!(db, version, 14, "schema14.sql");
     tracing::info!("Database is at version {}", version);
     Ok(())
 }
