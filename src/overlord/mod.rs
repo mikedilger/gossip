@@ -393,9 +393,9 @@ impl Overlord {
             ToOverlordMessage::FollowHex(hex, relay) => {
                 Overlord::follow_hexkey(hex, relay).await?;
             }
-            ToOverlordMessage::FollowNip05(dns_id) => {
+            ToOverlordMessage::FollowNip05(nip05) => {
                 let _ = tokio::spawn(async move {
-                    if let Err(e) = crate::nip05::get_and_follow_nip05(dns_id).await {
+                    if let Err(e) = crate::nip05::get_and_follow_nip05(nip05).await {
                         tracing::error!("{}", e);
                     }
                 });

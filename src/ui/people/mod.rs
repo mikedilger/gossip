@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
-use crate::db::DbPerson;
 use crate::globals::GLOBALS;
+use crate::people::DbPerson;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
@@ -107,7 +107,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 }
 
 fn get_name(person: &DbPerson) -> String {
-    if let Some(name) = &person.name {
+    if let Some(name) = person.name() {
         name.to_owned()
     } else {
         GossipUi::hex_pubkey_short(&person.pubkey)

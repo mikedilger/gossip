@@ -203,12 +203,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     // List tags that will be applied (FIXME: list tags from parent event too in case of reply)
     for (i, (npub, pubkey)) in keys_from_text(&app.draft).iter().enumerate() {
         let rendered = if let Some(person) = GLOBALS.people.get(&pubkey.as_hex_string().into()) {
-            match person.name {
-                Some(name) => name,
-                None => npub.to_string(),
+            match person.name() {
+                Some(name) => name.to_owned(),
+                None => npub.to_owned(),
             }
         } else {
-            npub.to_string()
+            npub.to_owned()
         };
 
         ui.label(format!("{}: {}", i, rendered));
@@ -357,9 +357,9 @@ fn render_post_actual(
     // name
     // about
     // picture
-    // dns_id
-    // dns_id_valid
-    // dns_id_last_checked
+    // nip05
+    // nip05_valid
+    // nip05_last_checked
     // metadata_at
     // followed
 
@@ -626,7 +626,7 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                     match tag {
                         Tag::Pubkey { pubkey, .. } => {
                             let nam = match GLOBALS.people.get(pubkey) {
-                                Some(p) => match p.name {
+                                Some(p) => match p.name() {
                                     Some(n) => format!("@{}", n),
                                     None => format!("@{}", GossipUi::hex_pubkey_short(pubkey)),
                                 },

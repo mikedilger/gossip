@@ -16,9 +16,6 @@ pub use event_relationship::DbEventRelationship;
 mod relay;
 pub use relay::DbRelay;
 
-mod person;
-pub use person::DbPerson;
-
 mod contact;
 pub use contact::DbContact;
 

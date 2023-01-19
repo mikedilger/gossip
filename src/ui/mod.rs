@@ -8,10 +8,10 @@ mod widgets;
 mod you;
 
 use crate::about::About;
-use crate::db::DbPerson;
 use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
+use crate::people::DbPerson;
 use crate::settings::Settings;
 use crate::ui::widgets::CopyButton;
 use eframe::{egui, IconData, Theme};
@@ -377,7 +377,7 @@ impl GossipUi {
     pub fn render_person_name_line(ui: &mut Ui, maybe_person: Option<&DbPerson>) {
         ui.horizontal(|ui| {
             if let Some(person) = maybe_person {
-                if let Some(name) = &person.name {
+                if let Some(name) = person.name() {
                     ui.label(RichText::new(name).strong());
                 } else {
                     ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
@@ -387,15 +387,15 @@ impl GossipUi {
                     ui.label("🚶");
                 }
 
-                if let Some(mut dns_id) = person.dns_id.clone() {
-                    if dns_id.starts_with("_@") {
-                        dns_id = dns_id.get(2..).unwrap().to_string();
+                if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
+                    if nip05.starts_with("_@") {
+                        nip05 = nip05.get(2..).unwrap().to_string();
                     }
 
-                    if person.dns_id_valid > 0 {
-                        ui.label(RichText::new(dns_id).monospace().small());
+                    if person.nip05_valid > 0 {
+                        ui.label(RichText::new(nip05).monospace().small());
                     } else {
-                        ui.label(RichText::new(dns_id).monospace().small().strikethrough());
+                        ui.label(RichText::new(nip05).monospace().small().strikethrough());
                     }
                 }
 

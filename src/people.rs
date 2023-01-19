@@ -1,4 +1,4 @@
-use crate::db::{DbPerson, DbPersonRelay};
+use crate::db::DbPersonRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
@@ -9,9 +9,55 @@ use image::imageops::FilterType;
 use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
 };
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::time::Duration;
 use tokio::task;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DbPerson {
+    pub pubkey: PublicKeyHex,
+    pub metadata: Option<Metadata>,
+    pub metadata_at: Option<i64>,
+    pub nip05_valid: u8,
+    pub nip05_last_checked: Option<u64>,
+    pub followed: u8,
+    pub followed_last_updated: i64,
+}
+
+impl DbPerson {
+    pub fn name(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            md.name.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn about(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            md.about.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn picture(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            md.picture.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn nip05(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            md.nip05.as_deref()
+        } else {
+            None
+        }
+    }
+}
 
 pub struct People {
     people: DashMap<PublicKeyHex, DbPerson>,
@@ -110,17 +156,17 @@ impl People {
             }
         }
         if doit {
-            // Process fresh metadata
-
-            person.name = metadata.name;
-            person.about = metadata.about;
-            person.picture = metadata.picture;
-            if person.dns_id != metadata.nip05 {
-                person.dns_id = metadata.nip05;
-                person.dns_id_valid = 0; // changed, so reset to invalid
-                person.dns_id_last_checked = None; // we haven't checked this one yet
-            }
+            let nip05_changed = if let Some(md) = &person.metadata {
+                metadata.nip05 != md.nip05.clone()
+            } else {
+                metadata.nip05.is_some()
+            };
+            person.metadata = Some(metadata);
             person.metadata_at = Some(asof.0);
+            if nip05_changed {
+                person.nip05_valid = 0; // changed, so reset to invalid
+                person.nip05_last_checked = None; // we haven't checked this one yet
+            }
 
             // Update the database
             let person = person.clone();
@@ -129,15 +175,20 @@ impl People {
                 let maybe_db = GLOBALS.db.blocking_lock();
                 let db = maybe_db.as_ref().unwrap();
 
+                let metadata_json: Option<String> = if let Some(md) = &person.metadata {
+                    Some(serde_json::to_string(md)?)
+                } else {
+                    None
+                };
+
                 let mut stmt = db.prepare(
-                    "UPDATE person SET name=?, about=?, picture=?, dns_id=?, metadata_at=? WHERE pubkey=?"
+                    "UPDATE person SET metadata=?, metadata_at=?, nip05_valid=?, nip05_last_checked=? WHERE pubkey=?"
                 )?;
                 stmt.execute((
-                    &person.name,
-                    &person.about,
-                    &person.picture,
-                    &person.dns_id,
+                    &metadata_json,
                     &person.metadata_at,
+                    &person.nip05_valid,
+                    &person.nip05_last_checked,
                     &pubkeyhex2.0,
                 ))?;
                 Ok::<(), Error>(())
@@ -151,20 +202,26 @@ impl People {
         let person = person.to_owned();
 
         // Only if they have a nip05 dns id set
-        if person.dns_id.is_some() {
+        if matches!(
+            person,
+            DbPerson {
+                metadata: Some(Metadata { nip05: Some(_), .. }),
+                ..
+            }
+        ) {
             // Recheck nip05 every day if invalid, and every two weeks if valid
             // FIXME make these settings
-            let recheck_duration = if person.dns_id_valid > 0 {
+            let recheck_duration = if person.nip05_valid > 0 {
                 Duration::from_secs(60 * 60 * 24 * 14)
             } else {
                 Duration::from_secs(60 * 60 * 24)
             };
 
             // Maybe validate nip05
-            if let Some(last) = person.dns_id_last_checked {
+            if let Some(last) = person.nip05_last_checked {
                 if Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration {
                     // recheck
-                    self.update_dns_id_last_checked(person.pubkey.clone())
+                    self.update_nip05_last_checked(person.pubkey.clone())
                         .await?;
                     task::spawn(async move {
                         if let Err(e) = crate::nip05::validate_nip05(person).await {
@@ -173,7 +230,7 @@ impl People {
                     });
                 }
             } else {
-                self.update_dns_id_last_checked(person.pubkey.clone())
+                self.update_nip05_last_checked(person.pubkey.clone())
                     .await?;
                 task::spawn(async move {
                     if let Err(e) = crate::nip05::validate_nip05(person).await {
@@ -194,33 +251,32 @@ impl People {
             ));
         }
 
-        let sql =
-            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, \
-             metadata_at, followed, followed_last_updated FROM person WHERE followed=1"
-                .to_owned();
+        let sql = "SELECT pubkey, metadata, metadata_at, nip05_valid, nip05_last_checked, \
+             followed, followed_last_updated FROM person WHERE followed=1"
+            .to_owned();
 
         let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(&sql)?;
-            let rows = stmt.query_map([], |row| {
-                Ok(DbPerson {
-                    pubkey: PublicKeyHex(row.get(0)?),
-                    name: row.get(1)?,
-                    about: row.get(2)?,
-                    picture: row.get(3)?,
-                    dns_id: row.get(4)?,
-                    dns_id_valid: row.get(5)?,
-                    dns_id_last_checked: row.get(6)?,
-                    metadata_at: row.get(7)?,
-                    followed: row.get(8)?,
-                    followed_last_updated: row.get(9)?,
-                })
-            })?;
+            let mut rows = stmt.query([])?;
             let mut output: Vec<DbPerson> = Vec::new();
-            for row in rows {
-                output.push(row?);
+            while let Some(row) = rows.next()? {
+                let metadata_json: Option<String> = row.get(1)?;
+                let metadata = match metadata_json {
+                    Some(s) => serde_json::from_str(&s)?,
+                    None => None,
+                };
+                output.push(DbPerson {
+                    pubkey: PublicKeyHex(row.get(0)?),
+                    metadata,
+                    metadata_at: row.get(2)?,
+                    nip05_valid: row.get(3)?,
+                    nip05_last_checked: row.get(4)?,
+                    followed: row.get(5)?,
+                    followed_last_updated: row.get(6)?,
+                });
             }
             Ok(output)
         })
@@ -258,7 +314,7 @@ impl People {
     pub fn get_all(&self) -> Vec<DbPerson> {
         let mut v: Vec<DbPerson> = self.people.iter().map(|e| e.value().to_owned()).collect();
         v.sort_by(|a, b| {
-            let c = a.name.cmp(&b.name);
+            let c = a.name().cmp(&b.name());
             if c == Ordering::Equal {
                 a.pubkey.cmp(&b.pubkey)
             } else {
@@ -296,13 +352,13 @@ impl People {
         // Fail if they don't have a picture url
         // FIXME: we could get metadata that sets this while we are running, so just failing for
         //        the duration of the client isn't quite right. But for now, retrying is taxing.
-        if person.picture.is_none() {
+        if person.picture().is_none() {
             return Err(());
         }
 
         // FIXME: we could get metadata that sets this while we are running, so just failing for
         //        the duration of the client isn't quite right. But for now, retrying is taxing.
-        let url = Url::new(person.picture.as_ref().unwrap());
+        let url = Url::new(person.picture().unwrap());
         if !url.is_valid() {
             return Err(());
         }
@@ -370,7 +426,7 @@ impl People {
                 let mut result_name = String::from("");
 
                 // search for users by name
-                if let Some(name) = &person.name.as_ref() {
+                if let Some(name) = &person.name() {
                     let matchable = name.to_lowercase();
                     if matchable.starts_with(&search) {
                         score = 300;
@@ -383,15 +439,15 @@ impl People {
                 }
 
                 // search for users by nip05 id
-                if score == 0 && person.dns_id_valid > 0 {
-                    if let Some(dns_id) = &person.dns_id.as_ref().map(|n| n.to_lowercase()) {
-                        if dns_id.starts_with(&search) {
+                if score == 0 && person.nip05_valid > 0 {
+                    if let Some(nip05) = &person.nip05().map(|n| n.to_lowercase()) {
+                        if nip05.starts_with(&search) {
                             score = 400;
-                            result_name = dns_id.to_string();
+                            result_name = nip05.to_string();
                         }
-                        if dns_id.contains(&search) {
+                        if nip05.contains(&search) {
                             score = 100;
-                            result_name = dns_id.to_string();
+                            result_name = nip05.to_string();
                         }
                     }
                 }
@@ -602,10 +658,10 @@ impl People {
         Ok(())
     }
 
-    pub async fn update_dns_id_last_checked(&self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
+    pub async fn update_nip05_last_checked(&self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
         let maybe_db = GLOBALS.db.lock().await;
         let db = maybe_db.as_ref().unwrap();
-        let mut stmt = db.prepare("UPDATE person SET dns_id_last_checked=? WHERE pubkey=?")?;
+        let mut stmt = db.prepare("UPDATE person SET nip05_last_checked=? WHERE pubkey=?")?;
         let now = Unixtime::now().unwrap().0;
         stmt.execute((&now, &pubkeyhex.0))?;
         Ok(())
@@ -614,36 +670,54 @@ impl People {
     pub async fn upsert_nip05_validity(
         &self,
         pubkeyhex: &PublicKeyHex,
-        dns_id: Option<String>,
-        dns_id_valid: bool,
-        dns_id_last_checked: u64,
+        nip05: Option<String>,
+        nip05_valid: bool,
+        nip05_last_checked: u64,
     ) -> Result<(), Error> {
         // Update memory
         if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
-            dbperson.dns_id = dns_id.clone();
-            dbperson.dns_id_valid = u8::from(dns_id_valid);
-            dbperson.dns_id_last_checked = Some(dns_id_last_checked);
+            if let Some(metadata) = &mut dbperson.metadata {
+                metadata.nip05 = nip05.clone()
+            } else {
+                let mut metadata = Metadata::new();
+                metadata.nip05 = nip05.clone();
+                dbperson.metadata = Some(metadata);
+            }
+            dbperson.nip05_valid = u8::from(nip05_valid);
+            dbperson.nip05_last_checked = Some(nip05_last_checked);
         }
 
         // Update in database
-        let sql = "INSERT INTO person (pubkey, dns_id, dns_id_valid, dns_id_last_checked) \
+        let sql = "INSERT INTO person (pubkey, metadata, nip05_valid, nip05_last_checked) \
                    values (?, ?, ?, ?) \
-                   ON CONFLICT(pubkey) DO UPDATE SET dns_id=?, dns_id_valid=?, dns_id_last_checked=?";
+                   ON CONFLICT(pubkey) DO \
+                   UPDATE SET metadata=json_patch(metadata, ?), nip05_valid=?, nip05_last_checked=?";
 
         let pubkeyhex2 = pubkeyhex.to_owned();
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
+            let mut metadata = Metadata::new();
+            metadata.nip05 = nip05.clone();
+            let metadata_json: Option<String> = Some(serde_json::to_string(&metadata)?);
+            let metadata_patch = format!(
+                "{{\"nip05\": {}}}",
+                match nip05 {
+                    Some(s) => s,
+                    None => "null".to_owned(),
+                }
+            );
+
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
                 &pubkeyhex2.0,
-                &dns_id,
-                &dns_id_valid,
-                &dns_id_last_checked,
-                &dns_id,
-                &dns_id_valid,
-                &dns_id_last_checked,
+                &metadata_json,
+                &nip05_valid,
+                &nip05_last_checked,
+                &metadata_patch,
+                &nip05_valid,
+                &nip05_last_checked,
             ))?;
             Ok::<(), Error>(())
         })
@@ -653,10 +727,10 @@ impl People {
     }
 
     async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
-        let sql =
-            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, \
-             metadata_at, followed, followed_last_updated FROM person"
-                .to_owned();
+        let sql = "SELECT pubkey, metadata, metadata_at, \
+             nip05_valid, nip05_last_checked, \
+             followed, followed_last_updated FROM person"
+            .to_owned();
         let sql = match criteria {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
@@ -667,24 +741,23 @@ impl People {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(&sql)?;
-            let rows = stmt.query_map([], |row| {
-                Ok(DbPerson {
-                    pubkey: PublicKeyHex(row.get(0)?),
-                    name: row.get(1)?,
-                    about: row.get(2)?,
-                    picture: row.get(3)?,
-                    dns_id: row.get(4)?,
-                    dns_id_valid: row.get(5)?,
-                    dns_id_last_checked: row.get(6)?,
-                    metadata_at: row.get(7)?,
-                    followed: row.get(8)?,
-                    followed_last_updated: row.get(9)?,
-                })
-            })?;
-
+            let mut rows = stmt.query([])?;
             let mut output: Vec<DbPerson> = Vec::new();
-            for row in rows {
-                output.push(row?);
+            while let Some(row) = rows.next()? {
+                let metadata_json: Option<String> = row.get(1)?;
+                let metadata = match metadata_json {
+                    Some(s) => serde_json::from_str(&s)?,
+                    None => None,
+                };
+                output.push(DbPerson {
+                    pubkey: PublicKeyHex(row.get(0)?),
+                    metadata,
+                    metadata_at: row.get(2)?,
+                    nip05_valid: row.get(3)?,
+                    nip05_last_checked: row.get(4)?,
+                    followed: row.get(5)?,
+                    followed_last_updated: row.get(6)?,
+                });
             }
             Ok(output)
         })
@@ -705,8 +778,10 @@ impl People {
 
     async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<DbPerson>, Error> {
         let sql = format!(
-            "SELECT pubkey, name, about, picture, dns_id, dns_id_valid, dns_id_last_checked, \
-             metadata_at, followed, followed_last_updated FROM person WHERE pubkey IN ({})",
+            "SELECT pubkey, metadata, metadata_at, \
+             nip05_valid, nip05_last_checked, \
+             followed, followed_last_updated \
+             FROM person WHERE pubkey IN ({})",
             repeat_vars(pubkeys.len())
         );
 
@@ -727,17 +802,19 @@ impl People {
             let mut rows = stmt.raw_query();
             let mut people: Vec<DbPerson> = Vec::new();
             while let Some(row) = rows.next()? {
+                let metadata_json: Option<String> = row.get(1)?;
+                let metadata = match metadata_json {
+                    Some(s) => serde_json::from_str(&s)?,
+                    None => None,
+                };
                 people.push(DbPerson {
                     pubkey: PublicKeyHex(row.get(0)?),
-                    name: row.get(1)?,
-                    about: row.get(2)?,
-                    picture: row.get(3)?,
-                    dns_id: row.get(4)?,
-                    dns_id_valid: row.get(5)?,
-                    dns_id_last_checked: row.get(6)?,
-                    metadata_at: row.get(7)?,
-                    followed: row.get(8)?,
-                    followed_last_updated: row.get(9)?,
+                    metadata,
+                    metadata_at: row.get(2)?,
+                    nip05_valid: row.get(3)?,
+                    nip05_last_checked: row.get(4)?,
+                    followed: row.get(5)?,
+                    followed_last_updated: row.get(6)?,
                 });
             }
 
@@ -750,25 +827,27 @@ impl People {
 
     #[allow(dead_code)]
     async fn insert(person: DbPerson) -> Result<(), Error> {
-        let sql =
-            "INSERT OR IGNORE INTO person (pubkey, name, about, picture, dns_id, dns_id_valid, \
-             dns_id_last_checked, metadata_at, followed, followed_last_updated) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)";
+        let sql = "INSERT OR IGNORE INTO person (pubkey, metadata, metadata_at, \
+             nip05_valid, nip05_last_checked, followed, followed_last_updated) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
 
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
+            let metadata_json: Option<String> = if let Some(md) = &person.metadata {
+                Some(serde_json::to_string(md)?)
+            } else {
+                None
+            };
+
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
                 &person.pubkey.0,
-                &person.name,
-                &person.about,
-                &person.picture,
-                &person.dns_id,
-                &person.dns_id_valid,
-                &person.dns_id_last_checked,
+                &metadata_json,
                 &person.metadata_at,
+                &person.nip05_valid,
+                &person.nip05_last_checked,
                 &person.followed,
                 &person.followed_last_updated,
             ))?;
