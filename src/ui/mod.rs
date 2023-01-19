@@ -3,7 +3,7 @@ mod help;
 mod people;
 mod relays;
 mod settings;
-mod style;
+pub(crate) mod style;
 mod widgets;
 mod you;
 

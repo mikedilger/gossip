@@ -1,8 +1,10 @@
+use crate::tags::HighlightType;
 use eframe::{egui, epaint};
 use egui::style::{Selection, Visuals, Widgets};
 use egui::{
     Color32, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Rounding, Stroke, TextStyle,
 };
+use epaint::text::TextFormat;
 use epaint::Shadow;
 use std::collections::BTreeMap;
 
@@ -77,6 +79,49 @@ pub(super) fn light_mode_visuals() -> Visuals {
         clip_rect_margin: 3.0, // should be at least half the size of the widest frame stroke + max WidgetVisuals::expansion
         button_frame: true,
         collapsing_header_frame: false,
+    }
+}
+
+pub(crate) fn highlight_text_format(highlight_type: HighlightType, dark_mode: bool) -> TextFormat {
+    let main = if dark_mode {
+        Color32::WHITE
+    } else {
+        Color32::BLACK
+    };
+    let grey = if dark_mode {
+        Color32::DARK_GRAY
+    } else {
+        Color32::LIGHT_GRAY
+    };
+    let green = if dark_mode {
+        Color32::LIGHT_GREEN
+    } else {
+        Color32::DARK_GREEN
+    };
+    let red = if dark_mode {
+        Color32::LIGHT_RED
+    } else {
+        Color32::DARK_RED
+    };
+
+    match highlight_type {
+        HighlightType::Nothing => TextFormat {
+            font_id: FontId::new(12.0, FontFamily::Proportional),
+            color: main,
+            ..Default::default()
+        },
+        HighlightType::PublicKey => TextFormat {
+            font_id: FontId::new(12.0, FontFamily::Monospace),
+            background: grey,
+            color: green,
+            ..Default::default()
+        },
+        HighlightType::Event => TextFormat {
+            font_id: FontId::new(12.0, FontFamily::Monospace),
+            background: grey,
+            color: red,
+            ..Default::default()
+        },
     }
 }
 

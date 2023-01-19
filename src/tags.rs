@@ -1,8 +1,5 @@
 use crate::db::DbRelay;
-use eframe::epaint::{
-    text::{LayoutJob, TextFormat},
-    Color32, FontFamily, FontId,
-};
+use eframe::epaint::text::LayoutJob;
 use memoize::memoize;
 use nostr_types::{Id, PublicKey, PublicKeyHex, Tag};
 
@@ -92,14 +89,14 @@ pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: 
     }
 }
 
-enum HighlightType {
+pub(crate) enum HighlightType {
     Nothing,
     PublicKey,
     Event,
 }
 
 #[memoize]
-pub fn textarea_highlighter(text: String) -> LayoutJob {
+pub fn textarea_highlighter(text: String, dark_mode: bool) -> LayoutJob {
     let mut job = LayoutJob::default();
 
     let ids = notes_from_text(&text);
@@ -135,25 +132,7 @@ pub fn textarea_highlighter(text: String) -> LayoutJob {
         job.append(
             chunk,
             0.0,
-            match highlight {
-                HighlightType::Nothing => TextFormat {
-                    font_id: FontId::new(12.0, FontFamily::Proportional),
-                    color: Color32::BLACK,
-                    ..Default::default()
-                },
-                HighlightType::PublicKey => TextFormat {
-                    font_id: FontId::new(12.0, FontFamily::Monospace),
-                    background: Color32::LIGHT_GRAY,
-                    color: Color32::DARK_GREEN,
-                    ..Default::default()
-                },
-                HighlightType::Event => TextFormat {
-                    font_id: FontId::new(12.0, FontFamily::Monospace),
-                    background: Color32::LIGHT_GRAY,
-                    color: Color32::DARK_RED,
-                    ..Default::default()
-                },
-            },
+            crate::ui::style::highlight_text_format(highlight, dark_mode),
         );
 
         curr = index;

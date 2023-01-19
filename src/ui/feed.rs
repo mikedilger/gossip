@@ -186,7 +186,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         // Text area
         let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-            let mut layout_job = textarea_highlighter(text.to_owned());
+            let mut layout_job = textarea_highlighter(text.to_owned(), ui.visuals().dark_mode);
             layout_job.wrap.max_width = wrap_width;
             ui.fonts().layout_job(layout_job)
         };
