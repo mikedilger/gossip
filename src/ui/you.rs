@@ -118,7 +118,7 @@ fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
     ui.add_space(10.0);
 
     if let Some(epk) = GLOBALS.signer.blocking_read().encrypted_private_key() {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label(&format!("Encrypted Private Key: {}", epk));
             if ui.add(CopyButton {}).clicked() {
                 ui.output().copied_text = epk.to_string();
