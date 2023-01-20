@@ -103,6 +103,13 @@ macro_rules! apply_sql {
 }
 
 fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
+    let current_version = 14;
+    if version > current_version {
+        panic!(
+            "Database version {} is newer than this binary which expects version {}.",
+            version, current_version
+        );
+    }
     apply_sql!(db, version, 1, "schema1.sql");
     apply_sql!(db, version, 2, "schema2.sql");
     apply_sql!(db, version, 3, "schema3.sql");
