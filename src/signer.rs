@@ -71,6 +71,21 @@ impl Signer {
             Ok(())
         } else if let Some(epk) = &self.encrypted {
             self.private = Some(epk.decrypt(pass)?);
+
+            // If older version, re-encrypt with new version at default 2^18 rounds
+            if let Some(private) = &self.private {
+                // it will
+                if epk.version()? < 2 {
+                    self.encrypted = Some(private.export_encrypted(pass, DEFAULT_LOG_N)?);
+                    // and eventually save
+                    task::spawn(async move {
+                        if let Err(e) = GLOBALS.signer.read().await.save_through_settings().await {
+                            tracing::error!("{}", e);
+                        }
+                    });
+                }
+            }
+
             Ok(())
         } else {
             Err(Error::NoPrivateKey)
