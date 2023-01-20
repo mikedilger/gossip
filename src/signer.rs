@@ -72,9 +72,10 @@ impl Signer {
         } else if let Some(epk) = &self.encrypted {
             self.private = Some(epk.decrypt(pass)?);
 
-            // If older version, re-encrypt with new version at default 2^18 rounds
             if let Some(private) = &self.private {
-                // it will
+                // it will be
+
+                // If older version, re-encrypt with new version at default 2^18 rounds
                 if epk.version()? < 2 {
                     self.encrypted = Some(private.export_encrypted(pass, DEFAULT_LOG_N)?);
                     // and eventually save
@@ -83,6 +84,10 @@ impl Signer {
                             tracing::error!("{}", e);
                         }
                     });
+                }
+
+                if self.public.is_none() {
+                    self.public = Some(private.public_key());
                 }
             }
 

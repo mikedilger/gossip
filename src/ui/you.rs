@@ -184,12 +184,13 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         ui.label("Enter private key");
         ui.add(
             TextEdit::singleline(&mut app.import_priv)
-                .hint_text("nsec1 or hex")
+                .hint_text("ncryptsec1, nsec1, or hex")
+                .desired_width(f32::INFINITY)
                 .password(true),
         );
     });
     ui.horizontal(|ui| {
-        ui.label("Enter a password to keep it encrypted under");
+        ui.label("Enter a password for the private key");
         ui.add(TextEdit::singleline(&mut app.password).password(true));
     });
     if ui.button("import").clicked() {
@@ -234,7 +235,11 @@ fn offer_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
     } else {
         ui.horizontal_wrapped(|ui| {
             ui.label("Enter your public key");
-            ui.add(TextEdit::singleline(&mut app.import_pub).hint_text("npub1 or hex"));
+            ui.add(
+                TextEdit::singleline(&mut app.import_pub)
+                    .hint_text("npub1 or hex")
+                    .desired_width(f32::INFINITY),
+            );
             if ui.button("Import a Public Key").clicked() {
                 let _ = GLOBALS
                     .to_overlord

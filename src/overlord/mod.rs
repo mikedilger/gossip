@@ -11,7 +11,8 @@ use crate::tags::{
 };
 use minion::Minion;
 use nostr_types::{
-    Event, EventKind, Id, IdHex, PreEvent, PrivateKey, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
+    EncryptedPrivateKey, Event, EventKind, Id, IdHex, PreEvent, PrivateKey, PublicKey,
+    PublicKeyHex, Tag, Unixtime, Url,
 };
 use relay_picker::{BestRelay, RelayPicker};
 use std::collections::HashMap;
@@ -410,22 +411,33 @@ impl Overlord {
                 GLOBALS.signer.read().await.save_through_settings().await?;
             }
             ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
-                let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
-                let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
-                import_priv.zeroize();
-                if maybe_pk1.is_err() && maybe_pk2.is_err() {
-                    password.zeroize();
-                    *GLOBALS.status_message.write().await =
-                        "Private key not recognized.".to_owned();
-                } else {
-                    let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
+                if import_priv.starts_with("ncryptsec") {
+                    let epk = EncryptedPrivateKey(import_priv);
+                    GLOBALS.signer.write().await.set_encrypted_private_key(epk);
                     GLOBALS
                         .signer
                         .write()
                         .await
-                        .set_private_key(privkey, &password)?;
+                        .unlock_encrypted_private_key(&password)?;
                     password.zeroize();
-                    GLOBALS.signer.read().await.save_through_settings().await?;
+                } else {
+                    let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
+                    let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
+                    import_priv.zeroize();
+                    if maybe_pk1.is_err() && maybe_pk2.is_err() {
+                        password.zeroize();
+                        *GLOBALS.status_message.write().await =
+                            "Private key not recognized.".to_owned();
+                    } else {
+                        let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
+                        GLOBALS
+                            .signer
+                            .write()
+                            .await
+                            .set_private_key(privkey, &password)?;
+                        password.zeroize();
+                        GLOBALS.signer.read().await.save_through_settings().await?;
+                    }
                 }
             }
             ToOverlordMessage::ImportPub(pubstr) => {
