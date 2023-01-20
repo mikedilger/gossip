@@ -49,3 +49,10 @@ zeroize = "1.5"
 opt-level = 3
 debug-assertions = false
 overflow-checks = false
+
+[package.metadata.deb]
+section = "web"
+assets = [
+    ["target/release/gossip", "/usr/bin/", "755"],
+    ["contrib/gossip.desktop", "/usr/share/applications/gossip.desktop", "644"],
+]
