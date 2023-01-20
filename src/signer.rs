@@ -3,6 +3,8 @@ use crate::globals::GLOBALS;
 use nostr_types::{EncryptedPrivateKey, Event, KeySecurity, PreEvent, PrivateKey, PublicKey};
 use tokio::task;
 
+const DEFAULT_LOG_N: u8 = 18;
+
 #[derive(Default)]
 pub struct Signer {
     public: Option<PublicKey>,
@@ -57,7 +59,7 @@ impl Signer {
     }
 
     pub fn set_private_key(&mut self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
-        self.encrypted = Some(pk.export_encrypted(pass)?);
+        self.encrypted = Some(pk.export_encrypted(pass, DEFAULT_LOG_N)?);
         self.public = Some(pk.public_key());
         self.private = Some(pk);
         Ok(())
@@ -77,7 +79,7 @@ impl Signer {
 
     pub fn generate_private_key(&mut self, pass: &str) -> Result<(), Error> {
         let pk = PrivateKey::generate();
-        self.encrypted = Some(pk.export_encrypted(pass)?);
+        self.encrypted = Some(pk.export_encrypted(pass, DEFAULT_LOG_N)?);
         self.public = Some(pk.public_key());
         self.private = Some(pk);
         Ok(())
@@ -123,7 +125,7 @@ impl Signer {
 
                 // We have to regenerate encrypted private key because it may have fallen from
                 // medium to weak security. And then we need to save that
-                let epk = pk.export_encrypted(pass)?;
+                let epk = pk.export_encrypted(pass, DEFAULT_LOG_N)?;
                 self.encrypted = Some(epk);
                 self.private = Some(pk);
                 task::spawn(async move {
@@ -147,7 +149,7 @@ impl Signer {
 
                 // We have to regenerate encrypted private key because it may have fallen from
                 // medium to weak security. And then we need to save that
-                let epk = pk.export_encrypted(pass)?;
+                let epk = pk.export_encrypted(pass, DEFAULT_LOG_N)?;
                 self.encrypted = Some(epk);
                 self.private = Some(pk);
                 task::spawn(async move {
