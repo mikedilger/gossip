@@ -41,6 +41,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
 
         ui.horizontal(|ui| {
+            ui.label("Replies Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load replies, mentions, and DMs from. You'll eventually be able to load more, one chunk at a time. Mostly takes effect on restart.");
+            ui.add(Slider::new(&mut app.settings.replies_chunk, 86400..=2592000).text("seconds, "));
+            ui.label(secs_to_string(app.settings.replies_chunk));
+        });
+
+        ui.horizontal(|ui| {
             ui.label("Overlap: ").on_hover_text("If we recently loaded events up to time T, but restarted, we will now load events starting from time T minus overlap. Takes effect on restart. I recommend 300 (5 minutes).");
             ui.add(Slider::new(&mut app.settings.overlap, 0..=3600).text("seconds, "));
             ui.label(secs_to_string(app.settings.overlap));

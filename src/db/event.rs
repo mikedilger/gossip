@@ -51,6 +51,56 @@ impl DbEvent {
         output
     }
 
+    pub async fn fetch_reply_related(since: i64) -> Result<Vec<DbEvent>, Error> {
+        let public_key: PublicKeyHex = match GLOBALS.signer.read().await.public_key() {
+            None => return Ok(vec![]),
+            Some(pk) => pk.into(),
+        };
+
+        let kinds = if GLOBALS.settings.read().await.reactions {
+            "(1, 5, 6, 7)"
+        } else {
+            "(1, 5, 6)"
+        };
+
+        let sql = format!(
+            "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event \
+             LEFT JOIN event_tag ON event.id=event_tag.event \
+             WHERE event.kind IN {} \
+             AND event_tag.label='p' AND event_tag.field0=? \
+             AND created_at > ? \
+             ORDER BY created_at ASC",
+            kinds
+        );
+
+        let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(&sql)?;
+            stmt.raw_bind_parameter(1, public_key.0)?;
+            stmt.raw_bind_parameter(2, since)?;
+            let mut rows = stmt.raw_query();
+            let mut events: Vec<DbEvent> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let event = DbEvent {
+                    id: IdHex(row.get(0)?),
+                    raw: row.get(1)?,
+                    pubkey: PublicKeyHex(row.get(2)?),
+                    created_at: row.get(3)?,
+                    kind: row.get(4)?,
+                    content: row.get(5)?,
+                    ots: row.get(6)?,
+                };
+                events.push(event);
+            }
+            Ok(events)
+        })
+        .await?;
+
+        output
+    }
+
     #[allow(dead_code)]
     pub async fn fetch_by_ids(ids: Vec<IdHex>) -> Result<Vec<DbEvent>, Error> {
         if ids.is_empty() {

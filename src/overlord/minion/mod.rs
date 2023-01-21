@@ -276,11 +276,12 @@ impl Minion {
         // but we may need to update the subscription
 
         let mut filters: Vec<Filter> = Vec::new();
-        let (overlap, feed_chunk) = {
+        let (overlap, feed_chunk, replies_chunk) = {
             let settings = GLOBALS.settings.read().await.clone();
             (
                 Duration::from_secs(settings.overlap),
                 Duration::from_secs(settings.feed_chunk),
+                Duration::from_secs(settings.replies_chunk),
             )
         };
 
@@ -292,35 +293,30 @@ impl Minion {
         );
 
         // Compute how far to look back
-        let (feed_since, _special_since) = {
-            /*
-            // Find the oldest 'last_fetched' among the 'person_relay' table.
-            // Null values will come through as 0.
-            let mut special_since: i64 =
-                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
-             */
-
+        let (feed_since, replies_since) = {
             // Start with where we left off, the time we last got something from
             // this relay.
-            let mut special_since: Unixtime = match self.dbrelay.last_general_eose_at {
+            let mut replies_since: Unixtime = match self.dbrelay.last_general_eose_at {
                 Some(u) => Unixtime(u as i64),
                 None => Unixtime(0),
             };
 
             // Subtract overlap to avoid gaps due to clock sync and event
             // propogation delay
-            special_since = special_since - overlap;
+            replies_since = replies_since - overlap;
 
             // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
-            if special_since.0 < 1577836800 {
-                special_since.0 = 1577836800;
+            if replies_since.0 < 1577836800 {
+                replies_since.0 = 1577836800;
             }
 
-            // For feed related events, don't look back more than one feed_chunk ago
-            let one_feedchunk_ago = Unixtime::now().unwrap() - feed_chunk;
-            let feed_since = special_since.max(one_feedchunk_ago);
+            let one_replieschunk_ago = Unixtime::now().unwrap() - replies_chunk;
+            let replies_since = replies_since.max(one_replieschunk_ago);
 
-            (feed_since, special_since)
+            let one_feedchunk_ago = Unixtime::now().unwrap() - feed_chunk;
+            let feed_since = replies_since.max(one_feedchunk_ago);
+
+            (feed_since, replies_since)
         };
 
         let enable_reactions = GLOBALS.settings.read().await.reactions;
@@ -352,7 +348,7 @@ impl Minion {
             filters.push(Filter {
                 p: vec![pubkey.into()],
                 kinds: vec![EventKind::TextNote, EventKind::Repost],
-                since: Some(feed_since),
+                since: Some(replies_since),
                 ..Default::default()
             });
 

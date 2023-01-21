@@ -3,7 +3,8 @@ use crate::globals::GLOBALS;
 use nostr_types::{EncryptedPrivateKey, PublicKey};
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_FEED_CHUNK: u64 = 43200; // 12 hours
+pub const DEFAULT_FEED_CHUNK: u64 = 60 * 60 * 12; // 12 hours
+pub const DEFAULT_REPLIES_CHUNK: u64 = 60 * 60 * 24 * 7; // 1 week
 pub const DEFAULT_OVERLAP: u64 = 300; // 5 minutes
 pub const DEFAULT_THREAD_VIEW_ANCESTORS: bool = true;
 pub const DEFAULT_THREAD_VIEW_REPLIES: bool = false;
@@ -21,6 +22,7 @@ pub const DEFAULT_REACTIONS: bool = true;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
     pub feed_chunk: u64,
+    pub replies_chunk: u64,
     pub overlap: u64,
     pub thread_view_ancestors: bool,
     pub thread_view_replies: bool,
@@ -42,6 +44,7 @@ impl Default for Settings {
     fn default() -> Settings {
         Settings {
             feed_chunk: DEFAULT_FEED_CHUNK,
+            replies_chunk: DEFAULT_REPLIES_CHUNK,
             overlap: DEFAULT_OVERLAP,
             thread_view_ancestors: DEFAULT_THREAD_VIEW_ANCESTORS,
             thread_view_replies: DEFAULT_THREAD_VIEW_REPLIES,
@@ -79,6 +82,9 @@ impl Settings {
             match &*row.0 {
                 "feed_chunk" => {
                     settings.feed_chunk = row.1.parse::<u64>().unwrap_or(DEFAULT_FEED_CHUNK)
+                }
+                "replies_chunk" => {
+                    settings.replies_chunk = row.1.parse::<u64>().unwrap_or(DEFAULT_REPLIES_CHUNK)
                 }
                 "overlap" => settings.overlap = row.1.parse::<u64>().unwrap_or(DEFAULT_OVERLAP),
                 "thread_view_ancestors" => settings.thread_view_ancestors = numstr_to_bool(row.1),
@@ -146,6 +152,7 @@ impl Settings {
         let mut stmt = db.prepare(
             "REPLACE INTO settings (key, value) VALUES \
              ('feed_chunk', ?),\
+             ('replies_chunk', ?),\
              ('overlap', ?),\
              ('thread_view_ancestors', ?),\
              ('thread_view_replies', ?),\
@@ -161,6 +168,7 @@ impl Settings {
         )?;
         stmt.execute((
             self.feed_chunk,
+            self.replies_chunk,
             self.overlap,
             bool_to_numstr(self.thread_view_ancestors),
             bool_to_numstr(self.thread_view_replies),

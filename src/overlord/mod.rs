@@ -131,9 +131,34 @@ impl Overlord {
             }
         });
 
-        // Load feed-related events from database and process (TextNote, EventDeletion, Reaction)
+        let now = Unixtime::now().unwrap();
+
+        // Load reply-related events from database and process
+        // (where you are tagged)
         {
-            let now = Unixtime::now().unwrap();
+            let replies_chunk = GLOBALS.settings.read().await.replies_chunk;
+            let then = now.0 - replies_chunk as i64;
+
+            let db_events = DbEvent::fetch_reply_related(then).await?;
+
+            // Map db events into Events
+            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
+            for dbevent in db_events.iter() {
+                let e = serde_json::from_str(&dbevent.raw)?;
+                events.push(e);
+            }
+
+            // Process these events
+            let mut count = 0;
+            for event in events.iter() {
+                count += 1;
+                crate::process::process_new_event(event, false, None, None).await?;
+            }
+            tracing::info!("Loaded {} reply related events from the database", count);
+        }
+
+        // Load feed-related events from database and process
+        {
             let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
             let then = now.0 - feed_chunk as i64;
 
@@ -160,7 +185,7 @@ impl Overlord {
                 count += 1;
                 crate::process::process_new_event(event, false, None, None).await?;
             }
-            tracing::info!("Loaded {} events from the database", count);
+            tracing::info!("Loaded {} feed related events from the database", count);
         }
 
         // Pick Relays and start Minions
