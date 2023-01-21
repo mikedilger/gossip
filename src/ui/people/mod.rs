@@ -60,10 +60,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.separator();
         ui.add_space(10.0);
 
-        ui.heading("People Followed");
-        ui.add_space(18.0);
+        let people: Vec<DbPerson> = GLOBALS
+            .people
+            .get_all()
+            .drain(..)
+            .filter(|p| p.followed == 1)
+            .collect();
 
-        let people = GLOBALS.people.get_all();
+        ui.heading(format!("People Followed ({})", people.len()));
+        ui.add_space(18.0);
 
         ScrollArea::vertical().show(ui, |ui| {
             for person in people.iter() {
