@@ -73,16 +73,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.heading("What Posts to Include");
 
         ui.checkbox(
-            &mut app.settings.thread_view_ancestors,
-            "In thread view, view entire ancestoral line of a post, not just it's parent (not yet implemented)",
-        );
-
-        ui.checkbox(
-            &mut app.settings.thread_view_replies,
-            "In thread view, view all replies to a post recursively on down (not yet implemented)",
-        );
-
-        ui.checkbox(
             &mut app.settings.reactions,
             "Enable reactions (show and react)",
         );
