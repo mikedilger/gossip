@@ -1,4 +1,4 @@
-use nostr_types::{Event, Id, IdHex, PublicKey, PublicKeyHex, Tag};
+use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, Tag};
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
@@ -20,6 +20,7 @@ pub enum ToOverlordMessage {
     PullFollowMerge,
     PullFollowOverwrite,
     PushFollow,
+    PushMetadata(Metadata),
     RefreshFollowedMetadata,
     SaveRelays,
     SaveSettings,

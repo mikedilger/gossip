@@ -40,7 +40,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("You").clicked() {
-                        app.set_page(Page::You);
+                        app.set_page(Page::YourKeys);
                     }
                     ui.label("page, add your key (public or private). If you supply your private key you will be able to post, but this is not necessary to use gossip as a viewing tool. You can even supply somebody else's public key and see what they see (sneaky you!)");
                 });
@@ -162,7 +162,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal_wrapped(|ui| {
                 ui.label("On the");
                 if ui.link("You").clicked() {
-                    app.set_page(Page::You);
+                    app.set_page(Page::YourKeys);
                 }
                 ui.label("page you can setup your identity. If you are new, you should just press \"Generate\" and you are good to go. Otherwise you can import a private key in hex or bech32 format, although it isn't very secure to cut-n-paste and display your private key, so it will mark your key security as \"weak\". Hopefully one day soon you'll be able to import a password-protected private key exported from a different client.");
             });

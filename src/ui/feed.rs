@@ -72,7 +72,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.horizontal(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup an identity").clicked() {
-                        app.set_page(Page::Relays);
+                        app.set_page(Page::YourKeys);
                     }
                     ui.label(" to see any replies to that identity.");
                 });
@@ -99,7 +99,7 @@ fn posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui
             ui.horizontal(|ui| {
                 ui.label("You need to ");
                 if ui.link("setup your identity").clicked() {
-                    app.set_page(Page::You);
+                    app.set_page(Page::YourKeys);
                 }
                 ui.label(" to post.");
             });

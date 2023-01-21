@@ -355,9 +355,14 @@ impl Minion {
             // Listen for my metadata and similar kinds of posts
             filters.push(Filter {
                 authors: vec![pubkey.into()],
-                kinds: vec![EventKind::Metadata, EventKind::RecommendRelay, EventKind::ContactList, EventKind::RelaysList],
+                kinds: vec![
+                    EventKind::Metadata,
+                    EventKind::RecommendRelay,
+                    EventKind::ContactList,
+                    EventKind::RelaysList,
+                ],
                 since: Some(replies_since),
-                .. Default::default()
+                ..Default::default()
             });
         }
 

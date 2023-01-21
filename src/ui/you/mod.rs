@@ -1,4 +1,4 @@
-use super::GossipUi;
+use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::ui::widgets::CopyButton;
@@ -7,61 +7,75 @@ use egui::{Context, TextEdit, Ui};
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(30.0);
+mod metadata;
 
-    ui.label("NOTICE: use CTRL-V to paste (middle/right click wont work)");
-
-    ui.add_space(10.0);
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.selectable_value(&mut app.page, Page::YourKeys, "Keys");
+        ui.separator();
+        ui.selectable_value(&mut app.page, Page::YourMetadata, "Metadata");
+        ui.separator();
+    });
     ui.separator();
-    ui.add_space(10.0);
 
-    show_pub_key_detail(app, ui);
+    if app.page == Page::YourKeys {
+        ui.add_space(30.0);
 
-    ui.add_space(10.0);
-    ui.separator();
-    ui.add_space(10.0);
-
-    if GLOBALS.signer.blocking_read().is_ready() {
-        ui.heading("Ready to sign events");
-
-        ui.add_space(10.0);
-
-        show_priv_key_detail(app, ui);
+        ui.label("NOTICE: use CTRL-V to paste (middle/right click wont work)");
 
         ui.add_space(10.0);
         ui.separator();
         ui.add_space(10.0);
 
-        offer_export_priv_key(app, ui);
+        show_pub_key_detail(app, ui);
 
         ui.add_space(10.0);
         ui.separator();
         ui.add_space(10.0);
 
-        offer_delete(app, ui);
-    } else if GLOBALS.signer.blocking_read().is_loaded() {
-        offer_unlock_priv_key(app, ui);
+        if GLOBALS.signer.blocking_read().is_ready() {
+            ui.heading("Ready to sign events");
 
-        ui.add_space(10.0);
-        ui.separator();
-        ui.add_space(10.0);
+            ui.add_space(10.0);
 
-        offer_delete(app, ui);
-    } else {
-        offer_generate(app, ui);
+            show_priv_key_detail(app, ui);
 
-        ui.add_space(10.0);
-        ui.separator();
-        ui.add_space(10.0);
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
 
-        offer_import_priv_key(app, ui);
+            offer_export_priv_key(app, ui);
 
-        ui.add_space(10.0);
-        ui.separator();
-        ui.add_space(10.0);
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
 
-        offer_import_pub_key(app, ui);
+            offer_delete(app, ui);
+        } else if GLOBALS.signer.blocking_read().is_loaded() {
+            offer_unlock_priv_key(app, ui);
+
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            offer_delete(app, ui);
+        } else {
+            offer_generate(app, ui);
+
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            offer_import_priv_key(app, ui);
+
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            offer_import_pub_key(app, ui);
+        }
+    } else if app.page == Page::YourMetadata {
+        metadata::update(app, ctx, _frame, ui);
     }
 }
 

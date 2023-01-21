@@ -11,7 +11,7 @@ use crate::tags::{
 };
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, IdHex, PreEvent, PrivateKey, PublicKey,
+    EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, PreEvent, PrivateKey, PublicKey,
     PublicKeyHex, Tag, Unixtime, Url,
 };
 use relay_picker::{BestRelay, RelayPicker};
@@ -515,6 +515,9 @@ impl Overlord {
             ToOverlordMessage::PushFollow => {
                 self.push_following().await?;
             }
+            ToOverlordMessage::PushMetadata(metadata) => {
+                self.push_metadata(metadata).await?;
+            }
             ToOverlordMessage::RefreshFollowedMetadata => {
                 self.refresh_followed_metadata().await?;
             }
@@ -989,6 +992,55 @@ impl Overlord {
 
             // Send it the event to pull our followers
             tracing::debug!("Pushing ContactList to {}", &relay.url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay.url.clone(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
+            });
+        }
+
+        Ok(())
+    }
+
+    async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
+        let public_key = match GLOBALS.signer.read().await.public_key() {
+            Some(pk) => pk,
+            None => return Err(Error::NoPrivateKey), // not even a public key
+        };
+
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::Metadata,
+            tags: vec![],
+            content: serde_json::to_string(&metadata)?,
+            ots: None,
+        };
+
+        let event = GLOBALS.signer.read().await.sign_preevent(pre_event, None)?;
+
+        // Push to all of the relays we post to
+        let relays: Vec<DbRelay> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .collect();
+
+        for relay in relays {
+            // Start a minion for it, if there is none
+            if !GLOBALS
+                .relays_watching
+                .read()
+                .await
+                .contains(&Url::new(&relay.url))
+            {
+                self.start_minion(relay.url.clone()).await?;
+            }
+
+            // Send it the event to pull our followers
+            tracing::debug!("Pushing Metadata to {}", &relay.url);
 
             let _ = self.to_minions.send(ToMinionMessage {
                 target: relay.url.clone(),

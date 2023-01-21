@@ -19,7 +19,7 @@ use egui::{
     ColorImage, Context, ImageData, Label, RichText, SelectableLabel, Sense, TextStyle,
     TextureHandle, TextureOptions, Ui,
 };
-use nostr_types::{Id, IdHex, PublicKey, PublicKeyHex};
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -60,7 +60,8 @@ enum Page {
     PeopleList,
     PeopleFollow,
     Person(PublicKeyHex),
-    You,
+    YourKeys,
+    YourMetadata,
     Relays,
     Settings,
     HelpHelp,
@@ -92,6 +93,9 @@ struct GossipUi {
     tag_re: regex::Regex,
     override_dpi: bool,
     override_dpi_value: u32,
+    editing_metadata: bool,
+    metadata: Metadata,
+    new_metadata_fieldname: String,
 }
 
 impl Drop for GossipUi {
@@ -189,6 +193,9 @@ impl GossipUi {
             tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
             override_dpi,
             override_dpi_value,
+            editing_metadata: false,
+            metadata: Metadata::new(),
+            new_metadata_fieldname: String::new(),
         }
     }
 
@@ -286,10 +293,13 @@ impl eframe::App for GossipUi {
                 }
                 ui.separator();
                 if ui
-                    .add(SelectableLabel::new(self.page == Page::You, "You"))
+                    .add(SelectableLabel::new(
+                        self.page == Page::YourKeys || self.page == Page::YourMetadata,
+                        "You",
+                    ))
                     .clicked()
                 {
-                    self.set_page(Page::You);
+                    self.set_page(Page::YourKeys);
                 }
                 ui.separator();
                 if ui
@@ -343,7 +353,7 @@ impl eframe::App for GossipUi {
             Page::PeopleList | Page::PeopleFollow | Page::Person(_) => {
                 people::update(self, ctx, frame, ui)
             }
-            Page::You => you::update(self, ctx, frame, ui),
+            Page::YourKeys | Page::YourMetadata => you::update(self, ctx, frame, ui),
             Page::Relays => relays::update(self, ctx, frame, ui),
             Page::Settings => settings::update(self, ctx, frame, ui),
             Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
