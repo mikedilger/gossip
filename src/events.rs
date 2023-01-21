@@ -54,6 +54,9 @@ impl Events {
         })
         .await??
         {
+            // Process that event
+            crate::process::process_new_event(&event, false, None, None).await?;
+
             self.insert(event.clone());
             Ok(Some(event))
         } else {
