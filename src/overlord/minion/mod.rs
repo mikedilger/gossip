@@ -352,16 +352,13 @@ impl Minion {
                 ..Default::default()
             });
 
-            // my metadata
-            // FIXME TBD
-            /*
+            // Listen for my metadata and similar kinds of posts
             filters.push(Filter {
-                authors: vec![pubkey],
+                authors: vec![pubkey.into()],
                 kinds: vec![EventKind::Metadata, EventKind::RecommendRelay, EventKind::ContactList, EventKind::RelaysList],
-                since: // last we last checked
+                since: Some(replies_since),
                 .. Default::default()
             });
-             */
         }
 
         if !followed_pubkeys.is_empty() {
