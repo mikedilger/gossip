@@ -701,13 +701,8 @@ impl People {
             let mut metadata = Metadata::new();
             metadata.nip05 = nip05.clone();
             let metadata_json: Option<String> = Some(serde_json::to_string(&metadata)?);
-            let metadata_patch = format!(
-                "{{\"nip05\": {}}}",
-                match nip05 {
-                    Some(s) => s,
-                    None => "null".to_owned(),
-                }
-            );
+            let metadata_patch = Nip05Patch { nip05 };
+            let metadata_patch_str = serde_json::to_string(&metadata_patch)?;
 
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
@@ -715,7 +710,7 @@ impl People {
                 &metadata_json,
                 &nip05_valid,
                 &nip05_last_checked,
-                &metadata_patch,
+                &metadata_patch_str,
                 &nip05_valid,
                 &nip05_last_checked,
             ))?;
@@ -881,4 +876,9 @@ fn repeat_vars(count: usize) -> String {
     // Remove trailing comma
     s.pop();
     s
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Nip05Patch {
+    nip05: Option<String>,
 }
