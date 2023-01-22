@@ -299,12 +299,6 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
-
-[[package]]
-name = "base64"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
@@ -1731,7 +1725,7 @@ name = "gossip"
 version = "0.3.1-unstable"
 dependencies = [
  "async-recursion",
- "base64 0.20.0",
+ "base64 0.21.0",
  "dashmap",
  "dirs",
  "eframe",
@@ -2167,6 +2161,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lru"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e999beba7b6e8345721bd280141ed958096a2e4abdf74f67ff4ce49b4b54e47a"
+dependencies = [
+ "hashbrown",
+]
+
+[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2225,19 +2228,20 @@ dependencies = [
 
 [[package]]
 name = "memoize"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c25d125e4063f313300d87c8f658e5b3d69257095df9a4221c12ba50b0421bff"
+checksum = "3b2ae6b7c9fbefd9bad492a5c65013e9fd10d6db3f971ee1e2d1c55485dd5135"
 dependencies = [
  "lazy_static",
+ "lru",
  "memoize-inner",
 ]
 
 [[package]]
 name = "memoize-inner"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8b7d5160e6ffcc59d4c571c38238ec5b7065bc91a5a24f511988dabcddda723"
+checksum = "8bfde264c318ec8c2de5c39e0ba3910fac8d1065e3b947b183ebd884b799719b"
 dependencies = [
  "lazy_static",
  "proc-macro2",

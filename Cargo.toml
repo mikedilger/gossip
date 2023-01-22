@@ -13,7 +13,7 @@ edition = "2021"
 
 [dependencies]
 async-recursion = "1.0"
-base64 = "0.20"
+base64 = "0.21"
 dashmap = "5.4"
 dirs = "4.0"
 eframe = { version = "0.20", features = [ "dark-light", "persistence" ] }
@@ -25,7 +25,7 @@ http = "0.2"
 image = { version = "0.24", features = [ "png", "jpeg" ] }
 lazy_static = "1.4"
 linkify = "0.9"
-memoize = "0.3"
+memoize = "0.4"
 nostr-types = { git = "https://github.com/mikedilger/nostr-types" }
 parking_lot = "0.12"
 rand = "0.8"
