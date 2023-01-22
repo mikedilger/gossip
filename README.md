@@ -24,12 +24,11 @@ Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form fol
 
 ### Missing Critical Features
 
-- [ ] Making it much easier to get started
-- [ ] Setting your metadata and syncing it with the network.
+- [ ] Read relays as fallbacks, so that it will be much easier to get started
 - [ ] Syncing the relays you use with the network
 - [ ] Encrypted Private Messaging
-- [ ] Choosing to hide replies (anybody can reply so they can be spammy)
 - [ ] Muting people
+- [ ] Making some things happen right away that currently require a restart
 
 ## Getting Started
 
@@ -73,12 +72,12 @@ We intend to support the following features/NIPs:
 - [ ] NIP-04 - Encrypted Direct Message
 - [x] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers
 - [x] NIP-08 - Handling Mentions
-- [ ] NIP-09 - Event Deletion
+- [x] NIP-09 - Event Deletion
 - [x] NIP-10 - Conventions for clients' use of e and p tags in text events
 - [x] NIP-11 - Relay Information Document
-- [ ] NIP-12 - Generic Tag Queries
+- [x] NIP-12 - Generic Tag Queries (we don't need to use any presently)
 - [x] NIP-13 - Proof of Work
-- [ ] NIP-14 - Subject tag in text events (partial)
+- [x] NIP-14 - Subject tag in text events (partial)
 - [x] NIP-15 - End of Stored Events Notice
 - [ ] NIP-16 - Event Treatment
 - [x] NIP-19 - bech32-encoded entities
@@ -90,7 +89,7 @@ We intend to support the following features/NIPs:
 - [ ] NIP-33 - Parameterized Replaceable Events
 - [ ] NIP-36 - Sensitive Content
 - [ ] NIP-40 - Expiration Timestamp
-- [ ] NIP-42 - Authentication of clients to relays
+- [x] NIP-42 - Authentication of clients to relays
 
 We do not intend to support the following features/NIPs:
 
