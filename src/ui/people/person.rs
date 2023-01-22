@@ -27,6 +27,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ScrollArea::vertical()
         .id_source("person page")
+        .max_width(f32::INFINITY)
+        .auto_shrink([false, false])
         .show(ui, |ui| {
             content(app, ctx, ui, pubkeyhex, person);
         });
