@@ -523,12 +523,21 @@ fn render_post_actual(
                     });
                 });
 
+                // Possible subject line
+                if let Some(subject) = event.subject() {
+                    ui.label(
+                        RichText::new(subject).strong().underline()
+                    );
+                }
+
+                // MAIN CONTENT
                 ui.horizontal_wrapped(|ui| {
                     render_content(app, ui, &tag_re, &event, deletion.is_some());
                 });
 
                 ui.add_space(8.0);
 
+                // deleted?
                 if let Some(delete_reason) = &deletion {
                     ui.label(
                         RichText::new(format!("Deletion Reason: {}", delete_reason)).italics(),
