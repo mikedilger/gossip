@@ -385,7 +385,7 @@ impl GossipUi {
     }
 
     pub fn render_person_name_line(ui: &mut Ui, maybe_person: Option<&DbPerson>) {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if let Some(person) = maybe_person {
                 if let Some(name) = person.name() {
                     ui.label(RichText::new(name).strong());

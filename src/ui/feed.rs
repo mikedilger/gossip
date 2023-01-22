@@ -69,7 +69,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         FeedKind::Replies => {
             if GLOBALS.signer.blocking_read().public_key().is_none() {
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup an identity").clicked() {
                         app.set_page(Page::YourKeys);
@@ -96,7 +96,7 @@ fn posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui
     // Posting Area
     ui.vertical(|ui| {
         if !GLOBALS.signer.blocking_read().is_ready() {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("setup your identity").clicked() {
                     app.set_page(Page::YourKeys);
@@ -104,7 +104,7 @@ fn posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui
                 ui.label(" to post.");
             });
         } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("choose relays").clicked() {
                     app.set_page(Page::Relays);
@@ -417,7 +417,7 @@ fn render_post_actual(
 
         ui.add_space(4.0);
 
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             // Indents first (if threaded)
             if threaded {
                 let space = 100.0 * (10.0 - (1000.0 / (indent as f32 + 100.0)));
@@ -446,7 +446,7 @@ fn render_post_actual(
             // Everything else next
             ui.vertical(|ui| {
                 // First row
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     GossipUi::render_person_name_line(ui, maybe_person.as_ref());
 
                     if let Some((irt, _)) = event.replies_to() {
@@ -538,7 +538,7 @@ fn render_post_actual(
 
                 // Under row
                 if !as_reply_to {
-                    ui.horizontal(|ui| {
+                    ui.horizontal_wrapped(|ui| {
                         if ui
                             .add(CopyButton {})
                             .on_hover_text("Copy Contents")
