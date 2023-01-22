@@ -1162,6 +1162,9 @@ impl Overlord {
             }
         }
 
+        *GLOBALS.status_message.write().await =
+            format!("Followed user at {} relays", nprofile.relays.len());
+
         Ok(())
     }
 }

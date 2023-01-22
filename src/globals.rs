@@ -7,7 +7,7 @@ use crate::people::People;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
-use nostr_types::{Event, Id, PublicKeyHex, Url};
+use nostr_types::{Event, Id, Profile, PublicKeyHex, Url};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32};
@@ -191,5 +191,28 @@ impl Globals {
             }
         }
         None
+    }
+
+    pub fn get_your_nprofile() -> Option<Profile> {
+        let public_key = match GLOBALS.signer.blocking_read().public_key() {
+            Some(pk) => pk,
+            None => return None,
+        };
+
+        let mut profile = Profile {
+            pubkey: public_key,
+            relays: Vec::new(),
+        };
+
+        for (url, _) in GLOBALS
+            .relays
+            .blocking_read()
+            .iter()
+            .filter(|(_, r)| r.post)
+        {
+            profile.relays.push(url.to_owned())
+        }
+
+        Some(profile)
     }
 }

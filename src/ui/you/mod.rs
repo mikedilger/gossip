@@ -1,6 +1,6 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
-use crate::globals::GLOBALS;
+use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::{Context, TextEdit, Ui};
@@ -83,7 +83,7 @@ fn show_pub_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
     // Render public key if available
     if let Some(public_key) = GLOBALS.signer.blocking_read().public_key() {
         let pkhex: PublicKeyHex = public_key.into();
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.0));
             if ui.add(CopyButton {}).clicked() {
                 ui.output().copied_text = pkhex.0;
@@ -91,10 +91,20 @@ fn show_pub_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
         });
 
         if let Ok(bech32) = public_key.try_as_bech32_string() {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(&format!("Public Key (bech32): {}", bech32));
                 if ui.add(CopyButton {}).clicked() {
                     ui.output().copied_text = bech32;
+                }
+            });
+        }
+
+        if let Some(profile) = Globals::get_your_nprofile() {
+            let nprofile = profile.try_as_bech32_string().unwrap();
+            ui.horizontal_wrapped(|ui| {
+                ui.label(&format!("Your Profile: {}", &nprofile));
+                if ui.add(CopyButton {}).clicked() {
+                    ui.output().copied_text = nprofile;
                 }
             });
         }
