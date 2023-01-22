@@ -488,6 +488,9 @@ fn render_post_actual(
                                 }));
                             }
                             if ui.button("Copy ID").clicked() {
+                                ui.output().copied_text = event.id.try_as_bech32_string().unwrap();
+                            }
+                            if ui.button("Copy ID as hex").clicked() {
                                 ui.output().copied_text = event.id.as_hex_string();
                             }
                             if ui.button("Dismiss").clicked() {
