@@ -72,7 +72,6 @@ impl Fetcher {
         cache_file
     }
 
-    #[allow(dead_code)]
     pub fn try_get(&self, url: Url) -> Result<Option<Vec<u8>>, Error> {
         // Error if we are dead
         if let Some(reason) = &self.dead {

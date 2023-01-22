@@ -45,7 +45,6 @@ impl DbEventSeen {
     }
      */
 
-    #[allow(dead_code)]
     pub async fn get_relays_for_event(id: Id) -> Result<Vec<Url>, Error> {
         let sql = "SELECT relay FROM event_seen WHERE event=?";
 

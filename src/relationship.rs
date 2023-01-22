@@ -2,8 +2,7 @@
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Relationship {
     Reply,
-    #[allow(dead_code)]
-    Quote,
+    //Mention,
     Reaction(String),
     Deletion(String),
 }

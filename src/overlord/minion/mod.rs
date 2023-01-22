@@ -702,7 +702,6 @@ impl Minion {
         Ok(())
     }
 
-    #[allow(dead_code)]
     async fn subscribe(&mut self, filters: Vec<Filter>, handle: &str) -> Result<(), Error> {
         let req_message = if self.subscriptions.has(handle) {
             let sub = self.subscriptions.get_mut(handle).unwrap();
@@ -719,7 +718,6 @@ impl Minion {
         Ok(())
     }
 
-    #[allow(dead_code)]
     async fn unsubscribe(&mut self, handle: &str) -> Result<(), Error> {
         if !self.subscriptions.has(handle) {
             return Ok(());

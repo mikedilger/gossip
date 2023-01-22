@@ -192,7 +192,6 @@ impl DbPersonRelay {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn upsert_last_suggested_kind3(
         person: String,
         relay: String,
@@ -273,7 +272,7 @@ impl DbPersonRelay {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    /*
     pub async fn fetch_matching(
         people: Vec<PublicKeyHex>,
         relays: Vec<String>,
@@ -331,8 +330,8 @@ impl DbPersonRelay {
 
         output
     }
+     */
 
-    #[allow(dead_code)]
     pub async fn get_best_relays(pubkey: PublicKeyHex) -> Result<Vec<Url>, Error> {
         // This is the ranking we are using. There might be reasons
         // for ranking differently:

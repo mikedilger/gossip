@@ -29,7 +29,6 @@ impl Signer {
         settings.save().await
     }
 
-    #[allow(dead_code)]
     pub fn set_public_key(&mut self, pk: PublicKey) {
         if self.private.is_some() {
             *GLOBALS.status_message.blocking_write() =
@@ -39,7 +38,6 @@ impl Signer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn clear_public_key(&mut self) {
         if self.private.is_some() {
             *GLOBALS.status_message.blocking_write() =
@@ -49,7 +47,6 @@ impl Signer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn set_encrypted_private_key(&mut self, epk: EncryptedPrivateKey) {
         if self.private.is_some() && self.encrypted.is_some() {
             // ignore, epk supercedes

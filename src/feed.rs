@@ -120,18 +120,6 @@ impl Feed {
         events.iter().map(|e| e.id).collect()
     }
 
-    #[allow(dead_code)]
-    pub fn get_my_event_ids(&self) -> Vec<Id> {
-        // we assume the main get() happens fast enough to recompute for us.
-        self.my_event_ids.read().clone()
-    }
-
-    #[allow(dead_code)]
-    pub fn get_followed_event_ids(&self) -> Vec<Id> {
-        // we assume the main get() happens fast enough to recompute for us.
-        self.followed_event_ids.read().clone()
-    }
-
     pub fn get_thread_parent(&self) -> Option<Id> {
         self.maybe_recompute();
         *self.thread_parent.read()

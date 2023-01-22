@@ -19,7 +19,7 @@ use egui::{
     ColorImage, Context, ImageData, Label, RichText, SelectableLabel, Sense, TextStyle,
     TextureHandle, TextureOptions, Ui,
 };
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex};
+use nostr_types::{Id, IdHex, Metadata, PublicKeyHex};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -376,12 +376,6 @@ impl GossipUi {
 
     pub fn hex_id_short(idhex: &IdHex) -> String {
         idhex.0[0..8].to_string()
-    }
-
-    #[allow(dead_code)]
-    pub fn pubkey_long(pubkey: &PublicKey) -> String {
-        let hex: PublicKeyHex = (*pubkey).into();
-        hex.0
     }
 
     pub fn render_person_name_line(ui: &mut Ui, maybe_person: Option<&DbPerson>) {

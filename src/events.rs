@@ -23,17 +23,17 @@ impl Events {
         let _ = self.events.insert(event.id, event);
     }
 
-    #[allow(dead_code)]
+    /*
     pub fn contains_key(&self, id: &Id) -> bool {
         self.events.contains_key(id)
     }
+    */
 
     pub fn get(&self, id: &Id) -> Option<Event> {
         self.events.get(id).map(|e| e.value().to_owned())
     }
 
     /// Get the event from memory, and also try the database
-    #[allow(dead_code)]
     pub async fn get_local(&self, id: Id) -> Result<Option<Event>, Error> {
         if let Some(e) = self.get(&id) {
             return Ok(Some(e));
@@ -64,7 +64,6 @@ impl Events {
         }
     }
 
-    #[allow(dead_code)]
     #[async_recursion]
     pub async fn get_highest_local_parent(&self, id: &Id) -> Result<Option<Id>, Error> {
         if let Some(event) = self.get_local(*id).await? {

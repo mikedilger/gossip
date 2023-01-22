@@ -501,7 +501,6 @@ impl People {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn generate_contact_list_event(&self) -> Result<Event, Error> {
         let mut p_tags: Vec<Tag> = Vec::new();
 
@@ -820,7 +819,7 @@ impl People {
         output
     }
 
-    #[allow(dead_code)]
+    /*
     async fn insert(person: DbPerson) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person (pubkey, metadata, metadata_at, \
              nip05_valid, nip05_last_checked, followed, followed_last_updated) \
@@ -852,6 +851,7 @@ impl People {
 
         Ok(())
     }
+     */
 
     /*
        pub async fn delete(criteria: &str) -> Result<(), Error> {

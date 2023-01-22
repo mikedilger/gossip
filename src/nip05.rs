@@ -6,7 +6,6 @@ use nostr_types::{Metadata, Nip05, PublicKeyHex, Unixtime, Url};
 use std::collections::hash_map::Entry;
 
 // This updates the people map and the database with the result
-#[allow(dead_code)]
 pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
     let now = Unixtime::now().unwrap();
 
