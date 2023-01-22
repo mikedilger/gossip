@@ -5,9 +5,9 @@ use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, Tag};
 pub enum ToOverlordMessage {
     AddRelay(String),
     DeletePub,
-    FollowBech32(String, String),
-    FollowHex(String, String),
+    FollowPubkeyAndRelay(String, String),
     FollowNip05(String),
+    FollowNprofile(String),
     GeneratePrivateKey(String),
     ImportPriv(String, String),
     ImportPub(String),

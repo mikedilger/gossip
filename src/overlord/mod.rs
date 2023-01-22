@@ -11,10 +11,11 @@ use crate::tags::{
 };
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, PreEvent, PrivateKey, PublicKey,
-    PublicKeyHex, Tag, Unixtime, Url,
+    EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, PreEvent, PrivateKey, Profile,
+    PublicKey, PublicKeyHex, Tag, Unixtime, Url,
 };
 use relay_picker::{BestRelay, RelayPicker};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use tokio::sync::broadcast::Sender;
@@ -413,11 +414,8 @@ impl Overlord {
                 GLOBALS.signer.write().await.clear_public_key();
                 GLOBALS.signer.read().await.save_through_settings().await?;
             }
-            ToOverlordMessage::FollowBech32(bech32, relay) => {
-                Overlord::follow_bech32(bech32, relay).await?;
-            }
-            ToOverlordMessage::FollowHex(hex, relay) => {
-                Overlord::follow_hexkey(hex, relay).await?;
+            ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
+                Overlord::follow_pubkey_and_relay(pubkeystr, relay).await?;
             }
             ToOverlordMessage::FollowNip05(nip05) => {
                 let _ = tokio::spawn(async move {
@@ -425,6 +423,12 @@ impl Overlord {
                         tracing::error!("{}", e);
                     }
                 });
+            }
+            ToOverlordMessage::FollowNprofile(nprofile) => {
+                match Profile::try_from_bech32_string(&nprofile) {
+                    Ok(np) => self.follow_nprofile(np).await?,
+                    Err(e) => *GLOBALS.status_message.write().await = format!("{}", e),
+                }
             }
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
                 GLOBALS
@@ -592,36 +596,11 @@ impl Overlord {
         Ok(true)
     }
 
-    async fn follow_bech32(bech32: String, relay: String) -> Result<(), Error> {
-        let pk = PublicKey::try_from_bech32_string(&bech32)?;
-        let pkhex: PublicKeyHex = pk.into();
-        GLOBALS.people.async_follow(&pkhex, true).await?;
-
-        tracing::debug!("Followed {}", &pkhex);
-
-        // Save relay
-        let relay_url = Url::new(&relay);
-        if !relay_url.is_valid_relay_url() {
-            return Err(Error::InvalidUrl(relay));
-        }
-        let db_relay = DbRelay::new(relay.to_string())?;
-        DbRelay::insert(db_relay).await?;
-
-        // Save person_relay
-        DbPersonRelay::insert(DbPersonRelay {
-            person: pkhex.0.clone(),
-            relay: relay_url.inner().to_owned(),
-            ..Default::default()
-        })
-        .await?;
-
-        tracing::info!("Setup 1 relay for {}", &pkhex);
-
-        Ok(())
-    }
-
-    async fn follow_hexkey(hexkey: String, relay: String) -> Result<(), Error> {
-        let pk = PublicKey::try_from_hex_string(&hexkey)?;
+    async fn follow_pubkey_and_relay(pubkeystr: String, relay: String) -> Result<(), Error> {
+        let pk = match PublicKey::try_from_bech32_string(&pubkeystr) {
+            Ok(pk) => pk,
+            Err(_) => PublicKey::try_from_hex_string(&pubkeystr)?,
+        };
         let pkhex: PublicKeyHex = pk.into();
         GLOBALS.people.async_follow(&pkhex, true).await?;
 
@@ -1151,6 +1130,36 @@ impl Overlord {
                     missing_ancestors_hex.clone(),
                 ),
             });
+        }
+
+        Ok(())
+    }
+
+    async fn follow_nprofile(&mut self, nprofile: Profile) -> Result<(), Error> {
+        let pubkey = nprofile.pubkey.into();
+        GLOBALS.people.async_follow(&pubkey, true).await?;
+
+        // Set their relays
+        for relay in nprofile.relays.iter() {
+            // Save relay
+            let relay_url = Url::new(relay);
+            if relay_url.is_valid_relay_url() {
+                let db_relay = DbRelay::new(relay_url.inner().to_owned())?;
+                DbRelay::insert(db_relay.clone()).await?;
+
+                if let Entry::Vacant(entry) = GLOBALS.relays.write().await.entry(relay_url.clone())
+                {
+                    entry.insert(db_relay);
+                }
+
+                // Save person_relay
+                DbPersonRelay::upsert_last_suggested_nip05(
+                    pubkey.to_owned(),
+                    relay.inner().to_owned(),
+                    Unixtime::now().unwrap().0 as u64,
+                )
+                .await?;
+            }
         }
 
         Ok(())
