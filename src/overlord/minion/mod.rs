@@ -133,9 +133,12 @@ impl Minion {
 
             let config: WebSocketConfig = WebSocketConfig {
                 max_send_queue: None,
-                max_message_size: Some(1024 * 1024 * 16), // their default is 64 MiB, I choose 16 MiB
-                max_frame_size: Some(1024 * 1024 * 16),   // their default is 16 MiB.
-                accept_unmasked_frames: true,             // default is false which is the standard
+                // Tungstenite default is 64 MiB.
+                // Based on my current database of 7356 events, the longest was 11,121 bytes.
+                // 64KB seems like  a reasonable cutoff.
+                max_message_size: Some(1024 * 64),
+                max_frame_size: Some(1024 * 64),
+                accept_unmasked_frames: false, // default is false which is the standard
             };
 
             let (websocket_stream, _response) = tokio::time::timeout(
