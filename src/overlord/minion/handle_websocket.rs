@@ -1,8 +1,9 @@
 use super::Minion;
 use crate::db::DbRelay;
 use crate::error::Error;
+use crate::globals::GLOBALS;
 use futures::SinkExt;
-use nostr_types::{RelayMessage, Unixtime};
+use nostr_types::{ClientMessage, EventKind, PreEvent, RelayMessage, Tag, Unixtime};
 use tungstenite::protocol::Message as WsMessage;
 
 impl Minion {
@@ -126,9 +127,38 @@ impl Minion {
                     ok_message
                 );
             }
-            RelayMessage::Auth(_) => {
-                // FIXME
-                return Ok(());
+            RelayMessage::Auth(challenge) => {
+                if !GLOBALS.signer.read().await.is_ready() {
+                    tracing::warn!("AUTH required, but we have no key");
+                    return Ok(());
+                }
+                let pubkey = match GLOBALS.signer.read().await.public_key() {
+                    Some(pk) => pk,
+                    None => return Ok(()),
+                };
+                let pre_event = PreEvent {
+                    pubkey,
+                    created_at: Unixtime::now().unwrap(),
+                    kind: EventKind::Auth,
+                    tags: vec![
+                        Tag::Other {
+                            tag: "relay".to_string(),
+                            data: vec![self.url.inner().to_owned()],
+                        },
+                        Tag::Other {
+                            tag: "challenge".to_string(),
+                            data: vec![challenge],
+                        },
+                    ],
+                    content: "".to_string(),
+                    ots: None,
+                };
+                let event = GLOBALS.signer.read().await.sign_preevent(pre_event, None)?;
+                let msg = ClientMessage::Auth(Box::new(event));
+                let wire = serde_json::to_string(&msg)?;
+                let ws_sink = self.sink.as_mut().unwrap();
+                ws_sink.send(WsMessage::Text(wire)).await?;
+                tracing::info!("Authenticated to {}", &self.url);
             }
         }
 
