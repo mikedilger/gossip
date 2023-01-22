@@ -159,7 +159,7 @@ impl Globals {
     pub fn get_reactions_sync(id: Id) -> Vec<(char, usize)> {
         let mut output: HashMap<char, usize> = HashMap::new();
 
-        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id).cloned() {
+        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
             for (_id, relationship) in relationships.iter() {
                 if let Relationship::Reaction(reaction) = relationship {
                     if let Some(ch) = reaction.chars().next() {
@@ -180,5 +180,16 @@ impl Globals {
         let mut v: Vec<(char, usize)> = output.iter().map(|(c, u)| (*c, *u)).collect();
         v.sort();
         v
+    }
+
+    pub fn get_deletion_sync(id: Id) -> Option<String> {
+        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
+            for (_id, relationship) in relationships.iter() {
+                if let Relationship::Deletion(deletion) = relationship {
+                    return Some(deletion.clone());
+                }
+            }
+        }
+        None
     }
 }

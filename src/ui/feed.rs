@@ -350,6 +350,8 @@ fn render_post_actual(
 
     let reactions = Globals::get_reactions_sync(event.id);
 
+    let deletion = Globals::get_deletion_sync(event.id);
+
     let tag_re = app.tag_re.clone();
 
     // Person Things we can render:
@@ -468,6 +470,15 @@ fn render_post_actual(
                         ui.label(format!("POW={}", event.pow()));
                     }
 
+                    if deletion.is_some() {
+                        let color = if ui.visuals().dark_mode {
+                            Color32::LIGHT_RED
+                        } else {
+                            Color32::DARK_RED
+                        };
+                        ui.label(RichText::new("DELETED").color(color));
+                    }
+
                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                         ui.menu_button(RichText::new("≡").size(18.0), |ui| {
                             if !is_main_event && ui.button("View Thread").clicked() {
@@ -510,10 +521,17 @@ fn render_post_actual(
                 });
 
                 ui.horizontal_wrapped(|ui| {
-                    render_content(app, ui, &tag_re, &event);
+                    render_content(app, ui, &tag_re, &event, deletion.is_some());
                 });
 
                 ui.add_space(8.0);
+
+                if let Some(delete_reason) = &deletion {
+                    ui.label(
+                        RichText::new(format!("Deletion Reason: {}", delete_reason)).italics(),
+                    );
+                    ui.add_space(8.0);
+                }
 
                 // Under row
                 if !as_reply_to {
@@ -609,7 +627,13 @@ fn render_post_actual(
     }
 }
 
-fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event: &Event) {
+fn render_content(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    tag_re: &regex::Regex,
+    event: &Event,
+    as_deleted: bool,
+) {
     for span in LinkFinder::new()
         .kinds(&[LinkKind::Url])
         .spans(&event.content)
@@ -662,7 +686,11 @@ fn render_content(app: &mut GossipUi, ui: &mut Ui, tag_re: &regex::Regex, event:
                 }
                 pos = mat.end();
             }
-            ui.label(&s[pos..]);
+            if as_deleted {
+                ui.label(RichText::new(&s[pos..]).strikethrough());
+            } else {
+                ui.label(&s[pos..]);
+            }
         }
     }
 }
