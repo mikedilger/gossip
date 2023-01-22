@@ -3,15 +3,21 @@ use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
+use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, RichText, Ui, Vec2};
+use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
+use nostr_types::PublicKeyHex;
+use serde_json::Value;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let (pubkeyhex, maybe_person) = match &app.page {
+    let (pubkeyhex, person) = match &app.page {
         Page::Person(pubkeyhex) => {
-            let maybe_person = GLOBALS.people.get(pubkeyhex);
-            (pubkeyhex.to_owned(), maybe_person)
+            let person = match GLOBALS.people.get(pubkeyhex) {
+                Some(p) => p,
+                None => DbPerson::new(pubkeyhex.to_owned()),
+            };
+            (pubkeyhex.to_owned(), person)
         }
         _ => {
             ui.label("ERROR");
@@ -19,13 +25,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    ui.add_space(24.0);
+    ScrollArea::vertical()
+        .id_source("person page")
+        .show(ui, |ui| {
+            content(app, ctx, ui, pubkeyhex, person);
+        });
+}
 
-    if let Some(person) = &maybe_person {
-        ui.heading(get_name(person));
-    } else {
-        ui.heading(&pubkeyhex.0);
-    }
+fn content(
+    app: &mut GossipUi,
+    ctx: &Context,
+    ui: &mut Ui,
+    pubkeyhex: PublicKeyHex,
+    person: DbPerson,
+) {
+    ui.add_space(24.0);
 
     ui.horizontal(|ui| {
         // Avatar first
@@ -42,42 +56,101 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             },
         );
         ui.vertical(|ui| {
+            ui.heading(get_name(&person));
             ui.label(RichText::new(GossipUi::hex_pubkey_short(&pubkeyhex)).weak());
-            GossipUi::render_person_name_line(ui, maybe_person.as_ref());
+            GossipUi::render_person_name_line(ui, &person);
+
+            #[allow(clippy::collapsible_else_if)]
+            if person.followed == 0 {
+                if ui.button("FOLLOW").clicked() {
+                    GLOBALS.people.follow(&pubkeyhex, true);
+                }
+            } else {
+                if ui.button("UNFOLLOW").clicked() {
+                    GLOBALS.people.follow(&pubkeyhex, false);
+                }
+            }
+
+            if ui.button("UPDATE METADATA").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdateMetadata(pubkeyhex.clone()));
+            }
+
+            if ui.button("VIEW THEIR FEED").clicked() {
+                app.set_page(Page::Feed(FeedKind::Person(pubkeyhex.clone())));
+            }
         });
     });
 
     ui.add_space(12.0);
 
-    if let Some(person) = &maybe_person {
-        if let Some(about) = person.about() {
-            ui.label(about);
-        }
-    }
-
-    ui.add_space(12.0);
-
-    if let Some(person) = &maybe_person {
-        #[allow(clippy::collapsible_else_if)]
-        if maybe_person.is_none() || person.followed == 0 {
-            if ui.button("FOLLOW").clicked() {
-                GLOBALS.people.follow(&pubkeyhex, true);
+    if let Some(name) = person.name() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new("Name: ").strong());
+            ui.label(name);
+            if ui.add(CopyButton {}).on_hover_text("Copy Name").clicked() {
+                ui.output().copied_text = name.to_owned();
             }
-        } else {
-            if ui.button("UNFOLLOW").clicked() {
-                GLOBALS.people.follow(&pubkeyhex, false);
+        });
+    }
+
+    if let Some(about) = person.about() {
+        ui.label(RichText::new("About: ").strong());
+        Frame::group(ui.style()).show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(about);
+                if ui.add(CopyButton {}).on_hover_text("Copy About").clicked() {
+                    ui.output().copied_text = about.to_owned();
+                }
+            });
+        });
+    }
+
+    if let Some(picture) = person.picture() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new("Picture: ").strong());
+            ui.label(picture);
+            if ui
+                .add(CopyButton {})
+                .on_hover_text("Copy Picture")
+                .clicked()
+            {
+                ui.output().copied_text = picture.to_owned();
             }
+        });
+    }
+
+    if let Some(nip05) = person.nip05() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new("nip05: ").strong());
+            ui.label(nip05);
+            if ui.add(CopyButton {}).on_hover_text("Copy nip05").clicked() {
+                ui.output().copied_text = nip05.to_owned();
+            }
+        });
+    }
+
+    if let Some(md) = &person.metadata {
+        for (key, value) in &md.other {
+            let svalue = if let Value::String(s) = value {
+                s.to_owned()
+            } else {
+                serde_json::to_string(&value).unwrap()
+            };
+
+            ui.horizontal_wrapped(|ui| {
+                ui.label(RichText::new(format!("{}: ", key)).strong());
+                ui.label(&svalue);
+                if ui
+                    .add(CopyButton {})
+                    .on_hover_text(format!("Copy {}", key))
+                    .clicked()
+                {
+                    ui.output().copied_text = svalue;
+                }
+            });
         }
-    }
-
-    if ui.button("UPDATE METADATA").clicked() {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::UpdateMetadata(pubkeyhex.clone()));
-    }
-
-    if ui.button("VIEW THEIR FEED").clicked() {
-        app.set_page(Page::Feed(FeedKind::Person(pubkeyhex.clone())));
     }
 }
 

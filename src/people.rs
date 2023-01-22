@@ -26,6 +26,18 @@ pub struct DbPerson {
 }
 
 impl DbPerson {
+    pub fn new(pubkey: PublicKeyHex) -> DbPerson {
+        DbPerson {
+            pubkey,
+            metadata: None,
+            metadata_at: None,
+            nip05_valid: 0,
+            nip05_last_checked: None,
+            followed: 0,
+            followed_last_updated: 0,
+        }
+    }
+
     pub fn name(&self) -> Option<&str> {
         if let Some(md) = &self.metadata {
             md.name.as_deref()

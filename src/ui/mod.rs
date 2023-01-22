@@ -378,39 +378,37 @@ impl GossipUi {
         idhex.0[0..8].to_string()
     }
 
-    pub fn render_person_name_line(ui: &mut Ui, maybe_person: Option<&DbPerson>) {
+    pub fn render_person_name_line(ui: &mut Ui, person: &DbPerson) {
         ui.horizontal_wrapped(|ui| {
-            if let Some(person) = maybe_person {
-                if let Some(name) = person.name() {
-                    ui.label(RichText::new(name).strong());
+            if let Some(name) = person.name() {
+                ui.label(RichText::new(name).strong());
+            } else {
+                ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
+            }
+
+            if person.followed > 0 {
+                ui.label("🚶");
+            }
+
+            if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
+                if nip05.starts_with("_@") {
+                    nip05 = nip05.get(2..).unwrap().to_string();
+                }
+
+                if person.nip05_valid > 0 {
+                    ui.label(RichText::new(nip05).monospace().small());
                 } else {
-                    ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
+                    ui.label(RichText::new(nip05).monospace().small().strikethrough());
                 }
+            }
 
-                if person.followed > 0 {
-                    ui.label("🚶");
-                }
-
-                if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
-                    if nip05.starts_with("_@") {
-                        nip05 = nip05.get(2..).unwrap().to_string();
-                    }
-
-                    if person.nip05_valid > 0 {
-                        ui.label(RichText::new(nip05).monospace().small());
-                    } else {
-                        ui.label(RichText::new(nip05).monospace().small().strikethrough());
-                    }
-                }
-
-                ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
-                if ui
-                    .add(CopyButton {})
-                    .on_hover_text("Copy Public Key")
-                    .clicked()
-                {
-                    ui.output().copied_text = person.pubkey.try_as_bech32_string().unwrap();
-                }
+            ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
+            if ui
+                .add(CopyButton {})
+                .on_hover_text("Copy Public Key")
+                .clicked()
+            {
+                ui.output().copied_text = person.pubkey.try_as_bech32_string().unwrap();
             }
         });
     }

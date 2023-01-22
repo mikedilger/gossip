@@ -2,6 +2,7 @@ use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
+use crate::people::DbPerson;
 use crate::tags::{keys_from_text, textarea_highlighter};
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
@@ -349,7 +350,10 @@ fn render_post_actual(
         return;
     }
 
-    let maybe_person = GLOBALS.people.get(&event.pubkey.into());
+    let person = match GLOBALS.people.get(&event.pubkey.into()) {
+        Some(p) => p,
+        None => DbPerson::new(event.pubkey.into()),
+    };
 
     let reactions = Globals::get_reactions_sync(event.id);
 
@@ -450,7 +454,7 @@ fn render_post_actual(
             ui.vertical(|ui| {
                 // First row
                 ui.horizontal_wrapped(|ui| {
-                    GossipUi::render_person_name_line(ui, maybe_person.as_ref());
+                    GossipUi::render_person_name_line(ui, &person);
 
                     if let Some((irt, _)) = event.replies_to() {
                         ui.add_space(8.0);

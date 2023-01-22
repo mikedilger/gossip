@@ -95,7 +95,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                     ui.vertical(|ui| {
                         ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
-                        GossipUi::render_person_name_line(ui, Some(person));
+                        GossipUi::render_person_name_line(ui, person);
                     });
                 });
 
