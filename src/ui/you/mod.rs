@@ -102,10 +102,10 @@ fn show_pub_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
-    ui.heading("Password Needed");
+    ui.heading("Passphrase Needed");
 
     ui.horizontal(|ui| {
-        ui.label("Password: ");
+        ui.label("Passphrase: ");
         ui.add(TextEdit::singleline(&mut app.password).password(true));
     });
 
@@ -151,7 +151,7 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 
     ui.horizontal(|ui| {
         ui.add_space(10.0);
-        ui.label("Enter Password To Export: ");
+        ui.label("Enter Passphrase To Export: ");
         ui.add(TextEdit::singleline(&mut app.password).password(true));
     });
 
@@ -204,7 +204,7 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         );
     });
     ui.horizontal(|ui| {
-        ui.label("Enter a password for the private key");
+        ui.label("Enter a passphrase for the private key");
         ui.add(TextEdit::singleline(&mut app.password).password(true));
     });
     if ui.button("import").clicked() {
@@ -269,7 +269,7 @@ fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
 
     ui.horizontal(|ui| {
         ui.add_space(10.0);
-        ui.label("Enter Password To Delete: ");
+        ui.label("Enter Passphrase To Delete: ");
         ui.add(TextEdit::singleline(&mut app.del_password).password(true));
     });
 
@@ -291,7 +291,7 @@ fn offer_generate(app: &mut GossipUi, ui: &mut Ui) {
     ui.heading("Generate a Keypair");
 
     ui.horizontal(|ui| {
-        ui.label("Enter a password to keep it encrypted under");
+        ui.label("Enter a passphrase to keep it encrypted under");
         ui.add(TextEdit::singleline(&mut app.password).password(true));
     });
     if ui.button("Generate Now").clicked() {

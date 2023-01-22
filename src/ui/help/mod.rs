@@ -164,11 +164,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if ui.link("You").clicked() {
                     app.set_page(Page::YourKeys);
                 }
-                ui.label("page you can setup your identity. If you are new, you should just press \"Generate\" and you are good to go. Otherwise you can import a private key in hex or bech32 format, although it isn't very secure to cut-n-paste and display your private key, so it will mark your key security as \"weak\". Hopefully one day soon you'll be able to import a password-protected private key exported from a different client.");
+                ui.label("page you can setup your identity. If you are new, you should just press \"Generate\" and you are good to go. Otherwise you can import a private key in hex or bech32 format, although it isn't very secure to cut-n-paste and display your private key, so it will mark your key security as \"weak\". Hopefully one day soon you'll be able to import a passphrase-protected private key exported from a different client.");
             });
             ui.add_space(10.0);
 
-            ui.label("After generating or importing your key, gossip will save it encrypted under a password. You will need this password to unlock it every time you start gossip. Gossip handles keys securely, never writes them to disk, never displays them (unless you request it to) and zeroing memory that was used for private keys or passwords before freeing it.");
+            ui.label("After generating or importing your key, gossip will save it encrypted under a passphrase. You will need this passphrase to unlock it every time you start gossip. Gossip handles keys securely, never writes them to disk, never displays them (unless you request it to) and zeroing memory that was used for private keys or passphrases before freeing it.");
             ui.add_space(10.0);
 
             ui.label("If you are just trying Gossip out and not intending to post or react to posts yet, you can just import your public key. This way you'll be able to sync your following list, view your feed and see your replies, but you won't be able to post or react to posts.");
