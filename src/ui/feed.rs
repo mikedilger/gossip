@@ -65,7 +65,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     match feed_kind {
         FeedKind::General => {
             let feed = GLOBALS.feed.get_general();
-            render_a_feed(app, ctx, frame, ui, feed, false);
+            render_a_feed(app, ctx, frame, ui, feed, false, "general");
         }
         FeedKind::Replies => {
             if GLOBALS.signer.blocking_read().public_key().is_none() {
@@ -78,16 +78,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 });
             }
             let feed = GLOBALS.feed.get_replies();
-            render_a_feed(app, ctx, frame, ui, feed, false);
+            render_a_feed(app, ctx, frame, ui, feed, false, "replies");
         }
-        FeedKind::Thread { .. } => {
+        FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
-                render_a_feed(app, ctx, frame, ui, vec![parent], true);
+                render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string());
             }
         }
         FeedKind::Person(pubkeyhex) => {
-            let feed = GLOBALS.feed.get_person_feed(pubkeyhex);
-            render_a_feed(app, ctx, frame, ui, feed, false);
+            let feed = GLOBALS.feed.get_person_feed(pubkeyhex.clone());
+            render_a_feed(app, ctx, frame, ui, feed, false, &pubkeyhex.0);
         }
     }
 }
@@ -222,30 +222,33 @@ fn render_a_feed(
     ui: &mut Ui,
     feed: Vec<Id>,
     threaded: bool,
+    scroll_area_id: &str,
 ) {
-    ScrollArea::vertical().show(ui, |ui| {
-        let bgcolor = if ctx.style().visuals.dark_mode {
-            Color32::BLACK
-        } else {
-            Color32::WHITE
-        };
-        Frame::none().fill(bgcolor).show(ui, |ui| {
-            for id in feed.iter() {
-                render_post_maybe_fake(
-                    app,
-                    ctx,
-                    frame,
-                    ui,
-                    FeedPostParams {
-                        id: *id,
-                        indent: 0,
-                        as_reply_to: false,
-                        threaded,
-                    },
-                );
-            }
+    ScrollArea::vertical()
+        .id_source(scroll_area_id)
+        .show(ui, |ui| {
+            let bgcolor = if ctx.style().visuals.dark_mode {
+                Color32::BLACK
+            } else {
+                Color32::WHITE
+            };
+            Frame::none().fill(bgcolor).show(ui, |ui| {
+                for id in feed.iter() {
+                    render_post_maybe_fake(
+                        app,
+                        ctx,
+                        frame,
+                        ui,
+                        FeedPostParams {
+                            id: *id,
+                            indent: 0,
+                            as_reply_to: false,
+                            threaded,
+                        },
+                    );
+                }
+            });
         });
-    });
 }
 
 fn render_post_maybe_fake(
@@ -525,9 +528,7 @@ fn render_post_actual(
 
                 // Possible subject line
                 if let Some(subject) = event.subject() {
-                    ui.label(
-                        RichText::new(subject).strong().underline()
-                    );
+                    ui.label(RichText::new(subject).strong().underline());
                 }
 
                 // MAIN CONTENT
