@@ -126,6 +126,10 @@ impl Minion {
                     ok_message
                 );
             }
+            RelayMessage::Auth(_) => {
+                // FIXME
+                return Ok(());
+            }
         }
 
         Ok(())
