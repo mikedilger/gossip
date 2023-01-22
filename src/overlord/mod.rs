@@ -735,16 +735,16 @@ impl Overlord {
             };
 
             // Add a 'p' tag for the author we are replying to (except if it is our own key)
-            if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
-                if pubkey != event.pubkey {
-                    add_pubkey_to_tags(&mut tags, pubkey).await;
-                }
+            if event.pubkey != public_key {
+                add_pubkey_to_tags(&mut tags, event.pubkey).await;
             }
 
             // Add all the 'p' tags from the note we are replying to (except our own)
             for tag in &event.tags {
                 if let Tag::Pubkey { pubkey, .. } = tag {
-                    add_pubkey_hex_to_tags(&mut tags, pubkey).await;
+                    if pubkey.0 != public_key.as_hex_string() {
+                        add_pubkey_hex_to_tags(&mut tags, pubkey).await;
+                    }
                 }
             }
 
