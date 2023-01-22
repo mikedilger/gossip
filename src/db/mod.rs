@@ -103,13 +103,16 @@ macro_rules! apply_sql {
 }
 
 fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
-    let current_version = 15;
+    let current_version = 16;
     if version > current_version {
         panic!(
             "Database version {} is newer than this binary which expects version {}.",
             version, current_version
         );
     }
+
+    // note to developers: we cannot make this into a loop because include_str! included
+    // by apply_sql! requires a static string, not a dynamically formatted one.
     apply_sql!(db, version, 1, "schema1.sql");
     apply_sql!(db, version, 2, "schema2.sql");
     apply_sql!(db, version, 3, "schema3.sql");
@@ -125,6 +128,7 @@ fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
     apply_sql!(db, version, 13, "schema13.sql");
     apply_sql!(db, version, 14, "schema14.sql");
     apply_sql!(db, version, 15, "schema15.sql");
+    apply_sql!(db, version, 16, "schema16.sql");
     tracing::info!("Database is at version {}", version);
     Ok(())
 }

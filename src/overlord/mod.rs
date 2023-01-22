@@ -740,6 +740,7 @@ impl Overlord {
             }
 
             // Add all the 'p' tags from the note we are replying to (except our own)
+            // FIXME: Should we avoid taging people who are muted?
             for tag in &event.tags {
                 if let Tag::Pubkey { pubkey, .. } = tag {
                     if pubkey.0 != public_key.as_hex_string() {

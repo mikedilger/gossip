@@ -59,6 +59,7 @@ enum Page {
     Feed(FeedKind),
     PeopleList,
     PeopleFollow,
+    PeopleMuted,
     Person(PublicKeyHex),
     YourKeys,
     YourMetadata,
@@ -284,6 +285,7 @@ impl eframe::App for GossipUi {
                     .add(SelectableLabel::new(
                         self.page == Page::PeopleList
                             || self.page == Page::PeopleFollow
+                            || self.page == Page::PeopleMuted
                             || matches!(self.page, Page::Person(_)),
                         "People",
                     ))
@@ -350,7 +352,7 @@ impl eframe::App for GossipUi {
 
         egui::CentralPanel::default().show(ctx, |ui| match self.page {
             Page::Feed(_) => feed::update(self, ctx, frame, ui),
-            Page::PeopleList | Page::PeopleFollow | Page::Person(_) => {
+            Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
                 people::update(self, ctx, frame, ui)
             }
             Page::YourKeys | Page::YourMetadata => you::update(self, ctx, frame, ui),

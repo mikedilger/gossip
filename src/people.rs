@@ -23,6 +23,7 @@ pub struct DbPerson {
     pub nip05_last_checked: Option<u64>,
     pub followed: u8,
     pub followed_last_updated: i64,
+    pub muted: u8,
 }
 
 impl DbPerson {
@@ -35,6 +36,7 @@ impl DbPerson {
             nip05_last_checked: None,
             followed: 0,
             followed_last_updated: 0,
+            muted: 0,
         }
     }
 
@@ -263,8 +265,11 @@ impl People {
             ));
         }
 
+        // NOTE: We also load all muted people, so that we can render the list of people
+        //       who are muted, so they can be found and unmuted as necessary.
+
         let sql = "SELECT pubkey, metadata, metadata_at, nip05_valid, nip05_last_checked, \
-             followed, followed_last_updated FROM person WHERE followed=1"
+             followed, followed_last_updated, muted FROM person WHERE followed=1 OR muted=1"
             .to_owned();
 
         let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
@@ -288,6 +293,7 @@ impl People {
                     nip05_last_checked: row.get(4)?,
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
+                    muted: row.get(7)?,
                 });
             }
             Ok(output)
@@ -560,7 +566,7 @@ impl People {
     }
 
     pub async fn async_follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) -> Result<(), Error> {
-        let f: u8 = u8::from(follow);
+        let follow: u8 = u8::from(follow);
 
         // Follow in database
         let sql = "INSERT INTO PERSON (pubkey, followed) values (?, ?) \
@@ -570,14 +576,14 @@ impl People {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&pubkeyhex2.0, &f, &f))?;
+            stmt.execute((&pubkeyhex2.0, &follow, &follow))?;
             Ok::<(), Error>(())
         })
         .await??;
 
         // Make sure memory matches
         if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
-            dbperson.followed = f;
+            dbperson.followed = follow;
         } else {
             // load
             if let Some(person) = Self::fetch_one(pubkeyhex).await? {
@@ -605,7 +611,8 @@ impl People {
 
         // Follow in database
         let sql = format!(
-            "UPDATE person SET followed=1, followed_last_updated=? WHERE pubkey IN ({}) and followed_last_updated<?",
+            "UPDATE person SET followed=1, followed_last_updated=? \
+             WHERE pubkey IN ({}) and followed_last_updated<?",
             repeat_vars(pubkeys.len())
         );
 
@@ -630,7 +637,8 @@ impl People {
         if !merge {
             // Unfollow in database
             let sql = format!(
-                "UPDATE person SET followed=0, followed_last_updated=? WHERE pubkey NOT IN ({}) and followed_last_updated<?",
+                "UPDATE person SET followed=0, followed_last_updated=? \
+                 WHERE pubkey NOT IN ({}) and followed_last_updated<?",
                 repeat_vars(pubkeys.len())
             );
 
@@ -663,6 +671,45 @@ impl People {
                 } else if !merge {
                     person.followed = 0;
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn mute(&self, pubkeyhex: &PublicKeyHex, mute: bool) {
+        // We can't do it now, but we spawn a task to do it soon
+        let pubkeyhex = pubkeyhex.to_owned();
+        tokio::spawn(async move {
+            if let Err(e) = GLOBALS.people.async_mute(&pubkeyhex, mute).await {
+                tracing::error!("{}", e);
+            }
+        });
+    }
+
+    pub async fn async_mute(&self, pubkeyhex: &PublicKeyHex, mute: bool) -> Result<(), Error> {
+        let mute: u8 = u8::from(mute);
+
+        // Mute in database
+        let sql = "INSERT INTO PERSON (pubkey, muted) values (?, ?) \
+                   ON CONFLICT(pubkey) DO UPDATE SET muted=?";
+        let pubkeyhex2 = pubkeyhex.to_owned();
+        task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((&pubkeyhex2.0, &mute, &mute))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        // Make sure memory matches
+        if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
+            dbperson.muted = mute;
+        } else {
+            // load
+            if let Some(person) = Self::fetch_one(pubkeyhex).await? {
+                self.people.insert(pubkeyhex.to_owned(), person);
             }
         }
 
@@ -735,7 +782,7 @@ impl People {
     async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql = "SELECT pubkey, metadata, metadata_at, \
              nip05_valid, nip05_last_checked, \
-             followed, followed_last_updated FROM person"
+             followed, followed_last_updated, muted FROM person"
             .to_owned();
         let sql = match criteria {
             None => sql,
@@ -763,6 +810,7 @@ impl People {
                     nip05_last_checked: row.get(4)?,
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
+                    muted: row.get(7)?,
                 });
             }
             Ok(output)
@@ -786,7 +834,7 @@ impl People {
         let sql = format!(
             "SELECT pubkey, metadata, metadata_at, \
              nip05_valid, nip05_last_checked, \
-             followed, followed_last_updated \
+             followed, followed_last_updated, muted \
              FROM person WHERE pubkey IN ({})",
             repeat_vars(pubkeys.len())
         );
@@ -821,6 +869,7 @@ impl People {
                     nip05_last_checked: row.get(4)?,
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
+                    muted: row.get(7)?,
                 });
             }
 
@@ -834,8 +883,8 @@ impl People {
     /*
     async fn insert(person: DbPerson) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person (pubkey, metadata, metadata_at, \
-             nip05_valid, nip05_last_checked, followed, followed_last_updated) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
+             nip05_valid, nip05_last_checked, followed, followed_last_updated, muted) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -856,6 +905,7 @@ impl People {
                 &person.nip05_last_checked,
                 &person.followed,
                 &person.followed_last_updated,
+                &person.muted,
             ))?;
             Ok::<(), Error>(())
         })

@@ -273,6 +273,13 @@ fn render_post_maybe_fake(
     }
     let event = maybe_event.unwrap();
 
+    // Do not render muted people, not even fake-renders offscreen
+    if let Some(person) = GLOBALS.people.get(&event.pubkey.into()) {
+        if person.muted > 0 {
+            return;
+        }
+    };
+
     let screen_rect = ctx.input().screen_rect; // Rect
     let pos2 = ui.next_widget_position();
 
@@ -502,6 +509,14 @@ fn render_post_actual(
                             }
                             if ui.button("Dismiss").clicked() {
                                 GLOBALS.dismissed.blocking_write().push(event.id);
+                            }
+                            if ui.button("Mute").clicked() {
+                                GLOBALS.people.mute(&event.pubkey.into(), true);
+                            }
+                            if person.followed == 0 && ui.button("Follow").clicked() {
+                                GLOBALS.people.follow(&event.pubkey.into(), true);
+                            } else if ui.button("Unfollow").clicked() {
+                                GLOBALS.people.follow(&event.pubkey.into(), false);
                             }
                             if ui.button("Update Metadata").clicked() {
                                 let _ = GLOBALS

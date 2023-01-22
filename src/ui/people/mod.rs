@@ -8,6 +8,7 @@ use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
 use std::sync::atomic::Ordering;
 
 mod follow;
+mod muted;
 mod person;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -20,6 +21,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.selectable_value(&mut app.page, Page::PeopleList, "Followed");
         ui.separator();
         ui.selectable_value(&mut app.page, Page::PeopleFollow, "Follow Someone New");
+        ui.separator();
+        ui.selectable_value(&mut app.page, Page::PeopleMuted, "Muted");
         ui.separator();
         if let Some(person) = &maybe_person {
             ui.selectable_value(
@@ -106,6 +109,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
     } else if app.page == Page::PeopleFollow {
         follow::update(app, ctx, _frame, ui);
+    } else if app.page == Page::PeopleMuted {
+        muted::update(app, ctx, _frame, ui);
     } else if matches!(app.page, Page::Person(_)) {
         person::update(app, ctx, _frame, ui);
     }

@@ -60,15 +60,16 @@ fn content(
             ui.label(RichText::new(GossipUi::hex_pubkey_short(&pubkeyhex)).weak());
             GossipUi::render_person_name_line(ui, &person);
 
-            #[allow(clippy::collapsible_else_if)]
-            if person.followed == 0 {
-                if ui.button("FOLLOW").clicked() {
-                    GLOBALS.people.follow(&pubkeyhex, true);
-                }
-            } else {
-                if ui.button("UNFOLLOW").clicked() {
-                    GLOBALS.people.follow(&pubkeyhex, false);
-                }
+            if person.followed == 0 && ui.button("FOLLOW").clicked() {
+                GLOBALS.people.follow(&pubkeyhex, true);
+            } else if person.followed == 1 && ui.button("UNFOLLOW").clicked() {
+                GLOBALS.people.follow(&pubkeyhex, false);
+            }
+
+            if person.muted == 0 && ui.button("MUTE").clicked() {
+                GLOBALS.people.mute(&pubkeyhex, true);
+            } else if person.muted == 1 && ui.button("UNMUTE").clicked() {
+                GLOBALS.people.mute(&pubkeyhex, false);
             }
 
             if ui.button("UPDATE METADATA").clicked() {
