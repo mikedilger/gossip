@@ -2,7 +2,8 @@ use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
-use nostr_types::{Metadata, Nip05, Unixtime, Url};
+use nostr_types::{Metadata, Nip05, PublicKeyHex, Unixtime, Url};
+use std::collections::hash_map::Entry;
 
 // This updates the people map and the database with the result
 #[allow(dead_code)]
@@ -43,23 +44,29 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
     };
 
     // Check if the response matches their public key
+    let mut valid = false;
     match nip05file.names.get(&user) {
         Some(pk) => {
             if *pk == person.pubkey {
                 // Validated
                 GLOBALS
                     .people
-                    .upsert_nip05_validity(&person.pubkey, Some(nip05), true, now.0 as u64)
+                    .upsert_nip05_validity(&person.pubkey, Some(nip05.clone()), true, now.0 as u64)
                     .await?;
+                valid = true;
             }
         }
         None => {
             // Failed
             GLOBALS
                 .people
-                .upsert_nip05_validity(&person.pubkey, Some(nip05), false, now.0 as u64)
+                .upsert_nip05_validity(&person.pubkey, Some(nip05.clone()), false, now.0 as u64)
                 .await?;
         }
+    }
+
+    if valid {
+        update_relays(nip05, nip05file, &person.pubkey).await?;
     }
 
     Ok(())
@@ -74,7 +81,7 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
 
     // Get their pubkey
     let pubkey = match nip05file.names.get(&user) {
-        Some(pk) => pk,
+        Some(pk) => pk.to_owned(),
         None => return Err(Error::Nip05KeyNotFound),
     };
 
@@ -82,7 +89,7 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
     GLOBALS
         .people
         .upsert_nip05_validity(
-            pubkey,
+            &pubkey,
             Some(nip05.clone()),
             true,
             Unixtime::now().unwrap().0 as u64,
@@ -90,10 +97,20 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
         .await?;
 
     // Mark as followed
-    GLOBALS.people.async_follow(pubkey, true).await?;
+    GLOBALS.people.async_follow(&pubkey, true).await?;
 
     tracing::info!("Followed {}", &nip05);
 
+    update_relays(nip05, nip05file, &pubkey).await?;
+
+    Ok(())
+}
+
+async fn update_relays(
+    nip05: String,
+    nip05file: Nip05,
+    pubkey: &PublicKeyHex,
+) -> Result<(), Error> {
     // Set their relays
     let relays = match nip05file.relays.get(pubkey) {
         Some(relays) => relays,
@@ -104,11 +121,15 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
         let relay_url = Url::new(relay);
         if relay_url.is_valid_relay_url() {
             let db_relay = DbRelay::new(relay_url.inner().to_owned())?;
-            DbRelay::insert(db_relay).await?;
+            DbRelay::insert(db_relay.clone()).await?;
+
+            if let Entry::Vacant(entry) = GLOBALS.relays.write().await.entry(relay_url.clone()) {
+                entry.insert(db_relay);
+            }
 
             // Save person_relay
             DbPersonRelay::upsert_last_suggested_nip05(
-                pubkey.clone(),
+                pubkey.to_owned(),
                 relay.inner().to_owned(),
                 Unixtime::now().unwrap().0 as u64,
             )
