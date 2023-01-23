@@ -155,9 +155,9 @@ impl Feed {
             .filter(|e| e.kind == EventKind::TextNote)
             .collect();
 
-        let mut pubkeys = GLOBALS.people.get_followed_pubkeys();
+        let mut followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
         if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
-            pubkeys.push(pubkey.into()); // add the user
+            followed_pubkeys.push(pubkey.into()); // add the user
         }
 
         // My event ids
@@ -174,7 +174,7 @@ impl Feed {
         *self.followed_event_ids.write() = events
             .iter()
             .filter_map(|e| {
-                if pubkeys.contains(&e.pubkey.into()) {
+                if followed_pubkeys.contains(&e.pubkey.into()) {
                     Some(e.id)
                 } else {
                     None
@@ -189,7 +189,7 @@ impl Feed {
         let mut fevents: Vec<Event> = events
             .iter()
             .filter(|e| !dismissed.contains(&e.id))
-            .filter(|e| pubkeys.contains(&e.pubkey.into())) // something we follow
+            .filter(|e| followed_pubkeys.contains(&e.pubkey.into())) // something we follow
             .filter(|e| e.created_at <= now)
             .cloned()
             .collect();
@@ -197,12 +197,19 @@ impl Feed {
         *self.general_feed.write() = fevents.iter().map(|e| e.id).collect();
 
         // Filter differently for the replies feed
+        let direct_only = GLOBALS.settings.read().await.direct_replies_only;
+
         if let Some(my_pubkey) = GLOBALS.signer.read().await.public_key() {
             let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();
             let mut revents: Vec<Event> = events
                 .iter()
                 .filter(|e| !dismissed.contains(&e.id))
                 .filter(|e| {
+                    // Don't include my own posts
+                    if e.pubkey == my_pubkey {
+                        return false;
+                    }
+
                     // Include if it directly replies to one of my events
                     // FIXME: maybe try replies_to_ancestors to go deeper
                     if let Some((id, _)) = e.replies_to() {
@@ -210,8 +217,16 @@ impl Feed {
                             return true;
                         }
                     }
-                    // Include if it tags me
-                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+
+                    if direct_only {
+                        // Include if it directly references me in the content
+                        e.referenced_people()
+                            .iter()
+                            .any(|(p, _, _)| *p == my_pubkey.into())
+                    } else {
+                        // Include if it tags me
+                        e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                    }
                 })
                 .cloned()
                 .collect();

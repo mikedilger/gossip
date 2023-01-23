@@ -18,6 +18,7 @@ pub const DEFAULT_OVERRIDE_DPI: Option<u32> = None;
 pub const DEFAULT_REACTIONS: bool = true;
 pub const DEFAULT_LOAD_AVATARS: bool = true;
 pub const DEFAULT_CHECK_NIP05: bool = true;
+pub const DEFAULT_DIRECT_REPLIES_ONLY: bool = true;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
@@ -38,6 +39,7 @@ pub struct Settings {
     pub reactions: bool,
     pub load_avatars: bool,
     pub check_nip05: bool,
+    pub direct_replies_only: bool,
 }
 
 impl Default for Settings {
@@ -60,6 +62,7 @@ impl Default for Settings {
             reactions: DEFAULT_REACTIONS,
             load_avatars: DEFAULT_LOAD_AVATARS,
             check_nip05: DEFAULT_CHECK_NIP05,
+            direct_replies_only: DEFAULT_DIRECT_REPLIES_ONLY,
         }
     }
 }
@@ -130,6 +133,7 @@ impl Settings {
                 "reactions" => settings.reactions = numstr_to_bool(row.1),
                 "load_avatars" => settings.load_avatars = numstr_to_bool(row.1),
                 "check_nip05" => settings.check_nip05 = numstr_to_bool(row.1),
+                "direct_replies_only" => settings.direct_replies_only = numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -164,7 +168,8 @@ impl Settings {
              ('set_client_tag', ?),\
              ('reactions', ?),\
              ('load_avatars', ?),\
-             ('check_nip05', ?)",
+             ('check_nip05', ?),\
+             ('direct_replies_only', ?)",
         )?;
         stmt.execute((
             self.feed_chunk,
@@ -181,6 +186,7 @@ impl Settings {
             bool_to_numstr(self.reactions),
             bool_to_numstr(self.load_avatars),
             bool_to_numstr(self.check_nip05),
+            bool_to_numstr(self.direct_replies_only),
         ))?;
 
         // Save override dpi
