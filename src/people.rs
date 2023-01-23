@@ -381,6 +381,12 @@ impl People {
             return Err(());
         }
 
+        // Do not fetch if disabled
+        if !GLOBALS.settings.blocking_read().load_avatars {
+            GLOBALS.people.avatars_failed.insert(pubkeyhex.clone());
+            return Err(());
+        }
+
         match GLOBALS.fetcher.try_get(url) {
             Ok(None) => Ok(None),
             Ok(Some(bytes)) => {

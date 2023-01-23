@@ -104,6 +104,7 @@ impl Fetcher {
             }
         }
 
+        // Do not fetch if offline
         if GLOBALS.settings.blocking_read().offline {
             return Ok(None);
         }

@@ -16,6 +16,8 @@ pub const DEFAULT_LIGHT_MODE: bool = true; // true = light false = dark
 pub const DEFAULT_SET_CLIENT_TAG: bool = false;
 pub const DEFAULT_OVERRIDE_DPI: Option<u32> = None;
 pub const DEFAULT_REACTIONS: bool = true;
+pub const DEFAULT_LOAD_AVATARS: bool = true;
+pub const DEFAULT_CHECK_NIP05: bool = true;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
@@ -34,6 +36,8 @@ pub struct Settings {
     pub set_client_tag: bool,
     pub override_dpi: Option<u32>,
     pub reactions: bool,
+    pub load_avatars: bool,
+    pub check_nip05: bool,
 }
 
 impl Default for Settings {
@@ -54,6 +58,8 @@ impl Default for Settings {
             set_client_tag: DEFAULT_SET_CLIENT_TAG,
             override_dpi: DEFAULT_OVERRIDE_DPI,
             reactions: DEFAULT_REACTIONS,
+            load_avatars: DEFAULT_LOAD_AVATARS,
+            check_nip05: DEFAULT_CHECK_NIP05,
         }
     }
 }
@@ -122,6 +128,8 @@ impl Settings {
                     }
                 }
                 "reactions" => settings.reactions = numstr_to_bool(row.1),
+                "load_avatars" => settings.load_avatars = numstr_to_bool(row.1),
+                "check_nip05" => settings.check_nip05 = numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -154,7 +162,9 @@ impl Settings {
              ('offline', ?),\
              ('light_mode', ?),\
              ('set_client_tag', ?),\
-             ('reactions', ?)",
+             ('reactions', ?),\
+             ('load_avatars', ?),\
+             ('check_nip05', ?)",
         )?;
         stmt.execute((
             self.feed_chunk,
@@ -169,6 +179,8 @@ impl Settings {
             bool_to_numstr(self.light_mode),
             bool_to_numstr(self.set_client_tag),
             bool_to_numstr(self.reactions),
+            bool_to_numstr(self.load_avatars),
+            bool_to_numstr(self.check_nip05),
         ))?;
 
         // Save override dpi

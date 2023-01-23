@@ -7,6 +7,10 @@ use std::collections::hash_map::Entry;
 
 // This updates the people map and the database with the result
 pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
+    if !GLOBALS.settings.read().await.check_nip05 {
+        return Ok(());
+    }
+
     let now = Unixtime::now().unwrap();
 
     // invalid if their nip-05 is not set
