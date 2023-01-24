@@ -142,6 +142,22 @@ pub async fn process_new_event(
             Globals::add_relationship(id, event.id, Relationship::Reply).await;
         }
 
+        // mentions
+        for (id, _) in event.mentions() {
+            if from_relay {
+                let db_event_relationship = DbEventRelationship {
+                    original: event.id.as_hex_string(),
+                    refers_to: id.as_hex_string(),
+                    relationship: "mention".to_string(),
+                    content: None,
+                };
+                db_event_relationship.insert().await?;
+            }
+
+            // Insert into relationships
+            Globals::add_relationship(id, event.id, Relationship::Mention).await;
+        }
+
         // reacts to
         if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
             if from_relay {
