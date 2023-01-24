@@ -1,4 +1,4 @@
-use crate::db::DbPersonRelay;
+use crate::db::{DbEvent, DbPersonRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
@@ -545,6 +545,13 @@ impl People {
             None => return Err(Error::NoPrivateKey), // not even a public key
         };
 
+        // Get the content from our latest ContactList.
+        // We don't use the data, but we shouldn't clobber it.
+        let content = match DbEvent::fetch_latest_contact_list(public_key.into()).await? {
+            Some(c) => c.content,
+            None => "".to_owned(),
+        };
+
         // NOTICE - some clients are stuffing relay following data into the content
         // of `ContactList`s.  We don't have a set of relays that we read from, so
         // we could only do half of that even if we wanted to, and I'm not sure only
@@ -554,7 +561,7 @@ impl People {
             created_at: Unixtime::now().unwrap(),
             kind: EventKind::ContactList,
             tags: p_tags,
-            content: "".to_owned(),
+            content,
             ots: None,
         };
 

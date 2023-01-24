@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{IdHex, PublicKeyHex};
+use nostr_types::{Event, IdHex, PublicKeyHex};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -49,6 +49,31 @@ impl DbEvent {
         .await?;
 
         output
+    }
+
+    pub async fn fetch_latest_contact_list(
+        pubkeyhex: PublicKeyHex,
+    ) -> Result<Option<Event>, Error> {
+        let sql = "SELECT raw FROM event WHERE event.kind=3 AND event.pubkey=? ORDER BY created_at DESC LIMIT 1";
+
+        let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            stmt.raw_bind_parameter(1, &pubkeyhex.0)?;
+            let mut rows = stmt.raw_query();
+            let mut events: Vec<Event> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let raw: String = row.get(0)?;
+                let event: Event = serde_json::from_str(&raw)?;
+                events.push(event);
+            }
+            Ok(events)
+        })
+        .await?;
+
+        Ok(output?.drain(..).next())
     }
 
     pub async fn fetch_reply_related(since: i64) -> Result<Vec<DbEvent>, Error> {
