@@ -329,11 +329,7 @@ impl Minion {
         let enable_reactions = GLOBALS.settings.read().await.reactions;
 
         if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
-            let mut kinds = vec![
-                EventKind::TextNote,
-                EventKind::Repost,
-                EventKind::EventDeletion,
-            ];
+            let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
             }
@@ -348,13 +344,13 @@ impl Minion {
 
             // Any mentions of me
             // (but not in peoples contact lists, for example)
-            let mut kinds = vec![EventKind::TextNote, EventKind::Repost];
+            let mut kinds = vec![EventKind::TextNote];
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
             }
             filters.push(Filter {
                 p: vec![pubkey.into()],
-                kinds: vec![EventKind::TextNote, EventKind::Repost],
+                kinds: vec![EventKind::TextNote],
                 since: Some(replies_since),
                 ..Default::default()
             });
@@ -374,11 +370,7 @@ impl Minion {
         }
 
         if !followed_pubkeys.is_empty() {
-            let mut kinds = vec![
-                EventKind::TextNote,
-                EventKind::Repost,
-                EventKind::EventDeletion,
-            ];
+            let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
             }
@@ -513,11 +505,7 @@ impl Minion {
         }
 
         // Get replies to main event
-        let mut kinds = vec![
-            EventKind::TextNote,
-            EventKind::Repost,
-            EventKind::EventDeletion,
-        ];
+        let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
         if enable_reactions {
             kinds.push(EventKind::Reaction);
         }
