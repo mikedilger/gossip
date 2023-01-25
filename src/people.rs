@@ -1,3 +1,4 @@
+use crate::comms::{ToMinionMessage, ToMinionPayload};
 use crate::db::{DbEvent, DbPersonRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -612,6 +613,12 @@ impl People {
             }
         }
 
+        // Resubscribe to the general feed
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::SubscribeGeneralFeed,
+        });
+
         Ok(())
     }
 
@@ -694,6 +701,12 @@ impl People {
                 }
             }
         }
+
+        // Resubscribe to the general feed
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::SubscribeGeneralFeed,
+        });
 
         Ok(())
     }

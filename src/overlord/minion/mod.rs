@@ -285,9 +285,6 @@ impl Minion {
     }
 
     async fn subscribe_general_feed(&mut self) -> Result<(), Error> {
-        // NOTE if the general feed is already subscribed we need to
-        // close it and resubscribe under a new id
-
         let mut filters: Vec<Filter> = Vec::new();
         let (overlap, feed_chunk, replies_chunk) = {
             let settings = GLOBALS.settings.read().await.clone();
