@@ -83,6 +83,10 @@ pub struct People {
     avatars_temp: DashMap<PublicKeyHex, ColorImage>,
     avatars_pending_processing: DashSet<PublicKeyHex>,
     avatars_failed: DashSet<PublicKeyHex>,
+
+    // When we manually ask for updating metadata, we want to recheck
+    // the person's NIP-05 when that metadata come in. We remember this here.
+    recheck_nip05: DashSet<PublicKeyHex>,
 }
 
 impl People {
@@ -92,6 +96,7 @@ impl People {
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
             avatars_failed: DashSet::new(),
+            recheck_nip05: DashSet::new(),
         }
     }
 
@@ -148,6 +153,10 @@ impl People {
         }
 
         Ok(())
+    }
+
+    pub fn recheck_nip05_on_update_metadata(&self, pubkeyhex: &PublicKeyHex) {
+        self.recheck_nip05.insert(pubkeyhex.to_owned());
     }
 
     pub async fn update_metadata(
@@ -224,26 +233,25 @@ impl People {
             }
         ) {
             // Recheck nip05 every day if invalid, and every two weeks if valid
-            // FIXME make these settings
-            let recheck_duration = if person.nip05_valid > 0 {
-                Duration::from_secs(60 * 60 * 24 * 14)
-            } else {
-                Duration::from_secs(60 * 60 * 24)
+
+            let recheck = {
+                if self.recheck_nip05.contains(pubkeyhex) {
+                    self.recheck_nip05.remove(pubkeyhex);
+                    true
+                } else if let Some(last) = person.nip05_last_checked {
+                    // FIXME make these settings
+                    let recheck_duration = if person.nip05_valid > 0 {
+                        Duration::from_secs(60 * 60 * 24 * 14)
+                    } else {
+                        Duration::from_secs(60 * 60 * 24)
+                    };
+                    Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration
+                } else {
+                    true
+                }
             };
 
-            // Maybe validate nip05
-            if let Some(last) = person.nip05_last_checked {
-                if Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration {
-                    // recheck
-                    self.update_nip05_last_checked(person.pubkey.clone())
-                        .await?;
-                    task::spawn(async move {
-                        if let Err(e) = crate::nip05::validate_nip05(person).await {
-                            tracing::error!("{}", e);
-                        }
-                    });
-                }
-            } else {
+            if recheck {
                 self.update_nip05_last_checked(person.pubkey.clone())
                     .await?;
                 task::spawn(async move {

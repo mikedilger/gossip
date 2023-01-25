@@ -590,6 +590,10 @@ impl Overlord {
                         payload: ToMinionPayload::TempSubscribeMetadata(vec![pubkey.clone()]),
                     });
                 }
+
+                // Mark in globals that we want to recheck their nip-05 when that metadata
+                // comes in
+                GLOBALS.people.recheck_nip05_on_update_metadata(&pubkey);
             }
         }
 
