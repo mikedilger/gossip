@@ -95,10 +95,6 @@ impl Subscription {
         self.id.clone()
     }
 
-    pub fn get_mut(&mut self) -> &mut Vec<Filter> {
-        &mut self.filters
-    }
-
     pub fn set_eose(&mut self) {
         self.eose = true;
     }

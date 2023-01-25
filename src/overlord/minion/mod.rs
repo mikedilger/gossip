@@ -279,8 +279,8 @@ impl Minion {
     }
 
     async fn subscribe_general_feed(&mut self) -> Result<(), Error> {
-        // NOTE if the general feed is already subscribed we shoudn't do anything
-        // but we may need to update the subscription
+        // NOTE if the general feed is already subscribed we need to
+        // close it and resubscribe under a new id
 
         let mut filters: Vec<Filter> = Vec::new();
         let (overlap, feed_chunk, replies_chunk) = {
@@ -698,14 +698,12 @@ impl Minion {
     }
 
     async fn subscribe(&mut self, filters: Vec<Filter>, handle: &str) -> Result<(), Error> {
-        let req_message = if self.subscriptions.has(handle) {
-            let sub = self.subscriptions.get_mut(handle).unwrap();
-            *sub.get_mut() = filters;
-            sub.req_message()
-        } else {
-            self.subscriptions.add(handle, filters);
-            self.subscriptions.get(handle).unwrap().req_message()
-        };
+        if self.subscriptions.has(handle) {
+            // Unsubscribe. will resubscribe under a new handle.
+            self.unsubscribe(handle).await?;
+        }
+        self.subscriptions.add(handle, filters);
+        let req_message = self.subscriptions.get(handle).unwrap().req_message();
         let wire = serde_json::to_string(&req_message)?;
         let websocket_sink = self.sink.as_mut().unwrap();
         websocket_sink.send(WsMessage::Text(wire.clone())).await?;
