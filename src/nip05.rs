@@ -172,6 +172,9 @@ async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
     let nip05_future = reqwest::Client::builder()
         .timeout(std::time::Duration::new(60, 0))
         .redirect(reqwest::redirect::Policy::none()) // see NIP-05
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
         .build()?
         .get(format!(
             "https://{}/.well-known/nostr.json?name={}",

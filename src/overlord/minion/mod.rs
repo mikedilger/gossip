@@ -95,24 +95,30 @@ impl Minion {
                 return Err(Error::UrlHasEmptyHostname);
             }
 
-            let request_nip11_future = reqwest::Client::new()
+            let request_nip11_future = reqwest::Client::builder()
+                .timeout(std::time::Duration::new(30, 0))
+                .redirect(reqwest::redirect::Policy::none())
+                .gzip(true)
+                .brotli(true)
+                .deflate(true)
+                .build()?
                 .get(format!("https://{}", host))
                 .header("Host", host)
                 .header("Accept", "application/nostr+json")
                 .send();
 
             // Read NIP-11 information
-            if let Ok(response) =
-                tokio::time::timeout(std::time::Duration::new(15, 0), request_nip11_future).await?
+            match request_nip11_future
+                .await?
+                .json::<RelayInformationDocument>()
+                .await
             {
-                match response.json::<RelayInformationDocument>().await {
-                    Ok(nip11) => {
-                        tracing::info!("{}: {}", &self.url, nip11);
-                        self.nip11 = Some(nip11);
-                    }
-                    Err(e) => {
-                        tracing::warn!("{}: Unable to parse response as NIP-11: {}", &self.url, e);
-                    }
+                Ok(nip11) => {
+                    tracing::info!("{}: {}", &self.url, nip11);
+                    self.nip11 = Some(nip11);
+                }
+                Err(e) => {
+                    tracing::warn!("{}: Unable to parse response as NIP-11: {}", &self.url, e);
                 }
             }
 

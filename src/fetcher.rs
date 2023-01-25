@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::RwLock;
 use tokio::task;
 
+#[derive(Debug, Default)]
 pub struct Fetcher {
     // we don't want new() to fail in lazy_static init, so we just mark it dead if there was an error
     // on creation
@@ -28,13 +29,27 @@ pub struct Fetcher {
 
 impl Fetcher {
     pub fn new() -> Fetcher {
-        let mut f = Fetcher {
-            dead: None,
-            cache_dir: PathBuf::new(),
-            client: Client::new(),
-            pending: RwLock::new(HashSet::new()),
-            failed: RwLock::new(HashMap::new()),
-            requests_in_flight: AtomicUsize::new(0),
+        let client = match Client::builder()
+            // .user_agent...
+            // .timeout(std::time::Duration::new(60, 0)) ?
+            // .redirect(reqwest::redirect::Policy::none()) ?
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                return Fetcher {
+                    dead: Some(format!("{}", e)),
+                    ..Default::default()
+                }
+            }
+        };
+
+        let mut f: Fetcher = Fetcher {
+            client,
+            ..Default::default()
         };
 
         // Setup the cache directory
