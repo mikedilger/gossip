@@ -1045,12 +1045,12 @@ impl Overlord {
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
-            for relay in DbPersonRelay::get_best_relays(pubkey.to_owned())
+            for relayscore in DbPersonRelay::get_best_relays(pubkey.to_owned())
                 .await?
                 .drain(..)
                 .take(num_relays_per_person as usize)
             {
-                map.entry(relay)
+                map.entry(relayscore.0)
                     .and_modify(|e| e.push(pubkey.to_owned()))
                     .or_insert_with(|| vec![pubkey.to_owned()]);
             }

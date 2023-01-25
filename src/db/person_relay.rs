@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{PublicKeyHex, Url};
+use nostr_types::{PublicKeyHex, Unixtime, Url};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -332,32 +332,91 @@ impl DbPersonRelay {
     }
      */
 
-    pub async fn get_best_relays(pubkey: PublicKeyHex) -> Result<Vec<Url>, Error> {
-        // This is the ranking we are using. There might be reasons
-        // for ranking differently:
-        // nip23 > kind3 > nip05 > kind2 > fetched > bytag
+    /// This returns the best relays for the person along with a score, in order of score
+    pub async fn get_best_relays(pubkey: PublicKeyHex) -> Result<Vec<(Url, u64)>, Error> {
+        let sql = "SELECT person, relay, last_suggested_nip23, last_suggested_kind3, \
+                   last_suggested_nip05, last_fetched, last_suggested_kind2, \
+                   last_suggested_bytag \
+                   FROM person_relay WHERE person=?";
 
-        let sql = "SELECT relay FROM person_relay WHERE person=? \
-                   ORDER BY last_suggested_nip23 DESC, last_suggested_kind3 DESC, \
-                   last_suggested_nip05 DESC, last_suggested_kind2 DESC, \
-                   last_fetched DESC, last_suggested_bytag DESC";
-
-        let relays: Result<Vec<Url>, Error> = spawn_blocking(move || {
+        let ranked_relays: Result<Vec<(Url, u64)>, Error> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
             stmt.raw_bind_parameter(1, &pubkey.0)?;
             let mut rows = stmt.raw_query();
-            let mut relays: Vec<Url> = Vec::new();
+
+            let mut dbprs: Vec<DbPersonRelay> = Vec::new();
             while let Some(row) = rows.next()? {
-                let s: String = row.get(0)?;
-                relays.push(Url::new(&s));
+                let dbpr = DbPersonRelay {
+                    person: row.get(0)?,
+                    relay: row.get(1)?,
+                    last_fetched: row.get(2)?,
+                    last_suggested_kind2: row.get(3)?,
+                    last_suggested_kind3: row.get(4)?,
+                    last_suggested_nip23: row.get(5)?,
+                    last_suggested_nip05: row.get(6)?,
+                    last_suggested_bytag: row.get(7)?,
+                };
+                dbprs.push(dbpr);
             }
-            Ok(relays)
+
+            Ok(DbPersonRelay::rank(dbprs))
         })
         .await?;
 
-        relays
+        ranked_relays
+    }
+
+    // This ranks the relays
+    pub fn rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(Url, u64)> {
+        // This is the ranking we are using. There might be reasons
+        // for ranking differently:
+        // nip23 (score=10) > kind3 (score=8) > nip05 (score=6) > fetched (score=4)
+        //   > kind2 (score=2) > bytag (score=1)
+
+        let now = Unixtime::now().unwrap().0 as u64;
+        let mut output: Vec<(Url, u64)> = Vec::new();
+
+        let scorefn = |when: u64, fade_period: u64, base: u64| -> u64 {
+            let dur = now.saturating_sub(when); // seconds since
+            let periods = (dur / fade_period) + 1; // minimum one period
+            base / periods
+        };
+
+        for dbpr in dbprs.drain(..) {
+            let mut score = 0;
+            // nip23 is an author-signed explicit claim of using this relay
+            if let Some(when) = dbpr.last_suggested_nip23 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 15);
+            }
+            // kind3 is a temporary (not NIPped) author-signed explicit claim of using this relay
+            if let Some(when) = dbpr.last_suggested_kind3 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 15);
+            }
+            // kind2 is an author-signed recommended relay list
+            if let Some(when) = dbpr.last_suggested_kind2 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 10);
+            }
+            // nip05 is an unsigned dns claim of using this relay
+            if let Some(when) = dbpr.last_suggested_nip05 {
+                score += scorefn(when, 60 * 60 * 24 * 15, 6);
+            }
+            // last_fetched is gossip verified happened-to-work-before
+            if let Some(when) = dbpr.last_fetched {
+                score += scorefn(when, 60 * 60 * 24 * 3, 6);
+            }
+            // last_suggested_bytag is an anybody-signed suggestion
+            if let Some(when) = dbpr.last_suggested_bytag {
+                score += scorefn(when, 60 * 60 * 24 * 2, 1);
+            }
+            tracing::debug!("person relay score {} = {}", &dbpr.relay, score);
+            output.push((Url::new(&dbpr.relay), score));
+        }
+
+        output.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
+
+        output
     }
 
     /*

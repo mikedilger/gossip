@@ -544,7 +544,7 @@ impl People {
             let maybeurl = relays.get(0);
             p_tags.push(Tag::Pubkey {
                 pubkey: pubkey.clone(),
-                recommended_relay_url: maybeurl.cloned(),
+                recommended_relay_url: maybeurl.map(|(u, _)| u).cloned(),
                 petname: None,
             });
         }
