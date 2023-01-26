@@ -704,6 +704,13 @@ impl Minion {
         if self.subscriptions.has(handle) {
             // Unsubscribe. will resubscribe under a new handle.
             self.unsubscribe(handle).await?;
+
+            // Gratitously bump the EOSE as if the relay was finished, since it was
+            // our fault the subscription is getting cut off.  This way we will pick up
+            // where we left off instead of potentially loading a bunch of events
+            // yet again.
+            let now = Unixtime::now().unwrap();
+            DbRelay::update_general_eose(self.dbrelay.url.clone(), now.0 as u64).await?;
         }
         self.subscriptions.add(handle, filters);
         let req_message = self.subscriptions.get(handle).unwrap().req_message();
