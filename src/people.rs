@@ -588,6 +588,12 @@ impl People {
     }
 
     pub async fn async_follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) -> Result<(), Error> {
+        // Skip if they are already followed (or already not followed)
+        let already_followed = self.get_followed_pubkeys().contains(pubkeyhex);
+        if follow == already_followed {
+            return Ok(());
+        }
+
         let follow: u8 = u8::from(follow);
 
         // Follow in database
@@ -628,6 +634,22 @@ impl People {
         merge: bool,
         asof: Unixtime,
     ) -> Result<(), Error> {
+        // Remove people already followed
+        let followed = self.get_followed_pubkeys();
+        let mut new: Vec<PublicKeyHex> = Vec::new();
+        for pk in pubkeys.iter() {
+            if !followed.contains(pk) {
+                new.push(pk.to_owned());
+            }
+        }
+
+        // Skip if there is nobody new to follow
+        if new.is_empty() {
+            return Ok(());
+        }
+
+        let pubkeys = &new;
+
         tracing::debug!(
             "Updating following list, {} people long, merge={}",
             pubkeys.len(),
