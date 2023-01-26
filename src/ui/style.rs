@@ -1,6 +1,6 @@
 use crate::tags::HighlightType;
 use eframe::{egui, epaint};
-use egui::style::{Selection, Visuals, Widgets};
+use egui::style::{Selection, Visuals, WidgetVisuals, Widgets};
 use egui::{
     Color32, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Rounding, Stroke, TextStyle,
 };
@@ -11,7 +11,43 @@ use std::collections::BTreeMap;
 pub(super) fn dark_mode_visuals() -> Visuals {
     Visuals {
         dark_mode: true,
-        widgets: Widgets::dark(),
+        widgets: Widgets {
+            noninteractive: WidgetVisuals {
+                bg_fill: Color32::from_gray(27),
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // separators, indentation lines
+                fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // normal text color
+                rounding: Rounding::same(2.0),
+                expansion: 0.0,
+            },
+            inactive: WidgetVisuals {
+                bg_fill: Color32::from_gray(60), // button background
+                bg_stroke: Default::default(),
+                fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // button text
+                rounding: Rounding::same(2.0),
+                expansion: 0.0,
+            },
+            hovered: WidgetVisuals {
+                bg_fill: Color32::from_gray(70),
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(150)), // e.g. hover over window edge or button
+                fg_stroke: Stroke::new(1.5, Color32::from_gray(240)),
+                rounding: Rounding::same(3.0),
+                expansion: 1.0,
+            },
+            active: WidgetVisuals {
+                bg_fill: Color32::from_gray(55),
+                bg_stroke: Stroke::new(1.0, Color32::WHITE),
+                fg_stroke: Stroke::new(2.0, Color32::WHITE),
+                rounding: Rounding::same(2.0),
+                expansion: 1.0,
+            },
+            open: WidgetVisuals {
+                bg_fill: Color32::from_gray(27),
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(60)),
+                fg_stroke: Stroke::new(1.0, Color32::from_gray(210)),
+                rounding: Rounding::same(2.0),
+                expansion: 0.0,
+            },
+        },
 
         // Background colors
         window_fill: Color32::from_gray(0x24),
@@ -21,15 +57,15 @@ pub(super) fn dark_mode_visuals() -> Visuals {
         code_bg_color: Color32::from_gray(64),
 
         // Foreground colors
-        window_stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)),
-        override_text_color: Some(Color32::from_gray(190)),
+        window_stroke: Stroke::new(1.0, Color32::from_gray(230)),
+        override_text_color: None,
         warn_fg_color: Color32::from_rgb(255, 143, 0), // orange
         error_fg_color: Color32::from_rgb(255, 0, 0),  // red
-        hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae),
+        hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae), // light blue?
 
         selection: Selection {
             bg_fill: Color32::from_rgb(0x57, 0x4a, 0x40),
-            stroke: Stroke::new(1.0, Color32::from_rgb(0x37, 0x96, 0x83)),
+            stroke: Stroke::new(1.0, Color32::from_gray(230)),
         },
 
         window_shadow: Shadow::big_dark(),
