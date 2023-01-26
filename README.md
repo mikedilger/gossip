@@ -77,7 +77,7 @@ We intend to support the following features/NIPs:
 - [x] NIP-11 - Relay Information Document
 - [x] NIP-12 - Generic Tag Queries (we don't need to use any presently)
 - [x] NIP-13 - Proof of Work
-- [x] NIP-14 - Subject tag in text events (partial)
+- [x] NIP-14 - Subject tag in text events
 - [x] NIP-15 - End of Stored Events Notice
 - [ ] NIP-16 - Event Treatment
 - [x] NIP-19 - bech32-encoded entities
