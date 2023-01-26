@@ -3,7 +3,8 @@ use crate::comms::ToOverlordMessage;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, Ui};
+use egui::{Align, Context, Layout, TextEdit, Ui};
+use egui_extras::{Column, TableBuilder};
 use nostr_types::Url;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -44,7 +45,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     let mut relays: Vec<DbRelay> = relays.drain().map(|(_, relay)| relay).collect();
     relays.sort_by(|a, b| a.url.cmp(&b.url));
 
-    let postrelays: Vec<DbRelay> = relays
+    let mut postrelays: Vec<DbRelay> = relays
         .iter()
         .filter(|r| r.post)
         .map(|r| r.to_owned())
@@ -66,12 +67,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         ui.with_layout(Layout::top_down(Align::Min), |ui| {
             ui.heading("Writing to:");
-            for relay in postrelays.iter() {
-                render_relay(ui, relay, true);
-                ui.add_space(3.0);
-                ui.separator();
-                ui.add_space(3.0);
-            }
+            relay_table(ui, &mut postrelays, "postrelays");
         });
     });
 
@@ -80,19 +76,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SaveRelays);
         }
 
-        ui.with_layout(Layout::top_down(Align::Center), |ui| {
+        ui.with_layout(Layout::top_down(Align::Min), |ui| {
             ui.heading("Other Known Relays:");
-
-            ScrollArea::vertical().show(ui, |ui| {
-                for relay in relays.iter_mut() {
-                    if !relay.post {
-                        render_relay(ui, relay, false);
-                        ui.add_space(3.0);
-                        ui.separator();
-                        ui.add_space(3.0);
-                    }
-                }
-            });
+            relay_table(ui, &mut relays, "otherrelays");
         });
     });
 
@@ -101,28 +87,53 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
 }
 
-fn render_relay(ui: &mut Ui, relay: &DbRelay, bold: bool) {
-    ui.horizontal(|ui| {
-        let mut rt = RichText::new(&relay.url);
-        if bold { rt = rt.strong(); }
-        ui.label(rt);
-
-        ui.label(&format!("Success={} Failure={}", relay.success_count, relay.failure_count));
-
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-
-            let mut post = relay.post; // checkbox needs a mutable state variable.
-
-            let url = Url::new(&relay.url);
-            if url.is_valid_relay_url() && ui.checkbox(&mut post, "Post Here")
-                .on_hover_text("If selected, posts you create will be sent to this relay. But you have to press [SAVE CHANGES] at the bottom of this page.")
-                .clicked()
-            {
-                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&url) {
-                    relay.post = post;
-                    relay.dirty = true;
+fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
+    ui.push_id(id, |ui| {
+        TableBuilder::new(ui)
+            .column(Column::auto_with_initial_suggestion(100.0).resizable(true))
+            .column(Column::auto().resizable(true))
+            .column(Column::auto().resizable(true))
+            .column(Column::remainder())
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.heading("Relay URL");
+                });
+                header.col(|ui| {
+                    ui.heading("Success Rate (%)");
+                });
+                header.col(|ui| {
+                    ui.heading("Attempts");
+                });
+                header.col(|ui| {
+                    ui.heading("Post Here");
+                });
+            }).body(|mut body| {
+                for relay in relays.iter_mut() {
+                    body.row(30.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label(&relay.url);
+                        });
+                        row.col(|ui| {
+                            ui.label(&format!("{}", (relay.success_rate() * 100.0) as u32));
+                        });
+                        row.col(|ui| {
+                            ui.label(&format!("{}", relay.attempts()));
+                        });
+                        row.col(|ui| {
+                            let mut post = relay.post; // checkbox needs a mutable state variable.
+                            let url = Url::new(&relay.url);
+                            if url.is_valid_relay_url() && ui.checkbox(&mut post, "Post Here")
+                                .on_hover_text("If selected, posts you create will be sent to this relay. But you have to press [SAVE CHANGES] at the bottom of this page.")
+                                .clicked()
+                            {
+                                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&url) {
+                                    relay.post = post;
+                                    relay.dirty = true;
+                                }
+                            }
+                        });
+                    });
                 }
-            }
-        });
+            });
     });
 }

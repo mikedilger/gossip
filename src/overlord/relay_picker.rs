@@ -84,8 +84,7 @@ impl RelayPicker {
         for i in 0..self.relays.len() {
             // Here we compute a relay rank based on .rank
             // but also on success rate
-            let success_rate: f32 = self.relays[i].success_count as f32
-                / (self.relays[i].success_count as f32 + self.relays[i].failure_count as f32);
+            let success_rate: f32 = self.relays[i].success_rate();
             let rank = (self.relays[i].rank.unwrap_or(3) as f32 * (1.3 * success_rate)) as u64;
             scoreboard[i] *= rank;
         }

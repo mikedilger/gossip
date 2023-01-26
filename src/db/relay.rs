@@ -35,6 +35,18 @@ impl DbRelay {
         })
     }
 
+    pub fn attempts(&self) -> u64 {
+        self.success_count + self.failure_count
+    }
+
+    pub fn success_rate(&self) -> f32 {
+        let attempts = self.success_count + self.failure_count;
+        if attempts == 0 {
+            return 0.5;
+        } // unknown, so we put it in the middle
+        self.success_count as f32 / attempts as f32
+    }
+
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
         let sql = "SELECT url, success_count, failure_count, rank, last_connected_at, \
              last_general_eose_at, post FROM relay"
