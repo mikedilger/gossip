@@ -3,17 +3,18 @@ use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::people::DbPerson;
-use crate::tags::{keys_from_text, textarea_highlighter};
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{
     Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, SelectableLabel,
-    Sense, Separator, Stroke, TextEdit, TextStyle, Ui, Vec2,
+    Sense, Separator, Stroke, TextStyle, Ui, Vec2,
 };
-use linkify::{LinkFinder, LinkKind};
-use nostr_types::{Event, EventKind, Id, IdHex, Tag};
+use nostr_types::{EventKind, Id, IdHex};
 use std::sync::atomic::Ordering;
+
+mod content;
+mod post;
 
 struct FeedPostParams {
     id: Id,
@@ -59,7 +60,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     });
     ui.separator();
 
-    posting_area(app, ctx, frame, ui);
+    post::posting_area(app, ctx, frame, ui);
 
     ui.separator();
 
@@ -90,129 +91,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_person_feed(pubkeyhex.clone());
             render_a_feed(app, ctx, frame, ui, feed, false, &pubkeyhex.0);
         }
-    }
-}
-
-fn posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    // Posting Area
-    ui.vertical(|ui| {
-        if !GLOBALS.signer.blocking_read().is_ready() {
-            ui.horizontal_wrapped(|ui| {
-                ui.label("You need to ");
-                if ui.link("setup your identity").clicked() {
-                    app.set_page(Page::YourKeys);
-                }
-                ui.label(" to post.");
-            });
-        } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
-            ui.horizontal_wrapped(|ui| {
-                ui.label("You need to ");
-                if ui.link("choose relays").clicked() {
-                    app.set_page(Page::Relays);
-                }
-                ui.label(" to post.");
-            });
-        } else {
-            real_posting_area(app, ctx, frame, ui);
-        }
-    });
-}
-
-fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    // Maybe render post we are replying to
-    if let Some(id) = app.replying_to {
-        render_post_actual(
-            app,
-            ctx,
-            frame,
-            ui,
-            FeedPostParams {
-                id,
-                indent: 0,
-                as_reply_to: true,
-                threaded: false,
-            },
-        );
-    }
-
-    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-        // Buttons
-        ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
-            if ui.button("Send").clicked() && !app.draft.is_empty() {
-                match app.replying_to {
-                    Some(replying_to_id) => {
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostReply(
-                            app.draft.clone(),
-                            vec![],
-                            replying_to_id,
-                        ));
-                    }
-                    None => {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::PostTextNote(app.draft.clone(), vec![]));
-                    }
-                }
-                app.draft = "".to_owned();
-                app.replying_to = None;
-            }
-
-            if ui.button("Cancel").clicked() {
-                app.draft = "".to_owned();
-                app.replying_to = None;
-            }
-
-            ui.add(
-                TextEdit::singleline(&mut app.tag_someone)
-                    .desired_width(100.0)
-                    .hint_text("@username"),
-            );
-            if !app.tag_someone.is_empty() {
-                let pairs = GLOBALS.people.search_people_to_tag(&app.tag_someone);
-                if !pairs.is_empty() {
-                    ui.menu_button("@", |ui| {
-                        for pair in pairs {
-                            if ui.button(pair.0).clicked() {
-                                if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                    app.draft.push(' ');
-                                }
-                                app.draft.push_str(&pair.1.try_as_bech32_string().unwrap());
-                                app.tag_someone = "".to_owned();
-                            }
-                        }
-                    });
-                }
-            }
-        });
-
-        // Text area
-        let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-            let mut layout_job = textarea_highlighter(text.to_owned(), ui.visuals().dark_mode);
-            layout_job.wrap.max_width = wrap_width;
-            ui.fonts().layout_job(layout_job)
-        };
-
-        ui.add(
-            TextEdit::multiline(&mut app.draft)
-                .hint_text("Type your message here")
-                .desired_width(f32::INFINITY)
-                .lock_focus(true)
-                .layouter(&mut layouter),
-        );
-    });
-
-    // List tags that will be applied (FIXME: list tags from parent event too in case of reply)
-    for (i, (npub, pubkey)) in keys_from_text(&app.draft).iter().enumerate() {
-        let rendered = if let Some(person) = GLOBALS.people.get(&pubkey.as_hex_string().into()) {
-            match person.name() {
-                Some(name) => name.to_owned(),
-                None => npub.to_owned(),
-            }
-        } else {
-            npub.to_owned()
-        };
-
-        ui.label(format!("{}: {}", i, rendered));
     }
 }
 
@@ -552,7 +430,7 @@ fn render_post_actual(
 
                 // MAIN CONTENT
                 ui.horizontal_wrapped(|ui| {
-                    render_content(app, ui, &tag_re, &event, deletion.is_some());
+                    content::render_content(app, ui, &tag_re, &event, deletion.is_some());
                 });
 
                 ui.add_space(8.0);
@@ -655,74 +533,6 @@ fn render_post_actual(
                     threaded,
                 },
             );
-        }
-    }
-}
-
-fn render_content(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    tag_re: &regex::Regex,
-    event: &Event,
-    as_deleted: bool,
-) {
-    for span in LinkFinder::new()
-        .kinds(&[LinkKind::Url])
-        .spans(&event.content)
-    {
-        if span.kind().is_some() {
-            ui.hyperlink_to(span.as_str(), span.as_str());
-        } else {
-            let s = span.as_str();
-            let mut pos = 0;
-            for mat in tag_re.find_iter(s) {
-                ui.label(&s[pos..mat.start()]);
-                let num: usize = s[mat.start() + 2..mat.end() - 1].parse::<usize>().unwrap();
-                if let Some(tag) = event.tags.get(num) {
-                    match tag {
-                        Tag::Pubkey { pubkey, .. } => {
-                            let nam = match GLOBALS.people.get(pubkey) {
-                                Some(p) => match p.name() {
-                                    Some(n) => format!("@{}", n),
-                                    None => format!("@{}", GossipUi::pubkey_short(pubkey)),
-                                },
-                                None => format!("@{}", GossipUi::pubkey_short(pubkey)),
-                            };
-                            if ui.link(&nam).clicked() {
-                                app.set_page(Page::Person(pubkey.to_owned()));
-                            };
-                        }
-                        Tag::Event { id, .. } => {
-                            let idhex: IdHex = (*id).into();
-                            let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
-                            if ui.link(&nam).clicked() {
-                                app.set_page(Page::Feed(FeedKind::Thread {
-                                    id: *id,
-                                    referenced_by: event.id,
-                                }));
-                            };
-                        }
-                        Tag::Hashtag(s) => {
-                            if ui.link(format!("#{}", s)).clicked() {
-                                *GLOBALS.status_message.blocking_write() =
-                                    "Gossip doesn't have a hashtag feed yet.".to_owned();
-                            }
-                        }
-                        _ => {
-                            if ui.link(format!("#[{}]", num)).clicked() {
-                                *GLOBALS.status_message.blocking_write() =
-                                    "Gossip can't handle this kind of tag link yet.".to_owned();
-                            }
-                        }
-                    }
-                }
-                pos = mat.end();
-            }
-            if as_deleted {
-                ui.label(RichText::new(&s[pos..]).strikethrough());
-            } else {
-                ui.label(&s[pos..]);
-            }
         }
     }
 }
