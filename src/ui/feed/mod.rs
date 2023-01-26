@@ -393,7 +393,7 @@ fn render_post_actual(
                             }
                             if person.followed == 0 && ui.button("Follow").clicked() {
                                 GLOBALS.people.follow(&event.pubkey.into(), true);
-                            } else if ui.button("Unfollow").clicked() {
+                            } else if person.followed == 1 && ui.button("Unfollow").clicked() {
                                 GLOBALS.people.follow(&event.pubkey.into(), false);
                             }
                             if ui.button("Update Metadata").clicked() {
