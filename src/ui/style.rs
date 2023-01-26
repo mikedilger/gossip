@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 pub(super) fn dark_mode_visuals() -> Visuals {
     Visuals {
         dark_mode: true,
-        widgets: Widgets::default(),
+        widgets: Widgets::dark(),
 
         // Background colors
         window_fill: Color32::from_gray(0x24),
