@@ -191,6 +191,7 @@ impl Overlord {
 
         // Pick Relays and start Minions
         if !GLOBALS.settings.read().await.offline {
+            // Get all the people we follow
             let pubkeys: Vec<PublicKeyHex> = GLOBALS
                 .people
                 .get_followed_pubkeys()
@@ -198,10 +199,24 @@ impl Overlord {
                 .map(|p| p.to_owned())
                 .collect();
 
+            // For each one, score relays for them
+            let mut person_relay_scores: Vec<(PublicKeyHex, Url, u64)> = Vec::new();
+            for pubkey in &pubkeys {
+                let best_relays: Vec<(PublicKeyHex, Url, u64)> =
+                    DbPersonRelay::get_best_relays(pubkey.to_owned())
+                        .await?
+                        .iter()
+                        .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
+                        .collect();
+                person_relay_scores.extend(best_relays);
+            }
+            tracing::debug!("{:?}", person_relay_scores);
+
             let (num_relays_per_person, max_relays) = {
                 let settings = GLOBALS.settings.read().await;
                 (settings.num_relays_per_person, settings.max_relays)
             };
+
             let mut pubkey_counts: HashMap<PublicKeyHex, u8> = HashMap::new();
             for pk in pubkeys.iter() {
                 pubkey_counts.insert(pk.clone(), num_relays_per_person);
@@ -210,7 +225,7 @@ impl Overlord {
             let mut relay_picker = RelayPicker {
                 relays: all_relays,
                 pubkey_counts,
-                person_relays: DbPersonRelay::fetch_for_pubkeys(&pubkeys).await?,
+                person_relay_scores,
             };
 
             let mut best_relay: BestRelay;
@@ -229,7 +244,7 @@ impl Overlord {
                         "Relay picker is degenerate, relays={} pubkey_counts={}, person_relays={}",
                         relay_picker.relays.len(),
                         relay_picker.pubkey_counts.len(),
-                        relay_picker.person_relays.len()
+                        relay_picker.person_relay_scores.len()
                     );
                     break;
                 }

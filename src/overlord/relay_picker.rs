@@ -1,18 +1,31 @@
-use crate::db::{DbPersonRelay, DbRelay};
+use crate::db::DbRelay;
 use crate::error::Error;
-use nostr_types::PublicKeyHex;
+use nostr_types::{PublicKeyHex, Url};
 use std::collections::HashMap;
 
 /// See RelayPicker::best()
 pub struct RelayPicker {
+    /// The relays to pick from.
+    // Each time best() is run, it returns a new RelayPicker
+    // which removes that relay from this list
     pub relays: Vec<DbRelay>,
+
+    /// The number of relays we should find for the given public key.
+    // each run of best() decrements this as it assigns the public key
+    // to a relay. This should start at settings.num_relays_per_person
+    // for each person followed
     pub pubkey_counts: HashMap<PublicKeyHex, u8>,
-    pub person_relays: Vec<DbPersonRelay>,
+
+    /// A ranking of relays per person.
+    // best() doesn't change this.
+    pub person_relay_scores: Vec<(PublicKeyHex, Url, u64)>,
 }
 
 impl RelayPicker {
     pub fn is_degenerate(&self) -> bool {
-        self.relays.is_empty() || self.pubkey_counts.is_empty() || self.person_relays.is_empty()
+        self.relays.is_empty()
+            || self.pubkey_counts.is_empty()
+            || self.person_relay_scores.is_empty()
     }
 
     /// This function takes a RelayPicker which consists of a list of relays,
@@ -39,41 +52,45 @@ impl RelayPicker {
         );
 
         // Keep score
-        let mut score: Vec<u64> = [0].repeat(self.relays.len());
+        let mut scoreboard: Vec<u64> = [0].repeat(self.relays.len());
 
-        // Count how many needed keys a relay covers, to use as part of it's score
-        for person_relay in self.person_relays.iter() {
-            // Do not increase score if person has no more pubkey_counts
-            if let Some(pkc) = self
-                .pubkey_counts
-                .get(&PublicKeyHex(person_relay.person.clone()))
-            {
+        // Assign scores to relays
+        for (pubkeyhex, url, score) in self.person_relay_scores.iter() {
+            // Skip if person is already well covered
+            if let Some(pkc) = self.pubkey_counts.get(pubkeyhex) {
                 if *pkc == 0 {
+                    // person is already covered by enough relays
                     continue;
                 }
             } else {
-                continue; // not even in there.
+                continue; // person is not relevant.
             }
 
+            // Get the index
             let i = match self
                 .relays
                 .iter()
-                .position(|relay| relay.url == person_relay.relay)
+                .position(|relay| relay.url == url.inner())
             {
                 Some(index) => index,
-                None => continue, // we don't have that relay?
+                None => continue, // That relay is not a contender
             };
 
-            score[i] += 1;
+            scoreboard[i] += score;
         }
 
         // Multiply scores by relay rank
         #[allow(clippy::needless_range_loop)]
         for i in 0..self.relays.len() {
-            score[i] *= self.relays[i].rank.unwrap_or(3);
+            // Here we compute a relay rank based on .rank
+            // but also on success rate
+            let success_rate: f32 = self.relays[i].success_count as f32
+                / (self.relays[i].success_count as f32 + self.relays[i].failure_count as f32);
+            let rank = (self.relays[i].rank.unwrap_or(3) as f32 * (1.3 * success_rate)) as u64;
+            scoreboard[i] *= rank;
         }
 
-        let winner_index = score
+        let winner_index = scoreboard
             .iter()
             .enumerate()
             .max_by(|x: &(usize, &u64), y: &(usize, &u64)| x.1.cmp(y.1))
@@ -83,13 +100,13 @@ impl RelayPicker {
         let winner = self.relays.swap_remove(winner_index);
 
         let covered_public_keys: Vec<PublicKeyHex> = self
-            .person_relays
+            .person_relay_scores
             .iter()
-            .filter(|x| x.relay == winner.url)
-            .map(|x| PublicKeyHex(x.person.clone()))
+            .filter(|(_, url, score)| url.inner() == winner.url && *score > 0)
+            .map(|(pkh, _, _)| pkh.to_owned())
             .collect();
 
-        // Decrement entries where we found another relay for them
+        // Decrement entries where we the winner covers them
         let mut changed = false;
         for (pubkey, count) in self.pubkey_counts.iter_mut() {
             if covered_public_keys.contains(pubkey) {
