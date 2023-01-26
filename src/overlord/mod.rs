@@ -7,7 +7,8 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
 use crate::tags::{
-    add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, keys_from_text, notes_from_text,
+    add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
+    keys_from_text, notes_from_text,
 };
 use minion::Minion;
 use nostr_types::{
@@ -792,6 +793,19 @@ impl Overlord {
                 add_event_to_tags(&mut tags, reply_to, "root").await;
             }
 
+            // Possibly propogate a subject tag
+            for tag in &event.tags {
+                if let Tag::Subject(subject) = tag {
+                    let mut subject = subject.to_owned();
+                    if !subject.starts_with("Re: ") {
+                        subject = format!("Re: {}", subject);
+                    }
+                    subject = subject.chars().take(80).collect();
+                    add_subject_to_tags_if_missing(&mut tags, subject);
+                }
+            }
+
+            // Possibly include a client tag
             if GLOBALS.settings.read().await.set_client_tag {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),

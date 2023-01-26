@@ -89,6 +89,12 @@ pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: 
     }
 }
 
+pub fn add_subject_to_tags_if_missing(existing_tags: &mut Vec<Tag>, subject: String) {
+    if !existing_tags.iter().any(|t| matches!(t, Tag::Subject(_))) {
+        existing_tags.push(Tag::Subject(subject));
+    }
+}
+
 pub(crate) enum HighlightType {
     Nothing,
     PublicKey,
