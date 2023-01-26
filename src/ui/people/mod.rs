@@ -97,7 +97,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     };
 
                     ui.vertical(|ui| {
-                        ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
+                        ui.label(RichText::new(GossipUi::pubkey_short(&person.pubkey)).weak());
                         GossipUi::render_person_name_line(ui, person);
                     });
                 });
@@ -120,6 +120,6 @@ fn get_name(person: &DbPerson) -> String {
     if let Some(name) = person.name() {
         name.to_owned()
     } else {
-        GossipUi::hex_pubkey_short(&person.pubkey)
+        GossipUi::pubkey_short(&person.pubkey)
     }
 }

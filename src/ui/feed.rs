@@ -684,9 +684,9 @@ fn render_content(
                             let nam = match GLOBALS.people.get(pubkey) {
                                 Some(p) => match p.name() {
                                     Some(n) => format!("@{}", n),
-                                    None => format!("@{}", GossipUi::hex_pubkey_short(pubkey)),
+                                    None => format!("@{}", GossipUi::pubkey_short(pubkey)),
                                 },
-                                None => format!("@{}", GossipUi::hex_pubkey_short(pubkey)),
+                                None => format!("@{}", GossipUi::pubkey_short(pubkey)),
                             };
                             if ui.link(&nam).clicked() {
                                 app.set_page(Page::Person(pubkey.to_owned()));

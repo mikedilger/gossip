@@ -19,7 +19,7 @@ use egui::{
     ColorImage, Context, ImageData, Label, RichText, SelectableLabel, Sense, TextStyle,
     TextureHandle, TextureOptions, Ui,
 };
-use nostr_types::{Id, IdHex, Metadata, PublicKeyHex};
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -376,6 +376,16 @@ impl GossipUi {
         )
     }
 
+    pub fn pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
+        match PublicKey::try_from_hex_string(pubkeyhex) {
+            Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
+            Ok(pk) => match pk.try_as_bech32_string() {
+                Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
+                Ok(npub) => format!("{}…", &npub[0..20]),
+            },
+        }
+    }
+
     pub fn hex_id_short(idhex: &IdHex) -> String {
         idhex.0[0..8].to_string()
     }
@@ -385,7 +395,7 @@ impl GossipUi {
             if let Some(name) = person.name() {
                 ui.label(RichText::new(name).strong());
             } else {
-                ui.label(RichText::new(GossipUi::hex_pubkey_short(&person.pubkey)).weak());
+                ui.label(RichText::new(GossipUi::pubkey_short(&person.pubkey)).weak());
             }
 
             if person.followed > 0 {

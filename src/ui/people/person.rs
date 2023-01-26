@@ -59,7 +59,7 @@ fn content(
         );
         ui.vertical(|ui| {
             ui.heading(get_name(&person));
-            ui.label(RichText::new(GossipUi::hex_pubkey_short(&pubkeyhex)).weak());
+            ui.label(RichText::new(GossipUi::pubkey_short(&pubkeyhex)).weak());
             GossipUi::render_person_name_line(ui, &person);
 
             if person.followed == 0 && ui.button("FOLLOW").clicked() {
@@ -161,6 +161,6 @@ fn get_name(person: &DbPerson) -> String {
     if let Some(name) = person.name() {
         name.to_owned()
     } else {
-        GossipUi::hex_pubkey_short(&person.pubkey)
+        GossipUi::pubkey_short(&person.pubkey)
     }
 }
