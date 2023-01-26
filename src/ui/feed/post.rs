@@ -4,7 +4,8 @@ use crate::globals::GLOBALS;
 use crate::tags::{keys_from_text, textarea_highlighter};
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
-use egui::{Align, Context, Layout, ScrollArea, TextEdit, Ui};
+use egui::{Align, Color32, Context, Layout, ScrollArea, TextEdit, Ui};
+use nostr_types::Tag;
 
 pub(super) fn posting_area(
     app: &mut GossipUi,
@@ -55,9 +56,39 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         });
     }
 
-    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-        // Buttons
-        ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+    // Text area
+    let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
+        let mut layout_job = textarea_highlighter(text.to_owned(), ui.visuals().dark_mode);
+        layout_job.wrap.max_width = wrap_width;
+        ui.fonts().layout_job(layout_job)
+    };
+
+    if app.include_subject && app.replying_to.is_none() {
+        ui.horizontal(|ui| {
+            ui.label("Subject: ");
+            ui.add(
+                TextEdit::singleline(&mut app.subject)
+                    .hint_text("Type subject here")
+                    .text_color(if ui.visuals().dark_mode {
+                        Color32::WHITE
+                    } else {
+                        Color32::BLACK
+                    })
+                    .desired_width(f32::INFINITY),
+            );
+        });
+    }
+
+    ui.add(
+        TextEdit::multiline(&mut app.draft)
+            .hint_text("Type your message here")
+            .desired_width(f32::INFINITY)
+            .lock_focus(true)
+            .layouter(&mut layouter),
+    );
+
+    ui.horizontal(|ui| {
+        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             if ui.button("Send").clicked() && !app.draft.is_empty() {
                 match app.replying_to {
                     Some(replying_to_id) => {
@@ -68,18 +99,20 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         ));
                     }
                     None => {
+                        let mut tags: Vec<Tag> = Vec::new();
+                        if app.include_subject {
+                            tags.push(Tag::Subject(app.subject.clone()));
+                        }
                         let _ = GLOBALS
                             .to_overlord
-                            .send(ToOverlordMessage::PostTextNote(app.draft.clone(), vec![]));
+                            .send(ToOverlordMessage::PostTextNote(app.draft.clone(), tags));
                     }
                 }
-                app.draft = "".to_owned();
-                app.replying_to = None;
+                app.clear_post();
             }
 
             if ui.button("Cancel").clicked() {
-                app.draft = "".to_owned();
-                app.replying_to = None;
+                app.clear_post();
             }
 
             ui.add(
@@ -103,22 +136,16 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     });
                 }
             }
+
+            if app.include_subject {
+                if ui.button("Remove Subject").clicked() {
+                    app.include_subject = false;
+                    app.subject = "".to_owned();
+                }
+            } else if app.replying_to.is_none() && ui.button("Add Subject").clicked() {
+                app.include_subject = true;
+            }
         });
-
-        // Text area
-        let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-            let mut layout_job = textarea_highlighter(text.to_owned(), ui.visuals().dark_mode);
-            layout_job.wrap.max_width = wrap_width;
-            ui.fonts().layout_job(layout_job)
-        };
-
-        ui.add(
-            TextEdit::multiline(&mut app.draft)
-                .hint_text("Type your message here")
-                .desired_width(f32::INFINITY)
-                .lock_focus(true)
-                .layouter(&mut layouter),
-        );
     });
 
     // List tags that will be applied (FIXME: list tags from parent event too in case of reply)

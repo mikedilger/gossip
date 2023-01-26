@@ -79,6 +79,8 @@ struct GossipUi {
     placeholder_avatar: TextureHandle,
     draft: String,
     tag_someone: String,
+    include_subject: bool,
+    subject: String,
     settings: Settings,
     nprofile_follow: String,
     nip05follow: String,
@@ -179,6 +181,8 @@ impl GossipUi {
             placeholder_avatar: placeholder_avatar_texture_handle,
             draft: "".to_owned(),
             tag_someone: "".to_owned(),
+            include_subject: false,
+            subject: "".to_owned(),
             settings,
             nprofile_follow: "".to_owned(),
             nip05follow: "".to_owned(),
@@ -237,6 +241,14 @@ impl GossipUi {
             _ => {}
         }
         self.page = page;
+    }
+
+    fn clear_post(&mut self) {
+        self.draft = "".to_owned();
+        self.replying_to = None;
+        self.tag_someone = "".to_owned();
+        self.include_subject = false;
+        self.subject = "".to_owned();
     }
 }
 
