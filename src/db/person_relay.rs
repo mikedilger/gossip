@@ -410,7 +410,6 @@ impl DbPersonRelay {
             if let Some(when) = dbpr.last_suggested_bytag {
                 score += scorefn(when, 60 * 60 * 24 * 2, 1);
             }
-            tracing::debug!("person relay score {} = {}", &dbpr.relay, score);
             output.push((Url::new(&dbpr.relay), score));
         }
 

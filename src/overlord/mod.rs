@@ -210,7 +210,6 @@ impl Overlord {
                         .collect();
                 person_relay_scores.extend(best_relays);
             }
-            tracing::debug!("{:?}", person_relay_scores);
 
             let (num_relays_per_person, max_relays) = {
                 let settings = GLOBALS.settings.read().await;
