@@ -116,7 +116,14 @@ fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 
     ui.horizontal(|ui| {
         ui.label("Passphrase: ");
-        ui.add(TextEdit::singleline(&mut app.password).password(true));
+        let response = ui.add(TextEdit::singleline(&mut app.password).password(true));
+        if response.lost_focus() && ui.input().key_pressed(egui::Key::Enter) {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::UnlockKey(app.password.clone()));
+            app.password.zeroize();
+            app.password = "".to_owned();
+        }
     });
 
     if ui.button("Unlock Private Key").clicked() {
