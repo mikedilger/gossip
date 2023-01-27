@@ -84,6 +84,9 @@ struct GossipUi {
     render_raw: Option<Id>,
     render_qr: Option<Id>,
 
+    // Person page rendering ('npub', 'nprofile', or 'lud06')
+    person_qr: Option<&'static str>,
+
     // Page
     page: Page,
     history: Vec<Page>,
@@ -198,6 +201,7 @@ impl GossipUi {
             qr_codes: HashMap::new(),
             render_raw: None,
             render_qr: None,
+            person_qr: None,
             page: Page::Feed(FeedKind::General),
             history: vec![],
             about: crate::about::about(),
@@ -231,6 +235,11 @@ impl GossipUi {
             tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
             self.history.push(self.page.clone());
             self.set_page_inner(page);
+
+            // Clear QR codes on page switches
+            self.qr_codes.clear();
+            self.render_qr = None;
+            self.person_qr = None;
         }
     }
 

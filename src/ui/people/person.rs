@@ -7,7 +7,7 @@ use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
-use nostr_types::PublicKeyHex;
+use nostr_types::{PublicKey, PublicKeyHex};
 use serde_json::Value;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -88,6 +88,24 @@ fn content(
 
     ui.add_space(12.0);
 
+    let mut npub = "Unable to get npub".to_owned();
+    if let Ok(pk) = PublicKey::try_from_hex_string(&pubkeyhex) {
+        if let Ok(npubref) = pk.try_as_bech32_string() {
+            npub = npubref.to_owned();
+            ui.horizontal_wrapped(|ui| {
+                ui.label(RichText::new("Public Key: ").strong());
+                ui.label(npubref);
+                if ui.button("⚃")
+                    .on_hover_text("Show as QR code")
+                    .clicked()
+                {
+                    app.qr_codes.remove("person_qr");
+                    app.person_qr = Some("npub");
+                }
+            });
+        }
+    }
+
     if let Some(name) = person.name() {
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new("Name: ").strong());
@@ -134,6 +152,7 @@ fn content(
         });
     }
 
+    let mut lud06 = "unable to get lud06".to_owned();
     if let Some(md) = &person.metadata {
         for (key, value) in &md.other {
             let svalue = if let Value::String(s) = value {
@@ -150,10 +169,37 @@ fn content(
                     .on_hover_text(format!("Copy {}", key))
                     .clicked()
                 {
-                    ui.output().copied_text = svalue;
+                    ui.output().copied_text = svalue.clone();
+                }
+                if key=="lud06" {
+                    lud06 = svalue.to_owned();
+                    if ui.button("⚃")
+                        .on_hover_text("Show as QR code")
+                        .clicked()
+                    {
+                        app.qr_codes.remove("person_qr");
+                        app.person_qr = Some("lud06");
+                    }
                 }
             });
         }
+    }
+
+    // Render at most one QR based on selections made above
+    match app.person_qr {
+        Some("npub") => {
+            ui.separator();
+            ui.heading("Public Key (npub)");
+            app.render_qr(ui, ctx, "person_qr", &npub);
+            ui.label(&npub);
+        }
+        Some("lud06") => {
+            ui.separator();
+            ui.heading("Lightning Network Address (lud06)");
+            app.render_qr(ui, ctx, "person_qr", &lud06);
+            ui.label(&lud06);
+        }
+        _  => { }
     }
 }
 
