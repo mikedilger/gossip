@@ -65,12 +65,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.label("page, follow yourself (specify your public key AND one of the relays you added in the previous step. If you don't add the relay, gossip can't help you).");
                 });
             });
-            ui.label("• Restart");
-            ui.indent("quickstartrestart", |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label("Sorry, this insufficiency will be remedied eventually. After following somebody it doesn't rewrite the general feed subscription, but restarting does.");
-                });
-            });
             ui.label("• Browse your feed and explore threads");
             ui.indent("quickstartfeedthreads", |ui| {
                 ui.horizontal_wrapped(|ui| {

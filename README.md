@@ -36,7 +36,6 @@ Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form fol
 - On page `You`, add your key (public or private)
 - On page `Relays` add a relay that you post to (or several), and tick off "Post Here" (otherwise it won't pull your data from there). Remember to press "SAVE CHANGES" at the bottom of that page.
 - On page `People > Follow Someone New` follow yourself (specify your public key AND one of the relays you added in the previous step. If you don't add the relay, gossip can't help you).
-- Restart (sorry this will be fixed one of these days)
 - On page `Feed > Following ` look at your posts (by default only the last 12 hours show up) and their replies (by clicking the right arrow on the right side of post to give the thread), which will give gossip some data to launch from. Hopefully you have some replies. But if not, no worry, the next step helps too.
 - On page `People > Followed` press `Pull Overwrite` to pull down the people you follow. You can then press `Refresh Metadata` to get their metadata (whether it works or not depends on if gossip knows which relays these people are at yet).
 - Click any of these people's avatars and press `View Their Feed` to collect more data on where to find them. If you don't get any data for a person, it may be because there is no good way for nostr to know where they post to. This problem goes away after using gossip for awhile, and it remains an outstanding issue to solve.
