@@ -3,7 +3,7 @@ use crate::comms::ToOverlordMessage;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
-use egui::{Context, TextEdit, Ui};
+use egui::{Context, SelectableLabel, TextEdit, Ui};
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
@@ -11,9 +11,22 @@ mod metadata;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.horizontal(|ui| {
-        ui.selectable_value(&mut app.page, Page::YourKeys, "Keys");
+        if ui
+            .add(SelectableLabel::new(app.page == Page::YourKeys, "Keys"))
+            .clicked()
+        {
+            app.set_page(Page::YourKeys);
+        }
         ui.separator();
-        ui.selectable_value(&mut app.page, Page::YourMetadata, "Metadata");
+        if ui
+            .add(SelectableLabel::new(
+                app.page == Page::YourMetadata,
+                "Metadata",
+            ))
+            .clicked()
+        {
+            app.set_page(Page::YourMetadata);
+        }
         ui.separator();
     });
     ui.separator();

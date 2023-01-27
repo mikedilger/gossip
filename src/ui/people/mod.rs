@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
+use egui::{Context, Image, RichText, ScrollArea, SelectableLabel, Sense, Ui, Vec2};
 use std::sync::atomic::Ordering;
 
 mod follow;
@@ -18,18 +18,43 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     };
 
     ui.horizontal(|ui| {
-        ui.selectable_value(&mut app.page, Page::PeopleList, "Followed");
+        if ui
+            .add(SelectableLabel::new(
+                app.page == Page::PeopleList,
+                "Followed",
+            ))
+            .clicked()
+        {
+            app.set_page(Page::PeopleList);
+        }
         ui.separator();
-        ui.selectable_value(&mut app.page, Page::PeopleFollow, "Follow Someone New");
+        if ui
+            .add(SelectableLabel::new(
+                app.page == Page::PeopleFollow,
+                "Follow Someone New",
+            ))
+            .clicked()
+        {
+            app.set_page(Page::PeopleFollow);
+        }
         ui.separator();
-        ui.selectable_value(&mut app.page, Page::PeopleMuted, "Muted");
+        if ui
+            .add(SelectableLabel::new(app.page == Page::PeopleMuted, "Muted"))
+            .clicked()
+        {
+            app.set_page(Page::PeopleMuted);
+        }
         ui.separator();
         if let Some(person) = &maybe_person {
-            ui.selectable_value(
-                &mut app.page,
-                Page::Person(person.pubkey.clone()),
-                get_name(person),
-            );
+            if ui
+                .add(SelectableLabel::new(
+                    app.page == Page::Person(person.pubkey.clone()),
+                    get_name(person),
+                ))
+                .clicked()
+            {
+                app.set_page(Page::Person(person.pubkey.clone()));
+            }
             ui.separator();
         }
     });

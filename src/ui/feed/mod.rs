@@ -49,13 +49,29 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
             ui.separator();
-            ui.selectable_value(&mut app.page, Page::Feed(feed_kind.clone()), "Thread");
-            GLOBALS.events.clear_new();
+            if ui
+                .add(SelectableLabel::new(
+                    app.page == Page::Feed(feed_kind.clone()),
+                    "Thread",
+                ))
+                .clicked()
+            {
+                app.set_page(Page::Feed(feed_kind.clone()));
+                GLOBALS.events.clear_new();
+            }
         }
         if matches!(feed_kind, FeedKind::Person(..)) {
             ui.separator();
-            ui.selectable_value(&mut app.page, Page::Feed(feed_kind.clone()), "Person");
-            GLOBALS.events.clear_new();
+            if ui
+                .add(SelectableLabel::new(
+                    app.page == Page::Feed(feed_kind.clone()),
+                    "Person",
+                ))
+                .clicked()
+            {
+                app.set_page(Page::Feed(feed_kind.clone()));
+                GLOBALS.events.clear_new();
+            }
         }
     });
     ui.separator();
