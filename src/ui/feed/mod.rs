@@ -430,7 +430,11 @@ fn render_post_actual(
 
                 // MAIN CONTENT
                 ui.horizontal_wrapped(|ui| {
-                    content::render_content(app, ui, &tag_re, &event, deletion.is_some());
+                    if app.render_raw == Some(id) {
+                        ui.label(serde_json::to_string(&event).unwrap());
+                    } else {
+                        content::render_content(app, ui, &tag_re, &event, deletion.is_some());
+                    }
                 });
 
                 ui.add_space(8.0);
@@ -451,7 +455,11 @@ fn render_post_actual(
                             .on_hover_text("Copy Contents")
                             .clicked()
                         {
-                            ui.output().copied_text = event.content.clone();
+                            if app.render_raw == Some(id) {
+                                ui.output().copied_text = serde_json::to_string(&event).unwrap();
+                            } else {
+                                ui.output().copied_text = event.content.clone();
+                            }
                         }
 
                         ui.add_space(24.0);
@@ -477,7 +485,22 @@ fn render_post_actual(
                             .on_hover_text("Reply")
                             .clicked()
                         {
-                            app.replying_to = Some(event.id);
+                            app.replying_to = Some(id);
+                        }
+
+                        ui.add_space(24.0);
+
+                        // Button to render raw
+                        if ui
+                            .add(Label::new(RichText::new("🥩").size(16.0)).sense(Sense::click()))
+                            .on_hover_text("Raw")
+                            .clicked()
+                        {
+                            if app.render_raw != Some(id) {
+                                app.render_raw = Some(id);
+                            } else {
+                                app.render_raw = None;
+                            }
                         }
 
                         ui.add_space(24.0);

@@ -76,6 +76,9 @@ struct GossipUi {
     override_dpi: bool,
     override_dpi_value: u32,
 
+    // Post rendering
+    render_raw: Option<Id>,
+
     // Page
     page: Page,
     history: Vec<Page>,
@@ -187,6 +190,7 @@ impl GossipUi {
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
+            render_raw: None,
             page: Page::Feed(FeedKind::General),
             history: vec![],
             about: crate::about::about(),
