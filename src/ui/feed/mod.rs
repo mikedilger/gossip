@@ -443,7 +443,7 @@ fn render_post_inner(
             if app.render_raw == Some(event.id) {
                 ui.label(serde_json::to_string(&event).unwrap());
             } else if app.render_qr == Some(event.id) {
-                content::render_qr(app, ui, ctx, &event.content);
+                content::render_qr(app, ui, ctx, event.content.trim());
             } else {
                 content::render_content(app, ui, &tag_re, &event, deletion.is_some());
             }
