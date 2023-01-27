@@ -459,7 +459,7 @@ fn render_post_inner(
             if app.render_raw == Some(event.id) {
                 ui.label(serde_json::to_string(&event).unwrap());
             } else if app.render_qr == Some(event.id) {
-                content::render_qr(app, ui, ctx, event.content.trim());
+                app.render_qr(ui, ctx, "feedqr", event.content.trim());
             } else {
                 content::render_content(app, ui, &tag_re, &event, deletion.is_some());
             }
@@ -539,10 +539,10 @@ fn render_post_inner(
                 {
                     if app.render_qr != Some(event.id) {
                         app.render_qr = Some(event.id);
-                        app.current_qr = None;
+                        app.qr_codes.remove("feedqr");
                     } else {
                         app.render_qr = None;
-                        app.current_qr = None;
+                        app.qr_codes.remove("feedqr");
                     }
                 }
 

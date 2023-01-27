@@ -1,9 +1,8 @@
 use super::{GossipUi, Page};
-use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Color32, ColorImage, Context, Image, RichText, TextureOptions, Ui, Vec2};
+use egui::{RichText, Ui};
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{Event, IdHex, Tag};
 
@@ -70,45 +69,6 @@ pub(super) fn render_content(
                 ui.label(RichText::new(&s[pos..]).strikethrough());
             } else {
                 ui.label(&s[pos..]);
-            }
-        }
-    }
-}
-
-pub(super) fn render_qr(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, data: &str) {
-    match &app.current_qr {
-        Some(Err(e)) => {
-            ui.label(
-                RichText::new(format!("CANNOT LOAD QR: {}", e)).color(Color32::from_rgb(160, 0, 0)),
-            );
-        }
-        Some(Ok(texture_handle)) => {
-            ui.add(Image::new(
-                texture_handle,
-                Vec2 {
-                    x: app.current_qr_size.0,
-                    y: app.current_qr_size.1,
-                },
-            ));
-        }
-        None => {
-            app.current_qr = Some(Err(Error::General("Not Yet Implemented".to_string())));
-            // need bytes
-            if let Ok(code) = qrcode::QrCode::new(data) {
-                let image = code.render::<image::Rgba<u8>>().build();
-
-                // Convert image size into points for later rendering
-                let ppp = ctx.pixels_per_point();
-                app.current_qr_size = (image.width() as f32 / ppp, image.height() as f32 / ppp);
-
-                let color_image = ColorImage::from_rgba_unmultiplied(
-                    [image.width() as usize, image.height() as usize],
-                    image.as_flat_samples().as_slice(),
-                );
-                let texture_handle = ctx.load_texture("qr", color_image, TextureOptions::default());
-                app.current_qr = Some(Ok(texture_handle));
-            } else {
-                app.current_qr = Some(Err(Error::General("Could not make a QR".to_string())));
             }
         }
     }

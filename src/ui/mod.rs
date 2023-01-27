@@ -16,8 +16,8 @@ use crate::settings::Settings;
 use crate::ui::widgets::CopyButton;
 use eframe::{egui, IconData, Theme};
 use egui::{
-    ColorImage, Context, ImageData, Label, RichText, SelectableLabel, Sense, TextStyle,
-    TextureHandle, TextureOptions, Ui,
+    Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
+    TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex};
 use std::collections::HashMap;
@@ -76,11 +76,13 @@ struct GossipUi {
     override_dpi: bool,
     override_dpi_value: u32,
 
+    // QR codes being rendered (in feed or elsewhere)
+    // the f32's are the recommended image size
+    qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
+
     // Post rendering
     render_raw: Option<Id>,
     render_qr: Option<Id>,
-    current_qr: Option<Result<TextureHandle, Error>>,
-    current_qr_size: (f32, f32),
 
     // Page
     page: Page,
@@ -193,10 +195,9 @@ impl GossipUi {
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
+            qr_codes: HashMap::new(),
             render_raw: None,
             render_qr: None,
-            current_qr: None,
-            current_qr_size: (128.0, 128.0),
             page: Page::Feed(FeedKind::General),
             history: vec![],
             about: crate::about::about(),
@@ -488,6 +489,55 @@ impl GossipUi {
                 Some(texture_handle)
             }
             Ok(None) => None,
+        }
+    }
+
+    pub fn render_qr(&mut self, ui: &mut Ui, ctx: &Context, key: &str, content: &str) {
+        // Remember the UI runs this every frame.  We do NOT want to load the texture to the GPU
+        // every frame, so we remember the texture handle in app.qr_codes, and only load to the GPU
+        // if we don't have it yet.  We also remember if there was an error and don't try again.
+        match self.qr_codes.get(key) {
+            Some(Ok((texture_handle, x, y))) => {
+                ui.add(Image::new(texture_handle, Vec2 { x: *x, y: *y }));
+            }
+            Some(Err(error)) => {
+                ui.label(
+                    RichText::new(format!("CANNOT LOAD QR: {}", error))
+                        .color(Color32::from_rgb(160, 0, 0)),
+                );
+            }
+            None => {
+                // need bytes
+                if let Ok(code) = qrcode::QrCode::new(content) {
+                    let image = code.render::<image::Rgba<u8>>().build();
+
+                    let color_image = ColorImage::from_rgba_unmultiplied(
+                        [image.width() as usize, image.height() as usize],
+                        image.as_flat_samples().as_slice(),
+                    );
+
+                    let texture_handle =
+                        ctx.load_texture(key, color_image, TextureOptions::default());
+
+                    // Convert image size into points for later rendering (so that it renders with
+                    // the number of pixels recommended by the qrcode library)
+                    let ppp = ctx.pixels_per_point();
+
+                    self.qr_codes.insert(
+                        key.to_string(),
+                        Ok((
+                            texture_handle,
+                            image.width() as f32 / ppp,
+                            image.height() as f32 / ppp,
+                        )),
+                    );
+                } else {
+                    self.qr_codes.insert(
+                        key.to_string(),
+                        Err(Error::General("Could not make a QR".to_string())),
+                    );
+                }
+            }
         }
     }
 }
