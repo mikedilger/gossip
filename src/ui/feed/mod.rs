@@ -502,7 +502,7 @@ fn render_post_inner(
 
                 // Button to render raw
                 if ui
-                    .add(Label::new(RichText::new("🥩").size(16.0)).sense(Sense::click()))
+                    .add(Label::new(RichText::new("🥩").size(13.0)).sense(Sense::click()))
                     .on_hover_text("Raw")
                     .clicked()
                 {
