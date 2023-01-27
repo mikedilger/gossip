@@ -27,7 +27,6 @@ Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form fol
 - [ ] Read relays as fallbacks, so that it will be much easier to get started
 - [ ] Syncing the relays you use with the network
 - [ ] Encrypted Private Messaging
-- [ ] Muting people
 - [ ] Making some things happen right away that currently require a restart
 
 ## Getting Started
