@@ -124,8 +124,16 @@ impl Minion {
 
             let key: [u8; 16] = rand::random();
 
-            let req = http::request::Request::builder()
-                .method("GET")
+            let req = http::request::Request::builder().method("GET");
+
+            let req = if GLOBALS.settings.read().await.set_user_agent {
+                let about = crate::about::about();
+                req.header("User-Agent", format!("gossip/{}", about.version))
+            } else {
+                req
+            };
+
+            let req = req
                 .header("Host", host)
                 .header("Connection", "Upgrade")
                 .header("Upgrade", "websocket")

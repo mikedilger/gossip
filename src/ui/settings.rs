@@ -106,6 +106,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .on_hover_text("Takes effect immediately.");
 
         ui.add_space(12.0);
+
         ui.separator();
         ui.add_space(12.0);
 
@@ -119,6 +120,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
         ui.checkbox(&mut app.settings.check_nip05, "Check NIP-05")
             .on_hover_text("If disabled, NIP-05 fetches will not be performed, but existing knowledge will be preserved, and following someone by NIP-05 will override this and do the fetch. Takes effect on save.");
+
+        ui.add_space(12.0);
+
+        ui.checkbox(
+            &mut app.settings.set_user_agent,
+            &format!("Send User-Agent Header to Relays: gossip/{}", app.about.version),
+        )
+            .on_hover_text("Takes effect on next relay connection.");
 
         ui.add_space(12.0);
         ui.separator();

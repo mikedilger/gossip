@@ -14,6 +14,7 @@ pub const DEFAULT_POW: u8 = 0;
 pub const DEFAULT_OFFLINE: bool = false;
 pub const DEFAULT_LIGHT_MODE: bool = true; // true = light false = dark
 pub const DEFAULT_SET_CLIENT_TAG: bool = false;
+pub const DEFAULT_SET_USER_AGENT: bool = false;
 pub const DEFAULT_OVERRIDE_DPI: Option<u32> = None;
 pub const DEFAULT_REACTIONS: bool = true;
 pub const DEFAULT_LOAD_AVATARS: bool = true;
@@ -35,6 +36,7 @@ pub struct Settings {
     pub offline: bool,
     pub light_mode: bool,
     pub set_client_tag: bool,
+    pub set_user_agent: bool,
     pub override_dpi: Option<u32>,
     pub reactions: bool,
     pub load_avatars: bool,
@@ -58,6 +60,7 @@ impl Default for Settings {
             offline: DEFAULT_OFFLINE,
             light_mode: DEFAULT_LIGHT_MODE,
             set_client_tag: DEFAULT_SET_CLIENT_TAG,
+            set_user_agent: DEFAULT_SET_USER_AGENT,
             override_dpi: DEFAULT_OVERRIDE_DPI,
             reactions: DEFAULT_REACTIONS,
             load_avatars: DEFAULT_LOAD_AVATARS,
@@ -120,6 +123,7 @@ impl Settings {
                 "offline" => settings.offline = numstr_to_bool(row.1),
                 "light_mode" => settings.light_mode = numstr_to_bool(row.1),
                 "set_client_tag" => settings.set_client_tag = numstr_to_bool(row.1),
+                "set_user_agent" => settings.set_user_agent = numstr_to_bool(row.1),
                 "override_dpi" => {
                     if row.1.is_empty() {
                         settings.override_dpi = DEFAULT_OVERRIDE_DPI;
@@ -166,6 +170,7 @@ impl Settings {
              ('offline', ?),\
              ('light_mode', ?),\
              ('set_client_tag', ?),\
+             ('set_user_agent', ?),\
              ('reactions', ?),\
              ('load_avatars', ?),\
              ('check_nip05', ?),\
@@ -183,6 +188,7 @@ impl Settings {
             bool_to_numstr(self.offline),
             bool_to_numstr(self.light_mode),
             bool_to_numstr(self.set_client_tag),
+            bool_to_numstr(self.set_user_agent),
             bool_to_numstr(self.reactions),
             bool_to_numstr(self.load_avatars),
             bool_to_numstr(self.check_nip05),
