@@ -10,7 +10,7 @@ use egui::{
     Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, SelectableLabel,
     Sense, Separator, Stroke, TextStyle, Ui, Vec2,
 };
-use nostr_types::{EventKind, Id, IdHex};
+use nostr_types::{Event, EventKind, Id, IdHex};
 use std::sync::atomic::Ordering;
 
 mod content;
@@ -151,12 +151,7 @@ fn render_post_maybe_fake(
     }
     let event = maybe_event.unwrap();
 
-    // Do not render muted people, not even fake-renders offscreen
-    if let Some(person) = GLOBALS.people.get(&event.pubkey.into()) {
-        if person.muted > 0 {
-            return;
-        }
-    };
+    let maybe_person = GLOBALS.people.get(&event.pubkey.into());
 
     let screen_rect = ctx.input().screen_rect; // Rect
     let pos2 = ui.next_widget_position();
@@ -173,6 +168,13 @@ fn render_post_maybe_fake(
         // presume wrapping at 80 chars, although window width makes a big diff.
         lines += event.content.lines().filter(|l| l.len() > 80).count();
         height += 18.0 * (lines as f32);
+
+        // Muted posts are short
+        if let Some(person) = maybe_person {
+            if person.muted > 0 {
+                height = 92.0;
+            }
+        }
 
         ui.add_space(height);
 
@@ -240,45 +242,6 @@ fn render_post_actual(
         None => DbPerson::new(event.pubkey.into()),
     };
 
-    let reactions = Globals::get_reactions_sync(event.id);
-
-    let deletion = Globals::get_deletion_sync(event.id);
-
-    let tag_re = app.tag_re.clone();
-
-    // Person Things we can render:
-    // pubkey
-    // name
-    // about
-    // picture
-    // nip05
-    // nip05_valid
-    // nip05_last_checked
-    // metadata_at
-    // followed
-
-    // Event Things we can render:
-    // id
-    // pubkey
-    // created_at,
-    // kind,
-    // tags,
-    // content,
-    // ots,
-    // sig
-    // feed_related,
-    // replies,
-    // in_reply_to,
-    // reactions,
-    // deleted_reason,
-    // client,
-    // hashtags,
-    // subject,
-    // urls,
-    // last_reply_at
-
-    // Try LayoutJob
-
     #[allow(clippy::collapsible_else_if)]
     let bgcolor = if GLOBALS.events.is_new(&event.id) {
         if ctx.style().visuals.dark_mode {
@@ -319,238 +282,11 @@ fn render_post_actual(
                 }
             }
 
-            // Avatar first
-            let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &event.pubkey.into()) {
-                avatar
+            if person.muted > 0 {
+                ui.label("MUTED POST");
             } else {
-                app.placeholder_avatar.clone()
-            };
-            let size = AVATAR_SIZE_F32
-                * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
-                / 100.0;
-            if ui
-                .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
-                .clicked()
-            {
-                app.set_page(Page::Person(event.pubkey.into()));
-            };
-
-            // Everything else next
-            ui.vertical(|ui| {
-                // First row
-                ui.horizontal_wrapped(|ui| {
-                    GossipUi::render_person_name_line(ui, &person);
-
-                    if let Some((irt, _)) = event.replies_to() {
-                        ui.add_space(8.0);
-
-                        ui.style_mut().override_text_style = Some(TextStyle::Small);
-                        let idhex: IdHex = irt.into();
-                        let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
-                        if ui.link(&nam).clicked() {
-                            app.set_page(Page::Feed(FeedKind::Thread {
-                                id: irt,
-                                referenced_by: event.id,
-                            }));
-                        };
-                        ui.reset_style();
-                    }
-
-                    ui.add_space(8.0);
-
-                    if event.pow() > 0 {
-                        ui.label(format!("POW={}", event.pow()));
-                    }
-
-                    if deletion.is_some() {
-                        let color = if ui.visuals().dark_mode {
-                            Color32::LIGHT_RED
-                        } else {
-                            Color32::DARK_RED
-                        };
-                        ui.label(RichText::new("DELETED").color(color));
-                    }
-
-                    ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                        ui.menu_button(RichText::new("≡").size(18.0), |ui| {
-                            if !is_main_event && ui.button("View Thread").clicked() {
-                                app.set_page(Page::Feed(FeedKind::Thread {
-                                    id: event.id,
-                                    referenced_by: event.id,
-                                }));
-                            }
-                            if ui.button("Copy ID").clicked() {
-                                ui.output().copied_text = event.id.try_as_bech32_string().unwrap();
-                            }
-                            if ui.button("Copy ID as hex").clicked() {
-                                ui.output().copied_text = event.id.as_hex_string();
-                            }
-                            if ui.button("Dismiss").clicked() {
-                                GLOBALS.dismissed.blocking_write().push(event.id);
-                            }
-                            if ui.button("Mute").clicked() {
-                                GLOBALS.people.mute(&event.pubkey.into(), true);
-                            }
-                            if person.followed == 0 && ui.button("Follow").clicked() {
-                                GLOBALS.people.follow(&event.pubkey.into(), true);
-                            } else if person.followed == 1 && ui.button("Unfollow").clicked() {
-                                GLOBALS.people.follow(&event.pubkey.into(), false);
-                            }
-                            if ui.button("Update Metadata").clicked() {
-                                let _ = GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::UpdateMetadata(event.pubkey.into()));
-                            }
-                        });
-
-                        if !is_main_event
-                            && ui
-                                .button(RichText::new("➤").size(18.0))
-                                .on_hover_text("View Thread")
-                                .clicked()
-                        {
-                            app.set_page(Page::Feed(FeedKind::Thread {
-                                id: event.id,
-                                referenced_by: event.id,
-                            }));
-                        }
-
-                        ui.label(
-                            RichText::new(crate::date_ago::date_ago(event.created_at))
-                                .italics()
-                                .weak(),
-                        );
-                    });
-                });
-
-                // Possible subject line
-                if let Some(subject) = event.subject() {
-                    ui.label(RichText::new(subject).strong().underline());
-                }
-
-                // MAIN CONTENT
-                ui.horizontal_wrapped(|ui| {
-                    if app.render_raw == Some(id) {
-                        ui.label(serde_json::to_string(&event).unwrap());
-                    } else if app.render_qr == Some(id) {
-                        content::render_qr(app, ui, ctx, &event.content);
-                    } else {
-                        content::render_content(app, ui, &tag_re, &event, deletion.is_some());
-                    }
-                });
-
-                ui.add_space(8.0);
-
-                // deleted?
-                if let Some(delete_reason) = &deletion {
-                    ui.label(
-                        RichText::new(format!("Deletion Reason: {}", delete_reason)).italics(),
-                    );
-                    ui.add_space(8.0);
-                }
-
-                // Under row
-                if !as_reply_to {
-                    ui.horizontal_wrapped(|ui| {
-                        if ui
-                            .add(CopyButton {})
-                            .on_hover_text("Copy Contents")
-                            .clicked()
-                        {
-                            if app.render_raw == Some(id) {
-                                ui.output().copied_text = serde_json::to_string(&event).unwrap();
-                            } else {
-                                ui.output().copied_text = event.content.clone();
-                            }
-                        }
-
-                        ui.add_space(24.0);
-
-                        // Button to quote note
-                        if ui
-                            .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
-                            .on_hover_text("Quote")
-                            .clicked()
-                        {
-                            if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                app.draft.push(' ');
-                            }
-                            app.draft
-                                .push_str(&event.id.try_as_bech32_string().unwrap());
-                        }
-
-                        ui.add_space(24.0);
-
-                        // Button to reply
-                        if ui
-                            .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
-                            .on_hover_text("Reply")
-                            .clicked()
-                        {
-                            app.replying_to = Some(id);
-                        }
-
-                        ui.add_space(24.0);
-
-                        // Button to render raw
-                        if ui
-                            .add(Label::new(RichText::new("🥩").size(16.0)).sense(Sense::click()))
-                            .on_hover_text("Raw")
-                            .clicked()
-                        {
-                            if app.render_raw != Some(id) {
-                                app.render_raw = Some(id);
-                            } else {
-                                app.render_raw = None;
-                            }
-                        }
-
-                        ui.add_space(24.0);
-
-                        // Button to render QR code
-                        if ui
-                            .add(Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()))
-                            .on_hover_text("QR Code")
-                            .clicked()
-                        {
-                            if app.render_qr != Some(id) {
-                                app.render_qr = Some(id);
-                                app.current_qr = None;
-                            } else {
-                                app.render_qr = None;
-                                app.current_qr = None;
-                            }
-                        }
-
-                        ui.add_space(24.0);
-
-                        // Buttons to react and reaction counts
-                        if app.settings.reactions {
-                            if ui
-                                .add(
-                                    Label::new(RichText::new("♡").size(20.0)).sense(Sense::click()),
-                                )
-                                .clicked()
-                            {
-                                let _ = GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::Like(event.id, event.pubkey));
-                            }
-                            for (ch, count) in reactions.iter() {
-                                if *ch == '+' {
-                                    ui.label(format!("{}", count));
-                                }
-                            }
-                            ui.add_space(12.0);
-                            for (ch, count) in reactions.iter() {
-                                if *ch != '+' {
-                                    ui.label(RichText::new(format!("{} {}", ch, count)).strong());
-                                }
-                            }
-                        }
-                    });
-                }
-            });
+                render_post_inner(app, ctx, ui, event, person, is_main_event, as_reply_to);
+            }
         });
 
         if is_main_event {
@@ -561,7 +297,7 @@ fn render_post_actual(
     ui.separator();
 
     if threaded && !as_reply_to {
-        let replies = Globals::get_replies_sync(event.id);
+        let replies = Globals::get_replies_sync(id);
         for reply_id in replies {
             render_post_maybe_fake(
                 app,
@@ -577,6 +313,250 @@ fn render_post_actual(
             );
         }
     }
+}
+
+fn render_post_inner(
+    app: &mut GossipUi,
+    ctx: &Context,
+    ui: &mut Ui,
+    event: Event,
+    person: DbPerson,
+    is_main_event: bool,
+    as_reply_to: bool,
+) {
+    let deletion = Globals::get_deletion_sync(event.id);
+
+    let reactions = Globals::get_reactions_sync(event.id);
+
+    let tag_re = app.tag_re.clone();
+
+    // Avatar first
+    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &event.pubkey.into()) {
+        avatar
+    } else {
+        app.placeholder_avatar.clone()
+    };
+    let size =
+        AVATAR_SIZE_F32 * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32 / 100.0;
+    if ui
+        .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
+        .clicked()
+    {
+        app.set_page(Page::Person(event.pubkey.into()));
+    };
+
+    // Everything else next
+    ui.vertical(|ui| {
+        // First row
+        ui.horizontal_wrapped(|ui| {
+            GossipUi::render_person_name_line(ui, &person);
+
+            if let Some((irt, _)) = event.replies_to() {
+                ui.add_space(8.0);
+
+                ui.style_mut().override_text_style = Some(TextStyle::Small);
+                let idhex: IdHex = irt.into();
+                let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
+                if ui.link(&nam).clicked() {
+                    app.set_page(Page::Feed(FeedKind::Thread {
+                        id: irt,
+                        referenced_by: event.id,
+                    }));
+                };
+                ui.reset_style();
+            }
+
+            ui.add_space(8.0);
+
+            if event.pow() > 0 {
+                ui.label(format!("POW={}", event.pow()));
+            }
+
+            if deletion.is_some() {
+                let color = if ui.visuals().dark_mode {
+                    Color32::LIGHT_RED
+                } else {
+                    Color32::DARK_RED
+                };
+                ui.label(RichText::new("DELETED").color(color));
+            }
+
+            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                ui.menu_button(RichText::new("≡").size(18.0), |ui| {
+                    if !is_main_event && ui.button("View Thread").clicked() {
+                        app.set_page(Page::Feed(FeedKind::Thread {
+                            id: event.id,
+                            referenced_by: event.id,
+                        }));
+                    }
+                    if ui.button("Copy ID").clicked() {
+                        ui.output().copied_text = event.id.try_as_bech32_string().unwrap();
+                    }
+                    if ui.button("Copy ID as hex").clicked() {
+                        ui.output().copied_text = event.id.as_hex_string();
+                    }
+                    if ui.button("Dismiss").clicked() {
+                        GLOBALS.dismissed.blocking_write().push(event.id);
+                    }
+                    if ui.button("Mute").clicked() {
+                        GLOBALS.people.mute(&event.pubkey.into(), true);
+                    }
+                    if person.followed == 0 && ui.button("Follow").clicked() {
+                        GLOBALS.people.follow(&event.pubkey.into(), true);
+                    } else if person.followed == 1 && ui.button("Unfollow").clicked() {
+                        GLOBALS.people.follow(&event.pubkey.into(), false);
+                    }
+                    if ui.button("Update Metadata").clicked() {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::UpdateMetadata(event.pubkey.into()));
+                    }
+                });
+
+                if !is_main_event
+                    && ui
+                        .button(RichText::new("➤").size(18.0))
+                        .on_hover_text("View Thread")
+                        .clicked()
+                {
+                    app.set_page(Page::Feed(FeedKind::Thread {
+                        id: event.id,
+                        referenced_by: event.id,
+                    }));
+                }
+
+                ui.label(
+                    RichText::new(crate::date_ago::date_ago(event.created_at))
+                        .italics()
+                        .weak(),
+                );
+            });
+        });
+
+        // Possible subject line
+        if let Some(subject) = event.subject() {
+            ui.label(RichText::new(subject).strong().underline());
+        }
+
+        // MAIN CONTENT
+        ui.horizontal_wrapped(|ui| {
+            if app.render_raw == Some(event.id) {
+                ui.label(serde_json::to_string(&event).unwrap());
+            } else if app.render_qr == Some(event.id) {
+                content::render_qr(app, ui, ctx, &event.content);
+            } else {
+                content::render_content(app, ui, &tag_re, &event, deletion.is_some());
+            }
+        });
+
+        ui.add_space(8.0);
+
+        // deleted?
+        if let Some(delete_reason) = &deletion {
+            ui.label(RichText::new(format!("Deletion Reason: {}", delete_reason)).italics());
+            ui.add_space(8.0);
+        }
+
+        // Under row
+        if !as_reply_to {
+            ui.horizontal_wrapped(|ui| {
+                if ui
+                    .add(CopyButton {})
+                    .on_hover_text("Copy Contents")
+                    .clicked()
+                {
+                    if app.render_raw == Some(event.id) {
+                        ui.output().copied_text = serde_json::to_string(&event).unwrap();
+                    } else {
+                        ui.output().copied_text = event.content.clone();
+                    }
+                }
+
+                ui.add_space(24.0);
+
+                // Button to quote note
+                if ui
+                    .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
+                    .on_hover_text("Quote")
+                    .clicked()
+                {
+                    if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                        app.draft.push(' ');
+                    }
+                    app.draft
+                        .push_str(&event.id.try_as_bech32_string().unwrap());
+                }
+
+                ui.add_space(24.0);
+
+                // Button to reply
+                if ui
+                    .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
+                    .on_hover_text("Reply")
+                    .clicked()
+                {
+                    app.replying_to = Some(event.id);
+                }
+
+                ui.add_space(24.0);
+
+                // Button to render raw
+                if ui
+                    .add(Label::new(RichText::new("🥩").size(16.0)).sense(Sense::click()))
+                    .on_hover_text("Raw")
+                    .clicked()
+                {
+                    if app.render_raw != Some(event.id) {
+                        app.render_raw = Some(event.id);
+                    } else {
+                        app.render_raw = None;
+                    }
+                }
+
+                ui.add_space(24.0);
+
+                // Button to render QR code
+                if ui
+                    .add(Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()))
+                    .on_hover_text("QR Code")
+                    .clicked()
+                {
+                    if app.render_qr != Some(event.id) {
+                        app.render_qr = Some(event.id);
+                        app.current_qr = None;
+                    } else {
+                        app.render_qr = None;
+                        app.current_qr = None;
+                    }
+                }
+
+                ui.add_space(24.0);
+
+                // Buttons to react and reaction counts
+                if app.settings.reactions {
+                    if ui
+                        .add(Label::new(RichText::new("♡").size(20.0)).sense(Sense::click()))
+                        .clicked()
+                    {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                    }
+                    for (ch, count) in reactions.iter() {
+                        if *ch == '+' {
+                            ui.label(format!("{}", count));
+                        }
+                    }
+                    ui.add_space(12.0);
+                    for (ch, count) in reactions.iter() {
+                        if *ch != '+' {
+                            ui.label(RichText::new(format!("{} {}", ch, count)).strong());
+                        }
+                    }
+                }
+            });
+        }
+    });
 }
 
 fn thin_red_separator(ui: &mut Ui) {
