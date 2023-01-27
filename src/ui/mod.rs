@@ -78,6 +78,9 @@ struct GossipUi {
 
     // Post rendering
     render_raw: Option<Id>,
+    render_qr: Option<Id>,
+    current_qr: Option<Result<TextureHandle, Error>>,
+    current_qr_size: (f32, f32),
 
     // Page
     page: Page,
@@ -191,6 +194,9 @@ impl GossipUi {
             override_dpi,
             override_dpi_value,
             render_raw: None,
+            render_qr: None,
+            current_qr: None,
+            current_qr_size: (128.0, 128.0),
             page: Page::Feed(FeedKind::General),
             history: vec![],
             about: crate::about::about(),

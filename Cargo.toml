@@ -28,6 +28,7 @@ linkify = "0.9"
 memoize = "0.4"
 nostr-types = { git = "https://github.com/mikedilger/nostr-types" }
 parking_lot = "0.12"
+qrcode = { git = "https://github.com/mikedilger/qrcode-rust" }
 rand = "0.8"
 regex = "1.7"
 reqwest = { version = "0.11", features = ["brotli", "deflate", "gzip", "json"] }

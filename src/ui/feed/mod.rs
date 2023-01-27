@@ -432,6 +432,8 @@ fn render_post_actual(
                 ui.horizontal_wrapped(|ui| {
                     if app.render_raw == Some(id) {
                         ui.label(serde_json::to_string(&event).unwrap());
+                    } else if app.render_qr == Some(id) {
+                        content::render_qr(app, ui, ctx, &event.content);
                     } else {
                         content::render_content(app, ui, &tag_re, &event, deletion.is_some());
                     }
@@ -500,6 +502,23 @@ fn render_post_actual(
                                 app.render_raw = Some(id);
                             } else {
                                 app.render_raw = None;
+                            }
+                        }
+
+                        ui.add_space(24.0);
+
+                        // Button to render QR code
+                        if ui
+                            .add(Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()))
+                            .on_hover_text("QR Code")
+                            .clicked()
+                        {
+                            if app.render_qr != Some(id) {
+                                app.render_qr = Some(id);
+                                app.current_qr = None;
+                            } else {
+                                app.render_qr = None;
+                                app.current_qr = None;
                             }
                         }
 

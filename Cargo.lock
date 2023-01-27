@@ -538,6 +538,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "checked_int_cast"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17cc5e6b5ab06331c33589842070416baa137e8b0eb912b008cfd4a78ada7919"
+
+[[package]]
 name = "chrono"
 version = "0.4.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1790,6 +1796,7 @@ dependencies = [
  "memoize",
  "nostr-types",
  "parking_lot",
+ "qrcode",
  "rand 0.8.5",
  "regex",
  "reqwest",
@@ -2888,6 +2895,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ef7d57beacfaf2d8aee5937dab7b7f28de3cb8b1828479bb5de2a7106f2bae2"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "qrcode"
+version = "0.12.0"
+source = "git+https://github.com/mikedilger/qrcode-rust#519b77b3efa3f84961169b47d3de08c5ddd86548"
+dependencies = [
+ "checked_int_cast",
+ "image",
 ]
 
 [[package]]
