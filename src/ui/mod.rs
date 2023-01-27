@@ -71,34 +71,45 @@ enum Page {
 }
 
 struct GossipUi {
+    // Rendering
     next_frame: Instant,
+    override_dpi: bool,
+    override_dpi_value: u32,
+
+    // Page
     page: Page,
     history: Vec<Page>,
+
+    // General Data
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
+    settings: Settings,
+    avatars: HashMap<PublicKeyHex, TextureHandle>,
+    tag_re: regex::Regex,
+
+    // User entry: posts
     draft: String,
     tag_someone: String,
     include_subject: bool,
     subject: String,
-    settings: Settings,
+    replying_to: Option<Id>,
+
+    // User entry: metadata
+    editing_metadata: bool,
+    metadata: Metadata,
+
+    // User entry: general
     nprofile_follow: String,
     nip05follow: String,
     follow_pubkey: String,
     follow_pubkey_at_relay: String,
     password: String,
     del_password: String,
+    new_metadata_fieldname: String,
     import_priv: String,
     import_pub: String,
-    replying_to: Option<Id>,
-    avatars: HashMap<PublicKeyHex, TextureHandle>,
     new_relay_url: String,
-    tag_re: regex::Regex,
-    override_dpi: bool,
-    override_dpi_value: u32,
-    editing_metadata: bool,
-    metadata: Metadata,
-    new_metadata_fieldname: String,
 }
 
 impl Drop for GossipUi {
@@ -174,33 +185,33 @@ impl GossipUi {
 
         GossipUi {
             next_frame: Instant::now(),
+            override_dpi,
+            override_dpi_value,
             page: Page::Feed(FeedKind::General),
             history: vec![],
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
+            settings,
+            avatars: HashMap::new(),
+            tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
             draft: "".to_owned(),
             tag_someone: "".to_owned(),
             include_subject: false,
             subject: "".to_owned(),
-            settings,
+            replying_to: None,
+            editing_metadata: false,
+            metadata: Metadata::new(),
             nprofile_follow: "".to_owned(),
             nip05follow: "".to_owned(),
             follow_pubkey: "".to_owned(),
             follow_pubkey_at_relay: "".to_owned(),
             password: "".to_owned(),
             del_password: "".to_owned(),
+            new_metadata_fieldname: String::new(),
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
-            replying_to: None,
-            avatars: HashMap::new(),
             new_relay_url: "".to_owned(),
-            tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
-            override_dpi,
-            override_dpi_value,
-            editing_metadata: false,
-            metadata: Metadata::new(),
-            new_metadata_fieldname: String::new(),
         }
     }
 
@@ -245,10 +256,10 @@ impl GossipUi {
 
     fn clear_post(&mut self) {
         self.draft = "".to_owned();
-        self.replying_to = None;
         self.tag_someone = "".to_owned();
         self.include_subject = false;
         self.subject = "".to_owned();
+        self.replying_to = None;
     }
 }
 
