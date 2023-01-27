@@ -11,7 +11,7 @@ use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::Duration;
 use tokio::task;
 
@@ -88,6 +88,9 @@ pub struct People {
     // When we manually ask for updating metadata, we want to recheck
     // the person's NIP-05 when that metadata come in. We remember this here.
     recheck_nip05: DashSet<PublicKeyHex>,
+
+    // Date of the last self-owend contact list we processed
+    pub last_contact_list_asof: AtomicI64,
 }
 
 impl People {
@@ -98,6 +101,7 @@ impl People {
             avatars_pending_processing: DashSet::new(),
             avatars_failed: DashSet::new(),
             recheck_nip05: DashSet::new(),
+            last_contact_list_asof: AtomicI64::new(0),
         }
     }
 
@@ -342,7 +346,7 @@ impl People {
         let mut v: Vec<DbPerson> = self.people.iter().map(|e| e.value().to_owned()).collect();
         v.sort_by(|a, b| {
             let c = a.name().cmp(&b.name());
-            if c == Ordering::Equal {
+            if c == std::cmp::Ordering::Equal {
                 a.pubkey.cmp(&b.pubkey)
             } else {
                 c
@@ -405,7 +409,7 @@ impl People {
                     let size = AVATAR_SIZE * 3 // 3x feed size, 1x people page size
                         * GLOBALS
                             .pixels_per_point_times_100
-                            .load(std::sync::atomic::Ordering::Relaxed)
+                            .load(Ordering::Relaxed)
                         / 100;
                     if let Ok(image) = image::load_from_memory(&bytes) {
                         // Note: we can't use egui_extras::image::load_image_bytes because we
@@ -634,21 +638,21 @@ impl People {
         merge: bool,
         asof: Unixtime,
     ) -> Result<(), Error> {
-        // Remove people already followed
-        let followed = self.get_followed_pubkeys();
-        let mut new: Vec<PublicKeyHex> = Vec::new();
-        for pk in pubkeys.iter() {
-            if !followed.contains(pk) {
-                new.push(pk.to_owned());
+        // If merging, and we already follow all these keys,
+        // then just bail out
+        if merge {
+            let mut new = false;
+            let followed = self.get_followed_pubkeys();
+            for pk in pubkeys {
+                if !followed.contains(pk) {
+                    new = true;
+                    break;
+                }
+            }
+            if !new {
+                return Ok(());
             }
         }
-
-        // Skip if there is nobody new to follow
-        if new.is_empty() {
-            return Ok(());
-        }
-
-        let pubkeys = &new;
 
         tracing::debug!(
             "Updating following list, {} people long, merge={}",

@@ -223,46 +223,59 @@ pub async fn process_new_event(
         // We only handle the user's own contact list currently
         if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
             if event.pubkey == pubkey {
-                let merge: bool = GLOBALS.pull_following_merge.load(Ordering::Relaxed);
-                let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
+                // Only process if it is newer than what we already have
+                if event.created_at.0
+                    > GLOBALS
+                        .people
+                        .last_contact_list_asof
+                        .load(Ordering::Relaxed)
+                {
+                    GLOBALS
+                        .people
+                        .last_contact_list_asof
+                        .store(event.created_at.0, Ordering::Relaxed);
 
-                let now = Unixtime::now().unwrap();
+                    let merge: bool = GLOBALS.pull_following_merge.load(Ordering::Relaxed);
+                    let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
 
-                // 'p' tags represent the author's contacts
-                for tag in &event.tags {
-                    if let Tag::Pubkey {
-                        pubkey,
-                        recommended_relay_url,
-                        petname: _,
-                    } = tag
-                    {
-                        // Save the pubkey for actual following them (outside of the loop in a batch)
-                        pubkeys.push(pubkey.to_owned());
+                    let now = Unixtime::now().unwrap();
 
-                        // If there is a URL, create or update person_relay last_suggested_kind3
-                        if let Some(ref url) = recommended_relay_url {
-                            let mut url = url.to_owned();
-                            if url.is_valid_relay_url() {
-                                url.trim();
-                                DbPersonRelay::upsert_last_suggested_kind3(
-                                    pubkey.0.to_owned(),
-                                    url.inner().to_owned(),
-                                    now.0 as u64,
-                                )
-                                .await?;
+                    // 'p' tags represent the author's contacts
+                    for tag in &event.tags {
+                        if let Tag::Pubkey {
+                            pubkey,
+                            recommended_relay_url,
+                            petname: _,
+                        } = tag
+                        {
+                            // Save the pubkey for actual following them (outside of the loop in a batch)
+                            pubkeys.push(pubkey.to_owned());
+
+                            // If there is a URL, create or update person_relay last_suggested_kind3
+                            if let Some(ref url) = recommended_relay_url {
+                                let mut url = url.to_owned();
+                                if url.is_valid_relay_url() {
+                                    url.trim();
+                                    DbPersonRelay::upsert_last_suggested_kind3(
+                                        pubkey.0.to_owned(),
+                                        url.inner().to_owned(),
+                                        now.0 as u64,
+                                    )
+                                    .await?;
+                                }
                             }
+
+                            // TBD: do something with the petname
                         }
-
-                        // TBD: do something with the petname
                     }
-                }
 
-                // Follow all those pubkeys, and unfollow everbody else if merge=false
-                // (and the date is used to ignore if the data is outdated)
-                GLOBALS
-                    .people
-                    .follow_all(&pubkeys, merge, event.created_at)
-                    .await?;
+                    // Follow all those pubkeys, and unfollow everbody else if merge=false
+                    // (and the date is used to ignore if the data is outdated)
+                    GLOBALS
+                        .people
+                        .follow_all(&pubkeys, merge, event.created_at)
+                        .await?;
+                }
             }
         }
     }
