@@ -4,7 +4,9 @@ use crate::db::{
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
-use nostr_types::{Event, EventKind, Metadata, PublicKeyHex, Tag, Unixtime, Url};
+use nostr_types::{
+    Event, EventKind, Metadata, PublicKey, PublicKeyHex, SimpleRelayList, Tag, Unixtime, Url,
+};
 use std::sync::atomic::Ordering;
 
 // This processes a new event, saving the results into the database
@@ -220,67 +222,111 @@ pub async fn process_new_event(
     }
 
     if event.kind == EventKind::ContactList {
-        // We only handle the user's own contact list currently
         if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
             if event.pubkey == pubkey {
-                // Only process if it is newer than what we already have
-                if event.created_at.0
-                    > GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .load(Ordering::Relaxed)
-                {
-                    GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
+                process_your_contact_list(event).await?;
+            } else {
+                process_somebody_elses_contact_list(event.pubkey, event).await?;
+            }
+        } else {
+            process_somebody_elses_contact_list(event.pubkey, event).await?;
+        }
+    }
 
-                    let merge: bool = GLOBALS.pull_following_merge.load(Ordering::Relaxed);
-                    let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
+    // TBD (have to parse runes language for this)
+    //if event.kind == EventKind::RelayList {
+    //    process_somebody_elses_relay_list(event.pubkey.clone(), &event.contents).await?;
+    //}
 
-                    let now = Unixtime::now().unwrap();
+    // FIXME: Handle EventKind::RecommendedRelay
 
-                    // 'p' tags represent the author's contacts
-                    for tag in &event.tags {
-                        if let Tag::Pubkey {
-                            pubkey,
-                            recommended_relay_url,
-                            petname: _,
-                        } = tag
-                        {
-                            // Save the pubkey for actual following them (outside of the loop in a batch)
-                            pubkeys.push(pubkey.to_owned());
+    Ok(())
+}
 
-                            // If there is a URL, create or update person_relay last_suggested_kind3
-                            if let Some(ref url) = recommended_relay_url {
-                                let mut url = url.to_owned();
-                                if url.is_valid_relay_url() {
-                                    url.trim();
-                                    DbPersonRelay::upsert_last_suggested_kind3(
-                                        pubkey.0.to_owned(),
-                                        url.inner().to_owned(),
-                                        now.0 as u64,
-                                    )
-                                    .await?;
-                                }
-                            }
+async fn process_somebody_elses_contact_list(
+    pubkey: PublicKey,
+    event: &Event,
+) -> Result<(), Error> {
+    // We don't keep their contacts or show to the user yet.
+    // We only process the contents for (non-standard) relay list information.
 
-                            // TBD: do something with the petname
-                        }
-                    }
+    // Try to parse the contents as a SimpleRelayList (ignore if it is not)
+    if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {
+        // NOTE: we update person_relay.last_suggested_nip23, even though this data came from the
+        //       contents of a kind3 instead, because it is the same kind of thing.
+        //       person_relay.last_suggested_kind3 is updated based on the p-tag, not the contents,
+        //       of kind3.
 
-                    // Follow all those pubkeys, and unfollow everybody else if merge=false
-                    // (and the date is used to ignore if the data is outdated)
-                    GLOBALS
-                        .people
-                        .follow_all(&pubkeys, merge, event.created_at)
-                        .await?;
-                }
+        for (url, simple_relay_usage) in srl.0.iter() {
+            // Only if they write there (we don't care where they read from)
+            if simple_relay_usage.write {
+                DbPersonRelay::upsert_last_suggested_nip23(
+                    pubkey.into(),
+                    url.inner().to_owned(),
+                    event.created_at.0 as u64,
+                )
+                .await?;
             }
         }
     }
 
-    // FIXME: Handle EventKind::RecommendedRelay
+    Ok(())
+}
+
+async fn process_your_contact_list(event: &Event) -> Result<(), Error> {
+    // Only process if it is newer than what we already have
+    if event.created_at.0
+        > GLOBALS
+            .people
+            .last_contact_list_asof
+            .load(Ordering::Relaxed)
+    {
+        GLOBALS
+            .people
+            .last_contact_list_asof
+            .store(event.created_at.0, Ordering::Relaxed);
+
+        let merge: bool = GLOBALS.pull_following_merge.load(Ordering::Relaxed);
+        let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
+
+        let now = Unixtime::now().unwrap();
+
+        // 'p' tags represent the author's contacts
+        for tag in &event.tags {
+            if let Tag::Pubkey {
+                pubkey,
+                recommended_relay_url,
+                petname: _,
+            } = tag
+            {
+                // Save the pubkey for actual following them (outside of the loop in a batch)
+                pubkeys.push(pubkey.to_owned());
+
+                // If there is a URL, create or update person_relay last_suggested_kind3
+                if let Some(ref url) = recommended_relay_url {
+                    let mut url = url.to_owned();
+                    if url.is_valid_relay_url() {
+                        url.trim();
+                        DbPersonRelay::upsert_last_suggested_kind3(
+                            pubkey.0.to_owned(),
+                            url.inner().to_owned(),
+                            now.0 as u64,
+                        )
+                        .await?;
+                    }
+                }
+
+                // TBD: do something with the petname
+            }
+        }
+
+        // Follow all those pubkeys, and unfollow everbody else if merge=false
+        // (and the date is used to ignore if the data is outdated)
+        GLOBALS
+            .people
+            .follow_all(&pubkeys, merge, event.created_at)
+            .await?;
+    }
 
     Ok(())
 }

@@ -393,16 +393,15 @@ impl Minion {
                 ..Default::default()
             });
 
-            // metadata by people followed
-            // FIXME TBD
-            /*
+            // Subscribe to ContactLists so we can look at the contents and
+            // divine relays people write to (if using a client that does that).
+            // TBD: EventKind::RelaysList from nip23
             filters.push(Filter {
-                authors: pubkeys.clone(),
-                kinds: vec![EventKind::Metadata, EventKind::RecommendRelay, EventKind::ContactList, EventKind::RelaysList],
-                since: // last we last checked
-                .. Default::default()
+                authors: followed_pubkeys.clone(),
+                kinds: vec![EventKind::ContactList],
+                // No since. These are replaceable events, we should only get 1 per person.
+                ..Default::default()
             });
-            */
         }
 
         // reactions to posts by me
