@@ -60,7 +60,7 @@ fn content(
         ui.vertical(|ui| {
             ui.heading(get_name(&person));
             ui.label(RichText::new(GossipUi::pubkey_short(&pubkeyhex)).weak());
-            GossipUi::render_person_name_line(ui, &person);
+            GossipUi::render_person_name_line(ui, ctx, &person);
 
             if person.followed == 0 && ui.button("FOLLOW").clicked() {
                 GLOBALS.people.follow(&pubkeyhex, true);
@@ -95,10 +95,7 @@ fn content(
             ui.horizontal_wrapped(|ui| {
                 ui.label(RichText::new("Public Key: ").strong());
                 ui.label(npubref);
-                if ui.button("⚃")
-                    .on_hover_text("Show as QR code")
-                    .clicked()
-                {
+                if ui.button("⚃").on_hover_text("Show as QR code").clicked() {
                     app.qr_codes.remove("person_qr");
                     app.person_qr = Some("npub");
                 }
@@ -171,12 +168,9 @@ fn content(
                 {
                     ui.output().copied_text = svalue.clone();
                 }
-                if key=="lud06" {
+                if key == "lud06" {
                     lud06 = svalue.to_owned();
-                    if ui.button("⚃")
-                        .on_hover_text("Show as QR code")
-                        .clicked()
-                    {
+                    if ui.button("⚃").on_hover_text("Show as QR code").clicked() {
                         app.qr_codes.remove("person_qr");
                         app.person_qr = Some("lud06");
                     }
@@ -199,7 +193,7 @@ fn content(
             app.render_qr(ui, ctx, "person_qr", &lud06);
             ui.label(&lud06);
         }
-        _  => { }
+        _ => {}
     }
 }
 

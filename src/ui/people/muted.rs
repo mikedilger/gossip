@@ -44,7 +44,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 ui.vertical(|ui| {
                     ui.label(RichText::new(GossipUi::pubkey_short(&person.pubkey)).weak());
-                    GossipUi::render_person_name_line(ui, person);
+                    GossipUi::render_person_name_line(ui, ctx, person);
 
                     if ui.button("UNMUTE").clicked() {
                         GLOBALS.people.mute(&person.pubkey, false);

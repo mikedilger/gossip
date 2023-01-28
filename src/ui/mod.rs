@@ -8,6 +8,7 @@ mod widgets;
 mod you;
 
 use crate::about::About;
+use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
@@ -445,13 +446,29 @@ impl GossipUi {
         idhex.0[0..8].to_string()
     }
 
-    pub fn render_person_name_line(ui: &mut Ui, person: &DbPerson) {
+    pub fn render_person_name_line(ui: &mut Ui, _ctx: &Context, person: &DbPerson) {
         ui.horizontal_wrapped(|ui| {
-            if let Some(name) = person.name() {
-                ui.label(RichText::new(name).strong());
+            let name = if let Some(name) = person.name() {
+                name.to_owned()
             } else {
-                ui.label(RichText::new(GossipUi::pubkey_short(&person.pubkey)).weak());
-            }
+                GossipUi::pubkey_short(&person.pubkey)
+            };
+
+            ui.menu_button(&name, |ui| {
+                if ui.button("Mute").clicked() {
+                    GLOBALS.people.mute(&person.pubkey, true);
+                }
+                if person.followed == 0 && ui.button("Follow").clicked() {
+                    GLOBALS.people.follow(&person.pubkey, true);
+                } else if person.followed == 1 && ui.button("Unfollow").clicked() {
+                    GLOBALS.people.follow(&person.pubkey, false);
+                }
+                if ui.button("Update Metadata").clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::UpdateMetadata(person.pubkey.clone()));
+                }
+            });
 
             if person.followed > 0 {
                 ui.label("🚶");

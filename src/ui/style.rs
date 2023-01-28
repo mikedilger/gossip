@@ -13,15 +13,15 @@ pub(super) fn dark_mode_visuals() -> Visuals {
         dark_mode: true,
         widgets: Widgets {
             noninteractive: WidgetVisuals {
-                bg_fill: Color32::from_gray(27),
-                bg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // separators, indentation lines
+                bg_fill: Color32::TRANSPARENT,
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(72)), // separators, borders
                 fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // normal text color
                 rounding: Rounding::same(2.0),
                 expansion: 0.0,
             },
             inactive: WidgetVisuals {
-                bg_fill: Color32::from_gray(60), // button background
-                bg_stroke: Default::default(),
+                bg_fill: Color32::TRANSPARENT,
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(72)), // separators, borders
                 fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // button text
                 rounding: Rounding::same(2.0),
                 expansion: 0.0,
@@ -84,7 +84,43 @@ pub(super) fn dark_mode_visuals() -> Visuals {
 pub(super) fn light_mode_visuals() -> Visuals {
     Visuals {
         dark_mode: false,
-        widgets: Widgets::light(),
+        widgets: Widgets {
+            noninteractive: WidgetVisuals {
+                bg_fill: Color32::TRANSPARENT,
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(192)),
+                fg_stroke: Stroke::new(1.0, Color32::from_gray(80)), // normal text color
+                rounding: Rounding::same(2.0),
+                expansion: 0.0,
+            },
+            inactive: WidgetVisuals {
+                bg_fill: Color32::TRANSPARENT,
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(192)),
+                fg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // button text
+                rounding: Rounding::same(2.0),
+                expansion: 0.0,
+            },
+            hovered: WidgetVisuals {
+                bg_fill: Color32::from_gray(220),
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(105)), // e.g. hover over window edge or button
+                fg_stroke: Stroke::new(1.5, Color32::BLACK),
+                rounding: Rounding::same(3.0),
+                expansion: 1.0,
+            },
+            active: WidgetVisuals {
+                bg_fill: Color32::from_gray(165),
+                bg_stroke: Stroke::new(1.0, Color32::BLACK),
+                fg_stroke: Stroke::new(2.0, Color32::BLACK),
+                rounding: Rounding::same(2.0),
+                expansion: 1.0,
+            },
+            open: WidgetVisuals {
+                bg_fill: Color32::from_gray(220),
+                bg_stroke: Stroke::new(1.0, Color32::from_gray(160)),
+                fg_stroke: Stroke::new(1.0, Color32::BLACK),
+                rounding: Rounding::same(2.0),
+                expansion: 0.0,
+            },
+        },
 
         // Background colors
         window_fill: Color32::from_gray(0xed),

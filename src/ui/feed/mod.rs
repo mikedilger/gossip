@@ -365,7 +365,7 @@ fn render_post_inner(
     ui.vertical(|ui| {
         // First row
         ui.horizontal_wrapped(|ui| {
-            GossipUi::render_person_name_line(ui, &person);
+            GossipUi::render_person_name_line(ui, ctx, &person);
 
             if let Some((irt, _)) = event.replies_to() {
                 ui.add_space(8.0);
@@ -398,7 +398,7 @@ fn render_post_inner(
             }
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                ui.menu_button(RichText::new("≡").size(18.0), |ui| {
+                ui.menu_button(RichText::new("📃▼").size(13.0), |ui| {
                     if !is_main_event && ui.button("View Thread").clicked() {
                         app.set_page(Page::Feed(FeedKind::Thread {
                             id: event.id,
@@ -414,24 +414,11 @@ fn render_post_inner(
                     if ui.button("Dismiss").clicked() {
                         GLOBALS.dismissed.blocking_write().push(event.id);
                     }
-                    if ui.button("Mute").clicked() {
-                        GLOBALS.people.mute(&event.pubkey.into(), true);
-                    }
-                    if person.followed == 0 && ui.button("Follow").clicked() {
-                        GLOBALS.people.follow(&event.pubkey.into(), true);
-                    } else if person.followed == 1 && ui.button("Unfollow").clicked() {
-                        GLOBALS.people.follow(&event.pubkey.into(), false);
-                    }
-                    if ui.button("Update Metadata").clicked() {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::UpdateMetadata(event.pubkey.into()));
-                    }
                 });
 
                 if !is_main_event
                     && ui
-                        .button(RichText::new("➤").size(18.0))
+                        .button(RichText::new("➤").size(13.0))
                         .on_hover_text("View Thread")
                         .clicked()
                 {
