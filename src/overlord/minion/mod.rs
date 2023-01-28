@@ -149,9 +149,9 @@ impl Minion {
                 max_send_queue: None,
                 // Tungstenite default is 64 MiB.
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
-                // 64KB seems like  a reasonable cutoff.
-                max_message_size: Some(1024 * 64),
-                max_frame_size: Some(1024 * 64),
+                // 128KB seems like  a reasonable cutoff.
+                max_message_size: Some(1024 * 128),
+                max_frame_size: Some(1024 * 128),
                 accept_unmasked_frames: false, // default is false which is the standard
             };
 
