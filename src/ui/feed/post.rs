@@ -148,7 +148,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             // Emoji picker
             ui.menu_button(RichText::new("😀▼").size(14.0), |ui| {
-                for emoji in "😀😁😆😅🤣😕😯👀❤👍🤙💯🎯🤌🙏🤝🫂🍆".chars()
+                for emoji in "😀😁😆😅🤣😕😯👀❤💜👍🤙💯🎯🤌🙏🤝🫂⚡🍆".chars()
                 {
                     if ui.button(emoji.to_string()).clicked() {
                         app.draft.push(emoji);
