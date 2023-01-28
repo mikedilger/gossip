@@ -269,7 +269,7 @@ pub async fn process_new_event(
                         }
                     }
 
-                    // Follow all those pubkeys, and unfollow everbody else if merge=false
+                    // Follow all those pubkeys, and unfollow everybody else if merge=false
                     // (and the date is used to ignore if the data is outdated)
                     GLOBALS
                         .people

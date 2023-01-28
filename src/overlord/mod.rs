@@ -793,7 +793,7 @@ impl Overlord {
                 add_event_to_tags(&mut tags, reply_to, "root").await;
             }
 
-            // Possibly propogate a subject tag
+            // Possibly propagate a subject tag
             for tag in &event.tags {
                 if let Tag::Subject(subject) = tag {
                     let mut subject = subject.to_owned();

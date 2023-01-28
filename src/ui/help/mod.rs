@@ -123,7 +123,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal_wrapped(|ui| {
                 ui.label("Gossip follows people at whichever relays they post to,");
                 ui.label(RichText::new("not").strong());
-                ui.label("some list of relays you choose to read from. This is a core concept. As the nostr network expands, it will be increasingly unlikely that the person you want to follow posts to the same relays that you do. And it will become increasingly untenable for event mirroring to be occuring on all those relays. Most clients will eventually need to work this way, except for clients that intend to be bound to a local community of relays.");
+                ui.label("some list of relays you choose to read from. This is a core concept. As the nostr network expands, it will be increasingly unlikely that the person you want to follow posts to the same relays that you do. And it will become increasingly untenable for event mirroring to be occurring on all those relays. Most clients will eventually need to work this way, except for clients that intend to be bound to a local community of relays.");
             });
 
             ui.add_space(10.0);

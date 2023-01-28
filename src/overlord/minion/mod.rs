@@ -320,7 +320,7 @@ impl Minion {
             };
 
             // Subtract overlap to avoid gaps due to clock sync and event
-            // propogation delay
+            // propagation delay
             replies_since = replies_since - overlap;
 
             // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
@@ -578,7 +578,7 @@ impl Minion {
             };
 
             // Subtract overlap to avoid gaps due to clock sync and event
-            // propogation delay
+            // propagation delay
             special_since -= overlap as i64;
 
             // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:a
