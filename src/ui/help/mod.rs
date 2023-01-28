@@ -249,7 +249,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.heading("Things You Can't Do ... Yet");
             ui.add_space(10.0);
 
-            ui.label("We don't yet support editing or publishing your metadata, pulling or publishing your relays, encrypted direct messages, seeing other people's contact lists, seeing your follower count, hiding replies (which could always be spammy), muting people, marking sensitive content, expiration timestamps, delegated event signing, subject tags, or note deletion. But we intend to do all of that. We also don't support chat.");
+            ui.label("We don't yet support pulling or publishing your relays, encrypted direct messages, seeing other people's contact lists, seeing your follower count, hiding replies (which could always be spammy), marking sensitive content, expiration timestamps, delegated event signing, or note deletion (only others, not yours). But we intend to do all of that. We also don't support chat.");
         });
     } else if app.page == Page::HelpStats {
         stats::update(app, ctx, _frame, ui);
