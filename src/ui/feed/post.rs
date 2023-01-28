@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use crate::tags::{keys_from_text, textarea_highlighter};
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
-use egui::{Align, Color32, Context, Layout, ScrollArea, TextEdit, Ui};
+use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, Ui};
 use nostr_types::Tag;
 
 pub(super) fn posting_area(
@@ -145,6 +145,16 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             } else if app.replying_to.is_none() && ui.button("Add Subject").clicked() {
                 app.include_subject = true;
             }
+
+            // Emoji picker
+            ui.menu_button(RichText::new("😀▼").size(14.0), |ui| {
+                for emoji in "😀😁😆😅🤣😕😯👀❤👍🤙💯🎯🤌🙏🤝🫂🍆".chars()
+                {
+                    if ui.button(emoji.to_string()).clicked() {
+                        app.draft.push(emoji);
+                    }
+                }
+            });
         });
     });
 
