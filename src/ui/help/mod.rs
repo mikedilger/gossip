@@ -150,7 +150,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             });
             ui.label("\n• nprofile");
             ui.indent("helpfollownprofile1", |ui| {
-                ui.label("An nprofile string is bech32 encoded information about a person that includes their public key as well as one or more relays that they post to. As strings, they can be anywhere: on other social media, in emails, on webpages, as QR codes, etc. NOTE: as of this writing gossip does not support nprofile, but it should soon.");
+                ui.label("An nprofile string is bech32 encoded information about a person that includes their public key as well as one or more relays that they post to. As strings, they can be anywhere: on other social media, in emails, on webpages, as QR codes, etc.");
             });
             ui.label("\n• NIP-05 (in reverse)");
             ui.indent("helpfollownip05", |ui| {
