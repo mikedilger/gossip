@@ -1,6 +1,4 @@
 use super::{GossipUi, Page};
-use crate::comms::ToOverlordMessage;
-use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::ui::widgets::CopyButton;
@@ -60,29 +58,7 @@ fn content(
         ui.vertical(|ui| {
             ui.heading(get_name(&person));
             ui.label(RichText::new(GossipUi::pubkey_short(&pubkeyhex)).weak());
-            GossipUi::render_person_name_line(ui, ctx, &person);
-
-            if person.followed == 0 && ui.button("FOLLOW").clicked() {
-                GLOBALS.people.follow(&pubkeyhex, true);
-            } else if person.followed == 1 && ui.button("UNFOLLOW").clicked() {
-                GLOBALS.people.follow(&pubkeyhex, false);
-            }
-
-            if person.muted == 0 && ui.button("MUTE").clicked() {
-                GLOBALS.people.mute(&pubkeyhex, true);
-            } else if person.muted == 1 && ui.button("UNMUTE").clicked() {
-                GLOBALS.people.mute(&pubkeyhex, false);
-            }
-
-            if ui.button("UPDATE METADATA").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::UpdateMetadata(pubkeyhex.clone()));
-            }
-
-            if ui.button("VIEW THEIR FEED").clicked() {
-                app.set_page(Page::Feed(FeedKind::Person(pubkeyhex.clone())));
-            }
+            GossipUi::render_person_name_line(app, ui, &person);
         });
     });
 

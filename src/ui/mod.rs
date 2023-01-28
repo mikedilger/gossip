@@ -446,7 +446,7 @@ impl GossipUi {
         idhex.0[0..8].to_string()
     }
 
-    pub fn render_person_name_line(ui: &mut Ui, _ctx: &Context, person: &DbPerson) {
+    pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
         ui.horizontal_wrapped(|ui| {
             let name = if let Some(name) = person.name() {
                 name.to_owned()
@@ -467,6 +467,9 @@ impl GossipUi {
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::UpdateMetadata(person.pubkey.clone()));
+                }
+                if ui.button("View Their Posts").clicked() {
+                    app.set_page(Page::Feed(FeedKind::Person(person.pubkey.clone())));
                 }
             });
 

@@ -365,7 +365,7 @@ fn render_post_inner(
     ui.vertical(|ui| {
         // First row
         ui.horizontal_wrapped(|ui| {
-            GossipUi::render_person_name_line(ui, ctx, &person);
+            GossipUi::render_person_name_line(app, ui, &person);
 
             if let Some((irt, _)) = event.replies_to() {
                 ui.add_space(8.0);
