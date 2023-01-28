@@ -436,10 +436,14 @@ fn render_post_inner(
             });
         });
 
+        ui.add_space(4.0);
+
         // Possible subject line
         if let Some(subject) = event.subject() {
             ui.label(RichText::new(subject).strong().underline());
         }
+
+        ui.add_space(2.0);
 
         // MAIN CONTENT
         ui.horizontal_wrapped(|ui| {

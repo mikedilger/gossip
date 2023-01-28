@@ -178,18 +178,18 @@ pub(crate) fn highlight_text_format(highlight_type: HighlightType, dark_mode: bo
 
     match highlight_type {
         HighlightType::Nothing => TextFormat {
-            font_id: FontId::new(12.0, FontFamily::Proportional),
+            font_id: FontId::new(12.5, FontFamily::Proportional),
             color: main,
             ..Default::default()
         },
         HighlightType::PublicKey => TextFormat {
-            font_id: FontId::new(12.0, FontFamily::Monospace),
+            font_id: FontId::new(12.5, FontFamily::Monospace),
             background: grey,
             color: green,
             ..Default::default()
         },
         HighlightType::Event => TextFormat {
-            font_id: FontId::new(12.0, FontFamily::Monospace),
+            font_id: FontId::new(12.5, FontFamily::Monospace),
             background: grey,
             color: red,
             ..Default::default()
@@ -211,7 +211,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Body,
         FontId {
-            size: 12.0,
+            size: 12.5,
             family: FontFamily::Proportional,
         },
     );
@@ -219,7 +219,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Monospace,
         FontId {
-            size: 12.0,
+            size: 12.5,
             family: FontFamily::Monospace,
         },
     );
@@ -227,7 +227,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Button,
         FontId {
-            size: 13.0,
+            size: 12.5,
             family: FontFamily::Proportional,
         },
     );
@@ -235,7 +235,7 @@ pub(super) fn text_styles() -> BTreeMap<TextStyle, FontId> {
     text_styles.insert(
         TextStyle::Heading,
         FontId {
-            size: 17.0,
+            size: 16.25,
             family: FontFamily::Proportional,
         },
     );
