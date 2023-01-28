@@ -41,8 +41,8 @@ thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
-tokio-tungstenite = { version = "0.18", features = [ "rustls-tls-native-roots" ] }
-tungstenite = { version = "0.18", features = [ "rustls-tls-native-roots" ] }
+tokio-tungstenite = { version = "0.18", features = [ "native-tls" ] }
+tungstenite = { version = "0.18", features = [ "native-tls" ] }
 zeroize = "1.5"
 
 # Force scrypt to build with release-like speed even in dev mode
