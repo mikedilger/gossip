@@ -6,7 +6,7 @@ BIN=./target/release/gossip
 # This uses ldd to get it's dependencies into a list
 DEPS=$(pacman -F $(ldd "$BIN" | awk '{print $3}') | awk '{print $5}'  | awk -F/ '{print $2}' | tr " " "\n" | sort -u | tr "\n" " ")
 
-# This array will amass dependencies that we wont need to install because they
+# This array will amass dependencies that we won't need to install because they
 # will be pulled in by other dependenices
 TODELETE=
 

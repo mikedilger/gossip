@@ -103,7 +103,7 @@ If you don't already have rust installed, follow the guidance at [rust-lang.org]
 
 ### Step 2 - Install some dependencies
 
-Most dependencies are probably already installed in your base operating system. Here are a few that sometimes arent:
+Most dependencies are probably already installed in your base operating system. Here are a few that sometimes aren't:
 
 - build essentials like gcc and make (debian: "build-essential")
 - cmake (debian: "cmake")
