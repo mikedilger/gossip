@@ -1117,7 +1117,9 @@ impl Overlord {
         relays.extend(DbEventSeen::get_relays_for_event(referenced_by).await?);
         relays.extend(DbEventSeen::get_relays_for_event(id).await?);
         if relays.is_empty() {
-            panic!("Our method STILL isn't good enough. We need fallback read relays. I hope this panic does not occur.");
+            *GLOBALS.status_message.write().await =
+                "Could not find any relays for that event".to_owned();
+            return Ok(());
         }
 
         // Climb the tree as high as we can, and if there are higher events,
