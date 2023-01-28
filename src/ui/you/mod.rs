@@ -3,7 +3,8 @@ use crate::comms::ToOverlordMessage;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
-use egui::{Context, SelectableLabel, TextEdit, Ui};
+use egui::style::Margin;
+use egui::{Color32, Context, Frame, ScrollArea, SelectableLabel, Stroke, TextEdit, Ui};
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
@@ -32,69 +33,96 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.separator();
 
     if app.page == Page::YourKeys {
-        ui.add_space(30.0);
-
-        ui.label("NOTICE: use CTRL-V to paste (middle/right click wont work)");
+        ui.add_space(10.0);
+        ui.heading("Your Keys");
 
         ui.add_space(10.0);
         ui.separator();
         ui.add_space(10.0);
 
-        show_pub_key_detail(app, ui);
+        ScrollArea::vertical()
+            .id_source("your_keys")
+            .show(ui, |ui| {
+                if GLOBALS.signer.blocking_read().is_ready() {
+                    ui.heading("Ready to sign events");
 
-        ui.add_space(10.0);
-        ui.separator();
-        ui.add_space(10.0);
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
 
-        if GLOBALS.signer.blocking_read().is_ready() {
-            ui.heading("Ready to sign events");
+                    show_pub_key_detail(app, ctx, ui);
 
-            ui.add_space(10.0);
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
 
-            show_priv_key_detail(app, ui);
+                    show_priv_key_detail(app, ui);
 
-            ui.add_space(10.0);
-            ui.separator();
-            ui.add_space(10.0);
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
 
-            offer_export_priv_key(app, ui);
+                    offer_export_priv_key(app, ui);
 
-            ui.add_space(10.0);
-            ui.separator();
-            ui.add_space(10.0);
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
 
-            offer_delete(app, ui);
-        } else if GLOBALS.signer.blocking_read().is_loaded() {
-            offer_unlock_priv_key(app, ui);
+                    offer_delete(app, ui);
+                } else if GLOBALS.signer.blocking_read().is_loaded() {
+                    Frame::none()
+                        .stroke(Stroke {
+                            width: 2.0,
+                            color: Color32::RED,
+                        })
+                        .inner_margin(Margin {
+                            left: 10.0,
+                            right: 10.0,
+                            top: 10.0,
+                            bottom: 10.0,
+                        })
+                        .show(ui, |ui| {
+                            offer_unlock_priv_key(app, ui);
+                        });
 
-            ui.add_space(10.0);
-            ui.separator();
-            ui.add_space(10.0);
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
 
-            offer_delete(app, ui);
-        } else {
-            offer_generate(app, ui);
+                    show_pub_key_detail(app, ctx, ui);
 
-            ui.add_space(10.0);
-            ui.separator();
-            ui.add_space(10.0);
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
 
-            offer_import_priv_key(app, ui);
+                    offer_delete(app, ui);
+                } else {
+                    offer_generate(app, ui);
 
-            ui.add_space(10.0);
-            ui.separator();
-            ui.add_space(10.0);
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
 
-            offer_import_pub_key(app, ui);
-        }
+                    offer_import_priv_key(app, ui);
+
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
+
+                    offer_import_pub_key(app, ui);
+                }
+            });
     } else if app.page == Page::YourMetadata {
         metadata::update(app, ctx, _frame, ui);
     }
 }
 
-fn show_pub_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
+fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     // Render public key if available
     if let Some(public_key) = GLOBALS.signer.blocking_read().public_key() {
+        ui.heading("Public Key");
+        ui.add_space(10.0);
+
         let pkhex: PublicKeyHex = public_key.into();
         ui.horizontal_wrapped(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.0));
@@ -107,19 +135,30 @@ fn show_pub_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
             ui.horizontal_wrapped(|ui| {
                 ui.label(&format!("Public Key (bech32): {}", bech32));
                 if ui.add(CopyButton {}).clicked() {
-                    ui.output().copied_text = bech32;
+                    ui.output().copied_text = bech32.clone();
                 }
             });
+            ui.add_space(10.0);
+            app.render_qr(ui, ctx, "you_npub_qr", &bech32);
         }
 
+        ui.add_space(10.0);
+        ui.separator();
+        ui.add_space(10.0);
+
         if let Some(profile) = Globals::get_your_nprofile() {
+            ui.heading("N-Profile");
+            ui.add_space(10.0);
+
             let nprofile = profile.try_as_bech32_string().unwrap();
             ui.horizontal_wrapped(|ui| {
                 ui.label(&format!("Your Profile: {}", &nprofile));
                 if ui.add(CopyButton {}).clicked() {
-                    ui.output().copied_text = nprofile;
+                    ui.output().copied_text = nprofile.clone();
                 }
             });
+            ui.add_space(10.0);
+            app.render_qr(ui, ctx, "you_nprofile_qr", &nprofile);
         }
     }
 }
@@ -151,23 +190,24 @@ fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
     let key_security = GLOBALS.signer.blocking_read().key_security().unwrap();
 
-    ui.label(&*format!(
-        "Private Key security is {}",
-        match key_security {
-            KeySecurity::Weak => "weak",
-            KeySecurity::Medium => "medium",
-        }
-    ));
-
-    ui.add_space(10.0);
-
     if let Some(epk) = GLOBALS.signer.blocking_read().encrypted_private_key() {
+        ui.heading("Encrypted Private Key");
         ui.horizontal_wrapped(|ui| {
-            ui.label(&format!("Encrypted Private Key: {}", epk));
+            ui.label(&epk.0);
             if ui.add(CopyButton {}).clicked() {
                 ui.output().copied_text = epk.to_string();
             }
         });
+
+        ui.add_space(10.0);
+
+        ui.label(&*format!(
+            "Private Key security is {}",
+            match key_security {
+                KeySecurity::Weak => "weak",
+                KeySecurity::Medium => "medium",
+            }
+        ));
     }
 }
 
