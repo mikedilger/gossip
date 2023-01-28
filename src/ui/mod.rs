@@ -42,6 +42,7 @@ pub fn run() -> Result<(), Error> {
         initial_window_size: Some(egui::vec2(700.0, 900.0)),
         resizable: true,
         centered: true,
+        vsync: true,
         ..Default::default()
     };
 
@@ -149,6 +150,17 @@ impl GossipUi {
             (cctx.egui_ctx.pixels_per_point() * 100.0) as u32,
             Ordering::Relaxed,
         );
+
+        {
+            let mut to = cctx.egui_ctx.tessellation_options();
+
+            // Less feathering
+            to.feathering = true;
+            to.feathering_size_in_pixels = 0.667;
+
+            // Sharper text
+            to.round_text_to_pixels = true;
+        }
 
         if !settings.light_mode {
             cctx.egui_ctx.set_visuals(style::dark_mode_visuals());
