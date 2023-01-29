@@ -45,6 +45,12 @@ Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form fol
 
 ![Gossip Screenshot](gossip_screenshot.png)
 
+## Videos
+
+[First Gossip Video, 5 Jan 2023](https://mikedilger.com/gossip1.mp4)
+
+[Gossip Relay Model, 29 Jan 2023](https://mikedilger.com/gossip-relay-model.mp4)
+
 ## Development Ideology
 
 - **High user control**: The plan is for the user to be in control of quite a lot of settings regarding which posts they see, which relays to talk to, and when to fetch from them, but with some sane defaults.
