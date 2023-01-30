@@ -6,7 +6,7 @@ use std::collections::HashMap;
 /// See RelayPicker::best()
 pub struct RelayPicker {
     /// The relays to pick from.
-    // Each time best() is run, it returns a new RelayPicker
+    // Each time best() or take() is run, it returns a new RelayPicker
     // which removes that relay from this list
     pub relays: Vec<DbRelay>,
 
@@ -17,7 +17,7 @@ pub struct RelayPicker {
     pub pubkey_counts: HashMap<PublicKeyHex, u8>,
 
     /// A ranking of relays per person.
-    // best() doesn't change this.
+    // best() and take() don't change this.
     pub person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)>,
 }
 
@@ -30,7 +30,6 @@ impl RelayPicker {
 
     /// Force RelayPicker to choose a specific relay next. This is useful when
     /// we are already connected to some relays and need to pick more.
-    #[allow(dead_code)]
     pub fn take(self, relay_url: RelayUrl) -> Result<(BestRelay, RelayPicker), Error> {
         if self.pubkey_counts.is_empty() {
             return Err(Error::General(
@@ -178,4 +177,59 @@ impl BestRelay {
     pub fn is_degenerate(&self) -> bool {
         self.pubkeys.is_empty() || self.relay.rank == Some(0)
     }
+}
+
+/// Pick relays from the list in RelayPicker based on the best relays per person and the
+/// public keys that need them.  `force` is a list of relays you want to force it to pick
+/// (e.g. if already connected to them).
+#[allow(dead_code)]
+pub fn pick_relays(
+    mut relay_picker: RelayPicker,
+    mut force: Vec<RelayUrl>,
+    max_relays: usize,
+) -> Result<Vec<BestRelay>, Error> {
+    let mut output: Vec<BestRelay> = Vec::new();
+
+    let mut best_relay: BestRelay;
+    let mut relay_count = 0;
+    loop {
+        if relay_count >= max_relays {
+            tracing::info!(
+                "Safety catch: we have picked {} relays. That's enough.",
+                max_relays
+            );
+            break;
+        }
+
+        if relay_picker.is_degenerate() {
+            tracing::debug!(
+                "Relay picker is degenerate, relays={} pubkey_counts={}, person_relays={}",
+                relay_picker.relays.len(),
+                relay_picker.pubkey_counts.len(),
+                relay_picker.person_relay_scores.len()
+            );
+            break;
+        }
+
+        if let Some(forced) = force.pop() {
+            let (rd, rp) = relay_picker.take(forced)?;
+            best_relay = rd;
+            relay_picker = rp;
+        } else {
+            let (rd, rp) = relay_picker.best()?;
+            best_relay = rd;
+            relay_picker = rp;
+        }
+
+        if best_relay.is_degenerate() {
+            tracing::debug!("Best relay is now degenerate.");
+            break;
+        }
+
+        output.push(best_relay);
+
+        relay_count += 1;
+    }
+
+    Ok(output)
 }
