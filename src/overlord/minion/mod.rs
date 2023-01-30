@@ -10,7 +10,8 @@ use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, IdHex, PublicKeyHex, RelayInformationDocument, Unixtime, Url,
+    ClientMessage, EventKind, Filter, IdHex, PublicKeyHex, RelayInformationDocument, RelayUrl,
+    Unixtime,
 };
 use std::time::Duration;
 use subscription::Subscriptions;
@@ -22,7 +23,7 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 
 pub struct Minion {
-    url: Url,
+    url: RelayUrl,
     to_overlord: UnboundedSender<ToOverlordMessage>,
     from_overlord: Receiver<ToMinionMessage>,
     dbrelay: DbRelay,
@@ -34,17 +35,13 @@ pub struct Minion {
 }
 
 impl Minion {
-    pub async fn new(url: Url) -> Result<Minion, Error> {
-        if !url.is_valid_relay_url() {
-            return Err(Error::InvalidUrl(url.inner().to_owned()));
-        }
-
+    pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = match DbRelay::fetch_one(&url).await? {
             Some(dbrelay) => dbrelay,
             None => {
-                let dbrelay = DbRelay::new(url.inner().to_owned())?;
+                let dbrelay = DbRelay::new(url.clone());
                 DbRelay::insert(dbrelay.clone()).await?;
                 dbrelay
             }
@@ -85,7 +82,7 @@ impl Minion {
 
         // Connect to the relay
         let websocket_stream = {
-            let uri: http::Uri = self.url.inner().parse::<Uri>()?;
+            let uri: http::Uri = self.url.0.parse::<Uri>()?;
             let authority = uri.authority().ok_or(Error::UrlHasNoHostname)?.as_str();
             let host = authority
                 .find('@')
@@ -240,7 +237,7 @@ impl Minion {
                     Err(e) => return Err(e.into())
                 };
                 #[allow(clippy::collapsible_if)]
-                if to_minion_message.target == self.url.inner() || to_minion_message.target == "all" {
+                if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
                     keepgoing = self.handle_message(to_minion_message).await?;
                 }
             },

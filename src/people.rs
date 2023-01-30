@@ -8,7 +8,7 @@ use eframe::egui::ColorImage;
 use egui_extras::image::FitTo;
 use image::imageops::FilterType;
 use nostr_types::{
-    Event, EventKind, Metadata, PreEvent, PublicKey, PublicKeyHex, Tag, Unixtime, Url,
+    Event, EventKind, Metadata, PreEvent, PublicKey, PublicKeyHex, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -389,10 +389,11 @@ impl People {
 
         // FIXME: we could get metadata that sets this while we are running, so just failing for
         //        the duration of the client isn't quite right. But for now, retrying is taxing.
-        let url = Url::new(person.picture().unwrap());
-        if !url.is_valid() {
-            return Err(());
-        }
+        let url = UncheckedUrl(person.picture().unwrap().to_string());
+        let url = match Url::try_from_unchecked_url(&url) {
+            Ok(url) => url,
+            Err(_) => return Err(()),
+        };
 
         // Do not fetch if disabled
         if !GLOBALS.settings.blocking_read().load_avatars {
@@ -548,7 +549,7 @@ impl People {
             let maybeurl = relays.get(0);
             p_tags.push(Tag::Pubkey {
                 pubkey: pubkey.clone(),
-                recommended_relay_url: maybeurl.map(|(u, _)| u).cloned(),
+                recommended_relay_url: maybeurl.map(|(u, _)| u.to_unchecked_url()),
                 petname: None,
             });
         }

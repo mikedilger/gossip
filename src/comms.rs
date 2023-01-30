@@ -1,11 +1,11 @@
-use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, Tag};
+use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, Tag};
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
 pub enum ToOverlordMessage {
-    AddRelay(String),
+    AddRelay(RelayUrl),
     DeletePub,
-    FollowPubkeyAndRelay(String, String),
+    FollowPubkeyAndRelay(String, RelayUrl),
     FollowNip05(String),
     FollowNprofile(String),
     GeneratePrivateKey(String),

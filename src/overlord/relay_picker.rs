@@ -1,6 +1,6 @@
 use crate::db::DbRelay;
 use crate::error::Error;
-use nostr_types::{PublicKeyHex, Url};
+use nostr_types::{PublicKeyHex, RelayUrl};
 use std::collections::HashMap;
 
 /// See RelayPicker::best()
@@ -18,7 +18,7 @@ pub struct RelayPicker {
 
     /// A ranking of relays per person.
     // best() doesn't change this.
-    pub person_relay_scores: Vec<(PublicKeyHex, Url, u64)>,
+    pub person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)>,
 }
 
 impl RelayPicker {
@@ -67,11 +67,7 @@ impl RelayPicker {
             }
 
             // Get the index
-            let i = match self
-                .relays
-                .iter()
-                .position(|relay| relay.url == url.inner())
-            {
+            let i = match self.relays.iter().position(|relay| relay.url == *url) {
                 Some(index) => index,
                 None => continue, // That relay is not a contender
             };
@@ -101,7 +97,7 @@ impl RelayPicker {
         let covered_public_keys: Vec<PublicKeyHex> = self
             .person_relay_scores
             .iter()
-            .filter(|(_, url, score)| url.inner() == winner.url && *score > 0)
+            .filter(|(_, url, score)| *url == winner.url && *score > 0)
             .map(|(pkh, _, _)| pkh.to_owned())
             .collect();
 

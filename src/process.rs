@@ -5,7 +5,7 @@ use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
 use nostr_types::{
-    Event, EventKind, Metadata, PublicKey, PublicKeyHex, SimpleRelayList, Tag, Unixtime, Url,
+    Event, EventKind, Metadata, PublicKey, PublicKeyHex, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -14,7 +14,7 @@ use std::sync::atomic::Ordering;
 pub async fn process_new_event(
     event: &Event,
     from_relay: bool,
-    seen_on: Option<Url>,
+    seen_on: Option<RelayUrl>,
     _subscription: Option<String>,
 ) -> Result<(), Error> {
     // Save the event into the database
@@ -41,7 +41,7 @@ pub async fn process_new_event(
             // Save event_seen data
             let db_event_seen = DbEventSeen {
                 event: event.id.as_hex_string(),
-                relay: url.inner().to_owned(),
+                relay: url.0.to_owned(),
                 when_seen: now,
             };
             DbEventSeen::replace(db_event_seen).await?;
@@ -53,12 +53,7 @@ pub async fn process_new_event(
                 .await?;
 
             // Update person_relay.last_fetched
-            DbPersonRelay::upsert_last_fetched(
-                event.pubkey.as_hex_string(),
-                url.inner().to_owned(),
-                now,
-            )
-            .await?;
+            DbPersonRelay::upsert_last_fetched(event.pubkey.as_hex_string(), url, now).await?;
         }
     }
 
@@ -91,11 +86,9 @@ pub async fn process_new_event(
                     recommended_relay_url: Some(should_be_url),
                     marker: _,
                 } => {
-                    let mut url = Url::new(should_be_url);
-                    if url.is_valid_relay_url() {
-                        url.trim();
+                    if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
                         // Insert (or ignore) into relays table
-                        let dbrelay = DbRelay::new(url.inner().to_owned())?;
+                        let dbrelay = DbRelay::new(url);
                         DbRelay::insert(dbrelay).await?;
                     }
                 }
@@ -104,18 +97,16 @@ pub async fn process_new_event(
                     recommended_relay_url: Some(should_be_url),
                     petname: _,
                 } => {
-                    let mut url = Url::new(should_be_url);
-                    if url.is_valid_relay_url() {
-                        url.trim();
+                    if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
                         // Insert (or ignore) into relays table
-                        let dbrelay = DbRelay::new(url.inner().to_owned())?;
+                        let dbrelay = DbRelay::new(url.clone());
                         DbRelay::insert(dbrelay).await?;
 
                         // upsert person_relay.last_suggested_bytag
                         let now = Unixtime::now()?.0 as u64;
                         DbPersonRelay::upsert_last_suggested_bytag(
                             pubkey.0.to_owned(),
-                            url.inner().to_owned(),
+                            url.clone(),
                             now,
                         )
                         .await?;
@@ -260,12 +251,14 @@ async fn process_somebody_elses_contact_list(
         for (url, simple_relay_usage) in srl.0.iter() {
             // Only if they write there (we don't care where they read from)
             if simple_relay_usage.write {
-                DbPersonRelay::upsert_last_suggested_nip23(
-                    pubkey.into(),
-                    url.inner().to_owned(),
-                    event.created_at.0 as u64,
-                )
-                .await?;
+                if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
+                    DbPersonRelay::upsert_last_suggested_nip23(
+                        pubkey.into(),
+                        relay_url,
+                        event.created_at.0 as u64,
+                    )
+                    .await?;
+                }
             }
         }
     }
@@ -303,17 +296,16 @@ async fn process_your_contact_list(event: &Event) -> Result<(), Error> {
                 pubkeys.push(pubkey.to_owned());
 
                 // If there is a URL, create or update person_relay last_suggested_kind3
-                if let Some(ref url) = recommended_relay_url {
-                    let mut url = url.to_owned();
-                    if url.is_valid_relay_url() {
-                        url.trim();
-                        DbPersonRelay::upsert_last_suggested_kind3(
-                            pubkey.0.to_owned(),
-                            url.inner().to_owned(),
-                            now.0 as u64,
-                        )
-                        .await?;
-                    }
+                if let Some(url) = recommended_relay_url
+                    .as_ref()
+                    .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
+                {
+                    DbPersonRelay::upsert_last_suggested_kind3(
+                        pubkey.0.to_owned(),
+                        url,
+                        now.0 as u64,
+                    )
+                    .await?;
                 }
 
                 // TBD: do something with the petname

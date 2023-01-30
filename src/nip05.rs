@@ -2,7 +2,7 @@ use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
-use nostr_types::{Metadata, Nip05, PublicKeyHex, Unixtime, Url};
+use nostr_types::{Metadata, Nip05, PublicKeyHex, RelayUrl, Unixtime};
 use std::collections::hash_map::Entry;
 
 // This updates the people map and the database with the result
@@ -121,9 +121,8 @@ async fn update_relays(
     };
     for relay in relays.iter() {
         // Save relay
-        let relay_url = Url::new(relay);
-        if relay_url.is_valid_relay_url() {
-            let db_relay = DbRelay::new(relay_url.inner().to_owned())?;
+        if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
+            let db_relay = DbRelay::new(relay_url.clone());
             DbRelay::insert(db_relay.clone()).await?;
 
             if let Entry::Vacant(entry) = GLOBALS.relays.write().await.entry(relay_url.clone()) {
@@ -133,7 +132,7 @@ async fn update_relays(
             // Save person_relay
             DbPersonRelay::upsert_last_suggested_nip05(
                 pubkey.to_owned(),
-                relay.inner().to_owned(),
+                relay_url,
                 Unixtime::now().unwrap().0 as u64,
             )
             .await?;

@@ -5,7 +5,7 @@ use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Align, Context, Layout, TextEdit, Ui};
 use egui_extras::{Column, TableBuilder};
-use nostr_types::Url;
+use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(8.0);
@@ -16,19 +16,17 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.label("Enter a new relay URL:");
         ui.add(TextEdit::singleline(&mut app.new_relay_url));
         if ui.button("Add").clicked() {
-            let test_url = Url::new(&app.new_relay_url);
-            if test_url.is_valid_relay_url() {
+            if let Ok(url) = RelayUrl::try_from_str(&app.new_relay_url) {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::AddRelay(app.new_relay_url.clone()));
-                if let Ok(db_relay) = DbRelay::new(app.new_relay_url.clone()) {
-                    GLOBALS.relays.blocking_write().insert(test_url, db_relay);
-                }
-                app.new_relay_url = "".to_owned();
+                    .send(ToOverlordMessage::AddRelay(url.clone()));
+                let db_relay = DbRelay::new(url.clone());
+                GLOBALS.relays.blocking_write().insert(url, db_relay);
                 *GLOBALS.status_message.blocking_write() = format!(
                     "I asked the overlord to add relay {}. Check for it below.",
                     &app.new_relay_url
                 );
+                app.new_relay_url = "".to_owned();
             } else {
                 *GLOBALS.status_message.blocking_write() =
                     "That's not a valid relay URL.".to_owned();
@@ -57,7 +55,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.with_layout(Layout::top_down(Align::Min), |ui| {
             ui.heading("Connected to:");
             for url in GLOBALS.relays_watching.blocking_read().iter() {
-                ui.label(url.inner());
+                ui.label(&url.0);
             }
         });
 
@@ -111,7 +109,7 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                 for relay in relays.iter_mut() {
                     body.row(30.0, |mut row| {
                         row.col(|ui| {
-                            ui.label(&relay.url);
+                            ui.label(&relay.url.0);
                         });
                         row.col(|ui| {
                             ui.label(&format!("{}", (relay.success_rate() * 100.0) as u32));
@@ -121,12 +119,11 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                         });
                         row.col(|ui| {
                             let mut post = relay.post; // checkbox needs a mutable state variable.
-                            let url = Url::new(&relay.url);
-                            if url.is_valid_relay_url() && ui.checkbox(&mut post, "Post Here")
+                            if ui.checkbox(&mut post, "Post Here")
                                 .on_hover_text("If selected, posts you create will be sent to this relay. But you have to press [SAVE CHANGES] at the bottom of this page.")
                                 .clicked()
                             {
-                                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&url) {
+                                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&relay.url) {
                                     relay.post = post;
                                     relay.dirty = true;
                                 }

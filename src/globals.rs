@@ -7,7 +7,7 @@ use crate::people::People;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
 use crate::signer::Signer;
-use nostr_types::{Event, Id, Profile, PublicKeyHex, Url};
+use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32};
@@ -37,7 +37,7 @@ pub struct Globals {
 
     /// Events coming in from relays that are not processed yet
     /// stored with Url they came from and Subscription they came in on
-    pub incoming_events: RwLock<Vec<(Event, Url, Option<String>)>>,
+    pub incoming_events: RwLock<Vec<(Event, RelayUrl, Option<String>)>>,
 
     /// All relationships between events
     pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
@@ -46,10 +46,10 @@ pub struct Globals {
     pub people: People,
 
     /// All nostr relay records we have
-    pub relays: RwLock<HashMap<Url, DbRelay>>,
+    pub relays: RwLock<HashMap<RelayUrl, DbRelay>>,
 
     /// The relays we are currently connected to
-    pub relays_watching: RwLock<Vec<Url>>,
+    pub relays_watching: RwLock<Vec<RelayUrl>>,
 
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
@@ -210,7 +210,7 @@ impl Globals {
             .iter()
             .filter(|(_, r)| r.post)
         {
-            profile.relays.push(url.to_owned())
+            profile.relays.push(url.to_unchecked_url())
         }
 
         Some(profile)

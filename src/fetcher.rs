@@ -77,7 +77,7 @@ impl Fetcher {
         // Hash the url into a SHA256 hex string
         let hash = {
             let mut hasher = sha2::Sha256::new();
-            hasher.update(url.inner().as_bytes());
+            hasher.update(url.0.as_bytes());
             let result = hasher.finalize();
             hex::encode(result)
         };
@@ -162,7 +162,7 @@ impl Fetcher {
             .fetch_add(1, Ordering::SeqCst);
 
         // Fetch the resource
-        let maybe_response = client.get(url.inner()).timeout(timeout).send().await;
+        let maybe_response = client.get(&url.0).timeout(timeout).send().await;
 
         // Deal with response errors
         let response = match maybe_response {

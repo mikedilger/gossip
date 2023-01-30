@@ -3,6 +3,7 @@ use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, TextEdit, Ui};
+use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(30.0);
@@ -64,14 +65,18 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(TextEdit::singleline(&mut app.follow_pubkey_at_relay).hint_text("wss://..."));
     });
     if ui.button("follow").clicked() {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::FollowPubkeyAndRelay(
-                app.follow_pubkey.clone(),
-                app.follow_pubkey_at_relay.clone(),
-            ));
-        app.follow_pubkey = "".to_owned();
-        app.follow_pubkey_at_relay = "".to_owned();
+        if let Ok(url) = RelayUrl::try_from_str(&app.follow_pubkey_at_relay) {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::FollowPubkeyAndRelay(
+                    app.follow_pubkey.clone(),
+                    url,
+                ));
+            app.follow_pubkey = "".to_owned();
+            app.follow_pubkey_at_relay = "".to_owned();
+        } else {
+            *GLOBALS.status_message.blocking_write() = "Invalid Relay Url".to_string();
+        }
     }
 
     ui.add_space(10.0);

@@ -71,7 +71,8 @@ pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: 
         recommended_relay_url: DbRelay::recommended_relay_for_reply(added)
             .await
             .ok()
-            .flatten(),
+            .flatten()
+            .map(|rr| rr.to_unchecked_url()),
         marker: Some(marker.to_string()),
     };
 

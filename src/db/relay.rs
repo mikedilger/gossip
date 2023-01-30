@@ -1,13 +1,12 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Id, Url};
-use serde::{Deserialize, Serialize};
+use nostr_types::{Id, RelayUrl};
 use tokio::task::spawn_blocking;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct DbRelay {
     pub dirty: bool,
-    pub url: String,
+    pub url: RelayUrl,
     pub success_count: u64,
     pub failure_count: u64,
     pub rank: Option<u64>,
@@ -17,13 +16,8 @@ pub struct DbRelay {
 }
 
 impl DbRelay {
-    pub fn new(url: String) -> Result<DbRelay, Error> {
-        let u = Url::new(&url);
-        if !u.is_valid_relay_url() {
-            return Err(Error::InvalidUrl(u.inner().to_owned()));
-        }
-
-        Ok(DbRelay {
+    pub fn new(url: RelayUrl) -> DbRelay {
+        DbRelay {
             dirty: false,
             url,
             success_count: 0,
@@ -32,7 +26,7 @@ impl DbRelay {
             last_connected_at: None,
             last_general_eose_at: None,
             post: false,
-        })
+        }
     }
 
     pub fn attempts(&self) -> u64 {
@@ -61,33 +55,32 @@ impl DbRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(&sql)?;
-            let rows = stmt.query_map([], |row| {
+            let mut rows = stmt.query([])?;
+            let mut output: Vec<DbRelay> = Vec::new();
+            while let Some(row) = rows.next()? {
                 let postint: u32 = row.get(6)?;
-                Ok(DbRelay {
+                let s: String = row.get(0)?;
+                let url = RelayUrl::try_from_str(&s)?;
+                output.push(DbRelay {
                     dirty: false,
-                    url: row.get(0)?,
+                    url,
                     success_count: row.get(1)?,
                     failure_count: row.get(2)?,
                     rank: row.get(3)?,
                     last_connected_at: row.get(4)?,
                     last_general_eose_at: row.get(5)?,
                     post: (postint > 0),
-                })
-            })?;
-
-            let mut output: Vec<DbRelay> = Vec::new();
-            for row in rows {
-                output.push(row?);
+                });
             }
-            Ok(output)
+            Ok::<Vec<DbRelay>, Error>(output)
         })
         .await?;
 
         output
     }
 
-    pub async fn fetch_one(url: &Url) -> Result<Option<DbRelay>, Error> {
-        let relays = DbRelay::fetch(Some(&format!("url='{}'", url))).await?;
+    pub async fn fetch_one(url: &RelayUrl) -> Result<Option<DbRelay>, Error> {
+        let relays = DbRelay::fetch(Some(&format!("url='{}'", url.0))).await?;
 
         if relays.is_empty() {
             Ok(None)
@@ -97,11 +90,6 @@ impl DbRelay {
     }
 
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
-        let url = Url::new(&relay.url);
-        if !url.is_valid_relay_url() {
-            return Err(Error::InvalidUrl(relay.url.clone()));
-        }
-
         let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank, \
                    last_connected_at, last_general_eose_at, post) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
@@ -113,7 +101,7 @@ impl DbRelay {
             let mut stmt = db.prepare(sql)?;
             let postint = i32::from(relay.post);
             stmt.execute((
-                &relay.url,
+                &relay.url.0,
                 &relay.success_count,
                 &relay.failure_count,
                 &relay.rank,
@@ -145,7 +133,7 @@ impl DbRelay {
                 &relay.last_connected_at,
                 &relay.last_general_eose_at,
                 &postint,
-                &relay.url,
+                &relay.url.0,
             ))?;
             Ok::<(), Error>(())
         })
@@ -155,7 +143,7 @@ impl DbRelay {
     }
 
     /// This also bumps success_count
-    pub async fn update_success(url: String, last_connected_at: u64) -> Result<(), Error> {
+    pub async fn update_success(url: RelayUrl, last_connected_at: u64) -> Result<(), Error> {
         let sql = "UPDATE relay SET success_count = success_count + 1, last_connected_at = ? \
                    WHERE url = ?";
 
@@ -164,7 +152,7 @@ impl DbRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&last_connected_at, &url))?;
+            stmt.execute((&last_connected_at, &url.0))?;
             Ok::<(), Error>(())
         })
         .await??;
@@ -173,7 +161,10 @@ impl DbRelay {
     }
 
     /// This also bumps success_count
-    pub async fn update_general_eose(url: String, last_general_eose_at: u64) -> Result<(), Error> {
+    pub async fn update_general_eose(
+        url: RelayUrl,
+        last_general_eose_at: u64,
+    ) -> Result<(), Error> {
         let sql =
             "UPDATE relay SET last_general_eose_at = max(?, ifnull(last_general_eose_at,0)) WHERE url = ?";
 
@@ -182,7 +173,7 @@ impl DbRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&last_general_eose_at, &url))?;
+            stmt.execute((&last_general_eose_at, &url.0))?;
             Ok::<(), Error>(())
         })
         .await??;
@@ -190,13 +181,13 @@ impl DbRelay {
         Ok(())
     }
 
-    pub async fn update_post(url: String, post: bool) -> Result<(), Error> {
+    pub async fn update_post(url: RelayUrl, post: bool) -> Result<(), Error> {
         let sql = "UPDATE relay SET post = ?  WHERE url = ?";
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&post, &url))?;
+            stmt.execute((&post, &url.0))?;
             Ok::<(), Error>(())
         })
         .await??;
@@ -235,28 +226,23 @@ impl DbRelay {
 
         // Select relays from 'e' and 'p' event tags
         let sql = "SELECT DISTINCT field1 FROM event_tag where (label='e' OR label='p')";
-        let maybe_urls: Vec<String> = spawn_blocking(move || {
+        let urls: Vec<RelayUrl> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
             let mut rows = stmt.query([])?;
-            let mut maybe_urls: Vec<String> = Vec::new();
+            let mut maybe_urls: Vec<RelayUrl> = Vec::new();
             while let Some(row) = rows.next()? {
                 let maybe_string: Option<String> = row.get(0)?;
                 if let Some(string) = maybe_string {
-                    maybe_urls.push(string);
+                    if let Ok(url) = RelayUrl::try_from_str(&string) {
+                        maybe_urls.push(url);
+                    }
                 }
             }
-            Ok::<Vec<String>, Error>(maybe_urls)
+            Ok::<Vec<RelayUrl>, Error>(maybe_urls)
         })
         .await??;
-
-        // Convert into Urls
-        let urls: Vec<Url> = maybe_urls
-            .iter()
-            .map(|s| Url::new(s))
-            .filter(|r| r.is_valid_relay_url())
-            .collect();
 
         // FIXME this is a lot of separate sql calls
         spawn_blocking(move || {
@@ -264,7 +250,7 @@ impl DbRelay {
             for url in urls {
                 let maybe_db = GLOBALS.db.blocking_lock();
                 let db = maybe_db.as_ref().unwrap();
-                db.execute(sql, [&url.inner()])?;
+                db.execute(sql, [&url.0])?;
             }
             Ok::<(), Error>(())
         })
@@ -273,22 +259,22 @@ impl DbRelay {
         Ok(())
     }
 
-    pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<Url>, Error> {
+    pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
         // Try to find a relay where the event was seen AND that I post to which
         // has a rank>1
         let sql = "SELECT url FROM relay INNER JOIN event_seen ON relay.url=event_seen.relay \
                    WHERE event_seen.event=? AND relay.post=1 AND relay.rank>1";
-        let output: Option<Url> = spawn_blocking(move || {
+        let output: Option<RelayUrl> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
             let mut query_result = stmt.query([reply_to.as_hex_string()])?;
             if let Some(row) = query_result.next()? {
                 let s: String = row.get(0)?;
-                let url = Url::new(&s);
-                Ok::<Option<Url>, Error>(Some(url))
+                let url = RelayUrl::try_from_str(&s)?;
+                Ok::<Option<RelayUrl>, Error>(Some(url))
             } else {
-                Ok::<Option<Url>, Error>(None)
+                Ok::<Option<RelayUrl>, Error>(None)
             }
         })
         .await??;
@@ -299,17 +285,17 @@ impl DbRelay {
 
         // Fallback to finding any relay where the event was seen
         let sql = "SELECT relay FROM event_seen WHERE event=?";
-        let output: Option<Url> = spawn_blocking(move || {
+        let output: Option<RelayUrl> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
             let mut query_result = stmt.query([reply_to.as_hex_string()])?;
             if let Some(row) = query_result.next()? {
                 let s: String = row.get(0)?;
-                let url = Url::new(&s);
-                Ok::<Option<Url>, Error>(Some(url))
+                let url = RelayUrl::try_from_str(&s)?;
+                Ok::<Option<RelayUrl>, Error>(Some(url))
             } else {
-                Ok::<Option<Url>, Error>(None)
+                Ok::<Option<RelayUrl>, Error>(None)
             }
         })
         .await??;
