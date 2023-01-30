@@ -28,20 +28,47 @@ impl RelayPicker {
             || self.person_relay_scores.is_empty()
     }
 
+    /// Force RelayPicker to choose a specific relay next. This is useful when
+    /// we are already connected to some relays and need to pick more.
+    #[allow(dead_code)]
+    pub fn take(self, relay_url: RelayUrl) -> Result<(BestRelay, RelayPicker), Error> {
+        if self.pubkey_counts.is_empty() {
+            return Err(Error::General(
+                "RelayPicker::take() called for zero people".to_owned(),
+            ));
+        }
+        if self.relays.is_empty() {
+            return Err(Error::General(
+                "RelayPicker::take() called for zero relays".to_owned(),
+            ));
+        }
+
+        let winner_index = match self.relays.iter().position(|r| r.url == relay_url) {
+            Some(pos) => pos,
+            None => {
+                return Err(Error::General(
+                    "RelayPicker::take() called with relay that is not present".to_owned(),
+                ))
+            }
+        };
+
+        self.consume(winner_index)
+    }
+
     /// This function takes a RelayPicker which consists of a list of relays,
     /// a list of public keys, and a mapping between them.  It outputs a
     /// BestRelay structure which includes the best relay to listen to and
     /// the public keys such a relay will cover. It also outpus a new RelayPicker
     /// that contains only the remaining relays and public keys.
-    pub fn best(mut self) -> Result<(BestRelay, RelayPicker), Error> {
+    pub fn best(self) -> Result<(BestRelay, RelayPicker), Error> {
         if self.pubkey_counts.is_empty() {
             return Err(Error::General(
-                "best_relay called for zero people".to_owned(),
+                "RelayPicker::best() called for zero people".to_owned(),
             ));
         }
         if self.relays.is_empty() {
             return Err(Error::General(
-                "best_relay called for zero relays".to_owned(),
+                "RelayPicker::best() called for zero relays".to_owned(),
             ));
         }
 
@@ -92,6 +119,11 @@ impl RelayPicker {
             .unwrap()
             .0;
 
+        self.consume(winner_index)
+    }
+
+    // This is the bottom-half of the code for both best() and take()
+    fn consume(mut self, winner_index: usize) -> Result<(BestRelay, RelayPicker), Error> {
         let winner = self.relays.swap_remove(winner_index);
 
         let covered_public_keys: Vec<PublicKeyHex> = self
