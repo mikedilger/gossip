@@ -15,7 +15,7 @@ use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, PreEvent, PrivateKey, Profile,
     PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
 };
-use relay_picker::{BestRelay, RelayPicker};
+use relay_picker::{pick_relays, RelayPicker};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -222,42 +222,14 @@ impl Overlord {
                 pubkey_counts.insert(pk.clone(), num_relays_per_person);
             }
 
-            let mut relay_picker = RelayPicker {
+            let relay_picker = RelayPicker {
                 relays: all_relays,
                 pubkey_counts,
                 person_relay_scores,
             };
 
-            let mut best_relay: BestRelay;
-            let mut relay_count = 0;
-            loop {
-                if relay_count >= max_relays {
-                    tracing::info!(
-                        "Safety catch: we have picked {} relays. That's enough.",
-                        max_relays
-                    );
-                    break;
-                }
-
-                if relay_picker.is_degenerate() {
-                    tracing::debug!(
-                        "Relay picker is degenerate, relays={} pubkey_counts={}, person_relays={}",
-                        relay_picker.relays.len(),
-                        relay_picker.pubkey_counts.len(),
-                        relay_picker.person_relay_scores.len()
-                    );
-                    break;
-                }
-
-                let (rd, rp) = relay_picker.best()?;
-                best_relay = rd;
-                relay_picker = rp;
-
-                if best_relay.is_degenerate() {
-                    tracing::debug!("Best relay is now degenerate.");
-                    break;
-                }
-
+            let best_relays = pick_relays(relay_picker, vec![], max_relays as usize)?;
+            for best_relay in &best_relays {
                 // Fire off a minion to handle this relay
                 self.start_minion(best_relay.relay.url.clone()).await?;
 
@@ -274,11 +246,9 @@ impl Overlord {
                     &best_relay.relay.url,
                     best_relay.pubkeys.len()
                 );
-
-                relay_count += 1;
             }
 
-            tracing::info!("Listening on {} relays", relay_count);
+            tracing::info!("Listening on {} relays", best_relays.len());
         }
 
         'mainloop: loop {
