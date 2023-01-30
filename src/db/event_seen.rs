@@ -57,7 +57,10 @@ impl DbEventSeen {
             let mut relays: Vec<RelayUrl> = Vec::new();
             while let Some(row) = rows.next()? {
                 let s: String = row.get(0)?;
-                relays.push(RelayUrl::try_from_str(&s)?);
+                // Just skip over bad relay URLs
+                if let Ok(url) = RelayUrl::try_from_str(&s) {
+                    relays.push(url);
+                }
             }
             Ok(relays)
         })

@@ -60,17 +60,19 @@ impl DbRelay {
             while let Some(row) = rows.next()? {
                 let postint: u32 = row.get(6)?;
                 let s: String = row.get(0)?;
-                let url = RelayUrl::try_from_str(&s)?;
-                output.push(DbRelay {
-                    dirty: false,
-                    url,
-                    success_count: row.get(1)?,
-                    failure_count: row.get(2)?,
-                    rank: row.get(3)?,
-                    last_connected_at: row.get(4)?,
-                    last_general_eose_at: row.get(5)?,
-                    post: (postint > 0),
-                });
+                // just skip over invalid relay URLs
+                if let Ok(url) = RelayUrl::try_from_str(&s) {
+                    output.push(DbRelay {
+                        dirty: false,
+                        url,
+                        success_count: row.get(1)?,
+                        failure_count: row.get(2)?,
+                        rank: row.get(3)?,
+                        last_connected_at: row.get(4)?,
+                        last_general_eose_at: row.get(5)?,
+                        post: (postint > 0),
+                    });
+                }
             }
             Ok::<Vec<DbRelay>, Error>(output)
         })

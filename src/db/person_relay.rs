@@ -46,17 +46,19 @@ impl DbPersonRelay {
             let mut output: Vec<DbPersonRelay> = Vec::new();
             while let Some(row) = rows.next()? {
                 let s: String = row.get(1)?;
-                let url = RelayUrl::try_from_str(&s)?;
-                output.push(DbPersonRelay {
-                    person: row.get(0)?,
-                    relay: url,
-                    last_fetched: row.get(2)?,
-                    last_suggested_kind2: row.get(3)?,
-                    last_suggested_kind3: row.get(4)?,
-                    last_suggested_nip23: row.get(5)?,
-                    last_suggested_nip05: row.get(6)?,
-                    last_suggested_bytag: row.get(7)?,
-                });
+                // Just skip over bad relay URLs
+                if let Ok(url) = RelayUrl::try_from_str(&s) {
+                    output.push(DbPersonRelay {
+                        person: row.get(0)?,
+                        relay: url,
+                        last_fetched: row.get(2)?,
+                        last_suggested_kind2: row.get(3)?,
+                        last_suggested_kind3: row.get(4)?,
+                        last_suggested_nip23: row.get(5)?,
+                        last_suggested_nip05: row.get(6)?,
+                        last_suggested_bytag: row.get(7)?,
+                    });
+                }
             }
 
             Ok(output)
@@ -240,18 +242,20 @@ impl DbPersonRelay {
             let mut dbprs: Vec<DbPersonRelay> = Vec::new();
             while let Some(row) = rows.next()? {
                 let s: String = row.get(1)?;
-                let url = RelayUrl::try_from_str(&s)?;
-                let dbpr = DbPersonRelay {
-                    person: row.get(0)?,
-                    relay: url,
-                    last_fetched: row.get(2)?,
-                    last_suggested_kind2: row.get(3)?,
-                    last_suggested_kind3: row.get(4)?,
-                    last_suggested_nip23: row.get(5)?,
-                    last_suggested_nip05: row.get(6)?,
-                    last_suggested_bytag: row.get(7)?,
-                };
-                dbprs.push(dbpr);
+                // Just skip over bad relay URLs
+                if let Ok(url) = RelayUrl::try_from_str(&s) {
+                    let dbpr = DbPersonRelay {
+                        person: row.get(0)?,
+                        relay: url,
+                        last_fetched: row.get(2)?,
+                        last_suggested_kind2: row.get(3)?,
+                        last_suggested_kind3: row.get(4)?,
+                        last_suggested_nip23: row.get(5)?,
+                        last_suggested_nip05: row.get(6)?,
+                        last_suggested_bytag: row.get(7)?,
+                    };
+                    dbprs.push(dbpr);
+                }
             }
 
             Ok(DbPersonRelay::rank(dbprs))
