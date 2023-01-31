@@ -68,6 +68,10 @@ impl Subscriptions {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.by_id.len()
+    }
+
     /*
         pub fn remove_by_id(&mut self, id: &str) {
             self.by_id.remove(id);
