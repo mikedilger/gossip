@@ -145,24 +145,6 @@ impl DbRelay {
     }
 
     /// This also bumps success_count
-    pub async fn update_success(url: RelayUrl, last_connected_at: u64) -> Result<(), Error> {
-        let sql = "UPDATE relay SET success_count = success_count + 1, last_connected_at = ? \
-                   WHERE url = ?";
-
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((&last_connected_at, &url.0))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-
-    /// This also bumps success_count
     pub async fn update_general_eose(
         url: RelayUrl,
         last_general_eose_at: u64,

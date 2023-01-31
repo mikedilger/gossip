@@ -168,8 +168,11 @@ impl Minion {
 
         // Bump the success count for the relay
         {
-            let now = Unixtime::now().unwrap().0 as u64;
-            DbRelay::update_success(self.dbrelay.url.clone(), now).await?;
+            self.dbrelay.success_count += 1;
+            self.dbrelay.last_connected_at = Some(Unixtime::now().unwrap().0 as u64);
+            if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+                tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
+            }
         }
 
         // Tell the overlord we are ready to receive commands
