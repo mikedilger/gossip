@@ -1,11 +1,11 @@
 mod minion;
-mod relay_picker;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
+use crate::relay_assignment::RelayPicker;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
     keys_from_text, notes_from_text,
@@ -15,9 +15,9 @@ use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, PreEvent, PrivateKey, Profile,
     PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
 };
-use relay_picker::{pick_relays, RelayPicker};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::ops::DerefMut;
 use std::sync::atomic::Ordering;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -94,15 +94,13 @@ impl Overlord {
         DbRelay::populate_new_relays().await?;
 
         // Load relays from the database
-        let all_relays = DbRelay::fetch(None).await?;
-
-        // Store copy of all relays in globals (we use it again down below)
-        for relay in all_relays.iter() {
-            GLOBALS
-                .relays
-                .write()
-                .await
-                .insert(relay.url.clone(), relay.clone());
+        {
+            let mut all_relays: Vec<DbRelay> = DbRelay::fetch(None).await?;
+            let relays: HashMap<RelayUrl, DbRelay> = all_relays
+                .drain(..)
+                .map(|dbr| (dbr.url.clone(), dbr))
+                .collect();
+            *GLOBALS.relays.write().await = relays;
         }
 
         // Load people from the database
@@ -192,63 +190,11 @@ impl Overlord {
 
         // Pick Relays and start Minions
         if !GLOBALS.settings.read().await.offline {
-            // Get all the people we follow
-            let pubkeys: Vec<PublicKeyHex> = GLOBALS
-                .people
-                .get_followed_pubkeys()
-                .iter()
-                .map(|p| p.to_owned())
-                .collect();
+            // Create a new RelayPicker
+            *GLOBALS.relay_picker.write().await = RelayPicker::new().await?;
 
-            // For each one, score relays for them
-            let mut person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)> = Vec::new();
-            for pubkey in &pubkeys {
-                let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
-                    DbPersonRelay::get_best_relays(pubkey.to_owned())
-                        .await?
-                        .iter()
-                        .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
-                        .collect();
-                person_relay_scores.extend(best_relays);
-            }
-
-            let (num_relays_per_person, max_relays) = {
-                let settings = GLOBALS.settings.read().await;
-                (settings.num_relays_per_person, settings.max_relays)
-            };
-
-            let mut pubkey_counts: HashMap<PublicKeyHex, u8> = HashMap::new();
-            for pk in pubkeys.iter() {
-                pubkey_counts.insert(pk.clone(), num_relays_per_person);
-            }
-
-            let relay_picker = RelayPicker {
-                relays: all_relays,
-                pubkey_counts,
-                person_relay_scores,
-            };
-
-            let best_relays = pick_relays(relay_picker, vec![], max_relays as usize)?;
-            for best_relay in &best_relays {
-                // Fire off a minion to handle this relay
-                self.start_minion(best_relay.relay.url.clone()).await?;
-
-                // Subscribe to the general feed
-                // FIXME: older code sent in &best_relay.pubkeys, but minions
-                // stopped doing anything with that.
-                let _ = self.to_minions.send(ToMinionMessage {
-                    target: best_relay.relay.url.0.clone(),
-                    payload: ToMinionPayload::SubscribeGeneralFeed,
-                });
-
-                tracing::info!(
-                    "Picked relay {} covering {} people.",
-                    &best_relay.relay.url,
-                    best_relay.pubkeys.len()
-                );
-            }
-
-            tracing::info!("Listening on {} relays", best_relays.len());
+            // Pick relays
+            self.pick_relays().await;
         }
 
         'mainloop: loop {
@@ -266,6 +212,63 @@ impl Overlord {
         }
 
         Ok(())
+    }
+
+    async fn pick_relays(&mut self) {
+        // Take some things out of globals as we have to use them many times
+        let mut relay_assignments =
+            std::mem::take(GLOBALS.relay_assignments.write().await.deref_mut());
+        let mut relay_picker = std::mem::take(GLOBALS.relay_picker.write().await.deref_mut());
+
+        let mut max_relays = GLOBALS.settings.read().await.max_relays as usize;
+        max_relays -= relay_assignments.len();
+
+        loop {
+            match relay_picker.pick() {
+                Ok(relay_assignment) => {
+                    // Fire off a minion to handle this relay
+                    if self
+                        .start_minion(relay_assignment.relay.url.clone())
+                        .await
+                        .is_ok()
+                    {
+                        // Subscribe to the general feed
+                        // FIXME: older code sent in &relay_assignment.pubkeys, but minions
+                        // stopped doing anything with that.
+                        let _ = self.to_minions.send(ToMinionMessage {
+                            target: relay_assignment.relay.url.0.clone(),
+                            payload: ToMinionPayload::SubscribeGeneralFeed,
+                        });
+
+                        tracing::info!(
+                            "Picked relay {} covering {} people.",
+                            &relay_assignment.relay.url,
+                            relay_assignment.pubkeys.len()
+                        );
+
+                        relay_assignments.push(relay_assignment);
+                    } else {
+                        // That one didn't work. Return to the relay picker.
+                        relay_picker.return_assignment(relay_assignment);
+                    }
+                }
+                Err(failure) => {
+                    tracing::info!("Done picking relays: {}", failure);
+                    break;
+                }
+            }
+            if relay_assignments.len() >= max_relays {
+                tracing::info!("Done picking relays: Maximum relays picked.");
+                break;
+            }
+        }
+
+        // Return data to GLOBALS
+        let _ = std::mem::replace(
+            GLOBALS.relay_assignments.write().await.deref_mut(),
+            relay_assignments,
+        );
+        let _ = std::mem::replace(GLOBALS.relay_picker.write().await.deref_mut(), relay_picker);
     }
 
     async fn start_minion(&mut self, url: RelayUrl) -> Result<(), Error> {
@@ -339,7 +342,7 @@ impl Overlord {
         match task_nextjoined.unwrap() {
             Err(join_error) => {
                 let id = join_error.id();
-                let maybe_url = self.minions_task_url.get(&id);
+                let maybe_url = self.minions_task_url.get(&id).cloned();
                 match maybe_url {
                     Some(url) => {
                         // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
@@ -353,10 +356,15 @@ impl Overlord {
                             .relays_watching
                             .write()
                             .await
-                            .retain(|value| value != url);
+                            .retain(|value| *value != url);
 
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
+
+                        // We might need to act upon this minion exiting
+                        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
+                            self.recover_from_minion_exit(url).await;
+                        }
                     }
                     None => {
                         tracing::error!("Minion UNKNOWN completed with error: {}", join_error);
@@ -364,7 +372,7 @@ impl Overlord {
                 }
             }
             Ok((id, _)) => {
-                let maybe_url = self.minions_task_url.get(&id);
+                let maybe_url = self.minions_task_url.get(&id).cloned();
                 match maybe_url {
                     Some(url) => {
                         tracing::info!("Relay Task {} completed", &url);
@@ -374,14 +382,50 @@ impl Overlord {
                             .relays_watching
                             .write()
                             .await
-                            .retain(|value| value != url);
+                            .retain(|value| *value != url);
 
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
+
+                        // We might need to act upon this minion exiting
+                        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
+                            self.recover_from_minion_exit(url).await;
+                        }
                     }
                     None => tracing::error!("Relay Task UNKNOWN completed"),
                 }
             }
+        }
+    }
+
+    async fn recover_from_minion_exit(&mut self, url: RelayUrl) {
+        // NOTE: The relay picker removes relays from it's `relays` when it assigns them.
+        //       When relays die and come here, we do NOT put them back. We presume that
+        //       the relay disconnected due to an error or a load issue and so we avoid
+        //       it until the next session. This policy also prevents accidently trying to
+        //       connect to a relay over and over again.
+
+        // Get the assignment from that relay
+        let maybe_pos: Option<usize> = GLOBALS
+            .relay_assignments
+            .write()
+            .await
+            .iter()
+            .position(|x| x.relay.url == url);
+
+        if let Some(pos) = maybe_pos {
+            // Extract the relay assignment at that position
+            let relay_assignment = GLOBALS.relay_assignments.write().await.swap_remove(pos);
+
+            // Return it to the relay picker (this does not add back the relay, just the pubkeys)
+            GLOBALS
+                .relay_picker
+                .write()
+                .await
+                .return_assignment(relay_assignment);
+
+            // Pick relays again
+            self.pick_relays().await;
         }
     }
 

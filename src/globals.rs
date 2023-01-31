@@ -5,6 +5,7 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::people::People;
 use crate::relationship::Relationship;
+use crate::relay_assignment::{RelayAssignment, RelayPicker};
 use crate::settings::Settings;
 use crate::signer::Signer;
 use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
@@ -50,6 +51,14 @@ pub struct Globals {
 
     /// The relays we are currently connected to
     pub relays_watching: RwLock<Vec<RelayUrl>>,
+
+    /// These are the relays we are currently connected to for general feed, along with
+    /// the public keys they serve.  Yes this overlaps with relays_watching, but each
+    /// has data the other doesn't.
+    pub relay_assignments: RwLock<Vec<RelayAssignment>>,
+
+    /// The relay picker, used to pick the next relay
+    pub relay_picker: RwLock<RelayPicker>,
 
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
@@ -101,6 +110,8 @@ lazy_static! {
             people: People::new(),
             relays: RwLock::new(HashMap::new()),
             relays_watching: RwLock::new(Vec::new()),
+            relay_assignments: RwLock::new(Vec::new()),
+            relay_picker: RwLock::new(Default::default()),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
             signer: RwLock::new(Signer::default()),
