@@ -220,8 +220,7 @@ impl Overlord {
             std::mem::take(GLOBALS.relay_assignments.write().await.deref_mut());
         let mut relay_picker = std::mem::take(GLOBALS.relay_picker.write().await.deref_mut());
 
-        let mut max_relays = GLOBALS.settings.read().await.max_relays as usize;
-        max_relays -= relay_assignments.len();
+        let max_relays = GLOBALS.settings.read().await.max_relays as usize;
 
         loop {
             if relay_assignments.len() >= max_relays {
@@ -272,17 +271,8 @@ impl Overlord {
     }
 
     async fn start_minion(&mut self, url: RelayUrl) -> Result<(), Error> {
-        let (offline, max_relays) = {
-            let settings = GLOBALS.settings.read().await;
-            (settings.offline, settings.max_relays)
-        };
-
-        if offline {
+        if GLOBALS.settings.read().await.offline {
             return Ok(());
-        }
-
-        if GLOBALS.relays_watching.read().await.len() >= max_relays.into() {
-            return Err(Error::MaxRelaysReached);
         }
 
         let mut minion = Minion::new(url.clone()).await?;
