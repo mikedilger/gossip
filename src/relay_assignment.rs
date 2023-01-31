@@ -105,6 +105,26 @@ impl RelayPicker {
         })
     }
 
+    pub async fn refresh_person_relay_scores(&mut self) -> Result<(), Error> {
+        let pubkeys: Vec<PublicKeyHex> = self.pubkey_counts.keys().map(|k| k.to_owned()).collect();
+
+        // Compute scores for each person_relay pairing
+        let mut person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)> = Vec::new();
+        for pubkey in &pubkeys {
+            let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
+                DbPersonRelay::get_best_relays(pubkey.to_owned())
+                    .await?
+                    .iter()
+                    .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
+                    .collect();
+            person_relay_scores.extend(best_relays);
+        }
+
+        self.person_relay_scores = person_relay_scores;
+
+        Ok(())
+    }
+
     // FIXME - function to call when you start following someone
 
     // FIXME - function to call when you stop following someone

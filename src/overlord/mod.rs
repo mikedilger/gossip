@@ -424,6 +424,14 @@ impl Overlord {
                 .await
                 .return_assignment(relay_assignment);
 
+            // Try to refresh person-relay scores in the relay picker
+            let _ = GLOBALS
+                .relay_picker
+                .write()
+                .await
+                .refresh_person_relay_scores()
+                .await;
+
             // Pick relays again
             self.pick_relays().await;
         }
