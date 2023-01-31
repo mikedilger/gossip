@@ -224,6 +224,10 @@ impl Overlord {
         max_relays -= relay_assignments.len();
 
         loop {
+            if relay_assignments.len() >= max_relays {
+                tracing::info!("Done picking relays: Maximum relays picked.");
+                break;
+            }
             match relay_picker.pick() {
                 Ok(relay_assignment) => {
                     // Fire off a minion to handle this relay
@@ -256,10 +260,6 @@ impl Overlord {
                     tracing::info!("Done picking relays: {}", failure);
                     break;
                 }
-            }
-            if relay_assignments.len() >= max_relays {
-                tracing::info!("Done picking relays: Maximum relays picked.");
-                break;
             }
         }
 
