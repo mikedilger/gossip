@@ -39,6 +39,7 @@ fn main() -> Result<(), Error> {
 
     tracing_subscriber::fmt::fmt()
         .without_time()
+        .with_target(false)
         .with_file(cfg!(debug_assertions))
         .with_line_number(cfg!(debug_assertions))
         .with_env_filter(EnvFilter::from_default_env())
