@@ -233,11 +233,11 @@ impl Overlord {
                         .is_ok()
                     {
                         // Subscribe to the general feed
-                        // FIXME: older code sent in &relay_assignment.pubkeys, but minions
-                        // stopped doing anything with that.
                         let _ = self.to_minions.send(ToMinionMessage {
                             target: relay_assignment.relay.url.0.clone(),
-                            payload: ToMinionPayload::SubscribeGeneralFeed,
+                            payload: ToMinionPayload::SubscribeGeneralFeed(
+                                relay_assignment.pubkeys.clone(),
+                            ),
                         });
 
                         tracing::info!(
