@@ -472,6 +472,7 @@ impl Overlord {
                         .await
                         .unlock_encrypted_private_key(&password)?;
                     password.zeroize();
+                    GLOBALS.signer.read().await.save_through_settings().await?;
                 } else {
                     let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
                     let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
