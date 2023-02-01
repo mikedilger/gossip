@@ -1,6 +1,13 @@
 # Gossip
 
-Gossip is a desktop client for nostr.
+### NOTICE: If when you pull gossip it doesn't pull cleanly, I may have force-pushed. Run these commands to reset your master branch:
+
+````bash
+$ git fetch
+$ git reset --hard origin/master
+````
+
+## Gossip is a desktop client for nostr.
 
 Nostr is a social media protocol and ecosystem, kind of like Twitter [^1] except that you control your own account and nobody can silence you so long as some relay operator somewhere allows you to post. People are finding many additional uses for nostr that go far beyond just chatting, but this client is focused on chatting.
 
