@@ -72,6 +72,10 @@ impl Minion {
             if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
                 tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
             }
+            // Update in globals too
+            if let Some(relay) = GLOBALS.relays.write().await.get_mut(&self.dbrelay.url) {
+                relay.failure_count += 1;
+            }
         }
 
         tracing::info!("{}: minion exiting", self.url);

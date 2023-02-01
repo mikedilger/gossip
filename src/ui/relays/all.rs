@@ -40,11 +40,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     // TBD time how long this takes. We don't want expensive code in the UI
     let mut relays = GLOBALS.relays.blocking_read().clone();
     let mut relays: Vec<DbRelay> = relays.drain().map(|(_, relay)| relay).collect();
-    relays.sort_by(|a, b| {
-        b.post
-            .cmp(&a.post)
-            .then(a.url.cmp(&b.url))
-    });
+    relays.sort_by(|a, b| b.post.cmp(&a.post).then(a.url.cmp(&b.url)));
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
         ui.add_space(18.0);
