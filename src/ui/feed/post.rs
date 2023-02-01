@@ -27,7 +27,7 @@ pub(super) fn posting_area(
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("choose relays").clicked() {
-                    app.set_page(Page::Relays);
+                    app.set_page(Page::RelaysAll);
                 }
                 ui.label(" to post.");
             });

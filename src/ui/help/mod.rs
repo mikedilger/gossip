@@ -68,7 +68,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays").clicked() {
-                        app.set_page(Page::Relays);
+                        app.set_page(Page::RelaysAll);
                     }
                     ui.label("page, add a relay that you post to (or several), and tick off \"Post Here\" (otherwise it won't pull your data from there). Remember to press \"SAVE CHANGES\" at the bottom of that page.");
                 });
@@ -215,7 +215,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal_wrapped(|ui| {
                 ui.label("Go to the");
                 if ui.link("Relays").clicked() {
-                    app.set_page(Page::Relays);
+                    app.set_page(Page::RelaysAll);
                 }
                 ui.label("page and tick the relays that you intend to post to. If your webserver serves a nostr.json file, you can make the relays that you post to match the contents of the relay portion of that file.");
             });

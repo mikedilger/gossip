@@ -65,7 +65,8 @@ enum Page {
     Person(PublicKeyHex),
     YourKeys,
     YourMetadata,
-    Relays,
+    RelaysLive,
+    RelaysAll,
     Settings,
     HelpHelp,
     HelpStats,
@@ -361,10 +362,14 @@ impl eframe::App for GossipUi {
                 }
                 ui.separator();
                 if ui
-                    .add(SelectableLabel::new(self.page == Page::Relays, "Relays"))
+                    .add(SelectableLabel::new(
+                        self.page == Page::RelaysLive
+                            || self.page == Page::RelaysAll,
+                        "Relays"
+                    ))
                     .clicked()
                 {
-                    self.set_page(Page::Relays);
+                    self.set_page(Page::RelaysLive);
                 }
                 ui.separator();
                 if ui
@@ -412,7 +417,7 @@ impl eframe::App for GossipUi {
                 people::update(self, ctx, frame, ui)
             }
             Page::YourKeys | Page::YourMetadata => you::update(self, ctx, frame, ui),
-            Page::Relays => relays::update(self, ctx, frame, ui),
+            Page::RelaysLive | Page::RelaysAll => relays::update(self, ctx, frame, ui),
             Page::Settings => settings::update(self, ctx, frame, ui),
             Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                 help::update(self, ctx, frame, ui)

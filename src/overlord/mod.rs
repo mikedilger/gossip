@@ -545,29 +545,24 @@ impl Overlord {
             ToOverlordMessage::PushMetadata(metadata) => {
                 self.push_metadata(metadata).await?;
             }
+            ToOverlordMessage::RankRelay(relay_url, rank) => {
+                if let Some(r) = GLOBALS.relays.write().await.get_mut(&relay_url) {
+                    r.rank = rank as u64;
+                }
+                DbRelay::set_rank(relay_url, rank).await?;
+            }
             ToOverlordMessage::RefreshFollowedMetadata => {
                 self.refresh_followed_metadata().await?;
-            }
-            ToOverlordMessage::SaveRelays => {
-                let dirty_relays: Vec<DbRelay> = GLOBALS
-                    .relays
-                    .read()
-                    .await
-                    .iter()
-                    .filter_map(|(_, r)| if r.dirty { Some(r.to_owned()) } else { None })
-                    .collect();
-                tracing::info!("Saving {} relays", dirty_relays.len());
-                for relay in dirty_relays.iter() {
-                    // Just update 'post' since that's all 'dirty' indicates currently
-                    DbRelay::update_post(relay.url.to_owned(), relay.post).await?;
-                    if let Some(relay) = GLOBALS.relays.write().await.get_mut(&relay.url) {
-                        relay.dirty = false;
-                    }
-                }
             }
             ToOverlordMessage::SaveSettings => {
                 GLOBALS.settings.read().await.save().await?;
                 tracing::debug!("Settings saved.");
+            }
+            ToOverlordMessage::SetRelayPost(relay_url, post) => {
+                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&relay_url) {
+                    relay.post = post;
+                }
+                DbRelay::update_post(relay_url, post).await?;
             }
             ToOverlordMessage::SetThreadFeed(id, referenced_by) => {
                 self.set_thread_feed(id, referenced_by).await?;
