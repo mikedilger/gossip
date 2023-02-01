@@ -213,6 +213,11 @@ pub async fn process_new_event(
     }
 
     if event.kind == EventKind::ContactList {
+        GLOBALS
+            .people
+            .update_contact_list_last_received(event.pubkey.into())
+            .await?;
+
         if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
             if event.pubkey == pubkey {
                 process_your_contact_list(event).await?;
@@ -240,12 +245,6 @@ async fn process_somebody_elses_contact_list(
 ) -> Result<(), Error> {
     // We don't keep their contacts or show to the user yet.
     // We only process the contents for (non-standard) relay list information.
-
-    // update person.contact_list_last_received
-    GLOBALS
-        .people
-        .update_contact_list_last_received(pubkey.into())
-        .await?;
 
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
     if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {

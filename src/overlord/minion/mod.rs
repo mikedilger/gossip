@@ -412,13 +412,21 @@ impl Minion {
                 .people
                 .get_followed_pubkeys_needing_contact_lists(&followed_pubkeys);
 
-            // TBD: EventKind::RelaysList from nip23
-            filters.push(Filter {
-                authors: contact_list_keys,
-                kinds: vec![EventKind::ContactList],
-                // No since. These are replaceable events, we should only get 1 per person.
-                ..Default::default()
-            });
+            if !contact_list_keys.is_empty() {
+                tracing::debug!(
+                    "Need contact lists from {} people on {}",
+                    contact_list_keys.len(),
+                    &self.url
+                );
+
+                // TBD: EventKind::RelaysList from nip23
+                filters.push(Filter {
+                    authors: contact_list_keys,
+                    kinds: vec![EventKind::ContactList],
+                    // No since. These are replaceable events, we should only get 1 per person.
+                    ..Default::default()
+                });
+            }
         }
 
         // reactions to posts by me
