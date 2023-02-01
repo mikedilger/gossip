@@ -363,9 +363,8 @@ impl eframe::App for GossipUi {
                 ui.separator();
                 if ui
                     .add(SelectableLabel::new(
-                        self.page == Page::RelaysLive
-                            || self.page == Page::RelaysAll,
-                        "Relays"
+                        self.page == Page::RelaysLive || self.page == Page::RelaysAll,
+                        "Relays",
                     ))
                     .clicked()
                 {

@@ -9,10 +9,7 @@ mod all;
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.horizontal(|ui| {
         if ui
-            .add(SelectableLabel::new(
-                app.page == Page::RelaysLive,
-                "Live",
-            ))
+            .add(SelectableLabel::new(app.page == Page::RelaysLive, "Live"))
             .clicked()
         {
             app.set_page(Page::RelaysLive);
@@ -21,7 +18,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         if ui
             .add(SelectableLabel::new(
                 app.page == Page::RelaysAll,
-                "Configure"))
+                "Configure",
+            ))
             .clicked()
         {
             app.set_page(Page::RelaysAll);
@@ -31,7 +29,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.separator();
 
     if app.page == Page::RelaysLive {
-
         ui.add_space(10.0);
 
         ui.with_layout(Layout::top_down(Align::Min), |ui| {
@@ -61,7 +58,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     header.col(|ui| {
                         ui.heading("Num Pubkeys");
                     });
-                }).body(|body| {
+                })
+                .body(|body| {
                     body.rows(24.0, relay_assignments.len(), |row_index, mut row| {
                         row.col(|ui| {
                             ui.label(&relay_assignments[row_index].relay.url.0);
@@ -72,8 +70,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     });
                 });
         });
-
-
     } else if app.page == Page::RelaysAll {
         all::update(app, ctx, frame, ui);
     }

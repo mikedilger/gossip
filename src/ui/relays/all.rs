@@ -1,7 +1,7 @@
+use super::GossipUi;
 use crate::comms::ToOverlordMessage;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
-use super::GossipUi;
 use eframe::egui;
 use egui::{Align, Context, Layout, TextEdit, Ui};
 use egui_extras::{Column, TableBuilder};
@@ -41,7 +41,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     let mut relays = GLOBALS.relays.blocking_read().clone();
     let mut relays: Vec<DbRelay> = relays.drain().map(|(_, relay)| relay).collect();
     relays.sort_by(|a, b| {
-        b.post.cmp(&a.post).then(b.rank.cmp(&a.rank)).then(a.url.cmp(&b.url))
+        b.post
+            .cmp(&a.post)
+            .then(b.rank.cmp(&a.rank))
+            .then(a.url.cmp(&b.url))
     });
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
@@ -104,13 +107,13 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                     row.col(|ui| {
                         if let Some(at) = relay.last_connected_at {
                             let ago = crate::date_ago::date_ago(Unixtime(at as i64));
-                            ui.label(format!("{}", ago));
+                            ui.label(&ago);
                         }
                     });
                     row.col(|ui| {
                         if let Some(at) = relay.last_general_eose_at {
                             let ago = crate::date_ago::date_ago(Unixtime(at as i64));
-                            ui.label(format!("{}", ago));
+                            ui.label(&ago);
                         }
                     });
                     row.col(|ui| {
@@ -127,19 +130,15 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                     row.col(|ui| {
                         ui.horizontal(|ui| {
                             ui.label(format!("{}",relay.rank));
-                            if ui.button("↓").clicked() {
-                                if relay.rank>0 {
-                                    let _ = GLOBALS
-                                        .to_overlord
-                                        .send(ToOverlordMessage::RankRelay(relay.url.clone(), relay.rank as u8 - 1));
-                                }
+                            if ui.button("↓").clicked() && relay.rank>0 {
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::RankRelay(relay.url.clone(), relay.rank as u8 - 1));
                             }
-                            if ui.button("↑").clicked() {
-                                if relay.rank<9 {
-                                    let _ = GLOBALS
-                                        .to_overlord
-                                        .send(ToOverlordMessage::RankRelay(relay.url.clone(), relay.rank as u8 + 1));
-                                }
+                            if ui.button("↑").clicked() && relay.rank<9 {
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::RankRelay(relay.url.clone(), relay.rank as u8 + 1));
                             }
                         });
                     });

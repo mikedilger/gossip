@@ -306,9 +306,9 @@ impl DbRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
-            let _ = db.execute("UPDATE relay SET rank=? WHERE url=?", (&rank, &url.0,));
+            let _ = db.execute("UPDATE relay SET rank=? WHERE url=?", (&rank, &url.0));
         })
-            .await?;
+        .await?;
 
         Ok(())
     }

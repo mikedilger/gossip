@@ -51,9 +51,11 @@ impl Minion {
                                 self.dbrelay.url.clone(),
                                 event.created_at.0 as u64,
                             )
-                                .await?;
+                            .await?;
                             // set in globals
-                            if let Some(relay) = GLOBALS.relays.write().await.get_mut(&self.dbrelay.url) {
+                            if let Some(relay) =
+                                GLOBALS.relays.write().await.get_mut(&self.dbrelay.url)
+                            {
                                 relay.last_general_eose_at = Some(event.created_at.0 as u64);
                             }
                         }
