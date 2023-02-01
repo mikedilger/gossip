@@ -195,8 +195,7 @@ impl People {
         // Sync in from database first
         self.create_all_if_missing(&[pubkeyhex.to_owned()]).await?;
 
-        // Update the map
-        let mut person = self.people.get_mut(pubkeyhex).unwrap();
+        let person = self.people.get(pubkeyhex).unwrap().to_owned();
 
         // Determine whether to update it
         let mut doit = person.metadata_at.is_none();
@@ -205,22 +204,27 @@ impl People {
                 doit = true;
             }
         }
+
         if doit {
             let nip05_changed = if let Some(md) = &person.metadata {
                 metadata.nip05 != md.nip05.clone()
             } else {
                 metadata.nip05.is_some()
             };
-            person.metadata = Some(metadata);
-            person.metadata_at = Some(asof.0);
-            if nip05_changed {
-                person.nip05_valid = 0; // changed, so reset to invalid
-                person.nip05_last_checked = None; // we haven't checked this one yet
+
+            {
+                let mut person_mut = self.people.get_mut(pubkeyhex).unwrap();
+                person_mut.metadata = Some(metadata);
+                person_mut.metadata_at = Some(asof.0);
+                if nip05_changed {
+                    person_mut.nip05_valid = 0; // changed, so reset to invalid
+                    person_mut.nip05_last_checked = None; // we haven't checked this one yet
+                }
             }
 
             // Update the database
-            let person = person.clone();
             let pubkeyhex2 = pubkeyhex.to_owned();
+            let person = person.clone();
             task::spawn_blocking(move || {
                 let maybe_db = GLOBALS.db.blocking_lock();
                 let db = maybe_db.as_ref().unwrap();
@@ -248,8 +252,6 @@ impl People {
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
         GLOBALS.failed_avatars.write().await.remove(pubkeyhex);
-
-        let person = person.to_owned();
 
         // Only if they have a nip05 dns id set
         if matches!(
