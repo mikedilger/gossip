@@ -559,7 +559,7 @@ impl Overlord {
                 tracing::debug!("Settings saved.");
             }
             ToOverlordMessage::SetRelayPost(relay_url, post) => {
-                if let Some(relay) = GLOBALS.relays.blocking_write().get_mut(&relay_url) {
+                if let Some(relay) = GLOBALS.relays.write().await.get_mut(&relay_url) {
                     relay.post = post;
                 }
                 DbRelay::update_post(relay_url, post).await?;
