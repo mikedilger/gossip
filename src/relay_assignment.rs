@@ -223,12 +223,15 @@ impl RelayPicker {
             scoreboard[i] *= rank;
         }
 
-        let winner_index = scoreboard
+        let (winner_index, max_score) = scoreboard
             .iter()
             .enumerate()
             .max_by(|x: &(usize, &u64), y: &(usize, &u64)| x.1.cmp(y.1))
-            .unwrap()
-            .0;
+            .unwrap();
+
+        if *max_score == 0 {
+            return Err(RelayPickerFailure::NoProgress);
+        }
 
         self.consume(winner_index)
     }
