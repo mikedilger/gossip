@@ -241,6 +241,12 @@ async fn process_somebody_elses_contact_list(
     // We don't keep their contacts or show to the user yet.
     // We only process the contents for (non-standard) relay list information.
 
+    // update person.contact_list_last_received
+    GLOBALS
+        .people
+        .update_contact_list_last_received(pubkey.into())
+        .await?;
+
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
     if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {
         // NOTE: we update person_relay.last_suggested_nip23, even though this data came from the

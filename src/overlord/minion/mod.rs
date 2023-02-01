@@ -405,9 +405,16 @@ impl Minion {
 
             // Subscribe to ContactLists so we can look at the contents and
             // divine relays people write to (if using a client that does that).
+            //
+            // BUT ONLY for people whose contact list has not been received in the last
+            // 24 hours.
+            let contact_list_keys = GLOBALS
+                .people
+                .get_followed_pubkeys_needing_contact_lists(&followed_pubkeys);
+
             // TBD: EventKind::RelaysList from nip23
             filters.push(Filter {
-                authors: followed_pubkeys.clone(),
+                authors: contact_list_keys,
                 kinds: vec![EventKind::ContactList],
                 // No since. These are replaceable events, we should only get 1 per person.
                 ..Default::default()
