@@ -906,7 +906,7 @@ impl People {
     async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql = "SELECT pubkey, metadata, metadata_at, \
              nip05_valid, nip05_last_checked, \
-             followed, followed_last_updated, muted \
+             followed, followed_last_updated, muted, \
              contact_list_last_received FROM person"
             .to_owned();
         let sql = match criteria {
