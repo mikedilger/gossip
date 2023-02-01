@@ -43,7 +43,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     relays.sort_by(|a, b| {
         b.post
             .cmp(&a.post)
-            .then(b.rank.cmp(&a.rank))
             .then(a.url.cmp(&b.url))
     });
 
