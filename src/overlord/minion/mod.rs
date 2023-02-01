@@ -173,6 +173,10 @@ impl Minion {
             if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
                 tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
             }
+            // set in globals
+            if let Some(relay) = GLOBALS.relays.write().await.get_mut(&self.dbrelay.url) {
+                relay.last_connected_at = self.dbrelay.last_connected_at;
+            }
         }
 
         // Tell the overlord we are ready to receive commands
