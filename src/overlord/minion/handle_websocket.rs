@@ -46,11 +46,16 @@ impl Minion {
                     // timestamp for that relay, so we don't query before them next time we run.
                     if let Some(sub) = self.subscriptions.get_mut_by_id(&subid.0) {
                         if handle == "general_feed" && sub.eose() {
+                            // set in database
                             DbRelay::update_general_eose(
                                 self.dbrelay.url.clone(),
                                 event.created_at.0 as u64,
                             )
-                            .await?;
+                                .await?;
+                            // set in globals
+                            if let Some(relay) = GLOBALS.relays.write().await.get_mut(&self.dbrelay.url) {
+                                relay.last_general_eose_at = Some(event.created_at.0 as u64);
+                            }
                         }
                     }
 

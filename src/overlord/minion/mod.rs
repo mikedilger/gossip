@@ -173,6 +173,10 @@ impl Minion {
             if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
                 tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
             }
+            // set in globals
+            if let Some(relay) = GLOBALS.relays.write().await.get_mut(&self.dbrelay.url) {
+                relay.last_connected_at = self.dbrelay.last_connected_at;
+            }
         }
 
         // Tell the overlord we are ready to receive commands
@@ -268,8 +272,8 @@ impl Minion {
                 tracing::info!("{}: Websocket listener shutting down", &self.url);
                 return Ok(false);
             }
-            ToMinionPayload::SubscribeGeneralFeed => {
-                self.subscribe_general_feed().await?;
+            ToMinionPayload::SubscribeGeneralFeed(pubkeys) => {
+                self.subscribe_general_feed(pubkeys).await?;
             }
             ToMinionPayload::SubscribePersonFeed(pubkeyhex) => {
                 self.subscribe_person_feed(pubkeyhex).await?;
@@ -292,7 +296,10 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe_general_feed(&mut self) -> Result<(), Error> {
+    async fn subscribe_general_feed(
+        &mut self,
+        followed_pubkeys: Vec<PublicKeyHex>,
+    ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
         let (overlap, feed_chunk, replies_chunk) = {
             let settings = GLOBALS.settings.read().await.clone();
@@ -303,7 +310,6 @@ impl Minion {
             )
         };
 
-        let followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
         tracing::debug!(
             "Following {} people at {}",
             followed_pubkeys.len(),

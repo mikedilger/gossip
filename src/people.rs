@@ -1,4 +1,3 @@
-use crate::comms::{ToMinionMessage, ToMinionPayload};
 use crate::db::{DbEvent, DbPersonRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -625,10 +624,15 @@ impl People {
         }
 
         // Resubscribe to the general feed
+        /*
+        Until the relay picker can assign a new person to a particular set of
+        N relays including potentially relays with active minions, there is no
+        way to do this right. Minions no longer listen for everybody.
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload::SubscribeGeneralFeed,
         });
+         */
 
         Ok(())
     }
@@ -730,10 +734,15 @@ impl People {
         }
 
         // Resubscribe to the general feed
+        /*
+        Until the relay picker can assign a new person to a particular set of
+        N relays including potentially relays with active minions, there is no
+        way to do this right. Minions no longer listen for everybody.
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload::SubscribeGeneralFeed,
         });
+         */
 
         Ok(())
     }

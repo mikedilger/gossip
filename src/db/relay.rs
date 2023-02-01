@@ -5,11 +5,10 @@ use tokio::task::spawn_blocking;
 
 #[derive(Debug, Clone)]
 pub struct DbRelay {
-    pub dirty: bool,
     pub url: RelayUrl,
     pub success_count: u64,
     pub failure_count: u64,
-    pub rank: Option<u64>,
+    pub rank: u64,
     pub last_connected_at: Option<u64>,
     pub last_general_eose_at: Option<u64>,
     pub post: bool,
@@ -18,11 +17,10 @@ pub struct DbRelay {
 impl DbRelay {
     pub fn new(url: RelayUrl) -> DbRelay {
         DbRelay {
-            dirty: false,
             url,
             success_count: 0,
             failure_count: 0,
-            rank: Some(3),
+            rank: 3,
             last_connected_at: None,
             last_general_eose_at: None,
             post: false,
@@ -63,7 +61,6 @@ impl DbRelay {
                 // just skip over invalid relay URLs
                 if let Ok(url) = RelayUrl::try_from_str(&s) {
                     output.push(DbRelay {
-                        dirty: false,
                         url,
                         success_count: row.get(1)?,
                         failure_count: row.get(2)?,
@@ -285,5 +282,34 @@ impl DbRelay {
         .await??;
 
         Ok(output)
+    }
+
+    /*
+    pub async fn delete_relay(url: RelayUrl) -> Result<(), Error> {
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let _ = db.execute("DELETE FROM event seen WHERE relay=?", (&url.0,));
+            let _ = db.execute("UPDATE contact SET relay=null WHERE relay=?", (&url.0,));
+            let _ = db.execute("DELETE FROM person_relay WHERE relay=?", (&url.0,));
+            let _ = db.execute("DELETE FROM relay WHERE url=?", (&url.0,));
+        })
+            .await?;
+
+        Ok(())
+    }
+     */
+
+    pub async fn set_rank(url: RelayUrl, rank: u8) -> Result<(), Error> {
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let _ = db.execute("UPDATE relay SET rank=? WHERE url=?", (&rank, &url.0,));
+        })
+            .await?;
+
+        Ok(())
     }
 }

@@ -17,6 +17,7 @@ mod overlord;
 mod people;
 mod process;
 mod relationship;
+mod relay_assignment;
 mod settings;
 mod signer;
 mod tags;
