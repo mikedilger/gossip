@@ -117,7 +117,7 @@ async fn update_relays(
     // Set their relays
     let relays = match nip05file.relays.get(pubkey) {
         Some(relays) => relays,
-        None => return Err(Error::Nip05RelaysNotFound),
+        None => return Ok(()),
     };
     for relay in relays.iter() {
         // Save relay

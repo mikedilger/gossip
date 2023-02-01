@@ -27,9 +27,6 @@ pub enum Error {
     #[error("NIP-05 public key not found")]
     Nip05KeyNotFound,
 
-    #[error("NIP-05 relays not found")]
-    Nip05RelaysNotFound,
-
     #[error("Nostr: {0}")]
     Nostr(#[from] nostr_types::Error),
 
