@@ -215,7 +215,7 @@ impl Minion {
 
         select! {
             _ = timer.tick() => {
-                ws_sink.send(WsMessage::Ping(vec![])).await?;
+                ws_sink.send(WsMessage::Ping(vec![0x1])).await?;
             },
             ws_message = ws_stream.next() => {
                 let ws_message = match ws_message {
