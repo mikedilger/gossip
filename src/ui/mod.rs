@@ -429,10 +429,10 @@ impl GossipUi {
     pub fn hex_pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
         format!(
             "{}_{}...{}_{}",
-            &pubkeyhex.0[0..4],
-            &pubkeyhex.0[4..8],
-            &pubkeyhex.0[56..60],
-            &pubkeyhex.0[60..64]
+            &pubkeyhex.0.get(0..4).unwrap_or("????"),
+            &pubkeyhex.0.get(4..8).unwrap_or("????"),
+            &pubkeyhex.0.get(56..60).unwrap_or("????"),
+            &pubkeyhex.0.get(60..64).unwrap_or("????"),
         )
     }
 
@@ -441,13 +441,13 @@ impl GossipUi {
             Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
             Ok(pk) => match pk.try_as_bech32_string() {
                 Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
-                Ok(npub) => format!("{}…", &npub[0..20]),
+                Ok(npub) => format!("{}…", &npub.get(0..20).unwrap_or("????????????????????")),
             },
         }
     }
 
     pub fn hex_id_short(idhex: &IdHex) -> String {
-        idhex.0[0..8].to_string()
+        idhex.0.get(0..8).unwrap_or("????????").to_string()
     }
 
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
