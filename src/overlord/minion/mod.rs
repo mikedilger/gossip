@@ -249,15 +249,23 @@ impl Minion {
                 };
                 #[allow(clippy::collapsible_if)]
                 if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
-                    keepgoing = self.handle_message(to_minion_message).await?;
+                    keepgoing = self.handle_overlord_message(to_minion_message).await?;
                 }
             },
+        }
+
+        // Close down if we aren't handling any more subscriptions
+        if self.subscriptions.len() == 0 {
+            keepgoing = false;
         }
 
         Ok(keepgoing)
     }
 
-    pub async fn handle_message(&mut self, message: ToMinionMessage) -> Result<bool, Error> {
+    pub async fn handle_overlord_message(
+        &mut self,
+        message: ToMinionMessage,
+    ) -> Result<bool, Error> {
         match message.payload {
             ToMinionPayload::FetchEvents(vec) => {
                 self.get_events(vec).await?;
