@@ -20,12 +20,12 @@ pub fn date_ago(then: Unixtime) -> String {
         format!("{}h", hours as i64)
     } else if hours < 42.0 {
         "1d".to_string()
-    } else if days < 30.0 {
+    } else if days < 14.0 {
         format!("{}d", days as i64)
-    } else if days < 45.0 {
-        "1m".to_string()
+    } else if days < 56.0 {
+        format!("{}w", (days / 7.0) as i64)
     } else if days < 365.0 {
-        format!("{}m", (days / 30.0) as i64)
+        format!("{}M", (days / 30.0) as i64)
     } else if years < 1.5 {
         "1y".to_string()
     } else {
