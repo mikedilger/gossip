@@ -247,17 +247,21 @@ impl RelayPicker {
     fn consume(&mut self, winner_index: usize) -> Result<RelayAssignment, RelayPickerFailure> {
         let winner = self.relays.swap_remove(winner_index);
 
-        let covered_public_keys: Vec<PublicKeyHex> = self
+        // Get all the pubkeys this relay can handle
+        let over_covered_public_keys: Vec<PublicKeyHex> = self
             .person_relay_scores
             .iter()
             .filter(|(_, url, score)| *url == winner.url && *score > 0)
             .map(|(pkh, _, _)| pkh.to_owned())
             .collect();
 
-        // Decrement entries where we the winner covers them
+        // Now only count the ones we need
+        // and Decrement entries where we the winner covers them
+        let mut covered_public_keys: Vec<PublicKeyHex> = Vec::new();
         let mut changed = false;
         for (pubkey, count) in self.pubkey_counts.iter_mut() {
-            if covered_public_keys.contains(pubkey) {
+            if over_covered_public_keys.contains(pubkey) {
+                covered_public_keys.push(pubkey.clone());
                 *count -= 1;
                 changed = true;
             }
