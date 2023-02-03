@@ -49,7 +49,7 @@ pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKe
     match existing_tags.iter().position(|existing_tag| {
         matches!(
             existing_tag,
-            Tag::Pubkey { pubkey: existing_p, .. } if existing_p.0 == hex.0
+            Tag::Pubkey { pubkey: existing_p, .. } if existing_p == hex
         )
     }) {
         None => {

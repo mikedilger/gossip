@@ -28,21 +28,20 @@ impl DbEvent {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(&sql)?;
-            let rows = stmt.query_map([], |row| {
-                Ok(DbEvent {
-                    id: IdHex(row.get(0)?),
+            let mut rows = stmt.query([])?;
+            let mut output: Vec<DbEvent> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let id: String = row.get(0)?;
+                let pk: String = row.get(2)?;
+                output.push(DbEvent {
+                    id: IdHex::try_from_string(id)?,
                     raw: row.get(1)?,
-                    pubkey: PublicKeyHex(row.get(2)?),
+                    pubkey: PublicKeyHex::try_from_string(pk)?,
                     created_at: row.get(3)?,
                     kind: row.get(4)?,
                     content: row.get(5)?,
                     ots: row.get(6)?,
                 })
-            })?;
-
-            let mut output: Vec<DbEvent> = Vec::new();
-            for row in rows {
-                output.push(row?);
             }
             Ok(output)
         })
@@ -61,7 +60,7 @@ impl DbEvent {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.raw_bind_parameter(1, &pubkeyhex.0)?;
+            stmt.raw_bind_parameter(1, pubkeyhex.as_str())?;
             let mut rows = stmt.raw_query();
             let mut events: Vec<Event> = Vec::new();
             while let Some(row) = rows.next()? {
@@ -103,15 +102,17 @@ impl DbEvent {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(&sql)?;
-            stmt.raw_bind_parameter(1, public_key.0)?;
+            stmt.raw_bind_parameter(1, public_key.as_str())?;
             stmt.raw_bind_parameter(2, since)?;
             let mut rows = stmt.raw_query();
             let mut events: Vec<DbEvent> = Vec::new();
             while let Some(row) = rows.next()? {
+                let id: String = row.get(0)?;
+                let pk: String = row.get(2)?;
                 let event = DbEvent {
-                    id: IdHex(row.get(0)?),
+                    id: IdHex::try_from_str(&id)?,
                     raw: row.get(1)?,
-                    pubkey: PublicKeyHex(row.get(2)?),
+                    pubkey: PublicKeyHex::try_from_str(&pk)?,
                     created_at: row.get(3)?,
                     kind: row.get(4)?,
                     content: row.get(5)?,
@@ -177,21 +178,20 @@ impl DbEvent {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(&sql)?;
-            let rows = stmt.query_map([], |row| {
-                Ok(DbEvent {
-                    id: IdHex(row.get(0)?),
+            let mut rows = stmt.query([])?;
+            let mut output: Vec<DbEvent> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let id: String = row.get(0)?;
+                let pk: String = row.get(2)?;
+                output.push(DbEvent {
+                    id: IdHex::try_from_string(id)?,
                     raw: row.get(1)?,
-                    pubkey: PublicKeyHex(row.get(2)?),
+                    pubkey: PublicKeyHex::try_from_string(pk)?,
                     created_at: row.get(3)?,
                     kind: row.get(4)?,
                     content: row.get(5)?,
                     ots: row.get(6)?,
-                })
-            })?;
-
-            let mut output: Vec<DbEvent> = Vec::new();
-            for row in rows {
-                output.push(row?);
+                });
             }
             Ok(output)
         })
@@ -207,12 +207,11 @@ impl DbEvent {
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
-
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
-                &event.id.0,
+                event.id.as_str(),
                 &event.raw,
-                &event.pubkey.0,
+                event.pubkey.as_str(),
                 &event.created_at,
                 &event.kind,
                 &event.content,

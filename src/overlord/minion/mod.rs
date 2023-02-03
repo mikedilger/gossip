@@ -10,8 +10,8 @@ use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, IdHex, PublicKeyHex, RelayInformationDocument, RelayUrl,
-    Unixtime,
+    ClientMessage, EventKind, Filter, IdHex, IdHexPrefix, PublicKeyHex, PublicKeyHexPrefix,
+    RelayInformationDocument, RelayUrl, Unixtime,
 };
 use std::time::Duration;
 use subscription::Subscriptions;
@@ -364,8 +364,9 @@ impl Minion {
             }
 
             // feed related by me
+            let pkh: PublicKeyHex = pubkey.into();
             filters.push(Filter {
-                authors: vec![pubkey.into()],
+                authors: vec![pkh.clone().into()],
                 kinds,
                 since: Some(feed_since),
                 ..Default::default()
@@ -378,7 +379,7 @@ impl Minion {
                 kinds.push(EventKind::Reaction);
             }
             filters.push(Filter {
-                p: vec![pubkey.into()],
+                p: vec![pkh.clone().into()],
                 kinds: vec![EventKind::TextNote],
                 since: Some(replies_since),
                 ..Default::default()
@@ -386,7 +387,7 @@ impl Minion {
 
             // Listen for my metadata and similar kinds of posts
             filters.push(Filter {
-                authors: vec![pubkey.into()],
+                authors: vec![pkh.clone().into()],
                 kinds: vec![
                     EventKind::Metadata,
                     EventKind::RecommendRelay,
@@ -403,9 +404,15 @@ impl Minion {
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
             }
+
+            let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
+                .iter()
+                .map(|pk| pk.to_owned().into())
+                .collect();
+
             // feed related by people followed
             filters.push(Filter {
-                authors: followed_pubkeys.clone(),
+                authors: pkp,
                 kinds,
                 since: Some(feed_since),
                 ..Default::default()
@@ -416,9 +423,12 @@ impl Minion {
             //
             // BUT ONLY for people whose contact list has not been received in the last
             // 24 hours.
-            let contact_list_keys = GLOBALS
+            let contact_list_keys: Vec<PublicKeyHexPrefix> = GLOBALS
                 .people
-                .get_followed_pubkeys_needing_contact_lists(&followed_pubkeys);
+                .get_followed_pubkeys_needing_contact_lists(&followed_pubkeys)
+                .drain(..)
+                .map(|pk| pk.into())
+                .collect();
 
             if !contact_list_keys.is_empty() {
                 tracing::debug!(
@@ -470,7 +480,7 @@ impl Minion {
         // NOTE we do not unsubscribe to the general feed
 
         let filters: Vec<Filter> = vec![Filter {
-            authors: vec![pubkey.clone()],
+            authors: vec![pubkey.clone().into()],
             kinds: vec![EventKind::TextNote, EventKind::EventDeletion],
             // No since, just a limit on quantity of posts
             limit: Some(25),
@@ -529,9 +539,11 @@ impl Minion {
         let enable_reactions = GLOBALS.settings.read().await.reactions;
 
         if !vec_ids.is_empty() {
+            let idhp: Vec<IdHexPrefix> = vec_ids.iter().map(|id| id.to_owned().into()).collect();
+
             // Get ancestors we know of so far
             filters.push(Filter {
-                ids: vec_ids.clone(),
+                ids: idhp,
                 ..Default::default()
             });
 
@@ -689,7 +701,7 @@ impl Minion {
 
         // create the filter
         let mut filter = Filter::new();
-        filter.ids = ids;
+        filter.ids = ids.iter().map(|id| id.to_owned().into()).collect();
 
         tracing::trace!("{}: Event Filter: {} events", &self.url, filter.ids.len());
 
@@ -715,11 +727,13 @@ impl Minion {
 
     async fn temp_subscribe_metadata(
         &mut self,
-        pubkeyhexs: Vec<PublicKeyHex>,
+        mut pubkeyhexs: Vec<PublicKeyHex>,
     ) -> Result<(), Error> {
+        let pkhp: Vec<PublicKeyHexPrefix> = pubkeyhexs.drain(..).map(|pk| pk.into()).collect();
+
         let handle = "temp_subscribe_metadata".to_string();
         let filter = Filter {
-            authors: pubkeyhexs,
+            authors: pkhp,
             kinds: vec![EventKind::Metadata],
             // FIXME: we could probably get a since-last-fetched-their-metadata here.
             //        but relays should just return the lastest of these.
@@ -730,8 +744,9 @@ impl Minion {
 
     async fn pull_following(&mut self) -> Result<(), Error> {
         if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+            let pkh: PublicKeyHex = pubkey.into();
             let filter = Filter {
-                authors: vec![pubkey.into()],
+                authors: vec![pkh.into()],
                 kinds: vec![EventKind::ContactList],
                 ..Default::default()
             };

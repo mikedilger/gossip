@@ -429,10 +429,10 @@ impl GossipUi {
     pub fn hex_pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
         format!(
             "{}_{}...{}_{}",
-            &pubkeyhex.0.get(0..4).unwrap_or("????"),
-            &pubkeyhex.0.get(4..8).unwrap_or("????"),
-            &pubkeyhex.0.get(56..60).unwrap_or("????"),
-            &pubkeyhex.0.get(60..64).unwrap_or("????"),
+            &pubkeyhex.as_str()[0..4],
+            &pubkeyhex.as_str()[4..8],
+            &pubkeyhex.as_str()[56..60],
+            &pubkeyhex.as_str()[60..64],
         )
     }
 
@@ -447,7 +447,7 @@ impl GossipUi {
     }
 
     pub fn hex_id_short(idhex: &IdHex) -> String {
-        idhex.0.get(0..8).unwrap_or("????????").to_string()
+        idhex.as_str()[0..8].to_string()
     }
 
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
@@ -527,8 +527,11 @@ impl GossipUi {
                 None
             }
             Ok(Some(color_image)) => {
-                let texture_handle =
-                    ctx.load_texture(pubkeyhex.0.clone(), color_image, TextureOptions::default());
+                let texture_handle = ctx.load_texture(
+                    pubkeyhex.to_string(),
+                    color_image,
+                    TextureOptions::default(),
+                );
                 self.avatars
                     .insert(pubkeyhex.to_owned(), texture_handle.clone());
                 Some(texture_handle)

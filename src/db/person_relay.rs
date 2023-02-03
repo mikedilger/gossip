@@ -35,7 +35,7 @@ impl DbPersonRelay {
             repeat_vars(pubkeys.len())
         );
 
-        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
         let output: Result<Vec<DbPersonRelay>, Error> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -186,7 +186,7 @@ impl DbPersonRelay {
 
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
-                &person.0,
+                person.as_str(),
                 &relay.0,
                 &last_suggested_nip05,
                 &last_suggested_nip05,
@@ -213,7 +213,7 @@ impl DbPersonRelay {
 
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
-                &person.0,
+                person.as_str(),
                 &relay.0,
                 &last_suggested_nip23,
                 &last_suggested_nip23,
@@ -236,7 +236,7 @@ impl DbPersonRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.raw_bind_parameter(1, &pubkey.0)?;
+            stmt.raw_bind_parameter(1, pubkey.as_str())?;
             let mut rows = stmt.raw_query();
 
             let mut dbprs: Vec<DbPersonRelay> = Vec::new();

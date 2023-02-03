@@ -125,9 +125,9 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
         let pkhex: PublicKeyHex = public_key.into();
         ui.horizontal_wrapped(|ui| {
-            ui.label(&format!("Public Key (Hex): {}", pkhex.0));
+            ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
             if ui.add(CopyButton {}).clicked() {
-                ui.output().copied_text = pkhex.0;
+                ui.output().copied_text = pkhex.into_string();
             }
         });
 
@@ -298,9 +298,9 @@ fn offer_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
     if let Some(pk) = GLOBALS.signer.blocking_read().public_key() {
         let pkhex: PublicKeyHex = pk.into();
         ui.horizontal(|ui| {
-            ui.label(&format!("Public Key (Hex): {}", pkhex.0));
+            ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
             if ui.add(CopyButton {}).clicked() {
-                ui.output().copied_text = pkhex.0;
+                ui.output().copied_text = pkhex.into_string();
             }
         });
 

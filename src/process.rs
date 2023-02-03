@@ -105,7 +105,7 @@ pub async fn process_new_event(
                         // upsert person_relay.last_suggested_bytag
                         let now = Unixtime::now()?.0 as u64;
                         DbPersonRelay::upsert_last_suggested_bytag(
-                            pubkey.0.to_owned(),
+                            pubkey.to_string(),
                             url.clone(),
                             now,
                         )
@@ -306,7 +306,7 @@ async fn process_your_contact_list(event: &Event) -> Result<(), Error> {
                     .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
                 {
                     DbPersonRelay::upsert_last_suggested_kind3(
-                        pubkey.0.to_owned(),
+                        pubkey.to_string(),
                         url,
                         now.0 as u64,
                     )

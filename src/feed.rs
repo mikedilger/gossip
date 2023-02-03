@@ -111,7 +111,7 @@ impl Feed {
             .iter()
             .map(|r| r.value().to_owned())
             .filter(|e| e.kind == EventKind::TextNote)
-            .filter(|e| e.pubkey.as_hex_string() == person.0)
+            .filter(|e| e.pubkey.as_hex_string() == person.as_str())
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
             .collect();
 

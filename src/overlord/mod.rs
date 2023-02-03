@@ -634,7 +634,7 @@ impl Overlord {
 
         // Save person_relay
         DbPersonRelay::insert(DbPersonRelay {
-            person: pkhex.0.clone(),
+            person: pkhex.to_string(),
             relay,
             last_fetched: None,
             last_suggested_kind2: None,
@@ -761,7 +761,7 @@ impl Overlord {
             // FIXME: Should we avoid taging people who are muted?
             for tag in &event.tags {
                 if let Tag::Pubkey { pubkey, .. } = tag {
-                    if pubkey.0 != public_key.as_hex_string() {
+                    if pubkey.as_str() != &public_key.as_hex_string() {
                         add_pubkey_hex_to_tags(&mut tags, pubkey).await;
                     }
                 }

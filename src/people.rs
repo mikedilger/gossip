@@ -155,7 +155,7 @@ impl People {
         sql.push_str(&"(?),".repeat(pubkeys.len()));
         sql.pop(); // remove trailing comma
 
-        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -243,7 +243,7 @@ impl People {
                     &person.metadata_at,
                     &person.nip05_valid,
                     &person.nip05_last_checked,
-                    &pubkeyhex2.0,
+                    pubkeyhex2.as_str(),
                 ))?;
                 Ok::<(), Error>(())
             })
@@ -323,8 +323,9 @@ impl People {
                     Some(s) => serde_json::from_str(&s)?,
                     None => None,
                 };
+                let pk: String = row.get(0)?;
                 output.push(DbPerson {
-                    pubkey: PublicKeyHex(row.get(0)?),
+                    pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
                     metadata_at: row.get(2)?,
                     nip05_valid: row.get(3)?,
@@ -635,7 +636,7 @@ impl People {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&pubkeyhex2.0, &follow, &follow))?;
+            stmt.execute((pubkeyhex2.as_str(), &follow, &follow))?;
             Ok::<(), Error>(())
         })
         .await??;
@@ -702,7 +703,7 @@ impl People {
             repeat_vars(pubkeys.len())
         );
 
-        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -728,7 +729,7 @@ impl People {
                 repeat_vars(pubkeys.len())
             );
 
-            let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+            let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
             task::spawn_blocking(move || {
                 let maybe_db = GLOBALS.db.blocking_lock();
@@ -795,7 +796,7 @@ impl People {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&pubkeyhex2.0, &mute, &mute))?;
+            stmt.execute((pubkeyhex2.as_str(), &mute, &mute))?;
             Ok::<(), Error>(())
         })
         .await??;
@@ -828,7 +829,7 @@ impl People {
             let db = maybe_db.as_ref().unwrap();
             let mut stmt =
                 db.prepare("UPDATE person SET contact_list_last_received=? WHERE pubkey=?")?;
-            stmt.execute((&now, &pubkeyhex.0))?;
+            stmt.execute((&now, pubkeyhex.as_str()))?;
             Ok(())
         })
         .await?
@@ -845,7 +846,7 @@ impl People {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare("UPDATE person SET nip05_last_checked=? WHERE pubkey=?")?;
-            stmt.execute((&now, &pubkeyhex.0))?;
+            stmt.execute((&now, pubkeyhex.as_str()))?;
             Ok(())
         })
         .await?
@@ -890,7 +891,7 @@ impl People {
 
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
-                &pubkeyhex2.0,
+                pubkeyhex2.as_str(),
                 &metadata_json,
                 &nip05_valid,
                 &nip05_last_checked,
@@ -929,8 +930,9 @@ impl People {
                     Some(s) => serde_json::from_str(&s)?,
                     None => None,
                 };
+                let pk: String = row.get(0)?;
                 output.push(DbPerson {
-                    pubkey: PublicKeyHex(row.get(0)?),
+                    pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
                     metadata_at: row.get(2)?,
                     nip05_valid: row.get(3)?,
@@ -966,7 +968,7 @@ impl People {
             repeat_vars(pubkeys.len())
         );
 
-        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.0.clone()).collect();
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
         let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -988,8 +990,9 @@ impl People {
                     Some(s) => serde_json::from_str(&s)?,
                     None => None,
                 };
+                let pk: String = row.get(0)?;
                 people.push(DbPerson {
-                    pubkey: PublicKeyHex(row.get(0)?),
+                    pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
                     metadata_at: row.get(2)?,
                     nip05_valid: row.get(3)?,
