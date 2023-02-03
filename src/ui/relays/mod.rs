@@ -75,16 +75,27 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.separator();
         ui.add_space(10.0);
 
-        for (pk, count) in GLOBALS.relay_picker.blocking_read().pubkey_counts.iter() {
-            let maybe_person = GLOBALS.people.get(pk);
-            let name = match maybe_person {
-                None => GossipUi::hex_pubkey_short(pk),
-                Some(p) => match p.name() {
+        ui.heading("Coverage");
+
+        if !GLOBALS
+            .relay_picker
+            .blocking_read()
+            .pubkey_counts
+            .is_empty()
+        {
+            for (pk, count) in GLOBALS.relay_picker.blocking_read().pubkey_counts.iter() {
+                let maybe_person = GLOBALS.people.get(pk);
+                let name = match maybe_person {
                     None => GossipUi::hex_pubkey_short(pk),
-                    Some(n) => n.to_owned(),
-                },
-            };
-            ui.label(format!("{} seeks {} more relays", name, count));
+                    Some(p) => match p.name() {
+                        None => GossipUi::hex_pubkey_short(pk),
+                        Some(n) => n.to_owned(),
+                    },
+                };
+                ui.label(format!("{}: coverage short by {} relay(s)", name, count));
+            }
+        } else {
+            ui.label("All followed people are fully covered.".to_owned());
         }
     } else if app.page == Page::RelaysAll {
         all::update(app, ctx, frame, ui);
