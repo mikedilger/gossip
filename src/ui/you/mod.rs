@@ -266,18 +266,28 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         );
     });
     ui.horizontal(|ui| {
-        ui.label("Enter a passphrase for the private key");
+        ui.label("Enter a passphrase to keep it encrypted under");
         ui.add(TextEdit::singleline(&mut app.password).password(true));
     });
+    ui.horizontal(|ui| {
+        ui.label("Repeat passphrase to be sure");
+        ui.add(TextEdit::singleline(&mut app.password2).password(true));
+    });
     if ui.button("import").clicked() {
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
-            app.import_priv.clone(),
-            app.password.clone(),
-        ));
-        app.import_priv.zeroize();
-        app.import_priv = "".to_owned();
+        if app.password != app.password2 {
+            *GLOBALS.status_message.blocking_write() = "Passwords do not match".to_owned();
+        } else {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
+                app.import_priv.clone(),
+                app.password.clone(),
+            ));
+            app.import_priv.zeroize();
+            app.import_priv = "".to_owned();
+        }
         app.password.zeroize();
         app.password = "".to_owned();
+        app.password2.zeroize();
+        app.password2 = "".to_owned();
     }
 }
 
@@ -351,11 +361,21 @@ fn offer_generate(app: &mut GossipUi, ui: &mut Ui) {
         ui.label("Enter a passphrase to keep it encrypted under");
         ui.add(TextEdit::singleline(&mut app.password).password(true));
     });
+    ui.horizontal(|ui| {
+        ui.label("Repeat passphrase to be sure");
+        ui.add(TextEdit::singleline(&mut app.password2).password(true));
+    });
     if ui.button("Generate Now").clicked() {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::GeneratePrivateKey(app.password.clone()));
+        if app.password != app.password2 {
+            *GLOBALS.status_message.blocking_write() = "Passwords do not match".to_owned();
+        } else {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::GeneratePrivateKey(app.password.clone()));
+        }
         app.password.zeroize();
         app.password = "".to_owned();
+        app.password2.zeroize();
+        app.password2 = "".to_owned();
     }
 }

@@ -119,6 +119,7 @@ struct GossipUi {
     follow_pubkey: String,
     follow_pubkey_at_relay: String,
     password: String,
+    password2: String,
     del_password: String,
     new_metadata_fieldname: String,
     import_priv: String,
@@ -129,6 +130,8 @@ struct GossipUi {
 impl Drop for GossipUi {
     fn drop(&mut self) {
         self.password.zeroize();
+        self.password2.zeroize();
+        self.del_password.zeroize();
     }
 }
 
@@ -236,6 +239,7 @@ impl GossipUi {
             follow_pubkey: "".to_owned(),
             follow_pubkey_at_relay: "".to_owned(),
             password: "".to_owned(),
+            password2: "".to_owned(),
             del_password: "".to_owned(),
             new_metadata_fieldname: String::new(),
             import_priv: "".to_owned(),
