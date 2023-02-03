@@ -76,7 +76,7 @@ impl DbEvent {
     }
 
     pub async fn fetch_reply_related(since: i64) -> Result<Vec<DbEvent>, Error> {
-        let public_key: PublicKeyHex = match GLOBALS.signer.read().await.public_key() {
+        let public_key: PublicKeyHex = match GLOBALS.signer.public_key() {
             None => return Ok(vec![]),
             Some(pk) => pk.into(),
         };

@@ -138,11 +138,11 @@ impl Minion {
                 );
             }
             RelayMessage::Auth(challenge) => {
-                if !GLOBALS.signer.read().await.is_ready() {
+                if !GLOBALS.signer.is_ready() {
                     tracing::warn!("AUTH required, but we have no key");
                     return Ok(());
                 }
-                let pubkey = match GLOBALS.signer.read().await.public_key() {
+                let pubkey = match GLOBALS.signer.public_key() {
                     Some(pk) => pk,
                     None => return Ok(()),
                 };
@@ -163,7 +163,7 @@ impl Minion {
                     content: "".to_string(),
                     ots: None,
                 };
-                let event = GLOBALS.signer.read().await.sign_preevent(pre_event, None)?;
+                let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
                 let msg = ClientMessage::Auth(Box::new(event));
                 let wire = serde_json::to_string(&msg)?;
                 let ws_sink = self.sink.as_mut().unwrap();

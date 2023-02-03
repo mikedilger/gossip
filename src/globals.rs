@@ -68,7 +68,7 @@ pub struct Globals {
     pub settings: RwLock<Settings>,
 
     /// Signer
-    pub signer: RwLock<Signer>,
+    pub signer: Signer,
 
     /// Dismissed Events
     pub dismissed: RwLock<Vec<Id>>,
@@ -114,7 +114,7 @@ lazy_static! {
             relay_picker: RwLock::new(Default::default()),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
-            signer: RwLock::new(Signer::default()),
+            signer: Signer::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),
             fetcher: Fetcher::new(),
@@ -205,7 +205,7 @@ impl Globals {
     }
 
     pub fn get_your_nprofile() -> Option<Profile> {
-        let public_key = match GLOBALS.signer.blocking_read().public_key() {
+        let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
             None => return None,
         };

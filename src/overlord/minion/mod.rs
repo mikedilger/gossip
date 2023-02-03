@@ -357,7 +357,7 @@ impl Minion {
 
         let enable_reactions = GLOBALS.settings.read().await.reactions;
 
-        if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
             let mut kinds = vec![
                 EventKind::TextNote,
                 EventKind::Repost,
@@ -755,7 +755,7 @@ impl Minion {
     }
 
     async fn pull_following(&mut self) -> Result<(), Error> {
-        if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
             let pkh: PublicKeyHex = pubkey.into();
             let filter = Filter {
                 authors: vec![pkh.into()],

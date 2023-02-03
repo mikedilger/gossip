@@ -15,7 +15,7 @@ pub(super) fn posting_area(
 ) {
     // Posting Area
     ui.vertical(|ui| {
-        if !GLOBALS.signer.blocking_read().is_ready() {
+        if !GLOBALS.signer.is_ready() {
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("setup your identity").clicked() {

@@ -156,12 +156,12 @@ impl Feed {
             .collect();
 
         let mut followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
-        if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
             followed_pubkeys.push(pubkey.into()); // add the user
         }
 
         // My event ids
-        if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
             *self.my_event_ids.write() = events
                 .iter()
                 .filter_map(|e| if e.pubkey == pubkey { Some(e.id) } else { None })
@@ -199,7 +199,7 @@ impl Feed {
         // Filter differently for the replies feed
         let direct_only = GLOBALS.settings.read().await.direct_replies_only;
 
-        if let Some(my_pubkey) = GLOBALS.signer.read().await.public_key() {
+        if let Some(my_pubkey) = GLOBALS.signer.public_key() {
             let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();
             let mut revents: Vec<Event> = events
                 .iter()

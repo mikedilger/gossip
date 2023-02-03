@@ -86,7 +86,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, "general");
         }
         FeedKind::Replies => {
-            if GLOBALS.signer.blocking_read().public_key().is_none() {
+            if GLOBALS.signer.public_key().is_none() {
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup an identity").clicked() {

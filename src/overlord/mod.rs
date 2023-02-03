@@ -79,7 +79,7 @@ impl Overlord {
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
         // Load signer from settings
-        GLOBALS.signer.write().await.load_from_settings().await;
+        GLOBALS.signer.load_from_settings().await;
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
@@ -434,8 +434,8 @@ impl Overlord {
                 DbRelay::insert(dbrelay).await?;
             }
             ToOverlordMessage::DeletePub => {
-                GLOBALS.signer.write().await.clear_public_key();
-                GLOBALS.signer.read().await.save_through_settings().await?;
+                GLOBALS.signer.clear_public_key();
+                GLOBALS.signer.save_through_settings().await?;
             }
             ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
                 Overlord::follow_pubkey_and_relay(pubkeystr, relay).await?;
@@ -454,25 +454,17 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
-                GLOBALS
-                    .signer
-                    .write()
-                    .await
-                    .generate_private_key(&password)?;
+                GLOBALS.signer.generate_private_key(&password)?;
                 password.zeroize();
-                GLOBALS.signer.read().await.save_through_settings().await?;
+                GLOBALS.signer.save_through_settings().await?;
             }
             ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
                 if import_priv.starts_with("ncryptsec") {
                     let epk = EncryptedPrivateKey(import_priv);
-                    GLOBALS.signer.write().await.set_encrypted_private_key(epk);
-                    GLOBALS
-                        .signer
-                        .write()
-                        .await
-                        .unlock_encrypted_private_key(&password)?;
+                    GLOBALS.signer.set_encrypted_private_key(epk);
+                    GLOBALS.signer.unlock_encrypted_private_key(&password)?;
                     password.zeroize();
-                    GLOBALS.signer.read().await.save_through_settings().await?;
+                    GLOBALS.signer.save_through_settings().await?;
                 } else {
                     let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
                     let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
@@ -483,13 +475,9 @@ impl Overlord {
                             "Private key not recognized.".to_owned();
                     } else {
                         let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-                        GLOBALS
-                            .signer
-                            .write()
-                            .await
-                            .set_private_key(privkey, &password)?;
+                        GLOBALS.signer.set_private_key(privkey, &password)?;
                         password.zeroize();
-                        GLOBALS.signer.read().await.save_through_settings().await?;
+                        GLOBALS.signer.save_through_settings().await?;
                     }
                 }
             }
@@ -500,8 +488,8 @@ impl Overlord {
                     *GLOBALS.status_message.write().await = "Public key not recognized.".to_owned();
                 } else {
                     let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-                    GLOBALS.signer.write().await.set_public_key(pubkey);
-                    GLOBALS.signer.read().await.save_through_settings().await?;
+                    GLOBALS.signer.set_public_key(pubkey);
+                    GLOBALS.signer.save_through_settings().await?;
                 }
             }
             ToOverlordMessage::Like(id, pubkey) => {
@@ -573,15 +561,11 @@ impl Overlord {
                 return Ok(false);
             }
             ToOverlordMessage::UnlockKey(mut password) => {
-                GLOBALS
-                    .signer
-                    .write()
-                    .await
-                    .unlock_encrypted_private_key(&password)?;
+                GLOBALS.signer.unlock_encrypted_private_key(&password)?;
                 password.zeroize();
 
                 // Update public key from private key
-                let public_key = GLOBALS.signer.read().await.public_key().unwrap();
+                let public_key = GLOBALS.signer.public_key().unwrap();
                 {
                     let mut settings = GLOBALS.settings.write().await;
                     settings.public_key = Some(public_key);
@@ -656,7 +640,7 @@ impl Overlord {
         mut tags: Vec<Tag>,
     ) -> Result<(), Error> {
         let event = {
-            let public_key = match GLOBALS.signer.read().await.public_key() {
+            let public_key = match GLOBALS.signer.public_key() {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -695,7 +679,7 @@ impl Overlord {
 
             let powint = GLOBALS.settings.read().await.pow;
             let pow = if powint > 0 { Some(powint) } else { None };
-            GLOBALS.signer.read().await.sign_preevent(pre_event, pow)?
+            GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
 
         let relays: Vec<DbRelay> = GLOBALS
@@ -734,7 +718,7 @@ impl Overlord {
         reply_to: Id,
     ) -> Result<(), Error> {
         let event = {
-            let public_key = match GLOBALS.signer.read().await.public_key() {
+            let public_key = match GLOBALS.signer.public_key() {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -823,7 +807,7 @@ impl Overlord {
 
             let powint = GLOBALS.settings.read().await.pow;
             let pow = if powint > 0 { Some(powint) } else { None };
-            GLOBALS.signer.read().await.sign_preevent(pre_event, pow)?
+            GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
 
         let relays: Vec<DbRelay> = GLOBALS
@@ -857,7 +841,7 @@ impl Overlord {
 
     async fn post_like(&mut self, id: Id, pubkey: PublicKey) -> Result<(), Error> {
         let event = {
-            let public_key = match GLOBALS.signer.read().await.public_key() {
+            let public_key = match GLOBALS.signer.public_key() {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -898,7 +882,7 @@ impl Overlord {
 
             let powint = GLOBALS.settings.read().await.pow;
             let pow = if powint > 0 { Some(powint) } else { None };
-            GLOBALS.signer.read().await.sign_preevent(pre_event, pow)?
+            GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
 
         let relays: Vec<DbRelay> = GLOBALS
@@ -996,7 +980,7 @@ impl Overlord {
     }
 
     async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
-        let public_key = match GLOBALS.signer.read().await.public_key() {
+        let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
             None => return Err(Error::NoPrivateKey), // not even a public key
         };
@@ -1010,7 +994,7 @@ impl Overlord {
             ots: None,
         };
 
-        let event = GLOBALS.signer.read().await.sign_preevent(pre_event, None)?;
+        let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
 
         // Push to all of the relays we post to
         let relays: Vec<DbRelay> = GLOBALS

@@ -218,7 +218,7 @@ pub async fn process_new_event(
             .update_contact_list_last_received(event.pubkey.into())
             .await?;
 
-        if let Some(pubkey) = GLOBALS.signer.read().await.public_key() {
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
                 process_your_contact_list(event).await?;
             } else {

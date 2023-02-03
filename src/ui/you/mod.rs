@@ -43,7 +43,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ScrollArea::vertical()
             .id_source("your_keys")
             .show(ui, |ui| {
-                if GLOBALS.signer.blocking_read().is_ready() {
+                if GLOBALS.signer.is_ready() {
                     ui.heading("Ready to sign events");
 
                     ui.add_space(10.0);
@@ -69,7 +69,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(10.0);
 
                     offer_delete(app, ui);
-                } else if GLOBALS.signer.blocking_read().is_loaded() {
+                } else if GLOBALS.signer.is_loaded() {
                     Frame::none()
                         .stroke(Stroke {
                             width: 2.0,
@@ -119,7 +119,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
 fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     // Render public key if available
-    if let Some(public_key) = GLOBALS.signer.blocking_read().public_key() {
+    if let Some(public_key) = GLOBALS.signer.public_key() {
         ui.heading("Public Key");
         ui.add_space(10.0);
 
@@ -188,9 +188,9 @@ fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
-    let key_security = GLOBALS.signer.blocking_read().key_security().unwrap();
+    let key_security = GLOBALS.signer.key_security().unwrap();
 
-    if let Some(epk) = GLOBALS.signer.blocking_read().encrypted_private_key() {
+    if let Some(epk) = GLOBALS.signer.encrypted_private_key() {
         ui.heading("Encrypted Private Key");
         ui.horizontal_wrapped(|ui| {
             ui.label(&epk.0);
@@ -212,7 +212,7 @@ fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
-    let key_security = GLOBALS.signer.blocking_read().key_security().unwrap();
+    let key_security = GLOBALS.signer.key_security().unwrap();
 
     ui.heading("Raw Export");
     if key_security == KeySecurity::Medium {
@@ -226,11 +226,7 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     });
 
     if ui.button("Export Private Key as bech32").clicked() {
-        match GLOBALS
-            .signer
-            .blocking_write()
-            .export_private_key_bech32(&app.password)
-        {
+        match GLOBALS.signer.export_private_key_bech32(&app.password) {
             Ok(mut bech32) => {
                 println!("Exported private key (bech32): {}", bech32);
                 bech32.zeroize();
@@ -243,11 +239,7 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         app.password = "".to_owned();
     }
     if ui.button("Export Private Key as hex").clicked() {
-        match GLOBALS
-            .signer
-            .blocking_write()
-            .export_private_key_hex(&app.password)
-        {
+        match GLOBALS.signer.export_private_key_hex(&app.password) {
             Ok(mut hex) => {
                 println!("Exported private key (hex): {}", hex);
                 hex.zeroize();
@@ -295,7 +287,7 @@ fn offer_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
 
     ui.label("This won't let you post or react to posts, but you can view other people's posts (and fetch your following list) with just a public key.");
 
-    if let Some(pk) = GLOBALS.signer.blocking_read().public_key() {
+    if let Some(pk) = GLOBALS.signer.public_key() {
         let pkhex: PublicKeyHex = pk.into();
         ui.horizontal(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
@@ -344,11 +336,7 @@ fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
     });
 
     if ui.button("DELETE (Cannot be undone!)").clicked() {
-        match GLOBALS
-            .signer
-            .blocking_write()
-            .delete_identity(&app.del_password)
-        {
+        match GLOBALS.signer.delete_identity(&app.del_password) {
             Ok(_) => *GLOBALS.status_message.blocking_write() = "Identity deleted.".to_string(),
             Err(e) => *GLOBALS.status_message.blocking_write() = format!("{}", e),
         }

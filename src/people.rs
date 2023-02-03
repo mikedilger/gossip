@@ -581,7 +581,7 @@ impl People {
             });
         }
 
-        let public_key = match GLOBALS.signer.read().await.public_key() {
+        let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
             None => return Err(Error::NoPrivateKey), // not even a public key
         };
@@ -606,7 +606,7 @@ impl People {
             ots: None,
         };
 
-        GLOBALS.signer.read().await.sign_preevent(pre_event, None)
+        GLOBALS.signer.sign_preevent(pre_event, None)
     }
 
     pub fn follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) {

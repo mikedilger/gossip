@@ -14,7 +14,7 @@ lazy_static! {
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(24.0);
 
-    let public_key = match GLOBALS.signer.blocking_read().public_key() {
+    let public_key = match GLOBALS.signer.public_key() {
         Some(pk) => pk,
         None => {
             ui.horizontal(|ui| {
@@ -109,7 +109,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         .to_overlord
                         .send(ToOverlordMessage::PushMetadata(app.metadata.clone()));
                 }
-            } else if GLOBALS.signer.blocking_read().is_ready() && ui.button("EDIT").clicked() {
+            } else if GLOBALS.signer.is_ready() && ui.button("EDIT").clicked() {
                 app.editing_metadata = true;
                 app.metadata = view_metadata.to_owned();
             }
