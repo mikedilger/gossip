@@ -379,7 +379,7 @@ impl Minion {
                 kinds.push(EventKind::Reaction);
             }
             filters.push(Filter {
-                p: vec![pkh.clone().into()],
+                p: vec![pkh.clone()],
                 kinds: vec![EventKind::TextNote],
                 since: Some(replies_since),
                 ..Default::default()
@@ -387,7 +387,7 @@ impl Minion {
 
             // Listen for my metadata and similar kinds of posts
             filters.push(Filter {
-                authors: vec![pkh.clone().into()],
+                authors: vec![pkh.into()],
                 kinds: vec![
                     EventKind::Metadata,
                     EventKind::RecommendRelay,
