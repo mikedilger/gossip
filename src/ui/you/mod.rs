@@ -336,10 +336,9 @@ fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
     });
 
     if ui.button("DELETE (Cannot be undone!)").clicked() {
-        match GLOBALS.signer.delete_identity(&app.del_password) {
-            Ok(_) => *GLOBALS.status_message.blocking_write() = "Identity deleted.".to_string(),
-            Err(e) => *GLOBALS.status_message.blocking_write() = format!("{}", e),
-        }
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::DeletePriv(app.del_password.clone()));
         app.del_password.zeroize();
         app.del_password = "".to_owned();
     }

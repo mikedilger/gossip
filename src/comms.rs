@@ -5,6 +5,7 @@ use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl,
 pub enum ToOverlordMessage {
     AddRelay(RelayUrl),
     DeletePub,
+    DeletePriv(String),
     FollowPubkeyAndRelay(String, RelayUrl),
     FollowNip05(String),
     FollowNprofile(String),

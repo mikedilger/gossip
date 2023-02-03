@@ -181,22 +181,28 @@ impl Signer {
     }
 
     pub fn delete_identity(&self, pass: &str) -> Result<(), Error> {
+        if self.encrypted.read().is_none() {
+            return Err(Error::NoPrivateKey);
+        }
+
+        // Verify their password
         match &*self.encrypted.read() {
             Some(epk) => {
-                // Verify their password
                 let _pk = epk.decrypt(pass)?;
-
-                *self.private.write() = None;
-                *self.encrypted.write() = None;
-                *self.public.write() = None;
-                task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save_through_settings().await {
-                        tracing::error!("{}", e);
-                    }
-                });
-                Ok(())
             }
-            _ => Err(Error::NoPrivateKey),
-        }
+            _ => return Err(Error::NoPrivateKey),
+        };
+
+        *self.private.write() = None;
+        *self.encrypted.write() = None;
+        *self.public.write() = None;
+
+        task::spawn(async move {
+            if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                tracing::error!("{}", e);
+            }
+        });
+
+        Ok(())
     }
 }

@@ -437,6 +437,16 @@ impl Overlord {
                 GLOBALS.signer.clear_public_key();
                 GLOBALS.signer.save_through_settings().await?;
             }
+            ToOverlordMessage::DeletePriv(mut password) => {
+                let result = GLOBALS.signer.delete_identity(&password);
+                password.zeroize();
+                match result {
+                    Ok(_) => {
+                        *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
+                    }
+                    Err(e) => *GLOBALS.status_message.write().await = format!("{}", e),
+                }
+            }
             ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
                 Overlord::follow_pubkey_and_relay(pubkeystr, relay).await?;
             }
@@ -561,7 +571,11 @@ impl Overlord {
                 return Ok(false);
             }
             ToOverlordMessage::UnlockKey(mut password) => {
-                GLOBALS.signer.unlock_encrypted_private_key(&password)?;
+                if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
+                    tracing::error!("{}", e);
+                    *GLOBALS.status_message.write().await =
+                        "Could not decrypt key with that password.".to_owned();
+                };
                 password.zeroize();
 
                 // Update public key from private key
