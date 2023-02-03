@@ -53,7 +53,7 @@ pub struct RelayPicker {
 
     /// The number of relays we should find for the given public key.
     // each run of best() decrements this as it assigns the public key
-    // to a relay. This should start at settings.num_relays_per_person
+    // to a relay. This should start at settings.num_relays_per_person (or less!)
     // for each person followed
     pub pubkey_counts: HashMap<PublicKeyHex, u8>,
 
@@ -83,12 +83,10 @@ impl RelayPicker {
 
         // Create pubkey counts for each person
         let mut pubkey_counts: HashMap<PublicKeyHex, u8> = HashMap::new();
-        for pk in pubkeys.iter() {
-            pubkey_counts.insert(pk.clone(), num_relays_per_person);
-        }
 
         // Compute scores for each person_relay pairing
         let mut person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)> = Vec::new();
+
         for pubkey in &pubkeys {
             let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
                 DbPersonRelay::get_best_relays(pubkey.to_owned())
@@ -96,6 +94,15 @@ impl RelayPicker {
                     .iter()
                     .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
                     .collect();
+
+            // NOTE: If they only post to less than num_relays_per_person, that is
+            // their count.
+
+            pubkey_counts.insert(
+                pubkey.clone(),
+                num_relays_per_person.min(best_relays.len() as u8),
+            );
+
             person_relay_scores.extend(best_relays);
         }
 
