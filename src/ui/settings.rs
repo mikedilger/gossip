@@ -16,8 +16,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.heading("How Many Relays to Query");
 
         ui.horizontal(|ui| {
-            ui.label("Number of relays to query per person: ").on_hover_text("We will query N relays per person. Many people share the same relays so those will be queried about multiple people. Takes affect on restart. I recommend 2 or 3.");
-            ui.add(Slider::new(&mut app.settings.num_relays_per_person, 1..=6).text("relays"));
+            ui.label("Number of relays to query per person: ").on_hover_text("We will query N relays per person. Many people share the same relays so those will be queried about multiple people. Takes affect on restart. I recommend 2. Too many and gossip will (currently) keep connecting to new relays trying to find the unfindable, loading many events from each.");
+            ui.add(Slider::new(&mut app.settings.num_relays_per_person, 1..=4).text("relays"));
         });
 
         ui.horizontal(|ui| {
