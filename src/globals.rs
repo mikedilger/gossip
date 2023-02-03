@@ -219,7 +219,7 @@ impl Globals {
             .relays
             .blocking_read()
             .iter()
-            .filter(|(_, r)| r.post)
+            .filter(|(_, r)| r.write)
         {
             profile.relays.push(url.to_unchecked_url())
         }

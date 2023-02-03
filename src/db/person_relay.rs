@@ -13,6 +13,8 @@ pub struct DbPersonRelay {
     pub last_suggested_nip23: Option<u64>,
     pub last_suggested_nip05: Option<u64>,
     pub last_suggested_bytag: Option<u64>,
+    pub read: bool,
+    pub write: bool,
 }
 
 impl DbPersonRelay {
@@ -25,10 +27,11 @@ impl DbPersonRelay {
         let sql = format!(
             "SELECT person, relay, person_relay.last_fetched, \
              last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
-             last_suggested_nip05, last_suggested_bytag \
+             last_suggested_nip05, last_suggested_bytag, read, write \
              FROM person_relay \
              INNER JOIN relay ON person_relay.relay=relay.url \
-             WHERE person IN ({}) ORDER BY person, relay.rank DESC, \
+             WHERE person IN ({}) ORDER BY person, \
+             person_relay.write DESC, relay.rank DESC, \
              last_suggested_nip23 DESC, last_suggested_kind3 DESC, \
              last_suggested_nip05 DESC, last_suggested_kind2 DESC, \
              last_fetched DESC, last_suggested_bytag DESC",
@@ -57,6 +60,8 @@ impl DbPersonRelay {
                         last_suggested_nip23: row.get(5)?,
                         last_suggested_nip05: row.get(6)?,
                         last_suggested_bytag: row.get(7)?,
+                        read: row.get(8)?,
+                        write: row.get(9)?,
                     });
                 }
             }
@@ -71,8 +76,8 @@ impl DbPersonRelay {
     pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, \
                    last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
-                   last_suggested_nip05, last_suggested_bytag) \
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                   last_suggested_nip05, last_suggested_bytag, read, write) \
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -88,6 +93,8 @@ impl DbPersonRelay {
                 &person_relay.last_suggested_nip23,
                 &person_relay.last_suggested_nip05,
                 &person_relay.last_suggested_bytag,
+                &person_relay.read,
+                &person_relay.write,
             ))?;
             Ok::<(), Error>(())
         })
@@ -229,7 +236,7 @@ impl DbPersonRelay {
     pub async fn get_best_relays(pubkey: PublicKeyHex) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let sql = "SELECT person, relay, last_suggested_nip23, last_suggested_kind3, \
                    last_suggested_nip05, last_fetched, last_suggested_kind2, \
-                   last_suggested_bytag \
+                   last_suggested_bytag, read, write \
                    FROM person_relay WHERE person=?";
 
         let ranked_relays: Result<Vec<(RelayUrl, u64)>, Error> = spawn_blocking(move || {
@@ -253,6 +260,8 @@ impl DbPersonRelay {
                         last_suggested_nip23: row.get(5)?,
                         last_suggested_nip05: row.get(6)?,
                         last_suggested_bytag: row.get(7)?,
+                        read: row.get(8)?,
+                        write: row.get(9)?,
                     };
                     dbprs.push(dbpr);
                 }

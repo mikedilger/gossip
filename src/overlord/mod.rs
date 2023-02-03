@@ -565,11 +565,12 @@ impl Overlord {
                 GLOBALS.settings.read().await.save().await?;
                 tracing::debug!("Settings saved.");
             }
-            ToOverlordMessage::SetRelayPost(relay_url, post) => {
+            ToOverlordMessage::SetRelayReadWrite(relay_url, read, write) => {
                 if let Some(relay) = GLOBALS.relays.write().await.get_mut(&relay_url) {
-                    relay.post = post;
+                    relay.read = read;
+                    relay.write = write;
                 }
-                DbRelay::update_post(relay_url, post).await?;
+                DbRelay::update_read_and_write(relay_url, read, write).await?;
             }
             ToOverlordMessage::SetThreadFeed(id, referenced_by, previous_thread_parent) => {
                 self.set_thread_feed(id, referenced_by, previous_thread_parent)
@@ -649,6 +650,8 @@ impl Overlord {
             last_suggested_nip23: None,
             last_suggested_nip05: None,
             last_suggested_bytag: None,
+            read: true,
+            write: true,
         })
         .await?;
 
@@ -710,7 +713,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -838,7 +841,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -913,7 +916,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -948,7 +951,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -981,7 +984,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -1025,7 +1028,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {

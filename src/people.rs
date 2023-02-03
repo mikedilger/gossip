@@ -24,7 +24,8 @@ pub struct DbPerson {
     pub followed: u8,
     pub followed_last_updated: i64,
     pub muted: u8,
-    pub contact_list_last_received: i64,
+    pub relay_list_last_received: i64,
+    pub relay_list_created_at: i64,
 }
 
 impl DbPerson {
@@ -38,7 +39,8 @@ impl DbPerson {
             followed: 0,
             followed_last_updated: 0,
             muted: 0,
-            contact_list_last_received: 0,
+            relay_list_last_received: 0,
+            relay_list_created_at: 0,
         }
     }
 
@@ -126,7 +128,7 @@ impl People {
         let mut output: Vec<PublicKeyHex> = Vec::new();
         for person in self.people.iter().filter_map(|p| {
             if p.followed == 1
-                && p.contact_list_last_received < one_day_ago
+                && p.relay_list_last_received < one_day_ago
                 && among_these.contains(&p.pubkey)
             {
                 Some(p)
@@ -306,7 +308,8 @@ impl People {
         //       who are muted, so they can be found and unmuted as necessary.
 
         let sql = "SELECT pubkey, metadata, metadata_at, nip05_valid, nip05_last_checked, \
-                   followed, followed_last_updated, muted, contact_list_last_received \
+                   followed, followed_last_updated, muted, relay_list_last_received, \
+                   relay_list_created_at \
                    FROM person WHERE followed=1 OR muted=1"
             .to_owned();
 
@@ -333,7 +336,8 @@ impl People {
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
                     muted: row.get(7)?,
-                    contact_list_last_received: row.get(8)?,
+                    relay_list_last_received: row.get(8)?,
+                    relay_list_created_at: row.get(9)?,
                 });
             }
             Ok(output)
@@ -814,22 +818,30 @@ impl People {
         Ok(())
     }
 
-    pub async fn update_contact_list_last_received(
+    pub async fn update_relay_list_stamps(
         &self,
         pubkeyhex: PublicKeyHex,
+        mut created_at: i64,
     ) -> Result<(), Error> {
         let now = Unixtime::now().unwrap().0;
 
         if let Some(mut person) = self.people.get_mut(&pubkeyhex) {
-            person.contact_list_last_received = now;
+            created_at = created_at.max(person.relay_list_created_at);
+            person.relay_list_last_received = now;
+            person.relay_list_created_at = created_at;
+        } else {
+            tracing::warn!("FIXME: RelayList for person we don't have. We should create them.");
+            return Ok(());
         }
 
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
-            let mut stmt =
-                db.prepare("UPDATE person SET contact_list_last_received=? WHERE pubkey=?")?;
-            stmt.execute((&now, pubkeyhex.as_str()))?;
+            let mut stmt = db.prepare(
+                "UPDATE person SET relay_list_last_received=?, \
+                            relay_list_created_at=? WHERE pubkey=?",
+            )?;
+            stmt.execute((&now, &created_at, pubkeyhex.as_str()))?;
             Ok(())
         })
         .await?
@@ -910,7 +922,8 @@ impl People {
         let sql = "SELECT pubkey, metadata, metadata_at, \
              nip05_valid, nip05_last_checked, \
              followed, followed_last_updated, muted, \
-             contact_list_last_received FROM person"
+             relay_list_last_received, relay_list_created_at \
+             FROM person"
             .to_owned();
         let sql = match criteria {
             None => sql,
@@ -940,7 +953,8 @@ impl People {
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
                     muted: row.get(7)?,
-                    contact_list_last_received: row.get(8)?,
+                    relay_list_last_received: row.get(8)?,
+                    relay_list_created_at: row.get(9)?,
                 });
             }
             Ok(output)
@@ -963,8 +977,8 @@ impl People {
     async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<DbPerson>, Error> {
         let sql = format!(
             "SELECT pubkey, metadata, metadata_at, nip05_valid, nip05_last_checked, \
-             followed, followed_last_updated, muted, contact_list_last_received \
-             FROM person WHERE pubkey IN ({})",
+             followed, followed_last_updated, muted, relay_list_last_received, \
+             relay_list_created_at FROM person WHERE pubkey IN ({})",
             repeat_vars(pubkeys.len())
         );
 
@@ -1000,7 +1014,8 @@ impl People {
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
                     muted: row.get(7)?,
-                    contact_list_last_received: row.get(8)?,
+                    relay_list_last_received: row.get(8)?,
+                    relay_list_created_at: row.get(9)?,
                 });
             }
 

@@ -215,7 +215,7 @@ pub async fn process_new_event(
     if event.kind == EventKind::ContactList {
         GLOBALS
             .people
-            .update_contact_list_last_received(event.pubkey.into())
+            .update_relay_list_stamps(event.pubkey.into(), event.created_at.0)
             .await?;
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
