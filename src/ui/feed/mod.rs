@@ -249,7 +249,7 @@ fn render_post_actual(
     let event = maybe_event.unwrap();
 
     // Only render TextNote events
-    if event.kind != EventKind::TextNote {
+    if event.kind != EventKind::TextNote && event.kind != EventKind::Repost {
         return;
     }
 
@@ -397,6 +397,15 @@ fn render_post_inner(
                 ui.label(RichText::new("DELETED").color(color));
             }
 
+            if event.kind == EventKind::Repost {
+                let color = if ui.visuals().dark_mode {
+                    Color32::LIGHT_BLUE
+                } else {
+                    Color32::DARK_BLUE
+                };
+                ui.label(RichText::new("REPOSTED").color(color));
+            }
+
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.menu_button(RichText::new("📃▼").size(13.0), |ui| {
                     if !is_main_event && ui.button("View Thread").clicked() {
@@ -451,6 +460,29 @@ fn render_post_inner(
                 ui.label(serde_json::to_string(&event).unwrap());
             } else if app.render_qr == Some(event.id) {
                 app.render_qr(ui, ctx, "feedqr", event.content.trim());
+            } else if event.kind == EventKind::Repost {
+                if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+                    let inner_person = match GLOBALS.people.get(&inner_event.pubkey.into()) {
+                        Some(p) => p,
+                        None => DbPerson::new(inner_event.pubkey.into()),
+                    };
+                    ui.vertical(|ui| {
+                        thin_blue_separator(ui);
+                        ui.add_space(4.0);
+                        ui.horizontal_wrapped(|ui| {
+                            render_post_inner(
+                                app,
+                                ctx,
+                                ui,
+                                inner_event,
+                                inner_person,
+                                false,
+                                false,
+                            );
+                        });
+                        thin_blue_separator(ui);
+                    });
+                }
             } else {
                 content::render_content(app, ui, &tag_re, &event, deletion.is_some());
             }
@@ -567,11 +599,16 @@ fn render_post_inner(
 }
 
 fn thin_red_separator(ui: &mut Ui) {
+    thin_separator(ui, Color32::from_rgb(160, 0, 0));
+}
+
+fn thin_blue_separator(ui: &mut Ui) {
+    thin_separator(ui, Color32::from_rgb(0, 0, 160));
+}
+
+fn thin_separator(ui: &mut Ui, color: Color32) {
     let mut style = ui.style_mut();
-    style.visuals.widgets.noninteractive.bg_stroke = Stroke {
-        width: 1.0,
-        color: Color32::from_rgb(160, 0, 0),
-    };
+    style.visuals.widgets.noninteractive.bg_stroke = Stroke { width: 1.0, color };
     ui.add(Separator::default().spacing(0.0));
     ui.reset_style();
 }

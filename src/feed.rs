@@ -110,7 +110,7 @@ impl Feed {
             .events
             .iter()
             .map(|r| r.value().to_owned())
-            .filter(|e| e.kind == EventKind::TextNote)
+            .filter(|e| e.kind == EventKind::TextNote || e.kind == EventKind::Repost)
             .filter(|e| e.pubkey.as_hex_string() == person.as_str())
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
             .collect();
@@ -152,7 +152,7 @@ impl Feed {
             .events
             .iter()
             .map(|r| r.value().to_owned())
-            .filter(|e| e.kind == EventKind::TextNote)
+            .filter(|e| e.kind == EventKind::TextNote || e.kind == EventKind::Repost)
             .collect();
 
         let mut followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
