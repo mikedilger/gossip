@@ -277,9 +277,14 @@ impl DbPersonRelay {
     // This ranks the relays
     pub fn rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
         // This is the ranking we are using. There might be reasons
-        // for ranking differently:
-        // nip23 (score=10) > kind3 (score=8) > nip05 (score=6) > fetched (score=4)
-        //   > kind2 (score=2) > bytag (score=1)
+        // for ranking differently.
+        //   write (score=20)    [ they claim (to us) ]
+        //   nip23 (score=10)    [ they say (to themselves) ]
+        //   kind3 tag (score=5) [ we say ]
+        //   nip05 (score=4)     [ they claim, unsigned ]
+        //   fetched (score=3)   [ we found ]
+        //   kind2 (score=2)     [ they mention ]
+        //   bytag (score=1)     [ someone else mentions ]
 
         let now = Unixtime::now().unwrap().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
@@ -292,30 +297,43 @@ impl DbPersonRelay {
 
         for dbpr in dbprs.drain(..) {
             let mut score = 0;
-            // nip23 is an author-signed explicit claim of using this relay
+
+            // 'write' is an author-signed explicit claim of where they write
+            if dbpr.write {
+                score += 20;
+            }
+
+            // nip23 is an author-signed statement to themselves
+            // kind-3 content also substitutes for nip23, this comes from either.
             if let Some(when) = dbpr.last_suggested_nip23 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 15);
-            }
-            // kind3 is a temporary (not NIPped) author-signed explicit claim of using this relay
-            if let Some(when) = dbpr.last_suggested_kind3 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 15);
-            }
-            // kind2 is an author-signed recommended relay list
-            if let Some(when) = dbpr.last_suggested_kind2 {
                 score += scorefn(when, 60 * 60 * 24 * 30, 10);
             }
-            // nip05 is an unsigned dns claim of using this relay
-            if let Some(when) = dbpr.last_suggested_nip05 {
-                score += scorefn(when, 60 * 60 * 24 * 15, 6);
+
+            // kind3 is our memory of where we are following someone
+            if let Some(when) = dbpr.last_suggested_kind3 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 7);
             }
+
+            // nip05 is an unsigned dns-based author claim of using this relay
+            if let Some(when) = dbpr.last_suggested_nip05 {
+                score += scorefn(when, 60 * 60 * 24 * 15, 4);
+            }
+
             // last_fetched is gossip verified happened-to-work-before
             if let Some(when) = dbpr.last_fetched {
-                score += scorefn(when, 60 * 60 * 24 * 3, 6);
+                score += scorefn(when, 60 * 60 * 24 * 3, 3);
             }
+
+            // kind2 is an author-signed relay recommendation
+            if let Some(when) = dbpr.last_suggested_kind2 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 2);
+            }
+
             // last_suggested_bytag is an anybody-signed suggestion
             if let Some(when) = dbpr.last_suggested_bytag {
                 score += scorefn(when, 60 * 60 * 24 * 2, 1);
             }
+
             output.push((dbpr.relay, score));
         }
 
@@ -323,22 +341,6 @@ impl DbPersonRelay {
 
         output
     }
-
-    /*
-        pub async fn delete(criteria: &str) -> Result<(), Error> {
-            let sql = format!("DELETE FROM person_relay WHERE {}", criteria);
-
-            spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
-                db.execute(&sql, [])?;
-                Ok::<(), Error>(())
-            })
-            .await??;
-
-            Ok(())
-    }
-        */
 }
 
 fn repeat_vars(count: usize) -> String {
