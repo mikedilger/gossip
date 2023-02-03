@@ -92,7 +92,7 @@ pub struct People {
     // the person's NIP-05 when that metadata come in. We remember this here.
     recheck_nip05: DashSet<PublicKeyHex>,
 
-    // Date of the last self-owend contact list we processed
+    // Date of the last self-owned contact list we processed
     pub last_contact_list_asof: AtomicI64,
 }
 
@@ -120,11 +120,12 @@ impl People {
         output
     }
 
-    pub fn get_followed_pubkeys_needing_contact_lists(
+    pub fn get_followed_pubkeys_needing_relay_lists(
         &self,
         among_these: &[PublicKeyHex],
     ) -> Vec<PublicKeyHex> {
-        let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 24);
+        // FIXME make this a setting (8 hours)
+        let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 8);
         let mut output: Vec<PublicKeyHex> = Vec::new();
         for person in self.people.iter().filter_map(|p| {
             if p.followed == 1
@@ -818,20 +819,27 @@ impl People {
         Ok(())
     }
 
+    // Returns true if the date passed in is newer than what we already had
     pub async fn update_relay_list_stamps(
         &self,
         pubkeyhex: PublicKeyHex,
         mut created_at: i64,
-    ) -> Result<(), Error> {
+    ) -> Result<bool, Error> {
         let now = Unixtime::now().unwrap().0;
 
+        let mut retval = false;
+
         if let Some(mut person) = self.people.get_mut(&pubkeyhex) {
-            created_at = created_at.max(person.relay_list_created_at);
             person.relay_list_last_received = now;
-            person.relay_list_created_at = created_at;
+            if created_at > person.relay_list_created_at {
+                retval = true;
+                person.relay_list_created_at = created_at;
+            } else {
+                created_at = person.relay_list_created_at; // for the update below
+            }
         } else {
             tracing::warn!("FIXME: RelayList for person we don't have. We should create them.");
-            return Ok(());
+            return Ok(false);
         }
 
         task::spawn_blocking(move || {
@@ -842,9 +850,11 @@ impl People {
                             relay_list_created_at=? WHERE pubkey=?",
             )?;
             stmt.execute((&now, &created_at, pubkeyhex.as_str()))?;
-            Ok(())
+            Ok::<(), Error>(())
         })
-        .await?
+        .await??;
+
+        Ok(retval)
     }
 
     pub async fn update_nip05_last_checked(&self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {

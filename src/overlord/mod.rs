@@ -640,13 +640,15 @@ impl Overlord {
         let db_relay = DbRelay::new(relay.clone());
         DbRelay::insert(db_relay).await?;
 
+        let now = Unixtime::now().unwrap().0 as u64;
+
         // Save person_relay
         DbPersonRelay::insert(DbPersonRelay {
             person: pkhex.to_string(),
             relay,
             last_fetched: None,
             last_suggested_kind2: None,
-            last_suggested_kind3: None,
+            last_suggested_kind3: Some(now), // consider it our claim in our contact list
             last_suggested_nip23: None,
             last_suggested_nip05: None,
             last_suggested_bytag: None,

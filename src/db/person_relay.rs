@@ -232,6 +232,71 @@ impl DbPersonRelay {
         Ok(())
     }
 
+    pub async fn set_relay_list(
+        person: PublicKeyHex,
+        read_relays: Vec<RelayUrl>,
+        write_relays: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        // Clear the current ones
+        let sql1 = "UPDATE person_relay SET read=0, write=0 WHERE person=?";
+
+        // Set the reads
+        let sql2 = format!(
+            "UPDATE person_relay SET read=1 WHERE person=? AND relay IN ({})",
+            repeat_vars(read_relays.len())
+        );
+        let mut params2: Vec<String> = vec![person.to_string()];
+        for relay in read_relays.iter() {
+            params2.push(relay.to_string());
+        }
+
+        // Set the writes
+        let sql3 = format!(
+            "UPDATE person_relay SET write=1 WHERE person=? AND relay IN ({})",
+            repeat_vars(write_relays.len())
+        );
+
+        let mut params3: Vec<String> = vec![person.to_string()];
+        for relay in write_relays.iter() {
+            params3.push(relay.to_string());
+        }
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let inner = || -> Result<(), Error> {
+                let mut stmt = db.prepare("BEGIN TRANSACTION")?;
+                stmt.execute(())?;
+
+                let mut stmt = db.prepare(sql1)?;
+                stmt.execute((person.as_str(),))?;
+
+                let mut stmt = db.prepare(&sql2)?;
+                stmt.execute(rusqlite::params_from_iter(params2))?;
+
+                let mut stmt = db.prepare(&sql3)?;
+                stmt.execute(rusqlite::params_from_iter(params3))?;
+
+                let mut stmt = db.prepare("COMMIT TRANSACTION")?;
+                stmt.execute(())?;
+
+                Ok(())
+            };
+
+            if let Err(e) = inner() {
+                tracing::error!("{}", e);
+                let mut stmt = db.prepare("ROLLBACK TRANSACTION")?;
+                stmt.execute(())?;
+            }
+
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
     /// This returns the best relays for the person along with a score, in order of score
     pub async fn get_best_relays(pubkey: PublicKeyHex) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let sql = "SELECT person, relay, last_suggested_nip23, last_suggested_kind3, \

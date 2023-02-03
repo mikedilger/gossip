@@ -421,6 +421,7 @@ impl Minion {
                     EventKind::RecommendRelay,
                     EventKind::ContactList,
                     EventKind::RelaysListNip23,
+                    EventKind::RelayList,
                 ],
                 since: Some(replies_since),
                 ..Default::default()
@@ -450,29 +451,33 @@ impl Minion {
                 ..Default::default()
             });
 
+            // Try to find where people post.
+            // Subscribe to kind-10002 `RelayList`s to see where people post.
             // Subscribe to ContactLists so we can look at the contents and
-            // divine relays people write to (if using a client that does that).
-            //
-            // BUT ONLY for people whose contact list has not been received in the last
-            // 24 hours.
-            let contact_list_keys: Vec<PublicKeyHexPrefix> = GLOBALS
+            //   divine relays people write to (if using a client that does that).
+            // BUT ONLY for people where this kind of data hasn't been received
+            // in the last 8 hours (so we don't do it every client restart).
+            let keys_needing_relay_lists: Vec<PublicKeyHexPrefix> = GLOBALS
                 .people
-                .get_followed_pubkeys_needing_contact_lists(&followed_pubkeys)
+                .get_followed_pubkeys_needing_relay_lists(&followed_pubkeys)
                 .drain(..)
                 .map(|pk| pk.into())
                 .collect();
 
-            if !contact_list_keys.is_empty() {
+            if !keys_needing_relay_lists.is_empty() {
                 tracing::debug!(
-                    "Need contact lists from {} people on {}",
-                    contact_list_keys.len(),
+                    "Looking to update relay lists from {} people on {}",
+                    keys_needing_relay_lists.len(),
                     &self.url
                 );
 
-                // TBD: EventKind::RelaysList from nip23
                 filters.push(Filter {
-                    authors: contact_list_keys,
-                    kinds: vec![EventKind::ContactList],
+                    authors: keys_needing_relay_lists,
+                    kinds: vec![
+                        EventKind::RelayList,
+                        EventKind::RelaysListNip23,
+                        EventKind::ContactList,
+                    ],
                     // No since. These are replaceable events, we should only get 1 per person.
                     ..Default::default()
                 });
