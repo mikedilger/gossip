@@ -31,6 +31,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     "That's not a valid relay URL.".to_owned();
             }
         }
+        ui.separator();
+        if ui.button("↑ Advertise Relay List ↑").clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::AdvertiseRelayList);
+        }
     });
 
     ui.add_space(10.0);

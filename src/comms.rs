@@ -4,6 +4,7 @@ use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl,
 #[derive(Debug, Clone)]
 pub enum ToOverlordMessage {
     AddRelay(RelayUrl),
+    AdvertiseRelayList,
     DeletePub,
     DeletePriv(String),
     FollowPubkeyAndRelay(String, RelayUrl),

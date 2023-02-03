@@ -441,6 +441,9 @@ impl Overlord {
                 let dbrelay = DbRelay::new(relay_str);
                 DbRelay::insert(dbrelay).await?;
             }
+            ToOverlordMessage::AdvertiseRelayList => {
+                self.advertise_relay_list().await?;
+            }
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
                 GLOBALS.signer.save_through_settings().await?;
@@ -741,6 +744,88 @@ impl Overlord {
 
         // Process the message for ourself
         crate::process::process_new_event(&event, false, None, None).await?;
+
+        Ok(())
+    }
+
+    async fn advertise_relay_list(&mut self) -> Result<(), Error> {
+        let public_key = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("No public key! Not posting");
+                return Ok(());
+            }
+        };
+
+        let read_or_write_relays: Vec<DbRelay> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(_url, r)| {
+                if r.read || r.write {
+                    Some(r.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut tags: Vec<Tag> = Vec::new();
+        for relay in read_or_write_relays.iter() {
+            tags.push(Tag::Reference {
+                url: relay.url.to_unchecked_url(),
+                marker: if relay.read && relay.write {
+                    None
+                } else if relay.read {
+                    Some("read".to_owned())
+                } else if relay.write {
+                    Some("write".to_owned())
+                } else {
+                    unreachable!()
+                },
+            });
+        }
+
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::RelayList,
+            tags,
+            content: "".to_string(),
+            ots: None,
+        };
+
+        let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
+
+        let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(url, r)| {
+                if r.advertise {
+                    Some(url.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for relay_url in advertise_to_relay_urls {
+            // Start a minion for it, if there is none
+            if !GLOBALS.relays_watching.read().await.contains(&relay_url) {
+                self.start_minion(relay_url.clone()).await?;
+            }
+
+            // Send it the event to post
+            tracing::debug!("Asking {} to post", &relay_url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.0.clone(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
+            });
+        }
 
         Ok(())
     }
