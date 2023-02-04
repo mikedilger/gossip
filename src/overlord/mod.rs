@@ -1101,8 +1101,17 @@ impl Overlord {
         if let Some(highest_parent_id) = GLOBALS.events.get_highest_local_parent(&id).await? {
             GLOBALS.feed.set_thread_parent(highest_parent_id);
             if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
+                // Use relays in 'e' tags
                 for (id, opturl) in highest_parent.replies_to_ancestors() {
                     missing_ancestors.push(id);
+                    if let Some(url) = opturl {
+                        relays.push(url);
+                    }
+                }
+                // fiatjaf's suggestion from issue #187, use 'p' tag url mentions too, since
+                // those people probably wrote the ancestor events so probably on those
+                // relays
+                for (_pk, opturl) in highest_parent.mentions() {
                     if let Some(url) = opturl {
                         relays.push(url);
                     }
