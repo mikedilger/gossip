@@ -109,17 +109,23 @@ impl Minion {
                 .send();
 
             // Read NIP-11 information
-            match request_nip11_future
-                .await?
-                .json::<RelayInformationDocument>()
-                .await
-            {
-                Ok(nip11) => {
-                    tracing::info!("{}: {}", &self.url, nip11);
-                    self.nip11 = Some(nip11);
-                }
+            match request_nip11_future.await?.text().await {
+                Ok(text) => match serde_json::from_str::<RelayInformationDocument>(&text) {
+                    Ok(nip11) => {
+                        tracing::info!("{}: {}", &self.url, nip11);
+                        self.nip11 = Some(nip11);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "{}: Unable to parse response as NIP-11 ({}): {}",
+                            &self.url,
+                            e,
+                            text
+                        );
+                    }
+                },
                 Err(e) => {
-                    tracing::warn!("{}: Unable to parse response as NIP-11: {}", &self.url, e);
+                    tracing::warn!("{}: Unable to read response: {}", &self.url, e);
                 }
             }
 
