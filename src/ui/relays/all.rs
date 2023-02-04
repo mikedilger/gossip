@@ -63,6 +63,7 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
             .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
+            .column(Column::auto().resizable(true))
             .column(Column::remainder())
             .header(20.0, |mut header| {
                 header.col(|ui| {
@@ -90,8 +91,12 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                         .on_hover_text("Write your events to these relays. It is recommended to have a few." );
                 });
                 header.col(|ui| {
+                    ui.heading("Advertise")
+                        .on_hover_text("Advertise your read/write settings to this relay. It is recommended to advertise to many relays so that you can be found.");
+                });
+                header.col(|ui| {
                     ui.heading("Read rank")
-                        .on_hover_text("0-9: 0 disables, 3 is default, 9 is highest rank".to_string());
+                        .on_hover_text("How likely we will connect to relays to read other people's posts, from 0 (never) to 9 (highly). Default is 3.".to_string());
                 });
             }).body(|body| {
                 body.rows(24.0, relays.len(), |row_index, mut row| {
@@ -137,6 +142,17 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                             let _ = GLOBALS
                                 .to_overlord
                                 .send(ToOverlordMessage::SetRelayReadWrite(relay.url.clone(), relay.read, write));
+                        }
+                    });
+                    row.col(|ui| {
+                        let mut advertise = relay.advertise; // checkbox needs a mutable state variable.
+                        if ui.checkbox(&mut advertise, "")
+                            .on_hover_text("If selected, when you send out your relay list advertisements, one of them will go to this relay.")
+                            .clicked()
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::SetRelayAdvertise(relay.url.clone(), advertise));
                         }
                     });
                     row.col(|ui| {

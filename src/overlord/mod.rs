@@ -572,6 +572,12 @@ impl Overlord {
                 }
                 DbRelay::update_read_and_write(relay_url, read, write).await?;
             }
+            ToOverlordMessage::SetRelayAdvertise(relay_url, advertise) => {
+                if let Some(relay) = GLOBALS.relays.write().await.get_mut(&relay_url) {
+                    relay.advertise = advertise;
+                }
+                DbRelay::update_advertise(relay_url, advertise).await?;
+            }
             ToOverlordMessage::SetThreadFeed(id, referenced_by, previous_thread_parent) => {
                 self.set_thread_feed(id, referenced_by, previous_thread_parent)
                     .await?;
