@@ -1075,6 +1075,14 @@ impl Overlord {
     }
 
     async fn set_thread_feed(&mut self, id: Id, referenced_by: Id) -> Result<(), Error> {
+        // Don't do anything if it is already the current thread parent. That way if we
+        // move to a different tab (e.g. relays) and then hit back, it doesn't resubscribe.
+        if let Some(current_parent) = GLOBALS.feed.get_thread_parent() {
+            if id == current_parent {
+                return Ok(());
+            }
+        }
+
         // Cancel current thread subscriptions, if any
         let _ = self.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
@@ -1098,19 +1106,32 @@ impl Overlord {
 
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription
-        if let Some(highest_parent_id) = GLOBALS.events.get_highest_local_parent(&id).await? {
-            GLOBALS.feed.set_thread_parent(highest_parent_id);
-            if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
-                for (id, opturl) in highest_parent.replies_to_ancestors() {
-                    missing_ancestors.push(id);
-                    if let Some(url) = opturl {
-                        relays.push(url);
-                    }
+        let highest_parent_id =
+            if let Some(hpid) = GLOBALS.events.get_highest_local_parent(&id).await? {
+                hpid
+            } else {
+                missing_ancestors.push(id);
+                referenced_by
+            };
+        GLOBALS.feed.set_thread_parent(highest_parent_id);
+
+        if let Some(highest_parent_event) = GLOBALS.events.get_local(highest_parent_id).await? {
+            // Use relays in 'e' tags
+            for (higher_id, opturl) in highest_parent_event.replies_to_ancestors() {
+                missing_ancestors.push(higher_id);
+                if let Some(url) = opturl {
+                    relays.push(url);
                 }
             }
-        } else {
-            GLOBALS.feed.set_thread_parent(id);
-            missing_ancestors.push(id);
+
+            // fiatjaf's suggestion from issue #187, use 'p' tag url mentions too, since
+            // those people probably wrote the ancestor events so probably on those
+            // relays
+            for (_pk, opturl) in highest_parent_event.mentions() {
+                if let Some(url) = opturl {
+                    relays.push(url);
+                }
+            }
         }
 
         let missing_ancestors_hex: Vec<IdHex> =
