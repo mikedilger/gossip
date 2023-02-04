@@ -71,10 +71,13 @@ impl Feed {
         *self.current_feed_kind.write() = FeedKind::Thread { id, referenced_by };
         // Parent starts with the post itself
         // Overlord will climb it, and recompute will climb it
+        let previous_thread_parent = *self.thread_parent.read();
         *self.thread_parent.write() = Some(id);
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::SetThreadFeed(id, referenced_by));
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed(
+            id,
+            referenced_by,
+            previous_thread_parent,
+        ));
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {

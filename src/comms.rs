@@ -26,7 +26,7 @@ pub enum ToOverlordMessage {
     RankRelay(RelayUrl, u8),
     SaveSettings,
     SetRelayPost(RelayUrl, bool),
-    SetThreadFeed(Id, Id),
+    SetThreadFeed(Id, Id, Option<Id>),
     Shutdown,
     UnlockKey(String),
     UpdateMetadata(PublicKeyHex),

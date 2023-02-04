@@ -563,8 +563,9 @@ impl Overlord {
                 }
                 DbRelay::update_post(relay_url, post).await?;
             }
-            ToOverlordMessage::SetThreadFeed(id, referenced_by) => {
-                self.set_thread_feed(id, referenced_by).await?;
+            ToOverlordMessage::SetThreadFeed(id, referenced_by, previous_thread_parent) => {
+                self.set_thread_feed(id, referenced_by, previous_thread_parent)
+                    .await?;
             }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
@@ -1074,13 +1075,12 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_thread_feed(&mut self, id: Id, referenced_by: Id) -> Result<(), Error> {
-        // Cancel current thread subscriptions, if any
-        let _ = self.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload::UnsubscribeThreadFeed,
-        });
-
+    async fn set_thread_feed(
+        &mut self,
+        id: Id,
+        referenced_by: Id,
+        previous_thread_parent: Option<Id>,
+    ) -> Result<(), Error> {
         // Collect missing ancestors and relays they might be at.
         // We will ask all the relays about all the ancestors, which is more than we need to
         // but isn't too much to ask for.
@@ -1098,28 +1098,38 @@ impl Overlord {
 
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription
-        if let Some(highest_parent_id) = GLOBALS.events.get_highest_local_parent(&id).await? {
-            GLOBALS.feed.set_thread_parent(highest_parent_id);
-            if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
-                // Use relays in 'e' tags
-                for (id, opturl) in highest_parent.replies_to_ancestors() {
-                    missing_ancestors.push(id);
-                    if let Some(url) = opturl {
-                        relays.push(url);
-                    }
-                }
-                // fiatjaf's suggestion from issue #187, use 'p' tag url mentions too, since
-                // those people probably wrote the ancestor events so probably on those
-                // relays
-                for (_pk, opturl) in highest_parent.mentions() {
-                    if let Some(url) = opturl {
-                        relays.push(url);
-                    }
+        let highest_parent_id =
+            if let Some(hpid) = GLOBALS.events.get_highest_local_parent(&id).await? {
+                hpid
+            } else {
+                missing_ancestors.push(id);
+                id
+            };
+
+        if previous_thread_parent == Some(highest_parent_id) {
+            tracing::debug!("Same thread, not resubscribing.");
+            return Ok(());
+        }
+
+        GLOBALS.feed.set_thread_parent(highest_parent_id);
+
+        if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
+            // Use relays in 'e' tags
+            for (id, opturl) in highest_parent.replies_to_ancestors() {
+                missing_ancestors.push(id);
+                if let Some(url) = opturl {
+                    relays.push(url);
                 }
             }
-        } else {
-            GLOBALS.feed.set_thread_parent(id);
-            missing_ancestors.push(id);
+
+            // fiatjaf's suggestion from issue #187, use 'p' tag url mentions too, since
+            // those people probably wrote the ancestor events so probably on those
+            // relays
+            for (_pk, opturl) in highest_parent.mentions() {
+                if let Some(url) = opturl {
+                    relays.push(url);
+                }
+            }
         }
 
         let missing_ancestors_hex: Vec<IdHex> =
@@ -1134,6 +1144,12 @@ impl Overlord {
         // Clean up relays
         relays.sort();
         relays.dedup();
+
+        // Cancel current thread subscriptions, if any
+        let _ = self.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribeThreadFeed,
+        });
 
         for url in relays.iter() {
             // Start minion if needed
