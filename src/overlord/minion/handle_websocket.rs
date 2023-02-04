@@ -95,20 +95,19 @@ impl Minion {
                     .get_handle_by_id(&subid.0)
                     .unwrap_or_else(|| "_".to_owned());
 
-                // If we opened a temporary subscription, and it is the only subscription on this
-                // relay, we will close it.
-                let close: bool = handle.starts_with("temp_") && self.subscriptions.len() <= 1;
+                // If this is a temporary subscription, we should close it after an EOSE
+                let close: bool = handle.starts_with("temp_");
 
                 // Update the matching subscription
                 match self.subscriptions.get_mut_by_id(&subid.0) {
                     Some(sub) => {
                         tracing::debug!("{}: {}: EOSE: {:?}", &self.url, handle, subid);
                         if close {
-                            tracing::debug!("{}: {}: Closing websocket", &self.url, handle);
-                            let close_message = sub.close_message();
-                            let websocket_sink = self.sink.as_mut().unwrap();
-                            let wire = serde_json::to_string(&close_message)?;
-                            websocket_sink.send(WsMessage::Text(wire.clone())).await?;
+                            self.unsubscribe(&handle).await?;
+                            // If that was the last (temp_) subscription, set minion to exit
+                            if self.subscriptions.is_empty() {
+                                self.keepgoing = false;
+                            }
                         } else {
                             sub.set_eose();
                         }
