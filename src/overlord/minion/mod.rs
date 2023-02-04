@@ -402,7 +402,7 @@ impl Minion {
                     EventKind::Metadata,
                     EventKind::RecommendRelay,
                     EventKind::ContactList,
-                    EventKind::RelaysList,
+                    EventKind::RelaysListNip23,
                 ],
                 since: Some(replies_since),
                 ..Default::default()
