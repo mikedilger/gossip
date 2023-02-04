@@ -162,14 +162,22 @@ impl Overlord {
             let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
             let then = now.0 - feed_chunk as i64;
 
-            let cond = if GLOBALS.settings.read().await.reactions {
-                format!(" (kind=1 OR kind=5 OR kind=6 OR kind=7) AND created_at > {} ORDER BY created_at ASC", then)
+            let reactions = if GLOBALS.settings.read().await.reactions {
+                " OR kind=7"
             } else {
-                format!(
-                    " (kind=1 OR kind=5 OR kind=6) AND created_at > {} ORDER BY created_at ASC",
-                    then
-                )
+                ""
             };
+            let reposts = if GLOBALS.settings.read().await.reactions {
+                " OR kind=6"
+            } else {
+                ""
+            };
+
+            let cond = format!(
+                " (kind=1 OR kind=5{}{}) AND created_at > {} ORDER BY created_at ASC",
+                reactions, reposts, then
+            );
+
             let db_events = DbEvent::fetch(Some(&cond)).await?;
 
             // Map db events into Events

@@ -356,15 +356,15 @@ impl Minion {
         };
 
         let enable_reactions = GLOBALS.settings.read().await.reactions;
+        let enable_reposts = GLOBALS.settings.read().await.reposts;
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
-            let mut kinds = vec![
-                EventKind::TextNote,
-                EventKind::Repost,
-                EventKind::EventDeletion,
-            ];
+            let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
+            }
+            if enable_reposts {
+                kinds.push(EventKind::Repost);
             }
 
             // feed related by me
@@ -382,9 +382,12 @@ impl Minion {
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
             }
+            if enable_reposts {
+                kinds.push(EventKind::Repost);
+            }
             filters.push(Filter {
                 p: vec![pkh.clone()],
-                kinds: vec![EventKind::TextNote, EventKind::Repost],
+                kinds,
                 since: Some(replies_since),
                 ..Default::default()
             });

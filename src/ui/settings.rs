@@ -77,6 +77,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             "Enable reactions (show and react)",
         );
 
+        ui.checkbox(
+            &mut app.settings.reposts,
+            "Enable reposts (show)",
+        );
+
         ui.add_space(12.0);
 
         ui.checkbox(
