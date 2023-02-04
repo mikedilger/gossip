@@ -32,6 +32,7 @@ pub struct Minion {
     sink: Option<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, WsMessage>>,
     subscriptions: Subscriptions,
     next_events_subscription_id: u32,
+    keepgoing: bool,
 }
 
 impl Minion {
@@ -57,6 +58,7 @@ impl Minion {
             sink: None,
             subscriptions: Subscriptions::new(),
             next_events_subscription_id: 0,
+            keepgoing: true,
         })
     }
 }
@@ -109,17 +111,23 @@ impl Minion {
                 .send();
 
             // Read NIP-11 information
-            match request_nip11_future
-                .await?
-                .json::<RelayInformationDocument>()
-                .await
-            {
-                Ok(nip11) => {
-                    tracing::info!("{}: {}", &self.url, nip11);
-                    self.nip11 = Some(nip11);
-                }
+            match request_nip11_future.await?.text().await {
+                Ok(text) => match serde_json::from_str::<RelayInformationDocument>(&text) {
+                    Ok(nip11) => {
+                        tracing::info!("{}: {}", &self.url, nip11);
+                        self.nip11 = Some(nip11);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "{}: Unable to parse response as NIP-11 ({}): {}",
+                            &self.url,
+                            e,
+                            text
+                        );
+                    }
+                },
                 Err(e) => {
-                    tracing::warn!("{}: Unable to parse response as NIP-11: {}", &self.url, e);
+                    tracing::warn!("{}: Unable to read response: {}", &self.url, e);
                 }
             }
 
@@ -188,8 +196,8 @@ impl Minion {
 
         'relayloop: loop {
             match self.loop_handler().await {
-                Ok(keepgoing) => {
-                    if !keepgoing {
+                Ok(_) => {
+                    if !self.keepgoing {
                         break 'relayloop;
                     }
                 }
@@ -200,12 +208,16 @@ impl Minion {
             }
         }
 
+        // Close the connection
+        let ws_sink = self.sink.as_mut().unwrap();
+        if let Err(e) = ws_sink.send(WsMessage::Close(None)).await {
+            tracing::error!("websocket close error: {}", e);
+        }
+
         Ok(())
     }
 
-    async fn loop_handler(&mut self) -> Result<bool, Error> {
-        let mut keepgoing: bool = true;
-
+    async fn loop_handler(&mut self) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
         let ws_sink = self.sink.as_mut().unwrap();
 
@@ -220,7 +232,11 @@ impl Minion {
             ws_message = ws_stream.next() => {
                 let ws_message = match ws_message {
                     Some(m) => m,
-                    None => return Ok(false), // probably connection reset
+                    None => {
+                        // possibly connection reset
+                        self.keepgoing = false;
+                        return Ok(());
+                    }
                 }?;
 
                 tracing::trace!("{}: Handling message", &self.url);
@@ -235,7 +251,7 @@ impl Minion {
                     WsMessage::Binary(_) => tracing::warn!("{}, Unexpected binary message", &self.url),
                     WsMessage::Ping(x) => ws_sink.send(WsMessage::Pong(x)).await?,
                     WsMessage::Pong(_) => { }, // we just ignore pongs
-                    WsMessage::Close(_) => keepgoing = false,
+                    WsMessage::Close(_) => self.keepgoing = false,
                     WsMessage::Frame(_) => tracing::warn!("{}: Unexpected frame message", &self.url),
                 }
             },
@@ -243,29 +259,22 @@ impl Minion {
                 let to_minion_message = match to_minion_message {
                     Ok(m) => m,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        return Ok(false);
+                        self.keepgoing = false;
+                        return Ok(());
                     },
                     Err(e) => return Err(e.into())
                 };
                 #[allow(clippy::collapsible_if)]
                 if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
-                    keepgoing = self.handle_overlord_message(to_minion_message).await?;
+                    self.handle_overlord_message(to_minion_message).await?;
                 }
             },
         }
 
-        // Close down if we aren't handling any more subscriptions
-        if self.subscriptions.len() == 0 {
-            keepgoing = false;
-        }
-
-        Ok(keepgoing)
+        Ok(())
     }
 
-    pub async fn handle_overlord_message(
-        &mut self,
-        message: ToMinionMessage,
-    ) -> Result<bool, Error> {
+    pub async fn handle_overlord_message(&mut self, message: ToMinionMessage) -> Result<(), Error> {
         match message.payload {
             ToMinionPayload::FetchEvents(vec) => {
                 self.get_events(vec).await?;
@@ -282,7 +291,7 @@ impl Minion {
             }
             ToMinionPayload::Shutdown => {
                 tracing::info!("{}: Websocket listener shutting down", &self.url);
-                return Ok(false);
+                self.keepgoing = false;
             }
             ToMinionPayload::SubscribeGeneralFeed(pubkeys) => {
                 self.subscribe_general_feed(pubkeys).await?;
@@ -296,11 +305,23 @@ impl Minion {
             ToMinionPayload::TempSubscribeMetadata(pubkeyhexs) => {
                 self.temp_subscribe_metadata(pubkeyhexs).await?;
             }
+            ToMinionPayload::UnsubscribePersonFeed => {
+                self.unsubscribe("person_feed").await?;
+                // Close down if we aren't handling any more subscriptions
+                if self.subscriptions.is_empty() {
+                    self.keepgoing = false;
+                }
+            }
             ToMinionPayload::UnsubscribeThreadFeed => {
-                self.unsubscribe_thread_feed().await?;
+                self.unsubscribe("thread_feed").await?;
+                // Close down if we aren't handling any more subscriptions
+                if self.subscriptions.is_empty() {
+                    self.keepgoing = false;
+                }
             }
         }
-        Ok(true)
+
+        Ok(())
     }
 
     async fn tell_overlord_we_are_ready(&self) -> Result<(), Error> {
@@ -399,7 +420,7 @@ impl Minion {
                     EventKind::Metadata,
                     EventKind::RecommendRelay,
                     EventKind::ContactList,
-                    EventKind::RelaysList,
+                    EventKind::RelaysListNip23,
                 ],
                 since: Some(replies_since),
                 ..Default::default()
@@ -587,11 +608,6 @@ impl Minion {
 
         self.subscribe(filters, "thread_feed").await?;
 
-        Ok(())
-    }
-
-    async fn unsubscribe_thread_feed(&mut self) -> Result<(), Error> {
-        self.unsubscribe("thread_feed").await?;
         Ok(())
     }
 

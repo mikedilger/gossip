@@ -52,29 +52,48 @@ impl Feed {
         // all those events again.
         *self.current_feed_kind.write() = FeedKind::General;
         *self.thread_parent.write() = None;
+
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload::UnsubscribeThreadFeed,
+        });
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribePersonFeed,
         });
     }
 
     pub fn set_feed_to_replies(&self) {
         *self.current_feed_kind.write() = FeedKind::Replies;
         *self.thread_parent.write() = None;
+
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload::UnsubscribeThreadFeed,
+        });
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribePersonFeed,
         });
     }
 
     pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id) {
         *self.current_feed_kind.write() = FeedKind::Thread { id, referenced_by };
+
         // Parent starts with the post itself
         // Overlord will climb it, and recompute will climb it
+        let previous_thread_parent = *self.thread_parent.read();
         *self.thread_parent.write() = Some(id);
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::SetThreadFeed(id, referenced_by));
+
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribePersonFeed,
+        });
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed(
+            id,
+            referenced_by,
+            previous_thread_parent,
+        ));
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {

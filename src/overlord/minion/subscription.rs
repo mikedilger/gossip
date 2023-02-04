@@ -68,8 +68,8 @@ impl Subscriptions {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.by_id.len()
+    pub fn is_empty(&self) -> bool {
+        self.by_id.is_empty()
     }
 
     /*
