@@ -51,6 +51,7 @@ pub enum ToMinionPayload {
     PullFollowing,
     Shutdown,
     SubscribeGeneralFeed(Vec<PublicKeyHex>),
+    SubscribeMentions,
     SubscribePersonFeed(PublicKeyHex),
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
     TempSubscribeMetadata(Vec<PublicKeyHex>),

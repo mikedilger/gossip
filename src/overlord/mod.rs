@@ -218,6 +218,33 @@ impl Overlord {
             self.pick_relays().await;
         }
 
+        // For NIP-65, separately subscribe to our mentions on our read relays
+        let read_relay_urls: Vec<RelayUrl> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(url, dbrelay)| {
+                if dbrelay.read {
+                    Some(url.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for relay_url in read_relay_urls.iter() {
+            // Start a minion for this relay if there is none
+            if !GLOBALS.relays_watching.read().await.contains(relay_url) {
+                self.start_minion(relay_url.clone()).await?;
+            }
+
+            // Subscribe to our mentions
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.to_string(),
+                payload: ToMinionPayload::SubscribeMentions,
+            });
+        }
+
         'mainloop: loop {
             match self.loop_handler().await {
                 Ok(keepgoing) => {
@@ -262,6 +289,13 @@ impl Overlord {
                             payload: ToMinionPayload::SubscribeGeneralFeed(
                                 relay_assignment.pubkeys.clone(),
                             ),
+                        });
+
+                        // Until NIP-65 is in widespread use, we should listen for mentions
+                        // of us on all these relays too
+                        let _ = self.to_minions.send(ToMinionMessage {
+                            target: relay_assignment.relay.url.0.clone(),
+                            payload: ToMinionPayload::SubscribeMentions,
                         });
 
                         tracing::info!(
