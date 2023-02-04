@@ -27,7 +27,8 @@ impl DbPersonRelay {
         let sql = format!(
             "SELECT person, relay, person_relay.last_fetched, \
              last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
-             last_suggested_nip05, last_suggested_bytag, read, write \
+             last_suggested_nip05, last_suggested_bytag, \
+             person_relay.read, person_relay.write \
              FROM person_relay \
              INNER JOIN relay ON person_relay.relay=relay.url \
              WHERE person IN ({}) ORDER BY person, \
