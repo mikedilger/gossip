@@ -124,12 +124,16 @@ impl Feed {
     }
 
     pub fn get_person_feed(&self, person: PublicKeyHex) -> Vec<Id> {
+        let enable_reposts = GLOBALS.settings.blocking_read().reposts;
+
         self.maybe_recompute();
         let mut events: Vec<Event> = GLOBALS
             .events
             .iter()
             .map(|r| r.value().to_owned())
-            .filter(|e| e.kind == EventKind::TextNote || e.kind == EventKind::Repost)
+            .filter(|e| {
+                e.kind == EventKind::TextNote || (enable_reposts && (e.kind == EventKind::Repost))
+            })
             .filter(|e| e.pubkey.as_hex_string() == person.as_str())
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
             .collect();
@@ -171,7 +175,9 @@ impl Feed {
             .events
             .iter()
             .map(|r| r.value().to_owned())
-            .filter(|e| e.kind == EventKind::TextNote || e.kind == EventKind::Repost)
+            .filter(|e| {
+                e.kind == EventKind::TextNote || (settings.reposts && (e.kind == EventKind::Repost))
+            })
             .collect();
 
         let mut followed_pubkeys = GLOBALS.people.get_followed_pubkeys();

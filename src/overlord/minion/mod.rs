@@ -399,7 +399,7 @@ impl Minion {
 
             // Any mentions of me
             // (but not in peoples contact lists, for example)
-            let mut kinds = vec![EventKind::TextNote, EventKind::Repost];
+            let mut kinds = vec![EventKind::TextNote];
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
             }

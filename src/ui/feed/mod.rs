@@ -249,7 +249,8 @@ fn render_post_actual(
     let event = maybe_event.unwrap();
 
     // Only render TextNote events
-    if event.kind != EventKind::TextNote && event.kind != EventKind::Repost {
+    let enable_reposts = GLOBALS.settings.blocking_read().reposts;
+    if event.kind != EventKind::TextNote && !(enable_reposts && (event.kind == EventKind::Repost)) {
         return;
     }
 
