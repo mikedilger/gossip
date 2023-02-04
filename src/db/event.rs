@@ -75,6 +75,29 @@ impl DbEvent {
         Ok(output?.drain(..).next())
     }
 
+    pub async fn fetch_relay_lists() -> Result<Vec<Event>, Error> {
+        // FIXME, only get the last per pubkey
+        let sql = "SELECT raw FROM event WHERE event.kind=10002";
+
+        let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let mut stmt = db.prepare(sql)?;
+            let mut rows = stmt.raw_query();
+            let mut events: Vec<Event> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let raw: String = row.get(0)?;
+                let event: Event = serde_json::from_str(&raw)?;
+                events.push(event);
+            }
+            Ok(events)
+        })
+        .await?;
+
+        output
+    }
+
     pub async fn fetch_reply_related(since: i64) -> Result<Vec<DbEvent>, Error> {
         let public_key: PublicKeyHex = match GLOBALS.signer.public_key() {
             None => return Ok(vec![]),

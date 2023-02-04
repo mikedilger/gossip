@@ -196,6 +196,19 @@ impl Overlord {
             tracing::info!("Loaded {} feed related events from the database", count);
         }
 
+        // Load relay lists from the database and process
+        {
+            let events: Vec<Event> = DbEvent::fetch_relay_lists().await?;
+
+            // Process these events
+            let mut count = 0;
+            for event in events.iter() {
+                count += 1;
+                crate::process::process_new_event(event, false, None, None).await?;
+            }
+            tracing::info!("Loaded {} relay list events from the database", count);
+        }
+
         // Pick Relays and start Minions
         if !GLOBALS.settings.read().await.offline {
             // Create a new RelayPicker
