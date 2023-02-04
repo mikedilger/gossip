@@ -1115,6 +1115,11 @@ impl Overlord {
 
         let missing_ancestors_hex: Vec<IdHex> =
             missing_ancestors.iter().map(|id| (*id).into()).collect();
+
+        if missing_ancestors_hex.is_empty() {
+            return Ok(());
+        }
+
         tracing::debug!("Seeking ancestors {:?}", missing_ancestors_hex);
 
         // Clean up relays
