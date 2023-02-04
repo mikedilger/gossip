@@ -420,7 +420,6 @@ impl Minion {
                     EventKind::Metadata,
                     EventKind::RecommendRelay,
                     EventKind::ContactList,
-                    EventKind::RelaysListNip23,
                     EventKind::RelayList,
                 ],
                 since: Some(replies_since),
@@ -475,7 +474,6 @@ impl Minion {
                     authors: keys_needing_relay_lists,
                     kinds: vec![
                         EventKind::RelayList,
-                        EventKind::RelaysListNip23,
                         EventKind::ContactList,
                     ],
                     // No since. These are replaceable events, we should only get 1 per person.
