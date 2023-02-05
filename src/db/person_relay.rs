@@ -3,6 +3,12 @@ use crate::globals::GLOBALS;
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use tokio::task::spawn_blocking;
 
+#[derive(Debug, Copy, Clone)]
+pub enum Direction {
+    Read,
+    Write,
+}
+
 #[derive(Debug)]
 pub struct DbPersonRelay {
     pub person: String,
@@ -298,8 +304,11 @@ impl DbPersonRelay {
         Ok(())
     }
 
-    /// This returns the best relays for the person along with a score, in order of score
-    pub async fn get_best_relays(pubkey: PublicKeyHex) -> Result<Vec<(RelayUrl, u64)>, Error> {
+    /// This returns the relays for a person, along with a score, in order of score
+    pub async fn get_best_relays(
+        pubkey: PublicKeyHex,
+        dir: Direction,
+    ) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let sql = "SELECT person, relay, last_suggested_nip23, last_suggested_kind3, \
                    last_suggested_nip05, last_fetched, last_suggested_kind2, \
                    last_suggested_bytag, read, write \
@@ -333,19 +342,23 @@ impl DbPersonRelay {
                 }
             }
 
-            Ok(DbPersonRelay::rank(dbprs))
+            match dir {
+                Direction::Write => Ok(DbPersonRelay::write_rank(dbprs)),
+                Direction::Read => Ok(DbPersonRelay::read_rank(dbprs)),
+            }
         })
         .await?;
 
         ranked_relays
     }
 
-    // This ranks the relays
-    pub fn rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
+    // This ranks the relays that a person writes to
+    pub fn write_rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
         // This is the ranking we are using. There might be reasons
         // for ranking differently.
         //   write (score=20)    [ they claim (to us) ]
-        //   nip23 (score=10)    [ they say (to themselves) ]
+        //   nip23 (score=10)    [ they say (to themselves) ] [actually kind3 contents]
+        //                          FIXME, person_relay.last_suggested_nip23 has no direction info
         //   kind3 tag (score=5) [ we say ]
         //   nip05 (score=4)     [ they claim, unsigned ]
         //   fetched (score=3)   [ we found ]
@@ -366,6 +379,75 @@ impl DbPersonRelay {
 
             // 'write' is an author-signed explicit claim of where they write
             if dbpr.write {
+                score += 20;
+            }
+
+            // nip23 is an author-signed statement to themselves
+            // kind-3 content also substitutes for nip23, this comes from either.
+            if let Some(when) = dbpr.last_suggested_nip23 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 10);
+            }
+
+            // kind3 is our memory of where we are following someone
+            if let Some(when) = dbpr.last_suggested_kind3 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 7);
+            }
+
+            // nip05 is an unsigned dns-based author claim of using this relay
+            if let Some(when) = dbpr.last_suggested_nip05 {
+                score += scorefn(when, 60 * 60 * 24 * 15, 4);
+            }
+
+            // last_fetched is gossip verified happened-to-work-before
+            if let Some(when) = dbpr.last_fetched {
+                score += scorefn(when, 60 * 60 * 24 * 3, 3);
+            }
+
+            // kind2 is an author-signed relay recommendation
+            if let Some(when) = dbpr.last_suggested_kind2 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 2);
+            }
+
+            // last_suggested_bytag is an anybody-signed suggestion
+            if let Some(when) = dbpr.last_suggested_bytag {
+                score += scorefn(when, 60 * 60 * 24 * 2, 1);
+            }
+
+            output.push((dbpr.relay, score));
+        }
+
+        output.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
+
+        output
+    }
+
+    // This ranks the relays that a person reads from
+    pub fn read_rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
+        // This is the ranking we are using. There might be reasons
+        // for ranking differently.
+        //   read (score=20)    [ they claim (to us) ]
+        //   nip23 (score=10)    [ they say (to themselves) ] [actually kind3 contents]
+        //                          FIXME, person_relay.last_suggested_nip23 has no direction info
+        //   kind3 tag (score=5) [ we say ]
+        //   nip05 (score=4)     [ they claim, unsigned ]
+        //   fetched (score=3)   [ we found ]
+        //   kind2 (score=2)     [ they mention ]
+        //   bytag (score=1)     [ someone else mentions ]
+
+        let now = Unixtime::now().unwrap().0 as u64;
+        let mut output: Vec<(RelayUrl, u64)> = Vec::new();
+
+        let scorefn = |when: u64, fade_period: u64, base: u64| -> u64 {
+            let dur = now.saturating_sub(when); // seconds since
+            let periods = (dur / fade_period) + 1; // minimum one period
+            base / periods
+        };
+
+        for dbpr in dbprs.drain(..) {
+            let mut score = 0;
+
+            // 'read' is an author-signed explicit claim of where they read
+            if dbpr.read {
                 score += 20;
             }
 

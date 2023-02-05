@@ -1,4 +1,4 @@
-use crate::db::{DbPersonRelay, DbRelay};
+use crate::db::{DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{PublicKeyHex, RelayUrl};
@@ -89,7 +89,7 @@ impl RelayPicker {
 
         for pubkey in &pubkeys {
             let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
-                DbPersonRelay::get_best_relays(pubkey.to_owned())
+                DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
                     .await?
                     .iter()
                     .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
@@ -120,7 +120,7 @@ impl RelayPicker {
         let mut person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)> = Vec::new();
         for pubkey in &pubkeys {
             let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
-                DbPersonRelay::get_best_relays(pubkey.to_owned())
+                DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
                     .await?
                     .iter()
                     .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))

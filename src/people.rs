@@ -1,4 +1,4 @@
-use crate::db::{DbEvent, DbPersonRelay};
+use crate::db::{DbEvent, DbPersonRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
@@ -577,7 +577,7 @@ impl People {
         let pubkeys = self.get_followed_pubkeys();
         for pubkey in &pubkeys {
             // Get their best relay
-            let relays = DbPersonRelay::get_best_relays(pubkey.clone()).await?;
+            let relays = DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
             let maybeurl = relays.get(0);
             p_tags.push(Tag::Pubkey {
                 pubkey: pubkey.clone(),

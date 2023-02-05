@@ -1,7 +1,7 @@
 mod minion;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
-use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
@@ -1120,7 +1120,7 @@ impl Overlord {
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
-            for relayscore in DbPersonRelay::get_best_relays(pubkey.to_owned())
+            for relayscore in DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
                 .await?
                 .drain(..)
                 .take(num_relays_per_person as usize)

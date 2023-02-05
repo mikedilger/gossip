@@ -20,7 +20,7 @@ mod contact;
 pub use contact::DbContact;
 
 mod person_relay;
-pub use person_relay::DbPersonRelay;
+pub use person_relay::{DbPersonRelay, Direction};
 
 mod setting;
 pub use setting::DbSetting;
