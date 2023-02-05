@@ -802,8 +802,8 @@ impl Minion {
         let req_message = self.subscriptions.get(handle).unwrap().req_message();
         let wire = serde_json::to_string(&req_message)?;
         let websocket_sink = self.sink.as_mut().unwrap();
+        tracing::trace!("{}: Sending {}", &self.url, &wire);
         websocket_sink.send(WsMessage::Text(wire.clone())).await?;
-        tracing::trace!("{}: Sent {}", &self.url, &wire);
         Ok(())
     }
 
@@ -814,8 +814,8 @@ impl Minion {
         let close_message = self.subscriptions.get(handle).unwrap().close_message();
         let wire = serde_json::to_string(&close_message)?;
         let websocket_sink = self.sink.as_mut().unwrap();
+        tracing::trace!("{}: Sending {}", &self.url, &wire);
         websocket_sink.send(WsMessage::Text(wire.clone())).await?;
-        tracing::trace!("{}: Sent {}", &self.url, &wire);
         self.subscriptions.remove(handle);
         Ok(())
     }
