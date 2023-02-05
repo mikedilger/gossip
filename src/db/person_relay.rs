@@ -349,7 +349,54 @@ impl DbPersonRelay {
         })
         .await?;
 
-        ranked_relays
+        let mut ranked_relays = ranked_relays?;
+
+        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person as usize;
+
+        // If we can't get enough of them, extend with some of our relays (at score=0)
+        if ranked_relays.len() < num_relays_per_person {
+            let how_many_more = num_relays_per_person - ranked_relays.len();
+            match dir {
+                Direction::Write => {
+                    // substitute our read relays
+                    let additional: Vec<(RelayUrl, u64)> = GLOBALS
+                        .relays
+                        .read()
+                        .await
+                        .iter()
+                        .filter_map(|(url, dbrelay)| {
+                            if dbrelay.read {
+                                Some((url.clone(), 0))
+                            } else {
+                                None
+                            }
+                        })
+                        .take(how_many_more)
+                        .collect();
+                    ranked_relays.extend(additional);
+                }
+                Direction::Read => {
+                    // substitute our write relays
+                    let additional: Vec<(RelayUrl, u64)> = GLOBALS
+                        .relays
+                        .read()
+                        .await
+                        .iter()
+                        .filter_map(|(url, dbrelay)| {
+                            if dbrelay.write {
+                                Some((url.clone(), 0))
+                            } else {
+                                None
+                            }
+                        })
+                        .take(how_many_more)
+                        .collect();
+                    ranked_relays.extend(additional);
+                }
+            }
+        }
+
+        Ok(ranked_relays)
     }
 
     // This ranks the relays that a person writes to
