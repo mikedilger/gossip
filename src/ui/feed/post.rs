@@ -23,7 +23,7 @@ pub(super) fn posting_area(
                 }
                 ui.label(" to post.");
             });
-        } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.post) {
+        } else if !GLOBALS.relays.blocking_read().iter().any(|(_, r)| r.write) {
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("choose relays").clicked() {

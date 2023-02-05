@@ -213,11 +213,6 @@ pub async fn process_new_event(
     }
 
     if event.kind == EventKind::ContactList {
-        GLOBALS
-            .people
-            .update_contact_list_last_received(event.pubkey.into())
-            .await?;
-
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
                 process_your_contact_list(event).await?;
@@ -229,12 +224,52 @@ pub async fn process_new_event(
         }
     }
 
+    if event.kind == EventKind::RelayList {
+        process_relay_list(event).await?;
+    }
+
     // TBD (have to parse runes language for this)
     //if event.kind == EventKind::RelayList {
     //    process_somebody_elses_relay_list(event.pubkey.clone(), &event.contents).await?;
     //}
 
     // FIXME: Handle EventKind::RecommendedRelay
+
+    Ok(())
+}
+
+async fn process_relay_list(event: &Event) -> Result<(), Error> {
+    // Update that we received the relay list (and optionally bump forward the date
+    // if this relay list happens to be newer)
+    let newer = GLOBALS
+        .people
+        .update_relay_list_stamps(event.pubkey.into(), event.created_at.0)
+        .await?;
+
+    if !newer {
+        return Ok(());
+    }
+
+    let mut read_relays: Vec<RelayUrl> = Vec::new();
+    let mut write_relays: Vec<RelayUrl> = Vec::new();
+    for tag in event.tags.iter() {
+        if let Tag::Reference { url, marker } = tag {
+            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
+                if let Some(m) = marker {
+                    match &*m.trim().to_lowercase() {
+                        "read" => read_relays.push(relay_url.clone()),
+                        "write" => write_relays.push(relay_url.clone()),
+                        _ => {} // ignore unknown marker
+                    }
+                } else {
+                    read_relays.push(relay_url.clone());
+                    write_relays.push(relay_url.clone());
+                }
+            }
+        }
+    }
+
+    DbPersonRelay::set_relay_list(event.pubkey.into(), read_relays, write_relays).await?;
 
     Ok(())
 }
@@ -252,6 +287,13 @@ async fn process_somebody_elses_contact_list(
         //       contents of a kind3 instead, because it is the same kind of thing.
         //       person_relay.last_suggested_kind3 is updated based on the p-tag, not the contents,
         //       of kind3.
+
+        // This counts as a relay list for now, but never clobbers the actual relay list
+        // relay_list_created_at field.  So would nip23 events.
+        let _ = GLOBALS
+            .people
+            .update_relay_list_stamps(pubkey.into(), 0)
+            .await?;
 
         for (url, simple_relay_usage) in srl.0.iter() {
             // Only if they write there (we don't care where they read from)

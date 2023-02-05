@@ -11,7 +11,9 @@ pub struct DbRelay {
     pub rank: u64,
     pub last_connected_at: Option<u64>,
     pub last_general_eose_at: Option<u64>,
-    pub post: bool,
+    pub read: bool,
+    pub write: bool,
+    pub advertise: bool,
 }
 
 impl DbRelay {
@@ -23,7 +25,9 @@ impl DbRelay {
             rank: 3,
             last_connected_at: None,
             last_general_eose_at: None,
-            post: false,
+            read: false,
+            write: false,
+            advertise: false,
         }
     }
 
@@ -41,7 +45,7 @@ impl DbRelay {
 
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
         let sql = "SELECT url, success_count, failure_count, rank, last_connected_at, \
-             last_general_eose_at, post FROM relay"
+             last_general_eose_at, read, write, advertise FROM relay"
             .to_owned();
         let sql = match criteria {
             None => sql,
@@ -56,7 +60,6 @@ impl DbRelay {
             let mut rows = stmt.query([])?;
             let mut output: Vec<DbRelay> = Vec::new();
             while let Some(row) = rows.next()? {
-                let postint: u32 = row.get(6)?;
                 let s: String = row.get(0)?;
                 // just skip over invalid relay URLs
                 if let Ok(url) = RelayUrl::try_from_str(&s) {
@@ -67,7 +70,9 @@ impl DbRelay {
                         rank: row.get(3)?,
                         last_connected_at: row.get(4)?,
                         last_general_eose_at: row.get(5)?,
-                        post: (postint > 0),
+                        read: row.get(6)?,
+                        write: row.get(7)?,
+                        advertise: row.get(8)?,
                     });
                 }
             }
@@ -90,15 +95,14 @@ impl DbRelay {
 
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank, \
-                   last_connected_at, last_general_eose_at, post) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
+                   last_connected_at, last_general_eose_at, read, write, advertise) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            let postint = i32::from(relay.post);
             stmt.execute((
                 &relay.url.0,
                 &relay.success_count,
@@ -106,7 +110,9 @@ impl DbRelay {
                 &relay.rank,
                 &relay.last_connected_at,
                 &relay.last_general_eose_at,
-                &postint,
+                &relay.read,
+                &relay.write,
+                &relay.advertise,
             ))?;
             Ok::<(), Error>(())
         })
@@ -117,21 +123,22 @@ impl DbRelay {
 
     pub async fn update(relay: DbRelay) -> Result<(), Error> {
         let sql = "UPDATE relay SET success_count=?, failure_count=?, rank=?, \
-                   last_connected_at=?, last_general_eose_at=?, post=? WHERE url=?";
+                   last_connected_at=?, last_general_eose_at=?, read=?, write=?, advertise=? WHERE url=?";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            let postint = i32::from(relay.post);
             stmt.execute((
                 &relay.success_count,
                 &relay.failure_count,
                 &relay.rank,
                 &relay.last_connected_at,
                 &relay.last_general_eose_at,
-                &postint,
+                &relay.read,
+                &relay.write,
+                &relay.advertise,
                 &relay.url.0,
             ))?;
             Ok::<(), Error>(())
@@ -162,13 +169,31 @@ impl DbRelay {
         Ok(())
     }
 
-    pub async fn update_post(url: RelayUrl, post: bool) -> Result<(), Error> {
-        let sql = "UPDATE relay SET post = ?  WHERE url = ?";
+    pub async fn update_read_and_write(
+        url: RelayUrl,
+        read: bool,
+        write: bool,
+    ) -> Result<(), Error> {
+        let sql = "UPDATE relay SET read = ?, write = ?  WHERE url = ?";
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&post, &url.0))?;
+            stmt.execute((&read, &write, &url.0))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    pub async fn update_advertise(url: RelayUrl, advertise: bool) -> Result<(), Error> {
+        let sql = "UPDATE relay SET advertise = ?  WHERE url = ?";
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((&advertise, &url.0))?;
             Ok::<(), Error>(())
         })
         .await??;
@@ -241,10 +266,10 @@ impl DbRelay {
     }
 
     pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
-        // Try to find a relay where the event was seen AND that I post to which
+        // Try to find a relay where the event was seen AND that I write to which
         // has a rank>1
         let sql = "SELECT url FROM relay INNER JOIN event_seen ON relay.url=event_seen.relay \
-                   WHERE event_seen.event=? AND relay.post=1 AND relay.rank>1";
+                   WHERE event_seen.event=? AND relay.write=1 AND relay.rank>1";
         let output: Option<RelayUrl> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();

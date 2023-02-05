@@ -296,6 +296,9 @@ impl Minion {
             ToMinionPayload::SubscribeGeneralFeed(pubkeys) => {
                 self.subscribe_general_feed(pubkeys).await?;
             }
+            ToMinionPayload::SubscribeMentions => {
+                self.subscribe_mentions().await?;
+            }
             ToMinionPayload::SubscribePersonFeed(pubkeyhex) => {
                 self.subscribe_person_feed(pubkeyhex).await?;
             }
@@ -329,17 +332,17 @@ impl Minion {
         Ok(())
     }
 
+    // Subscribe to the user's followers on the relays they write to
     async fn subscribe_general_feed(
         &mut self,
         followed_pubkeys: Vec<PublicKeyHex>,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
-        let (overlap, feed_chunk, replies_chunk) = {
+        let (overlap, feed_chunk) = {
             let settings = GLOBALS.settings.read().await.clone();
             (
                 Duration::from_secs(settings.overlap),
                 Duration::from_secs(settings.feed_chunk),
-                Duration::from_secs(settings.replies_chunk),
             )
         };
 
@@ -350,30 +353,25 @@ impl Minion {
         );
 
         // Compute how far to look back
-        let (feed_since, replies_since) = {
+        let feed_since = {
             // Start with where we left off, the time we last got something from
             // this relay.
-            let mut replies_since: Unixtime = match self.dbrelay.last_general_eose_at {
+            let mut feed_since: Unixtime = match self.dbrelay.last_general_eose_at {
                 Some(u) => Unixtime(u as i64),
                 None => Unixtime(0),
             };
 
             // Subtract overlap to avoid gaps due to clock sync and event
             // propagation delay
-            replies_since = replies_since - overlap;
+            feed_since = feed_since - overlap;
 
             // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
-            if replies_since.0 < 1577836800 {
-                replies_since.0 = 1577836800;
+            if feed_since.0 < 1577836800 {
+                feed_since.0 = 1577836800;
             }
 
-            let one_replieschunk_ago = Unixtime::now().unwrap() - replies_chunk;
-            let replies_since = replies_since.max(one_replieschunk_ago);
-
             let one_feedchunk_ago = Unixtime::now().unwrap() - feed_chunk;
-            let feed_since = replies_since.max(one_feedchunk_ago);
-
-            (feed_since, replies_since)
+            feed_since.max(one_feedchunk_ago)
         };
 
         let enable_reactions = GLOBALS.settings.read().await.reactions;
@@ -389,52 +387,23 @@ impl Minion {
             }
 
             // feed related by me
+            // FIXME copy this to listening to my write relays
             let pkh: PublicKeyHex = pubkey.into();
             filters.push(Filter {
-                authors: vec![pkh.clone().into()],
+                authors: vec![pkh.into()],
                 kinds,
                 since: Some(feed_since),
-                ..Default::default()
-            });
-
-            // Any mentions of me
-            // (but not in peoples contact lists, for example)
-            let mut kinds = vec![EventKind::TextNote];
-            if enable_reactions {
-                kinds.push(EventKind::Reaction);
-            }
-            if enable_reposts {
-                kinds.push(EventKind::Repost);
-            }
-            filters.push(Filter {
-                p: vec![pkh.clone()],
-                kinds,
-                since: Some(replies_since),
-                ..Default::default()
-            });
-
-            // Listen for my metadata and similar kinds of posts
-            filters.push(Filter {
-                authors: vec![pkh.into()],
-                kinds: vec![
-                    EventKind::Metadata,
-                    EventKind::RecommendRelay,
-                    EventKind::ContactList,
-                    EventKind::RelaysListNip23,
-                ],
-                since: Some(replies_since),
                 ..Default::default()
             });
         }
 
         if !followed_pubkeys.is_empty() {
-            let mut kinds = vec![
-                EventKind::TextNote,
-                EventKind::Repost,
-                EventKind::EventDeletion,
-            ];
+            let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
+            }
+            if enable_reposts {
+                kinds.push(EventKind::Repost);
             }
 
             let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
@@ -450,40 +419,34 @@ impl Minion {
                 ..Default::default()
             });
 
+            // Try to find where people post.
+            // Subscribe to kind-10002 `RelayList`s to see where people post.
             // Subscribe to ContactLists so we can look at the contents and
-            // divine relays people write to (if using a client that does that).
-            //
-            // BUT ONLY for people whose contact list has not been received in the last
-            // 24 hours.
-            let contact_list_keys: Vec<PublicKeyHexPrefix> = GLOBALS
+            //   divine relays people write to (if using a client that does that).
+            // BUT ONLY for people where this kind of data hasn't been received
+            // in the last 8 hours (so we don't do it every client restart).
+            let keys_needing_relay_lists: Vec<PublicKeyHexPrefix> = GLOBALS
                 .people
-                .get_followed_pubkeys_needing_contact_lists(&followed_pubkeys)
+                .get_followed_pubkeys_needing_relay_lists(&followed_pubkeys)
                 .drain(..)
                 .map(|pk| pk.into())
                 .collect();
 
-            if !contact_list_keys.is_empty() {
+            if !keys_needing_relay_lists.is_empty() {
                 tracing::debug!(
-                    "Need contact lists from {} people on {}",
-                    contact_list_keys.len(),
+                    "Looking to update relay lists from {} people on {}",
+                    keys_needing_relay_lists.len(),
                     &self.url
                 );
 
-                // TBD: EventKind::RelaysList from nip23
                 filters.push(Filter {
-                    authors: contact_list_keys,
-                    kinds: vec![EventKind::ContactList],
+                    authors: keys_needing_relay_lists,
+                    kinds: vec![EventKind::RelayList, EventKind::ContactList],
                     // No since. These are replaceable events, we should only get 1 per person.
                     ..Default::default()
                 });
             }
         }
-
-        // reactions to posts by me
-        // FIXME TBD
-
-        // reactions to posts by people followed
-        // FIXME TBD
 
         // NO REPLIES OR ANCESTORS
 
@@ -508,6 +471,97 @@ impl Minion {
         Ok(())
     }
 
+    // Subscribe to anybody mentioning the user on the relays the user reads from
+    // (and any other relay for the time being until nip65 is in widespread use)
+    async fn subscribe_mentions(&mut self) -> Result<(), Error> {
+        let mut filters: Vec<Filter> = Vec::new();
+        let (overlap, replies_chunk) = {
+            let settings = GLOBALS.settings.read().await.clone();
+            (
+                Duration::from_secs(settings.overlap),
+                Duration::from_secs(settings.replies_chunk),
+            )
+        };
+
+        // Compute how far to look back
+        let replies_since = {
+            // Start with where we left off, the time we last got something from
+            // this relay.
+            let mut replies_since: Unixtime = match self.dbrelay.last_general_eose_at {
+                Some(u) => Unixtime(u as i64),
+                None => Unixtime(0),
+            };
+
+            // Subtract overlap to avoid gaps due to clock sync and event
+            // propagation delay
+            replies_since = replies_since - overlap;
+
+            // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
+            if replies_since.0 < 1577836800 {
+                replies_since.0 = 1577836800;
+            }
+
+            let one_replieschunk_ago = Unixtime::now().unwrap() - replies_chunk;
+            replies_since.max(one_replieschunk_ago)
+        };
+
+        let enable_reactions = GLOBALS.settings.read().await.reactions;
+        let enable_reposts = GLOBALS.settings.read().await.reposts;
+
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
+            // Any mentions of me
+            // (but not in peoples contact lists, for example)
+
+            let mut kinds = vec![EventKind::TextNote];
+            if enable_reactions {
+                kinds.push(EventKind::Reaction);
+            }
+            if enable_reposts {
+                kinds.push(EventKind::Repost);
+            }
+
+            let pkh: PublicKeyHex = pubkey.into();
+
+            filters.push(Filter {
+                p: vec![pkh.clone()],
+                kinds,
+                since: Some(replies_since),
+                ..Default::default()
+            });
+
+            // Listen for my metadata and similar kinds of posts
+            // FIXME - move this to listening to my WRITE relays
+            filters.push(Filter {
+                authors: vec![pkh.into()],
+                kinds: vec![
+                    EventKind::Metadata,
+                    EventKind::RecommendRelay,
+                    EventKind::ContactList,
+                    EventKind::RelayList,
+                ],
+                since: Some(replies_since),
+                ..Default::default()
+            });
+        }
+
+        self.subscribe(filters, "mentions_feed").await?;
+
+        if let Some(sub) = self.subscriptions.get_mut("mentions_feed") {
+            if let Some(nip11) = &self.nip11 {
+                if !nip11.supports_nip(15) {
+                    // Does not support EOSE.  Set subscription to EOSE now.
+                    sub.set_eose();
+                }
+            } else {
+                // Does not support EOSE.  Set subscription to EOSE now.
+                sub.set_eose();
+            }
+        }
+
+        Ok(())
+    }
+
+    // Subscribe to the posts a person generates on the relays they write to
     async fn subscribe_person_feed(&mut self, pubkey: PublicKeyHex) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 

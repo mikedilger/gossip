@@ -196,6 +196,19 @@ impl Overlord {
             tracing::info!("Loaded {} feed related events from the database", count);
         }
 
+        // Load relay lists from the database and process
+        {
+            let events: Vec<Event> = DbEvent::fetch_relay_lists().await?;
+
+            // Process these events
+            let mut count = 0;
+            for event in events.iter() {
+                count += 1;
+                crate::process::process_new_event(event, false, None, None).await?;
+            }
+            tracing::info!("Loaded {} relay list events from the database", count);
+        }
+
         // Pick Relays and start Minions
         if !GLOBALS.settings.read().await.offline {
             // Create a new RelayPicker
@@ -203,6 +216,33 @@ impl Overlord {
 
             // Pick relays
             self.pick_relays().await;
+        }
+
+        // For NIP-65, separately subscribe to our mentions on our read relays
+        let read_relay_urls: Vec<RelayUrl> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(url, dbrelay)| {
+                if dbrelay.read {
+                    Some(url.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for relay_url in read_relay_urls.iter() {
+            // Start a minion for this relay if there is none
+            if !GLOBALS.relays_watching.read().await.contains(relay_url) {
+                self.start_minion(relay_url.clone()).await?;
+            }
+
+            // Subscribe to our mentions
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.to_string(),
+                payload: ToMinionPayload::SubscribeMentions,
+            });
         }
 
         'mainloop: loop {
@@ -249,6 +289,13 @@ impl Overlord {
                             payload: ToMinionPayload::SubscribeGeneralFeed(
                                 relay_assignment.pubkeys.clone(),
                             ),
+                        });
+
+                        // Until NIP-65 is in widespread use, we should listen for mentions
+                        // of us on all these relays too
+                        let _ = self.to_minions.send(ToMinionMessage {
+                            target: relay_assignment.relay.url.0.clone(),
+                            payload: ToMinionPayload::SubscribeMentions,
                         });
 
                         tracing::info!(
@@ -441,6 +488,9 @@ impl Overlord {
                 let dbrelay = DbRelay::new(relay_str);
                 DbRelay::insert(dbrelay).await?;
             }
+            ToOverlordMessage::AdvertiseRelayList => {
+                self.advertise_relay_list().await?;
+            }
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
                 GLOBALS.signer.save_through_settings().await?;
@@ -565,11 +615,18 @@ impl Overlord {
                 GLOBALS.settings.read().await.save().await?;
                 tracing::debug!("Settings saved.");
             }
-            ToOverlordMessage::SetRelayPost(relay_url, post) => {
+            ToOverlordMessage::SetRelayReadWrite(relay_url, read, write) => {
                 if let Some(relay) = GLOBALS.relays.write().await.get_mut(&relay_url) {
-                    relay.post = post;
+                    relay.read = read;
+                    relay.write = write;
                 }
-                DbRelay::update_post(relay_url, post).await?;
+                DbRelay::update_read_and_write(relay_url, read, write).await?;
+            }
+            ToOverlordMessage::SetRelayAdvertise(relay_url, advertise) => {
+                if let Some(relay) = GLOBALS.relays.write().await.get_mut(&relay_url) {
+                    relay.advertise = advertise;
+                }
+                DbRelay::update_advertise(relay_url, advertise).await?;
             }
             ToOverlordMessage::SetThreadFeed(id, referenced_by, previous_thread_parent) => {
                 self.set_thread_feed(id, referenced_by, previous_thread_parent)
@@ -639,16 +696,20 @@ impl Overlord {
         let db_relay = DbRelay::new(relay.clone());
         DbRelay::insert(db_relay).await?;
 
+        let now = Unixtime::now().unwrap().0 as u64;
+
         // Save person_relay
         DbPersonRelay::insert(DbPersonRelay {
             person: pkhex.to_string(),
             relay,
             last_fetched: None,
             last_suggested_kind2: None,
-            last_suggested_kind3: None,
+            last_suggested_kind3: Some(now), // consider it our claim in our contact list
             last_suggested_nip23: None,
             last_suggested_nip05: None,
             last_suggested_bytag: None,
+            read: true,
+            write: true,
         })
         .await?;
 
@@ -710,7 +771,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -730,6 +791,88 @@ impl Overlord {
 
         // Process the message for ourself
         crate::process::process_new_event(&event, false, None, None).await?;
+
+        Ok(())
+    }
+
+    async fn advertise_relay_list(&mut self) -> Result<(), Error> {
+        let public_key = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("No public key! Not posting");
+                return Ok(());
+            }
+        };
+
+        let read_or_write_relays: Vec<DbRelay> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(_url, r)| {
+                if r.read || r.write {
+                    Some(r.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut tags: Vec<Tag> = Vec::new();
+        for relay in read_or_write_relays.iter() {
+            tags.push(Tag::Reference {
+                url: relay.url.to_unchecked_url(),
+                marker: if relay.read && relay.write {
+                    None
+                } else if relay.read {
+                    Some("read".to_owned())
+                } else if relay.write {
+                    Some("write".to_owned())
+                } else {
+                    unreachable!()
+                },
+            });
+        }
+
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::RelayList,
+            tags,
+            content: "".to_string(),
+            ots: None,
+        };
+
+        let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
+
+        let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
+            .relays
+            .read()
+            .await
+            .iter()
+            .filter_map(|(url, r)| {
+                if r.advertise {
+                    Some(url.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for relay_url in advertise_to_relay_urls {
+            // Start a minion for it, if there is none
+            if !GLOBALS.relays_watching.read().await.contains(&relay_url) {
+                self.start_minion(relay_url.clone()).await?;
+            }
+
+            // Send it the event to post
+            tracing::debug!("Asking {} to post", &relay_url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.0.clone(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
+            });
+        }
 
         Ok(())
     }
@@ -838,7 +981,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -913,7 +1056,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -948,7 +1091,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -981,7 +1124,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {
@@ -1025,7 +1168,7 @@ impl Overlord {
             .read()
             .await
             .iter()
-            .filter_map(|(_, r)| if r.post { Some(r.to_owned()) } else { None })
+            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
             .collect();
 
         for relay in relays {

@@ -24,7 +24,8 @@ pub struct DbPerson {
     pub followed: u8,
     pub followed_last_updated: i64,
     pub muted: u8,
-    pub contact_list_last_received: i64,
+    pub relay_list_last_received: i64,
+    pub relay_list_created_at: i64,
 }
 
 impl DbPerson {
@@ -38,7 +39,8 @@ impl DbPerson {
             followed: 0,
             followed_last_updated: 0,
             muted: 0,
-            contact_list_last_received: 0,
+            relay_list_last_received: 0,
+            relay_list_created_at: 0,
         }
     }
 
@@ -90,7 +92,7 @@ pub struct People {
     // the person's NIP-05 when that metadata come in. We remember this here.
     recheck_nip05: DashSet<PublicKeyHex>,
 
-    // Date of the last self-owend contact list we processed
+    // Date of the last self-owned contact list we processed
     pub last_contact_list_asof: AtomicI64,
 }
 
@@ -118,15 +120,16 @@ impl People {
         output
     }
 
-    pub fn get_followed_pubkeys_needing_contact_lists(
+    pub fn get_followed_pubkeys_needing_relay_lists(
         &self,
         among_these: &[PublicKeyHex],
     ) -> Vec<PublicKeyHex> {
-        let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 24);
+        // FIXME make this a setting (8 hours)
+        let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 8);
         let mut output: Vec<PublicKeyHex> = Vec::new();
         for person in self.people.iter().filter_map(|p| {
             if p.followed == 1
-                && p.contact_list_last_received < one_day_ago
+                && p.relay_list_last_received < one_day_ago
                 && among_these.contains(&p.pubkey)
             {
                 Some(p)
@@ -306,7 +309,8 @@ impl People {
         //       who are muted, so they can be found and unmuted as necessary.
 
         let sql = "SELECT pubkey, metadata, metadata_at, nip05_valid, nip05_last_checked, \
-                   followed, followed_last_updated, muted, contact_list_last_received \
+                   followed, followed_last_updated, muted, relay_list_last_received, \
+                   relay_list_created_at \
                    FROM person WHERE followed=1 OR muted=1"
             .to_owned();
 
@@ -333,7 +337,8 @@ impl People {
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
                     muted: row.get(7)?,
-                    contact_list_last_received: row.get(8)?,
+                    relay_list_last_received: row.get(8)?,
+                    relay_list_created_at: row.get(9)?,
                 });
             }
             Ok(output)
@@ -814,25 +819,42 @@ impl People {
         Ok(())
     }
 
-    pub async fn update_contact_list_last_received(
+    // Returns true if the date passed in is newer than what we already had
+    pub async fn update_relay_list_stamps(
         &self,
         pubkeyhex: PublicKeyHex,
-    ) -> Result<(), Error> {
+        mut created_at: i64,
+    ) -> Result<bool, Error> {
         let now = Unixtime::now().unwrap().0;
 
+        let mut retval = false;
+
         if let Some(mut person) = self.people.get_mut(&pubkeyhex) {
-            person.contact_list_last_received = now;
+            person.relay_list_last_received = now;
+            if created_at > person.relay_list_created_at {
+                retval = true;
+                person.relay_list_created_at = created_at;
+            } else {
+                created_at = person.relay_list_created_at; // for the update below
+            }
+        } else {
+            tracing::warn!("FIXME: RelayList for person we don't have. We should create them.");
+            return Ok(false);
         }
 
         task::spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
-            let mut stmt =
-                db.prepare("UPDATE person SET contact_list_last_received=? WHERE pubkey=?")?;
-            stmt.execute((&now, pubkeyhex.as_str()))?;
-            Ok(())
+            let mut stmt = db.prepare(
+                "UPDATE person SET relay_list_last_received=?, \
+                            relay_list_created_at=? WHERE pubkey=?",
+            )?;
+            stmt.execute((&now, &created_at, pubkeyhex.as_str()))?;
+            Ok::<(), Error>(())
         })
-        .await?
+        .await??;
+
+        Ok(retval)
     }
 
     pub async fn update_nip05_last_checked(&self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
@@ -910,7 +932,8 @@ impl People {
         let sql = "SELECT pubkey, metadata, metadata_at, \
              nip05_valid, nip05_last_checked, \
              followed, followed_last_updated, muted, \
-             contact_list_last_received FROM person"
+             relay_list_last_received, relay_list_created_at \
+             FROM person"
             .to_owned();
         let sql = match criteria {
             None => sql,
@@ -940,7 +963,8 @@ impl People {
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
                     muted: row.get(7)?,
-                    contact_list_last_received: row.get(8)?,
+                    relay_list_last_received: row.get(8)?,
+                    relay_list_created_at: row.get(9)?,
                 });
             }
             Ok(output)
@@ -963,8 +987,8 @@ impl People {
     async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<DbPerson>, Error> {
         let sql = format!(
             "SELECT pubkey, metadata, metadata_at, nip05_valid, nip05_last_checked, \
-             followed, followed_last_updated, muted, contact_list_last_received \
-             FROM person WHERE pubkey IN ({})",
+             followed, followed_last_updated, muted, relay_list_last_received, \
+             relay_list_created_at FROM person WHERE pubkey IN ({})",
             repeat_vars(pubkeys.len())
         );
 
@@ -1000,7 +1024,8 @@ impl People {
                     followed: row.get(5)?,
                     followed_last_updated: row.get(6)?,
                     muted: row.get(7)?,
-                    contact_list_last_received: row.get(8)?,
+                    relay_list_last_received: row.get(8)?,
+                    relay_list_created_at: row.get(9)?,
                 });
             }
 

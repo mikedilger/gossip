@@ -13,6 +13,8 @@ pub struct DbPersonRelay {
     pub last_suggested_nip23: Option<u64>,
     pub last_suggested_nip05: Option<u64>,
     pub last_suggested_bytag: Option<u64>,
+    pub read: bool,
+    pub write: bool,
 }
 
 impl DbPersonRelay {
@@ -25,10 +27,12 @@ impl DbPersonRelay {
         let sql = format!(
             "SELECT person, relay, person_relay.last_fetched, \
              last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
-             last_suggested_nip05, last_suggested_bytag \
+             last_suggested_nip05, last_suggested_bytag, \
+             person_relay.read, person_relay.write \
              FROM person_relay \
              INNER JOIN relay ON person_relay.relay=relay.url \
-             WHERE person IN ({}) ORDER BY person, relay.rank DESC, \
+             WHERE person IN ({}) ORDER BY person, \
+             person_relay.write DESC, relay.rank DESC, \
              last_suggested_nip23 DESC, last_suggested_kind3 DESC, \
              last_suggested_nip05 DESC, last_suggested_kind2 DESC, \
              last_fetched DESC, last_suggested_bytag DESC",
@@ -57,6 +61,8 @@ impl DbPersonRelay {
                         last_suggested_nip23: row.get(5)?,
                         last_suggested_nip05: row.get(6)?,
                         last_suggested_bytag: row.get(7)?,
+                        read: row.get(8)?,
+                        write: row.get(9)?,
                     });
                 }
             }
@@ -71,8 +77,8 @@ impl DbPersonRelay {
     pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, \
                    last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
-                   last_suggested_nip05, last_suggested_bytag) \
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                   last_suggested_nip05, last_suggested_bytag, read, write) \
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -88,6 +94,8 @@ impl DbPersonRelay {
                 &person_relay.last_suggested_nip23,
                 &person_relay.last_suggested_nip05,
                 &person_relay.last_suggested_bytag,
+                &person_relay.read,
+                &person_relay.write,
             ))?;
             Ok::<(), Error>(())
         })
@@ -225,11 +233,76 @@ impl DbPersonRelay {
         Ok(())
     }
 
+    pub async fn set_relay_list(
+        person: PublicKeyHex,
+        read_relays: Vec<RelayUrl>,
+        write_relays: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        // Clear the current ones
+        let sql1 = "UPDATE person_relay SET read=0, write=0 WHERE person=?";
+
+        // Set the reads
+        let sql2 = format!(
+            "UPDATE person_relay SET read=1 WHERE person=? AND relay IN ({})",
+            repeat_vars(read_relays.len())
+        );
+        let mut params2: Vec<String> = vec![person.to_string()];
+        for relay in read_relays.iter() {
+            params2.push(relay.to_string());
+        }
+
+        // Set the writes
+        let sql3 = format!(
+            "UPDATE person_relay SET write=1 WHERE person=? AND relay IN ({})",
+            repeat_vars(write_relays.len())
+        );
+
+        let mut params3: Vec<String> = vec![person.to_string()];
+        for relay in write_relays.iter() {
+            params3.push(relay.to_string());
+        }
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let inner = || -> Result<(), Error> {
+                let mut stmt = db.prepare("BEGIN TRANSACTION")?;
+                stmt.execute(())?;
+
+                let mut stmt = db.prepare(sql1)?;
+                stmt.execute((person.as_str(),))?;
+
+                let mut stmt = db.prepare(&sql2)?;
+                stmt.execute(rusqlite::params_from_iter(params2))?;
+
+                let mut stmt = db.prepare(&sql3)?;
+                stmt.execute(rusqlite::params_from_iter(params3))?;
+
+                let mut stmt = db.prepare("COMMIT TRANSACTION")?;
+                stmt.execute(())?;
+
+                Ok(())
+            };
+
+            if let Err(e) = inner() {
+                tracing::error!("{}", e);
+                let mut stmt = db.prepare("ROLLBACK TRANSACTION")?;
+                stmt.execute(())?;
+            }
+
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
     /// This returns the best relays for the person along with a score, in order of score
     pub async fn get_best_relays(pubkey: PublicKeyHex) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let sql = "SELECT person, relay, last_suggested_nip23, last_suggested_kind3, \
                    last_suggested_nip05, last_fetched, last_suggested_kind2, \
-                   last_suggested_bytag \
+                   last_suggested_bytag, read, write \
                    FROM person_relay WHERE person=?";
 
         let ranked_relays: Result<Vec<(RelayUrl, u64)>, Error> = spawn_blocking(move || {
@@ -253,6 +326,8 @@ impl DbPersonRelay {
                         last_suggested_nip23: row.get(5)?,
                         last_suggested_nip05: row.get(6)?,
                         last_suggested_bytag: row.get(7)?,
+                        read: row.get(8)?,
+                        write: row.get(9)?,
                     };
                     dbprs.push(dbpr);
                 }
@@ -268,9 +343,14 @@ impl DbPersonRelay {
     // This ranks the relays
     pub fn rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
         // This is the ranking we are using. There might be reasons
-        // for ranking differently:
-        // nip23 (score=10) > kind3 (score=8) > nip05 (score=6) > fetched (score=4)
-        //   > kind2 (score=2) > bytag (score=1)
+        // for ranking differently.
+        //   write (score=20)    [ they claim (to us) ]
+        //   nip23 (score=10)    [ they say (to themselves) ]
+        //   kind3 tag (score=5) [ we say ]
+        //   nip05 (score=4)     [ they claim, unsigned ]
+        //   fetched (score=3)   [ we found ]
+        //   kind2 (score=2)     [ they mention ]
+        //   bytag (score=1)     [ someone else mentions ]
 
         let now = Unixtime::now().unwrap().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
@@ -283,30 +363,43 @@ impl DbPersonRelay {
 
         for dbpr in dbprs.drain(..) {
             let mut score = 0;
-            // nip23 is an author-signed explicit claim of using this relay
+
+            // 'write' is an author-signed explicit claim of where they write
+            if dbpr.write {
+                score += 20;
+            }
+
+            // nip23 is an author-signed statement to themselves
+            // kind-3 content also substitutes for nip23, this comes from either.
             if let Some(when) = dbpr.last_suggested_nip23 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 15);
-            }
-            // kind3 is a temporary (not NIPped) author-signed explicit claim of using this relay
-            if let Some(when) = dbpr.last_suggested_kind3 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 15);
-            }
-            // kind2 is an author-signed recommended relay list
-            if let Some(when) = dbpr.last_suggested_kind2 {
                 score += scorefn(when, 60 * 60 * 24 * 30, 10);
             }
-            // nip05 is an unsigned dns claim of using this relay
-            if let Some(when) = dbpr.last_suggested_nip05 {
-                score += scorefn(when, 60 * 60 * 24 * 15, 6);
+
+            // kind3 is our memory of where we are following someone
+            if let Some(when) = dbpr.last_suggested_kind3 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 7);
             }
+
+            // nip05 is an unsigned dns-based author claim of using this relay
+            if let Some(when) = dbpr.last_suggested_nip05 {
+                score += scorefn(when, 60 * 60 * 24 * 15, 4);
+            }
+
             // last_fetched is gossip verified happened-to-work-before
             if let Some(when) = dbpr.last_fetched {
-                score += scorefn(when, 60 * 60 * 24 * 3, 6);
+                score += scorefn(when, 60 * 60 * 24 * 3, 3);
             }
+
+            // kind2 is an author-signed relay recommendation
+            if let Some(when) = dbpr.last_suggested_kind2 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 2);
+            }
+
             // last_suggested_bytag is an anybody-signed suggestion
             if let Some(when) = dbpr.last_suggested_bytag {
                 score += scorefn(when, 60 * 60 * 24 * 2, 1);
             }
+
             output.push((dbpr.relay, score));
         }
 
@@ -314,22 +407,6 @@ impl DbPersonRelay {
 
         output
     }
-
-    /*
-        pub async fn delete(criteria: &str) -> Result<(), Error> {
-            let sql = format!("DELETE FROM person_relay WHERE {}", criteria);
-
-            spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
-                db.execute(&sql, [])?;
-                Ok::<(), Error>(())
-            })
-            .await??;
-
-            Ok(())
-    }
-        */
 }
 
 fn repeat_vars(count: usize) -> String {

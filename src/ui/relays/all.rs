@@ -31,6 +31,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     "That's not a valid relay URL.".to_owned();
             }
         }
+        ui.separator();
+        if ui.button("↑ Advertise Relay List ↑").clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::AdvertiseRelayList);
+        }
     });
 
     ui.add_space(10.0);
@@ -40,7 +46,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     // TBD time how long this takes. We don't want expensive code in the UI
     let mut relays = GLOBALS.relays.blocking_read().clone();
     let mut relays: Vec<DbRelay> = relays.drain().map(|(_, relay)| relay).collect();
-    relays.sort_by(|a, b| b.post.cmp(&a.post).then(a.url.cmp(&b.url)));
+    relays.sort_by(|a, b| b.write.cmp(&a.write).then(a.url.cmp(&b.url)));
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
         ui.add_space(18.0);
@@ -57,6 +63,8 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
         TableBuilder::new(ui)
             .striped(true)
             .column(Column::auto_with_initial_suggestion(250.0).resizable(true))
+            .column(Column::auto().resizable(true))
+            .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
@@ -81,11 +89,20 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                         .on_hover_text("This only counts events served after EOSE, as they mark where we can pick up from next time.");
                 });
                 header.col(|ui| {
-                    ui.heading("Write");
+                    ui.heading("Read")
+                        .on_hover_text("Read for events with mentions of you on these relays. It is recommended to have a few." );
+                });
+                header.col(|ui| {
+                    ui.heading("Write")
+                        .on_hover_text("Write your events to these relays. It is recommended to have a few." );
+                });
+                header.col(|ui| {
+                    ui.heading("Advertise")
+                        .on_hover_text("Advertise your read/write settings to this relay. It is recommended to advertise to many relays so that you can be found.");
                 });
                 header.col(|ui| {
                     ui.heading("Read rank")
-                        .on_hover_text("0-9: 0 disables, 3 is default, 9 is highest rank".to_string());
+                        .on_hover_text("How likely we will connect to relays to read other people's posts, from 0 (never) to 9 (highly). Default is 3.".to_string());
                 });
             }).body(|body| {
                 body.rows(24.0, relays.len(), |row_index, mut row| {
@@ -112,14 +129,36 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                         }
                     });
                     row.col(|ui| {
-                        let mut post = relay.post; // checkbox needs a mutable state variable.
-                        if ui.checkbox(&mut post, "")
-                            .on_hover_text("If selected, posts you create will be sent to this relay. But you have to press [SAVE CHANGES] at the bottom of this page.")
+                        let mut read = relay.read; // checkbox needs a mutable state variable.
+                        if ui.checkbox(&mut read, "")
+                            .on_hover_text("If selected, we will search for posts mentioning you on this relay.")
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::SetRelayPost(relay.url.clone(), post));
+                                .send(ToOverlordMessage::SetRelayReadWrite(relay.url.clone(), read, relay.write));
+                        }
+                    });
+                    row.col(|ui| {
+                        let mut write = relay.write; // checkbox needs a mutable state variable.
+                        if ui.checkbox(&mut write, "")
+                            .on_hover_text("If selected, posts you create will be sent to this relay.")
+                            .clicked()
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::SetRelayReadWrite(relay.url.clone(), relay.read, write));
+                        }
+                    });
+                    row.col(|ui| {
+                        let mut advertise = relay.advertise; // checkbox needs a mutable state variable.
+                        if ui.checkbox(&mut advertise, "")
+                            .on_hover_text("If selected, when you send out your relay list advertisements, one of them will go to this relay.")
+                            .clicked()
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::SetRelayAdvertise(relay.url.clone(), advertise));
                         }
                     });
                     row.col(|ui| {
