@@ -584,11 +584,8 @@ impl Overlord {
                     }
                 });
             }
-            ToOverlordMessage::PostReply(content, tags, reply_to) => {
-                self.post_reply(content, tags, reply_to).await?;
-            }
-            ToOverlordMessage::PostTextNote(content, tags) => {
-                self.post_textnote(content, tags).await?;
+            ToOverlordMessage::Post(content, tags, reply_to) => {
+                self.post(content, tags, reply_to).await?;
             }
             ToOverlordMessage::PullFollowMerge => {
                 self.pull_following(true).await?;
@@ -718,10 +715,11 @@ impl Overlord {
         Ok(())
     }
 
-    async fn post_textnote(
+    async fn post(
         &mut self,
         mut content: String,
         mut tags: Vec<Tag>,
+        reply_to: Option<Id>,
     ) -> Result<(), Error> {
         let event = {
             let public_key = match GLOBALS.signer.public_key() {
@@ -747,11 +745,62 @@ impl Overlord {
 
             // Do the same as above, but now with note1...
             for (npub, pubkey) in notes_from_text(&content) {
+                // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
                 let idx = add_event_to_tags(&mut tags, pubkey, "mention").await;
                 content = content.replace(&npub, &format!("#[{}]", idx));
             }
 
-            // Finally build the event
+            if let Some(parent_id) = reply_to {
+                // Get the event we are replying to
+                let parent = match GLOBALS.events.get(&parent_id) {
+                    Some(e) => e,
+                    None => {
+                        return Err(Error::General(
+                            "Cannot find event we are replying to.".to_owned(),
+                        ))
+                    }
+                };
+
+                // Add a 'p' tag for the author we are replying to (except if it is our own key)
+                if parent.pubkey != public_key {
+                    add_pubkey_to_tags(&mut tags, parent.pubkey).await;
+                }
+
+                // Add all the 'p' tags from the note we are replying to (except our own)
+                // FIXME: Should we avoid taging people who are muted?
+                for tag in &parent.tags {
+                    if let Tag::Pubkey { pubkey, .. } = tag {
+                        if pubkey.as_str() != public_key.as_hex_string() {
+                            add_pubkey_hex_to_tags(&mut tags, pubkey).await;
+                        }
+                    }
+                }
+
+                if let Some((root, _maybeurl)) = parent.replies_to_root() {
+                    // Add an 'e' tag for the root
+                    add_event_to_tags(&mut tags, root, "root").await;
+
+                    // Add an 'e' tag for the note we are replying to
+                    add_event_to_tags(&mut tags, parent_id, "reply").await;
+                } else {
+                    // We are replying to the root.
+                    // NIP-10: "A direct reply to the root of a thread should have a single marked "e" tag of type "root"."
+                    add_event_to_tags(&mut tags, parent_id, "root").await;
+                }
+
+                // Possibly propagate a subject tag
+                for tag in &parent.tags {
+                    if let Tag::Subject(subject) = tag {
+                        let mut subject = subject.to_owned();
+                        if !subject.starts_with("Re: ") {
+                            subject = format!("Re: {}", subject);
+                        }
+                        subject = subject.chars().take(80).collect();
+                        add_subject_to_tags_if_missing(&mut tags, subject);
+                    }
+                }
+            }
+
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
@@ -873,134 +922,6 @@ impl Overlord {
                 payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
             });
         }
-
-        Ok(())
-    }
-
-    async fn post_reply(
-        &mut self,
-        mut content: String,
-        mut tags: Vec<Tag>,
-        reply_to: Id,
-    ) -> Result<(), Error> {
-        let event = {
-            let public_key = match GLOBALS.signer.public_key() {
-                Some(pk) => pk,
-                None => {
-                    tracing::warn!("No public key! Not posting");
-                    return Ok(());
-                }
-            };
-
-            // Get the event we are replying to
-            let event = match GLOBALS.events.get(&reply_to) {
-                Some(e) => e,
-                None => {
-                    return Err(Error::General(
-                        "Cannot find event we are replying to.".to_owned(),
-                    ))
-                }
-            };
-
-            // Add a 'p' tag for the author we are replying to (except if it is our own key)
-            if event.pubkey != public_key {
-                add_pubkey_to_tags(&mut tags, event.pubkey).await;
-            }
-
-            // Add all the 'p' tags from the note we are replying to (except our own)
-            // FIXME: Should we avoid taging people who are muted?
-            for tag in &event.tags {
-                if let Tag::Pubkey { pubkey, .. } = tag {
-                    if pubkey.as_str() != public_key.as_hex_string() {
-                        add_pubkey_hex_to_tags(&mut tags, pubkey).await;
-                    }
-                }
-            }
-
-            // Add tags for keys that are in the post body as npub1...
-            for (npub, pubkey) in keys_from_text(&content) {
-                let idx = add_pubkey_to_tags(&mut tags, pubkey).await;
-                content = content.replace(&npub, &format!("#[{}]", idx));
-            }
-
-            // Do the same as above, but now with note1...
-            for (npub, pubkey) in notes_from_text(&content) {
-                // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                let idx = add_event_to_tags(&mut tags, pubkey, "mention").await;
-                content = content.replace(&npub, &format!("#[{}]", idx));
-            }
-
-            if let Some((root, _maybeurl)) = event.replies_to_root() {
-                // Add an 'e' tag for the root
-                add_event_to_tags(&mut tags, root, "root").await;
-
-                // Add an 'e' tag for the note we are replying to
-                add_event_to_tags(&mut tags, reply_to, "reply").await;
-            } else {
-                // We are replying to the root.
-                // NIP-10: "A direct reply to the root of a thread should have a single marked "e" tag of type "root"."
-                add_event_to_tags(&mut tags, reply_to, "root").await;
-            }
-
-            // Possibly propagate a subject tag
-            for tag in &event.tags {
-                if let Tag::Subject(subject) = tag {
-                    let mut subject = subject.to_owned();
-                    if !subject.starts_with("Re: ") {
-                        subject = format!("Re: {}", subject);
-                    }
-                    subject = subject.chars().take(80).collect();
-                    add_subject_to_tags_if_missing(&mut tags, subject);
-                }
-            }
-
-            // Possibly include a client tag
-            if GLOBALS.settings.read().await.set_client_tag {
-                tags.push(Tag::Other {
-                    tag: "client".to_owned(),
-                    data: vec!["gossip".to_owned()],
-                });
-            }
-
-            let pre_event = PreEvent {
-                pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
-                kind: EventKind::TextNote,
-                tags,
-                content,
-                ots: None,
-            };
-
-            let powint = GLOBALS.settings.read().await.pow;
-            let pow = if powint > 0 { Some(powint) } else { None };
-            GLOBALS.signer.sign_preevent(pre_event, pow)?
-        };
-
-        let relays: Vec<DbRelay> = GLOBALS
-            .relays
-            .read()
-            .await
-            .iter()
-            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
-            .collect();
-
-        for relay in relays {
-            // Start a minion for it, if there is none
-            if !GLOBALS.relays_watching.read().await.contains(&relay.url) {
-                self.start_minion(relay.url.clone()).await?;
-            }
-
-            // Send it the event to post
-            tracing::debug!("Asking {} to post", &relay.url);
-
-            let _ = self.to_minions.send(ToMinionMessage {
-                target: relay.url.0.clone(),
-                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
-            });
-        }
-
-        // Process the message for ourself
-        crate::process::process_new_event(&event, false, None, None).await?;
 
         Ok(())
     }

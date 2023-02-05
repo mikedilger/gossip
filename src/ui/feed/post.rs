@@ -92,10 +92,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             if ui.button("Send").clicked() && !app.draft.is_empty() {
                 match app.replying_to {
                     Some(replying_to_id) => {
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostReply(
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
                             app.draft.clone(),
                             vec![],
-                            replying_to_id,
+                            Some(replying_to_id),
                         ));
                     }
                     None => {
@@ -103,9 +103,11 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         if app.include_subject {
                             tags.push(Tag::Subject(app.subject.clone()));
                         }
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::PostTextNote(app.draft.clone(), tags));
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
+                            app.draft.clone(),
+                            tags,
+                            None,
+                        ));
                     }
                 }
                 app.clear_post();
