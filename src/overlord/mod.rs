@@ -721,6 +721,9 @@ impl Overlord {
         mut tags: Vec<Tag>,
         reply_to: Option<Id>,
     ) -> Result<(), Error> {
+        // We will fill this just before we create the event
+        let mut tagged_pubkeys: Vec<PublicKeyHex>;
+
         let event = {
             let public_key = match GLOBALS.signer.public_key() {
                 Some(pk) => pk,
@@ -801,6 +804,18 @@ impl Overlord {
                 }
             }
 
+            // Copy the tagged pubkeys for determine which relays to send to
+            tagged_pubkeys = tags
+                .iter()
+                .filter_map(|t| {
+                    if let Tag::Pubkey { pubkey, .. } = t {
+                        Some(pubkey.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
@@ -815,25 +830,47 @@ impl Overlord {
             GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
 
-        let relays: Vec<DbRelay> = GLOBALS
-            .relays
-            .read()
-            .await
-            .iter()
-            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
-            .collect();
+        // Determine which relays to post this to
+        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        {
+            // Get 'read' relays for everybody tagged in the event.
+            // Currently we take the 2 best read relays per person
+            for pubkey in tagged_pubkeys.drain(..) {
+                let best_relays: Vec<RelayUrl> =
+                    DbPersonRelay::get_best_relays(pubkey, Direction::Read)
+                        .await?
+                        .drain(..)
+                        .take(2)
+                        .map(|(u, _)| u)
+                        .collect();
+                relay_urls.extend(best_relays);
+            }
 
-        for relay in relays {
+            // Get all of the relays that we write to
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS
+                .relays
+                .read()
+                .await
+                .iter()
+                .filter_map(|(url, r)| if r.write { Some(url.to_owned()) } else { None })
+                .collect();
+            relay_urls.extend(write_relay_urls);
+
+            relay_urls.sort();
+            relay_urls.dedup();
+        }
+
+        for url in relay_urls {
             // Start a minion for it, if there is none
-            if !GLOBALS.relays_watching.read().await.contains(&relay.url) {
-                self.start_minion(relay.url.clone()).await?;
+            if !GLOBALS.relays_watching.read().await.contains(&url) {
+                self.start_minion(url.clone()).await?;
             }
 
             // Send it the event to post
-            tracing::debug!("Asking {} to post", &relay.url);
+            tracing::debug!("Asking {} to post", &url);
 
             let _ = self.to_minions.send(ToMinionMessage {
-                target: relay.url.0.clone(),
+                target: url.0.clone(),
                 payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
             });
         }
