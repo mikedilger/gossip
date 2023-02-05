@@ -249,8 +249,8 @@ impl Minion {
                         // For now, try to continue.
                     },
                     WsMessage::Binary(_) => tracing::warn!("{}, Unexpected binary message", &self.url),
-                    WsMessage::Ping(x) => ws_sink.send(WsMessage::Pong(x)).await?,
-                    WsMessage::Pong(_) => { }, // we just ignore pongs
+                    WsMessage::Ping(_) => { }, // tungstenite automatically pongs.
+                    WsMessage::Pong(_) => { }, // Verify it is 0x1? Nah. It's just for keep-alive.
                     WsMessage::Close(_) => self.keepgoing = false,
                     WsMessage::Frame(_) => tracing::warn!("{}: Unexpected frame message", &self.url),
                 }
