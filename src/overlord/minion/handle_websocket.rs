@@ -138,7 +138,7 @@ impl Minion {
             }
             RelayMessage::Auth(challenge) => {
                 if !GLOBALS.signer.is_ready() {
-                    tracing::warn!("AUTH required, but we have no key");
+                    tracing::warn!("AUTH required on {}, but we have no key", &self.url);
                     return Ok(());
                 }
                 let pubkey = match GLOBALS.signer.public_key() {
