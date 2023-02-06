@@ -7,7 +7,7 @@ pub struct RelayInfo {
     pub dbrelay: DbRelay,
     pub connected: bool,
     pub assignment: Option<RelayAssignment>,
-    pub subscriptions: Vec<String>,
+    //pub subscriptions: Vec<String>,
 }
 
 /// A RelayAssignment is a record of a relay which is serving (or will serve) the general

@@ -104,7 +104,7 @@ impl Overlord {
                         dbrelay,
                         connected: false,
                         assignment: None,
-                        subscriptions: vec![],
+                        //subscriptions: vec![],
                     },
                 );
             }
@@ -490,7 +490,7 @@ impl Overlord {
                         dbrelay,
                         connected: false,
                         assignment: None,
-                        subscriptions: vec![],
+                        //subscriptions: vec![],
                     },
                 );
             }
@@ -1241,7 +1241,7 @@ impl Overlord {
                         dbrelay: db_relay,
                         connected: false,
                         assignment: None,
-                        subscriptions: vec![],
+                        //subscriptions: vec![],
                     });
                 }
 

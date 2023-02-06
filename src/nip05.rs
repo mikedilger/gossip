@@ -131,7 +131,7 @@ async fn update_relays(
                     dbrelay: db_relay,
                     connected: false,
                     assignment: None,
-                    subscriptions: vec![],
+                    //subscriptions: vec![],
                 });
             }
 
