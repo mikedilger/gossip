@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
-use crate::relay_assignment::RelayAssignment;
+use crate::relay_info::RelayAssignment;
 use eframe::egui;
 use egui::{Context, ScrollArea, SelectableLabel, Ui};
 use egui_extras::{Column, TableBuilder};

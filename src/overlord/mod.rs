@@ -5,7 +5,7 @@ use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
-use crate::relay_assignment::RelayPicker;
+use crate::relay_picker::RelayPicker;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
     keys_from_text, notes_from_text,
