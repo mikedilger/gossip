@@ -5,17 +5,18 @@ use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
+use crate::relay_info::RelayInfo;
 use crate::relay_picker::RelayPicker;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
     keys_from_text, notes_from_text,
 };
+use dashmap::mapref::entry::Entry;
 use minion::Minion;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, PreEvent, PrivateKey, Profile,
     PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
 };
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::DerefMut;
 use std::sync::atomic::Ordering;
@@ -96,11 +97,17 @@ impl Overlord {
         // Load relays from the database
         {
             let mut all_relays: Vec<DbRelay> = DbRelay::fetch(None).await?;
-            let relays: HashMap<RelayUrl, DbRelay> = all_relays
-                .drain(..)
-                .map(|dbr| (dbr.url.clone(), dbr))
-                .collect();
-            *GLOBALS.relays.write().await = relays;
+            for dbrelay in all_relays.drain(..) {
+                GLOBALS.relays.insert(
+                    dbrelay.url.clone(),
+                    RelayInfo {
+                        dbrelay: dbrelay,
+                        connected: false,
+                        assignments: vec![],
+                        subscriptions: vec![],
+                    },
+                );
+            }
         }
 
         // Load people from the database
@@ -221,12 +228,10 @@ impl Overlord {
         // For NIP-65, separately subscribe to our mentions on our read relays
         let read_relay_urls: Vec<RelayUrl> = GLOBALS
             .relays
-            .read()
-            .await
             .iter()
-            .filter_map(|(url, dbrelay)| {
-                if dbrelay.read {
-                    Some(url.clone())
+            .filter_map(|r| {
+                if r.value().dbrelay.read {
+                    Some(r.key().clone())
                 } else {
                     None
                 }
@@ -485,8 +490,17 @@ impl Overlord {
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
             ToOverlordMessage::AddRelay(relay_str) => {
-                let dbrelay = DbRelay::new(relay_str);
-                DbRelay::insert(dbrelay).await?;
+                let dbrelay = DbRelay::new(relay_str.clone());
+                DbRelay::insert(dbrelay.clone()).await?;
+                GLOBALS.relays.insert(
+                    relay_str,
+                    RelayInfo {
+                        dbrelay: dbrelay,
+                        connected: false,
+                        assignments: vec![],
+                        subscriptions: vec![],
+                    },
+                );
             }
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
@@ -600,8 +614,8 @@ impl Overlord {
                 self.push_metadata(metadata).await?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
-                if let Some(r) = GLOBALS.relays.write().await.get_mut(&relay_url) {
-                    r.rank = rank as u64;
+                if let Some(mut ri) = GLOBALS.relays.get_mut(&relay_url) {
+                    ri.dbrelay.rank = rank as u64;
                 }
                 DbRelay::set_rank(relay_url, rank).await?;
             }
@@ -613,15 +627,15 @@ impl Overlord {
                 tracing::debug!("Settings saved.");
             }
             ToOverlordMessage::SetRelayReadWrite(relay_url, read, write) => {
-                if let Some(relay) = GLOBALS.relays.write().await.get_mut(&relay_url) {
-                    relay.read = read;
-                    relay.write = write;
+                if let Some(mut ri) = GLOBALS.relays.get_mut(&relay_url) {
+                    ri.dbrelay.read = read;
+                    ri.dbrelay.write = write;
                 }
                 DbRelay::update_read_and_write(relay_url, read, write).await?;
             }
             ToOverlordMessage::SetRelayAdvertise(relay_url, advertise) => {
-                if let Some(relay) = GLOBALS.relays.write().await.get_mut(&relay_url) {
-                    relay.advertise = advertise;
+                if let Some(mut ri) = GLOBALS.relays.get_mut(&relay_url) {
+                    ri.dbrelay.advertise = advertise;
                 }
                 DbRelay::update_advertise(relay_url, advertise).await?;
             }
@@ -849,10 +863,14 @@ impl Overlord {
             // Get all of the relays that we write to
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .relays
-                .read()
-                .await
                 .iter()
-                .filter_map(|(url, r)| if r.write { Some(url.to_owned()) } else { None })
+                .filter_map(|r| {
+                    if r.value().dbrelay.write {
+                        Some(r.key().to_owned())
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             relay_urls.extend(write_relay_urls);
 
@@ -892,12 +910,10 @@ impl Overlord {
 
         let read_or_write_relays: Vec<DbRelay> = GLOBALS
             .relays
-            .read()
-            .await
             .iter()
-            .filter_map(|(_url, r)| {
-                if r.read || r.write {
-                    Some(r.to_owned())
+            .filter_map(|r| {
+                if r.value().dbrelay.read || r.value().dbrelay.write {
+                    Some(r.value().dbrelay.to_owned())
                 } else {
                     None
                 }
@@ -933,12 +949,10 @@ impl Overlord {
 
         let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
             .relays
-            .read()
-            .await
             .iter()
-            .filter_map(|(url, r)| {
-                if r.advertise {
-                    Some(url.to_owned())
+            .filter_map(|r| {
+                if r.value().dbrelay.advertise {
+                    Some(r.key().to_owned())
                 } else {
                     None
                 }
@@ -1011,10 +1025,14 @@ impl Overlord {
 
         let relays: Vec<DbRelay> = GLOBALS
             .relays
-            .read()
-            .await
             .iter()
-            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
+            .filter_map(|r| {
+                if r.value().dbrelay.write {
+                    Some(r.value().dbrelay.to_owned())
+                } else {
+                    None
+                }
+            })
             .collect();
 
         for relay in relays {
@@ -1046,10 +1064,14 @@ impl Overlord {
         // Pull our list from all of the relays we post to
         let relays: Vec<DbRelay> = GLOBALS
             .relays
-            .read()
-            .await
             .iter()
-            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
+            .filter_map(|r| {
+                if r.value().dbrelay.write {
+                    Some(r.value().dbrelay.to_owned())
+                } else {
+                    None
+                }
+            })
             .collect();
 
         for relay in relays {
@@ -1079,10 +1101,14 @@ impl Overlord {
         // Push to all of the relays we post to
         let relays: Vec<DbRelay> = GLOBALS
             .relays
-            .read()
-            .await
             .iter()
-            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
+            .filter_map(|r| {
+                if r.value().dbrelay.write {
+                    Some(r.value().dbrelay.to_owned())
+                } else {
+                    None
+                }
+            })
             .collect();
 
         for relay in relays {
@@ -1123,10 +1149,14 @@ impl Overlord {
         // Push to all of the relays we post to
         let relays: Vec<DbRelay> = GLOBALS
             .relays
-            .read()
-            .await
             .iter()
-            .filter_map(|(_, r)| if r.write { Some(r.to_owned()) } else { None })
+            .filter_map(|r| {
+                if r.value().dbrelay.write {
+                    Some(r.value().dbrelay.to_owned())
+                } else {
+                    None
+                }
+            })
             .collect();
 
         for relay in relays {
@@ -1290,9 +1320,13 @@ impl Overlord {
                 let db_relay = DbRelay::new(relay_url.clone());
                 DbRelay::insert(db_relay.clone()).await?;
 
-                if let Entry::Vacant(entry) = GLOBALS.relays.write().await.entry(relay_url.clone())
-                {
-                    entry.insert(db_relay);
+                if let Entry::Vacant(entry) = GLOBALS.relays.entry(relay_url.clone()) {
+                    entry.insert(RelayInfo {
+                        dbrelay: db_relay,
+                        connected: false,
+                        assignments: vec![],
+                        subscriptions: vec![],
+                    });
                 }
 
                 // Save person_relay

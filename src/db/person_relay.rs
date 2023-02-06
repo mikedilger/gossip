@@ -343,12 +343,10 @@ impl DbPersonRelay {
                     // substitute our read relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
                         .relays
-                        .read()
-                        .await
                         .iter()
-                        .filter_map(|(url, dbrelay)| {
-                            if dbrelay.read {
-                                Some((url.clone(), 0))
+                        .filter_map(|r| {
+                            if r.value().dbrelay.read {
+                                Some((r.key().clone(), 0))
                             } else {
                                 None
                             }
@@ -361,12 +359,10 @@ impl DbPersonRelay {
                     // substitute our write relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
                         .relays
-                        .read()
-                        .await
                         .iter()
-                        .filter_map(|(url, dbrelay)| {
-                            if dbrelay.write {
-                                Some((url.clone(), 0))
+                        .filter_map(|r| {
+                            if r.value().dbrelay.write {
+                                Some((r.key().clone(), 0))
                             } else {
                                 None
                             }

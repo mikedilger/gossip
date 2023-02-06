@@ -2,8 +2,9 @@ use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
+use crate::relay_info::RelayInfo;
+use dashmap::mapref::entry::Entry;
 use nostr_types::{Metadata, Nip05, PublicKeyHex, RelayUrl, Unixtime};
-use std::collections::hash_map::Entry;
 
 // This updates the people map and the database with the result
 pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
@@ -125,8 +126,13 @@ async fn update_relays(
             let db_relay = DbRelay::new(relay_url.clone());
             DbRelay::insert(db_relay.clone()).await?;
 
-            if let Entry::Vacant(entry) = GLOBALS.relays.write().await.entry(relay_url.clone()) {
-                entry.insert(db_relay);
+            if let Entry::Vacant(entry) = GLOBALS.relays.entry(relay_url.clone()) {
+                entry.insert(RelayInfo {
+                    dbrelay: db_relay,
+                    connected: false,
+                    assignments: vec![],
+                    subscriptions: vec![],
+                });
             }
 
             // Save person_relay
