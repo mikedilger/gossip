@@ -262,6 +262,9 @@ impl RelayPicker {
         for (pubkey, count) in self.pubkey_counts.iter_mut() {
             if over_covered_public_keys.contains(pubkey) {
                 covered_public_keys.push(pubkey.clone());
+                if count.eq(&&mut 0u8) {
+                    continue;
+                }
                 *count -= 1;
                 changed = true;
             }
