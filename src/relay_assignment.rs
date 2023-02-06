@@ -260,7 +260,7 @@ impl RelayPicker {
         let mut covered_public_keys: Vec<PublicKeyHex> = Vec::new();
         let mut changed = false;
         for (pubkey, count) in self.pubkey_counts.iter_mut() {
-            if over_covered_public_keys.contains(pubkey) {
+            if over_covered_public_keys.contains(pubkey) && *count > 0 {
                 covered_public_keys.push(pubkey.clone());
                 *count -= 1;
                 changed = true;
