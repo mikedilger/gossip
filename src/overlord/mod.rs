@@ -706,7 +706,6 @@ impl Overlord {
             last_fetched: None,
             last_suggested_kind2: None,
             last_suggested_kind3: Some(now), // consider it our claim in our contact list
-            last_suggested_nip23: None,
             last_suggested_nip05: None,
             last_suggested_bytag: None,
             read: true,

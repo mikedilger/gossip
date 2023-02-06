@@ -16,7 +16,6 @@ pub struct DbPersonRelay {
     pub last_fetched: Option<u64>,
     pub last_suggested_kind2: Option<u64>,
     pub last_suggested_kind3: Option<u64>,
-    pub last_suggested_nip23: Option<u64>,
     pub last_suggested_nip05: Option<u64>,
     pub last_suggested_bytag: Option<u64>,
     pub read: bool,
@@ -32,14 +31,14 @@ impl DbPersonRelay {
 
         let sql = format!(
             "SELECT person, relay, person_relay.last_fetched, \
-             last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
+             last_suggested_kind2, last_suggested_kind3, \
              last_suggested_nip05, last_suggested_bytag, \
              person_relay.read, person_relay.write \
              FROM person_relay \
              INNER JOIN relay ON person_relay.relay=relay.url \
              WHERE person IN ({}) ORDER BY person, \
              person_relay.write DESC, relay.rank DESC, \
-             last_suggested_nip23 DESC, last_suggested_kind3 DESC, \
+             last_suggested_kind3 DESC, \
              last_suggested_nip05 DESC, last_suggested_kind2 DESC, \
              last_fetched DESC, last_suggested_bytag DESC",
             repeat_vars(pubkeys.len())
@@ -64,11 +63,10 @@ impl DbPersonRelay {
                         last_fetched: row.get(2)?,
                         last_suggested_kind2: row.get(3)?,
                         last_suggested_kind3: row.get(4)?,
-                        last_suggested_nip23: row.get(5)?,
-                        last_suggested_nip05: row.get(6)?,
-                        last_suggested_bytag: row.get(7)?,
-                        read: row.get(8)?,
-                        write: row.get(9)?,
+                        last_suggested_nip05: row.get(5)?,
+                        last_suggested_bytag: row.get(6)?,
+                        read: row.get(7)?,
+                        write: row.get(8)?,
                     });
                 }
             }
@@ -82,9 +80,9 @@ impl DbPersonRelay {
 
     pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, \
-                   last_suggested_kind2, last_suggested_kind3, last_suggested_nip23, \
+                   last_suggested_kind2, last_suggested_kind3, \
                    last_suggested_nip05, last_suggested_bytag, read, write) \
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
@@ -97,7 +95,6 @@ impl DbPersonRelay {
                 &person_relay.last_fetched,
                 &person_relay.last_suggested_kind2,
                 &person_relay.last_suggested_kind3,
-                &person_relay.last_suggested_nip23,
                 &person_relay.last_suggested_nip05,
                 &person_relay.last_suggested_bytag,
                 &person_relay.read,
@@ -292,7 +289,7 @@ impl DbPersonRelay {
         dir: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let sql = "SELECT person, relay, last_fetched, last_suggested_kind2, \
-                   last_suggested_kind3, last_suggested_nip23, \
+                   last_suggested_kind3, \
                    last_suggested_nip05, last_suggested_bytag, read, write \
                    FROM person_relay WHERE person=?";
 
@@ -314,11 +311,10 @@ impl DbPersonRelay {
                         last_fetched: row.get(2)?,
                         last_suggested_kind2: row.get(3)?,
                         last_suggested_kind3: row.get(4)?,
-                        last_suggested_nip23: row.get(5)?,
-                        last_suggested_nip05: row.get(6)?,
-                        last_suggested_bytag: row.get(7)?,
-                        read: row.get(8)?,
-                        write: row.get(9)?,
+                        last_suggested_nip05: row.get(5)?,
+                        last_suggested_bytag: row.get(6)?,
+                        read: row.get(7)?,
+                        write: row.get(8)?,
                     };
                     dbprs.push(dbpr);
                 }
@@ -382,8 +378,6 @@ impl DbPersonRelay {
         // This is the ranking we are using. There might be reasons
         // for ranking differently.
         //   write (score=20)    [ they claim (to us) ]
-        //   nip23 (score=10)    [ they say (to themselves) ] [actually kind3 contents]
-        //                          FIXME, person_relay.last_suggested_nip23 has no direction info
         //   kind3 tag (score=5) [ we say ]
         //   nip05 (score=4)     [ they claim, unsigned ]
         //   fetched (score=3)   [ we found ]
@@ -405,12 +399,6 @@ impl DbPersonRelay {
             // 'write' is an author-signed explicit claim of where they write
             if dbpr.write {
                 score += 20;
-            }
-
-            // nip23 is an author-signed statement to themselves
-            // kind-3 content also substitutes for nip23, this comes from either.
-            if let Some(when) = dbpr.last_suggested_nip23 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 10);
             }
 
             // kind3 is our memory of where we are following someone
@@ -461,8 +449,6 @@ impl DbPersonRelay {
         // This is the ranking we are using. There might be reasons
         // for ranking differently.
         //   read (score=20)    [ they claim (to us) ]
-        //   nip23 (score=10)    [ they say (to themselves) ] [actually kind3 contents]
-        //                          FIXME, person_relay.last_suggested_nip23 has no direction info
         //   kind3 tag (score=5) [ we say ]
         //   nip05 (score=4)     [ they claim, unsigned ]
         //   fetched (score=3)   [ we found ]
@@ -484,12 +470,6 @@ impl DbPersonRelay {
             // 'read' is an author-signed explicit claim of where they read
             if dbpr.read {
                 score += 20;
-            }
-
-            // nip23 is an author-signed statement to themselves
-            // kind-3 content also substitutes for nip23, this comes from either.
-            if let Some(when) = dbpr.last_suggested_nip23 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 10);
             }
 
             // kind3 is our memory of where we are following someone
