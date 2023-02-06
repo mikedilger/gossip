@@ -5,6 +5,7 @@ use crate::relay_info::RelayAssignment;
 use eframe::egui;
 use egui::{Context, ScrollArea, SelectableLabel, Ui};
 use egui_extras::{Column, TableBuilder};
+use nostr_types::RelayUrl;
 
 mod all;
 
@@ -36,7 +37,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.heading("Connected Relays");
         ui.add_space(18.0);
 
-        let relays_watching = GLOBALS.relays_watching.blocking_read().clone();
+        let relays_watching: Vec<RelayUrl> = GLOBALS
+            .relays
+            .iter()
+            .filter(|ri| ri.value().connected)
+            .map(|r| r.key().to_owned())
+            .collect();
+
         let mut relay_assignments = GLOBALS.relay_assignments.blocking_read().clone();
         let relays: Vec<RelayAssignment> = relays_watching
             .iter()

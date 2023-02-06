@@ -1,5 +1,5 @@
-use crate::db::DbRelay;
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
+use crate::db::DbRelay;
 use crate::events::Events;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
@@ -51,11 +51,8 @@ pub struct Globals {
     /// All nostr relay records we have, with associated info
     pub relays: DashMap<RelayUrl, RelayInfo>,
 
-    /// The relays we are currently connected to
-    pub relays_watching: RwLock<Vec<RelayUrl>>,
-
     /// These are the relays we are currently connected to for general feed, along with
-    /// the public keys they serve.  Yes this overlaps with relays_watching, but each
+    /// the public keys they serve.  Yes this overlaps with relays, but each
     /// has data the other doesn't.
     pub relay_assignments: RwLock<Vec<RelayAssignment>>,
 
@@ -111,7 +108,6 @@ lazy_static! {
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
             relays: DashMap::new(),
-            relays_watching: RwLock::new(Vec::new()),
             relay_assignments: RwLock::new(Vec::new()),
             relay_picker: RwLock::new(Default::default()),
             shutting_down: AtomicBool::new(false),
@@ -225,10 +221,10 @@ impl Globals {
     }
 
     pub fn relays_filtered<F>(&self, mut f: F) -> Vec<DbRelay>
-        where F: FnMut(&DbRelay) -> bool
+    where
+        F: FnMut(&DbRelay) -> bool,
     {
-        self
-            .relays
+        self.relays
             .iter()
             .filter_map(|r| {
                 if f(&r.value().dbrelay) {
@@ -238,14 +234,13 @@ impl Globals {
                 }
             })
             .collect()
-
     }
 
     pub fn relays_url_filtered<F>(&self, mut f: F) -> Vec<RelayUrl>
-        where F: FnMut(&DbRelay) -> bool
+    where
+        F: FnMut(&DbRelay) -> bool,
     {
-        self
-            .relays
+        self.relays
             .iter()
             .filter_map(|r| {
                 if f(&r.value().dbrelay) {
@@ -255,6 +250,11 @@ impl Globals {
                 }
             })
             .collect()
+    }
 
+    pub fn relay_is_connected(&self, url: &RelayUrl) -> bool {
+        self.relays
+            .iter()
+            .any(|ri| ri.value().dbrelay.url == *url && ri.value().connected)
     }
 }

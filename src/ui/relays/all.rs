@@ -16,9 +16,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(TextEdit::singleline(&mut app.new_relay_url));
         if ui.button("Add").clicked() {
             if let Ok(url) = RelayUrl::try_from_str(&app.new_relay_url) {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AddRelay(url.clone()));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url));
                 *GLOBALS.status_message.blocking_write() = format!(
                     "I asked the overlord to add relay {}. Check for it below.",
                     &app.new_relay_url

@@ -101,7 +101,7 @@ impl Overlord {
                 GLOBALS.relays.insert(
                     dbrelay.url.clone(),
                     RelayInfo {
-                        dbrelay: dbrelay,
+                        dbrelay,
                         connected: false,
                         assignments: vec![],
                         subscriptions: vec![],
@@ -229,7 +229,7 @@ impl Overlord {
         let read_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.read);
         for relay_url in read_relay_urls.iter() {
             // Start a minion for this relay if there is none
-            if !GLOBALS.relays_watching.read().await.contains(relay_url) {
+            if !GLOBALS.relay_is_connected(relay_url) {
                 self.start_minion(relay_url.clone()).await?;
             }
 
@@ -329,7 +329,11 @@ impl Overlord {
         let abort_handle = self.minions.spawn(async move { minion.handle().await });
         let id = abort_handle.id();
         self.minions_task_url.insert(id, url.clone());
-        GLOBALS.relays_watching.write().await.push(url.clone());
+        if let Some(mut ri) = GLOBALS.relays.get_mut(&url) {
+            ri.connected = true
+        } else {
+            tracing::error!("GLOBAL relays was missing a relay!: {}", url);
+        }
         Ok(())
     }
 
@@ -391,12 +395,12 @@ impl Overlord {
 
                         // Minion probably already logged failure in relay table
 
-                        // Remove from our urls_watching vec
-                        GLOBALS
-                            .relays_watching
-                            .write()
-                            .await
-                            .retain(|value| *value != url);
+                        // Set to not connected
+                        if let Some(mut ri) = GLOBALS.relays.get_mut(&url) {
+                            ri.connected = false;
+                        } else {
+                            tracing::error!("GLOBAL relays missing {}", url);
+                        }
 
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
@@ -417,12 +421,12 @@ impl Overlord {
                     Some(url) => {
                         tracing::info!("Relay Task {} completed", &url);
 
-                        // Remove from our urls_watching vec
-                        GLOBALS
-                            .relays_watching
-                            .write()
-                            .await
-                            .retain(|value| *value != url);
+                        // Set to not connected
+                        if let Some(mut ri) = GLOBALS.relays.get_mut(&url) {
+                            ri.connected = false;
+                        } else {
+                            tracing::error!("GLOBAL relays missing {}", url);
+                        }
 
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
@@ -485,7 +489,7 @@ impl Overlord {
                 GLOBALS.relays.insert(
                     relay_str,
                     RelayInfo {
-                        dbrelay: dbrelay,
+                        dbrelay,
                         connected: false,
                         assignments: vec![],
                         subscriptions: vec![],
@@ -658,12 +662,7 @@ impl Overlord {
 
                 for person_relay in person_relays.iter() {
                     // Start a minion for this relay if there is none
-                    if !GLOBALS
-                        .relays_watching
-                        .read()
-                        .await
-                        .contains(&person_relay.relay)
-                    {
+                    if !GLOBALS.relay_is_connected(&person_relay.relay) {
                         self.start_minion(person_relay.relay.clone()).await?;
                     }
 
@@ -860,7 +859,7 @@ impl Overlord {
 
         for url in relay_urls {
             // Start a minion for it, if there is none
-            if !GLOBALS.relays_watching.read().await.contains(&url) {
+            if !GLOBALS.relay_is_connected(&url) {
                 self.start_minion(url.clone()).await?;
             }
 
@@ -920,7 +919,7 @@ impl Overlord {
 
         for relay_url in advertise_to_relay_urls {
             // Start a minion for it, if there is none
-            if !GLOBALS.relays_watching.read().await.contains(&relay_url) {
+            if !GLOBALS.relay_is_connected(&relay_url) {
                 self.start_minion(relay_url.clone()).await?;
             }
 
@@ -986,7 +985,7 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !GLOBALS.relays_watching.read().await.contains(&relay.url) {
+            if !GLOBALS.relay_is_connected(&relay.url) {
                 self.start_minion(relay.url.clone()).await?;
             }
 
@@ -1015,7 +1014,7 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !GLOBALS.relays_watching.read().await.contains(&relay.url) {
+            if !GLOBALS.relay_is_connected(&relay.url) {
                 self.start_minion(relay.url.clone()).await?;
             }
 
@@ -1042,7 +1041,7 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !GLOBALS.relays_watching.read().await.contains(&relay.url) {
+            if !GLOBALS.relay_is_connected(&relay.url) {
                 self.start_minion(relay.url.clone()).await?;
             }
 
@@ -1080,7 +1079,7 @@ impl Overlord {
 
         for relay in relays {
             // Start a minion for it, if there is none
-            if !GLOBALS.relays_watching.read().await.contains(&relay.url) {
+            if !GLOBALS.relay_is_connected(&relay.url) {
                 self.start_minion(relay.url.clone()).await?;
             }
 
@@ -1119,7 +1118,7 @@ impl Overlord {
 
         for (url, pubkeys) in map.drain() {
             // Start minion if needed
-            if !GLOBALS.relays_watching.read().await.contains(&url) {
+            if !GLOBALS.relay_is_connected(&url) {
                 self.start_minion(url.clone()).await?;
             }
 
@@ -1211,7 +1210,7 @@ impl Overlord {
 
         for url in relays.iter() {
             // Start minion if needed
-            if !GLOBALS.relays_watching.read().await.contains(url) {
+            if !GLOBALS.relay_is_connected(url) {
                 self.start_minion(url.clone()).await?;
             }
 
