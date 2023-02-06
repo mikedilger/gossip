@@ -282,9 +282,9 @@ impl DbPersonRelay {
         pubkey: PublicKeyHex,
         dir: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        let sql = "SELECT person, relay, last_suggested_nip23, last_suggested_kind3, \
-                   last_suggested_nip05, last_fetched, last_suggested_kind2, \
-                   last_suggested_bytag, read, write \
+        let sql = "SELECT person, relay, last_fetched, last_suggested_kind2, \
+                   last_suggested_kind3, last_suggested_nip23, \
+                   last_suggested_nip05, last_suggested_bytag, read, write \
                    FROM person_relay WHERE person=?";
 
         let ranked_relays: Result<Vec<(RelayUrl, u64)>, Error> = spawn_blocking(move || {
