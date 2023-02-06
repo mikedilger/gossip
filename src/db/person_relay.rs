@@ -221,24 +221,29 @@ impl DbPersonRelay {
         let sql1 = "UPDATE person_relay SET read=0, write=0 WHERE person=?";
 
         // Set the reads
-        let sql2 = format!(
-            "UPDATE person_relay SET read=1 WHERE person=? AND relay IN ({})",
-            repeat_vars(read_relays.len())
-        );
+        let mut sql2: String = "".to_owned();
         let mut params2: Vec<String> = vec![person.to_string()];
-        for relay in read_relays.iter() {
-            params2.push(relay.to_string());
+        if !read_relays.is_empty() {
+            sql2 = format!(
+                "UPDATE person_relay SET read=1 WHERE person=? AND relay IN ({})",
+                repeat_vars(read_relays.len())
+            );
+            for relay in read_relays.iter() {
+                params2.push(relay.to_string());
+            }
         }
 
         // Set the writes
-        let sql3 = format!(
-            "UPDATE person_relay SET write=1 WHERE person=? AND relay IN ({})",
-            repeat_vars(write_relays.len())
-        );
-
+        let mut sql3: String = "".to_owned();
         let mut params3: Vec<String> = vec![person.to_string()];
-        for relay in write_relays.iter() {
-            params3.push(relay.to_string());
+        if !write_relays.is_empty() {
+            sql3 = format!(
+                "UPDATE person_relay SET write=1 WHERE person=? AND relay IN ({})",
+                repeat_vars(write_relays.len())
+            );
+            for relay in write_relays.iter() {
+                params3.push(relay.to_string());
+            }
         }
 
         spawn_blocking(move || {
@@ -252,11 +257,15 @@ impl DbPersonRelay {
                 let mut stmt = db.prepare(sql1)?;
                 stmt.execute((person.as_str(),))?;
 
-                let mut stmt = db.prepare(&sql2)?;
-                stmt.execute(rusqlite::params_from_iter(params2))?;
+                if !read_relays.is_empty() {
+                    let mut stmt = db.prepare(&sql2)?;
+                    stmt.execute(rusqlite::params_from_iter(params2))?;
+                }
 
-                let mut stmt = db.prepare(&sql3)?;
-                stmt.execute(rusqlite::params_from_iter(params3))?;
+                if !write_relays.is_empty() {
+                    let mut stmt = db.prepare(&sql3)?;
+                    stmt.execute(rusqlite::params_from_iter(params3))?;
+                }
 
                 let mut stmt = db.prepare("COMMIT TRANSACTION")?;
                 stmt.execute(())?;
