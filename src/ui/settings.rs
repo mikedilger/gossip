@@ -21,11 +21,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
 
         ui.horizontal(|ui| {
-            ui.label("Maximum global feed relays: ")
+            ui.label("Maximum following feed relays: ")
                 .on_hover_text(
-                    "We will not stay connected to more than this many relays for global feed. Takes affect on restart.",
+                    "We will not stay connected to more than this many relays for following feed. Takes affect on restart. During these early days of nostr, I recommend capping this at around 20 to 30.",
                 );
-            ui.add(Slider::new(&mut app.settings.max_relays, 1..=50).text("relays"));
+            ui.add(Slider::new(&mut app.settings.max_relays, 5..=100).text("relays"));
         });
 
         ui.add_space(12.0);
