@@ -130,7 +130,7 @@ async fn update_relays(
                 entry.insert(RelayInfo {
                     dbrelay: db_relay,
                     connected: false,
-                    assignments: vec![],
+                    assignment: None,
                     subscriptions: vec![],
                 });
             }

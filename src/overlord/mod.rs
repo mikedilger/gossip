@@ -5,7 +5,7 @@ use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
-use crate::relay_info::RelayInfo;
+use crate::relay_info::{RelayAssignment, RelayInfo};
 use crate::relay_picker::RelayPicker;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
@@ -103,7 +103,7 @@ impl Overlord {
                     RelayInfo {
                         dbrelay,
                         connected: false,
-                        assignments: vec![],
+                        assignment: None,
                         subscriptions: vec![],
                     },
                 );
@@ -259,14 +259,18 @@ impl Overlord {
 
     async fn pick_relays(&mut self) {
         // Take some things out of globals as we have to use them many times
-        let mut relay_assignments =
-            std::mem::take(GLOBALS.relay_assignments.write().await.deref_mut());
         let mut relay_picker = std::mem::take(GLOBALS.relay_picker.write().await.deref_mut());
 
         let max_relays = GLOBALS.settings.read().await.max_relays as usize;
 
         loop {
-            if relay_assignments.len() >= max_relays {
+            if GLOBALS
+                .relays
+                .iter()
+                .filter(|r| r.value().assignment.is_some())
+                .count()
+                >= max_relays
+            {
                 tracing::info!("Done picking relays: Maximum relays picked.");
                 break;
             }
@@ -299,7 +303,14 @@ impl Overlord {
                             relay_assignment.pubkeys.len()
                         );
 
-                        relay_assignments.push(relay_assignment);
+                        if let Some(mut ri) = GLOBALS.relays.get_mut(&relay_assignment.relay.url) {
+                            ri.assignment = Some(relay_assignment);
+                        } else {
+                            tracing::error!(
+                                "RELAY missing from globals: {}",
+                                &relay_assignment.relay.url
+                            );
+                        }
                     } else {
                         // That one didn't work. Return to the relay picker.
                         relay_picker.return_assignment(relay_assignment);
@@ -313,10 +324,6 @@ impl Overlord {
         }
 
         // Return data to GLOBALS
-        let _ = std::mem::replace(
-            GLOBALS.relay_assignments.write().await.deref_mut(),
-            relay_assignments,
-        );
         let _ = std::mem::replace(GLOBALS.relay_picker.write().await.deref_mut(), relay_picker);
     }
 
@@ -450,31 +457,22 @@ impl Overlord {
         //       connect to a relay over and over again.
 
         // Get the assignment from that relay
-        let maybe_pos: Option<usize> = GLOBALS
-            .relay_assignments
-            .write()
-            .await
-            .iter()
-            .position(|x| x.relay.url == url);
+        let mut maybe_assignment: Option<RelayAssignment> = None;
+        if let Some(mut ri) = GLOBALS.relays.get_mut(&url) {
+            maybe_assignment = ri.assignment.take();
+        }
 
-        if let Some(pos) = maybe_pos {
-            // Extract the relay assignment at that position
-            let relay_assignment = GLOBALS.relay_assignments.write().await.swap_remove(pos);
+        if let Some(ra) = maybe_assignment {
+            {
+                let mut relay_picker = GLOBALS.relay_picker.write().await;
 
-            // Return it to the relay picker (this does not add back the relay, just the pubkeys)
-            GLOBALS
-                .relay_picker
-                .write()
-                .await
-                .return_assignment(relay_assignment);
+                // Return it to the relay picker (this does not add back the relay,
+                // just the pubkeys)
+                relay_picker.return_assignment(ra);
 
-            // Try to refresh person-relay scores in the relay picker
-            let _ = GLOBALS
-                .relay_picker
-                .write()
-                .await
-                .refresh_person_relay_scores()
-                .await;
+                // Try to refresh person-relay scores in the relay picker
+                let _ = relay_picker.refresh_person_relay_scores().await;
+            }
 
             // Pick relays again
             self.pick_relays().await;
@@ -491,7 +489,7 @@ impl Overlord {
                     RelayInfo {
                         dbrelay,
                         connected: false,
-                        assignments: vec![],
+                        assignment: None,
                         subscriptions: vec![],
                     },
                 );
@@ -1242,7 +1240,7 @@ impl Overlord {
                     entry.insert(RelayInfo {
                         dbrelay: db_relay,
                         connected: false,
-                        assignments: vec![],
+                        assignment: None,
                         subscriptions: vec![],
                     });
                 }

@@ -1,11 +1,9 @@
 use super::{GossipUi, Page};
-use crate::db::DbRelay;
 use crate::globals::GLOBALS;
-use crate::relay_info::RelayAssignment;
+use crate::relay_info::RelayInfo;
 use eframe::egui;
 use egui::{Context, ScrollArea, SelectableLabel, Ui};
 use egui_extras::{Column, TableBuilder};
-use nostr_types::RelayUrl;
 
 mod all;
 
@@ -37,33 +35,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.heading("Connected Relays");
         ui.add_space(18.0);
 
-        let relays_watching: Vec<RelayUrl> = GLOBALS
+        let relay_info: Vec<RelayInfo> = GLOBALS
             .relays
             .iter()
             .filter(|ri| ri.value().connected)
-            .map(|r| r.key().to_owned())
+            .map(|r| r.value().to_owned())
             .collect();
-
-        let mut relay_assignments = GLOBALS.relay_assignments.blocking_read().clone();
-        let relays: Vec<RelayAssignment> = relays_watching
-            .iter()
-            .map(|url| {
-                if let Some(pos) = relay_assignments.iter().position(|r| r.relay.url == *url) {
-                    relay_assignments.swap_remove(pos)
-                } else {
-                    RelayAssignment {
-                        relay: DbRelay::new(url.to_owned()),
-                        pubkeys: vec![],
-                    }
-                }
-            })
-            .collect();
-
 
         ScrollArea::vertical()
             .id_source("relay_coverage")
             .show(ui, |ui| {
-
                 ui.push_id("general_feed_relays", |ui| {
                     TableBuilder::new(ui)
                         .striped(true)
@@ -78,12 +59,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             });
                         })
                         .body(|body| {
-                            body.rows(24.0, relays.len(), |row_index, mut row| {
+                            body.rows(24.0, relay_info.len(), |row_index, mut row| {
                                 row.col(|ui| {
-                                    ui.label(&relays[row_index].relay.url.0);
+                                    ui.label(&relay_info[row_index].dbrelay.url.0);
                                 });
                                 row.col(|ui| {
-                                    ui.label(format!("{}", &relays[row_index].pubkeys.len()));
+                                    if let Some(ref assignment) = relay_info[row_index].assignment {
+                                        ui.label(format!("{}", assignment.pubkeys.len()));
+                                    }
                                 });
                             });
                         });
@@ -116,9 +99,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 } else {
                     ui.label("All followed people are fully covered.".to_owned());
                 }
-
             });
-
     } else if app.page == Page::RelaysAll {
         all::update(app, ctx, frame, ui);
     }

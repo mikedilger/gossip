@@ -6,7 +6,7 @@ use nostr_types::PublicKeyHex;
 pub struct RelayInfo {
     pub dbrelay: DbRelay,
     pub connected: bool,
-    pub assignments: Vec<RelayAssignment>,
+    pub assignment: Option<RelayAssignment>,
     pub subscriptions: Vec<String>,
 }
 

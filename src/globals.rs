@@ -5,7 +5,7 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::people::People;
 use crate::relationship::Relationship;
-use crate::relay_info::{RelayAssignment, RelayInfo};
+use crate::relay_info::RelayInfo;
 use crate::relay_picker::RelayPicker;
 use crate::settings::Settings;
 use crate::signer::Signer;
@@ -50,11 +50,6 @@ pub struct Globals {
 
     /// All nostr relay records we have, with associated info
     pub relays: DashMap<RelayUrl, RelayInfo>,
-
-    /// These are the relays we are currently connected to for general feed, along with
-    /// the public keys they serve.  Yes this overlaps with relays, but each
-    /// has data the other doesn't.
-    pub relay_assignments: RwLock<Vec<RelayAssignment>>,
 
     /// The relay picker, used to pick the next relay
     pub relay_picker: RwLock<RelayPicker>,
@@ -108,7 +103,6 @@ lazy_static! {
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
             relays: DashMap::new(),
-            relay_assignments: RwLock::new(Vec::new()),
             relay_picker: RwLock::new(Default::default()),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
