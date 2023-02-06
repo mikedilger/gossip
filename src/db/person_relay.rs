@@ -212,33 +212,6 @@ impl DbPersonRelay {
         Ok(())
     }
 
-    pub async fn upsert_last_suggested_nip23(
-        person: PublicKeyHex,
-        relay: RelayUrl,
-        last_suggested_nip23: u64,
-    ) -> Result<(), Error> {
-        let sql = "INSERT INTO person_relay (person, relay, last_suggested_nip23) \
-                   VALUES (?, ?, ?) \
-                   ON CONFLICT(person, relay) DO UPDATE SET last_suggested_nip23=?";
-
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                person.as_str(),
-                &relay.0,
-                &last_suggested_nip23,
-                &last_suggested_nip23,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-
     pub async fn set_relay_list(
         person: PublicKeyHex,
         read_relays: Vec<RelayUrl>,

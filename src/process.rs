@@ -5,7 +5,7 @@ use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
 use nostr_types::{
-    Event, EventKind, Metadata, PublicKey, PublicKeyHex, RelayUrl, SimpleRelayList, Tag, Unixtime,
+    Event, EventKind, Metadata, PublicKeyHex, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -217,10 +217,10 @@ pub async fn process_new_event(
             if event.pubkey == pubkey {
                 process_your_contact_list(event).await?;
             } else {
-                process_somebody_elses_contact_list(event.pubkey, event).await?;
+                process_somebody_elses_contact_list(event).await?;
             }
         } else {
-            process_somebody_elses_contact_list(event.pubkey, event).await?;
+            process_somebody_elses_contact_list(event).await?;
         }
     }
 
@@ -274,40 +274,36 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
     Ok(())
 }
 
-async fn process_somebody_elses_contact_list(
-    pubkey: PublicKey,
-    event: &Event,
-) -> Result<(), Error> {
+async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
     // We don't keep their contacts or show to the user yet.
     // We only process the contents for (non-standard) relay list information.
 
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
     if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {
-        // NOTE: we update person_relay.last_suggested_nip23, even though this data came from the
-        //       contents of a kind3 instead, because it is the same kind of thing.
-        //       person_relay.last_suggested_kind3 is updated based on the p-tag, not the contents,
-        //       of kind3.
-
-        // This counts as a relay list for now, but never clobbers the actual relay list
-        // relay_list_created_at field.  So would nip23 events.
-        let _ = GLOBALS
+        // Update that we received the relay list (and optionally bump forward the date
+        // if this relay list happens to be newer)
+        let newer = GLOBALS
             .people
-            .update_relay_list_stamps(pubkey.into(), 0)
+            .update_relay_list_stamps(event.pubkey.into(), event.created_at.0)
             .await?;
 
+        if !newer {
+            return Ok(());
+        }
+
+        let mut read_relays: Vec<RelayUrl> = Vec::new();
+        let mut write_relays: Vec<RelayUrl> = Vec::new();
         for (url, simple_relay_usage) in srl.0.iter() {
-            // Only if they write there (we don't care where they read from)
-            if simple_relay_usage.write {
-                if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
-                    DbPersonRelay::upsert_last_suggested_nip23(
-                        pubkey.into(),
-                        relay_url,
-                        event.created_at.0 as u64,
-                    )
-                    .await?;
+            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
+                if simple_relay_usage.read {
+                    read_relays.push(relay_url.clone());
+                }
+                if simple_relay_usage.write {
+                    write_relays.push(relay_url.clone());
                 }
             }
         }
+        DbPersonRelay::set_relay_list(event.pubkey.into(), read_relays, write_relays).await?;
     }
 
     Ok(())
