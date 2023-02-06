@@ -226,17 +226,7 @@ impl Overlord {
         }
 
         // For NIP-65, separately subscribe to our mentions on our read relays
-        let read_relay_urls: Vec<RelayUrl> = GLOBALS
-            .relays
-            .iter()
-            .filter_map(|r| {
-                if r.value().dbrelay.read {
-                    Some(r.key().clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let read_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.read);
         for relay_url in read_relay_urls.iter() {
             // Start a minion for this relay if there is none
             if !GLOBALS.relays_watching.read().await.contains(relay_url) {
@@ -861,17 +851,7 @@ impl Overlord {
             }
 
             // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = GLOBALS
-                .relays
-                .iter()
-                .filter_map(|r| {
-                    if r.value().dbrelay.write {
-                        Some(r.key().to_owned())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
             relay_urls.extend(write_relay_urls);
 
             relay_urls.sort();
@@ -908,18 +888,7 @@ impl Overlord {
             }
         };
 
-        let read_or_write_relays: Vec<DbRelay> = GLOBALS
-            .relays
-            .iter()
-            .filter_map(|r| {
-                if r.value().dbrelay.read || r.value().dbrelay.write {
-                    Some(r.value().dbrelay.to_owned())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
+        let read_or_write_relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.read || r.write);
         let mut tags: Vec<Tag> = Vec::new();
         for relay in read_or_write_relays.iter() {
             tags.push(Tag::Reference {
@@ -947,17 +916,7 @@ impl Overlord {
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
 
-        let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
-            .relays
-            .iter()
-            .filter_map(|r| {
-                if r.value().dbrelay.advertise {
-                    Some(r.key().to_owned())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.advertise);
 
         for relay_url in advertise_to_relay_urls {
             // Start a minion for it, if there is none
@@ -1023,17 +982,7 @@ impl Overlord {
             GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
 
-        let relays: Vec<DbRelay> = GLOBALS
-            .relays
-            .iter()
-            .filter_map(|r| {
-                if r.value().dbrelay.write {
-                    Some(r.value().dbrelay.to_owned())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
 
         for relay in relays {
             // Start a minion for it, if there is none
@@ -1062,17 +1011,7 @@ impl Overlord {
         GLOBALS.pull_following_merge.store(merge, Ordering::Relaxed);
 
         // Pull our list from all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS
-            .relays
-            .iter()
-            .filter_map(|r| {
-                if r.value().dbrelay.write {
-                    Some(r.value().dbrelay.to_owned())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
 
         for relay in relays {
             // Start a minion for it, if there is none
@@ -1099,17 +1038,7 @@ impl Overlord {
         let event = GLOBALS.people.generate_contact_list_event().await?;
 
         // Push to all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS
-            .relays
-            .iter()
-            .filter_map(|r| {
-                if r.value().dbrelay.write {
-                    Some(r.value().dbrelay.to_owned())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
 
         for relay in relays {
             // Start a minion for it, if there is none
@@ -1147,17 +1076,7 @@ impl Overlord {
         let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
 
         // Push to all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS
-            .relays
-            .iter()
-            .filter_map(|r| {
-                if r.value().dbrelay.write {
-                    Some(r.value().dbrelay.to_owned())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
 
         for relay in relays {
             // Start a minion for it, if there is none

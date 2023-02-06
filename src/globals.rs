@@ -1,3 +1,4 @@
+use crate::db::DbRelay;
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
 use crate::events::Events;
 use crate::feed::Feed;
@@ -221,5 +222,39 @@ impl Globals {
         }
 
         Some(profile)
+    }
+
+    pub fn relays_filtered<F>(&self, mut f: F) -> Vec<DbRelay>
+        where F: FnMut(&DbRelay) -> bool
+    {
+        self
+            .relays
+            .iter()
+            .filter_map(|r| {
+                if f(&r.value().dbrelay) {
+                    Some(r.value().dbrelay.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+
+    }
+
+    pub fn relays_url_filtered<F>(&self, mut f: F) -> Vec<RelayUrl>
+        where F: FnMut(&DbRelay) -> bool
+    {
+        self
+            .relays
+            .iter()
+            .filter_map(|r| {
+                if f(&r.value().dbrelay) {
+                    Some(r.key().clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+
     }
 }
