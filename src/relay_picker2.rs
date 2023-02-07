@@ -32,11 +32,11 @@ pub struct RelayPicker2 {
 
     /// For each followed pubkey that still needs assignments, the number of relay
     /// assignments it is seeking.  These start out at settings.num_relays_per_person
-    /// (or less if the person doesn't have that many relays)
+    /// (if the person doesn't have that many relays, it will do the best it can)
     pub pubkey_counts: DashMap<PublicKeyHex, u8>,
 
     /// A ranking of relays per person.
-    pub person_relay_scores: RwLock<Vec<(PublicKeyHex, RelayUrl, u64)>>,
+    pub person_relay_scores: DashMap<PublicKeyHex, Vec<(RelayUrl, u64)>>,
 }
 
 impl RelayPicker2 {
@@ -49,44 +49,27 @@ impl RelayPicker2 {
         let all_relays: DashMap<RelayUrl, DbRelay> = DbRelay::fetch(None).await?.drain(..)
             .map(|dbr| (dbr.url.clone(), dbr)).collect();
 
-        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
-
-        let mut person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)> = Vec::new();
-        let pubkey_counts: DashMap<PublicKeyHex, u8> = DashMap::new();
-
-        // Get all the people we follow
-        let pubkeys: Vec<PublicKeyHex> = GLOBALS
-            .people
-            .get_followed_pubkeys()
-            .iter()
-            .map(|p| p.to_owned())
-            .collect();
-
-        for pubkey in &pubkeys {
-            let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
-                DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
-                .await?
-                .iter()
-                .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
-                .collect();
-
-            let count = num_relays_per_person.min(best_relays.len() as u8);
-            pubkey_counts.insert(pubkey.clone(), count);
-
-            person_relay_scores.extend(best_relays);
-        }
-
-        Ok(RelayPicker2 {
+        let rp2 = RelayPicker2 {
             all_relays,
             connected_relays: DashMap::new(),
             excluded_relays: DashMap::new(),
-            pubkey_counts,
-            person_relay_scores: RwLock::new(person_relay_scores),
-        })
+            pubkey_counts: DashMap::new(),
+            person_relay_scores: DashMap::new(),
+        };
+
+        rp2.refresh_person_relay_scores(true);
+
+        Ok(rp2)
     }
 
-    pub async fn refresh_person_relay_scores(&mut self) -> Result<(), Error> {
-        let mut person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)> = Vec::new();
+    pub async fn refresh_person_relay_scores(&self, initialize_counts: bool) -> Result<(), Error> {
+        self.person_relay_scores.clear();
+
+        if initialize_counts {
+            self.pubkey_counts.clear();
+        }
+
+        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
 
         // Get all the people we follow
         let pubkeys: Vec<PublicKeyHex> = GLOBALS
@@ -98,17 +81,15 @@ impl RelayPicker2 {
 
         // Compute scores for each person_relay pairing
         for pubkey in &pubkeys {
-            let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
+            let best_relays: Vec<(RelayUrl, u64)> =
                 DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
-                .await?
-                .iter()
-                .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
-                .collect();
+                .await?;
+            self.person_relay_scores.insert(pubkey.clone(), best_relays);
 
-            person_relay_scores.extend(best_relays);
+            if initialize_counts {
+                self.pubkey_counts.insert(pubkey.clone(), num_relays_per_person);
+            }
         }
-
-        *self.person_relay_scores.write().await = person_relay_scores;
 
         Ok(())
     }
@@ -143,8 +124,28 @@ impl RelayPicker2 {
         }
     }
 
-    fn maybe_include_relays(&self) {
+    /// Create the next assignment, and return the RelayUrl that has it.
+    /// The caller is responsible for making that assignment actually happen.
+    pub fn pick(&self) -> Result<RelayUrl, RelayPickerFailure> {
+        // Maybe include excluded relays
         let now = Unixtime::now().unwrap().0;
         self.excluded_relays.retain(|_, v| *v > now);
+
+        if self.pubkey_counts.is_empty() {
+            return Err(RelayPickerFailure::NoPeopleLeft);
+        }
+
+        // Keep score for each relay
+        let mut scoreboard: DashMap<RelayUrl, u64> = self.all_relays.iter().map(|x| (x.key().to_owned() ,0))
+            .collect();
+
+        // Assign scores to relays
+        // TBD
+
+
+
+
+        // just so it compiles for now
+        Err(RelayPickerFailure::NoRelaysLeft)
     }
 }
