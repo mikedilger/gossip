@@ -136,12 +136,56 @@ impl RelayPicker2 {
         }
 
         // Keep score for each relay
-        let mut scoreboard: DashMap<RelayUrl, u64> = self.all_relays.iter().map(|x| (x.key().to_owned() ,0))
+        let scoreboard: DashMap<RelayUrl, u64> = self.all_relays.iter().map(|x| (x.key().to_owned() ,0))
             .collect();
 
         // Assign scores to relays
-        // TBD
+        for elem in self.person_relay_scores.iter() {
+            let pubkeyhex = elem.key();
+            let relay_scores = elem.value();
 
+            // Skip if this pubkey doesn't need any more assignments
+            if let Some(pkc) = self.pubkey_counts.get(&pubkeyhex) {
+                if *pkc == 0 {
+                    // person doesn't need anymore
+                    continue;
+                }
+            } else {
+                continue; // person doesn't need any
+            }
+
+            // Add scores to their two best relays
+            let mut loopcount = 0;
+            for (relay, score) in relay_scores.iter() {
+                // Only count the best two
+                if loopcount >= 2 {
+                    break;
+                }
+
+                // Skip relays that are excluded
+                if self.excluded_relays.contains_key(relay) {
+                    continue;
+                }
+
+                // Skip if relay is already assigned this pubkey
+                if let Some(maybe_assignment) = self.connected_relays.get(relay) {
+                    if let Some(assignment) = maybe_assignment.value() {
+                        if assignment.pubkeys.contains(&pubkeyhex) {
+                            continue;
+                        }
+                    }
+                }
+
+                // Add the score
+                if let Some(mut entry) = scoreboard.get_mut(relay) {
+                    *entry += score;
+                }
+
+                loopcount += 1;
+            }
+        }
+
+        // Adjust all scores based on relay rank and relay success rate
 
 
 
