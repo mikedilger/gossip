@@ -618,6 +618,9 @@ impl Overlord {
                 GLOBALS.settings.read().await.save().await?;
                 tracing::debug!("Settings saved.");
             }
+            ToOverlordMessage::SetActivePerson(pubkey) => {
+                GLOBALS.people.set_active_person(pubkey).await?;
+            }
             ToOverlordMessage::SetRelayReadWrite(relay_url, read, write) => {
                 if let Some(mut ri) = GLOBALS.relays.get_mut(&relay_url) {
                     ri.dbrelay.read = read;

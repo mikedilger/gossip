@@ -1,4 +1,5 @@
 use super::{GossipUi, Page};
+use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::ui::widgets::CopyButton;
@@ -170,6 +171,29 @@ fn content(
             ui.label(&lud06);
         }
         _ => {}
+    }
+
+    let mut need_to_set_active_person = true;
+    if let Some(ap) = GLOBALS.people.get_active_person() {
+        if ap == pubkeyhex {
+            need_to_set_active_person = false;
+            app.setting_active_person = false;
+
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+            ui.heading("Relays");
+            let relays = GLOBALS.people.get_active_person_write_relays();
+            for (relay_url, score) in relays.iter() {
+                ui.label(format!("{} (score={})", relay_url, score));
+            }
+        }
+    }
+    if need_to_set_active_person && !app.setting_active_person {
+        app.setting_active_person = true;
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::SetActivePerson(pubkeyhex.clone()));
     }
 }
 
