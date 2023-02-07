@@ -142,4 +142,9 @@ impl RelayPicker2 {
             }
         }
     }
+
+    fn maybe_include_relays(&self) {
+        let now = Unixtime::now().unwrap().0;
+        self.excluded_relays.retain(|_, v| *v > now);
+    }
 }
