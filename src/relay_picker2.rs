@@ -65,15 +65,15 @@ impl RelayPicker2 {
         for pubkey in &pubkeys {
             let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
                 DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
-                    .await?
-                    .iter()
-                    .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
-                    .collect();
+                .await?
+                .iter()
+                .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
+                .collect();
 
             let count = num_relays_per_person.min(best_relays.len() as u8);
+            pubkey_counts.insert(pubkey.clone(), count);
 
             person_relay_scores.extend(best_relays);
-            pubkey_counts.insert(pubkey.clone(), count);
         }
 
         Ok(RelayPicker2 {
@@ -84,4 +84,33 @@ impl RelayPicker2 {
             person_relay_scores: RwLock::new(person_relay_scores),
         })
     }
+
+    pub async fn refresh_person_relay_scores(&mut self) -> Result<(), Error> {
+        let mut person_relay_scores: Vec<(PublicKeyHex, RelayUrl, u64)> = Vec::new();
+
+        // Get all the people we follow
+        let pubkeys: Vec<PublicKeyHex> = GLOBALS
+            .people
+            .get_followed_pubkeys()
+            .iter()
+            .map(|p| p.to_owned())
+            .collect();
+
+        // Compute scores for each person_relay pairing
+        for pubkey in &pubkeys {
+            let best_relays: Vec<(PublicKeyHex, RelayUrl, u64)> =
+                DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
+                .await?
+                .iter()
+                .map(|(url, score)| (pubkey.to_owned(), url.to_owned(), *score))
+                .collect();
+
+            person_relay_scores.extend(best_relays);
+        }
+
+        *self.person_relay_scores.write().await = person_relay_scores;
+
+        Ok(())
+    }
+
 }
