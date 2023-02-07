@@ -1,17 +1,10 @@
 use crate::db::{DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::relay_info::RelayAssignment;
 use nostr_types::{PublicKeyHex, RelayUrl};
 use std::collections::HashMap;
 use std::fmt;
-
-/// A RelayAssignment is a record of a relay which is serving (or will serve) the general
-/// feed for a set of public keys.
-#[derive(Debug, Clone)]
-pub struct RelayAssignment {
-    pub relay: DbRelay,
-    pub pubkeys: Vec<PublicKeyHex>,
-}
 
 /// Ways that the RelayPicker can fail
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

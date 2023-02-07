@@ -16,11 +16,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(TextEdit::singleline(&mut app.new_relay_url));
         if ui.button("Add").clicked() {
             if let Ok(url) = RelayUrl::try_from_str(&app.new_relay_url) {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AddRelay(url.clone()));
-                let db_relay = DbRelay::new(url.clone());
-                GLOBALS.relays.blocking_write().insert(url, db_relay);
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url));
                 *GLOBALS.status_message.blocking_write() = format!(
                     "I asked the overlord to add relay {}. Check for it below.",
                     &app.new_relay_url
@@ -44,8 +40,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
 
     // TBD time how long this takes. We don't want expensive code in the UI
-    let mut relays = GLOBALS.relays.blocking_read().clone();
-    let mut relays: Vec<DbRelay> = relays.drain().map(|(_, relay)| relay).collect();
+    // FIXME keep more relay info and display it
+    let mut relays: Vec<DbRelay> = GLOBALS
+        .relays
+        .iter()
+        .map(|ri| ri.value().dbrelay.clone())
+        .collect();
     relays.sort_by(|a, b| b.write.cmp(&a.write).then(a.url.cmp(&b.url)));
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {

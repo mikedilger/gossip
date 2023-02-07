@@ -7,11 +7,13 @@ use eframe::egui::ColorImage;
 use egui_extras::image::FitTo;
 use image::imageops::FilterType;
 use nostr_types::{
-    Event, EventKind, Metadata, PreEvent, PublicKey, PublicKeyHex, Tag, UncheckedUrl, Unixtime, Url,
+    Event, EventKind, Metadata, PreEvent, PublicKey, PublicKeyHex, RelayUrl, Tag, UncheckedUrl,
+    Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio::task;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,6 +82,10 @@ impl DbPerson {
 pub struct People {
     people: DashMap<PublicKeyHex, DbPerson>,
 
+    // active person's relays (pull from db as needed)
+    active_person: RwLock<Option<PublicKeyHex>>,
+    active_persons_write_relays: RwLock<Vec<(RelayUrl, u64)>>,
+
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
     // and hand them over. This way we can do the work that takes
@@ -100,6 +106,8 @@ impl People {
     pub fn new() -> People {
         People {
             people: DashMap::new(),
+            active_person: RwLock::new(None),
+            active_persons_write_relays: RwLock::new(vec![]),
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
             avatars_failed: DashSet::new(),
@@ -1034,6 +1042,32 @@ impl People {
         .await?;
 
         output
+    }
+
+    /*
+        pub async fn clear_active_person(&self) {
+            self.active_persons_write_relays.clear();
+            *self.active_person.write().await = None;
+    }
+        */
+
+    pub async fn set_active_person(&self, pubkey: PublicKeyHex) -> Result<(), Error> {
+        // Set the active person
+        *self.active_person.write().await = Some(pubkey.clone());
+
+        // Load their relays
+        let best_relays = DbPersonRelay::get_best_relays(pubkey, Direction::Write).await?;
+        *self.active_persons_write_relays.write().await = best_relays;
+
+        Ok(())
+    }
+
+    pub fn get_active_person(&self) -> Option<PublicKeyHex> {
+        self.active_person.blocking_read().clone()
+    }
+
+    pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
+        self.active_persons_write_relays.blocking_read().clone()
     }
 
     /*

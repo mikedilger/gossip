@@ -89,6 +89,7 @@ struct GossipUi {
 
     // Person page rendering ('npub', 'nprofile', or 'lud06')
     person_qr: Option<&'static str>,
+    setting_active_person: bool,
 
     // Page
     page: Page,
@@ -219,6 +220,7 @@ impl GossipUi {
             render_raw: None,
             render_qr: None,
             person_qr: None,
+            setting_active_person: false,
             page: Page::Feed(FeedKind::General),
             history: vec![],
             about: crate::about::about(),

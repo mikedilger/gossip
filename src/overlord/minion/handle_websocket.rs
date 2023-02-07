@@ -53,10 +53,9 @@ impl Minion {
                             )
                             .await?;
                             // set in globals
-                            if let Some(relay) =
-                                GLOBALS.relays.write().await.get_mut(&self.dbrelay.url)
-                            {
-                                relay.last_general_eose_at = Some(event.created_at.0 as u64);
+                            if let Some(mut relayinfo) = GLOBALS.relays.get_mut(&self.dbrelay.url) {
+                                relayinfo.dbrelay.last_general_eose_at =
+                                    Some(event.created_at.0 as u64);
                             }
                         }
                     }

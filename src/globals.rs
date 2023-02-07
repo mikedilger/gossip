@@ -5,9 +5,11 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::people::People;
 use crate::relationship::Relationship;
-use crate::relay_assignment::{RelayAssignment, RelayPicker};
+use crate::relay_info::RelayInfo;
+use crate::relay_picker::RelayPicker;
 use crate::settings::Settings;
 use crate::signer::Signer;
+use dashmap::DashMap;
 use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -46,16 +48,8 @@ pub struct Globals {
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
 
-    /// All nostr relay records we have
-    pub relays: RwLock<HashMap<RelayUrl, DbRelay>>,
-
-    /// The relays we are currently connected to
-    pub relays_watching: RwLock<Vec<RelayUrl>>,
-
-    /// These are the relays we are currently connected to for general feed, along with
-    /// the public keys they serve.  Yes this overlaps with relays_watching, but each
-    /// has data the other doesn't.
-    pub relay_assignments: RwLock<Vec<RelayAssignment>>,
+    /// All nostr relay records we have, with associated info
+    pub relays: DashMap<RelayUrl, RelayInfo>,
 
     /// The relay picker, used to pick the next relay
     pub relay_picker: RwLock<RelayPicker>,
@@ -108,9 +102,7 @@ lazy_static! {
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
-            relays: RwLock::new(HashMap::new()),
-            relays_watching: RwLock::new(Vec::new()),
-            relay_assignments: RwLock::new(Vec::new()),
+            relays: DashMap::new(),
             relay_picker: RwLock::new(Default::default()),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
@@ -215,15 +207,48 @@ impl Globals {
             relays: Vec::new(),
         };
 
-        for (url, _) in GLOBALS
-            .relays
-            .blocking_read()
-            .iter()
-            .filter(|(_, r)| r.write)
-        {
-            profile.relays.push(url.to_unchecked_url())
+        for ri in GLOBALS.relays.iter().filter(|ri| ri.value().dbrelay.write) {
+            profile.relays.push(ri.key().to_unchecked_url())
         }
 
         Some(profile)
+    }
+
+    pub fn relays_filtered<F>(&self, mut f: F) -> Vec<DbRelay>
+    where
+        F: FnMut(&DbRelay) -> bool,
+    {
+        self.relays
+            .iter()
+            .filter_map(|r| {
+                if f(&r.value().dbrelay) {
+                    Some(r.value().dbrelay.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn relays_url_filtered<F>(&self, mut f: F) -> Vec<RelayUrl>
+    where
+        F: FnMut(&DbRelay) -> bool,
+    {
+        self.relays
+            .iter()
+            .filter_map(|r| {
+                if f(&r.value().dbrelay) {
+                    Some(r.key().clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn relay_is_connected(&self, url: &RelayUrl) -> bool {
+        self.relays
+            .iter()
+            .any(|ri| ri.value().dbrelay.url == *url && ri.value().connected)
     }
 }

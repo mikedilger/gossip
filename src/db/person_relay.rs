@@ -343,12 +343,10 @@ impl DbPersonRelay {
                     // substitute our read relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
                         .relays
-                        .read()
-                        .await
                         .iter()
-                        .filter_map(|(url, dbrelay)| {
-                            if dbrelay.read {
-                                Some((url.clone(), 0))
+                        .filter_map(|r| {
+                            if r.value().dbrelay.read {
+                                Some((r.key().clone(), 0))
                             } else {
                                 None
                             }
@@ -361,12 +359,10 @@ impl DbPersonRelay {
                     // substitute our write relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
                         .relays
-                        .read()
-                        .await
                         .iter()
-                        .filter_map(|(url, dbrelay)| {
-                            if dbrelay.write {
-                                Some((url.clone(), 0))
+                        .filter_map(|r| {
+                            if r.value().dbrelay.write {
+                                Some((r.key().clone(), 0))
                             } else {
                                 None
                             }
@@ -442,10 +438,20 @@ impl DbPersonRelay {
                 score += scorefn(when, 60 * 60 * 24 * 2, 1);
             }
 
+            // Prune score=0 associations
+            if score == 0 {
+                continue;
+            }
+
             output.push((dbpr.relay, score));
         }
 
         output.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
+
+        // prune everything below a score of 20, but only after the first 6 entries
+        while output.len() > 6 && output[output.len() - 1].1 < 20 {
+            let _ = output.pop();
+        }
 
         output
     }
@@ -511,11 +517,20 @@ impl DbPersonRelay {
                 score += scorefn(when, 60 * 60 * 24 * 2, 1);
             }
 
+            // Prune score=0 associations
+            if score == 0 {
+                continue;
+            }
+
             output.push((dbpr.relay, score));
         }
 
         output.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
 
+        // prune everything below a score 20, but only after the first 6 entries
+        while output.len() > 6 && output[output.len() - 1].1 < 20 {
+            let _ = output.pop();
+        }
         output
     }
 }
