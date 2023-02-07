@@ -113,4 +113,33 @@ impl RelayPicker2 {
         Ok(())
     }
 
+    /// When a relay disconnects, call this so that whatever assignments it might have
+    /// had can be reassigned.  Then call pick_relays() again.
+    pub fn relay_disconnected(&mut self, url: &RelayUrl) {
+
+        // Remove from connected relays list
+        if let Some((_key, maybe_assignment)) = self.connected_relays.remove(url) {
+
+            // Exclude the relay for the next 30 seconds
+            let hence = Unixtime::now().unwrap().0 + 30;
+            self.excluded_relays.insert(url.to_owned(), hence);
+            tracing::debug!(
+                "{} goes into the penalty box until {}",
+                url,
+                hence,
+            );
+
+            // Take any assignment
+            if let Some(relay_assignment) = maybe_assignment {
+
+                // Put the public keys back into pubkey_counts
+                for pubkey in relay_assignment.pubkeys.iter() {
+                    self.pubkey_counts
+                        .entry(pubkey.to_owned())
+                        .and_modify(|e| *e += 1)
+                        .or_insert(1);
+                }
+            }
+        }
+    }
 }
