@@ -2,7 +2,7 @@ use crate::db::{DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::relay_info::RelayAssignment;
-use nostr_types::{PublicKeyHex, RelayUrl};
+use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -43,6 +43,9 @@ pub struct RelayPicker {
     // Each time best() or take() is run, it returns a new RelayPicker
     // which removes that relay from this list
     pub relays: Vec<DbRelay>,
+
+    /// A place where failed relays go to cool off
+    pub penalty_box: Vec<(DbRelay, i64)>,
 
     /// The number of relays we should find for the given public key.
     // each run of best() decrements this as it assigns the public key
@@ -101,6 +104,7 @@ impl RelayPicker {
 
         Ok(RelayPicker {
             relays: all_relays,
+            penalty_box: Vec::new(),
             pubkey_counts,
             person_relay_scores,
         })
@@ -143,12 +147,30 @@ impl RelayPicker {
             let _ = self.relays.swap_remove(pos);
         }
 
+        let now = Unixtime::now().unwrap().0;
+        tracing::debug!(
+            "{}: {} goes into the penalty box",
+            now,
+            &assignment.relay.url
+        );
+        self.penalty_box.push((assignment.relay.clone(), now));
+
         // Put back the public keys
         for pubkey in assignment.pubkeys.iter() {
             self.pubkey_counts
                 .entry(pubkey.to_owned())
                 .and_modify(|e| *e += 1)
                 .or_insert(1);
+        }
+    }
+
+    fn recover_relays_from_penalty_box(&mut self) {
+        let ago = Unixtime::now().unwrap().0 - 30;
+
+        while let Some(pos) = self.penalty_box.iter().position(|(_, time)| *time < ago) {
+            let pair = self.penalty_box.swap_remove(pos);
+            tracing::debug!("{}: {} comes out of the penalty box", ago + 30, &pair.0.url);
+            self.relays.push(pair.0);
         }
     }
 
@@ -176,6 +198,8 @@ impl RelayPicker {
     /// the public keys such a relay will cover. It also outpus a new RelayPicker
     /// that contains only the remaining relays and public keys.
     pub fn pick(&mut self) -> Result<RelayAssignment, RelayPickerFailure> {
+        self.recover_relays_from_penalty_box();
+
         if self.pubkey_counts.is_empty() {
             return Err(RelayPickerFailure::NoPeopleLeft);
         }
