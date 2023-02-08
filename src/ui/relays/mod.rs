@@ -1,4 +1,5 @@
 use super::{GossipUi, Page};
+use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, ScrollArea, SelectableLabel, Ui};
@@ -78,6 +79,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.add_space(10.0);
                 ui.separator();
                 ui.add_space(10.0);
+
+                if ui.button("Pick Again").clicked() {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
+                }
 
                 ui.add_space(12.0);
                 ui.heading("Coverage");
