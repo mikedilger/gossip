@@ -23,10 +23,10 @@ impl RelayAssignment {
     }
 }
 
-/// Ways that the RelayPicker can fail
+/// Ways that pick() can fail
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
-pub enum RelayPickerFailure {
+pub enum RelayPickFailure {
     /// No people left to assign. A good result.
     NoPeopleLeft,
 
@@ -37,22 +37,22 @@ pub enum RelayPickerFailure {
     MaxConnectedRelays,
 }
 
-impl fmt::Display for RelayPickerFailure {
+impl fmt::Display for RelayPickFailure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            RelayPickerFailure::NoPeopleLeft => write!(f, "All people accounted for."),
-            RelayPickerFailure::NoProgress => write!(f, "Unable to make further progress."),
-            RelayPickerFailure::MaxConnectedRelays => write!(f, "We have hit the maximum number of connected relays"),
+            RelayPickFailure::NoPeopleLeft => write!(f, "All people accounted for."),
+            RelayPickFailure::NoProgress => write!(f, "Unable to make further progress."),
+            RelayPickFailure::MaxConnectedRelays => write!(f, "We have hit the maximum number of connected relays"),
         }
     }
 }
 
-/// The RelayPicker is a structure that helps assign people we follow to relays we watch.
+/// The RelayTracker is a structure that helps assign people we follow to relays we watch.
 /// It remembers which publickeys are assigned to which relays, which pubkeys need more
 /// relays and how many, which relays need a time out, and person-relay scores for making
 /// good assignments dynamically.
 #[derive(Debug, Default)]
-pub struct RelayPicker {
+pub struct RelayTracker {
     /// All of the relays we might use
     pub all_relays: DashMap<RelayUrl, DbRelay>,
 
@@ -77,8 +77,8 @@ pub struct RelayPicker {
     pub person_relay_scores: DashMap<PublicKeyHex, Vec<(RelayUrl, u64)>>,
 }
 
-impl RelayPicker {
-    /// This starts a new RelayPicker that has:
+impl RelayTracker {
+    /// This starts a new RelayTracker that has:
     ///  * All relays
     ///  * All followed public keys, with count starting at num_relays_per_person
     ///  * person relay scores for all person-relay pairings
@@ -159,7 +159,7 @@ impl RelayPicker {
 
     /// Create the next assignment, and return the RelayUrl that has it.
     /// The caller is responsible for making that assignment actually happen.
-    pub async fn pick(&self) -> Result<RelayUrl, RelayPickerFailure> {
+    pub async fn pick(&self) -> Result<RelayUrl, RelayPickFailure> {
         // Maybe we hit max
         let max_relays = GLOBALS.settings.read().await.max_relays as usize;
         if self
@@ -167,7 +167,7 @@ impl RelayPicker {
             .len()
             >= max_relays
         {
-            return Err(RelayPickerFailure::MaxConnectedRelays);
+            return Err(RelayPickFailure::MaxConnectedRelays);
         }
 
         // Maybe include excluded relays
@@ -175,7 +175,7 @@ impl RelayPicker {
         self.excluded_relays.retain(|_, v| *v > now);
 
         if self.pubkey_counts.is_empty() {
-            return Err(RelayPickerFailure::NoPeopleLeft);
+            return Err(RelayPickFailure::NoPeopleLeft);
         }
 
         // Keep score for each relay
@@ -240,7 +240,7 @@ impl RelayPicker {
         let winning_score: u64 = *winner.value();
 
         if winning_score == 0 {
-            return Err(RelayPickerFailure::NoProgress);
+            return Err(RelayPickFailure::NoProgress);
         }
 
         // Get all the pubkeys this relay covers
@@ -265,7 +265,7 @@ impl RelayPicker {
         }
 
         if covered_public_keys.is_empty() {
-            return Err(RelayPickerFailure::NoProgress);
+            return Err(RelayPickFailure::NoProgress);
         }
 
         // Only keep pubkey_counts that are still > 0

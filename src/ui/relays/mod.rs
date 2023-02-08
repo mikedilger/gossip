@@ -36,7 +36,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.add_space(18.0);
 
         let connected_relays: Vec<RelayUrl> = GLOBALS
-            .relay_picker
+            .relay_tracker
             .connected_relays
             .iter()
             .map(|r| r.key().clone())
@@ -65,7 +65,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                     ui.label(&relay_url.0);
                                 });
                                 row.col(|ui| {
-                                    if let Some(ref assignment) = GLOBALS.relay_picker.relay_assignments.get(relay_url) {
+                                    if let Some(ref assignment) = GLOBALS.relay_tracker.relay_assignments.get(relay_url) {
                                         ui.label(format!("{}", assignment.pubkeys.len()));
                                     }
                                 });
@@ -81,11 +81,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.heading("Coverage");
 
                 if !GLOBALS
-                    .relay_picker
+                    .relay_tracker
                     .pubkey_counts
                     .is_empty()
                 {
-                    for elem in GLOBALS.relay_picker.pubkey_counts.iter() {
+                    for elem in GLOBALS.relay_tracker.pubkey_counts.iter() {
                         let pk = elem.key();
                         let count = elem.value();
                         let maybe_person = GLOBALS.people.get(pk);
