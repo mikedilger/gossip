@@ -1,7 +1,7 @@
 use crate::db::{DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 
 /// A RelayAssignment2 is a record of a relay which is serving (or will serve) the general
@@ -10,6 +10,16 @@ use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 pub struct RelayAssignment2 {
     pub relay_url: RelayUrl,
     pub pubkeys: Vec<PublicKeyHex>,
+}
+
+impl RelayAssignment2 {
+    pub fn merge_in(&mut self, other: RelayAssignment2) -> Result<(), Error> {
+        if self.relay_url != other.relay_url {
+            return Err(Error::General("Attempted to merge relay assignments on different relays".to_owned()));
+        }
+        self.pubkeys.extend(other.pubkeys);
+        Ok(())
+    }
 }
 
 // FIXME: move it into here
@@ -24,9 +34,12 @@ pub struct RelayPicker2 {
     /// All of the relays we might use
     pub all_relays: DashMap<RelayUrl, DbRelay>,
 
+    /// All of the relays actually connected
+    pub connected_relays: DashSet<RelayUrl>,
+
     /// All of the relays currently connected, with optional assignments.
     /// (Sometimes a relay is connected for a different kind of subscription.)
-    pub connected_relays: DashMap<RelayUrl, Option<RelayAssignment2>>,
+    pub relay_assignments: DashMap<RelayUrl, Option<RelayAssignment2>>,
 
     /// Relays which recently failed and which require a timeout before
     /// they can be chosen again.  The value is the time when it can be removed
@@ -51,6 +64,7 @@ impl RelayPicker2 {
         // just in case it is re-initialized (not sure why it would be)
         self.all_relays.clear();
         self.connected_relays.clear();
+        self.relay_assignments.clear();
         self.excluded_relays.clear();
         self.pubkey_counts.clear();
         self.person_relay_scores.clear();
@@ -105,7 +119,7 @@ impl RelayPicker2 {
     /// had can be reassigned.  Then call pick_relays() again.
     pub fn relay_disconnected(&mut self, url: &RelayUrl) {
         // Remove from connected relays list
-        if let Some((_key, maybe_assignment)) = self.connected_relays.remove(url) {
+        if let Some((_key, maybe_assignment)) = self.relay_assignments.remove(url) {
             // Exclude the relay for the next 30 seconds
             let hence = Unixtime::now().unwrap().0 + 30;
             self.excluded_relays.insert(url.to_owned(), hence);
@@ -126,7 +140,7 @@ impl RelayPicker2 {
 
     /// Create the next assignment, and return the RelayUrl that has it.
     /// The caller is responsible for making that assignment actually happen.
-    pub fn pick(&self) -> Result<RelayAssignment2, RelayPickerFailure> {
+    pub fn pick(&self) -> Result<RelayUrl, RelayPickerFailure> {
         // Maybe include excluded relays
         let now = Unixtime::now().unwrap().0;
         self.excluded_relays.retain(|_, v| *v > now);
@@ -165,7 +179,7 @@ impl RelayPicker2 {
                 }
 
                 // Skip if relay is already assigned this pubkey
-                if let Some(maybe_assignment) = self.connected_relays.get(relay) {
+                if let Some(maybe_assignment) = self.relay_assignments.get(relay) {
                     if let Some(assignment) = maybe_assignment.value() {
                         if assignment.pubkeys.contains(pubkeyhex) {
                             continue;
@@ -230,9 +244,23 @@ impl RelayPicker2 {
         // Only keep pubkey_counts that are still > 0
         self.pubkey_counts.retain(|_, count| *count > 0);
 
-        Ok(RelayAssignment2 {
-            relay_url: winning_url,
+        let assignment = RelayAssignment2 {
+            relay_url: winning_url.clone(),
             pubkeys: covered_public_keys,
-        })
+        };
+
+        // Put assignment into relay_assignments
+        if let Some(mut maybe_elem) =  self.relay_assignments.get_mut(&winning_url) {
+            if maybe_elem.value().is_none() {
+                *maybe_elem.value_mut() = Some(assignment);
+            } else {
+                // FIXME this could cause a panic, but it would mean we have bad code.
+                maybe_elem.value_mut().as_mut().unwrap().merge_in(assignment).unwrap();
+            }
+        } else {
+            self.relay_assignments.insert(winning_url.clone(), Some(assignment));
+        }
+
+        Ok(winning_url)
     }
 }

@@ -344,7 +344,7 @@ impl Overlord {
         loop {
             if GLOBALS
                 .relay_picker2
-                .connected_relays
+                .relay_assignments
                 .iter()
                 .filter(|r| r.value().is_some())
                 .count()
