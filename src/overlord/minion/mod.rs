@@ -354,24 +354,31 @@ impl Minion {
 
         // Compute how far to look back
         let feed_since = {
-            // Start with where we left off, the time we last got something from
-            // this relay.
-            let mut feed_since: Unixtime = match self.dbrelay.last_general_eose_at {
-                Some(u) => Unixtime(u as i64),
-                None => Unixtime(0),
-            };
+            let now = Unixtime::now().unwrap();
 
-            // Subtract overlap to avoid gaps due to clock sync and event
-            // propagation delay
-            feed_since = feed_since - overlap;
+            if self.subscriptions.has("general_feed") {
+                // don't lookback if we are just adding more people
+                now
+            } else {
+                // Start with where we left off, the time we last got something from
+                // this relay.
+                let mut feed_since: Unixtime = match self.dbrelay.last_general_eose_at {
+                    Some(u) => Unixtime(u as i64),
+                    None => Unixtime(0),
+                };
 
-            // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
-            if feed_since.0 < 1577836800 {
-                feed_since.0 = 1577836800;
+                // Subtract overlap to avoid gaps due to clock sync and event
+                // propagation delay
+                feed_since = feed_since - overlap;
+
+                // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
+                if feed_since.0 < 1577836800 {
+                    feed_since.0 = 1577836800;
+                }
+
+                let one_feedchunk_ago = now - feed_chunk;
+                feed_since.max(one_feedchunk_ago)
             }
-
-            let one_feedchunk_ago = Unixtime::now().unwrap() - feed_chunk;
-            feed_since.max(one_feedchunk_ago)
         };
 
         let enable_reactions = GLOBALS.settings.read().await.reactions;
