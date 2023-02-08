@@ -34,9 +34,6 @@ pub enum RelayPickFailure {
 
     /// No progress was made. A stuck result.
     NoProgress,
-
-    /// Maximum relays picked
-    MaxConnectedRelays,
 }
 
 impl fmt::Display for RelayPickFailure {
@@ -44,9 +41,6 @@ impl fmt::Display for RelayPickFailure {
         match *self {
             RelayPickFailure::NoPeopleLeft => write!(f, "All people accounted for."),
             RelayPickFailure::NoProgress => write!(f, "Unable to make further progress."),
-            RelayPickFailure::MaxConnectedRelays => {
-                write!(f, "We have hit the maximum number of connected relays")
-            }
         }
     }
 }
@@ -172,11 +166,10 @@ impl RelayTracker {
     /// Create the next assignment, and return the RelayUrl that has it.
     /// The caller is responsible for making that assignment actually happen.
     pub async fn pick(&self) -> Result<RelayUrl, RelayPickFailure> {
-        // Maybe we hit max
+        // If we are at max relays, only consider relays we are already
+        // connected to
         let max_relays = GLOBALS.settings.read().await.max_relays as usize;
-        if self.relay_assignments.len() >= max_relays {
-            return Err(RelayPickFailure::MaxConnectedRelays);
-        }
+        let at_max_relays = self.relay_assignments.len() >= max_relays;
 
         // Maybe include excluded relays
         let now = Unixtime::now().unwrap().0;
@@ -212,6 +205,11 @@ impl RelayTracker {
             for (relay, score) in relay_scores.iter() {
                 // Skip relays that are excluded
                 if self.excluded_relays.contains_key(relay) {
+                    continue;
+                }
+
+                // If at max, skip relays not already connected
+                if at_max_relays && !self.connected_relays.contains(relay) {
                     continue;
                 }
 
