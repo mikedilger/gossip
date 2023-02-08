@@ -17,6 +17,9 @@ use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
 pub struct Globals {
+    /// Is this the first run?
+    pub first_run: AtomicBool,
+
     /// This is our connection to SQLite. Only one thread at a time.
     pub db: Mutex<Option<Connection>>,
 
@@ -89,6 +92,7 @@ lazy_static! {
         let (to_overlord, tmp_overlord_receiver) = mpsc::unbounded_channel();
 
         Globals {
+            first_run: AtomicBool::new(false),
             db: Mutex::new(None),
             to_minions,
             to_overlord,

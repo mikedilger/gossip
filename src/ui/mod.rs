@@ -212,6 +212,12 @@ impl GossipUi {
             None => (false, current_dpi),
         };
 
+        let start_page = if GLOBALS.first_run.load(Ordering::Relaxed) {
+            Page::HelpHelp
+        } else {
+            Page::Feed(FeedKind::General)
+        };
+
         GossipUi {
             next_frame: Instant::now(),
             override_dpi,
@@ -221,7 +227,7 @@ impl GossipUi {
             render_qr: None,
             person_qr: None,
             setting_active_person: false,
-            page: Page::Feed(FeedKind::General),
+            page: start_page,
             history: vec![],
             about: crate::about::about(),
             icon: icon_texture_handle,
@@ -316,7 +322,7 @@ impl eframe::App for GossipUi {
 
         if GLOBALS
             .shutting_down
-            .load(std::sync::atomic::Ordering::Relaxed)
+            .load(Ordering::Relaxed)
         {
             frame.close();
         }

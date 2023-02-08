@@ -29,6 +29,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use rusqlite::Connection;
 use std::fs;
+use std::sync::atomic::Ordering;
 use tokio::task;
 
 // This sets up the database
@@ -77,8 +78,15 @@ fn check_and_upgrade() -> Result<(), Error> {
         ["version"],
         |row| row.get::<usize, String>(0),
     ) {
-        Ok(v) => upgrade(db, v.parse::<u16>().unwrap()),
+        Ok(v) => {
+            let version = v.parse::<u16>().unwrap();
+            if version < 2 {
+                GLOBALS.first_run.store(true, Ordering::Relaxed);
+            }
+            upgrade(db, version)
+        }
         Err(_e) => {
+            GLOBALS.first_run.store(true, Ordering::Relaxed);
             // Check the error first!
             upgrade(db, 0)
         }
