@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use dashmap::{DashMap, DashSet};
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
+use std::fmt;
 
 /// A RelayAssignment2 is a record of a relay which is serving (or will serve) the general
 /// feed for a set of public keys.
@@ -22,8 +23,29 @@ impl RelayAssignment2 {
     }
 }
 
-// FIXME: move it into here
-use crate::relay_picker::RelayPickerFailure;
+/// Ways that the RelayPicker can fail
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)]
+pub enum RelayPickerFailure {
+    /// No people left to assign. A good result.
+    NoPeopleLeft,
+
+    /// No progress was made. A stuck result.
+    NoProgress,
+
+    /// Maximum relays picked
+    MaxConnectedRelays,
+}
+
+impl fmt::Display for RelayPickerFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            RelayPickerFailure::NoPeopleLeft => write!(f, "All people accounted for."),
+            RelayPickerFailure::NoProgress => write!(f, "Unable to make further progress."),
+            RelayPickerFailure::MaxConnectedRelays => write!(f, "We have hit the maximum number of connected relays"),
+        }
+    }
+}
 
 /// The RelayPicker2 is a structure that helps assign people we follow to relays we watch.
 /// It remembers which publickeys are assigned to which relays, which pubkeys need more
@@ -117,7 +139,7 @@ impl RelayPicker2 {
 
     /// When a relay disconnects, call this so that whatever assignments it might have
     /// had can be reassigned.  Then call pick_relays() again.
-    pub fn relay_disconnected(&mut self, url: &RelayUrl) {
+    pub fn relay_disconnected(&self, url: &RelayUrl) {
         // Remove from connected relays list
         if let Some((_key, assignment)) = self.relay_assignments.remove(url) {
             // Exclude the relay for the next 30 seconds
@@ -137,7 +159,17 @@ impl RelayPicker2 {
 
     /// Create the next assignment, and return the RelayUrl that has it.
     /// The caller is responsible for making that assignment actually happen.
-    pub fn pick(&self) -> Result<RelayUrl, RelayPickerFailure> {
+    pub async fn pick(&self) -> Result<RelayUrl, RelayPickerFailure> {
+        // Maybe we hit max
+        let max_relays = GLOBALS.settings.read().await.max_relays as usize;
+        if self
+            .relay_assignments
+            .len()
+            >= max_relays
+        {
+            return Err(RelayPickerFailure::MaxConnectedRelays);
+        }
+
         // Maybe include excluded relays
         let now = Unixtime::now().unwrap().0;
         self.excluded_relays.retain(|_, v| *v > now);

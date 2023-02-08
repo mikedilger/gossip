@@ -5,12 +5,9 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::people::People;
 use crate::relationship::Relationship;
-use crate::relay_info::RelayInfo;
-use crate::relay_picker::RelayPicker;
 use crate::relay_picker2::RelayPicker2;
 use crate::settings::Settings;
 use crate::signer::Signer;
-use dashmap::DashMap;
 use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -48,12 +45,6 @@ pub struct Globals {
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
-
-    /// All nostr relay records we have, with associated info
-    pub relays: DashMap<RelayUrl, RelayInfo>,
-
-    /// The relay picker, used to pick the next relay
-    pub relay_picker: RwLock<RelayPicker>,
 
     /// The relay picker, used to pick the next relay
     pub relay_picker2: RelayPicker2,
@@ -106,8 +97,6 @@ lazy_static! {
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
-            relays: DashMap::new(),
-            relay_picker: RwLock::new(Default::default()),
             relay_picker2: Default::default(),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
@@ -212,7 +201,7 @@ impl Globals {
             relays: Vec::new(),
         };
 
-        for ri in GLOBALS.relays.iter().filter(|ri| ri.value().dbrelay.write) {
+        for ri in GLOBALS.relay_picker2.all_relays.iter().filter(|ri| ri.value().write) {
             profile.relays.push(ri.key().to_unchecked_url())
         }
 
@@ -223,11 +212,12 @@ impl Globals {
     where
         F: FnMut(&DbRelay) -> bool,
     {
-        self.relays
+        self.relay_picker2
+            .all_relays
             .iter()
             .filter_map(|r| {
-                if f(&r.value().dbrelay) {
-                    Some(r.value().dbrelay.clone())
+                if f(&r.value()) {
+                    Some(r.value().clone())
                 } else {
                     None
                 }
@@ -239,10 +229,11 @@ impl Globals {
     where
         F: FnMut(&DbRelay) -> bool,
     {
-        self.relays
+        self.relay_picker2
+            .all_relays
             .iter()
             .filter_map(|r| {
-                if f(&r.value().dbrelay) {
+                if f(&r.value()) {
                     Some(r.key().clone())
                 } else {
                     None
@@ -252,8 +243,6 @@ impl Globals {
     }
 
     pub fn relay_is_connected(&self, url: &RelayUrl) -> bool {
-        self.relays
-            .iter()
-            .any(|ri| ri.value().dbrelay.url == *url && ri.value().connected)
+        self.relay_picker2.connected_relays.contains(url)
     }
 }

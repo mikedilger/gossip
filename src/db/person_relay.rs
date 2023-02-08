@@ -338,10 +338,11 @@ impl DbPersonRelay {
                 Direction::Write => {
                     // substitute our read relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
-                        .relays
+                        .relay_picker2
+                        .all_relays
                         .iter()
                         .filter_map(|r| {
-                            if r.value().dbrelay.read {
+                            if r.value().read {
                                 Some((r.key().clone(), 0))
                             } else {
                                 None
@@ -354,10 +355,11 @@ impl DbPersonRelay {
                 Direction::Read => {
                     // substitute our write relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
-                        .relays
+                        .relay_picker2
+                        .all_relays
                         .iter()
                         .filter_map(|r| {
-                            if r.value().dbrelay.write {
+                            if r.value().write {
                                 Some((r.key().clone(), 0))
                             } else {
                                 None

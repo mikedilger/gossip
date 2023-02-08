@@ -23,10 +23,10 @@ pub(super) fn posting_area(
                 }
                 ui.label(" to post.");
             });
-        } else if !GLOBALS.relays.iter().any(|r| r.value().dbrelay.write) {
+        } else if !GLOBALS.relay_picker2.all_relays.iter().any(|r| r.value().write) {
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
-                if ui.link("choose relays").clicked() {
+                if ui.link("choose write relays").clicked() {
                     app.set_page(Page::RelaysAll);
                 }
                 ui.label(" to post.");

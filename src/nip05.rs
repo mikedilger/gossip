@@ -2,7 +2,6 @@ use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
-use crate::relay_info::RelayInfo;
 use dashmap::mapref::entry::Entry;
 use nostr_types::{Metadata, Nip05, PublicKeyHex, RelayUrl, Unixtime};
 
@@ -126,13 +125,8 @@ async fn update_relays(
             let db_relay = DbRelay::new(relay_url.clone());
             DbRelay::insert(db_relay.clone()).await?;
 
-            if let Entry::Vacant(entry) = GLOBALS.relays.entry(relay_url.clone()) {
-                entry.insert(RelayInfo {
-                    dbrelay: db_relay,
-                    connected: false,
-                    assignment: None,
-                    //subscriptions: vec![],
-                });
+            if let Entry::Vacant(entry) = GLOBALS.relay_picker2.all_relays.entry(relay_url.clone()) {
+                entry.insert(db_relay);
             }
 
             // Save person_relay
