@@ -446,6 +446,12 @@ impl Overlord {
                     Err(e) => *GLOBALS.status_message.write().await = format!("{}", e),
                 }
             }
+            ToOverlordMessage::DropRelay(relay_url) => {
+                let _ = self.to_minions.send(ToMinionMessage {
+                    target: relay_url.0,
+                    payload: ToMinionPayload::Shutdown,
+                });
+            }
             ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
                 self.follow_pubkey_and_relay(pubkeystr, relay).await?;
             }

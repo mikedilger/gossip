@@ -51,6 +51,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         .striped(true)
                         .column(Column::auto_with_initial_suggestion(250.0).resizable(true))
                         .column(Column::auto().resizable(true))
+                        .column(Column::auto().resizable(true))
                         .header(20.0, |mut header| {
                             header.col(|ui| {
                                 ui.heading("Relay URL");
@@ -58,6 +59,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             header.col(|ui| {
                                 ui.heading("Num Keys");
                             });
+                            header.col(|_| {});
                         })
                         .body(|body| {
                             body.rows(24.0, connected_relays.len(), |row_index, mut row| {
@@ -70,6 +72,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                         GLOBALS.relay_tracker.relay_assignments.get(relay_url)
                                     {
                                         ui.label(format!("{}", assignment.pubkeys.len()));
+                                    }
+                                });
+                                row.col(|ui| {
+                                    if ui.button("Disconnect").clicked() {
+                                        let _ = GLOBALS.to_overlord.send(
+                                            ToOverlordMessage::DropRelay(relay_url.to_owned()),
+                                        );
                                     }
                                 });
                             });
