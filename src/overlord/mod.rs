@@ -514,6 +514,14 @@ impl Overlord {
                 // currently ignored
             }
             ToOverlordMessage::PickRelays => {
+                // When manually doing this, we refresh person_relay scores first which
+                // often change if the user just added follows.
+                GLOBALS
+                    .relay_tracker
+                    .refresh_person_relay_scores(false)
+                    .await?;
+
+                // Then pick
                 self.pick_relays().await;
             }
             ToOverlordMessage::ProcessIncomingEvents => {
