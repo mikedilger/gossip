@@ -331,9 +331,11 @@ impl DbPersonRelay {
 
         let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person as usize;
 
-        // If we can't get enough of them, extend with some of our relays (at score=0)
-        if ranked_relays.len() < num_relays_per_person {
-            let how_many_more = num_relays_per_person - ranked_relays.len();
+        // If we can't get enough of them, extend with some of our relays
+        // at whatever the lowest score of their last one was
+        if ranked_relays.len() < num_relays_per_person + 1 {
+            let how_many_more = (num_relays_per_person + 1) - ranked_relays.len();
+            let last_score = ranked_relays[ranked_relays.len() - 1].1;
             match dir {
                 Direction::Write => {
                     // substitute our read relays
@@ -342,8 +344,10 @@ impl DbPersonRelay {
                         .all_relays
                         .iter()
                         .filter_map(|r| {
-                            if r.value().read {
-                                Some((r.key().clone(), 0))
+                            if ranked_relays.iter().any(|(url, _)| url == r.key()) {
+                                None // already in their list
+                            } else if r.value().read {
+                                Some((r.key().clone(), last_score))
                             } else {
                                 None
                             }
@@ -359,8 +363,10 @@ impl DbPersonRelay {
                         .all_relays
                         .iter()
                         .filter_map(|r| {
-                            if r.value().write {
-                                Some((r.key().clone(), 0))
+                            if ranked_relays.iter().any(|(url, _)| url == r.key()) {
+                                None // already in their list
+                            } else if r.value().write {
+                                Some((r.key().clone(), last_score))
                             } else {
                                 None
                             }
