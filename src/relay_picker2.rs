@@ -1,13 +1,16 @@
 use crate::db::{DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use dashmap::{DashMap, DashSet};
+use dashmap::DashMap;
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
-use std::fmt;
-use tokio::sync::RwLock;
 
-// FIXME: move it into here
-use crate::relay_picker::RelayAssignment;
+/// A RelayAssignment2 is a record of a relay which is serving (or will serve) the general
+/// feed for a set of public keys.
+#[derive(Debug, Clone)]
+pub struct RelayAssignment2 {
+    pub relay_url: RelayUrl,
+    pub pubkeys: Vec<PublicKeyHex>,
+}
 
 // FIXME: move it into here
 use crate::relay_picker::RelayPickerFailure;
@@ -23,7 +26,7 @@ pub struct RelayPicker2 {
 
     /// All of the relays currently connected, with optional assignments.
     /// (Sometimes a relay is connected for a different kind of subscription.)
-    pub connected_relays: DashMap<RelayUrl, Option<RelayAssignment>>,
+    pub connected_relays: DashMap<RelayUrl, Option<RelayAssignment2>>,
 
     /// Relays which recently failed and which require a timeout before
     /// they can be chosen again.  The value is the time when it can be removed
@@ -46,8 +49,11 @@ impl RelayPicker2 {
     ///  * person relay scores for all person-relay pairings
     pub async fn new() -> Result<RelayPicker2, Error> {
         // Load relays from the database
-        let all_relays: DashMap<RelayUrl, DbRelay> = DbRelay::fetch(None).await?.drain(..)
-            .map(|dbr| (dbr.url.clone(), dbr)).collect();
+        let all_relays: DashMap<RelayUrl, DbRelay> = DbRelay::fetch(None)
+            .await?
+            .drain(..)
+            .map(|dbr| (dbr.url.clone(), dbr))
+            .collect();
 
         let rp2 = RelayPicker2 {
             all_relays,
@@ -57,7 +63,7 @@ impl RelayPicker2 {
             person_relay_scores: DashMap::new(),
         };
 
-        rp2.refresh_person_relay_scores(true);
+        rp2.refresh_person_relay_scores(true).await?;
 
         Ok(rp2)
     }
@@ -82,12 +88,12 @@ impl RelayPicker2 {
         // Compute scores for each person_relay pairing
         for pubkey in &pubkeys {
             let best_relays: Vec<(RelayUrl, u64)> =
-                DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
-                .await?;
+                DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write).await?;
             self.person_relay_scores.insert(pubkey.clone(), best_relays);
 
             if initialize_counts {
-                self.pubkey_counts.insert(pubkey.clone(), num_relays_per_person);
+                self.pubkey_counts
+                    .insert(pubkey.clone(), num_relays_per_person);
             }
         }
 
@@ -97,22 +103,15 @@ impl RelayPicker2 {
     /// When a relay disconnects, call this so that whatever assignments it might have
     /// had can be reassigned.  Then call pick_relays() again.
     pub fn relay_disconnected(&mut self, url: &RelayUrl) {
-
         // Remove from connected relays list
         if let Some((_key, maybe_assignment)) = self.connected_relays.remove(url) {
-
             // Exclude the relay for the next 30 seconds
             let hence = Unixtime::now().unwrap().0 + 30;
             self.excluded_relays.insert(url.to_owned(), hence);
-            tracing::debug!(
-                "{} goes into the penalty box until {}",
-                url,
-                hence,
-            );
+            tracing::debug!("{} goes into the penalty box until {}", url, hence,);
 
             // Take any assignment
             if let Some(relay_assignment) = maybe_assignment {
-
                 // Put the public keys back into pubkey_counts
                 for pubkey in relay_assignment.pubkeys.iter() {
                     self.pubkey_counts
@@ -126,7 +125,7 @@ impl RelayPicker2 {
 
     /// Create the next assignment, and return the RelayUrl that has it.
     /// The caller is responsible for making that assignment actually happen.
-    pub fn pick(&self) -> Result<RelayUrl, RelayPickerFailure> {
+    pub fn pick(&self) -> Result<RelayAssignment2, RelayPickerFailure> {
         // Maybe include excluded relays
         let now = Unixtime::now().unwrap().0;
         self.excluded_relays.retain(|_, v| *v > now);
@@ -136,7 +135,10 @@ impl RelayPicker2 {
         }
 
         // Keep score for each relay
-        let scoreboard: DashMap<RelayUrl, u64> = self.all_relays.iter().map(|x| (x.key().to_owned() ,0))
+        let scoreboard: DashMap<RelayUrl, u64> = self
+            .all_relays
+            .iter()
+            .map(|x| (x.key().to_owned(), 0))
             .collect();
 
         // Assign scores to relays
@@ -145,7 +147,7 @@ impl RelayPicker2 {
             let relay_scores = elem.value();
 
             // Skip if this pubkey doesn't need any more assignments
-            if let Some(pkc) = self.pubkey_counts.get(&pubkeyhex) {
+            if let Some(pkc) = self.pubkey_counts.get(pubkeyhex) {
                 if *pkc == 0 {
                     // person doesn't need anymore
                     continue;
@@ -164,7 +166,7 @@ impl RelayPicker2 {
                 // Skip if relay is already assigned this pubkey
                 if let Some(maybe_assignment) = self.connected_relays.get(relay) {
                     if let Some(assignment) = maybe_assignment.value() {
-                        if assignment.pubkeys.contains(&pubkeyhex) {
+                        if assignment.pubkeys.contains(pubkeyhex) {
                             continue;
                         }
                     }
@@ -188,7 +190,8 @@ impl RelayPicker2 {
             }
         }
 
-        let winner = scoreboard.iter()
+        let winner = scoreboard
+            .iter()
             .max_by(|x, y| x.value().cmp(y.value()))
             .unwrap();
         let winning_url: RelayUrl = winner.key().to_owned();
@@ -198,9 +201,37 @@ impl RelayPicker2 {
             return Err(RelayPickerFailure::NoProgress);
         }
 
+        // Get all the pubkeys this relay covers
+        // (this includes ones we don't need)
+        let over_covered_public_keys: Vec<PublicKeyHex> = self
+            .person_relay_scores
+            .iter()
+            .filter(|elem| elem.value().iter().any(|ie| ie.0 == winning_url))
+            .map(|elem| elem.key().to_owned())
+            .collect();
 
+        // Now only count the ones we need
+        // and Decrement entries where we the winner covers them
+        let mut covered_public_keys: Vec<PublicKeyHex> = Vec::new();
+        for mut elem in self.pubkey_counts.iter_mut() {
+            let pubkey = elem.key().to_owned();
+            let count = elem.value_mut();
+            if over_covered_public_keys.contains(&pubkey) && *count > 0 {
+                covered_public_keys.push(pubkey.to_owned());
+                *count -= 1;
+            }
+        }
 
-        // just so it compiles for now
-        Err(RelayPickerFailure::NoRelaysLeft)
+        if covered_public_keys.is_empty() {
+            return Err(RelayPickerFailure::NoProgress);
+        }
+
+        // Only keep pubkey_counts that are still > 0
+        self.pubkey_counts.retain(|_, count| *count > 0);
+
+        Ok(RelayAssignment2 {
+            relay_url: winning_url,
+            pubkeys: covered_public_keys,
+        })
     }
 }
