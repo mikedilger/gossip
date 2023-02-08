@@ -96,10 +96,10 @@ impl Overlord {
         {
             let mut all_relays: Vec<DbRelay> = DbRelay::fetch(None).await?;
             for dbrelay in all_relays.drain(..) {
-                GLOBALS.relay_tracker.all_relays.insert(
-                    dbrelay.url.clone(),
-                    dbrelay
-                );
+                GLOBALS
+                    .relay_tracker
+                    .all_relays
+                    .insert(dbrelay.url.clone(), dbrelay);
             }
         }
 
@@ -259,7 +259,11 @@ impl Overlord {
                 }
                 Ok(relay_url) => {
                     if let Some(elem) = GLOBALS.relay_tracker.relay_assignments.get(&relay_url) {
-                        tracing::debug!("Picked {} covering {} pubkeys", &relay_url, elem.value().pubkeys.len());
+                        tracing::debug!(
+                            "Picked {} covering {} pubkeys",
+                            &relay_url,
+                            elem.value().pubkeys.len()
+                        );
                         // Apply the relay assignment
                         if let Err(e) = self.apply_relay_assignment(elem.value().to_owned()).await {
                             tracing::error!("{}", e);
@@ -283,9 +287,7 @@ impl Overlord {
         // Subscribe to the general feed
         let _ = self.to_minions.send(ToMinionMessage {
             target: assignment.relay_url.0.clone(),
-            payload: ToMinionPayload::SubscribeGeneralFeed(
-                assignment.pubkeys.clone(),
-            ),
+            payload: ToMinionPayload::SubscribeGeneralFeed(assignment.pubkeys.clone()),
         });
 
         // Until NIP-65 is in widespread use, we should listen for mentions
@@ -410,7 +412,11 @@ impl Overlord {
 
     async fn recover_from_minion_exit(&mut self, url: RelayUrl) {
         GLOBALS.relay_tracker.relay_disconnected(&url);
-        if let Err(e) = GLOBALS.relay_tracker.refresh_person_relay_scores(false).await {
+        if let Err(e) = GLOBALS
+            .relay_tracker
+            .refresh_person_relay_scores(false)
+            .await
+        {
             tracing::error!("Error: {}", e);
         }
         self.pick_relays().await;
@@ -421,10 +427,7 @@ impl Overlord {
             ToOverlordMessage::AddRelay(relay_str) => {
                 let dbrelay = DbRelay::new(relay_str.clone());
                 DbRelay::insert(dbrelay.clone()).await?;
-                GLOBALS.relay_tracker.all_relays.insert(
-                    relay_str,
-                    dbrelay
-                );
+                GLOBALS.relay_tracker.all_relays.insert(relay_str, dbrelay);
             }
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
@@ -447,11 +450,11 @@ impl Overlord {
                 Overlord::follow_pubkey_and_relay(pubkeystr, relay).await?;
             }
             ToOverlordMessage::FollowNip05(nip05) => {
-                let _ = tokio::spawn(async move {
+                std::mem::drop(tokio::spawn(async move {
                     if let Err(e) = crate::nip05::get_and_follow_nip05(nip05).await {
                         tracing::error!("{}", e);
                     }
-                });
+                }));
             }
             ToOverlordMessage::FollowNprofile(nprofile) => {
                 match Profile::try_from_bech32_string(&nprofile) {
@@ -508,19 +511,19 @@ impl Overlord {
                 // Clear new events
                 GLOBALS.events.clear_new();
 
-                let _ = tokio::spawn(async move {
+                std::mem::drop(tokio::spawn(async move {
                     for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
                         let _ =
                             crate::process::process_new_event(&event, true, Some(url), sub).await;
                     }
-                });
+                }));
             }
             ToOverlordMessage::PruneDatabase => {
-                let _ = tokio::spawn(async move {
+                std::mem::drop(tokio::spawn(async move {
                     if let Err(e) = crate::db::prune().await {
                         tracing::error!("{}", e);
                     }
-                });
+                }));
             }
             ToOverlordMessage::Post(content, tags, reply_to) => {
                 self.post(content, tags, reply_to).await?;
@@ -1170,7 +1173,9 @@ impl Overlord {
                 let db_relay = DbRelay::new(relay_url.clone());
                 DbRelay::insert(db_relay.clone()).await?;
 
-                if let Entry::Vacant(entry) = GLOBALS.relay_tracker.all_relays.entry(relay_url.clone()) {
+                if let Entry::Vacant(entry) =
+                    GLOBALS.relay_tracker.all_relays.entry(relay_url.clone())
+                {
                     entry.insert(db_relay);
                 }
 

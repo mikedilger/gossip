@@ -65,7 +65,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                     ui.label(&relay_url.0);
                                 });
                                 row.col(|ui| {
-                                    if let Some(ref assignment) = GLOBALS.relay_tracker.relay_assignments.get(relay_url) {
+                                    if let Some(ref assignment) =
+                                        GLOBALS.relay_tracker.relay_assignments.get(relay_url)
+                                    {
                                         ui.label(format!("{}", assignment.pubkeys.len()));
                                     }
                                 });
@@ -80,11 +82,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.add_space(12.0);
                 ui.heading("Coverage");
 
-                if !GLOBALS
-                    .relay_tracker
-                    .pubkey_counts
-                    .is_empty()
-                {
+                if !GLOBALS.relay_tracker.pubkey_counts.is_empty() {
                     for elem in GLOBALS.relay_tracker.pubkey_counts.iter() {
                         let pk = elem.key();
                         let count = elem.value();

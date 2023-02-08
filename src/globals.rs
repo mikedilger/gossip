@@ -201,7 +201,12 @@ impl Globals {
             relays: Vec::new(),
         };
 
-        for ri in GLOBALS.relay_tracker.all_relays.iter().filter(|ri| ri.value().write) {
+        for ri in GLOBALS
+            .relay_tracker
+            .all_relays
+            .iter()
+            .filter(|ri| ri.value().write)
+        {
             profile.relays.push(ri.key().to_unchecked_url())
         }
 
@@ -216,7 +221,7 @@ impl Globals {
             .all_relays
             .iter()
             .filter_map(|r| {
-                if f(&r.value()) {
+                if f(r.value()) {
                     Some(r.value().clone())
                 } else {
                     None
@@ -233,7 +238,7 @@ impl Globals {
             .all_relays
             .iter()
             .filter_map(|r| {
-                if f(&r.value()) {
+                if f(r.value()) {
                     Some(r.key().clone())
                 } else {
                     None

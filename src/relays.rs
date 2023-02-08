@@ -16,7 +16,9 @@ pub struct RelayAssignment {
 impl RelayAssignment {
     pub fn merge_in(&mut self, other: RelayAssignment) -> Result<(), Error> {
         if self.relay_url != other.relay_url {
-            return Err(Error::General("Attempted to merge relay assignments on different relays".to_owned()));
+            return Err(Error::General(
+                "Attempted to merge relay assignments on different relays".to_owned(),
+            ));
         }
         self.pubkeys.extend(other.pubkeys);
         Ok(())
@@ -42,7 +44,9 @@ impl fmt::Display for RelayPickFailure {
         match *self {
             RelayPickFailure::NoPeopleLeft => write!(f, "All people accounted for."),
             RelayPickFailure::NoProgress => write!(f, "Unable to make further progress."),
-            RelayPickFailure::MaxConnectedRelays => write!(f, "We have hit the maximum number of connected relays"),
+            RelayPickFailure::MaxConnectedRelays => {
+                write!(f, "We have hit the maximum number of connected relays")
+            }
         }
     }
 }
@@ -162,11 +166,7 @@ impl RelayTracker {
     pub async fn pick(&self) -> Result<RelayUrl, RelayPickFailure> {
         // Maybe we hit max
         let max_relays = GLOBALS.settings.read().await.max_relays as usize;
-        if self
-            .relay_assignments
-            .len()
-            >= max_relays
-        {
+        if self.relay_assignments.len() >= max_relays {
             return Err(RelayPickFailure::MaxConnectedRelays);
         }
 
@@ -277,11 +277,12 @@ impl RelayTracker {
         };
 
         // Put assignment into relay_assignments
-        if let Some(mut maybe_elem) =  self.relay_assignments.get_mut(&winning_url) {
+        if let Some(mut maybe_elem) = self.relay_assignments.get_mut(&winning_url) {
             // FIXME this could cause a panic, but it would mean we have bad code.
             maybe_elem.value_mut().merge_in(assignment).unwrap();
         } else {
-            self.relay_assignments.insert(winning_url.clone(), assignment);
+            self.relay_assignments
+                .insert(winning_url.clone(), assignment);
         }
 
         Ok(winning_url)
