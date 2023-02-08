@@ -336,9 +336,9 @@ impl DbPersonRelay {
         if ranked_relays.len() < (num_relays_per_person + 1) {
             let how_many_more = (num_relays_per_person + 1) - ranked_relays.len();
             let last_score = if ranked_relays.is_empty() {
-                ranked_relays[ranked_relays.len() - 1].1
-            } else {
                 20
+            } else {
+                ranked_relays[ranked_relays.len() - 1].1
             };
             match dir {
                 Direction::Write => {
