@@ -1,9 +1,9 @@
 use super::{GossipUi, Page};
 use crate::globals::GLOBALS;
-use crate::relay_info::RelayInfo;
 use eframe::egui;
 use egui::{Context, ScrollArea, SelectableLabel, Ui};
 use egui_extras::{Column, TableBuilder};
+use nostr_types::RelayUrl;
 
 mod all;
 
@@ -35,11 +35,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.heading("Connected Relays");
         ui.add_space(18.0);
 
-        let relay_info: Vec<RelayInfo> = GLOBALS
-            .relays
+        let connected_relays: Vec<RelayUrl> = GLOBALS
+            .relay_tracker
+            .connected_relays
             .iter()
-            .filter(|ri| ri.value().connected)
-            .map(|r| r.value().to_owned())
+            .map(|r| r.key().clone())
             .collect();
 
         ScrollArea::vertical()
@@ -59,12 +59,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             });
                         })
                         .body(|body| {
-                            body.rows(24.0, relay_info.len(), |row_index, mut row| {
+                            body.rows(24.0, connected_relays.len(), |row_index, mut row| {
+                                let relay_url = &connected_relays[row_index];
                                 row.col(|ui| {
-                                    ui.label(&relay_info[row_index].dbrelay.url.0);
+                                    ui.label(&relay_url.0);
                                 });
                                 row.col(|ui| {
-                                    if let Some(ref assignment) = relay_info[row_index].assignment {
+                                    if let Some(ref assignment) =
+                                        GLOBALS.relay_tracker.relay_assignments.get(relay_url)
+                                    {
                                         ui.label(format!("{}", assignment.pubkeys.len()));
                                     }
                                 });
@@ -79,13 +82,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.add_space(12.0);
                 ui.heading("Coverage");
 
-                if !GLOBALS
-                    .relay_picker
-                    .blocking_read()
-                    .pubkey_counts
-                    .is_empty()
-                {
-                    for (pk, count) in GLOBALS.relay_picker.blocking_read().pubkey_counts.iter() {
+                if !GLOBALS.relay_tracker.pubkey_counts.is_empty() {
+                    for elem in GLOBALS.relay_tracker.pubkey_counts.iter() {
+                        let pk = elem.key();
+                        let count = elem.value();
                         let maybe_person = GLOBALS.people.get(pk);
                         let name = match maybe_person {
                             None => GossipUi::hex_pubkey_short(pk),

@@ -1,4 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+// TEMPORARILY
+#![allow(clippy::uninlined_format_args)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -17,8 +19,7 @@ mod overlord;
 mod people;
 mod process;
 mod relationship;
-mod relay_info;
-mod relay_picker;
+mod relays;
 mod settings;
 mod signer;
 mod tags;
