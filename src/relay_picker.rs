@@ -5,16 +5,16 @@ use dashmap::{DashMap, DashSet};
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use std::fmt;
 
-/// A RelayAssignment2 is a record of a relay which is serving (or will serve) the general
+/// A RelayAssignment is a record of a relay which is serving (or will serve) the general
 /// feed for a set of public keys.
 #[derive(Debug, Clone)]
-pub struct RelayAssignment2 {
+pub struct RelayAssignment {
     pub relay_url: RelayUrl,
     pub pubkeys: Vec<PublicKeyHex>,
 }
 
-impl RelayAssignment2 {
-    pub fn merge_in(&mut self, other: RelayAssignment2) -> Result<(), Error> {
+impl RelayAssignment {
+    pub fn merge_in(&mut self, other: RelayAssignment) -> Result<(), Error> {
         if self.relay_url != other.relay_url {
             return Err(Error::General("Attempted to merge relay assignments on different relays".to_owned()));
         }
@@ -47,12 +47,12 @@ impl fmt::Display for RelayPickerFailure {
     }
 }
 
-/// The RelayPicker2 is a structure that helps assign people we follow to relays we watch.
+/// The RelayPicker is a structure that helps assign people we follow to relays we watch.
 /// It remembers which publickeys are assigned to which relays, which pubkeys need more
 /// relays and how many, which relays need a time out, and person-relay scores for making
 /// good assignments dynamically.
 #[derive(Debug, Default)]
-pub struct RelayPicker2 {
+pub struct RelayPicker {
     /// All of the relays we might use
     pub all_relays: DashMap<RelayUrl, DbRelay>,
 
@@ -61,7 +61,7 @@ pub struct RelayPicker2 {
 
     /// All of the relays currently connected, with optional assignments.
     /// (Sometimes a relay is connected for a different kind of subscription.)
-    pub relay_assignments: DashMap<RelayUrl, RelayAssignment2>,
+    pub relay_assignments: DashMap<RelayUrl, RelayAssignment>,
 
     /// Relays which recently failed and which require a timeout before
     /// they can be chosen again.  The value is the time when it can be removed
@@ -77,7 +77,7 @@ pub struct RelayPicker2 {
     pub person_relay_scores: DashMap<PublicKeyHex, Vec<(RelayUrl, u64)>>,
 }
 
-impl RelayPicker2 {
+impl RelayPicker {
     /// This starts a new RelayPicker that has:
     ///  * All relays
     ///  * All followed public keys, with count starting at num_relays_per_person
@@ -271,7 +271,7 @@ impl RelayPicker2 {
         // Only keep pubkey_counts that are still > 0
         self.pubkey_counts.retain(|_, count| *count > 0);
 
-        let assignment = RelayAssignment2 {
+        let assignment = RelayAssignment {
             relay_url: winning_url.clone(),
             pubkeys: covered_public_keys,
         };

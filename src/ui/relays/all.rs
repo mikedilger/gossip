@@ -42,7 +42,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     // TBD time how long this takes. We don't want expensive code in the UI
     // FIXME keep more relay info and display it
     let mut relays: Vec<DbRelay> = GLOBALS
-        .relay_picker2
+        .relay_picker
         .all_relays
         .iter()
         .map(|ri| ri.value().clone())

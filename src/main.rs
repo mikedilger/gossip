@@ -17,7 +17,7 @@ mod overlord;
 mod people;
 mod process;
 mod relationship;
-mod relay_picker2;
+mod relay_picker;
 mod settings;
 mod signer;
 mod tags;

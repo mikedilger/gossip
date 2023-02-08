@@ -338,7 +338,7 @@ impl DbPersonRelay {
                 Direction::Write => {
                     // substitute our read relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
-                        .relay_picker2
+                        .relay_picker
                         .all_relays
                         .iter()
                         .filter_map(|r| {
@@ -355,7 +355,7 @@ impl DbPersonRelay {
                 Direction::Read => {
                     // substitute our write relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
-                        .relay_picker2
+                        .relay_picker
                         .all_relays
                         .iter()
                         .filter_map(|r| {

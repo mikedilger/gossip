@@ -75,7 +75,7 @@ impl Minion {
                 tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
             }
             // Update in globals too
-            if let Some(mut dbrelay) = GLOBALS.relay_picker2.all_relays.get_mut(&self.dbrelay.url) {
+            if let Some(mut dbrelay) = GLOBALS.relay_picker.all_relays.get_mut(&self.dbrelay.url) {
                 dbrelay.failure_count += 1;
             }
         }
@@ -186,7 +186,7 @@ impl Minion {
                 tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
             }
             // set in globals
-            if let Some(mut dbrelay) = GLOBALS.relay_picker2.all_relays.get_mut(&self.dbrelay.url) {
+            if let Some(mut dbrelay) = GLOBALS.relay_picker.all_relays.get_mut(&self.dbrelay.url) {
                 dbrelay.last_connected_at = self.dbrelay.last_connected_at;
             }
         }

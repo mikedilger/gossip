@@ -5,7 +5,7 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::people::People;
 use crate::relationship::Relationship;
-use crate::relay_picker2::RelayPicker2;
+use crate::relay_picker::RelayPicker;
 use crate::settings::Settings;
 use crate::signer::Signer;
 use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
@@ -47,7 +47,7 @@ pub struct Globals {
     pub people: People,
 
     /// The relay picker, used to pick the next relay
-    pub relay_picker2: RelayPicker2,
+    pub relay_picker: RelayPicker,
 
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
@@ -97,7 +97,7 @@ lazy_static! {
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
-            relay_picker2: Default::default(),
+            relay_picker: Default::default(),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
             signer: Signer::default(),
@@ -201,7 +201,7 @@ impl Globals {
             relays: Vec::new(),
         };
 
-        for ri in GLOBALS.relay_picker2.all_relays.iter().filter(|ri| ri.value().write) {
+        for ri in GLOBALS.relay_picker.all_relays.iter().filter(|ri| ri.value().write) {
             profile.relays.push(ri.key().to_unchecked_url())
         }
 
@@ -212,7 +212,7 @@ impl Globals {
     where
         F: FnMut(&DbRelay) -> bool,
     {
-        self.relay_picker2
+        self.relay_picker
             .all_relays
             .iter()
             .filter_map(|r| {
@@ -229,7 +229,7 @@ impl Globals {
     where
         F: FnMut(&DbRelay) -> bool,
     {
-        self.relay_picker2
+        self.relay_picker
             .all_relays
             .iter()
             .filter_map(|r| {
@@ -243,6 +243,6 @@ impl Globals {
     }
 
     pub fn relay_is_connected(&self, url: &RelayUrl) -> bool {
-        self.relay_picker2.connected_relays.contains(url)
+        self.relay_picker.connected_relays.contains(url)
     }
 }
