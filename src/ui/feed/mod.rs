@@ -458,7 +458,7 @@ fn render_post_inner(
         // MAIN CONTENT
         ui.horizontal_wrapped(|ui| {
             if app.render_raw == Some(event.id) {
-                ui.label(serde_json::to_string(&event).unwrap());
+                ui.label(serde_json::to_string_pretty(&event).unwrap());
             } else if app.render_qr == Some(event.id) {
                 app.render_qr(ui, ctx, "feedqr", event.content.trim());
             } else if event.kind == EventKind::Repost {
