@@ -359,8 +359,10 @@ impl Overlord {
                     tracing::info!("Done picking relays: {}", failure);
                     break;
                 }
-                Ok(assignment) => {
-                    tracing::debug!("PICKED: {:?}", assignment);
+                Ok(relay_url) => {
+                    tracing::debug!("PICKED {}: {:?}",
+                                    relay_url,
+                                    GLOBALS.relay_picker2.relay_assignments.get(&relay_url));
                 }
             }
         }
