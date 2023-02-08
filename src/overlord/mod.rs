@@ -7,6 +7,7 @@ use crate::globals::GLOBALS;
 use crate::people::People;
 use crate::relay_info::RelayInfo;
 use crate::relay_picker::{RelayAssignment, RelayPicker};
+use crate::relay_picker2::{RelayAssignment2, RelayPicker2};
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
     keys_from_text, notes_from_text,
@@ -219,12 +220,21 @@ impl Overlord {
         // Pick Relays and start Minions
         if !GLOBALS.settings.read().await.offline {
             // Create a new RelayPicker
-            *GLOBALS.relay_picker.write().await = RelayPicker::new().await?;
+//            *GLOBALS.relay_picker.write().await = RelayPicker::new().await?;
+
+            // Initialize the RelayPicker2
+            GLOBALS.relay_picker2.init().await?;
 
             // Pick relays
-            self.pick_relays().await;
+//            self.pick_relays().await;
+
+            // Pick relays
+            self.pick_relays2().await;
         }
 
+        return Err(Error::General("Skipping further execution".to_owned()));
+
+        /*
         // For NIP-65, separately subscribe to our mentions on our read relays
         let read_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.read);
         for relay_url in read_relay_urls.iter() {
@@ -255,6 +265,7 @@ impl Overlord {
         }
 
         Ok(())
+        */
     }
 
     async fn pick_relays(&mut self) {
@@ -325,6 +336,34 @@ impl Overlord {
 
         // Return data to GLOBALS
         let _ = std::mem::replace(GLOBALS.relay_picker.write().await.deref_mut(), relay_picker);
+    }
+
+    async fn pick_relays2(&mut self) {
+        let max_relays = GLOBALS.settings.read().await.max_relays as usize;
+
+        loop {
+            if GLOBALS
+                .relay_picker2
+                .connected_relays
+                .iter()
+                .filter(|r| r.value().is_some())
+                .count()
+                >= max_relays
+            {
+                tracing::info!("Done picking relays: Maximum relays picked.");
+                break;
+            }
+
+            match GLOBALS.relay_picker2.pick() {
+                Err(failure) => {
+                    tracing::info!("Done picking relays: {}", failure);
+                    break;
+                }
+                Ok(assignment) => {
+                    tracing::debug!("PICKED: {:?}", assignment);
+                }
+            }
+        }
     }
 
     async fn start_minion(&mut self, url: RelayUrl) -> Result<(), Error> {

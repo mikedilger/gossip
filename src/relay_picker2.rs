@@ -47,25 +47,26 @@ impl RelayPicker2 {
     ///  * All relays
     ///  * All followed public keys, with count starting at num_relays_per_person
     ///  * person relay scores for all person-relay pairings
-    pub async fn new() -> Result<RelayPicker2, Error> {
+    pub async fn init(&self) -> Result<(), Error> {
+        // just in case it is re-initialized (not sure why it would be)
+        self.all_relays.clear();
+        self.connected_relays.clear();
+        self.excluded_relays.clear();
+        self.pubkey_counts.clear();
+        self.person_relay_scores.clear();
+
         // Load relays from the database
-        let all_relays: DashMap<RelayUrl, DbRelay> = DbRelay::fetch(None)
+        for (relay_url, dbrelay) in DbRelay::fetch(None)
             .await?
             .drain(..)
             .map(|dbr| (dbr.url.clone(), dbr))
-            .collect();
+        {
+            self.all_relays.insert(relay_url, dbrelay);
+        }
 
-        let rp2 = RelayPicker2 {
-            all_relays,
-            connected_relays: DashMap::new(),
-            excluded_relays: DashMap::new(),
-            pubkey_counts: DashMap::new(),
-            person_relay_scores: DashMap::new(),
-        };
+        self.refresh_person_relay_scores(true).await?;
 
-        rp2.refresh_person_relay_scores(true).await?;
-
-        Ok(rp2)
+        Ok(())
     }
 
     pub async fn refresh_person_relay_scores(&self, initialize_counts: bool) -> Result<(), Error> {

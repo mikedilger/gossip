@@ -56,7 +56,7 @@ pub struct Globals {
     pub relay_picker: RwLock<RelayPicker>,
 
     /// The relay picker, used to pick the next relay
-    pub relay_picker2: RwLock<RelayPicker2>,
+    pub relay_picker2: RelayPicker2,
 
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
@@ -108,7 +108,7 @@ lazy_static! {
             people: People::new(),
             relays: DashMap::new(),
             relay_picker: RwLock::new(Default::default()),
-            relay_picker2: RwLock::new(Default::default()),
+            relay_picker2: Default::default(),
             shutting_down: AtomicBool::new(false),
             settings: RwLock::new(Settings::default()),
             signer: Signer::default(),
