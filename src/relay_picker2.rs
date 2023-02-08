@@ -154,14 +154,8 @@ impl RelayPicker2 {
                 continue; // person doesn't need any
             }
 
-            // Add scores to their two best relays
-            let mut loopcount = 0;
+            // Add scores of their relays
             for (relay, score) in relay_scores.iter() {
-                // Only count the best two
-                if loopcount >= 2 {
-                    break;
-                }
-
                 // Skip relays that are excluded
                 if self.excluded_relays.contains_key(relay) {
                     continue;
@@ -180,12 +174,29 @@ impl RelayPicker2 {
                 if let Some(mut entry) = scoreboard.get_mut(relay) {
                     *entry += score;
                 }
-
-                loopcount += 1;
             }
         }
 
         // Adjust all scores based on relay rank and relay success rate
+        for mut score_entry in scoreboard.iter_mut() {
+            let url = score_entry.key().to_owned();
+            let score = score_entry.value_mut();
+            if let Some(relay) = self.all_relays.get(&url) {
+                let success_rate = relay.success_rate();
+                let rank = (relay.rank as f32 * (1.3 * success_rate)) as u64;
+                *score *= rank;
+            }
+        }
+
+        let winner = scoreboard.iter()
+            .max_by(|x, y| x.value().cmp(y.value()))
+            .unwrap();
+        let winning_url: RelayUrl = winner.key().to_owned();
+        let winning_score: u64 = *winner.value();
+
+        if winning_score == 0 {
+            return Err(RelayPickerFailure::NoProgress);
+        }
 
 
 
