@@ -5,6 +5,7 @@ use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
+use crate::relays::RelayAssignment;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
     keys_from_text, notes_from_text,
@@ -249,50 +250,6 @@ impl Overlord {
         Ok(())
     }
 
-    /*
-                Ok(relay_assignment) => {
-                    // Fire off a minion to handle this relay
-                    if self
-                        .start_minion(relay_assignment.relay.url.clone())
-                        .await
-                        .is_ok()
-                    {
-                        // Subscribe to the general feed
-                        let _ = self.to_minions.send(ToMinionMessage {
-                            target: relay_assignment.relay.url.0.clone(),
-                            payload: ToMinionPayload::SubscribeGeneralFeed(
-                                relay_assignment.pubkeys.clone(),
-                            ),
-                        });
-
-                        // Until NIP-65 is in widespread use, we should listen for mentions
-                        // of us on all these relays too
-                        let _ = self.to_minions.send(ToMinionMessage {
-                            target: relay_assignment.relay.url.0.clone(),
-                            payload: ToMinionPayload::SubscribeMentions,
-                        });
-
-                        tracing::info!(
-                            "Picked relay {} covering {} people.",
-                            &relay_assignment.relay.url,
-                            relay_assignment.pubkeys.len()
-                        );
-
-                        if let Some(mut ri) = GLOBALS.relays.get_mut(&relay_assignment.relay.url) {
-                            ri.assignment = Some(relay_assignment);
-                        } else {
-                            tracing::error!(
-                                "RELAY missing from globals: {}",
-                                &relay_assignment.relay.url
-                            );
-                        }
-                    } else {
-                        // That one didn't work. Return to the relay picker.
-                        relay_tracker.return_assignment(relay_assignment);
-                    }
-}
-    */
-
     async fn pick_relays(&mut self) {
         loop {
             match GLOBALS.relay_tracker.pick().await {
@@ -302,13 +259,43 @@ impl Overlord {
                 }
                 Ok(relay_url) => {
                     if let Some(elem) = GLOBALS.relay_tracker.relay_assignments.get(&relay_url) {
-                        tracing::debug!("PICKED {} covering {} pubkeys", &relay_url, elem.value().pubkeys.len());
+                        tracing::debug!("Picked {} covering {} pubkeys", &relay_url, elem.value().pubkeys.len());
+                        // Apply the relay assignment
+                        if let Err(e) = self.apply_relay_assignment(elem.value().to_owned()).await {
+                            tracing::error!("{}", e);
+                            // On failure, return it
+                            GLOBALS.relay_tracker.relay_disconnected(&relay_url);
+                        }
                     } else {
                         tracing::warn!("Relay Picker just picked {} but it is already no longer part of it's relay assignments!", &relay_url);
                     }
                 }
             }
         }
+    }
+
+    async fn apply_relay_assignment(&mut self, assignment: RelayAssignment) -> Result<(), Error> {
+        // Start a minion for this relay if there is none
+        if !GLOBALS.relay_is_connected(&assignment.relay_url) {
+            self.start_minion(assignment.relay_url.clone()).await?;
+        }
+
+        // Subscribe to the general feed
+        let _ = self.to_minions.send(ToMinionMessage {
+            target: assignment.relay_url.0.clone(),
+            payload: ToMinionPayload::SubscribeGeneralFeed(
+                assignment.pubkeys.clone(),
+            ),
+        });
+
+        // Until NIP-65 is in widespread use, we should listen for mentions
+        // of us on all these relays too
+        let _ = self.to_minions.send(ToMinionMessage {
+            target: assignment.relay_url.0.clone(),
+            payload: ToMinionPayload::SubscribeMentions,
+        });
+
+        Ok(())
     }
 
     async fn start_minion(&mut self, url: RelayUrl) -> Result<(), Error> {
