@@ -345,9 +345,7 @@ impl Overlord {
             if GLOBALS
                 .relay_picker2
                 .relay_assignments
-                .iter()
-                .filter(|r| r.value().is_some())
-                .count()
+                .len()
                 >= max_relays
             {
                 tracing::info!("Done picking relays: Maximum relays picked.");
@@ -360,9 +358,11 @@ impl Overlord {
                     break;
                 }
                 Ok(relay_url) => {
-                    tracing::debug!("PICKED {}: {:?}",
-                                    relay_url,
-                                    GLOBALS.relay_picker2.relay_assignments.get(&relay_url));
+                    if let Some(elem) = GLOBALS.relay_picker2.relay_assignments.get(&relay_url) {
+                        tracing::debug!("PICKED {}: {:?}", &relay_url, elem.value());
+                    } else {
+                        tracing::debug!("WHAAAAAT?????");
+                    }
                 }
             }
         }

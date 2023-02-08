@@ -39,7 +39,7 @@ pub struct RelayPicker2 {
 
     /// All of the relays currently connected, with optional assignments.
     /// (Sometimes a relay is connected for a different kind of subscription.)
-    pub relay_assignments: DashMap<RelayUrl, Option<RelayAssignment2>>,
+    pub relay_assignments: DashMap<RelayUrl, RelayAssignment2>,
 
     /// Relays which recently failed and which require a timeout before
     /// they can be chosen again.  The value is the time when it can be removed
@@ -119,21 +119,18 @@ impl RelayPicker2 {
     /// had can be reassigned.  Then call pick_relays() again.
     pub fn relay_disconnected(&mut self, url: &RelayUrl) {
         // Remove from connected relays list
-        if let Some((_key, maybe_assignment)) = self.relay_assignments.remove(url) {
+        if let Some((_key, assignment)) = self.relay_assignments.remove(url) {
             // Exclude the relay for the next 30 seconds
             let hence = Unixtime::now().unwrap().0 + 30;
             self.excluded_relays.insert(url.to_owned(), hence);
             tracing::debug!("{} goes into the penalty box until {}", url, hence,);
 
-            // Take any assignment
-            if let Some(relay_assignment) = maybe_assignment {
-                // Put the public keys back into pubkey_counts
-                for pubkey in relay_assignment.pubkeys.iter() {
-                    self.pubkey_counts
-                        .entry(pubkey.to_owned())
-                        .and_modify(|e| *e += 1)
-                        .or_insert(1);
-                }
+            // Put the public keys back into pubkey_counts
+            for pubkey in assignment.pubkeys.iter() {
+                self.pubkey_counts
+                    .entry(pubkey.to_owned())
+                    .and_modify(|e| *e += 1)
+                    .or_insert(1);
             }
         }
     }
@@ -179,11 +176,9 @@ impl RelayPicker2 {
                 }
 
                 // Skip if relay is already assigned this pubkey
-                if let Some(maybe_assignment) = self.relay_assignments.get(relay) {
-                    if let Some(assignment) = maybe_assignment.value() {
-                        if assignment.pubkeys.contains(pubkeyhex) {
-                            continue;
-                        }
+                if let Some(assignment) = self.relay_assignments.get(relay) {
+                    if assignment.pubkeys.contains(pubkeyhex) {
+                        continue;
                     }
                 }
 
@@ -251,14 +246,10 @@ impl RelayPicker2 {
 
         // Put assignment into relay_assignments
         if let Some(mut maybe_elem) =  self.relay_assignments.get_mut(&winning_url) {
-            if maybe_elem.value().is_none() {
-                *maybe_elem.value_mut() = Some(assignment);
-            } else {
-                // FIXME this could cause a panic, but it would mean we have bad code.
-                maybe_elem.value_mut().as_mut().unwrap().merge_in(assignment).unwrap();
-            }
+            // FIXME this could cause a panic, but it would mean we have bad code.
+            maybe_elem.value_mut().merge_in(assignment).unwrap();
         } else {
-            self.relay_assignments.insert(winning_url.clone(), Some(assignment));
+            self.relay_assignments.insert(winning_url.clone(), assignment);
         }
 
         Ok(winning_url)
