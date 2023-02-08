@@ -1,6 +1,6 @@
 # Gossip
 
-### NOTICE: If when you pull gossip it doesn't pull cleanly, I may have force-pushed. Run these commands to reset your master branch:
+### NOTICE: If when you pull gossip it doesn't pull cleanly, I may have done a rare force-push. Run these commands to reset your master branch:
 
 ````bash
 $ git fetch
@@ -9,7 +9,7 @@ $ git reset --hard origin/master
 
 ## Gossip is a desktop client for nostr.
 
-Nostr is a social media protocol and ecosystem, kind of like Twitter [^1] except that you control your own account and nobody can silence you so long as some relay operator somewhere allows you to post. People are finding many additional uses for nostr that go far beyond just chatting, but this client is focused on chatting.
+Nostr is a social media protocol and ecosystem, kind of like Twitter [^1] except that you control your own account and you can post to many different independent places called "relays". People are finding many additional uses for nostr that go far beyond just chatting, but this client is focused on chatting.
 
 Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
@@ -19,34 +19,13 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 The following features make gossip different than most other nostr clients so far:
 
-- Gossip follows people wherever they post, dynamically detects where events might be, and dynamically connects, subscribes, and disconnects to various relays as needed to get those events.
-- Gossip handles private keys securely.
-- Gossip avoids complex HTML/CSS/JavaScript web rendering, preferring to render with OpenGL (or similar), and also avoids web fetch technologies, preferring to use simple HTTP GETs and WebSocket upgrade. This avoids web security issues like XSS vulnerabilities, JavaScript attack vectors, CORS issues, cookie issues, etc, etc. The downside is that it isn't as pretty as web-based clients.
+- Gossip follows people at they relays they profess to post to. That means it has to discover which relays those are (see [https://github.com/nostr-protocol/nips/blob/master/65.md](NIP-65)) and make smart relay selection choices based on things like which relays cover the most people you follow.
+- Gossip handles private keys as securely as reasonable (short of hardware tokens), requiring a passphrase on startup.
+- Gossip avoids web technologies (other than HTTP GET and WebSockets). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are far too complex and represent security hazards. We use simple OpenGL-style rendering instead. It's not as pretty, and we will never be able to prerender links, but it gets the job done.
 
 ## Status
 
-Gossip is currently alpha-quality code. Given most nostr clients are also alpha quality code, I no longer recommend against its usage. Feel free to use it as it is, just be aware that there are still serious shortcomings.
-
-Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form follows function, and only after the function is sufficiently complete will I work on the GUI.
-
-### Missing Critical Features
-
-- [ ] Read relays as fallbacks, so that it will be much easier to get started
-- [ ] Syncing the relays you use with the network
-- [ ] Encrypted Private Messaging
-- [ ] Making some things happen right away that currently require a restart
-
-## Getting Started
-
-**Gossip is HARD to get started** because there is no way to tell it a set of relays to pull from, and right from the start it doesn't have enough data to figure out what to do. You can however do this to get it started:
-
-- On page `You`, add your key (public or private)
-- On page `Relays` add a relay that you post to (or several), and tick off "Post Here" (otherwise it won't pull your data from there). Remember to press "SAVE CHANGES" at the bottom of that page.
-- On page `People > Follow Someone New` follow yourself (specify your public key AND one of the relays you added in the previous step. If you don't add the relay, gossip can't help you).
-- On page `Feed > Following ` look at your posts (by default only the last 12 hours show up) and their replies (by clicking the right arrow on the right side of post to give the thread), which will give gossip some data to launch from. Hopefully you have some replies. But if not, no worry, the next step helps too.
-- On page `People > Followed` press `Pull Overwrite` to pull down the people you follow. You can then press `Refresh Metadata` to get their metadata (whether it works or not depends on if gossip knows which relays these people are at yet).
-- Click any of these people's avatars and press `View Their Feed` to collect more data on where to find them. If you don't get any data for a person, it may be because there is no good way for nostr to know where they post to. This problem goes away after using gossip for awhile, and it remains an outstanding issue to solve.
-- Maybe restart again for good measure.
+Gossip is still in development, but it's ready to use now if you wish. There are many known shortcomings and a few bugs, and the UI badly needs a makeover, but all things come in their own time.
 
 ## Screenshot
 
@@ -76,24 +55,26 @@ Also, the GUI sucks. It looks horrible. And isn't smartly designed. But form fol
 
 ### nostr features supported
 
-We intend to support the following features/NIPs:
-
 - [x] NIP-01 - Basic protocol flow description
 - [x] NIP-02 - Contact List and Petnames
+- [ ] NIP-03 - OpenTimestamps Attestations for Events [NOT PLANNED]
 - [ ] NIP-04 - Encrypted Direct Message
 - [x] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers
+- [ ] NIP-06 - Basic key derivation from mnemonic seed phrase
+- [ ] NIP-07 - window.nostr capability for web browsers [NOT APPLICABLE]
 - [x] NIP-08 - Handling Mentions
-- [x] NIP-09 - Event Deletion
+- [ ] NIP-09 - Event Deletion [PARTIAL]
 - [x] NIP-10 - Conventions for clients' use of e and p tags in text events
 - [x] NIP-11 - Relay Information Document
-- [x] NIP-12 - Generic Tag Queries (we don't need to use any presently)
+- [x] NIP-12 - Generic Tag Queries
 - [x] NIP-13 - Proof of Work
 - [x] NIP-14 - Subject tag in text events
 - [x] NIP-15 - End of Stored Events Notice
-- [ ] NIP-16 - Event Treatment
+- [x] NIP-16 - Event Treatment
 - [x] NIP-19 - bech32-encoded entities
 - [x] NIP-20 - Command Results
-- [ ] NIP-22 - Event created_at Limits
+- [ ] NIP-21 - nostr: URL scheme
+- [x] NIP-22 - Event created_at Limits
 - [x] NIP-25 - Reactions
 - [ ] NIP-26 - Delegated Event Signing
 - [ ] NIP-28 - Public Chat
@@ -101,12 +82,9 @@ We intend to support the following features/NIPs:
 - [ ] NIP-36 - Sensitive Content
 - [ ] NIP-40 - Expiration Timestamp
 - [x] NIP-42 - Authentication of clients to relays
-
-We do not intend to support the following features/NIPs:
-
-- NIP-03 - OpenTimestamp Attestations for Events: We handle such events, but we do nothing about the ots fields in them.
-- NIP-06 - Basic key derivation from mnemonic seed phrase. This is probably not applicable anyways.
-- NIP-07 - window.nostr capability for web browsers. This is not applicable.
+- [ ] NIP-50 - Keywords filter
+- [ ] NIP-56 - Reporting
+- [x] NIP-65 - Relay List Metadata
 
 ## Building and Installing
 
