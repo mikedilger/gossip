@@ -186,7 +186,7 @@ impl RelayTracker {
             .map(|x| (x.key().to_owned(), 0))
             .collect();
 
-        // Assign scores to relays
+        // Assign scores to relays from each pubkey
         for elem in self.person_relay_scores.iter() {
             let pubkeyhex = elem.key();
             let relay_scores = elem.value();
@@ -249,26 +249,52 @@ impl RelayTracker {
             return Err(RelayPickFailure::NoProgress);
         }
 
-        // Get all the pubkeys this relay covers
-        // (this includes ones we don't need)
-        let over_covered_public_keys: Vec<PublicKeyHex> = self
-            .person_relay_scores
-            .iter()
-            .filter(|elem| elem.value().iter().any(|ie| ie.0 == winning_url))
-            .map(|elem| elem.key().to_owned())
-            .collect();
+        // Now sort out which public keys go with that relay (we did this already
+        // above when assigning scores, but in a way which would require a lot of
+        // storage to keep, so we just do it again)
+        let covered_public_keys = {
+            let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
 
-        // Now only count the ones we need
-        // and Decrement entries where we the winner covers them
-        let mut covered_public_keys: Vec<PublicKeyHex> = Vec::new();
-        for mut elem in self.pubkey_counts.iter_mut() {
-            let pubkey = elem.key().to_owned();
-            let count = elem.value_mut();
-            if over_covered_public_keys.contains(&pubkey) && *count > 0 {
-                covered_public_keys.push(pubkey.to_owned());
-                *count -= 1;
+            for elem in self.person_relay_scores.iter() {
+                let pubkeyhex = elem.key();
+                let relay_scores = elem.value();
+
+                // Skip if this pubkey doesn't need any more assignments
+                if let Some(pkc) = self.pubkey_counts.get(pubkeyhex) {
+                    if *pkc == 0 {
+                        // person doesn't need anymore
+                        continue;
+                    }
+                } else {
+                    continue; // person doesn't need any
+                }
+
+                // Skip if relay is already assigned this pubkey
+                if let Some(assignment) = self.relay_assignments.get(&winning_url) {
+                    if assignment.pubkeys.contains(pubkeyhex) {
+                        continue;
+                    }
+                }
+
+                for (relay, _) in relay_scores.iter() {
+                    if *relay == winning_url {
+                        // Add to pubkeys
+                        pubkeys.push(pubkeyhex.to_owned());
+
+                        // Decrement in pubkey counts
+                        if let Some(mut count) = self.pubkey_counts.get_mut(pubkeyhex) {
+                            if *count > 0 {
+                                *count -= 1;
+                            }
+                        }
+
+                        break;
+                    }
+                }
             }
-        }
+
+            pubkeys
+        };
 
         if covered_public_keys.is_empty() {
             return Err(RelayPickFailure::NoProgress);
