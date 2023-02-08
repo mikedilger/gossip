@@ -664,16 +664,11 @@ impl People {
             }
         }
 
-        // Resubscribe to the general feed
-        /*
-        Until the relay picker can assign a new person to a particular set of
-        N relays including potentially relays with active minions, there is no
-        way to do this right. Minions no longer listen for everybody.
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload::SubscribeGeneralFeed,
-        });
-         */
+        // Add the person to the relay_tracker for picking
+        GLOBALS
+            .relay_tracker
+            .add_someone(pubkeyhex.to_owned())
+            .await?;
 
         Ok(())
     }
@@ -774,16 +769,10 @@ impl People {
             }
         }
 
-        // Resubscribe to the general feed
-        /*
-        Until the relay picker can assign a new person to a particular set of
-        N relays including potentially relays with active minions, there is no
-        way to do this right. Minions no longer listen for everybody.
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload::SubscribeGeneralFeed,
-        });
-         */
+        // Add the people to the relay_tracker for picking
+        for pubkey in pubkeys.iter() {
+            GLOBALS.relay_tracker.add_someone(pubkey.to_owned()).await?;
+        }
 
         Ok(())
     }

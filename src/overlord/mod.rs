@@ -447,7 +447,7 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
-                Overlord::follow_pubkey_and_relay(pubkeystr, relay).await?;
+                self.follow_pubkey_and_relay(pubkeystr, relay).await?;
             }
             ToOverlordMessage::FollowNip05(nip05) => {
                 std::mem::drop(tokio::spawn(async move {
@@ -506,6 +506,9 @@ impl Overlord {
             }
             ToOverlordMessage::MinionIsReady => {
                 // currently ignored
+            }
+            ToOverlordMessage::PickRelays => {
+                self.pick_relays().await;
             }
             ToOverlordMessage::ProcessIncomingEvents => {
                 // Clear new events
@@ -618,7 +621,11 @@ impl Overlord {
         Ok(true)
     }
 
-    async fn follow_pubkey_and_relay(pubkeystr: String, relay: RelayUrl) -> Result<(), Error> {
+    async fn follow_pubkey_and_relay(
+        &mut self,
+        pubkeystr: String,
+        relay: RelayUrl,
+    ) -> Result<(), Error> {
         let pk = match PublicKey::try_from_bech32_string(&pubkeystr) {
             Ok(pk) => pk,
             Err(_) => PublicKey::try_from_hex_string(&pubkeystr)?,
@@ -647,6 +654,10 @@ impl Overlord {
             write: true,
         })
         .await?;
+
+        // async_follow added them to the relay tracker.
+        // Pick relays to start tracking them now
+        self.pick_relays().await;
 
         tracing::info!("Setup 1 relay for {}", &pkhex);
 
@@ -1191,6 +1202,10 @@ impl Overlord {
 
         *GLOBALS.status_message.write().await =
             format!("Followed user at {} relays", nprofile.relays.len());
+
+        // async_follow added them to the relay tracker.
+        // Pick relays to start tracking them now
+        self.pick_relays().await;
 
         Ok(())
     }

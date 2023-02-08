@@ -109,6 +109,14 @@ impl RelayTracker {
         Ok(())
     }
 
+    pub async fn add_someone(&self, pubkey: PublicKeyHex) -> Result<(), Error> {
+        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
+        self.pubkey_counts.insert(pubkey, num_relays_per_person);
+        Ok(())
+    }
+
+    // We could do 'remove_someone' but that's less important. People can just restart.
+
     pub async fn refresh_person_relay_scores(&self, initialize_counts: bool) -> Result<(), Error> {
         self.person_relay_scores.clear();
 

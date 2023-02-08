@@ -15,6 +15,7 @@ pub enum ToOverlordMessage {
     ImportPub(String),
     Like(Id, PublicKey),
     MinionIsReady,
+    PickRelays,
     ProcessIncomingEvents,
     Post(String, Vec<Tag>, Option<Id>),
     PruneDatabase,

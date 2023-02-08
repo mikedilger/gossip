@@ -1,3 +1,4 @@
+use crate::comms::ToOverlordMessage;
 use crate::db::{
     DbEvent, DbEventHashtag, DbEventRelationship, DbEventSeen, DbEventTag, DbPersonRelay, DbRelay,
 };
@@ -361,6 +362,9 @@ async fn process_your_contact_list(event: &Event) -> Result<(), Error> {
             .people
             .follow_all(&pubkeys, merge, event.created_at)
             .await?;
+
+        // Trigger the overlord to pick relays again
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
     }
 
     Ok(())
