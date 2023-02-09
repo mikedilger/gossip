@@ -660,12 +660,13 @@ impl Overlord {
             person: pkhex.to_string(),
             relay,
             last_fetched: None,
-            last_suggested_kind2: None,
             last_suggested_kind3: Some(now), // consider it our claim in our contact list
             last_suggested_nip05: None,
             last_suggested_bytag: None,
-            read: true,
-            write: true,
+            read: false,
+            write: false,
+            manually_paired_read: true,
+            manually_paired_write: true,
         })
         .await?;
 
