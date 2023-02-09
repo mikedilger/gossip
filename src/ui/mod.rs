@@ -320,10 +320,7 @@ impl eframe::App for GossipUi {
         // Redraw at least once per second
         ctx.request_repaint_after(Duration::from_secs(1));
 
-        if GLOBALS
-            .shutting_down
-            .load(Ordering::Relaxed)
-        {
+        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
             frame.close();
         }
 
