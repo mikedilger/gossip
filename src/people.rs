@@ -46,6 +46,21 @@ impl DbPerson {
         }
     }
 
+    pub fn display_name(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            if md.other.contains_key("display_name") {
+                if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
+                    if !s.is_empty() {
+                        return Some(s);
+                    }
+                }
+            }
+            md.name.as_deref()
+        } else {
+            None
+        }
+    }
+
     pub fn name(&self) -> Option<&str> {
         if let Some(md) = &self.metadata {
             md.name.as_deref()

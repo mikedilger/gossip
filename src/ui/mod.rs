@@ -461,7 +461,7 @@ impl GossipUi {
 
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
         ui.horizontal_wrapped(|ui| {
-            let name = if let Some(name) = person.name() {
+            let name = if let Some(name) = person.display_name() {
                 name.to_owned()
             } else {
                 GossipUi::pubkey_short(&person.pubkey)
