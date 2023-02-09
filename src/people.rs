@@ -385,7 +385,10 @@ impl People {
     pub fn get_all(&self) -> Vec<DbPerson> {
         let mut v: Vec<DbPerson> = self.people.iter().map(|e| e.value().to_owned()).collect();
         v.sort_by(|a, b| {
-            let c = a.name().cmp(&b.name());
+            let c = a
+                .name()
+                .map(|s| s.to_lowercase())
+                .cmp(&b.name().map(|s| s.to_lowercase()));
             if c == std::cmp::Ordering::Equal {
                 a.pubkey.cmp(&b.pubkey)
             } else {
