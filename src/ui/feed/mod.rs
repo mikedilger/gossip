@@ -41,7 +41,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         if ui
             .add(SelectableLabel::new(
                 app.page == Page::Feed(FeedKind::Replies),
-                "Replies",
+                "Inbox",
             ))
             .clicked()
         {
