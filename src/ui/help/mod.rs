@@ -246,7 +246,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.label("There is a [Feed > Inbox] page where you can see replies to your own posts, posts that mention you, and (in the future) DMs.");
 
             ui.add_space(10.0);
-            ui.label("Finally there is a [Feed > Person] page where you can see posts made by a person. To get there, click their name and then in the dropdown menu click [Vivew Their Posts].");
+            ui.label("Finally there is a [Feed > Person] page where you can see posts made by a person. To get there, click their name and then in the dropdown menu click [View Their Posts].");
 
             ui.add_space(10.0);
             ui.separator();
@@ -265,6 +265,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.add_space(10.0);
 
             ui.label("To tag someone, start typing their name into the @username box to the right of the posting box, then press the [@] button below to get a pulldown of matches. Pick the match you wish, and it will add a bech32 npub string to the edit box.  That will be replaced with a tag of the person you are tagging when you press Send.");
+            ui.add_space(10.0);
 
             ui.label("To react, you can click the heart. Other kinds of reactions are not yet implemented. You can see other people's reactions below the posts. If you don't like reactions, you can disable this in the settings.");
             ui.add_space(10.0);
