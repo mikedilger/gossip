@@ -158,27 +158,35 @@ impl Globals {
     // FIXME - this allows people to react many times to the same event, and
     //         it counts them all!
     pub fn get_reactions_sync(id: Id) -> Vec<(char, usize)> {
-        let mut output: HashMap<char, usize> = HashMap::new();
+        let mut output: HashMap<char, HashSet<PublicKeyHex>> = HashMap::new();
 
         if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
-            for (_id, relationship) in relationships.iter() {
-                if let Relationship::Reaction(reaction) = relationship {
-                    if let Some(ch) = reaction.chars().next() {
+            for (other_id, relationship) in relationships.iter() {
+                // get the reacting event to make sure publickeys are unique
+                if let Some(e) = GLOBALS.events.get(other_id) {
+                    if let Relationship::Reaction(reaction) = relationship {
+                        let symbol: char = if let Some(ch) = reaction.chars().next() {
+                            ch
+                        } else {
+                            '+'
+                        };
+
                         output
-                            .entry(ch)
-                            .and_modify(|count| *count += 1)
-                            .or_insert_with(|| 1);
-                    } else {
-                        output
-                            .entry('+') // if empty, presumed to be an upvote
-                            .and_modify(|count| *count += 1)
-                            .or_insert_with(|| 1);
+                            .entry(symbol)
+                            .and_modify(|pubkeys| {
+                                let _ = pubkeys.insert(e.pubkey.into());
+                            })
+                            .or_insert_with(|| {
+                                let mut set = HashSet::new();
+                                set.insert(e.pubkey.into());
+                                set
+                            });
                     }
                 }
             }
         }
 
-        let mut v: Vec<(char, usize)> = output.iter().map(|(c, u)| (*c, *u)).collect();
+        let mut v: Vec<(char, usize)> = output.iter().map(|(c, u)| (*c, u.len())).collect();
         v.sort();
         v
     }
