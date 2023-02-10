@@ -169,7 +169,7 @@ fn render_post_maybe_fake(
 
     let maybe_person = GLOBALS.people.get(&event.pubkey.into());
 
-    let screen_rect = ctx.input().screen_rect; // Rect
+    let screen_rect = ctx.input(|i| i.screen_rect); // Rect
     let pos2 = ui.next_widget_position();
 
     // If too far off of the screen, don't actually render the post, just make some space
@@ -416,10 +416,10 @@ fn render_post_inner(
                         }));
                     }
                     if ui.button("Copy ID").clicked() {
-                        ui.output().copied_text = event.id.try_as_bech32_string().unwrap();
+                        ui.output_mut(|o| o.copied_text = event.id.try_as_bech32_string().unwrap());
                     }
                     if ui.button("Copy ID as hex").clicked() {
-                        ui.output().copied_text = event.id.as_hex_string();
+                        ui.output_mut(|o| o.copied_text = event.id.as_hex_string());
                     }
                     if ui.button("Dismiss").clicked() {
                         GLOBALS.dismissed.blocking_write().push(event.id);
@@ -506,9 +506,9 @@ fn render_post_inner(
                     .clicked()
                 {
                     if app.render_raw == Some(event.id) {
-                        ui.output().copied_text = serde_json::to_string(&event).unwrap();
+                        ui.output_mut(|o| o.copied_text = serde_json::to_string(&event).unwrap());
                     } else {
-                        ui.output().copied_text = event.content.clone();
+                        ui.output_mut(|o| o.copied_text = event.content.clone());
                     }
                 }
 

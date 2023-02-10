@@ -47,11 +47,13 @@ pub fn run() -> Result<(), Error> {
         ..Default::default()
     };
 
-    eframe::run_native(
+    if let Err(e) = eframe::run_native(
         "gossip",
         options,
         Box::new(|cc| Box::new(GossipUi::new(cc))),
-    );
+    ) {
+        tracing::error!("Eframe error: {}", e);
+    }
 
     Ok(())
 }
@@ -158,14 +160,14 @@ impl GossipUi {
         );
 
         {
-            let mut to = cctx.egui_ctx.tessellation_options();
+            cctx.egui_ctx.tessellation_options_mut(|to| {
+                // Less feathering
+                to.feathering = true;
+                to.feathering_size_in_pixels = 0.667;
 
-            // Less feathering
-            to.feathering = true;
-            to.feathering_size_in_pixels = 0.667;
-
-            // Sharper text
-            to.round_text_to_pixels = true;
+                // Sharper text
+                to.round_text_to_pixels = true;
+            });
         }
 
         if !settings.light_mode {
@@ -508,7 +510,7 @@ impl GossipUi {
                 .on_hover_text("Copy Public Key")
                 .clicked()
             {
-                ui.output().copied_text = person.pubkey.try_as_bech32_string().unwrap();
+                ui.output_mut(|o| o.copied_text = person.pubkey.try_as_bech32_string().unwrap());
             }
         });
     }

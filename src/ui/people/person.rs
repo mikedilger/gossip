@@ -85,7 +85,7 @@ fn content(
             ui.label(RichText::new("Name: ").strong());
             ui.label(name);
             if ui.add(CopyButton {}).on_hover_text("Copy Name").clicked() {
-                ui.output().copied_text = name.to_owned();
+                ui.output_mut(|o| o.copied_text = name.to_owned());
             }
         });
     }
@@ -96,7 +96,7 @@ fn content(
             ui.horizontal_wrapped(|ui| {
                 ui.label(about);
                 if ui.add(CopyButton {}).on_hover_text("Copy About").clicked() {
-                    ui.output().copied_text = about.to_owned();
+                    ui.output_mut(|o| o.copied_text = about.to_owned());
                 }
             });
         });
@@ -111,7 +111,7 @@ fn content(
                 .on_hover_text("Copy Picture")
                 .clicked()
             {
-                ui.output().copied_text = picture.to_owned();
+                ui.output_mut(|o| o.copied_text = picture.to_owned());
             }
         });
     }
@@ -121,7 +121,7 @@ fn content(
             ui.label(RichText::new("nip05: ").strong());
             ui.label(nip05);
             if ui.add(CopyButton {}).on_hover_text("Copy nip05").clicked() {
-                ui.output().copied_text = nip05.to_owned();
+                ui.output_mut(|o| o.copied_text = nip05.to_owned());
             }
         });
     }
@@ -143,7 +143,7 @@ fn content(
                     .on_hover_text(format!("Copy {}", key))
                     .clicked()
                 {
-                    ui.output().copied_text = svalue.clone();
+                    ui.output_mut(|o| o.copied_text = svalue.clone());
                 }
                 if key == "lud06" {
                     lud06 = svalue.to_owned();

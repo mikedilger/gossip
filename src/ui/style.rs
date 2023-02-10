@@ -13,6 +13,7 @@ pub(super) fn dark_mode_visuals() -> Visuals {
         dark_mode: true,
         widgets: Widgets {
             noninteractive: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(27),
                 bg_fill: Color32::from_white_alpha(8),
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(72)), // separators, borders
                 fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // normal text color
@@ -20,6 +21,7 @@ pub(super) fn dark_mode_visuals() -> Visuals {
                 expansion: 0.0,
             },
             inactive: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(60),
                 bg_fill: Color32::from_white_alpha(8),
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(72)), // separators, borders
                 fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // button text
@@ -27,6 +29,7 @@ pub(super) fn dark_mode_visuals() -> Visuals {
                 expansion: 0.0,
             },
             hovered: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(70),
                 bg_fill: Color32::from_gray(70),
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(150)), // e.g. hover over window edge or button
                 fg_stroke: Stroke::new(1.5, Color32::from_gray(240)),
@@ -34,6 +37,7 @@ pub(super) fn dark_mode_visuals() -> Visuals {
                 expansion: 1.0,
             },
             active: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(55),
                 bg_fill: Color32::from_gray(55),
                 bg_stroke: Stroke::new(1.0, Color32::WHITE),
                 fg_stroke: Stroke::new(2.0, Color32::WHITE),
@@ -41,6 +45,7 @@ pub(super) fn dark_mode_visuals() -> Visuals {
                 expansion: 1.0,
             },
             open: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(27),
                 bg_fill: Color32::from_gray(27),
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(60)),
                 fg_stroke: Stroke::new(1.0, Color32::from_gray(210)),
@@ -71,6 +76,10 @@ pub(super) fn dark_mode_visuals() -> Visuals {
         window_shadow: Shadow::big_dark(),
         popup_shadow: Shadow::small_dark(),
 
+        indent_has_left_vline: false,
+        menu_rounding: Rounding::same(2.0),
+        slider_trailing_fill: true,
+        striped: true,
         window_rounding: Rounding::same(6.0),
         resize_corner_size: 12.0,
         text_cursor_width: 2.0,
@@ -86,6 +95,7 @@ pub(super) fn light_mode_visuals() -> Visuals {
         dark_mode: false,
         widgets: Widgets {
             noninteractive: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(248),
                 bg_fill: Color32::from_black_alpha(20),
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(192)),
                 fg_stroke: Stroke::new(1.0, Color32::from_gray(80)), // normal text color
@@ -93,6 +103,7 @@ pub(super) fn light_mode_visuals() -> Visuals {
                 expansion: 0.0,
             },
             inactive: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(230),
                 bg_fill: Color32::from_black_alpha(20),
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(192)),
                 fg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // button text
@@ -100,6 +111,7 @@ pub(super) fn light_mode_visuals() -> Visuals {
                 expansion: 0.0,
             },
             hovered: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(220),
                 bg_fill: Color32::from_gray(220),
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(105)), // e.g. hover over window edge or button
                 fg_stroke: Stroke::new(1.5, Color32::BLACK),
@@ -107,6 +119,7 @@ pub(super) fn light_mode_visuals() -> Visuals {
                 expansion: 1.0,
             },
             active: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(165),
                 bg_fill: Color32::from_gray(165),
                 bg_stroke: Stroke::new(1.0, Color32::BLACK),
                 fg_stroke: Stroke::new(2.0, Color32::BLACK),
@@ -114,6 +127,7 @@ pub(super) fn light_mode_visuals() -> Visuals {
                 expansion: 1.0,
             },
             open: WidgetVisuals {
+                weak_bg_fill: Color32::from_gray(220),
                 bg_fill: Color32::from_gray(220),
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(160)),
                 fg_stroke: Stroke::new(1.0, Color32::BLACK),
@@ -144,6 +158,10 @@ pub(super) fn light_mode_visuals() -> Visuals {
         window_shadow: Shadow::big_light(),
         popup_shadow: Shadow::small_light(),
 
+        indent_has_left_vline: false,
+        menu_rounding: Rounding::same(2.0),
+        slider_trailing_fill: true,
+        striped: true,
         window_rounding: Rounding::same(6.0),
         resize_corner_size: 12.0,
         text_cursor_width: 2.0,

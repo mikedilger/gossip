@@ -127,7 +127,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
             if ui.add(CopyButton {}).clicked() {
-                ui.output().copied_text = pkhex.into_string();
+                ui.output_mut(|o| o.copied_text = pkhex.into_string());
             }
         });
 
@@ -135,7 +135,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.horizontal_wrapped(|ui| {
                 ui.label(&format!("Public Key (bech32): {}", bech32));
                 if ui.add(CopyButton {}).clicked() {
-                    ui.output().copied_text = bech32.clone();
+                    ui.output_mut(|o| o.copied_text = bech32.clone());
                 }
             });
             ui.add_space(10.0);
@@ -154,7 +154,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.horizontal_wrapped(|ui| {
                 ui.label(&format!("Your Profile: {}", &nprofile));
                 if ui.add(CopyButton {}).clicked() {
-                    ui.output().copied_text = nprofile.clone();
+                    ui.output_mut(|o| o.copied_text = nprofile.clone());
                 }
             });
             ui.add_space(10.0);
@@ -169,7 +169,7 @@ fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.label("Passphrase: ");
         let response = ui.add(TextEdit::singleline(&mut app.password).password(true));
-        if response.lost_focus() && ui.input().key_pressed(egui::Key::Enter) {
+        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::UnlockKey(app.password.clone()));
@@ -195,7 +195,7 @@ fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.label(&epk.0);
             if ui.add(CopyButton {}).clicked() {
-                ui.output().copied_text = epk.to_string();
+                ui.output_mut(|o| o.copied_text = epk.to_string());
             }
         });
 
@@ -302,7 +302,7 @@ fn offer_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
             if ui.add(CopyButton {}).clicked() {
-                ui.output().copied_text = pkhex.into_string();
+                ui.output_mut(|o| o.copied_text = pkhex.into_string());
             }
         });
 
@@ -310,7 +310,7 @@ fn offer_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
             ui.horizontal(|ui| {
                 ui.label(&format!("Public Key (bech32): {}", bech32));
                 if ui.add(CopyButton {}).clicked() {
-                    ui.output().copied_text = bech32;
+                    ui.output_mut(|o| o.copied_text = bech32);
                 }
             });
         }
