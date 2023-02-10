@@ -299,6 +299,9 @@ impl Minion {
             ToMinionPayload::SubscribeMentions => {
                 self.subscribe_mentions().await?;
             }
+            ToMinionPayload::SubscribeConfig => {
+                self.subscribe_config().await?;
+            }
             ToMinionPayload::SubscribePersonFeed(pubkeyhex) => {
                 self.subscribe_person_feed(pubkeyhex).await?;
             }
@@ -530,22 +533,8 @@ impl Minion {
             let pkh: PublicKeyHex = pubkey.into();
 
             filters.push(Filter {
-                p: vec![pkh.clone()],
+                p: vec![pkh],
                 kinds,
-                since: Some(replies_since),
-                ..Default::default()
-            });
-
-            // Listen for my metadata and similar kinds of posts
-            // FIXME - move this to listening to my WRITE relays
-            filters.push(Filter {
-                authors: vec![pkh.into()],
-                kinds: vec![
-                    EventKind::Metadata,
-                    EventKind::RecommendRelay,
-                    EventKind::ContactList,
-                    EventKind::RelayList,
-                ],
                 since: Some(replies_since),
                 ..Default::default()
             });
@@ -563,6 +552,29 @@ impl Minion {
                 // Does not support EOSE.  Set subscription to EOSE now.
                 sub.set_eose();
             }
+        }
+
+        Ok(())
+    }
+
+    // Subscribe to the user's config which is on their own write relays
+    async fn subscribe_config(&mut self) -> Result<(), Error> {
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
+            let pkh: PublicKeyHex = pubkey.into();
+
+            let filters: Vec<Filter> = vec![Filter {
+                authors: vec![pkh.into()],
+                kinds: vec![
+                    EventKind::Metadata,
+                    //EventKind::RecommendRelay,
+                    EventKind::ContactList,
+                    EventKind::RelayList,
+                ],
+                // these are all replaceable, no since required
+                ..Default::default()
+            }];
+
+            self.subscribe(filters, "config_feed").await?;
         }
 
         Ok(())

@@ -218,7 +218,22 @@ impl Overlord {
             self.pick_relays().await;
         }
 
-        // For NIP-65, separately subscribe to our mentions on our read relays
+        // Separately subscribe to our config on our write relays
+        let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+        for relay_url in write_relay_urls.iter() {
+            // Start a minion for this relay if there is none
+            if !GLOBALS.relay_is_connected(relay_url) {
+                self.start_minion(relay_url.clone()).await?;
+            }
+
+            // Subscribe to our mentions
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.to_string(),
+                payload: ToMinionPayload::SubscribeConfig,
+            });
+        }
+
+        // Separately subscribe to our mentions on our read relays
         let read_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.read);
         for relay_url in read_relay_urls.iter() {
             // Start a minion for this relay if there is none
