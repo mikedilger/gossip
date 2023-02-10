@@ -165,6 +165,14 @@ impl People {
         output
     }
 
+    pub fn create_if_missing_sync(&self, pubkey: PublicKeyHex) {
+        task::spawn(async {
+            if let Err(e) = GLOBALS.people.create_all_if_missing(&[pubkey]).await {
+                tracing::error!("{}", e);
+            }
+        });
+    }
+
     pub async fn create_all_if_missing(&self, pubkeys: &[PublicKeyHex]) -> Result<(), Error> {
         // Collect the public keys that we don't have already (by checking in memory).
         let pubkeys: Vec<&PublicKeyHex> = pubkeys

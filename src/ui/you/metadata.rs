@@ -32,6 +32,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         Some(dbp) => dbp,
         None => {
             ui.label("I cannot find you.");
+            GLOBALS.people.create_if_missing_sync(public_key.into());
             return;
         }
     };
