@@ -251,6 +251,27 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
         return Ok(());
     }
 
+    // Enable special handling for our own relay list
+    let mut ours = false;
+    if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if event.pubkey == pubkey {
+            ours = true;
+
+            tracing::info!("Processing our own relay list");
+
+            // clear all read/write flags in relays (will be added back below)
+
+            // in database
+            DbRelay::clear_read_and_write().await?;
+
+            // in memory
+            for mut elem in GLOBALS.relay_tracker.all_relays.iter_mut() {
+                elem.value_mut().read = false;
+                elem.value_mut().write = false;
+            }
+        }
+    }
+
     let mut read_relays: Vec<RelayUrl> = Vec::new();
     let mut write_relays: Vec<RelayUrl> = Vec::new();
     for tag in event.tags.iter() {
@@ -258,13 +279,51 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if let Some(m) = marker {
                     match &*m.trim().to_lowercase() {
-                        "read" => read_relays.push(relay_url.clone()),
-                        "write" => write_relays.push(relay_url.clone()),
+                        "read" => {
+                            read_relays.push(relay_url.clone());
+                            if ours {
+                                // set in database
+                                DbRelay::update_read_and_write(relay_url.clone(), true, false)
+                                    .await?;
+                                // set in memory
+                                if let Some(mut elem) =
+                                    GLOBALS.relay_tracker.all_relays.get_mut(&relay_url)
+                                {
+                                    elem.read = true;
+                                    elem.write = false;
+                                }
+                            }
+                        }
+                        "write" => {
+                            write_relays.push(relay_url.clone());
+                            if ours {
+                                // set in database
+                                DbRelay::update_read_and_write(relay_url.clone(), false, true)
+                                    .await?;
+                                // set in memory
+                                if let Some(mut elem) =
+                                    GLOBALS.relay_tracker.all_relays.get_mut(&relay_url)
+                                {
+                                    elem.read = false;
+                                    elem.write = true;
+                                }
+                            }
+                        }
                         _ => {} // ignore unknown marker
                     }
                 } else {
                     read_relays.push(relay_url.clone());
                     write_relays.push(relay_url.clone());
+                    if ours {
+                        // set in database
+                        DbRelay::update_read_and_write(relay_url.clone(), true, true).await?;
+                        // set in memory
+                        if let Some(mut elem) = GLOBALS.relay_tracker.all_relays.get_mut(&relay_url)
+                        {
+                            elem.read = true;
+                            elem.write = true;
+                        }
+                    }
                 }
             }
         }

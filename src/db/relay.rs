@@ -169,6 +169,20 @@ impl DbRelay {
         Ok(())
     }
 
+    pub async fn clear_read_and_write() -> Result<(), Error> {
+        let sql = "UPDATE relay SET read = false, write = false";
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute(())?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
     pub async fn update_read_and_write(
         url: RelayUrl,
         read: bool,
