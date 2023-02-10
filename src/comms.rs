@@ -5,6 +5,7 @@ use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl,
 pub enum ToOverlordMessage {
     AddRelay(RelayUrl),
     AdvertiseRelayList,
+    ChangePassphrase(String, String),
     DeletePub,
     DeletePriv(String),
     DropRelay(RelayUrl),

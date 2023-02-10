@@ -94,6 +94,26 @@ impl Signer {
         }
     }
 
+    pub fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
+        let maybe_encrypted = self.encrypted.read().to_owned();
+        match maybe_encrypted {
+            Some(epk) => {
+                // Test password
+                let pk = epk.decrypt(old)?;
+                let epk = pk.export_encrypted(new, DEFAULT_LOG_N)?;
+                *self.encrypted.write() = Some(epk);
+                task::spawn(async move {
+                    if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                        tracing::error!("{}", e);
+                    }
+                    *GLOBALS.status_message.write().await = "Passphrase changed.".to_owned()
+                });
+                Ok(())
+            }
+            _ => Err(Error::NoPrivateKey),
+        }
+    }
+
     pub fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
         let pk = PrivateKey::generate();
         *self.encrypted.write() = Some(pk.export_encrypted(pass, DEFAULT_LOG_N)?);
@@ -133,7 +153,8 @@ impl Signer {
     }
 
     pub fn export_private_key_bech32(&self, pass: &str) -> Result<String, Error> {
-        match &*self.encrypted.read() {
+        let maybe_encrypted = self.encrypted.read().to_owned();
+        match maybe_encrypted {
             Some(epk) => {
                 // Test password
                 let mut pk = epk.decrypt(pass)?;
@@ -157,7 +178,8 @@ impl Signer {
     }
 
     pub fn export_private_key_hex(&self, pass: &str) -> Result<String, Error> {
-        match &*self.encrypted.read() {
+        let maybe_encrypted = self.encrypted.read().to_owned();
+        match maybe_encrypted {
             Some(epk) => {
                 // Test password
                 let mut pk = epk.decrypt(pass)?;

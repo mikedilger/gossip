@@ -62,6 +62,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.separator();
                     ui.add_space(10.0);
 
+                    offer_change_password(app, ui);
+
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
+
                     offer_export_priv_key(app, ui);
 
                     ui.add_space(10.0);
@@ -208,6 +214,51 @@ fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
                 KeySecurity::Medium => "medium",
             }
         ));
+    }
+}
+
+fn offer_change_password(app: &mut GossipUi, ui: &mut Ui) {
+    ui.heading("Change Passphrase");
+
+    ui.horizontal(|ui| {
+        ui.add_space(10.0);
+        ui.label("Enter Existing Passphrase: ");
+        ui.add(TextEdit::singleline(&mut app.password).password(true));
+    });
+
+    ui.horizontal(|ui| {
+        ui.add_space(10.0);
+        ui.label("Enter New Passphrase: ");
+        ui.add(TextEdit::singleline(&mut app.password2).password(true));
+    });
+
+    ui.horizontal(|ui| {
+        ui.add_space(10.0);
+        ui.label("Repeat New Passphrase: ");
+        ui.add(TextEdit::singleline(&mut app.password3).password(true));
+    });
+
+    if ui.button("Change Passphrase").clicked() {
+        if app.password2 != app.password3 {
+            *GLOBALS.status_message.blocking_write() = "Passphrases do not match.".to_owned();
+            app.password2.zeroize();
+            app.password2 = "".to_owned();
+            app.password3.zeroize();
+            app.password3 = "".to_owned();
+        } else {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::ChangePassphrase(
+                    app.password.clone(),
+                    app.password2.clone(),
+                ));
+            app.password.zeroize();
+            app.password = "".to_owned();
+            app.password2.zeroize();
+            app.password2 = "".to_owned();
+            app.password3.zeroize();
+            app.password3 = "".to_owned();
+        }
     }
 }
 

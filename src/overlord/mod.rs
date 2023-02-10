@@ -447,6 +447,11 @@ impl Overlord {
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
             }
+            ToOverlordMessage::ChangePassphrase(mut old, mut new) => {
+                GLOBALS.signer.change_passphrase(&old, &new)?;
+                old.zeroize();
+                new.zeroize();
+            }
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
                 GLOBALS.signer.save_through_settings().await?;
