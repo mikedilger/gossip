@@ -16,8 +16,8 @@ async-recursion = "1.0"
 base64 = "0.21"
 dashmap = "5.4"
 dirs = "4.0"
-eframe = { version = "0.20", features = [ "dark-light", "persistence" ] }
-egui_extras = { version = "0.20", features = [ "image", "svg", "tracing" ] }
+eframe = { version = "0.21", features = [ "dark-light", "persistence" ] }
+egui_extras = { version = "0.21", features = [ "image", "svg", "tracing" ] }
 futures = "0.3"
 futures-util = "0.3"
 hex = "0.4"
