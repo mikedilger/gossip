@@ -1622,7 +1622,7 @@ dependencies = [
 
 [[package]]
 name = "gossip"
-version = "0.3.1-unstable"
+version = "0.3.90-unstable"
 dependencies = [
  "async-recursion",
  "base64 0.21.0",

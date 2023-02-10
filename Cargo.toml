@@ -1,6 +1,6 @@
 [package]
 name = "gossip"
-version = "0.3.1-unstable"
+version = "0.3.90-unstable"
 description = "A social media client for nostr"
 authors = ["Mike Dilger <mike@mikedilger.com>"]
 license = "MIT"
