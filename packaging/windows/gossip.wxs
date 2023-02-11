@@ -1,23 +1,23 @@
 ﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="Gossip 0.3.91" Manufacturer="Gossip" UpgradeCode="f1794f78-cfb1-4056-a1f7-da48b956456c"
+  <Package Name="Gossip" Manufacturer="Gossip" UpgradeCode="f1794f78-cfb1-4056-a1f7-da48b956456c"
     Language="1033" Codepage="1252" Version="0.3.91" InstallerVersion="200" ProductCode="0d138f43-34c8-4d9d-90e0-9086fab82e5a">
     <MediaTemplate EmbedCab="yes" />
     <SummaryInformation Keywords="Installer" Description="Gossip 0.3.91 Installer" Manufacturer="Gossip" />
     <StandardDirectory Id="ProgramFilesFolder">
       <Directory Id="Gossip" Name="Gossip">
-        <Directory Id="INSTALLDIR" Name="Gossip 0.3.91">
-	      <Component Id="MainExecutable" Guid="92cef233-7b27-4b13-858e-0a519b1e8610">
+        <Directory Id="INSTALLDIR" Name="Gossip">
+	      <Component Id="MainExecutable" Guid="1b8cd459-fb86-42b1-8a42-b4d9848179dd">
 		    <File Id="GossipEXE" Name="gossip.exe" Source="gossip.exe" KeyPath="yes">
-              <Shortcut Id="startmenuShortcut" Directory="ProgramMenuDir" Name="Gossip 0.3.91" WorkingDirectory="INSTALLDIR" Icon="gossip.ico" IconIndex="0" Advertise="yes" />
-              <Shortcut Id="desktopShortcut" Directory="DesktopFolder" Name="Gossip 0.3.91" WorkingDirectory="INSTALLDIR" Icon="gossip.ico" IconIndex="0" Advertise="yes" />
+              <Shortcut Id="startmenuShortcut" Directory="ProgramMenuDir" Name="Gossip" WorkingDirectory="INSTALLDIR" Icon="gossip.ico" IconIndex="0" Advertise="yes" />
+              <Shortcut Id="desktopShortcut" Directory="DesktopFolder" Name="Gossip" WorkingDirectory="INSTALLDIR" Icon="gossip.ico" IconIndex="0" Advertise="yes" />
 	        </File>
           </Component>
         </Directory>
       </Directory>
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
-        <Directory Id="ProgramMenuDir" Name="Gossip 0.3.91">
-            <Component Id="ProgramMenuDir" Guid="12313d74-c714-4266-9a64-0179721cb899">
+        <Directory Id="ProgramMenuDir" Name="Gossip">
+            <Component Id="ProgramMenuDir" Guid="508c7945-fd8f-429d-af84-6cdba5aac575">
                 <RemoveFolder Id="ProgramMenuDir" On="uninstall" />
                 <RegistryValue Root="HKCU" Key="Software\Gossip\gossip" Type="string" Value="" KeyPath="yes" />
             </Component>
