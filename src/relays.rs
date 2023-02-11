@@ -113,6 +113,17 @@ impl RelayTracker {
     }
 
     pub fn add_someone(&self, pubkey: PublicKeyHex) -> Result<(), Error> {
+        // Check if we already have them
+        if self.pubkey_counts.get(&pubkey).is_some() {
+            return Ok(());
+        }
+        for elem in self.relay_assignments.iter() {
+            let assignment = elem.value();
+            if assignment.pubkeys.contains(&pubkey) {
+                return Ok(());
+            }
+        }
+
         self.pubkey_counts
             .insert(pubkey, self.num_relays_per_person.load(Ordering::Relaxed));
         Ok(())
