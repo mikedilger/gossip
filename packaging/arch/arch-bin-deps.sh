@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This is the binary we are inspecting
-BIN=./target/release/gossip
+BIN=../../target/release/gossip
 
 # This uses ldd to get it's dependencies into a list
 DEPS=$(pacman -F $(ldd "$BIN" | awk '{print $3}') | awk '{print $5}'  | awk -F/ '{print $2}' | tr " " "\n" | sort -u | tr "\n" " ")
@@ -30,9 +30,11 @@ echo $TODELETE | tr " " "\n" > /tmp/file2.txt
 
 comm -3 /tmp/file1.txt /tmp/file2.txt | sed '/\t/d'
 
-# json-glib
-# libstemmer
-# libutil-linux  (util-linux-libs)
-# webkit2gtk
+# I'm getting 'gcc-libs' today as the only output.
+# But in the past I got:
+#   json-glib
+#   libstemmer
+#   libutil-linux  (util-linux-libs)
+#   webkit2gtk
 #
 # pacman -S json-glib libstemmer util-linux-libs webkit2gtk

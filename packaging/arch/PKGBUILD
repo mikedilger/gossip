@@ -1,0 +1,26 @@
+# Maintainer: Michael Dilger <mike@mikedilger.com>
+pkgname='gossip'
+pkgver='0.3.90'
+pkgrel=1
+pkgdesc='A desktop nostr client'
+arch=('i686' 'x86_64')
+url='https://github.com/mikedilger/$pkgname'
+license=('MIT')
+depends=('openssl' 'gcc-libs')
+makedepends=('git' 'cargo')
+_tag=528012c1501aac5a60e4d525385b13110a45467c
+source=("git+$url#tag=$_tag")
+
+sha1sums=('337fb8a862b64c7da16f7bbe4fe07aff2ff812e9')
+
+build() {
+  cd "$pkgname"
+  RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
+  strip ./target/release/gossip
+}
+
+package() {
+  cd "$pkgname"
+  install -Dm755 "./target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
+  install -Dm644 "./LICENSE.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

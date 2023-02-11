@@ -1,0 +1,4 @@
+*.bz2
+*.zst
+pkg/
+src/

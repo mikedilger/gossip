@@ -1,4 +1,4 @@
-FROM rust:1.65-bullseye as builder
+FROM rust:1.67-bullseye as builder
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \

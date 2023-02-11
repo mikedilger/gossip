@@ -56,5 +56,5 @@ overflow-checks = false
 section = "web"
 assets = [
     ["target/release/gossip", "/usr/bin/", "755"],
-    ["contrib/gossip.desktop", "/usr/share/applications/gossip.desktop", "644"],
+    ["packaging/debian/gossip.desktop", "/usr/share/applications/gossip.desktop", "644"],
 ]
