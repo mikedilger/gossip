@@ -691,10 +691,7 @@ impl People {
         }
 
         // Add the person to the relay_tracker for picking
-        GLOBALS
-            .relay_tracker
-            .add_someone(pubkeyhex.to_owned())
-            .await?;
+        GLOBALS.relay_tracker.add_someone(pubkeyhex.to_owned())?;
 
         Ok(())
     }
@@ -797,7 +794,7 @@ impl People {
 
         // Add the people to the relay_tracker for picking
         for pubkey in pubkeys.iter() {
-            GLOBALS.relay_tracker.add_someone(pubkey.to_owned()).await?;
+            GLOBALS.relay_tracker.add_someone(pubkey.to_owned())?;
         }
 
         Ok(())

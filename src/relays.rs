@@ -4,6 +4,7 @@ use crate::globals::GLOBALS;
 use dashmap::{DashMap, DashSet};
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use std::fmt;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 /// A RelayAssignment is a record of a relay which is serving (or will serve) the general
 /// feed for a set of public keys.
@@ -73,6 +74,9 @@ pub struct RelayTracker {
 
     /// A ranking of relays per person.
     pub person_relay_scores: DashMap<PublicKeyHex, Vec<(RelayUrl, u64)>>,
+
+    /// Number of relays per person. Taken from settings and fixed.
+    pub num_relays_per_person: AtomicU8,
 }
 
 impl RelayTracker {
@@ -98,14 +102,19 @@ impl RelayTracker {
             self.all_relays.insert(relay_url, dbrelay);
         }
 
+        self.num_relays_per_person.store(
+            GLOBALS.settings.read().await.num_relays_per_person,
+            Ordering::Relaxed,
+        );
+
         self.refresh_person_relay_scores(true).await?;
 
         Ok(())
     }
 
-    pub async fn add_someone(&self, pubkey: PublicKeyHex) -> Result<(), Error> {
-        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
-        self.pubkey_counts.insert(pubkey, num_relays_per_person);
+    pub fn add_someone(&self, pubkey: PublicKeyHex) -> Result<(), Error> {
+        self.pubkey_counts
+            .insert(pubkey, self.num_relays_per_person.load(Ordering::Relaxed));
         Ok(())
     }
 
@@ -117,8 +126,6 @@ impl RelayTracker {
         if initialize_counts {
             self.pubkey_counts.clear();
         }
-
-        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
 
         // Get all the people we follow
         let pubkeys: Vec<PublicKeyHex> = GLOBALS
@@ -135,8 +142,10 @@ impl RelayTracker {
             self.person_relay_scores.insert(pubkey.clone(), best_relays);
 
             if initialize_counts {
-                self.pubkey_counts
-                    .insert(pubkey.clone(), num_relays_per_person);
+                self.pubkey_counts.insert(
+                    pubkey.clone(),
+                    self.num_relays_per_person.load(Ordering::Relaxed),
+                );
             }
         }
 
@@ -253,47 +262,39 @@ impl RelayTracker {
         // above when assigning scores, but in a way which would require a lot of
         // storage to keep, so we just do it again)
         let covered_public_keys = {
-            let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
+            let pubkeys_seeking_relays: Vec<PublicKeyHex> = self
+                .pubkey_counts
+                .iter()
+                .filter(|e| *e.value() > 0)
+                .map(|e| e.key().to_owned())
+                .collect();
 
-            for elem in self.person_relay_scores.iter() {
-                let pubkeyhex = elem.key();
-                let relay_scores = elem.value();
+            let mut covered_pubkeys: Vec<PublicKeyHex> = Vec::new();
 
-                // Skip if this pubkey doesn't need any more assignments
-                if let Some(pkc) = self.pubkey_counts.get(pubkeyhex) {
-                    if *pkc == 0 {
-                        // person doesn't need anymore
-                        continue;
-                    }
-                } else {
-                    continue; // person doesn't need any
-                }
-
+            for pubkey in pubkeys_seeking_relays.iter() {
                 // Skip if relay is already assigned this pubkey
                 if let Some(assignment) = self.relay_assignments.get(&winning_url) {
-                    if assignment.pubkeys.contains(pubkeyhex) {
+                    if assignment.pubkeys.contains(pubkey) {
                         continue;
                     }
                 }
 
-                for (relay, _) in relay_scores.iter() {
-                    if *relay == winning_url {
-                        // Add to pubkeys
-                        pubkeys.push(pubkeyhex.to_owned());
+                if let Some(elem) = self.person_relay_scores.get(pubkey) {
+                    let relay_scores = elem.value();
 
-                        // Decrement in pubkey counts
-                        if let Some(mut count) = self.pubkey_counts.get_mut(pubkeyhex) {
+                    if relay_scores.iter().any(|e| e.0 == winning_url) {
+                        covered_pubkeys.push(pubkey.to_owned());
+
+                        if let Some(mut count) = self.pubkey_counts.get_mut(pubkey) {
                             if *count > 0 {
                                 *count -= 1;
                             }
                         }
-
-                        break;
                     }
                 }
             }
 
-            pubkeys
+            covered_pubkeys
         };
 
         if covered_public_keys.is_empty() {
