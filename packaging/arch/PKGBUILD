@@ -1,6 +1,6 @@
 # Maintainer: Michael Dilger <mike@mikedilger.com>
 pkgname='gossip'
-pkgver='0.3.91'
+pkgver='0.3.93-unstable'
 pkgrel=1
 pkgdesc='A desktop nostr client'
 arch=('i686' 'x86_64')
