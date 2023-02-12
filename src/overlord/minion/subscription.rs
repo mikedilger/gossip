@@ -16,12 +16,14 @@ impl Subscriptions {
         }
     }
 
-    pub fn add(&mut self, handle: &str, filters: Vec<Filter>) {
-        let mut sub = Subscription::new(self.count);
+    pub fn add(&mut self, handle: &str, filters: Vec<Filter>) -> String {
+        let id = format!("{}", self.count);
+        let mut sub = Subscription::new(&id);
         self.count += 1;
         sub.filters = filters;
-        self.handle_to_id.insert(handle.to_owned(), sub.get_id());
-        self.by_id.insert(sub.get_id(), sub);
+        self.handle_to_id.insert(handle.to_owned(), id.clone());
+        self.by_id.insert(id.clone(), sub);
+        id
     }
 
     pub fn has(&self, handle: &str) -> bool {
@@ -64,10 +66,14 @@ impl Subscriptions {
         self.by_id.get_mut(id)
     }
 
-    pub fn remove(&mut self, handle: &str) {
+    pub fn remove(&mut self, handle: &str) -> Option<String> {
         if let Some(id) = self.handle_to_id.get(handle) {
-            self.by_id.remove(id);
+            let id = id.to_owned();
+            self.by_id.remove(&id);
             self.handle_to_id.remove(handle);
+            Some(id)
+        } else {
+            None
         }
     }
 
@@ -90,9 +96,9 @@ pub struct Subscription {
 }
 
 impl Subscription {
-    pub fn new(count: usize) -> Subscription {
+    pub fn new(id: &str) -> Subscription {
         Subscription {
-            id: format!("{}", count),
+            id: id.to_owned(),
             filters: vec![],
             eose: false,
         }

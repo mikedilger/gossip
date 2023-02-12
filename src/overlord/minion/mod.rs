@@ -814,7 +814,13 @@ impl Minion {
         self.next_events_subscription_id += 1;
 
         // save the subscription
-        self.subscriptions.add(&handle, vec![filter]);
+        let id = self.subscriptions.add(&handle, vec![filter]);
+        tracing::debug!(
+            "NEW SUBSCRIPTION on {} handle={}, id={}",
+            &self.url,
+            handle,
+            &id
+        );
 
         // get the request message
         let req_message = self.subscriptions.get(&handle).unwrap().req_message();
@@ -871,7 +877,13 @@ impl Minion {
             let now = Unixtime::now().unwrap();
             DbRelay::update_general_eose(self.dbrelay.url.clone(), now.0 as u64).await?;
         }
-        self.subscriptions.add(handle, filters);
+        let id = self.subscriptions.add(handle, filters);
+        tracing::debug!(
+            "NEW SUBSCRIPTION on {} handle={}, id={}",
+            &self.url,
+            handle,
+            &id
+        );
         let req_message = self.subscriptions.get(handle).unwrap().req_message();
         let wire = serde_json::to_string(&req_message)?;
         let websocket_sink = self.sink.as_mut().unwrap();
@@ -889,7 +901,21 @@ impl Minion {
         let websocket_sink = self.sink.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
         websocket_sink.send(WsMessage::Text(wire.clone())).await?;
-        self.subscriptions.remove(handle);
+        let id = self.subscriptions.remove(handle);
+        if let Some(id) = id {
+            tracing::debug!(
+                "END SUBSCRIPTION on {} handle={}, id={}",
+                &self.url,
+                handle,
+                &id
+            );
+        } else {
+            tracing::debug!(
+                "END SUBSCRIPTION on {} handle={} NOT FOUND",
+                &self.url,
+                handle
+            );
+        }
         Ok(())
     }
 }
