@@ -409,9 +409,9 @@ impl People {
         let mut v: Vec<DbPerson> = self.people.iter().map(|e| e.value().to_owned()).collect();
         v.sort_by(|a, b| {
             let c = a
-                .name()
+                .display_name()
                 .map(|s| s.to_lowercase())
-                .cmp(&b.name().map(|s| s.to_lowercase()));
+                .cmp(&b.display_name().map(|s| s.to_lowercase()));
             if c == std::cmp::Ordering::Equal {
                 a.pubkey.cmp(&b.pubkey)
             } else {
