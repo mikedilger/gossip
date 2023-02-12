@@ -233,7 +233,10 @@ impl Overlord {
             });
         }
 
+        /*
         // Separately subscribe to our mentions on our read relays
+        // (Because NIP-65 is not in widespread usage, we do this on all relays instead.
+        //  see apply_relay_assignment())
         let read_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.read);
         for relay_url in read_relay_urls.iter() {
             // Start a minion for this relay if there is none
@@ -247,6 +250,7 @@ impl Overlord {
                 payload: ToMinionPayload::SubscribeMentions,
             });
         }
+         */
 
         'mainloop: loop {
             match self.loop_handler().await {
