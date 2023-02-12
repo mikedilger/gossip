@@ -4,6 +4,7 @@ use std::collections::HashMap;
 pub struct Subscriptions {
     handle_to_id: HashMap<String, String>,
     by_id: HashMap<String, Subscription>,
+    count: usize,
 }
 
 impl Subscriptions {
@@ -11,11 +12,13 @@ impl Subscriptions {
         Subscriptions {
             handle_to_id: HashMap::new(),
             by_id: HashMap::new(),
+            count: 0,
         }
     }
 
     pub fn add(&mut self, handle: &str, filters: Vec<Filter>) {
-        let mut sub = Subscription::new();
+        let mut sub = Subscription::new(self.count);
+        self.count += 1;
         sub.filters = filters;
         self.handle_to_id.insert(handle.to_owned(), sub.get_id());
         self.by_id.insert(sub.get_id(), sub);
@@ -87,9 +90,9 @@ pub struct Subscription {
 }
 
 impl Subscription {
-    pub fn new() -> Subscription {
+    pub fn new(count: usize) -> Subscription {
         Subscription {
-            id: textnonce::TextNonce::new().to_string(),
+            id: format!("{}", count),
             filters: vec![],
             eose: false,
         }
