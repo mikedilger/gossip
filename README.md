@@ -22,15 +22,17 @@ The following features make gossip different than most other nostr clients so fa
 - Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory.
 - Gossip avoids web technologies (other than HTTP GET and WebSockets). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are complex and represent a security hazard due to such a large attack surface. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
 
-## Status
+### Status
 
 Gossip is ready to use as a daily client if you wish. There are shortcomings, and active development is ongoing.
 
-## Screenshot
+## Media
+
+### Screenshot
 
 ![Gossip Screenshot](gossip_screenshot.png)
 
-## Videos
+### Videos
 
 [First Gossip Video, 5 Jan 2023](https://mikedilger.com/gossip1.mp4)
 
@@ -175,7 +177,7 @@ You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you
 
 I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term keypair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
 
-## Tips
+### Tips
 
 You can tip me at my Bitcoin Lighting address: decentbun13@walletofsatoshi.com == lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
 
