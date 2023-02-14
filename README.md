@@ -1,31 +1,30 @@
 # Gossip
 
-### NOTICE: If when you pull gossip it doesn't pull cleanly, I may have done a rare force-push. Run these commands to reset your master branch:
-
-````bash
-$ git fetch
-$ git reset --hard origin/master
-````
-
 ## Gossip is a desktop client for nostr.
 
-Nostr is a social media protocol and ecosystem, kind of like Twitter [^1] except that you control your own account and you can post to many different independent places called "relays". People are finding many additional uses for nostr that go far beyond just chatting, but this client is focused on chatting.
+Nostr is an open social media protocol empowering lots of software such as this client. The experience is kind of like Twitter except that you control your own account, and you can post to many different independent places called "relays". People are finding many additional uses for nostr that go far beyond micro-blogging or chatting, but this client is focused on those.
 
 Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
-[^1] and Mastodon, Gab, Post, Gettr, Farcaster, Truth social, BlueSky, Locals, Minds, Spoutable, etc, etc....
+### Installing
+
+- **ArchLinux**: https://aur.archlinux.org/packages/gossip or https://aur.archlinux.org/packages/gossip-git
+- **Debian**: See the [https://github.com/mikedilger/gossip/releases](Releases) area for a file named something like `gossip-VERSION-ARCH.deb.zip`
+- **Microsoft Windows**: See the [https://github.com/mikedilger/gossip/releases](Releases) area for a file named something like `gossip-VERSION.msi.zip`
+
+or choose to [Build from Source](#building-from-source)
 
 ### Points of Difference
 
 The following features make gossip different than most other nostr clients so far:
 
 - Gossip follows people at they relays they profess to post to. That means it has to discover which relays those are (see [https://github.com/nostr-protocol/nips/blob/master/65.md](NIP-65)) and make smart relay selection choices based on things like which relays cover the most people you follow.
-- Gossip handles private keys as securely as reasonable (short of hardware tokens), requiring a passphrase on startup.
-- Gossip avoids web technologies (other than HTTP GET and WebSockets). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are far too complex and represent security hazards. We use simple OpenGL-style rendering instead. It's not as pretty, and we will never be able to prerender links, but it gets the job done.
+- Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory.
+- Gossip avoids web technologies (other than HTTP GET and WebSockets). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are complex and represent a security hazard due to such a large attack surface. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
 
 ## Status
 
-Gossip is still in development, but it's ready to use now if you wish. There are many known shortcomings and a few bugs, and the UI badly needs a makeover, but all things come in their own time.
+Gossip is ready to use as a daily client if you wish. There are shortcomings, and active development is ongoing.
 
 ## Screenshot
 
@@ -41,17 +40,10 @@ Gossip is still in development, but it's ready to use now if you wish. There are
 
 - **High user control**: The plan is for the user to be in control of quite a lot of settings regarding which posts they see, which relays to talk to, and when to fetch from them, but with some sane defaults.
 - **Key Security**: Private keys need to be handled as securely as possible. We store the key encrypted under a passphrase on disk, and we zero out any memory that has seen either the key or the passphrase that decrypts it. We also keep the decrypted key in just one place, the Signer, which doesn't provide access to the key directly. Eventually we will look to add hardware token support, probably first using programmable [Solo keys](https://solokeys.com/) because I have a few of those.
-- **Portable** design intended for the **desktop**: This is intended to run on desktop computers, but not limited as such. The platform must be supported by rust (most are), and SQLite3 needs to store its file somewhere. The UI will run on anything that runs one of these backends:
-    - OpenGL (via glium or glow)
-    - OpenGL ES (via glow or wgpu)
-    - WebGL (via glow)
-    - Vulkan (via wgpu)
-    - Metal (via wgpu)
-    - DirectX 11/12 (via wgpu)
-    - Browsers (via WebAssembly)
+- **Portable** design intended for the **desktop**: This is intended to run on desktop computers, but not limited as such. The platform must be supported by rust (most are), and SQLite3 needs to store its file somewhere. The UI will run on many backends.
 - **High-enough performance**: Generally the network speed should be your limiting factor on performance, not the UI or any other part of the code. It doesn't matter too much how fast the code runs as long as it is always faster than the network, and I think that's definitely true for gossip.
 - **Easy-ish on CPU/power usage**: We can't achieve this as well as other clients might because we use an immediate-mode renderer which necessarily recomputes what it draws every "frame" and may redraw many times per second. We are working hard to minimize the CPU impact of this hot loop. Try it and see.
-- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS which won't do Tor completely. Gossip will provide options to support privacy usage such as not loading avatars, having multiple identities, not necessarily sharing who you follow, etc.
+- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS which won't do Tor completely. Gossip provides options to support privacy usage such as not loading avatars, not necessarily sharing who you follow, etc. We will be adding more privacy features.
 
 ### nostr features supported
 
@@ -86,7 +78,16 @@ Gossip is still in development, but it's ready to use now if you wish. There are
 - [ ] NIP-56 - Reporting
 - [x] NIP-65 - Relay List Metadata
 
-## Building and Installing
+## Building from Source
+
+### Step 0 - Possible Reset of Master Branch
+
+If when you pull gossip it doesn't pull cleanly, I may have done a rare force-push. Run these commands to reset your master branch:
+
+````bash
+$ git fetch
+$ git reset --hard origin/master
+````
 
 ### Step 1 - Install Rust
 
@@ -117,14 +118,6 @@ $ cargo build --release
 
 The output will be a binary executable in `target/release/gossip`
 
-Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
-
-To make the binary smaller
-
-````bash
-$ strip gossip
-````
-
 This binary should be portable to similar systems with similar hardware and operating system.
 
 If you want a binary optimized for your exact processor with the newest features enabled:
@@ -133,9 +126,17 @@ If you want a binary optimized for your exact processor with the newest features
 $ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
 ````
 
+Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
+
+To make the binary smaller,
+
+````bash
+$ strip gossip
+````
+
 ### Step 5 - Do it all again
 
-The `master` branch changes quickly.  When you want to update
+The `master` branch changes quickly.  When you want to update, do it all again, something like this:
 
 ````bash
 $ git pull
@@ -177,3 +178,5 @@ I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at thi
 ## Tips
 
 You can tip me at my Bitcoin Lighting address: decentbun13@walletofsatoshi.com == lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
+
+Anything more than 500,000 sats or so should probably go through my on-chain address: bc1qx2a4qmuczvmdcqr8wauty66gkh2klywckd5wn8
