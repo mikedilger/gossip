@@ -36,7 +36,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
 Users are defined by their keypair, and are known by the public key of that pair. All events they generate are signed by their private key, and verifiable by their public key.
 
-We are storing data on your system in this file: {}. This data is only used locally by this client - the nostr protocol does not use clients as a store of data for other people. We are storing your settings, your private and public key, information about relays, and a cache of events. We cache events in your feed so that we don't have to ask relays for them again, which means less network traffic and faster startup times.
+We are storing data on your system in this directory: {}. This data is only used locally by this client - the nostr protocol does not use clients as a store of data for other people. We are storing your settings, your private and public key, information about relays, and a cache of events. We cache events in your feed so that we don't have to ask relays for them again, which means less network traffic and faster startup times.
 ", app.about.storage_path))
                     .text_style(TextStyle::Body)
         );

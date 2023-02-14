@@ -186,7 +186,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         &mut app.override_dpi,
                         "Override to ");
                     ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
-                    if ui.button("Do it now (does not save yet)").clicked() {
+                    if ui.button("Try it now").clicked() {
                         let ppt: f32 = app.override_dpi_value as f32 / 72.0;
                         ctx.set_pixels_per_point(ppt);
                     }

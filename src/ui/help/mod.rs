@@ -59,7 +59,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if ui.link("Settings").clicked() {
                     app.set_page(Page::Settings);
                 }
-                ui.label("and under the User Interface section, check \"Override DPI\" and set the value higher. You can press [Do it now] to see if you like it, and [SAVE CHANGES] to save that setting for next time.");
+                ui.label("and under the User Interface section, check \"Override DPI\" and set the value higher. You can press [Try it now] to see if you like it, and [SAVE CHANGES] to save that setting for next time.");
             });
             ui.add_space(10.0);
 
@@ -155,7 +155,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if ui.link("Settings").clicked() {
                     app.set_page(Page::Settings);
                 }
-                ui.label("and under the User Interface section, check \"Override DPI\" and set the value higher. You can press [Do it now] to see if you like it, and [SAVE CHANGES] to save that setting for next time.");
+                ui.label("and under the User Interface section, check \"Override DPI\" and set the value higher. You can press [Try it now] to see if you like it, and [SAVE CHANGES] to save that setting for next time.");
             });
             ui.add_space(10.0);
 
