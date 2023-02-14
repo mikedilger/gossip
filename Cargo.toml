@@ -18,14 +18,17 @@ dashmap = "5.4"
 dirs = "4.0"
 eframe = { version = "0.21", features = [ "dark-light", "persistence" ] }
 egui_extras = { version = "0.21", features = [ "image", "svg", "tracing" ] }
+encoding_rs = "0.8"
 futures = "0.3"
 futures-util = "0.3"
 hex = "0.4"
 http = "0.2"
+humansize = "2.1"
 image = { version = "0.24", features = [ "png", "jpeg" ] }
 lazy_static = "1.4"
 linkify = "0.9"
 memoize = "0.4"
+mime = "0.3"
 nostr-types = { git = "https://github.com/mikedilger/nostr-types" }
 parking_lot = "0.12"
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust" }

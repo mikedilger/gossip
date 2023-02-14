@@ -6,13 +6,18 @@ use crate::db::DbRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use base64::Engine;
+use encoding_rs::{Encoding, UTF_8};
 use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use http::Uri;
+use mime::Mime;
 use nostr_types::{
     ClientMessage, EventKind, Filter, IdHex, IdHexPrefix, PublicKeyHex, PublicKeyHexPrefix,
     RelayInformationDocument, RelayUrl, Unixtime,
 };
+use reqwest::Response;
+use std::borrow::Cow;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use subscription::Subscriptions;
 use tokio::net::TcpStream;
@@ -98,6 +103,7 @@ impl Minion {
                 return Err(Error::UrlHasEmptyHostname);
             }
 
+            // Read NIP-11 information
             let request_nip11_future = reqwest::Client::builder()
                 .timeout(std::time::Duration::new(30, 0))
                 .redirect(reqwest::redirect::Policy::none())
@@ -109,9 +115,8 @@ impl Minion {
                 .header("Host", host)
                 .header("Accept", "application/nostr+json")
                 .send();
-
-            // Read NIP-11 information
-            match request_nip11_future.await?.text().await {
+            let response = request_nip11_future.await?;
+            match Self::text_with_charset(response, "utf-8").await {
                 Ok(text) => match serde_json::from_str::<RelayInformationDocument>(&text) {
                     Ok(nip11) => {
                         tracing::info!("{}: {}", &self.url, nip11);
@@ -238,6 +243,8 @@ impl Minion {
                         return Ok(());
                     }
                 }?;
+
+                GLOBALS.bytes_read.fetch_add(ws_message.len(), Ordering::Relaxed);
 
                 tracing::trace!("{}: Handling message", &self.url);
                 match ws_message {
@@ -917,5 +924,34 @@ impl Minion {
             );
         }
         Ok(())
+    }
+
+    // This replictes reqwest Response text_with_charset to handle decoding
+    // whatever charset they used into UTF-8, as well as counting the bytes.
+    async fn text_with_charset(
+        response: Response,
+        default_encoding: &str,
+    ) -> Result<String, Error> {
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<Mime>().ok());
+        let encoding_name = content_type
+            .as_ref()
+            .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
+            .unwrap_or(default_encoding);
+        let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
+        let full = response.bytes().await?;
+        GLOBALS.bytes_read.fetch_add(full.len(), Ordering::Relaxed);
+        let (text, _, _) = encoding.decode(&full);
+        if let Cow::Owned(s) = text {
+            return Ok(s);
+        }
+        unsafe {
+            // decoding returned Cow::Borrowed, meaning these bytes
+            // are already valid utf8
+            Ok(String::from_utf8_unchecked(full.to_vec()))
+        }
     }
 }

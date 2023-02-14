@@ -186,6 +186,8 @@ impl Fetcher {
 
         let bytes = maybe_bytes?;
 
+        GLOBALS.bytes_read.fetch_add(bytes.len(), Ordering::Relaxed);
+
         let cache_file = GLOBALS.fetcher.cache_file(&url);
 
         // Write to the file

@@ -11,7 +11,7 @@ use crate::signer::Signer;
 use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 /// Only one of these is ever created, via lazy_static!, and represents
@@ -80,6 +80,8 @@ pub struct Globals {
     pub status_message: RwLock<String>,
 
     pub pull_following_merge: AtomicBool,
+
+    pub bytes_read: AtomicUsize,
 }
 
 lazy_static! {
@@ -112,6 +114,7 @@ lazy_static! {
             pixels_per_point_times_100: AtomicU32::new(139), // 100 dpi, 1/72th inch => 1.38888
             status_message: RwLock::new("Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()),
             pull_following_merge: AtomicBool::new(true),
+            bytes_read: AtomicUsize::new(0),
         }
     };
 }

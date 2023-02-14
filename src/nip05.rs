@@ -4,6 +4,7 @@ use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use dashmap::mapref::entry::Entry;
 use nostr_types::{Metadata, Nip05, PublicKeyHex, RelayUrl, Unixtime};
+use std::sync::atomic::Ordering;
 
 // This updates the people map and the database with the result
 pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
@@ -183,5 +184,7 @@ async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
         .header("Host", domain)
         .send();
     let response = nip05_future.await?;
-    Ok(response.json::<Nip05>().await?)
+    let bytes = response.bytes().await?;
+    GLOBALS.bytes_read.fetch_add(bytes.len(), Ordering::Relaxed);
+    Ok(serde_json::from_slice(&bytes)?)
 }
