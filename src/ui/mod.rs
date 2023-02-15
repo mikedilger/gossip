@@ -15,6 +15,7 @@ use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::settings::Settings;
 use crate::ui::widgets::CopyButton;
+use dashmap::DashSet;
 use eframe::{egui, IconData, Theme};
 use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
@@ -88,6 +89,7 @@ struct GossipUi {
     // Post rendering
     render_raw: Option<Id>,
     render_qr: Option<Id>,
+    viewed: DashSet<Id>,
 
     // Person page rendering ('npub', 'nprofile', or 'lud06')
     person_qr: Option<&'static str>,
@@ -229,6 +231,7 @@ impl GossipUi {
             qr_codes: HashMap::new(),
             render_raw: None,
             render_qr: None,
+            viewed: DashSet::new(),
             person_qr: None,
             setting_active_person: false,
             page: start_page,
@@ -288,11 +291,9 @@ impl GossipUi {
         match &page {
             Page::Feed(FeedKind::General) => {
                 GLOBALS.feed.set_feed_to_general();
-                GLOBALS.events.clear_new();
             }
             Page::Feed(FeedKind::Replies) => {
                 GLOBALS.feed.set_feed_to_replies();
-                GLOBALS.events.clear_new();
             }
             Page::Feed(FeedKind::Thread { id, referenced_by }) => {
                 GLOBALS.feed.set_feed_to_thread(*id, *referenced_by);
@@ -349,7 +350,6 @@ impl eframe::App for GossipUi {
                     .clicked()
                 {
                     self.set_page(Page::Feed(FeedKind::General));
-                    GLOBALS.events.clear_new();
                 }
                 ui.separator();
                 if ui

@@ -57,7 +57,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 .clicked()
             {
                 app.set_page(Page::Feed(feed_kind.clone()));
-                GLOBALS.events.clear_new();
             }
         }
         if matches!(feed_kind, FeedKind::Person(..)) {
@@ -70,7 +69,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 .clicked()
             {
                 app.set_page(Page::Feed(feed_kind.clone()));
-                GLOBALS.events.clear_new();
             }
         }
     });
@@ -260,17 +258,17 @@ fn render_post_actual(
     };
 
     #[allow(clippy::collapsible_else_if)]
-    let bgcolor = if GLOBALS.events.is_new(&event.id) {
-        if ctx.style().visuals.dark_mode {
-            Color32::from_rgb(60, 0, 0)
-        } else {
-            Color32::LIGHT_YELLOW
-        }
-    } else {
+    let bgcolor = if app.viewed.contains(&event.id) {
         if ctx.style().visuals.dark_mode {
             Color32::BLACK
         } else {
             Color32::WHITE
+        }
+    } else {
+        if ctx.style().visuals.dark_mode {
+            Color32::from_rgb(60, 0, 0)
+        } else {
+            Color32::LIGHT_YELLOW
         }
     };
 
@@ -282,7 +280,7 @@ fn render_post_actual(
         }
     };
 
-    Frame::none().fill(bgcolor).show(ui, |ui| {
+    let inner_response = Frame::none().fill(bgcolor).show(ui, |ui| {
         if is_main_event {
             thin_red_separator(ui);
         }
@@ -310,6 +308,10 @@ fn render_post_actual(
             thin_red_separator(ui);
         }
     });
+
+    if inner_response.response.hovered() {
+        app.viewed.insert(id);
+    }
 
     ui.separator();
 

@@ -549,9 +549,6 @@ impl Overlord {
                 self.pick_relays().await;
             }
             ToOverlordMessage::ProcessIncomingEvents => {
-                // Clear new events
-                GLOBALS.events.clear_new();
-
                 std::mem::drop(tokio::spawn(async move {
                     for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
                         let _ =

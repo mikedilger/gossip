@@ -1,25 +1,22 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_recursion::async_recursion;
-use dashmap::{DashMap, DashSet};
+use dashmap::DashMap;
 use nostr_types::{Event, Id};
 use tokio::task;
 
 pub struct Events {
     events: DashMap<Id, Event>,
-    new_events: DashSet<Id>,
 }
 
 impl Events {
     pub fn new() -> Events {
         Events {
             events: DashMap::new(),
-            new_events: DashSet::new(),
         }
     }
 
     pub fn insert(&self, event: Event) {
-        let _ = self.new_events.insert(event.id);
         let _ = self.events.insert(event.id, event);
     }
 
@@ -78,14 +75,6 @@ impl Events {
         } else {
             Ok(None) // not present locally
         }
-    }
-
-    pub fn is_new(&self, id: &Id) -> bool {
-        self.new_events.contains(id)
-    }
-
-    pub fn clear_new(&self) {
-        self.new_events.clear();
     }
 
     pub fn iter(&self) -> dashmap::iter::Iter<Id, Event> {
