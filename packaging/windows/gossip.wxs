@@ -1,8 +1,8 @@
 ﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="Gossip" Manufacturer="Gossip" UpgradeCode="f1794f78-cfb1-4056-a1f7-da48b956456c"
-    Language="1033" Codepage="1252" Version="0.3.93-unstable" InstallerVersion="200" ProductCode="aa45f2bd-9c13-4355-a9b6-88bf1872ef8b">
+    Language="1033" Codepage="1252" Version="0.4.90-unstable" InstallerVersion="200" ProductCode="734fc6ab-acd7-11ed-aa43-0242ac120005">
     <MediaTemplate EmbedCab="yes" />
-    <SummaryInformation Keywords="Installer" Description="Gossip 0.3.93-unstable Installer" Manufacturer="Gossip" />
+    <SummaryInformation Keywords="Installer" Description="Gossip 0.4.90-unstable Installer" Manufacturer="Gossip" />
     <StandardDirectory Id="ProgramFilesFolder">
       <Directory Id="Gossip" Name="Gossip">
         <Directory Id="INSTALLDIR" Name="Gossip">
