@@ -165,8 +165,6 @@ fn render_post_maybe_fake(
     }
     let event = maybe_event.unwrap();
 
-    let maybe_person = GLOBALS.people.get(&event.pubkey.into());
-
     let screen_rect = ctx.input(|i| i.screen_rect); // Rect
     let pos2 = ui.next_widget_position();
 
@@ -174,7 +172,24 @@ fn render_post_maybe_fake(
     // so the scrollbar isn't messed up
     let height = match app.height.get(&id) {
         Some(h) => *h,
-        None => estimate_height(&event, maybe_person),
+        None => {
+            // render the actual post and return
+            // The first frame will be very slow, but it will only need to do this
+            // once per post.
+            render_post_actual(
+                app,
+                ctx,
+                _frame,
+                ui,
+                FeedPostParams {
+                    id,
+                    indent,
+                    as_reply_to,
+                    threaded,
+                },
+            );
+            return;
+        }
     };
     let after_the_bottom = pos2.y > screen_rect.max.y;
     let before_the_top = pos2.y + height < 0.0;
@@ -596,41 +611,6 @@ fn render_post_inner(
             });
         }
     });
-}
-
-// estimate the height of a post in points
-fn estimate_height(event: &Event, maybe_person: Option<DbPerson>) -> f32 {
-    // ESTIMATE HEIGHT
-    // This doesn't have to be perfect, but the closer we are, the less wobbly the scrolling is.
-    // This is affected by font size, so adjust if we add that as a setting.
-    // A single-line post currently is 110 points high.  Every additional line adds 18 points.
-
-    let mut height = 92.0;
-    let mut lines = event.content.lines().count();
-
-    // presume wrapping at 80 chars, although window width makes a big diff.
-    lines += event.content.lines().filter(|l| l.len() > 80).count();
-    height += 18.0 * (lines as f32);
-
-    // Muted posts are short
-    if let Some(person) = maybe_person {
-        if person.muted > 0 {
-            height = 92.0;
-        }
-    }
-
-    // Reposts count their interior
-    if event.kind == EventKind::Repost && GLOBALS.settings.blocking_read().reposts {
-        if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-            let inner_person = match GLOBALS.people.get(&inner_event.pubkey.into()) {
-                Some(p) => p,
-                None => DbPerson::new(inner_event.pubkey.into()),
-            };
-            height += estimate_height(&inner_event, Some(inner_person)) + 2.0;
-        }
-    }
-
-    height
 }
 
 fn thin_red_separator(ui: &mut Ui) {
