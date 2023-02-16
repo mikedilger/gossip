@@ -172,13 +172,16 @@ fn render_post_maybe_fake(
 
     // If too far off of the screen, don't actually render the post, just make some space
     // so the scrollbar isn't messed up
-    let estimated_height = estimate_height(&event, maybe_person);
+    let height = match app.height.get(&id) {
+        Some(h) => *h,
+        None => estimate_height(&event, maybe_person),
+    };
     let after_the_bottom = pos2.y > screen_rect.max.y;
-    let before_the_top = pos2.y + estimated_height < 0.0;
+    let before_the_top = pos2.y + height < 0.0;
 
     if after_the_bottom || before_the_top {
         // Don't actually render, just make space for scrolling purposes
-        ui.add_space(estimated_height);
+        ui.add_space(height);
 
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to {
@@ -233,6 +236,8 @@ fn render_post_actual(
         return;
     }
     let event = maybe_event.unwrap();
+
+    let top = ui.next_widget_position();
 
     // Only render TextNote events
     let enable_reposts = GLOBALS.settings.blocking_read().reposts;
@@ -300,6 +305,10 @@ fn render_post_actual(
     if inner_response.response.hovered() {
         app.viewed.insert(id);
     }
+
+    // Store actual rendered height for future reference
+    let bottom = ui.next_widget_position();
+    app.height.insert(id, bottom.y - top.y);
 
     ui.separator();
 
