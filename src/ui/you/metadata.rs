@@ -110,7 +110,28 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         .to_overlord
                         .send(ToOverlordMessage::PushMetadata(app.metadata.clone()));
                 }
-            } else if GLOBALS.signer.is_ready() && ui.button("EDIT").clicked() {
+            } else if !GLOBALS.signer.is_ready() {
+                ui.horizontal(|ui| {
+                    ui.label("You need to");
+                    if ui.link("unlock your private key").clicked() {
+                        app.set_page(Page::YourKeys);
+                    }
+                    ui.label("to edit/save metadata.");
+                });
+            } else if !GLOBALS
+                .relay_tracker
+                .all_relays
+                .iter()
+                .any(|r| r.value().write)
+            {
+                ui.horizontal(|ui| {
+                    ui.label("You need to");
+                    if ui.link("configure write relays").clicked() {
+                        app.set_page(Page::RelaysAll);
+                    }
+                    ui.label("to edit/save metadata.");
+                });
+            } else if ui.button("EDIT").clicked() {
                 app.editing_metadata = true;
                 app.metadata = view_metadata.to_owned();
             }
