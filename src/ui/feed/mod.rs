@@ -172,25 +172,13 @@ fn render_post_maybe_fake(
 
     // If too far off of the screen, don't actually render the post, just make some space
     // so the scrollbar isn't messed up
-    if pos2.y < -2000.0 || pos2.y > screen_rect.max.y + 2000.0 {
-        // ESTIMATE HEIGHT
-        // This doesn't have to be perfect, but the closer we are, the less wobbly the scroll bar is.
-        // This is affected by font size, so adjust if we add that as a setting.
-        // A single-line post currently is 110 pixels high.  Every additional line adds 18 pixels.
-        let mut height = 92.0;
-        let mut lines = event.content.lines().count();
-        // presume wrapping at 80 chars, although window width makes a big diff.
-        lines += event.content.lines().filter(|l| l.len() > 80).count();
-        height += 18.0 * (lines as f32);
+    let estimated_height = estimate_height(&event, maybe_person);
+    let after_the_bottom = pos2.y > screen_rect.max.y;
+    let before_the_top = pos2.y + estimated_height < 0.0;
 
-        // Muted posts are short
-        if let Some(person) = maybe_person {
-            if person.muted > 0 {
-                height = 92.0;
-            }
-        }
-
-        ui.add_space(height);
+    if after_the_bottom || before_the_top {
+        // Don't actually render, just make space for scrolling purposes
+        ui.add_space(estimated_height);
 
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to {
@@ -599,6 +587,41 @@ fn render_post_inner(
             });
         }
     });
+}
+
+// estimate the height of a post in points
+fn estimate_height(event: &Event, maybe_person: Option<DbPerson>) -> f32 {
+    // ESTIMATE HEIGHT
+    // This doesn't have to be perfect, but the closer we are, the less wobbly the scrolling is.
+    // This is affected by font size, so adjust if we add that as a setting.
+    // A single-line post currently is 110 points high.  Every additional line adds 18 points.
+
+    let mut height = 92.0;
+    let mut lines = event.content.lines().count();
+
+    // presume wrapping at 80 chars, although window width makes a big diff.
+    lines += event.content.lines().filter(|l| l.len() > 80).count();
+    height += 18.0 * (lines as f32);
+
+    // Muted posts are short
+    if let Some(person) = maybe_person {
+        if person.muted > 0 {
+            height = 92.0;
+        }
+    }
+
+    // Reposts count their interior
+    if event.kind == EventKind::Repost && GLOBALS.settings.blocking_read().reposts {
+        if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+            let inner_person = match GLOBALS.people.get(&inner_event.pubkey.into()) {
+                Some(p) => p,
+                None => DbPerson::new(inner_event.pubkey.into()),
+            };
+            height += estimate_height(&inner_event, Some(inner_person)) + 2.0;
+        }
+    }
+
+    height
 }
 
 fn thin_red_separator(ui: &mut Ui) {
