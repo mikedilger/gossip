@@ -34,7 +34,7 @@ parking_lot = "0.12"
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust" }
 rand = "0.8"
 regex = "1.7"
-reqwest = { version = "0.11", features = ["brotli", "deflate", "gzip", "json"] }
+reqwest = { version = "0.11", default-features=false, features = ["brotli", "deflate", "gzip", "json", "rustls-tls-webpki-roots"] }
 rusqlite = { version = "0.28", features = ["bundled", "chrono", "serde_json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -44,8 +44,8 @@ time = { version = "0.3", features = [ "formatting" ] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
-tokio-tungstenite = { version = "0.18", features = [ "native-tls" ] }
-tungstenite = { version = "0.18", features = [ "native-tls" ] }
+tokio-tungstenite = { version = "0.18", features = [ "rustls-tls-webpki-roots" ] }
+tungstenite = { version = "0.18", features = [ "rustls-tls-webpki-roots" ] }
 zeroize = "1.5"
 
 # Force scrypt to build with release-like speed even in dev mode
