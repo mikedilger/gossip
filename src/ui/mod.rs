@@ -15,14 +15,13 @@ use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::settings::Settings;
 use crate::ui::widgets::CopyButton;
-use dashmap::DashSet;
 use eframe::{egui, IconData, Theme};
 use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
@@ -89,7 +88,7 @@ struct GossipUi {
     // Post rendering
     render_raw: Option<Id>,
     render_qr: Option<Id>,
-    viewed: DashSet<Id>,
+    viewed: HashSet<Id>,
 
     // Person page rendering ('npub', 'nprofile', or 'lud06')
     person_qr: Option<&'static str>,
@@ -231,7 +230,7 @@ impl GossipUi {
             qr_codes: HashMap::new(),
             render_raw: None,
             render_qr: None,
-            viewed: DashSet::new(),
+            viewed: HashSet::new(),
             person_qr: None,
             setting_active_person: false,
             page: start_page,
