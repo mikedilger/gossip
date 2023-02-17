@@ -80,6 +80,8 @@ struct GossipUi {
     next_frame: Instant,
     override_dpi: bool,
     override_dpi_value: u32,
+    current_scroll_offset: f32,
+    future_scroll_offsets: [f32; 9],
 
     // QR codes being rendered (in feed or elsewhere)
     // the f32's are the recommended image size
@@ -228,6 +230,8 @@ impl GossipUi {
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
+            current_scroll_offset: 0.0,
+            future_scroll_offsets: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
             qr_codes: HashMap::new(),
             render_raw: None,
             render_qr: None,
@@ -320,15 +324,76 @@ impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         let max_fps = GLOBALS.settings.blocking_read().max_fps as f32;
 
-        // Wait until the next frame
-        std::thread::sleep(self.next_frame - Instant::now());
-        self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
+        if self.future_scroll_offsets != [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] {
+            ctx.request_repaint();
+        } else {
+            // Wait until the next frame
+            std::thread::sleep(self.next_frame - Instant::now());
+            self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
 
-        // Redraw at least once per second
-        ctx.request_repaint_after(Duration::from_secs(1));
+            // Redraw at least once per second
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
 
         if GLOBALS.shutting_down.load(Ordering::Relaxed) {
             frame.close();
+        }
+
+        // Smooth Scrolling
+        {
+            const SCROLL_PER_FRAME: f32 = 10.0;
+
+            // Reset current frame offset
+            self.current_scroll_offset = 0.0;
+
+            // Pull future frame scroll deltas back, taking the first as
+            // our current offset
+            self.current_scroll_offset += self.future_scroll_offsets[0];
+            self.future_scroll_offsets[0] = self.future_scroll_offsets[1];
+            self.future_scroll_offsets[1] = self.future_scroll_offsets[2];
+            self.future_scroll_offsets[2] = self.future_scroll_offsets[3];
+            self.future_scroll_offsets[3] = self.future_scroll_offsets[4];
+            self.future_scroll_offsets[4] = self.future_scroll_offsets[5];
+            self.future_scroll_offsets[5] = self.future_scroll_offsets[6];
+            self.future_scroll_offsets[6] = self.future_scroll_offsets[7];
+            self.future_scroll_offsets[7] = self.future_scroll_offsets[8];
+            self.future_scroll_offsets[8] = 0.0;
+
+            // Get the amount of scroll requested
+            let mut requested_scroll: f32 = 0.0;
+            ctx.input_mut(|i| {
+                requested_scroll = i.scroll_delta.y;
+            });
+
+            // Accelerate scroll two twice as far as requested
+            requested_scroll *= 2.0;
+
+            // Distribute any scroll delta from this frame into future frames
+            if requested_scroll > 0.0 {
+                for pos in 0..9 {
+                    if requested_scroll > SCROLL_PER_FRAME {
+                        let x = (requested_scroll - SCROLL_PER_FRAME).min(SCROLL_PER_FRAME);
+                        self.future_scroll_offsets[pos] += x;
+                        requested_scroll -= x;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            else if requested_scroll < 0.0 {
+                for pos in 0..9 {
+                    if requested_scroll < -SCROLL_PER_FRAME {
+                        let x = (requested_scroll + SCROLL_PER_FRAME).max(-SCROLL_PER_FRAME);
+                        self.future_scroll_offsets[pos] += x;
+                        requested_scroll -= x;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            // Apply any remainder into the current offset
+            self.current_scroll_offset += requested_scroll;
         }
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {

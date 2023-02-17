@@ -119,6 +119,7 @@ fn render_a_feed(
 ) {
     ScrollArea::vertical()
         .id_source(scroll_area_id)
+        .override_scroll_delta(Vec2 { x: 0.0, y: app.current_scroll_offset })
         .show(ui, |ui| {
             let bgcolor = if ctx.style().visuals.dark_mode {
                 Color32::BLACK
