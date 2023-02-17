@@ -106,6 +106,20 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(10.0);
 
                     offer_delete(app, ui);
+                } else if GLOBALS.signer.public_key().is_some() {
+                    show_pub_key_detail(app, ctx, ui);
+
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
+
+                    offer_import_priv_key(app, ui);
+
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(10.0);
+
+                    offer_delete_or_import_pub_key(app, ui);
                 } else {
                     offer_generate(app, ui);
 
@@ -119,7 +133,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.separator();
                     ui.add_space(10.0);
 
-                    offer_import_pub_key(app, ui);
+                    offer_delete_or_import_pub_key(app, ui);
                 }
             });
     } else if app.page == Page::YourMetadata {
@@ -346,13 +360,11 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     }
 }
 
-fn offer_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
-    ui.heading("Import a Public Key");
-    ui.add_space(10.0);
-
-    ui.label("This won't let you post or react to posts, but you can view other people's posts (and fetch your following list) with just a public key.");
-
+fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
     if let Some(pk) = GLOBALS.signer.public_key() {
+        ui.heading("Public Key");
+        ui.add_space(10.0);
+
         let pkhex: PublicKeyHex = pk.into();
         ui.horizontal(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
@@ -374,6 +386,11 @@ fn offer_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::DeletePub);
         }
     } else {
+        ui.heading("Import a Public Key");
+        ui.add_space(10.0);
+
+        ui.label("This won't let you post or react to posts, but you can view other people's posts (and fetch your following list) with just a public key.");
+
         ui.horizontal_wrapped(|ui| {
             ui.label("Enter your public key");
             ui.add(
