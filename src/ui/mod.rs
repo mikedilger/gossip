@@ -374,7 +374,7 @@ impl eframe::App for GossipUi {
             });
 
             // Accelerate scroll two twice as far as requested
-            requested_scroll *= 2.0;
+            // requested_scroll *= 2.0;
 
             // Distribute any scroll delta from this frame into future frames
             if requested_scroll > 0.0 {
