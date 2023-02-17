@@ -321,7 +321,8 @@ fn render_post_actual(
         }
     });
 
-    if inner_response.response.hovered() {
+    // Mark post as viewed if hovered AND we are not scrolling
+    if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
         app.viewed.insert(id);
     }
 
