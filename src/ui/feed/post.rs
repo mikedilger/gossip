@@ -90,6 +90,22 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         });
     }
 
+    if app.include_content_warning {
+        ui.horizontal(|ui| {
+            ui.label("Content Warning: ");
+            ui.add(
+                TextEdit::singleline(&mut app.content_warning)
+                    .hint_text("Type content warning here")
+                    .text_color(if ui.visuals().dark_mode {
+                        Color32::WHITE
+                    } else {
+                        Color32::BLACK
+                    })
+                    .desired_width(f32::INFINITY),
+            );
+        });
+    }
+
     ui.add(
         TextEdit::multiline(&mut app.draft)
             .hint_text("Type your message here")
@@ -113,6 +129,9 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         let mut tags: Vec<Tag> = Vec::new();
                         if app.include_subject {
                             tags.push(Tag::Subject(app.subject.clone()));
+                        }
+                        if app.include_content_warning {
+                            tags.push(Tag::ContentWarning(app.content_warning.clone()));
                         }
                         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
                             app.draft.clone(),
@@ -157,6 +176,15 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
             } else if app.replying_to.is_none() && ui.button("Add Subject").clicked() {
                 app.include_subject = true;
+            }
+
+            if app.include_content_warning {
+                if ui.button("Remove Content Warning").clicked() {
+                    app.include_content_warning = false;
+                    app.content_warning = "".to_owned();
+                }
+            } else if ui.button("Add Content Warning").clicked() {
+                app.include_content_warning = true;
             }
 
             // Emoji picker

@@ -114,6 +114,8 @@ struct GossipUi {
     tag_someone: String,
     include_subject: bool,
     subject: String,
+    include_content_warning: bool,
+    content_warning: String,
     replying_to: Option<Id>,
 
     // User entry: metadata
@@ -251,6 +253,8 @@ impl GossipUi {
             tag_someone: "".to_owned(),
             include_subject: false,
             subject: "".to_owned(),
+            include_content_warning: false,
+            content_warning: "".to_owned(),
             replying_to: None,
             editing_metadata: false,
             metadata: Metadata::new(),
