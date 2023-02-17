@@ -16,8 +16,8 @@ async-recursion = "1.0"
 base64 = "0.21"
 dashmap = "5.4"
 dirs = "4.0"
-eframe = { version = "0.21", features = [ "dark-light", "persistence" ] }
-egui_extras = { version = "0.21", features = [ "image", "svg", "tracing" ] }
+eframe = { git = "https://github.com/mikedilger/egui", branch="gossip", features = [ "dark-light", "persistence" ] }
+egui_extras = { git = "https://github.com/mikedilger/egui", branch="gossip", features = [ "image", "svg", "tracing" ] }
 encoding_rs = "0.8"
 futures = "0.3"
 futures-util = "0.3"
