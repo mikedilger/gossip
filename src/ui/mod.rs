@@ -91,6 +91,7 @@ struct GossipUi {
     render_raw: Option<Id>,
     render_qr: Option<Id>,
     viewed: HashSet<Id>,
+    approved: HashSet<Id>, // content warning posts
     height: HashMap<Id, f32>,
 
     // Person page rendering ('npub', 'nprofile', or 'lud06')
@@ -238,6 +239,7 @@ impl GossipUi {
             render_raw: None,
             render_qr: None,
             viewed: HashSet::new(),
+            approved: HashSet::new(),
             height: HashMap::new(),
             person_qr: None,
             setting_active_person: false,

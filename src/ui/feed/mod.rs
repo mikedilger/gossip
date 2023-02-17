@@ -310,7 +310,7 @@ fn render_post_actual(
             }
 
             if person.muted > 0 {
-                ui.label("MUTED POST");
+                ui.label(RichText::new("MUTED POST").monospace().italics());
             } else {
                 render_post_inner(app, ctx, ui, event, person, is_main_event, as_reply_to);
             }
@@ -479,6 +479,19 @@ fn render_post_inner(
                 ui.label(serde_json::to_string_pretty(&event).unwrap());
             } else if app.render_qr == Some(event.id) {
                 app.render_qr(ui, ctx, "feedqr", event.content.trim());
+            } else if event.content_warning().is_some() && !app.approved.contains(&event.id) {
+                ui.label(
+                    RichText::new(format!(
+                        "Content-Warning: {}",
+                        event.content_warning().unwrap()
+                    ))
+                    .monospace()
+                    .italics(),
+                );
+                if ui.button("Show Post").clicked() {
+                    app.approved.insert(event.id);
+                    app.height.remove(&event.id); // will need to be recalculated.
+                }
             } else if event.kind == EventKind::Repost {
                 if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
                     let inner_person = match GLOBALS.people.get(&inner_event.pubkey.into()) {
