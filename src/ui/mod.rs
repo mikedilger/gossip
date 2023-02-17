@@ -323,6 +323,8 @@ impl GossipUi {
         self.include_subject = false;
         self.subject = "".to_owned();
         self.replying_to = None;
+        self.include_content_warning = false;
+        self.content_warning = "".to_owned();
     }
 }
 
