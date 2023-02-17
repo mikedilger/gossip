@@ -3,7 +3,7 @@ use crate::comms::ToOverlordMessage;
 use crate::GLOBALS;
 use eframe::egui;
 use egui::widgets::{Button, Slider};
-use egui::{Align, Context, Layout, ScrollArea, Ui};
+use egui::{Align, Context, Layout, ScrollArea, Ui, Vec2};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Settings");
@@ -23,7 +23,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.add_space(10.0);
             ui.separator();
 
-            ScrollArea::vertical().show(ui, |ui| {
+            ScrollArea::vertical()
+                .id_source("settings")
+                .override_scroll_delta(Vec2 { x: 0.0, y: app.current_scroll_offset })
+                .show(ui, |ui| {
+
                 ui.add_space(12.0);
 
                 ui.heading("How Many Relays to Query");

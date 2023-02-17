@@ -379,8 +379,7 @@ impl eframe::App for GossipUi {
                         break;
                     }
                 }
-            }
-            else if requested_scroll < 0.0 {
+            } else if requested_scroll < 0.0 {
                 for pos in 0..9 {
                     if requested_scroll < -SCROLL_PER_FRAME {
                         let x = (requested_scroll + SCROLL_PER_FRAME).max(-SCROLL_PER_FRAME);

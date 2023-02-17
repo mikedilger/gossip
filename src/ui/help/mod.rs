@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use eframe::egui;
-use egui::{Context, ScrollArea, SelectableLabel, Ui};
+use egui::{Context, ScrollArea, SelectableLabel, Ui, Vec2};
 
 mod about;
 mod stats;
@@ -41,7 +41,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add_space(12.0);
         ui.separator();
 
-        ScrollArea::vertical().show(ui, |ui| {
+        ScrollArea::vertical()
+            .override_scroll_delta(Vec2 { x: 0.0, y: app.current_scroll_offset })
+            .show(ui, |ui| {
 
             ui.add_space(10.0);
 

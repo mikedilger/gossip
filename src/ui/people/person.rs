@@ -26,6 +26,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ScrollArea::vertical()
         .id_source("person page")
+        .override_scroll_delta(Vec2 {
+            x: 0.0,
+            y: app.current_scroll_offset,
+        })
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {

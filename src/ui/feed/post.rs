@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use crate::tags::{keys_from_text, textarea_highlighter};
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
-use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, Ui};
+use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, Ui, Vec2};
 use nostr_types::Tag;
 
 pub(super) fn posting_area(
@@ -45,20 +45,26 @@ pub(super) fn posting_area(
 fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     // Maybe render post we are replying to
     if let Some(id) = app.replying_to {
-        ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
-            super::render_post_actual(
-                app,
-                ctx,
-                frame,
-                ui,
-                FeedPostParams {
-                    id,
-                    indent: 0,
-                    as_reply_to: true,
-                    threaded: false,
-                },
-            );
-        });
+        ScrollArea::vertical()
+            .max_height(200.0)
+            .override_scroll_delta(Vec2 {
+                x: 0.0,
+                y: app.current_scroll_offset,
+            })
+            .show(ui, |ui| {
+                super::render_post_actual(
+                    app,
+                    ctx,
+                    frame,
+                    ui,
+                    FeedPostParams {
+                        id,
+                        indent: 0,
+                        as_reply_to: true,
+                        threaded: false,
+                    },
+                );
+            });
     }
 
     // Text area

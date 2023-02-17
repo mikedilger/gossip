@@ -2,7 +2,7 @@ use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, ScrollArea, SelectableLabel, Ui};
+use egui::{Context, ScrollArea, SelectableLabel, Ui, Vec2};
 use egui_extras::{Column, TableBuilder};
 use nostr_types::RelayUrl;
 
@@ -45,6 +45,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         ScrollArea::vertical()
             .id_source("relay_coverage")
+            .override_scroll_delta(Vec2 {
+                x: 0.0,
+                y: app.current_scroll_offset,
+            })
             .show(ui, |ui| {
                 ui.push_id("general_feed_relays", |ui| {
                     TableBuilder::new(ui)

@@ -4,7 +4,7 @@ use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::style::Margin;
-use egui::{Color32, Context, Frame, ScrollArea, SelectableLabel, Stroke, TextEdit, Ui};
+use egui::{Color32, Context, Frame, ScrollArea, SelectableLabel, Stroke, TextEdit, Ui, Vec2};
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
@@ -42,6 +42,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
         ScrollArea::vertical()
             .id_source("your_keys")
+            .override_scroll_delta(Vec2 {
+                x: 0.0,
+                y: app.current_scroll_offset,
+            })
             .show(ui, |ui| {
                 if GLOBALS.signer.is_ready() {
                     ui.heading("Ready to sign events");
