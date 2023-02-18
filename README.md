@@ -9,8 +9,8 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 ### Installing
 
 - **ArchLinux**: https://aur.archlinux.org/packages/gossip or https://aur.archlinux.org/packages/gossip-git
-- **Debian**: See the [https://github.com/mikedilger/gossip/releases](Releases) area for a file named something like `gossip-VERSION-ARCH.deb.zip`
-- **Microsoft Windows**: See the [https://github.com/mikedilger/gossip/releases](Releases) area for a file named something like `gossip-VERSION.msi.zip`
+- **Debian**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-ARCH.deb.zip`
+- **Microsoft Windows**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION.msi.zip`
 
 or choose to [Build from Source](#building-from-source)
 
