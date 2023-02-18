@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{EncryptedPrivateKey, PublicKey};
+use nostr_types::PublicKey;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +31,6 @@ pub struct Settings {
     pub num_relays_per_person: u8,
     pub max_relays: u8,
     pub public_key: Option<PublicKey>,
-    pub encrypted_private_key: Option<EncryptedPrivateKey>,
     pub max_fps: u32,
     pub feed_recompute_interval_ms: u32,
     pub pow: u8,
@@ -56,7 +55,6 @@ impl Default for Settings {
             num_relays_per_person: DEFAULT_NUM_RELAYS_PER_PERSON,
             max_relays: DEFAULT_MAX_RELAYS,
             public_key: None,
-            encrypted_private_key: None,
             max_fps: DEFAULT_MAX_FPS,
             feed_recompute_interval_ms: DEFAULT_FEED_RECOMPUTE_INTERVAL_MS,
             pow: DEFAULT_POW,
@@ -103,9 +101,6 @@ impl Settings {
                 }
                 "max_relays" => {
                     settings.max_relays = row.1.parse::<u8>().unwrap_or(DEFAULT_MAX_RELAYS)
-                }
-                "encrypted_private_key" => {
-                    settings.encrypted_private_key = Some(EncryptedPrivateKey(row.1))
                 }
                 "public_key" => {
                     settings.public_key = match PublicKey::try_from_hex_string(&row.1) {
@@ -202,6 +197,9 @@ impl Settings {
             bool_to_numstr(self.direct_replies_only),
         ])?;
 
+        // Settings which are Options should not even exist when None.  We don't accept null valued
+        // settings.
+
         // Save override dpi
         if let Some(ref dpi) = self.override_dpi {
             let mut stmt =
@@ -210,18 +208,6 @@ impl Settings {
         } else {
             // Otherwise delete any such setting
             let mut stmt = db.prepare("DELETE FROM settings WHERE key='override_dpi'")?;
-            stmt.execute(())?;
-        }
-
-        // Save private key identity
-        if let Some(ref epk) = self.encrypted_private_key {
-            let mut stmt = db.prepare(
-                "REPLACE INTO SETTINGS (key, value) VALUES ('encrypted_private_key', ?)",
-            )?;
-            stmt.execute((&epk.0,))?;
-        } else {
-            // Otherwise delete any such setting
-            let mut stmt = db.prepare("DELETE FROM settings WHERE key='encrypted_private_key'")?;
             stmt.execute(())?;
         }
 

@@ -22,9 +22,6 @@ pub use contact::DbContact;
 mod person_relay;
 pub use person_relay::{DbPersonRelay, Direction};
 
-mod setting;
-pub use setting::DbSetting;
-
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use rusqlite::Connection;
@@ -72,14 +69,31 @@ fn check_and_upgrade() -> Result<(), Error> {
     let maybe_db = GLOBALS.db.blocking_lock();
     let db = maybe_db.as_ref().unwrap();
 
-    // Load the current version
     match db.query_row(
-        "SELECT value FROM settings WHERE key=?",
-        ["version"],
+        "SELECT schema_version FROM local_settings LIMIT 1",
+        [],
+        |row| row.get::<usize, usize>(0),
+    ) {
+        Ok(version) => upgrade(db, version),
+        Err(e) => {
+            if let rusqlite::Error::SqliteFailure(_, Some(ref s)) = e {
+                if s.contains("no such table") {
+                    return old_check_and_upgrade(db);
+                }
+            }
+            Err(e.into())
+        }
+    }
+}
+
+fn old_check_and_upgrade(db: &Connection) -> Result<(), Error> {
+    match db.query_row(
+        "SELECT value FROM settings WHERE key='version'",
+        [],
         |row| row.get::<usize, String>(0),
     ) {
         Ok(v) => {
-            let version = v.parse::<u16>().unwrap();
+            let version = v.parse::<usize>().unwrap();
             if version < 2 {
                 GLOBALS.first_run.store(true, Ordering::Relaxed);
             }
@@ -93,58 +107,32 @@ fn check_and_upgrade() -> Result<(), Error> {
     }
 }
 
-macro_rules! apply_sql {
-    ($db:ident, $version:ident, $thisversion:expr, $file:expr) => {{
-        if $version < $thisversion {
-            tracing::info!("Upgrading database to version {}", $thisversion);
-            $db.execute_batch(include_str!($file))?;
-            $db.execute(
-                &format!(
-                    "UPDATE settings SET value='{}' WHERE key='version'",
-                    $thisversion
-                ),
-                (),
-            )?;
-            $version = $thisversion;
-        }
-    }};
-}
-
-fn upgrade(db: &Connection, mut version: u16) -> Result<(), Error> {
-    let current_version = 23;
-    if version > current_version {
+fn upgrade(db: &Connection, mut version: usize) -> Result<(), Error> {
+    if version > UPGRADE_SQL.len() {
         panic!(
             "Database version {} is newer than this binary which expects version {}.",
-            version, current_version
+            version,
+            UPGRADE_SQL.len()
         );
     }
 
-    // note to developers: we cannot make this into a loop because include_str! included
-    // by apply_sql! requires a static string, not a dynamically formatted one.
-    apply_sql!(db, version, 1, "schema1.sql");
-    apply_sql!(db, version, 2, "schema2.sql");
-    apply_sql!(db, version, 3, "schema3.sql");
-    apply_sql!(db, version, 4, "schema4.sql");
-    apply_sql!(db, version, 5, "schema5.sql");
-    apply_sql!(db, version, 6, "schema6.sql");
-    apply_sql!(db, version, 7, "schema7.sql");
-    apply_sql!(db, version, 8, "schema8.sql");
-    apply_sql!(db, version, 9, "schema9.sql");
-    apply_sql!(db, version, 10, "schema10.sql");
-    apply_sql!(db, version, 11, "schema11.sql");
-    apply_sql!(db, version, 12, "schema12.sql");
-    apply_sql!(db, version, 13, "schema13.sql");
-    apply_sql!(db, version, 14, "schema14.sql");
-    apply_sql!(db, version, 15, "schema15.sql");
-    apply_sql!(db, version, 16, "schema16.sql");
-    apply_sql!(db, version, 17, "schema17.sql");
-    apply_sql!(db, version, 18, "schema18.sql");
-    apply_sql!(db, version, 19, "schema19.sql");
-    apply_sql!(db, version, 20, "schema20.sql");
-    apply_sql!(db, version, 21, "schema21.sql");
-    apply_sql!(db, version, 22, "schema22.sql");
-    apply_sql!(db, version, 23, "schema23.sql");
+    while version < UPGRADE_SQL.len() {
+        tracing::info!("Upgrading database to version {}", version + 1);
+        db.execute_batch(UPGRADE_SQL[version + 1 - 1])?;
+        version += 1;
+        if version < 24 {
+            // 24 is when we switched to local_settings
+            db.execute(
+                "UPDATE settings SET value=? WHERE key='version'",
+                (version,),
+            )?;
+        } else {
+            db.execute("UPDATE local_settings SET schema_version=?", (version,))?;
+        }
+    }
+
     tracing::info!("Database is at version {}", version);
+
     Ok(())
 }
 
@@ -152,7 +140,7 @@ pub async fn prune() -> Result<(), Error> {
     task::spawn_blocking(move || {
         let maybe_db = GLOBALS.db.blocking_lock();
         let db = maybe_db.as_ref().unwrap();
-        db.execute_batch(include_str!("prune.sql"))?;
+        db.execute_batch(include_str!("sql/prune.sql"))?;
         Ok::<(), Error>(())
     })
     .await??;
@@ -161,3 +149,30 @@ pub async fn prune() -> Result<(), Error> {
 
     Ok(())
 }
+
+const UPGRADE_SQL: [&str; 24] = [
+    include_str!("sql/schema1.sql"),
+    include_str!("sql/schema2.sql"),
+    include_str!("sql/schema3.sql"),
+    include_str!("sql/schema4.sql"),
+    include_str!("sql/schema5.sql"),
+    include_str!("sql/schema6.sql"),
+    include_str!("sql/schema7.sql"),
+    include_str!("sql/schema8.sql"),
+    include_str!("sql/schema9.sql"),
+    include_str!("sql/schema10.sql"),
+    include_str!("sql/schema11.sql"),
+    include_str!("sql/schema12.sql"),
+    include_str!("sql/schema13.sql"),
+    include_str!("sql/schema14.sql"),
+    include_str!("sql/schema15.sql"),
+    include_str!("sql/schema16.sql"),
+    include_str!("sql/schema17.sql"),
+    include_str!("sql/schema18.sql"),
+    include_str!("sql/schema19.sql"),
+    include_str!("sql/schema20.sql"),
+    include_str!("sql/schema21.sql"),
+    include_str!("sql/schema22.sql"),
+    include_str!("sql/schema23.sql"),
+    include_str!("sql/schema24.sql"),
+];
