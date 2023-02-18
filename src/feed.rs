@@ -82,18 +82,15 @@ impl Feed {
 
         // Parent starts with the post itself
         // Overlord will climb it, and recompute will climb it
-        let previous_thread_parent = *self.thread_parent.read();
         *self.thread_parent.write() = Some(id);
 
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload::UnsubscribePersonFeed,
         });
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed(
-            id,
-            referenced_by,
-            previous_thread_parent,
-        ));
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::SetThreadFeed(id, referenced_by));
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {
