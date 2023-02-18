@@ -66,7 +66,6 @@ impl Events {
     }
 
     /// Get event from database, by Filter
-    #[allow(dead_code)]
     pub async fn get_local_events_by_filter(&self, filter: Filter) -> Result<Vec<Event>, Error> {
         let mut conditions: Vec<String> = Vec::new();
         if !filter.ids.is_empty() {
