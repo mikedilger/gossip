@@ -146,6 +146,18 @@ impl Minion {
                 req
             };
 
+            // Some relays want an Origin header to filter requests. Of course we
+            // don't have an Origin, but whatever, for these specific relays we will
+            // give them something.
+            let req = if self.url.0 == "wss://relay.snort.social"
+                || self.url.0 == "wss://relay-pub.deschooling.us"
+            {
+                // Like Damus, we will set it to the URL of the relay itself
+                req.header("Origin", &self.url.0)
+            } else {
+                req
+            };
+
             let req = req
                 .header("Host", host)
                 .header("Connection", "Upgrade")
