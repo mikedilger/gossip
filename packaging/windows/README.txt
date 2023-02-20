@@ -9,10 +9,26 @@ Prerequisite for packaging:
     * KEEP the UpgradeCode GUID (it should never change, it ties different versions together)
     * Change a component GUID ONLY IF the absolute path changes.
 
+Compile:
+
+  $ cargo build --release
+
+Copy the binary to the packaging diretory
+
+  $ cp ..\..\target\release\gossip.exec .
+
 Packaging:
 
   $ wix build gossip.wxs
 
+Move to a versioned filename:
+
+  $ mv gossip.msi gossip.VERSION.msi
+
+Upload to github releases.
+
+
+----
 To install the package, either double-click the MSI, or
 
   $ msiexec gossip.msi
