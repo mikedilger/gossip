@@ -181,7 +181,6 @@ async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
             "https://{}/.well-known/nostr.json?name={}",
             domain, user
         ))
-        .header("Host", domain)
         .send();
     let response = nip05_future.await?;
     let bytes = response.bytes().await?;
