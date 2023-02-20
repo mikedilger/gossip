@@ -19,8 +19,9 @@ CREATE TABLE local_settings (
 );
 
 INSERT INTO local_settings (schema_version, encrypted_private_key)
-SELECT a.value, b.value FROM settings a INNER JOIN settings b
-  ON a.key='version' AND b.key='encrypted_private_key';
+SELECT
+  (SELECT value FROM settings WHERE settings.key='version'),
+  (SELECT value FROM settings WHERE settings.key='encrypted_private_key');
 
 DELETE FROM settings WHERE key='version';
 DELETE FROM settings WHERE key='encrypted_private_key';
