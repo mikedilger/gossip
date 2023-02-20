@@ -12,11 +12,14 @@ pub(super) fn render_content(
     tag_re: &regex::Regex,
     event: &Event,
     as_deleted: bool,
+    override_content: Option<String>,
 ) {
-    for span in LinkFinder::new()
-        .kinds(&[LinkKind::Url])
-        .spans(&event.content)
-    {
+    let content = match override_content {
+        Some(ref s) => s,
+        None => &event.content,
+    };
+
+    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
             ui.hyperlink_to(span.as_str(), span.as_str());
         } else {
