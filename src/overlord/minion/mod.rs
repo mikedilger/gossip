@@ -112,7 +112,6 @@ impl Minion {
                 .deflate(true)
                 .build()?
                 .get(format!("https://{}", host))
-                .header("Host", host)
                 .header("Accept", "application/nostr+json")
                 .send();
             let response = request_nip11_future.await?;
