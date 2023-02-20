@@ -515,9 +515,21 @@ fn render_post_inner(
                         });
                         thin_blue_separator(ui);
                     });
+                } else if event.content.is_empty() {
+                    content::render_content(
+                        app,
+                        ui,
+                        &tag_re,
+                        &event,
+                        deletion.is_some(),
+                        Some("#[0]".to_owned()),
+                    );
+                } else {
+                    // render like a kind-1 event with a mention
+                    content::render_content(app, ui, &tag_re, &event, deletion.is_some(), None);
                 }
             } else {
-                content::render_content(app, ui, &tag_re, &event, deletion.is_some());
+                content::render_content(app, ui, &tag_re, &event, deletion.is_some(), None);
             }
         });
 
