@@ -258,9 +258,12 @@ fn render_post_actual(
 
     let top = ui.next_widget_position();
 
-    // Only render TextNote events
+    // Only render known relevent events
     let enable_reposts = GLOBALS.settings.blocking_read().reposts;
-    if event.kind != EventKind::TextNote && !(enable_reposts && (event.kind == EventKind::Repost)) {
+    if event.kind != EventKind::TextNote
+        && !(enable_reposts && (event.kind == EventKind::Repost))
+        && event.kind != EventKind::EncryptedDirectMessage
+    {
         return;
     }
 
@@ -426,6 +429,15 @@ fn render_post_inner(
                 ui.label(RichText::new("REPOSTED").color(color));
             }
 
+            if event.kind == EventKind::EncryptedDirectMessage {
+                let color = if ui.visuals().dark_mode {
+                    Color32::LIGHT_BLUE
+                } else {
+                    Color32::DARK_BLUE
+                };
+                ui.label(RichText::new("ENCRYPTED DM").color(color));
+            }
+
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.menu_button(RichText::new("📃▼").size(13.0), |ui| {
                     if !is_main_event && ui.button("View Thread").clicked() {
@@ -574,10 +586,11 @@ fn render_post_inner(
                 ui.add_space(24.0);
 
                 // Button to reply
-                if ui
-                    .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
-                    .on_hover_text("Reply")
-                    .clicked()
+                if event.kind != EventKind::EncryptedDirectMessage
+                    && ui
+                        .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
+                        .on_hover_text("Reply")
+                        .clicked()
                 {
                     app.replying_to = Some(event.id);
                 }

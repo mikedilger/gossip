@@ -129,7 +129,9 @@ impl Feed {
             .iter()
             .map(|r| r.value().to_owned())
             .filter(|e| {
-                e.kind == EventKind::TextNote || (enable_reposts && (e.kind == EventKind::Repost))
+                e.kind == EventKind::TextNote
+                    || e.kind == EventKind::EncryptedDirectMessage
+                    || (enable_reposts && (e.kind == EventKind::Repost))
             })
             .filter(|e| e.pubkey.as_hex_string() == person.as_str())
             .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
@@ -173,7 +175,9 @@ impl Feed {
             .iter()
             .map(|r| r.value().to_owned())
             .filter(|e| {
-                e.kind == EventKind::TextNote || (settings.reposts && (e.kind == EventKind::Repost))
+                e.kind == EventKind::TextNote
+                    || e.kind == EventKind::EncryptedDirectMessage
+                    || (settings.reposts && (e.kind == EventKind::Repost))
             })
             .collect();
 
@@ -252,6 +256,7 @@ impl Feed {
                 })
                 .cloned()
                 .collect();
+
             revents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
             *self.replies_feed.write() = revents.iter().map(|e| e.id).collect();
         }

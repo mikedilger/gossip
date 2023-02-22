@@ -244,4 +244,11 @@ impl Signer {
 
         Ok(())
     }
+
+    pub fn decrypt_message(&self, event: &Event) -> Result<String, Error> {
+        match &*self.private.read() {
+            Some(private) => Ok(event.decrypted_contents(private)?),
+            _ => Err(Error::NoPrivateKey),
+        }
+    }
 }

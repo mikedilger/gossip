@@ -105,9 +105,9 @@ impl DbEvent {
         };
 
         let kinds = if GLOBALS.settings.read().await.reactions {
-            "(1, 5, 6, 7)"
+            "(1, 4, 5, 6, 7)"
         } else {
-            "(1, 5, 6)"
+            "(1, 4, 5, 6)"
         };
 
         let sql = format!(
