@@ -1166,6 +1166,7 @@ dependencies = [
  "ff",
  "generic-array",
  "group",
+ "hkdf",
  "pkcs8",
  "rand_core",
  "sec1",
@@ -1707,6 +1708,15 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
+name = "hkdf"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
+dependencies = [
+ "hmac",
+]
 
 [[package]]
 name = "hmac"
@@ -2266,7 +2276,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.4.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types#924c0b43ff31d078df2aa422f036414f662d6eb3"
+source = "git+https://github.com/mikedilger/nostr-types#280a56e0c40c3c4c0cd229c1ffafdf4c23475a26"
 dependencies = [
  "aes",
  "base64 0.21.0",
@@ -2277,6 +2287,7 @@ dependencies = [
  "hex",
  "hmac",
  "http",
+ "inout",
  "k256",
  "num_cpus",
  "pbkdf2",
