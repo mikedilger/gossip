@@ -993,6 +993,12 @@ impl Overlord {
         // come in.
         GLOBALS.pull_following_merge.store(merge, Ordering::Relaxed);
 
+        // Force re-evaluation of the contact list events
+        GLOBALS
+            .people
+            .last_contact_list_asof
+            .store(0, Ordering::Relaxed);
+
         // Pull our list from all of the relays we post to
         let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
 
