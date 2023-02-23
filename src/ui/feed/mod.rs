@@ -586,16 +586,17 @@ fn render_post_inner(
                 ui.add_space(24.0);
 
                 // Button to reply
-                if event.kind != EventKind::EncryptedDirectMessage
-                    && ui
+                if event.kind != EventKind::EncryptedDirectMessage {
+                    if ui
                         .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
                         .on_hover_text("Reply")
                         .clicked()
-                {
-                    app.replying_to = Some(event.id);
-                }
+                    {
+                        app.replying_to = Some(event.id);
+                    }
 
-                ui.add_space(24.0);
+                    ui.add_space(24.0);
+                }
 
                 // Button to render raw
                 if ui

@@ -244,7 +244,7 @@ impl Feed {
                         }
                     }
 
-                    if direct_only {
+                    if direct_only && e.kind != EventKind::EncryptedDirectMessage {
                         // Include if it directly references me in the content
                         e.referenced_people()
                             .iter()
