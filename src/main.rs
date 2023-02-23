@@ -1,4 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "console")]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_else_if)]
 // TEMPORARILY
 #![allow(clippy::uninlined_format_args)]
 

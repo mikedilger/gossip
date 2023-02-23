@@ -73,7 +73,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PullFollowMerge);
             }
 
-            #[allow(clippy::collapsible_if)]
             if GLOBALS.signer.is_ready() {
                 if ui.button("↑ PUSH ↑\n").clicked() {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);

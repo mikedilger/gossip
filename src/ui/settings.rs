@@ -167,7 +167,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 ui.horizontal(|ui| {
                     ui.label("Switch to");
-                    #[allow(clippy::collapsible_else_if)]
                     if app.settings.light_mode {
                         if ui
                             .add(Button::new("🌙 Dark"))

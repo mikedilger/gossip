@@ -282,7 +282,6 @@ impl Minion {
                     },
                     Err(e) => return Err(e.into())
                 };
-                #[allow(clippy::collapsible_if)]
                 if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
                     self.handle_overlord_message(to_minion_message).await?;
                 }

@@ -273,7 +273,6 @@ fn render_post_actual(
         None => DbPerson::new(event.pubkey.into()),
     };
 
-    #[allow(clippy::collapsible_else_if)]
     let bgcolor = if app.viewed.contains(&event.id) {
         if ctx.style().visuals.dark_mode {
             Color32::BLACK
@@ -441,7 +440,6 @@ fn render_post_inner(
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.menu_button(RichText::new("📃▼").size(13.0), |ui| {
-                    #[allow(clippy::collapsible_if)]
                     if !is_main_event && event.kind != EventKind::EncryptedDirectMessage {
                         if ui.button("View Thread").clicked() {
                             app.set_page(Page::Feed(FeedKind::Thread {
@@ -461,7 +459,6 @@ fn render_post_inner(
                     }
                 });
 
-                #[allow(clippy::collapsible_if)]
                 if !is_main_event && event.kind != EventKind::EncryptedDirectMessage {
                     if ui
                         .button(RichText::new("➤").size(13.0))
