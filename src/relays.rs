@@ -133,7 +133,21 @@ impl RelayTracker {
         Ok(())
     }
 
-    // We could do 'remove_someone' but that's less important. People can just restart.
+    pub fn remove_someone(&self, pubkey: PublicKeyHex) {
+        // Remove from pubkey counts
+        self.pubkey_counts.remove(&pubkey);
+
+        // Remove from relay assignments
+        for mut elem in self.relay_assignments.iter_mut() {
+            let assignment = elem.value_mut();
+            if let Some(pos) = assignment.pubkeys.iter().position(|x| x == &pubkey) {
+                assignment.pubkeys.remove(pos);
+            }
+        }
+
+        // This doesn't indicate that the assignment has changed, so the relay is
+        // still delivering their events. But the feed shouldn't be showing them.
+    }
 
     pub async fn refresh_person_relay_scores(&self, initialize_counts: bool) -> Result<(), Error> {
         self.person_relay_scores.clear();
