@@ -73,8 +73,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PullFollowMerge);
             }
 
-            if ui.button("↑ PUSH ↑\n").clicked() {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
+            #[allow(clippy::collapsible_if)]
+            if GLOBALS.signer.is_ready() {
+                if ui.button("↑ PUSH ↑\n").clicked() {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
+                }
             }
 
             if ui.button("Refresh\nMetadata").clicked() {
@@ -83,6 +86,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     .send(ToOverlordMessage::RefreshFollowedMetadata);
             }
         });
+
+        if !GLOBALS.signer.is_ready() {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("You need to ");
+                if ui.link("setup your identity").clicked() {
+                    app.set_page(Page::YourKeys);
+                }
+                ui.label(" to push.");
+            });
+        }
 
         ui.add_space(10.0);
         ui.separator();
