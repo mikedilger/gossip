@@ -260,9 +260,10 @@ fn render_post_actual(
 
     // Only render known relevent events
     let enable_reposts = GLOBALS.settings.blocking_read().reposts;
+    let direct_messages = GLOBALS.settings.blocking_read().direct_messages;
     if event.kind != EventKind::TextNote
         && !(enable_reposts && (event.kind == EventKind::Repost))
-        && event.kind != EventKind::EncryptedDirectMessage
+        && !(direct_messages && (event.kind == EventKind::EncryptedDirectMessage))
     {
         return;
     }
