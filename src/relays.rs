@@ -30,6 +30,9 @@ impl RelayAssignment {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
 pub enum RelayPickFailure {
+    /// No relays to pick from
+    NoRelays,
+
     /// No people left to assign. A good result.
     NoPeopleLeft,
 
@@ -40,6 +43,7 @@ pub enum RelayPickFailure {
 impl fmt::Display for RelayPickFailure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
+            RelayPickFailure::NoRelays => write!(f, "No relays to pick from."),
             RelayPickFailure::NoPeopleLeft => write!(f, "All people accounted for."),
             RelayPickFailure::NoProgress => write!(f, "Unable to make further progress."),
         }
@@ -197,6 +201,10 @@ impl RelayTracker {
 
         if self.pubkey_counts.is_empty() {
             return Err(RelayPickFailure::NoPeopleLeft);
+        }
+
+        if self.all_relays.is_empty() {
+            return Err(RelayPickFailure::NoRelays);
         }
 
         // Keep score for each relay
