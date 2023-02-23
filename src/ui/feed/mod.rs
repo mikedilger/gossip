@@ -440,11 +440,14 @@ fn render_post_inner(
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.menu_button(RichText::new("📃▼").size(13.0), |ui| {
-                    if !is_main_event && ui.button("View Thread").clicked() {
-                        app.set_page(Page::Feed(FeedKind::Thread {
-                            id: event.id,
-                            referenced_by: event.id,
-                        }));
+                    #[allow(clippy::collapsible_if)]
+                    if !is_main_event && event.kind != EventKind::EncryptedDirectMessage {
+                        if ui.button("View Thread").clicked() {
+                            app.set_page(Page::Feed(FeedKind::Thread {
+                                id: event.id,
+                                referenced_by: event.id,
+                            }));
+                        }
                     }
                     if ui.button("Copy ID").clicked() {
                         ui.output_mut(|o| o.copied_text = event.id.try_as_bech32_string().unwrap());
@@ -457,16 +460,18 @@ fn render_post_inner(
                     }
                 });
 
-                if !is_main_event
-                    && ui
+                #[allow(clippy::collapsible_if)]
+                if !is_main_event && event.kind != EventKind::EncryptedDirectMessage {
+                    if ui
                         .button(RichText::new("➤").size(13.0))
                         .on_hover_text("View Thread")
                         .clicked()
-                {
-                    app.set_page(Page::Feed(FeedKind::Thread {
-                        id: event.id,
-                        referenced_by: event.id,
-                    }));
+                    {
+                        app.set_page(Page::Feed(FeedKind::Thread {
+                            id: event.id,
+                            referenced_by: event.id,
+                        }));
+                    }
                 }
 
                 ui.label(
