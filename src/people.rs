@@ -690,8 +690,12 @@ impl People {
             }
         }
 
-        // Add the person to the relay_tracker for picking
-        GLOBALS.relay_tracker.add_someone(pubkeyhex.to_owned())?;
+        if follow > 0 {
+            // Add the person to the relay_tracker for picking
+            GLOBALS.relay_tracker.add_someone(pubkeyhex.to_owned())?;
+        } else {
+            GLOBALS.relay_tracker.remove_someone(pubkeyhex.to_owned());
+        }
 
         Ok(())
     }
