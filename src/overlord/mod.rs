@@ -631,17 +631,24 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
-                let person_relays = DbPersonRelay::fetch_for_pubkeys(&[pubkey.clone()]).await?;
+                let best_relays =
+                    DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
+                let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
 
-                for person_relay in person_relays.iter() {
+                // we do 1 more than num_relays_per_person, which is really for main posts,
+                // since metadata is more important and I didn't want to bother with
+                // another setting.
+                for (relay_url, _score) in
+                    best_relays.iter().take(num_relays_per_person as usize + 1)
+                {
                     // Start a minion for this relay if there is none
-                    if !GLOBALS.relay_is_connected(&person_relay.relay) {
-                        self.start_minion(person_relay.relay.clone()).await?;
+                    if !GLOBALS.relay_is_connected(relay_url) {
+                        self.start_minion(relay_url.to_owned()).await?;
                     }
 
                     // Subscribe to metadata and contact lists for this person
                     let _ = self.to_minions.send(ToMinionMessage {
-                        target: person_relay.relay.to_string(),
+                        target: relay_url.to_string(),
                         payload: ToMinionPayload::TempSubscribeMetadata(vec![pubkey.clone()]),
                     });
                 }

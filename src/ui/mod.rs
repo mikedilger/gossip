@@ -501,6 +501,13 @@ impl GossipUi {
     }
 
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
+        // Let the 'People' manager know that we are interested in displaying this person.
+        // It will make sure metadata is eventually available if
+        // settings.automatically_fetch_metadata is enabled
+        if person.metadata_at.is_none() {
+            GLOBALS.people.person_of_interest(person.pubkey.clone());
+        }
+
         ui.horizontal_wrapped(|ui| {
             let name = if let Some(name) = person.display_name() {
                 name.to_owned()

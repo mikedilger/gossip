@@ -24,65 +24,6 @@ pub struct DbPersonRelay {
 }
 
 impl DbPersonRelay {
-    /// Fetch records matching the given public keys, ordered from highest to lowest rank
-    pub async fn fetch_for_pubkeys(pubkeys: &[PublicKeyHex]) -> Result<Vec<DbPersonRelay>, Error> {
-        if pubkeys.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let sql = format!(
-            "SELECT person, relay, person_relay.last_fetched, \
-             last_suggested_kind3, \
-             last_suggested_nip05, last_suggested_bytag, \
-             person_relay.read, person_relay.write, \
-             person_relay.manually_paired_read, person_relay.manually_paired_write \
-             FROM person_relay \
-             INNER JOIN relay ON person_relay.relay=relay.url \
-             WHERE person IN ({}) ORDER BY person, \
-             person_relay.write DESC, \
-             person_relay.manually_paired_write DESC, \
-             relay.rank DESC, \
-             last_suggested_kind3 DESC, \
-             last_suggested_nip05 DESC, \
-             last_fetched DESC, last_suggested_bytag DESC",
-            repeat_vars(pubkeys.len())
-        );
-
-        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
-
-        let output: Result<Vec<DbPersonRelay>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(&sql)?;
-            let mut rows = stmt.query(rusqlite::params_from_iter(pubkey_strings))?;
-            let mut output: Vec<DbPersonRelay> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let s: String = row.get(1)?;
-                // Just skip over bad relay URLs
-                if let Ok(url) = RelayUrl::try_from_str(&s) {
-                    output.push(DbPersonRelay {
-                        person: row.get(0)?,
-                        relay: url,
-                        last_fetched: row.get(2)?,
-                        last_suggested_kind3: row.get(3)?,
-                        last_suggested_nip05: row.get(4)?,
-                        last_suggested_bytag: row.get(5)?,
-                        read: row.get(6)?,
-                        write: row.get(7)?,
-                        manually_paired_read: row.get(8)?,
-                        manually_paired_write: row.get(9)?,
-                    });
-                }
-            }
-
-            Ok(output)
-        })
-        .await?;
-
-        output
-    }
-
     pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, \
                    last_suggested_kind3, \

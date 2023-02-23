@@ -858,6 +858,8 @@ impl Minion {
     ) -> Result<(), Error> {
         let pkhp: Vec<PublicKeyHexPrefix> = pubkeyhexs.drain(..).map(|pk| pk.into()).collect();
 
+        tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
+
         let handle = "temp_subscribe_metadata".to_string();
         let filter = Filter {
             authors: pkhp,

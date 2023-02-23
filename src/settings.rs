@@ -23,6 +23,7 @@ pub const DEFAULT_LOAD_AVATARS: bool = true;
 pub const DEFAULT_CHECK_NIP05: bool = true;
 pub const DEFAULT_DIRECT_REPLIES_ONLY: bool = true;
 pub const DEFAULT_DIRECT_MESSAGES: bool = true;
+pub const DEFAULT_AUTOMATICALLY_FETCH_METADATA: bool = true;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
@@ -46,6 +47,7 @@ pub struct Settings {
     pub check_nip05: bool,
     pub direct_replies_only: bool,
     pub direct_messages: bool,
+    pub automatically_fetch_metadata: bool,
 }
 
 impl Default for Settings {
@@ -71,6 +73,7 @@ impl Default for Settings {
             check_nip05: DEFAULT_CHECK_NIP05,
             direct_replies_only: DEFAULT_DIRECT_REPLIES_ONLY,
             direct_messages: DEFAULT_DIRECT_MESSAGES,
+            automatically_fetch_metadata: DEFAULT_AUTOMATICALLY_FETCH_METADATA,
         }
     }
 }
@@ -142,6 +145,9 @@ impl Settings {
                 "check_nip05" => settings.check_nip05 = numstr_to_bool(row.1),
                 "direct_replies_only" => settings.direct_replies_only = numstr_to_bool(row.1),
                 "direct_messages" => settings.direct_messages = numstr_to_bool(row.1),
+                "automatically_fetch_metadata" => {
+                    settings.automatically_fetch_metadata = numstr_to_bool(row.1)
+                }
                 _ => {}
             }
         }
@@ -180,7 +186,8 @@ impl Settings {
              ('load_avatars', ?),\
              ('check_nip05', ?),\
              ('direct_replies_only', ?),\
-             ('direct_messages', ?)",
+             ('direct_messages', ?),\
+             ('automatically_fetch_metadata', ?)",
         )?;
         stmt.execute(params![
             self.feed_chunk,
@@ -201,6 +208,7 @@ impl Settings {
             bool_to_numstr(self.check_nip05),
             bool_to_numstr(self.direct_replies_only),
             bool_to_numstr(self.direct_messages),
+            bool_to_numstr(self.automatically_fetch_metadata),
         ])?;
 
         // Settings which are Options should not even exist when None.  We don't accept null valued

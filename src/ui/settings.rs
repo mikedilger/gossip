@@ -145,6 +145,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.checkbox(&mut app.settings.offline, "Offline Mode")
                     .on_hover_text("If selected, no network requests will be issued. Takes effect on restart.");
 
+                ui.checkbox(&mut app.settings.automatically_fetch_metadata, "Automatically Fetch Metadata")
+                    .on_hover_text("If enabled, metadata that is entirely missing will be fetched as you scroll past people. Existing metadata won't be updated. Takes effect on save.");
+
                 ui.checkbox(&mut app.settings.load_avatars, "Fetch Avatars")
                     .on_hover_text("If disabled, avatars will not be fetched, but cached avatars will still display. Takes effect on save.");
 

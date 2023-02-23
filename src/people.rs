@@ -1,3 +1,4 @@
+use crate::comms::ToOverlordMessage;
 use crate::db::{DbEvent, DbPersonRelay, Direction};
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -113,6 +114,12 @@ pub struct People {
     // the person's NIP-05 when that metadata come in. We remember this here.
     recheck_nip05: DashSet<PublicKeyHex>,
 
+    // People that need metadata, which the UI has asked for
+    need_metadata: DashSet<PublicKeyHex>,
+    // People who we already tried to get their metadata (we do not retry
+    // until client restart)
+    tried_metadata: DashSet<PublicKeyHex>,
+
     // Date of the last self-owned contact list we processed
     pub last_contact_list_asof: AtomicI64,
 }
@@ -127,8 +134,26 @@ impl People {
             avatars_pending_processing: DashSet::new(),
             avatars_failed: DashSet::new(),
             recheck_nip05: DashSet::new(),
+            need_metadata: DashSet::new(),
+            tried_metadata: DashSet::new(),
             last_contact_list_asof: AtomicI64::new(0),
         }
+    }
+
+    // Start the periodic task management
+    pub fn start() {
+        task::spawn(async {
+            loop {
+                tokio::time::sleep(Duration::from_millis(1500)).await;
+
+                GLOBALS.people.maybe_fetch_metadata();
+
+                // check for shutdown condition
+                if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+                    break;
+                }
+            }
+        });
     }
 
     pub fn get_followed_pubkeys(&self) -> Vec<PublicKeyHex> {
@@ -216,6 +241,61 @@ impl People {
         Ok(())
     }
 
+    // If this person doesn't have metadata, and we are automatically fetching
+    // metadata, then either fetch it or add this person to the list of people
+    // that need metadata
+    pub fn person_of_interest(&self, pubkeyhex: PublicKeyHex) {
+        if !GLOBALS
+            .settings
+            .blocking_read()
+            .automatically_fetch_metadata
+        {
+            return;
+        }
+
+        if self.tried_metadata.contains(&pubkeyhex) {
+            return;
+        }
+
+        match self.people.get(&pubkeyhex) {
+            Some(person) => {
+                if person.metadata_at.is_none() {
+                    if !self.need_metadata.contains(&pubkeyhex) {
+                        self.need_metadata.insert(pubkeyhex.clone());
+                        tracing::debug!("Need metadata for {} pubkeys", self.need_metadata.len());
+                    }
+                }
+            }
+            None => {
+                self.create_if_missing_sync(pubkeyhex.clone());
+                if !self.need_metadata.contains(&pubkeyhex) {
+                    self.need_metadata.insert(pubkeyhex.clone());
+                    tracing::debug!("Need metadata for {} pubkeys", self.need_metadata.len());
+                }
+            }
+        }
+    }
+
+    // This is run periodically
+    pub fn maybe_fetch_metadata(&self) {
+        if self.need_metadata.is_empty() {
+            return;
+        }
+
+        let mut maybe_pubkey: Option<PublicKeyHex> = None;
+
+        if let Some(refmulti) = self.need_metadata.iter().next() {
+            maybe_pubkey = Some(refmulti.key().to_owned());
+        }
+
+        if let Some(pubkey) = maybe_pubkey {
+            self.need_metadata.remove(&pubkey);
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::UpdateMetadata(pubkey));
+        }
+    }
+
     pub fn recheck_nip05_on_update_metadata(&self, pubkeyhex: &PublicKeyHex) {
         self.recheck_nip05.insert(pubkeyhex.to_owned());
     }
@@ -230,6 +310,9 @@ impl People {
         self.create_all_if_missing(&[pubkeyhex.to_owned()]).await?;
 
         let person = self.people.get(pubkeyhex).unwrap().to_owned();
+
+        // Remove from list of people that need metadata
+        self.need_metadata.remove(pubkeyhex);
 
         // Determine whether to update it
         let mut doit = person.metadata_at.is_none();
