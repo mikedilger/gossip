@@ -290,6 +290,7 @@ impl People {
 
         if let Some(pubkey) = maybe_pubkey {
             self.need_metadata.remove(&pubkey);
+            self.tried_metadata.insert(pubkey.clone());
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::UpdateMetadata(pubkey));
