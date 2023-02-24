@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, IdHex, PublicKeyHex};
+use nostr_types::{Event, EventKind, IdHex, PublicKeyHex};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -104,16 +104,28 @@ impl DbEvent {
             Some(pk) => pk.into(),
         };
 
-        let kinds = if GLOBALS.settings.read().await.reactions {
-            "(1, 4, 5, 6, 7)"
-        } else {
-            "(1, 4, 5, 6)"
-        };
+        let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
+        if GLOBALS.settings.read().await.direct_messages {
+            kinds.push(EventKind::EncryptedDirectMessage);
+        }
+        if GLOBALS.settings.read().await.reposts {
+            kinds.push(EventKind::Repost);
+        }
+        if GLOBALS.settings.read().await.reactions {
+            kinds.push(EventKind::Reaction);
+        }
+
+        let kinds: Vec<String> = kinds
+            .iter()
+            .map(|e| <EventKind as Into<u64>>::into(*e))
+            .map(|e| e.to_string())
+            .collect();
+        let kinds = kinds.join(",");
 
         let sql = format!(
             "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event \
              LEFT JOIN event_tag ON event.id=event_tag.event \
-             WHERE event.kind IN {} \
+             WHERE event.kind IN ({}) \
              AND event_tag.label='p' AND event_tag.field0=? \
              AND created_at > ? \
              ORDER BY created_at ASC",
