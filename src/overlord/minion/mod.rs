@@ -94,6 +94,11 @@ impl Minion {
         // Connect to the relay
         let websocket_stream = {
             let uri: http::Uri = self.url.0.parse::<Uri>()?;
+            let scheme_str = match uri.scheme_str() {
+                Some("wss") => "https",
+                Some("ws") => "http",
+                _ => "https",
+            };
             let authority = uri.authority().ok_or(Error::UrlHasNoHostname)?.as_str();
             let host = authority
                 .find('@')
@@ -111,7 +116,7 @@ impl Minion {
                 .brotli(true)
                 .deflate(true)
                 .build()?
-                .get(format!("https://{}", host))
+                .get(format!("{}://{}", scheme_str, host))
                 .header("Accept", "application/nostr+json")
                 .send();
             let response = request_nip11_future.await?;
