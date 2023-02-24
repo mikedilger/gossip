@@ -103,33 +103,8 @@ impl Overlord {
             }
         }
 
-        // Load people from the database
+        // Load followed people from the database
         GLOBALS.people.load_all_followed().await?;
-
-        // Load latest metadata per person and update their metadata
-        // This can happen in the background
-        task::spawn(async move {
-            if let Ok(db_events) = DbEvent::fetch_latest_metadata().await {
-                for dbevent in db_events.iter() {
-                    let e: Event = match serde_json::from_str(&dbevent.raw) {
-                        Ok(e) => e,
-                        Err(_) => {
-                            tracing::error!(
-                                "Bad raw event: id={}, raw={}",
-                                dbevent.id,
-                                dbevent.raw
-                            );
-                            continue;
-                        }
-                    };
-
-                    // Process this metadata event to update people
-                    if let Err(e) = crate::process::process_new_event(&e, false, None, None).await {
-                        tracing::error!("{}", e);
-                    }
-                }
-            }
-        });
 
         let now = Unixtime::now().unwrap();
 

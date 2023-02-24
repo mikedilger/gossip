@@ -192,37 +192,6 @@ impl DbEvent {
     }
      */
 
-    pub async fn fetch_latest_metadata() -> Result<Vec<DbEvent>, Error> {
-        // THIS SQL MIGHT WORK, NEEDS REVIEW
-        let sql = "SELECT id, LAST_VALUE(raw) OVER (ORDER BY created_at desc) as last_raw, pubkey, LAST_VALUE(created_at) OVER (ORDER BY created_at desc), kind, content, ots FROM event WHERE kind=0".to_owned();
-
-        let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(&sql)?;
-            let mut rows = stmt.query([])?;
-            let mut output: Vec<DbEvent> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let id: String = row.get(0)?;
-                let pk: String = row.get(2)?;
-                output.push(DbEvent {
-                    id: IdHex::try_from_string(id)?,
-                    raw: row.get(1)?,
-                    pubkey: PublicKeyHex::try_from_string(pk)?,
-                    created_at: row.get(3)?,
-                    kind: row.get(4)?,
-                    content: row.get(5)?,
-                    ots: row.get(6)?,
-                });
-            }
-            Ok(output)
-        })
-        .await?;
-
-        output
-    }
-
     pub async fn insert(event: DbEvent) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO event (id, raw, pubkey, created_at, kind, content, ots) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
