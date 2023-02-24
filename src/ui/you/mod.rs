@@ -329,7 +329,7 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         ui.label("Enter private key");
         ui.add(
             TextEdit::singleline(&mut app.import_priv)
-                .hint_text("ncryptsec1, nsec1, or hex")
+                .hint_text("nsec1, or hex")
                 .desired_width(f32::INFINITY)
                 .password(true),
         );
@@ -357,6 +357,35 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         app.password = "".to_owned();
         app.password2.zeroize();
         app.password2 = "".to_owned();
+    }
+
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(10.0);
+
+    ui.heading("Import an Encrypted Private Key");
+
+    ui.horizontal(|ui| {
+        ui.label("Enter encrypted private key");
+        ui.add(
+            TextEdit::singleline(&mut app.import_priv)
+                .hint_text("ncryptsec1")
+                .desired_width(f32::INFINITY)
+                .password(true),
+        );
+    });
+    ui.horizontal(|ui| {
+        ui.label("Enter the passphrase it is encrypted under");
+        ui.add(TextEdit::singleline(&mut app.password).password(true));
+    });
+    if ui.button("import").clicked() {
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
+            app.import_priv.clone(),
+            app.password.clone(),
+        ));
+        app.import_priv = "".to_owned();
+        app.password.zeroize();
+        app.password = "".to_owned();
     }
 }
 
@@ -411,19 +440,19 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
 fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
     ui.heading("DELETE This Identity");
 
-    ui.horizontal(|ui| {
-        ui.add_space(10.0);
-        ui.label("Enter Passphrase To Delete: ");
-        ui.add(TextEdit::singleline(&mut app.del_password).password(true));
+    ui.horizontal_wrapped(|ui| {
+        if app.delete_confirm {
+            ui.label("Please confirm that you really mean to do this: ");
+            if ui.button("DELETE (Yes I'm Sure)").clicked() {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::DeletePriv);
+                app.delete_confirm = false;
+            }
+        } else {
+            if ui.button("DELETE (Cannot be undone!)").clicked() {
+                app.delete_confirm = true;
+            }
+        }
     });
-
-    if ui.button("DELETE (Cannot be undone!)").clicked() {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::DeletePriv(app.del_password.clone()));
-        app.del_password.zeroize();
-        app.del_password = "".to_owned();
-    }
 }
 
 fn offer_generate(app: &mut GossipUi, ui: &mut Ui) {

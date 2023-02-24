@@ -460,15 +460,9 @@ impl Overlord {
                 GLOBALS.signer.clear_public_key();
                 GLOBALS.signer.save_through_settings().await?;
             }
-            ToOverlordMessage::DeletePriv(mut password) => {
-                let result = GLOBALS.signer.delete_identity(&password);
-                password.zeroize();
-                match result {
-                    Ok(_) => {
-                        *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
-                    }
-                    Err(e) => *GLOBALS.status_message.write().await = format!("{}", e),
-                }
+            ToOverlordMessage::DeletePriv => {
+                GLOBALS.signer.delete_identity();
+                *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
             }
             ToOverlordMessage::DropRelay(relay_url) => {
                 let _ = self.to_minions.send(ToMinionMessage {

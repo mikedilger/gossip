@@ -219,19 +219,7 @@ impl Signer {
         }
     }
 
-    pub fn delete_identity(&self, pass: &str) -> Result<(), Error> {
-        if self.encrypted.read().is_none() {
-            return Err(Error::NoPrivateKey);
-        }
-
-        // Verify their password
-        match &*self.encrypted.read() {
-            Some(epk) => {
-                let _pk = epk.decrypt(pass)?;
-            }
-            _ => return Err(Error::NoPrivateKey),
-        };
-
+    pub fn delete_identity(&self) {
         *self.private.write() = None;
         *self.encrypted.write() = None;
         *self.public.write() = None;
@@ -241,8 +229,6 @@ impl Signer {
                 tracing::error!("{}", e);
             }
         });
-
-        Ok(())
     }
 
     pub fn decrypt_message(&self, event: &Event) -> Result<String, Error> {

@@ -131,7 +131,7 @@ struct GossipUi {
     password: String,
     password2: String,
     password3: String,
-    del_password: String,
+    delete_confirm: bool,
     new_metadata_fieldname: String,
     import_priv: String,
     import_pub: String,
@@ -143,7 +143,6 @@ impl Drop for GossipUi {
         self.password.zeroize();
         self.password2.zeroize();
         self.password3.zeroize();
-        self.del_password.zeroize();
     }
 }
 
@@ -267,7 +266,7 @@ impl GossipUi {
             password: "".to_owned(),
             password2: "".to_owned(),
             password3: "".to_owned(),
-            del_password: "".to_owned(),
+            delete_confirm: false,
             new_metadata_fieldname: String::new(),
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),

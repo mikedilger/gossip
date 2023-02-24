@@ -7,7 +7,7 @@ pub enum ToOverlordMessage {
     AdvertiseRelayList,
     ChangePassphrase(String, String),
     DeletePub,
-    DeletePriv(String),
+    DeletePriv,
     DropRelay(RelayUrl),
     FollowPubkeyAndRelay(String, RelayUrl),
     FollowNip05(String),
