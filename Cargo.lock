@@ -1601,6 +1601,7 @@ name = "gossip"
 version = "0.4.90-unstable"
 dependencies = [
  "async-recursion",
+ "async-trait",
  "base64 0.21.0",
  "dashmap",
  "dirs",
@@ -1609,6 +1610,7 @@ dependencies = [
  "encoding_rs",
  "futures",
  "futures-util",
+ "gossip-relay-picker",
  "hex",
  "http",
  "humansize",
@@ -1635,6 +1637,19 @@ dependencies = [
  "tracing-subscriber",
  "tungstenite",
  "zeroize",
+]
+
+[[package]]
+name = "gossip-relay-picker"
+version = "0.1.0"
+source = "git+https://github.com/mikedilger/gossip-relay-picker#98cd2acc494bf716f9fbefa9e64cbc2322e65c1d"
+dependencies = [
+ "async-trait",
+ "dashmap",
+ "nostr-types",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

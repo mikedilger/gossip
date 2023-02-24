@@ -265,7 +265,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
             DbRelay::clear_read_and_write().await?;
 
             // in memory
-            for mut elem in GLOBALS.relay_tracker.all_relays.iter_mut() {
+            for mut elem in GLOBALS.all_relays.iter_mut() {
                 elem.value_mut().read = false;
                 elem.value_mut().write = false;
             }
@@ -287,7 +287,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                                     .await?;
                                 // set in memory
                                 if let Some(mut elem) =
-                                    GLOBALS.relay_tracker.all_relays.get_mut(&relay_url)
+                                    GLOBALS.all_relays.get_mut(&relay_url)
                                 {
                                     elem.read = true;
                                     elem.write = false;
@@ -302,7 +302,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                                     .await?;
                                 // set in memory
                                 if let Some(mut elem) =
-                                    GLOBALS.relay_tracker.all_relays.get_mut(&relay_url)
+                                    GLOBALS.all_relays.get_mut(&relay_url)
                                 {
                                     elem.read = false;
                                     elem.write = true;
@@ -318,7 +318,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                         // set in database
                         DbRelay::update_read_and_write(relay_url.clone(), true, true).await?;
                         // set in memory
-                        if let Some(mut elem) = GLOBALS.relay_tracker.all_relays.get_mut(&relay_url)
+                        if let Some(mut elem) = GLOBALS.all_relays.get_mut(&relay_url)
                         {
                             elem.read = true;
                             elem.write = true;

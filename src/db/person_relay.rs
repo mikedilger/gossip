@@ -1,13 +1,8 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use gossip_relay_picker::Direction;
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use tokio::task::spawn_blocking;
-
-#[derive(Debug, Copy, Clone)]
-pub enum Direction {
-    Read,
-    Write,
-}
 
 #[derive(Debug)]
 pub struct DbPersonRelay {
@@ -368,7 +363,6 @@ impl DbPersonRelay {
                 Direction::Write => {
                     // substitute our read relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
-                        .relay_tracker
                         .all_relays
                         .iter()
                         .filter_map(|r| {
@@ -387,7 +381,6 @@ impl DbPersonRelay {
                 Direction::Read => {
                     // substitute our write relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
-                        .relay_tracker
                         .all_relays
                         .iter()
                         .filter_map(|r| {
