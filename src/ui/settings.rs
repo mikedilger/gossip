@@ -110,6 +110,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.add_space(12.0);
 
                 ui.checkbox(
+                    &mut app.settings.replies_in_follows,
+                    "Include Replies in Following Feed",
+                )
+                    .on_hover_text("Takes effect when the feed refreshes.");
+
+                ui.add_space(12.0);
+
+
+                ui.checkbox(
                     &mut app.settings.direct_messages,
                     "Show Direct Messages",
                 )
