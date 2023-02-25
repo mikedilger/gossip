@@ -247,7 +247,7 @@ impl People {
     pub fn person_of_interest(&self, pubkeyhex: PublicKeyHex) {
         if !GLOBALS
             .settings
-            .blocking_read()
+            .read()
             .automatically_fetch_metadata
         {
             return;
@@ -546,7 +546,7 @@ impl People {
         };
 
         // Do not fetch if disabled
-        if !GLOBALS.settings.blocking_read().load_avatars {
+        if !GLOBALS.settings.read().load_avatars {
             GLOBALS.people.avatars_failed.insert(pubkeyhex.clone());
             return Err(());
         }

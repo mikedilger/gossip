@@ -113,7 +113,7 @@ impl Overlord {
         // Load reply-related events from database and process
         // (where you are tagged)
         {
-            let replies_chunk = GLOBALS.settings.read().await.replies_chunk;
+            let replies_chunk = GLOBALS.settings.read().replies_chunk;
             let then = now.0 - replies_chunk as i64;
 
             let db_events = DbEvent::fetch_reply_related(then).await?;
@@ -136,15 +136,15 @@ impl Overlord {
 
         // Load feed-related events from database and process
         {
-            let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+            let feed_chunk = GLOBALS.settings.read().feed_chunk;
             let then = now.0 - feed_chunk as i64;
 
-            let reactions = if GLOBALS.settings.read().await.reactions {
+            let reactions = if GLOBALS.settings.read().reactions {
                 " OR kind=7"
             } else {
                 ""
             };
-            let reposts = if GLOBALS.settings.read().await.reactions {
+            let reposts = if GLOBALS.settings.read().reactions {
                 " OR kind=6"
             } else {
                 ""
@@ -187,7 +187,7 @@ impl Overlord {
         }
 
         // Pick Relays and start Minions
-        if !GLOBALS.settings.read().await.offline {
+        if !GLOBALS.settings.read().offline {
             self.pick_relays().await;
         }
 
@@ -293,7 +293,7 @@ impl Overlord {
     }
 
     async fn start_minion(&mut self, url: RelayUrl) -> Result<(), Error> {
-        if GLOBALS.settings.read().await.offline {
+        if GLOBALS.settings.read().offline {
             return Ok(());
         }
 
@@ -555,7 +555,7 @@ impl Overlord {
                 self.refresh_followed_metadata().await?;
             }
             ToOverlordMessage::SaveSettings => {
-                GLOBALS.settings.read().await.save().await?;
+                GLOBALS.settings.read().save().await?;
                 tracing::debug!("Settings saved.");
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
@@ -591,16 +591,13 @@ impl Overlord {
 
                 // Update public key from private key
                 let public_key = GLOBALS.signer.public_key().unwrap();
-                {
-                    let mut settings = GLOBALS.settings.write().await;
-                    settings.public_key = Some(public_key);
-                    settings.save().await?;
-                }
+                GLOBALS.settings.write().public_key = Some(public_key);
+                GLOBALS.settings.read().clone().save().await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let best_relays =
                     DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
-                let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
+                let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
                 // we do 1 more than num_relays_per_person, which is really for main posts,
                 // since metadata is more important and I didn't want to bother with
@@ -691,7 +688,7 @@ impl Overlord {
                 }
             };
 
-            if GLOBALS.settings.read().await.set_client_tag {
+            if GLOBALS.settings.read().set_client_tag {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -783,7 +780,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().await.pow;
+            let powint = GLOBALS.settings.read().pow;
             let pow = if powint > 0 { Some(powint) } else { None };
             GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
@@ -915,7 +912,7 @@ impl Overlord {
                 },
             ];
 
-            if GLOBALS.settings.read().await.set_client_tag {
+            if GLOBALS.settings.read().set_client_tag {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -931,7 +928,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().await.pow;
+            let powint = GLOBALS.settings.read().pow;
             let pow = if powint > 0 { Some(powint) } else { None };
             GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
@@ -1060,7 +1057,7 @@ impl Overlord {
     async fn refresh_followed_metadata(&mut self) -> Result<(), Error> {
         let pubkeys = GLOBALS.people.get_followed_pubkeys();
 
-        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
+        let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
         let mut map: HashMap<RelayUrl, Vec<PublicKeyHex>> = HashMap::new();
 
@@ -1157,7 +1154,7 @@ impl Overlord {
         //        instead build the filters, then both send them to the minion and
         //        also query them locally.
         {
-            let enable_reactions = GLOBALS.settings.read().await.reactions;
+            let enable_reactions = GLOBALS.settings.read().reactions;
 
             if !missing_ancestors_hex.is_empty() {
                 let idhp: Vec<IdHexPrefix> = missing_ancestors_hex

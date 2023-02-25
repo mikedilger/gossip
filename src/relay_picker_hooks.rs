@@ -33,13 +33,13 @@ impl RelayPickerHooks for Hooks {
 
     /// Returns the maximum number of relays that should be connected to at one time
     fn get_max_relays(&self) -> usize {
-        GLOBALS.settings.blocking_read().max_relays as usize
+        GLOBALS.settings.read().max_relays as usize
     }
 
     /// Returns the number of relays each followed person's events should be pulled from
     /// Many people use 2 or 3 for redundancy.
     fn get_num_relays_per_person(&self) -> usize {
-        GLOBALS.settings.blocking_read().num_relays_per_person as usize
+        GLOBALS.settings.read().num_relays_per_person as usize
     }
 
     /// Returns the public keys of all the people followed

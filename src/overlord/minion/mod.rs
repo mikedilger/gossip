@@ -144,7 +144,7 @@ impl Minion {
 
             let req = http::request::Request::builder().method("GET");
 
-            let req = if GLOBALS.settings.read().await.set_user_agent {
+            let req = if GLOBALS.settings.read().set_user_agent {
                 let about = crate::about::about();
                 req.header("User-Agent", format!("gossip/{}", about.version))
             } else {
@@ -364,7 +364,7 @@ impl Minion {
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
         let (overlap, feed_chunk) = {
-            let settings = GLOBALS.settings.read().await.clone();
+            let settings = GLOBALS.settings.read().clone();
             (
                 Duration::from_secs(settings.overlap),
                 Duration::from_secs(settings.feed_chunk),
@@ -406,8 +406,8 @@ impl Minion {
             }
         };
 
-        let enable_reactions = GLOBALS.settings.read().await.reactions;
-        let enable_reposts = GLOBALS.settings.read().await.reposts;
+        let enable_reactions = GLOBALS.settings.read().reactions;
+        let enable_reposts = GLOBALS.settings.read().reposts;
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
@@ -508,7 +508,7 @@ impl Minion {
     async fn subscribe_mentions(&mut self) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
         let (overlap, replies_chunk) = {
-            let settings = GLOBALS.settings.read().await.clone();
+            let settings = GLOBALS.settings.read().clone();
             (
                 Duration::from_secs(settings.overlap),
                 Duration::from_secs(settings.replies_chunk),
@@ -537,8 +537,8 @@ impl Minion {
             replies_since.max(one_replieschunk_ago)
         };
 
-        let enable_reactions = GLOBALS.settings.read().await.reactions;
-        let enable_reposts = GLOBALS.settings.read().await.reposts;
+        let enable_reactions = GLOBALS.settings.read().reactions;
+        let enable_reposts = GLOBALS.settings.read().reposts;
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // Any mentions of me
@@ -663,7 +663,7 @@ impl Minion {
 
         let mut filters: Vec<Filter> = Vec::new();
 
-        let enable_reactions = GLOBALS.settings.read().await.reactions;
+        let enable_reactions = GLOBALS.settings.read().reactions;
 
         if !vec_ids.is_empty() {
             let idhp: Vec<IdHexPrefix> = vec_ids.iter().map(|id| id.to_owned().into()).collect();

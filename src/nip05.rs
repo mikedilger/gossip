@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 
 // This updates the people map and the database with the result
 pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
-    if !GLOBALS.settings.read().await.check_nip05 {
+    if !GLOBALS.settings.read().check_nip05 {
         return Ok(());
     }
 

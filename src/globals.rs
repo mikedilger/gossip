@@ -11,6 +11,7 @@ use crate::signer::Signer;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
+use parking_lot::RwLock as PRwLock;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
@@ -65,7 +66,7 @@ pub struct Globals {
     pub shutting_down: AtomicBool,
 
     /// Settings
-    pub settings: RwLock<Settings>,
+    pub settings: PRwLock<Settings>,
 
     /// Signer
     pub signer: Signer,
@@ -115,7 +116,7 @@ lazy_static! {
             connected_relays: DashSet::new(),
             relay_picker: Default::default(),
             shutting_down: AtomicBool::new(false),
-            settings: RwLock::new(Settings::default()),
+            settings: PRwLock::new(Settings::default()),
             signer: Signer::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),

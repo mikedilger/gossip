@@ -148,7 +148,7 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-        let settings = GLOBALS.settings.blocking_read().clone();
+        let settings = GLOBALS.settings.read().clone();
 
         if let Some(dpi) = settings.override_dpi {
             let ppt: f32 = dpi as f32 / 72.0;
@@ -329,7 +329,7 @@ impl GossipUi {
 
 impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
-        let max_fps = GLOBALS.settings.blocking_read().max_fps as f32;
+        let max_fps = GLOBALS.settings.read().max_fps as f32;
 
         if self.future_scroll_offset != 0.0 {
             ctx.request_repaint();

@@ -259,8 +259,8 @@ fn render_post_actual(
     let top = ui.next_widget_position();
 
     // Only render known relevent events
-    let enable_reposts = GLOBALS.settings.blocking_read().reposts;
-    let direct_messages = GLOBALS.settings.blocking_read().direct_messages;
+    let enable_reposts = GLOBALS.settings.read().reposts;
+    let direct_messages = GLOBALS.settings.read().direct_messages;
     if event.kind != EventKind::TextNote
         && !(enable_reposts && (event.kind == EventKind::Repost))
         && !(direct_messages && (event.kind == EventKind::EncryptedDirectMessage))

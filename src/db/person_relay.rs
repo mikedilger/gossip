@@ -348,7 +348,7 @@ impl DbPersonRelay {
 
         let mut ranked_relays = ranked_relays?;
 
-        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person as usize;
+        let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person as usize;
 
         // If we can't get enough of them, extend with some of our relays
         // at whatever the lowest score of their last one was

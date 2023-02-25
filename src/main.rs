@@ -55,7 +55,7 @@ fn main() -> Result<(), Error> {
 
     // Load settings
     let settings = crate::settings::Settings::blocking_load()?;
-    *GLOBALS.settings.blocking_write() = settings;
+    *GLOBALS.settings.write() = settings;
 
     // We create and enter the runtime on the main thread so that
     // non-async code can have a runtime context within which to spawn
