@@ -1,11 +1,12 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{DbEvent, DbPersonRelay, Direction};
+use crate::db::{DbEvent, DbPersonRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
 use eframe::egui::ColorImage;
 use egui_extras::image::FitTo;
+use gossip_relay_picker::Direction;
 use image::imageops::FilterType;
 use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, PublicKeyHex, RelayUrl, Tag, UncheckedUrl,
@@ -246,7 +247,7 @@ impl People {
     pub fn person_of_interest(&self, pubkeyhex: PublicKeyHex) {
         if !GLOBALS
             .settings
-            .blocking_read()
+            .read()
             .automatically_fetch_metadata
         {
             return;
@@ -545,7 +546,7 @@ impl People {
         };
 
         // Do not fetch if disabled
-        if !GLOBALS.settings.blocking_read().load_avatars {
+        if !GLOBALS.settings.read().load_avatars {
             GLOBALS.people.avatars_failed.insert(pubkeyhex.clone());
             return Err(());
         }
@@ -774,10 +775,10 @@ impl People {
         }
 
         if follow > 0 {
-            // Add the person to the relay_tracker for picking
-            GLOBALS.relay_tracker.add_someone(pubkeyhex.to_owned())?;
+            // Add the person to the relay_picker for picking
+            GLOBALS.relay_picker.add_someone(pubkeyhex.to_owned())?;
         } else {
-            GLOBALS.relay_tracker.remove_someone(pubkeyhex.to_owned());
+            GLOBALS.relay_picker.remove_someone(pubkeyhex.to_owned());
         }
 
         Ok(())
@@ -879,9 +880,9 @@ impl People {
             }
         }
 
-        // Add the people to the relay_tracker for picking
+        // Add the people to the relay_picker for picking
         for pubkey in pubkeys.iter() {
-            GLOBALS.relay_tracker.add_someone(pubkey.to_owned())?;
+            GLOBALS.relay_picker.add_someone(pubkey.to_owned())?;
         }
 
         Ok(())

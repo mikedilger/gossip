@@ -13,7 +13,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add_space(12.0);
         if ui.button("SAVE CHANGES").clicked() {
             // Copy local settings to global settings
-            *GLOBALS.settings.blocking_write() = app.settings.clone();
+            *GLOBALS.settings.write() = app.settings.clone();
 
             // Tell the overlord to save them
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SaveSettings);

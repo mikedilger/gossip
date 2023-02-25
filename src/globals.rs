@@ -5,10 +5,13 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::people::People;
 use crate::relationship::Relationship;
-use crate::relays::RelayTracker;
+use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
 use crate::signer::Signer;
+use dashmap::{DashMap, DashSet};
+use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
+use parking_lot::RwLock as PRwLock;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
@@ -49,15 +52,21 @@ pub struct Globals {
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
 
-    /// The relay tracker, used to pick the next relay
-    pub relay_tracker: RelayTracker,
+    /// All the relays we know about
+    pub all_relays: DashMap<RelayUrl, DbRelay>,
+
+    /// The relays currently connected to
+    pub connected_relays: DashSet<RelayUrl>,
+
+    /// The relay picker, used to pick the next relay
+    pub relay_picker: RelayPicker<Hooks>,
 
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
     pub shutting_down: AtomicBool,
 
     /// Settings
-    pub settings: RwLock<Settings>,
+    pub settings: PRwLock<Settings>,
 
     /// Signer
     pub signer: Signer,
@@ -103,9 +112,11 @@ lazy_static! {
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
-            relay_tracker: Default::default(),
+            all_relays: DashMap::new(),
+            connected_relays: DashSet::new(),
+            relay_picker: Default::default(),
             shutting_down: AtomicBool::new(false),
-            settings: RwLock::new(Settings::default()),
+            settings: PRwLock::new(Settings::default()),
             signer: Signer::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),
@@ -217,7 +228,6 @@ impl Globals {
         };
 
         for ri in GLOBALS
-            .relay_tracker
             .all_relays
             .iter()
             .filter(|ri| ri.value().write)
@@ -232,8 +242,7 @@ impl Globals {
     where
         F: FnMut(&DbRelay) -> bool,
     {
-        self.relay_tracker
-            .all_relays
+        self.all_relays
             .iter()
             .filter_map(|r| {
                 if f(r.value()) {
@@ -249,8 +258,7 @@ impl Globals {
     where
         F: FnMut(&DbRelay) -> bool,
     {
-        self.relay_tracker
-            .all_relays
+        self.all_relays
             .iter()
             .filter_map(|r| {
                 if f(r.value()) {
@@ -263,6 +271,6 @@ impl Globals {
     }
 
     pub fn relay_is_connected(&self, url: &RelayUrl) -> bool {
-        self.relay_tracker.connected_relays.contains(url)
+        self.connected_relays.contains(url)
     }
 }

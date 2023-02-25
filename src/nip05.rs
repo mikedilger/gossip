@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 
 // This updates the people map and the database with the result
 pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
-    if !GLOBALS.settings.read().await.check_nip05 {
+    if !GLOBALS.settings.read().check_nip05 {
         return Ok(());
     }
 
@@ -126,7 +126,7 @@ async fn update_relays(
             let db_relay = DbRelay::new(relay_url.clone());
             DbRelay::insert(db_relay.clone()).await?;
 
-            if let Entry::Vacant(entry) = GLOBALS.relay_tracker.all_relays.entry(relay_url.clone())
+            if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(relay_url.clone())
             {
                 entry.insert(db_relay);
             }

@@ -15,9 +15,7 @@ pub struct Signer {
 
 impl Signer {
     pub async fn load_from_settings(&self) {
-        let settings = GLOBALS.settings.read().await;
-
-        *self.public.write() = settings.public_key;
+        *self.public.write() = GLOBALS.settings.read().public_key;
         *self.private.write() = None;
 
         let maybe_db = GLOBALS.db.lock().await;
@@ -32,8 +30,8 @@ impl Signer {
     }
 
     pub async fn save_through_settings(&self) -> Result<(), Error> {
-        let mut settings = GLOBALS.settings.write().await;
-        settings.public_key = *self.public.read();
+        GLOBALS.settings.write().public_key = *self.public.read();
+        let settings = GLOBALS.settings.read().clone();
         settings.save().await?;
 
         let epk = self.encrypted.read().clone();

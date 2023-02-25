@@ -105,13 +105,13 @@ impl DbEvent {
         };
 
         let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
-        if GLOBALS.settings.read().await.direct_messages {
+        if GLOBALS.settings.read().direct_messages {
             kinds.push(EventKind::EncryptedDirectMessage);
         }
-        if GLOBALS.settings.read().await.reposts {
+        if GLOBALS.settings.read().reposts {
             kinds.push(EventKind::Repost);
         }
-        if GLOBALS.settings.read().await.reactions {
+        if GLOBALS.settings.read().reactions {
             kinds.push(EventKind::Reaction);
         }
 

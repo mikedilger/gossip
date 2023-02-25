@@ -1,16 +1,16 @@
 mod minion;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
-use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay, Direction};
+use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
-use crate::relays::RelayAssignment;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
     keys_from_text, notes_from_text,
 };
 use dashmap::mapref::entry::Entry;
+use gossip_relay_picker::{Direction, RelayAssignment};
 use minion::Minion;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, PreEvent,
@@ -97,7 +97,6 @@ impl Overlord {
             let mut all_relays: Vec<DbRelay> = DbRelay::fetch(None).await?;
             for dbrelay in all_relays.drain(..) {
                 GLOBALS
-                    .relay_tracker
                     .all_relays
                     .insert(dbrelay.url.clone(), dbrelay);
             }
@@ -106,12 +105,15 @@ impl Overlord {
         // Load followed people from the database
         GLOBALS.people.load_all_followed().await?;
 
+        // Initialize the relay picker
+        GLOBALS.relay_picker.init().await?;
+
         let now = Unixtime::now().unwrap();
 
         // Load reply-related events from database and process
         // (where you are tagged)
         {
-            let replies_chunk = GLOBALS.settings.read().await.replies_chunk;
+            let replies_chunk = GLOBALS.settings.read().replies_chunk;
             let then = now.0 - replies_chunk as i64;
 
             let db_events = DbEvent::fetch_reply_related(then).await?;
@@ -134,15 +136,15 @@ impl Overlord {
 
         // Load feed-related events from database and process
         {
-            let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+            let feed_chunk = GLOBALS.settings.read().feed_chunk;
             let then = now.0 - feed_chunk as i64;
 
-            let reactions = if GLOBALS.settings.read().await.reactions {
+            let reactions = if GLOBALS.settings.read().reactions {
                 " OR kind=7"
             } else {
                 ""
             };
-            let reposts = if GLOBALS.settings.read().await.reactions {
+            let reposts = if GLOBALS.settings.read().reactions {
                 " OR kind=6"
             } else {
                 ""
@@ -185,11 +187,7 @@ impl Overlord {
         }
 
         // Pick Relays and start Minions
-        if !GLOBALS.settings.read().await.offline {
-            // Initialize the RelayPicker
-            GLOBALS.relay_tracker.init().await?;
-
-            // Pick relays
+        if !GLOBALS.settings.read().offline {
             self.pick_relays().await;
         }
 
@@ -246,23 +244,23 @@ impl Overlord {
 
     async fn pick_relays(&mut self) {
         loop {
-            match GLOBALS.relay_tracker.pick().await {
+            match GLOBALS.relay_picker.pick().await {
                 Err(failure) => {
                     tracing::info!("Done picking relays: {}", failure);
                     break;
                 }
                 Ok(relay_url) => {
-                    if let Some(elem) = GLOBALS.relay_tracker.relay_assignments.get(&relay_url) {
+                    if let Some(ra) = GLOBALS.relay_picker.get_relay_assignment(&relay_url) {
                         tracing::debug!(
                             "Picked {} covering {} pubkeys",
                             &relay_url,
-                            elem.value().pubkeys.len()
+                            ra.pubkeys.len()
                         );
                         // Apply the relay assignment
-                        if let Err(e) = self.apply_relay_assignment(elem.value().to_owned()).await {
+                        if let Err(e) = self.apply_relay_assignment(ra.to_owned()).await {
                             tracing::error!("{}", e);
                             // On failure, return it
-                            GLOBALS.relay_tracker.relay_disconnected(&relay_url);
+                            GLOBALS.relay_picker.relay_disconnected(&relay_url);
                         }
                     } else {
                         tracing::warn!("Relay Picker just picked {} but it is already no longer part of it's relay assignments!", &relay_url);
@@ -295,7 +293,7 @@ impl Overlord {
     }
 
     async fn start_minion(&mut self, url: RelayUrl) -> Result<(), Error> {
-        if GLOBALS.settings.read().await.offline {
+        if GLOBALS.settings.read().offline {
             return Ok(());
         }
 
@@ -303,7 +301,7 @@ impl Overlord {
         let abort_handle = self.minions.spawn(async move { minion.handle().await });
         let id = abort_handle.id();
         self.minions_task_url.insert(id, url.clone());
-        GLOBALS.relay_tracker.connected_relays.insert(url);
+        GLOBALS.connected_relays.insert(url);
         Ok(())
     }
 
@@ -366,7 +364,7 @@ impl Overlord {
                         // Minion probably already logged failure in relay table
 
                         // Set to not connected
-                        GLOBALS.relay_tracker.connected_relays.remove(&url);
+                        GLOBALS.connected_relays.remove(&url);
 
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
@@ -388,7 +386,7 @@ impl Overlord {
                         tracing::info!("Relay Task {} completed", &url);
 
                         // Set to not connected
-                        GLOBALS.relay_tracker.connected_relays.remove(&url);
+                        GLOBALS.connected_relays.remove(&url);
 
                         // Remove from our hashmap
                         self.minions_task_url.remove(&id);
@@ -405,10 +403,10 @@ impl Overlord {
     }
 
     async fn recover_from_minion_exit(&mut self, url: RelayUrl) {
-        GLOBALS.relay_tracker.relay_disconnected(&url);
+        GLOBALS.relay_picker.relay_disconnected(&url);
         if let Err(e) = GLOBALS
-            .relay_tracker
-            .refresh_person_relay_scores(false)
+            .relay_picker
+            .refresh_person_relay_scores()
             .await
         {
             tracing::error!("Error: {}", e);
@@ -421,7 +419,7 @@ impl Overlord {
             ToOverlordMessage::AddRelay(relay_str) => {
                 let dbrelay = DbRelay::new(relay_str.clone());
                 DbRelay::insert(dbrelay.clone()).await?;
-                GLOBALS.relay_tracker.all_relays.insert(relay_str, dbrelay);
+                GLOBALS.all_relays.insert(relay_str, dbrelay);
             }
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
@@ -510,8 +508,8 @@ impl Overlord {
                 // When manually doing this, we refresh person_relay scores first which
                 // often change if the user just added follows.
                 GLOBALS
-                    .relay_tracker
-                    .refresh_person_relay_scores(false)
+                    .relay_picker
+                    .refresh_person_relay_scores()
                     .await?;
 
                 // Then pick
@@ -548,7 +546,7 @@ impl Overlord {
                 self.push_metadata(metadata).await?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
-                if let Some(mut dbrelay) = GLOBALS.relay_tracker.all_relays.get_mut(&relay_url) {
+                if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
                     dbrelay.rank = rank as u64;
                 }
                 DbRelay::set_rank(relay_url, rank).await?;
@@ -557,21 +555,21 @@ impl Overlord {
                 self.refresh_followed_metadata().await?;
             }
             ToOverlordMessage::SaveSettings => {
-                GLOBALS.settings.read().await.save().await?;
+                GLOBALS.settings.read().save().await?;
                 tracing::debug!("Settings saved.");
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 GLOBALS.people.set_active_person(pubkey).await?;
             }
             ToOverlordMessage::SetRelayReadWrite(relay_url, read, write) => {
-                if let Some(mut dbrelay) = GLOBALS.relay_tracker.all_relays.get_mut(&relay_url) {
+                if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
                     dbrelay.read = read;
                     dbrelay.write = write;
                 }
                 DbRelay::update_read_and_write(relay_url, read, write).await?;
             }
             ToOverlordMessage::SetRelayAdvertise(relay_url, advertise) => {
-                if let Some(mut dbrelay) = GLOBALS.relay_tracker.all_relays.get_mut(&relay_url) {
+                if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
                     dbrelay.advertise = advertise;
                 }
                 DbRelay::update_advertise(relay_url, advertise).await?;
@@ -593,16 +591,13 @@ impl Overlord {
 
                 // Update public key from private key
                 let public_key = GLOBALS.signer.public_key().unwrap();
-                {
-                    let mut settings = GLOBALS.settings.write().await;
-                    settings.public_key = Some(public_key);
-                    settings.save().await?;
-                }
+                GLOBALS.settings.write().public_key = Some(public_key);
+                GLOBALS.settings.read().clone().save().await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let best_relays =
                     DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
-                let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
+                let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
                 // we do 1 more than num_relays_per_person, which is really for main posts,
                 // since metadata is more important and I didn't want to bother with
@@ -693,7 +688,7 @@ impl Overlord {
                 }
             };
 
-            if GLOBALS.settings.read().await.set_client_tag {
+            if GLOBALS.settings.read().set_client_tag {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -785,7 +780,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().await.pow;
+            let powint = GLOBALS.settings.read().pow;
             let pow = if powint > 0 { Some(powint) } else { None };
             GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
@@ -917,7 +912,7 @@ impl Overlord {
                 },
             ];
 
-            if GLOBALS.settings.read().await.set_client_tag {
+            if GLOBALS.settings.read().set_client_tag {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -933,7 +928,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().await.pow;
+            let powint = GLOBALS.settings.read().pow;
             let pow = if powint > 0 { Some(powint) } else { None };
             GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
@@ -1062,7 +1057,7 @@ impl Overlord {
     async fn refresh_followed_metadata(&mut self) -> Result<(), Error> {
         let pubkeys = GLOBALS.people.get_followed_pubkeys();
 
-        let num_relays_per_person = GLOBALS.settings.read().await.num_relays_per_person;
+        let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
         let mut map: HashMap<RelayUrl, Vec<PublicKeyHex>> = HashMap::new();
 
@@ -1159,7 +1154,7 @@ impl Overlord {
         //        instead build the filters, then both send them to the minion and
         //        also query them locally.
         {
-            let enable_reactions = GLOBALS.settings.read().await.reactions;
+            let enable_reactions = GLOBALS.settings.read().reactions;
 
             if !missing_ancestors_hex.is_empty() {
                 let idhp: Vec<IdHexPrefix> = missing_ancestors_hex
@@ -1262,7 +1257,7 @@ impl Overlord {
                 DbRelay::insert(db_relay.clone()).await?;
 
                 if let Entry::Vacant(entry) =
-                    GLOBALS.relay_tracker.all_relays.entry(relay_url.clone())
+                    GLOBALS.all_relays.entry(relay_url.clone())
                 {
                     entry.insert(db_relay);
                 }

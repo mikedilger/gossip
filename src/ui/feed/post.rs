@@ -24,7 +24,6 @@ pub(super) fn posting_area(
                 ui.label(" to post.");
             });
         } else if !GLOBALS
-            .relay_tracker
             .all_relays
             .iter()
             .any(|r| r.value().write)

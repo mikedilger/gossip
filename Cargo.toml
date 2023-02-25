@@ -13,6 +13,7 @@ edition = "2021"
 
 [dependencies]
 async-recursion = "1.0"
+async-trait = "0.1"
 base64 = "0.21"
 dashmap = "5.4"
 dirs = "4.0"
@@ -21,6 +22,7 @@ egui_extras = { git = "https://github.com/mikedilger/egui", branch="gossip", fea
 encoding_rs = "0.8"
 futures = "0.3"
 futures-util = "0.3"
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker" }
 hex = "0.4"
 http = "0.2"
 humansize = "2.1"

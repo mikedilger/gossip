@@ -121,7 +121,7 @@ impl Feed {
     }
 
     pub fn get_person_feed(&self, person: PublicKeyHex) -> Vec<Id> {
-        let enable_reposts = GLOBALS.settings.blocking_read().reposts;
+        let enable_reposts = GLOBALS.settings.read().reposts;
 
         self.maybe_recompute();
         let mut events: Vec<Event> = GLOBALS
@@ -167,7 +167,7 @@ impl Feed {
     }
 
     pub async fn recompute(&self) -> Result<(), Error> {
-        let settings = GLOBALS.settings.read().await.clone();
+        let settings = GLOBALS.settings.read().clone();
         *self.interval_ms.write() = settings.feed_recompute_interval_ms;
 
         let events: Vec<Event> = GLOBALS
@@ -223,7 +223,7 @@ impl Feed {
         *self.general_feed.write() = fevents.iter().map(|e| e.id).collect();
 
         // Filter differently for the replies feed
-        let direct_only = GLOBALS.settings.read().await.direct_replies_only;
+        let direct_only = GLOBALS.settings.read().direct_replies_only;
 
         if let Some(my_pubkey) = GLOBALS.signer.public_key() {
             let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();

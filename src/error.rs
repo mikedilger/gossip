@@ -54,6 +54,9 @@ pub enum Error {
     #[error("Bad integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
 
+    #[error("Relay Picker error: {0}")]
+    RelayPickerError(#[from] gossip_relay_picker::Error),
+
     #[error("HTTP (reqwest) error: {0}")]
     ReqwestHttpError(#[from] reqwest::Error),
 

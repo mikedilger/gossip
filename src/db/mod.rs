@@ -20,7 +20,7 @@ mod contact;
 pub use contact::DbContact;
 
 mod person_relay;
-pub use person_relay::{DbPersonRelay, Direction};
+pub use person_relay::DbPersonRelay;
 
 use crate::error::Error;
 use crate::globals::GLOBALS;
