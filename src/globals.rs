@@ -171,14 +171,22 @@ impl Globals {
 
     // FIXME - this allows people to react many times to the same event, and
     //         it counts them all!
-    pub fn get_reactions_sync(id: Id) -> Vec<(char, usize)> {
+    /// Returns the list of reactions and whether or not this account has already reacted to this event
+    pub fn get_reactions_sync(id: Id) -> (Vec<(char, usize)>, bool) {
         let mut output: HashMap<char, HashSet<PublicKeyHex>> = HashMap::new();
+
+        // Whether or not the Gossip user already reacted to this event
+        let mut self_already_reacted = false;
 
         if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
             for (other_id, relationship) in relationships.iter() {
                 // get the reacting event to make sure publickeys are unique
                 if let Some(e) = GLOBALS.events.get(other_id) {
                     if let Relationship::Reaction(reaction) = relationship {
+                        if Some(e.pubkey) == GLOBALS.signer.public_key() {
+                            self_already_reacted = true;
+                        }
+
                         let symbol: char = if let Some(ch) = reaction.chars().next() {
                             ch
                         } else {
@@ -202,7 +210,7 @@ impl Globals {
 
         let mut v: Vec<(char, usize)> = output.iter().map(|(c, u)| (*c, u.len())).collect();
         v.sort();
-        v
+        (v, self_already_reacted)
     }
 
     pub fn get_deletion_sync(id: Id) -> Option<String> {

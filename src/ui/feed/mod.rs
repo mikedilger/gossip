@@ -365,7 +365,7 @@ fn render_post_inner(
 ) {
     let deletion = Globals::get_deletion_sync(event.id);
 
-    let reactions = Globals::get_reactions_sync(event.id);
+    let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
 
     let tag_re = app.tag_re.clone();
 
@@ -635,8 +635,12 @@ fn render_post_inner(
 
                 // Buttons to react and reaction counts
                 if app.settings.reactions {
+                    let default_reaction_icon = match self_already_reacted {
+                        true => "♥",
+                        false => "♡"
+                    };
                     if ui
-                        .add(Label::new(RichText::new("♡").size(20.0)).sense(Sense::click()))
+                        .add(Label::new(RichText::new(default_reaction_icon).size(20.0)).sense(Sense::click()))
                         .clicked()
                     {
                         let _ = GLOBALS
