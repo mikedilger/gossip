@@ -546,7 +546,8 @@ impl Overlord {
                 self.refresh_followed_metadata().await?;
             }
             ToOverlordMessage::SaveSettings => {
-                GLOBALS.settings.read().save().await?;
+                let settings = GLOBALS.settings.read().clone();
+                settings.save().await?;
                 tracing::debug!("Settings saved.");
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
@@ -583,7 +584,8 @@ impl Overlord {
                 // Update public key from private key
                 let public_key = GLOBALS.signer.public_key().unwrap();
                 GLOBALS.settings.write().public_key = Some(public_key);
-                GLOBALS.settings.read().clone().save().await?;
+                let settings = GLOBALS.settings.read().clone();
+                settings.save().await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let best_relays =
