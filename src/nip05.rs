@@ -126,8 +126,7 @@ async fn update_relays(
             let db_relay = DbRelay::new(relay_url.clone());
             DbRelay::insert(db_relay.clone()).await?;
 
-            if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(relay_url.clone())
-            {
+            if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(relay_url.clone()) {
                 entry.insert(db_relay);
             }
 

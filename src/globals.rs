@@ -227,11 +227,7 @@ impl Globals {
             relays: Vec::new(),
         };
 
-        for ri in GLOBALS
-            .all_relays
-            .iter()
-            .filter(|ri| ri.value().write)
-        {
+        for ri in GLOBALS.all_relays.iter().filter(|ri| ri.value().write) {
             profile.relays.push(ri.key().to_unchecked_url())
         }
 

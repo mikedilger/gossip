@@ -118,11 +118,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     }
                     ui.label("to edit/save metadata.");
                 });
-            } else if !GLOBALS
-                .all_relays
-                .iter()
-                .any(|r| r.value().write)
-            {
+            } else if !GLOBALS.all_relays.iter().any(|r| r.value().write) {
                 ui.horizontal(|ui| {
                     ui.label("You need to");
                     if ui.link("configure write relays").clicked() {

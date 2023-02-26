@@ -1,12 +1,12 @@
-use crate::globals::GLOBALS;
 use crate::db::DbPersonRelay;
 use crate::error::Error;
+use crate::globals::GLOBALS;
 use async_trait::async_trait;
 use gossip_relay_picker::{Direction, RelayPickerHooks};
 use nostr_types::{PublicKeyHex, RelayUrl};
 
 #[derive(Default)]
-pub struct Hooks { }
+pub struct Hooks {}
 
 #[async_trait]
 impl RelayPickerHooks for Hooks {
@@ -14,7 +14,11 @@ impl RelayPickerHooks for Hooks {
 
     /// Returns all relays available to be connected to
     fn get_all_relays(&self) -> Vec<RelayUrl> {
-        GLOBALS.all_relays.iter().map(|elem| elem.key().to_owned()).collect()
+        GLOBALS
+            .all_relays
+            .iter()
+            .map(|elem| elem.key().to_owned())
+            .collect()
     }
 
     /// Returns all relays that this public key uses in the given Direction
@@ -58,4 +62,3 @@ impl RelayPickerHooks for Hooks {
         }
     }
 }
-

@@ -96,9 +96,7 @@ impl Overlord {
         {
             let mut all_relays: Vec<DbRelay> = DbRelay::fetch(None).await?;
             for dbrelay in all_relays.drain(..) {
-                GLOBALS
-                    .all_relays
-                    .insert(dbrelay.url.clone(), dbrelay);
+                GLOBALS.all_relays.insert(dbrelay.url.clone(), dbrelay);
             }
         }
 
@@ -404,11 +402,7 @@ impl Overlord {
 
     async fn recover_from_minion_exit(&mut self, url: RelayUrl) {
         GLOBALS.relay_picker.relay_disconnected(&url);
-        if let Err(e) = GLOBALS
-            .relay_picker
-            .refresh_person_relay_scores()
-            .await
-        {
+        if let Err(e) = GLOBALS.relay_picker.refresh_person_relay_scores().await {
             tracing::error!("Error: {}", e);
         }
         self.pick_relays().await;
@@ -507,10 +501,7 @@ impl Overlord {
             ToOverlordMessage::PickRelays => {
                 // When manually doing this, we refresh person_relay scores first which
                 // often change if the user just added follows.
-                GLOBALS
-                    .relay_picker
-                    .refresh_person_relay_scores()
-                    .await?;
+                GLOBALS.relay_picker.refresh_person_relay_scores().await?;
 
                 // Then pick
                 self.pick_relays().await;
@@ -1256,9 +1247,7 @@ impl Overlord {
                 let db_relay = DbRelay::new(relay_url.clone());
                 DbRelay::insert(db_relay.clone()).await?;
 
-                if let Entry::Vacant(entry) =
-                    GLOBALS.all_relays.entry(relay_url.clone())
-                {
+                if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(relay_url.clone()) {
                     entry.insert(db_relay);
                 }
 

@@ -286,9 +286,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                                 DbRelay::update_read_and_write(relay_url.clone(), true, false)
                                     .await?;
                                 // set in memory
-                                if let Some(mut elem) =
-                                    GLOBALS.all_relays.get_mut(&relay_url)
-                                {
+                                if let Some(mut elem) = GLOBALS.all_relays.get_mut(&relay_url) {
                                     elem.read = true;
                                     elem.write = false;
                                 }
@@ -301,9 +299,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                                 DbRelay::update_read_and_write(relay_url.clone(), false, true)
                                     .await?;
                                 // set in memory
-                                if let Some(mut elem) =
-                                    GLOBALS.all_relays.get_mut(&relay_url)
-                                {
+                                if let Some(mut elem) = GLOBALS.all_relays.get_mut(&relay_url) {
                                     elem.read = false;
                                     elem.write = true;
                                 }
@@ -318,8 +314,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                         // set in database
                         DbRelay::update_read_and_write(relay_url.clone(), true, true).await?;
                         // set in memory
-                        if let Some(mut elem) = GLOBALS.all_relays.get_mut(&relay_url)
-                        {
+                        if let Some(mut elem) = GLOBALS.all_relays.get_mut(&relay_url) {
                             elem.read = true;
                             elem.write = true;
                         }

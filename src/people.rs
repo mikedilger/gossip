@@ -245,11 +245,7 @@ impl People {
     // If this person doesn't have metadata, and we are automatically fetching
     // metadata, then add this person to the list of people that need metadata.
     pub fn person_of_interest(&self, pubkeyhex: PublicKeyHex) {
-        if !GLOBALS
-            .settings
-            .read()
-            .automatically_fetch_metadata
-        {
+        if !GLOBALS.settings.read().automatically_fetch_metadata {
             return;
         }
 
