@@ -212,7 +212,7 @@ impl Feed {
         let now = Unixtime::now().unwrap();
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
-        // Filter out replies if the user doesn't want them 
+        // Filter out replies if the user doesn't want them
         let replies_in_follows = GLOBALS.settings.read().replies_in_follows;
 
         let mut fevents: Vec<Event> = events
@@ -220,13 +220,9 @@ impl Feed {
             .filter(|e| !dismissed.contains(&e.id))
             .filter(|e| {
                 if replies_in_follows {
-                    return true;
+                    true
                 } else {
-                    if let Some((_id, _)) = e.replies_to() {
-                        return false
-                    } else {
-                        return true
-                    }
+                    !matches!(e.replies_to(), Some((_id, _)))
                 }
             })
             .filter(|e| followed_pubkeys.contains(&e.pubkey.into())) // something we follow
