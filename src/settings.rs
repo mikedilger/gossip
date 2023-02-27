@@ -39,6 +39,7 @@ pub struct Settings {
     pub pow: u8,
     pub offline: bool,
     pub light_mode: bool,
+    pub theme: Option<String>,
     pub set_client_tag: bool,
     pub set_user_agent: bool,
     pub override_dpi: Option<u32>,
@@ -66,6 +67,7 @@ impl Default for Settings {
             pow: DEFAULT_POW,
             offline: DEFAULT_OFFLINE,
             light_mode: DEFAULT_LIGHT_MODE,
+            theme: None,
             set_client_tag: DEFAULT_SET_CLIENT_TAG,
             set_user_agent: DEFAULT_SET_USER_AGENT,
             override_dpi: DEFAULT_OVERRIDE_DPI,
@@ -130,6 +132,7 @@ impl Settings {
                 "pow" => settings.pow = row.1.parse::<u8>().unwrap_or(DEFAULT_POW),
                 "offline" => settings.offline = numstr_to_bool(row.1),
                 "light_mode" => settings.light_mode = numstr_to_bool(row.1),
+                "theme" => settings.theme = Some(row.1),
                 "set_client_tag" => settings.set_client_tag = numstr_to_bool(row.1),
                 "set_user_agent" => settings.set_user_agent = numstr_to_bool(row.1),
                 "override_dpi" => {
@@ -241,6 +244,18 @@ impl Settings {
             let mut stmt = db.prepare("DELETE FROM settings WHERE key='public_key'")?;
             stmt.execute(())?;
         }
+
+        // Save theme name
+        if let Some(ref name) = self.theme {
+            let mut stmt =
+                db.prepare("REPLACE INTO SETTINGS (key, value) VALUES ('theme', ?)")?;
+            stmt.execute((name,))?;
+        } else {
+            // Otherwise delete any such setting
+            let mut stmt = db.prepare("DELETE FROM settings WHERE key='theme'")?;
+            stmt.execute(())?;
+        }
+
         Ok(())
     }
 }
