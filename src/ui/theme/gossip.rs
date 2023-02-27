@@ -4,13 +4,13 @@ use crate::tags::HighlightType;
 
 use super::Theme;
 use eframe::egui;
+use eframe::egui::style::Selection;
+use eframe::egui::style::WidgetVisuals;
+use eframe::egui::style::Widgets;
 use eframe::egui::FontDefinitions;
 use eframe::egui::TextFormat;
 use eframe::egui::TextStyle;
 use eframe::egui::Visuals;
-use eframe::egui::style::Selection;
-use eframe::egui::style::WidgetVisuals;
-use eframe::egui::style::Widgets;
 use eframe::epaint::Color32;
 use eframe::epaint::FontFamily;
 use eframe::epaint::FontId;
@@ -18,14 +18,9 @@ use eframe::epaint::Rounding;
 use eframe::epaint::Shadow;
 use eframe::epaint::Stroke;
 
+#[derive(Default)]
 pub(crate) struct Gossip {
     dark_mode: bool,
-}
-
-impl Default for Gossip {
-    fn default() -> Self {
-        Self { dark_mode: false }
-    }
 }
 
 impl Theme for Gossip {
@@ -33,13 +28,15 @@ impl Theme for Gossip {
         self.dark_mode = dark_mode;
     }
     fn is_dark_mode(&self) -> bool {
-        return self.dark_mode
+        self.dark_mode
     }
     fn name(&self) -> &'static str {
-        return "Gossip Default"
+        "Gossip Default"
     }
     fn make_copy(&self) -> std::sync::Arc<dyn Theme> {
-        std::sync::Arc::new( Self{ dark_mode: self.dark_mode } )
+        std::sync::Arc::new(Self {
+            dark_mode: self.dark_mode,
+        })
     }
     fn get_style(&self) -> eframe::egui::Style {
         let mut style = egui::Style::default();
@@ -267,7 +264,7 @@ impl Theme for Gossip {
                 collapsing_header_frame: false,
             };
         }
-        return style
+        style
     }
 
     fn font_definitions(&self) -> FontDefinitions {
@@ -371,12 +368,22 @@ impl Theme for Gossip {
             Color32::WHITE
         }
     }
-    fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke { eframe::egui::Stroke::default() }
-    fn feed_frame_inner_margin(&self) -> eframe::egui::Margin { eframe::egui::Margin::default() }
-    fn feed_frame_outer_margin(&self) ->  eframe::egui::Margin { eframe::egui::Margin::default() }
-    fn feed_frame_rounding(&self) ->  eframe::egui::Rounding { eframe::egui::Rounding::default() }
-    fn feed_frame_shadow(&self) ->  eframe::epaint::Shadow { eframe::epaint::Shadow::default() }
-    fn feed_frame_fill(&self, is_new: bool, _:bool) ->  eframe::egui::Color32 {
+    fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke {
+        eframe::egui::Stroke::default()
+    }
+    fn feed_frame_inner_margin(&self) -> eframe::egui::Margin {
+        eframe::egui::Margin::default()
+    }
+    fn feed_frame_outer_margin(&self) -> eframe::egui::Margin {
+        eframe::egui::Margin::default()
+    }
+    fn feed_frame_rounding(&self) -> eframe::egui::Rounding {
+        eframe::egui::Rounding::default()
+    }
+    fn feed_frame_shadow(&self) -> eframe::epaint::Shadow {
+        eframe::epaint::Shadow::default()
+    }
+    fn feed_frame_fill(&self, is_new: bool, _: bool) -> eframe::egui::Color32 {
         if is_new {
             if self.dark_mode {
                 Color32::from_rgb(60, 0, 0)
@@ -391,5 +398,7 @@ impl Theme for Gossip {
             }
         }
     }
-    fn feed_frame_stroke(&self, _:bool, _:bool ) ->  eframe::egui::Stroke { Stroke::NONE }
+    fn feed_frame_stroke(&self, _: bool, _: bool) -> eframe::egui::Stroke {
+        Stroke::NONE
+    }
 }

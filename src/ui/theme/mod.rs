@@ -1,15 +1,15 @@
-use eframe::egui::{TextStyle, TextFormat, FontTweak, FontData, FontDefinitions};
-use eframe::epaint::{FontId, FontFamily};
-use std::collections::BTreeMap;
+use eframe::egui::{FontData, FontDefinitions, FontTweak, TextFormat, TextStyle};
+use eframe::epaint::{FontFamily, FontId};
 use lazy_static::lazy_static;
-use std::sync::{ Mutex, Arc, RwLock };
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex, RwLock};
 
 use crate::tags::HighlightType;
 
 mod gossip;
 mod roundy;
 
-pub(crate) trait Theme : Send + Sync {
+pub(crate) trait Theme: Send + Sync {
     // user facing name
     fn name(&self) -> &'static str;
 
@@ -28,11 +28,11 @@ pub(crate) trait Theme : Send + Sync {
     fn feed_scroll_fill(&self) -> eframe::egui::Color32;
     fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke;
     fn feed_frame_inner_margin(&self) -> eframe::egui::Margin;
-    fn feed_frame_outer_margin(&self) ->  eframe::egui::Margin;
-    fn feed_frame_rounding(&self) ->  eframe::egui::Rounding;
-    fn feed_frame_shadow(&self) ->  eframe::epaint::Shadow;
-    fn feed_frame_fill(&self, is_new: bool, is_main_event: bool) ->  eframe::egui::Color32;
-    fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool) ->  eframe::egui::Stroke;
+    fn feed_frame_outer_margin(&self) -> eframe::egui::Margin;
+    fn feed_frame_rounding(&self) -> eframe::egui::Rounding;
+    fn feed_frame_shadow(&self) -> eframe::epaint::Shadow;
+    fn feed_frame_fill(&self, is_new: bool, is_main_event: bool) -> eframe::egui::Color32;
+    fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool) -> eframe::egui::Stroke;
 }
 
 struct ThemePicker {
@@ -51,35 +51,34 @@ impl ThemePicker {
     fn set_dark_mode(&mut self, dark_mode: bool) {
         self.current_theme.write().unwrap().dark_mode(dark_mode);
     }
-    fn pick(&mut self, name: &Option<String> ) {
+    fn pick(&mut self, name: &Option<String>) {
         match name {
             Some(name) if name.as_str() == self.roundy.read().unwrap().name() => {
                 self.current_theme = self.roundy.clone();
-            },
+            }
             _ => {
                 self.current_theme = self.gossip_theme.clone();
-            },
+            }
         }
     }
     fn current_theme(&self) -> Arc<dyn Theme> {
-        return self.current_theme.read().unwrap().make_copy()
+        return self.current_theme.read().unwrap().make_copy();
     }
 }
 
 impl Default for ThemePicker {
     fn default() -> Self {
-        let gossip_theme_rc = Arc::new( RwLock::new( gossip::Gossip::default() ));
-        let me = ThemePicker {
+        let gossip_theme_rc = Arc::new(RwLock::new(gossip::Gossip::default()));
+        ThemePicker {
             gossip_theme: gossip_theme_rc.clone(),
-            roundy: Arc::new( RwLock::new( roundy::Roundy::default() )),
+            roundy: Arc::new(RwLock::new(roundy::Roundy::default())),
             current_theme: gossip_theme_rc,
-        };
-        return me
+        }
     }
 }
 
 lazy_static! {
-    static ref CURRENT_THEME_INSTANCE: Mutex<ThemePicker> = Mutex::new( ThemePicker::default() );
+    static ref CURRENT_THEME_INSTANCE: Mutex<ThemePicker> = Mutex::new(ThemePicker::default());
 }
 
 pub(crate) fn list_themes() -> Vec<&'static str> {
@@ -87,9 +86,9 @@ pub(crate) fn list_themes() -> Vec<&'static str> {
 }
 
 /// Set dark_mode enabled or disabled
-pub(crate) fn set_dark_mode( dark_mode: bool, egui_ctx: &eframe::egui::Context ) {
+pub(crate) fn set_dark_mode(dark_mode: bool, egui_ctx: &eframe::egui::Context) {
     let mut theme_picker = CURRENT_THEME_INSTANCE.lock().unwrap();
-    theme_picker.set_dark_mode( dark_mode );
+    theme_picker.set_dark_mode(dark_mode);
 
     let theme = theme_picker.current_theme();
 
@@ -101,9 +100,13 @@ pub(crate) fn set_dark_mode( dark_mode: bool, egui_ctx: &eframe::egui::Context )
 }
 
 /// Switch between Themes preserving dark_mode selection
-pub(crate) fn switch( name: &Option<String>, egui_ctx: &eframe::egui::Context ) {
-    let current_mode = CURRENT_THEME_INSTANCE.lock().unwrap().current_theme().is_dark_mode();
-    CURRENT_THEME_INSTANCE.lock().unwrap().pick( name );
+pub(crate) fn switch(name: &Option<String>, egui_ctx: &eframe::egui::Context) {
+    let current_mode = CURRENT_THEME_INSTANCE
+        .lock()
+        .unwrap()
+        .current_theme()
+        .is_dark_mode();
+    CURRENT_THEME_INSTANCE.lock().unwrap().pick(name);
     set_dark_mode(current_mode, egui_ctx);
 }
 

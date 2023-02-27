@@ -1,4 +1,4 @@
-use super::{GossipUi, theme};
+use super::{theme, GossipUi};
 use crate::comms::ToOverlordMessage;
 use crate::GLOBALS;
 use eframe::egui::{self, TextBuffer};

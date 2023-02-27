@@ -247,8 +247,7 @@ impl Settings {
 
         // Save theme name
         if let Some(ref name) = self.theme {
-            let mut stmt =
-                db.prepare("REPLACE INTO SETTINGS (key, value) VALUES ('theme', ?)")?;
+            let mut stmt = db.prepare("REPLACE INTO SETTINGS (key, value) VALUES ('theme', ?)")?;
             stmt.execute((name,))?;
         } else {
             // Otherwise delete any such setting

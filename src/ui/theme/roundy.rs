@@ -4,14 +4,14 @@ use crate::tags::HighlightType;
 
 use super::Theme;
 use eframe::egui;
+use eframe::egui::style::Selection;
+use eframe::egui::style::WidgetVisuals;
+use eframe::egui::style::Widgets;
 use eframe::egui::FontDefinitions;
 use eframe::egui::Margin;
 use eframe::egui::TextFormat;
 use eframe::egui::TextStyle;
 use eframe::egui::Visuals;
-use eframe::egui::style::Selection;
-use eframe::egui::style::WidgetVisuals;
-use eframe::egui::style::Widgets;
 use eframe::epaint::Color32;
 use eframe::epaint::FontFamily;
 use eframe::epaint::FontId;
@@ -19,14 +19,9 @@ use eframe::epaint::Rounding;
 use eframe::epaint::Shadow;
 use eframe::epaint::Stroke;
 
+#[derive(Default)]
 pub(crate) struct Roundy {
     dark_mode: bool,
-}
-
-impl Default for Roundy {
-    fn default() -> Self {
-        Self { dark_mode: false }
-    }
 }
 
 impl Theme for Roundy {
@@ -34,13 +29,15 @@ impl Theme for Roundy {
         self.dark_mode = dark_mode;
     }
     fn is_dark_mode(&self) -> bool {
-        return self.dark_mode
+        self.dark_mode
     }
     fn name(&self) -> &'static str {
-        return "Roundy"
+        "Roundy"
     }
     fn make_copy(&self) -> std::sync::Arc<dyn Theme> {
-        std::sync::Arc::new( Self{ dark_mode: self.dark_mode } )
+        std::sync::Arc::new(Self {
+            dark_mode: self.dark_mode,
+        })
     }
     fn get_style(&self) -> eframe::egui::Style {
         let mut style = egui::Style::default();
@@ -271,7 +268,7 @@ impl Theme for Roundy {
                 collapsing_header_frame: false,
             };
         }
-        return style
+        style
     }
 
     fn font_definitions(&self) -> FontDefinitions {
@@ -368,13 +365,25 @@ impl Theme for Roundy {
     }
 
     // feed styling
-    fn feed_scroll_fill(&self) -> eframe::egui::Color32 { Color32::TRANSPARENT }
-    fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke { eframe::egui::Stroke::NONE }
-    fn feed_frame_inner_margin(&self) -> eframe::egui::Margin { eframe::egui::Margin::symmetric(10.0,5.0) }
-    fn feed_frame_outer_margin(&self) ->  eframe::egui::Margin { eframe::egui::Margin::default() }
-    fn feed_frame_rounding(&self) ->  eframe::egui::Rounding { eframe::egui::Rounding::same( 7.0 ) }
-    fn feed_frame_shadow(&self) ->  eframe::epaint::Shadow { eframe::epaint::Shadow::default() }
-    fn feed_frame_fill(&self, is_new: bool, is_main_event: bool) ->  eframe::egui::Color32 {
+    fn feed_scroll_fill(&self) -> eframe::egui::Color32 {
+        Color32::TRANSPARENT
+    }
+    fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke {
+        eframe::egui::Stroke::NONE
+    }
+    fn feed_frame_inner_margin(&self) -> eframe::egui::Margin {
+        eframe::egui::Margin::symmetric(10.0, 5.0)
+    }
+    fn feed_frame_outer_margin(&self) -> eframe::egui::Margin {
+        eframe::egui::Margin::default()
+    }
+    fn feed_frame_rounding(&self) -> eframe::egui::Rounding {
+        eframe::egui::Rounding::same(7.0)
+    }
+    fn feed_frame_shadow(&self) -> eframe::epaint::Shadow {
+        eframe::epaint::Shadow::default()
+    }
+    fn feed_frame_fill(&self, is_new: bool, is_main_event: bool) -> eframe::egui::Color32 {
         if is_new && !is_main_event {
             if self.dark_mode {
                 Color32::from_rgb(45, 45, 46)
@@ -389,14 +398,14 @@ impl Theme for Roundy {
             }
         }
     }
-    fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool ) ->  eframe::egui::Stroke {
+    fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool) -> eframe::egui::Stroke {
         if is_main_event {
-            Stroke::new( 1.0, Color32::from_rgb(0x99, 0x66, 0x66) )
+            Stroke::new(1.0, Color32::from_rgb(0x99, 0x66, 0x66))
         } else {
             if is_new {
-                Stroke::new( 1.0, Color32::from_gray(0x99) )
+                Stroke::new(1.0, Color32::from_gray(0x99))
             } else {
-                Stroke::new( 1.0, Color32::from_gray(0x66) )
+                Stroke::new(1.0, Color32::from_gray(0x66))
             }
         }
     }

@@ -124,23 +124,24 @@ fn render_a_feed(
             y: app.current_scroll_offset * 2.0, // double speed
         })
         .show(ui, |ui| {
-            Frame::none().fill(super::theme::current_theme().feed_scroll_fill())
+            Frame::none()
+                .fill(super::theme::current_theme().feed_scroll_fill())
                 .show(ui, |ui| {
-                for id in feed.iter() {
-                    render_post_maybe_fake(
-                        app,
-                        ctx,
-                        frame,
-                        ui,
-                        FeedPostParams {
-                            id: *id,
-                            indent: 0,
-                            as_reply_to: false,
-                            threaded,
-                        },
-                    );
-                }
-            });
+                    for id in feed.iter() {
+                        render_post_maybe_fake(
+                            app,
+                            ctx,
+                            frame,
+                            ui,
+                            FeedPostParams {
+                                id: *id,
+                                indent: 0,
+                                as_reply_to: false,
+                                threaded,
+                            },
+                        );
+                    }
+                });
         });
 }
 
@@ -282,40 +283,40 @@ fn render_post_actual(
     let theme = super::theme::current_theme();
 
     let inner_response = Frame::none()
-            .inner_margin( theme.feed_frame_inner_margin() )
-            .outer_margin( theme.feed_frame_outer_margin() )
-            .rounding( theme.feed_frame_rounding() )
-            .shadow( theme.feed_frame_shadow() )
-            .fill( theme.feed_frame_fill(is_new, is_main_event) )
-            .stroke( theme.feed_frame_stroke(is_new, is_main_event) )
-            .show(ui, |ui| {
-        if is_main_event {
-            thin_red_separator(ui);
-        }
-
-        ui.add_space(4.0);
-
-        ui.horizontal_wrapped(|ui| {
-            // Indents first (if threaded)
-            if threaded {
-                let space = 100.0 * (10.0 - (1000.0 / (indent as f32 + 100.0)));
-                ui.add_space(space);
-                if indent > 0 {
-                    ui.label(RichText::new(format!("{}>", indent)).italics().weak());
-                }
+        .inner_margin(theme.feed_frame_inner_margin())
+        .outer_margin(theme.feed_frame_outer_margin())
+        .rounding(theme.feed_frame_rounding())
+        .shadow(theme.feed_frame_shadow())
+        .fill(theme.feed_frame_fill(is_new, is_main_event))
+        .stroke(theme.feed_frame_stroke(is_new, is_main_event))
+        .show(ui, |ui| {
+            if is_main_event {
+                thin_red_separator(ui);
             }
 
-            if person.muted > 0 {
-                ui.label(RichText::new("MUTED POST").monospace().italics());
-            } else {
-                render_post_inner(app, ctx, ui, event, person, is_main_event, as_reply_to);
+            ui.add_space(4.0);
+
+            ui.horizontal_wrapped(|ui| {
+                // Indents first (if threaded)
+                if threaded {
+                    let space = 100.0 * (10.0 - (1000.0 / (indent as f32 + 100.0)));
+                    ui.add_space(space);
+                    if indent > 0 {
+                        ui.label(RichText::new(format!("{}>", indent)).italics().weak());
+                    }
+                }
+
+                if person.muted > 0 {
+                    ui.label(RichText::new("MUTED POST").monospace().italics());
+                } else {
+                    render_post_inner(app, ctx, ui, event, person, is_main_event, as_reply_to);
+                }
+            });
+
+            if is_main_event {
+                thin_red_separator(ui);
             }
         });
-
-        if is_main_event {
-            thin_red_separator(ui);
-        }
-    });
 
     // Mark post as viewed if hovered AND we are not scrolling
     if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
@@ -326,7 +327,10 @@ fn render_post_actual(
     let bottom = ui.next_widget_position();
     app.height.insert(id, bottom.y - top.y);
 
-    thin_separator(ui, super::theme::current_theme().feed_post_separator_stroke() );
+    thin_separator(
+        ui,
+        super::theme::current_theme().feed_post_separator_stroke(),
+    );
 
     if threaded && !as_reply_to {
         let replies = Globals::get_replies_sync(id);
@@ -630,10 +634,13 @@ fn render_post_inner(
                 if app.settings.reactions {
                     let default_reaction_icon = match self_already_reacted {
                         true => "♥",
-                        false => "♡"
+                        false => "♡",
                     };
                     if ui
-                        .add(Label::new(RichText::new(default_reaction_icon).size(20.0)).sense(Sense::click()))
+                        .add(
+                            Label::new(RichText::new(default_reaction_icon).size(20.0))
+                                .sense(Sense::click()),
+                        )
                         .clicked()
                     {
                         let _ = GLOBALS
@@ -658,14 +665,26 @@ fn render_post_inner(
 }
 
 fn thin_red_separator(ui: &mut Ui) {
-    thin_separator(ui, Stroke { width: 1.0, color: Color32::from_rgb(160, 0, 0) } );
+    thin_separator(
+        ui,
+        Stroke {
+            width: 1.0,
+            color: Color32::from_rgb(160, 0, 0),
+        },
+    );
 }
 
 fn thin_blue_separator(ui: &mut Ui) {
-    thin_separator(ui, Stroke { width: 1.0, color: Color32::from_rgb(0, 0, 160) } );
+    thin_separator(
+        ui,
+        Stroke {
+            width: 1.0,
+            color: Color32::from_rgb(0, 0, 160),
+        },
+    );
 }
 
-fn thin_separator(ui: &mut Ui, stroke: Stroke ) {
+fn thin_separator(ui: &mut Ui, stroke: Stroke) {
     let mut style = ui.style_mut();
     style.visuals.widgets.noninteractive.bg_stroke = stroke;
     ui.add(Separator::default().spacing(0.0));
