@@ -282,4 +282,26 @@ impl Theme for Gossip {
 
         text_styles
     }
+
+    // feed styling
+    fn feed_frame_inner_margin(&self) -> eframe::egui::Margin { eframe::egui::Margin::default() }
+    fn feed_frame_outer_margin(&self) ->  eframe::egui::Margin { eframe::egui::Margin::default() }
+    fn feed_frame_rounding(&self) ->  eframe::egui::Rounding { eframe::egui::Rounding::default() }
+    fn feed_frame_shadow(&self) ->  eframe::epaint::Shadow { eframe::epaint::Shadow::default() }
+    fn feed_frame_fill(&self, is_new: bool, dark_mode: bool ) ->  eframe::egui::Color32 {
+        if is_new {
+            if dark_mode {
+                Color32::from_rgb(60, 0, 0)
+            } else {
+                Color32::LIGHT_YELLOW
+            }
+        } else {
+            if dark_mode {
+                Color32::BLACK
+            } else {
+                Color32::WHITE
+            }
+        }
+    }
+    fn feed_frame_stroke(&self, _:bool, _:bool ) ->  eframe::egui::Stroke { Stroke::NONE }
 }

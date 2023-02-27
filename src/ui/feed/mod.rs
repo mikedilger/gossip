@@ -273,19 +273,8 @@ fn render_post_actual(
         None => DbPerson::new(event.pubkey.into()),
     };
 
-    let bgcolor = if app.viewed.contains(&event.id) {
-        if ctx.style().visuals.dark_mode {
-            Color32::BLACK
-        } else {
-            Color32::WHITE
-        }
-    } else {
-        if ctx.style().visuals.dark_mode {
-            Color32::from_rgb(60, 0, 0)
-        } else {
-            Color32::LIGHT_YELLOW
-        }
-    };
+    let dark_mode = ctx.style().visuals.dark_mode;
+    let is_new = !app.viewed.contains(&event.id);
 
     let is_main_event: bool = {
         let feed_kind = GLOBALS.feed.get_feed_kind();
@@ -295,7 +284,16 @@ fn render_post_actual(
         }
     };
 
-    let inner_response = Frame::none().fill(bgcolor).show(ui, |ui| {
+    let theme = super::theme::current_theme();
+
+    let inner_response = Frame::none()
+            .inner_margin( theme.feed_frame_inner_margin() )
+            .outer_margin( theme.feed_frame_outer_margin() )
+            .rounding( theme.feed_frame_rounding() )
+            .shadow( theme.feed_frame_shadow() )
+            .fill( theme.feed_frame_fill(is_new, dark_mode) )
+            .stroke( theme.feed_frame_stroke(is_new, dark_mode) )
+            .show(ui, |ui| {
         if is_main_event {
             thin_red_separator(ui);
         }
