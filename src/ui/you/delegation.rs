@@ -5,15 +5,25 @@ use egui::{Context, TextEdit, Ui};
 use nostr_types::{PublicKey, PublicKeyHex, Signature, SignatureHex, Tag};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.heading("Delegation Tag");
+    ui.heading("Delegatee");
+    ui.add_space(24.0);
 
-    ui.label("Enter NIP-26 delegation tag, to post on the behalf of another indentity");
+    ui.label("Enter NIP-26 delegation tag, to post on the behalf of another indentity (delegatee)");
     // TODO validate&set automatically upon entry
     ui.add(
         TextEdit::multiline(&mut app.delegation_tag_str)
             .hint_text("full delegation tag, JSON")
             .desired_width(f32::INFINITY),
     );
+    ui.horizontal(|ui| {
+        ui.label("Delegator pubkey:");
+        let mut delegator_npub = "(not set)".to_string();
+        if let Some(pk) = app.delegation_delegator {
+            delegator_npub = pk.try_as_bech32_string().unwrap_or_default();
+        }
+        // TODO: read-only edit box so it can be copied?
+        ui.label(&delegator_npub);
+    });
     ui.horizontal(|ui| {
         if ui.button("Set").clicked() {
             app.delegation_tag = None;
@@ -32,15 +42,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             app.delegation_delegator = None;
         }
     });
-    ui.horizontal(|ui| {
-        ui.label("Delegator pubkey:");
-        let mut delegator_npub = "(not set)".to_string();
-        if let Some(pk) = app.delegation_delegator {
-            delegator_npub = pk.try_as_bech32_string().unwrap_or_default();
-        }
-        // TODO: read-only edit box so it can be copied?
-        ui.label(&delegator_npub);
-    });
+    ui.separator();
 }
 
 // Returns parsed tag & delegator pub; error is string (for simplicity)
