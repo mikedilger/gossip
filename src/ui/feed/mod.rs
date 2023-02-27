@@ -124,12 +124,8 @@ fn render_a_feed(
             y: app.current_scroll_offset * 2.0, // double speed
         })
         .show(ui, |ui| {
-            let bgcolor = if ctx.style().visuals.dark_mode {
-                Color32::BLACK
-            } else {
-                Color32::WHITE
-            };
-            Frame::none().fill(bgcolor).show(ui, |ui| {
+            Frame::none().fill(super::theme::current_theme().feed_scroll_fill())
+                .show(ui, |ui| {
                 for id in feed.iter() {
                     render_post_maybe_fake(
                         app,
@@ -273,7 +269,6 @@ fn render_post_actual(
         None => DbPerson::new(event.pubkey.into()),
     };
 
-    let dark_mode = ctx.style().visuals.dark_mode;
     let is_new = !app.viewed.contains(&event.id);
 
     let is_main_event: bool = {
@@ -291,8 +286,8 @@ fn render_post_actual(
             .outer_margin( theme.feed_frame_outer_margin() )
             .rounding( theme.feed_frame_rounding() )
             .shadow( theme.feed_frame_shadow() )
-            .fill( theme.feed_frame_fill(is_new, dark_mode) )
-            .stroke( theme.feed_frame_stroke(is_new, dark_mode) )
+            .fill( theme.feed_frame_fill(is_new, is_main_event) )
+            .stroke( theme.feed_frame_stroke(is_new, is_main_event) )
             .show(ui, |ui| {
         if is_main_event {
             thin_red_separator(ui);
@@ -331,7 +326,7 @@ fn render_post_actual(
     let bottom = ui.next_widget_position();
     app.height.insert(id, bottom.y - top.y);
 
-    ui.separator();
+    thin_separator(ui, super::theme::current_theme().feed_post_separator_stroke() );
 
     if threaded && !as_reply_to {
         let replies = Globals::get_replies_sync(id);
@@ -659,16 +654,16 @@ fn render_post_inner(
 }
 
 fn thin_red_separator(ui: &mut Ui) {
-    thin_separator(ui, Color32::from_rgb(160, 0, 0));
+    thin_separator(ui, Stroke { width: 1.0, color: Color32::from_rgb(160, 0, 0) } );
 }
 
 fn thin_blue_separator(ui: &mut Ui) {
-    thin_separator(ui, Color32::from_rgb(0, 0, 160));
+    thin_separator(ui, Stroke { width: 1.0, color: Color32::from_rgb(0, 0, 160) } );
 }
 
-fn thin_separator(ui: &mut Ui, color: Color32) {
+fn thin_separator(ui: &mut Ui, stroke: Stroke ) {
     let mut style = ui.style_mut();
-    style.visuals.widgets.noninteractive.bg_stroke = Stroke { width: 1.0, color };
+    style.visuals.widgets.noninteractive.bg_stroke = stroke;
     ui.add(Separator::default().spacing(0.0));
     ui.reset_style();
 }

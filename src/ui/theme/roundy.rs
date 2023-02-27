@@ -5,6 +5,7 @@ use crate::tags::HighlightType;
 use super::Theme;
 use eframe::egui;
 use eframe::egui::FontDefinitions;
+use eframe::egui::Margin;
 use eframe::egui::TextFormat;
 use eframe::egui::TextStyle;
 use eframe::egui::Visuals;
@@ -18,17 +19,17 @@ use eframe::epaint::Rounding;
 use eframe::epaint::Shadow;
 use eframe::epaint::Stroke;
 
-pub(crate) struct Gossip {
+pub(crate) struct Roundy {
     dark_mode: bool,
 }
 
-impl Default for Gossip {
+impl Default for Roundy {
     fn default() -> Self {
         Self { dark_mode: false }
     }
 }
 
-impl Theme for Gossip {
+impl Theme for Roundy {
     fn dark_mode(&mut self, dark_mode: bool) {
         self.dark_mode = dark_mode;
     }
@@ -36,7 +37,7 @@ impl Theme for Gossip {
         return self.dark_mode
     }
     fn name(&self) -> &'static str {
-        return "Gossip Default"
+        return "Roundy"
     }
     fn make_copy(&self) -> std::sync::Arc<dyn Theme> {
         std::sync::Arc::new( Self{ dark_mode: self.dark_mode } )
@@ -50,6 +51,7 @@ impl Theme for Gossip {
 
         // /// Horizontal and vertical margins within a window frame.
         // pub window_margin: Margin,
+        style.spacing.window_margin = Margin::symmetric(10.0, 5.0);
 
         // /// Button size is text size plus this on each side
         // pub button_padding: Vec2,
@@ -107,6 +109,7 @@ impl Theme for Gossip {
         // pub scroll_bar_outer_margin: f32,
 
         if self.dark_mode {
+            // ---- dark mode ------------------------------------------------------------------------------------------
             style.visuals = Visuals {
                 dark_mode: true,
                 widgets: Widgets {
@@ -187,6 +190,7 @@ impl Theme for Gossip {
                 collapsing_header_frame: false,
             };
         } else {
+            // ---- light mode -----------------------------------------------------------------------------------------
             style.visuals = Visuals {
                 dark_mode: false,
                 widgets: Widgets {
@@ -364,32 +368,36 @@ impl Theme for Gossip {
     }
 
     // feed styling
-    fn feed_scroll_fill(&self) -> eframe::egui::Color32 {
-        if self.dark_mode {
-            Color32::BLACK
-        } else {
-            Color32::WHITE
-        }
-    }
-    fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke { eframe::egui::Stroke::default() }
-    fn feed_frame_inner_margin(&self) -> eframe::egui::Margin { eframe::egui::Margin::default() }
+    fn feed_scroll_fill(&self) -> eframe::egui::Color32 { Color32::TRANSPARENT }
+    fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke { eframe::egui::Stroke::NONE }
+    fn feed_frame_inner_margin(&self) -> eframe::egui::Margin { eframe::egui::Margin::symmetric(10.0,5.0) }
     fn feed_frame_outer_margin(&self) ->  eframe::egui::Margin { eframe::egui::Margin::default() }
-    fn feed_frame_rounding(&self) ->  eframe::egui::Rounding { eframe::egui::Rounding::default() }
+    fn feed_frame_rounding(&self) ->  eframe::egui::Rounding { eframe::egui::Rounding::same( 7.0 ) }
     fn feed_frame_shadow(&self) ->  eframe::epaint::Shadow { eframe::epaint::Shadow::default() }
-    fn feed_frame_fill(&self, is_new: bool, _:bool) ->  eframe::egui::Color32 {
-        if is_new {
+    fn feed_frame_fill(&self, is_new: bool, is_main_event: bool) ->  eframe::egui::Color32 {
+        if is_new && !is_main_event {
             if self.dark_mode {
-                Color32::from_rgb(60, 0, 0)
+                Color32::from_rgb(45, 45, 46)
             } else {
                 Color32::LIGHT_YELLOW
             }
         } else {
             if self.dark_mode {
-                Color32::BLACK
+                Color32::from_rgb(36, 36, 37)
             } else {
                 Color32::WHITE
             }
         }
     }
-    fn feed_frame_stroke(&self, _:bool, _:bool ) ->  eframe::egui::Stroke { Stroke::NONE }
+    fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool ) ->  eframe::egui::Stroke {
+        if is_main_event {
+            Stroke::new( 1.0, Color32::from_rgb(0x99, 0x66, 0x66) )
+        } else {
+            if is_new {
+                Stroke::new( 1.0, Color32::from_gray(0x99) )
+            } else {
+                Stroke::new( 1.0, Color32::from_gray(0x66) )
+            }
+        }
+    }
 }

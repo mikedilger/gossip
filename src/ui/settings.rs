@@ -1,7 +1,7 @@
-use super::GossipUi;
+use super::{GossipUi, theme};
 use crate::comms::ToOverlordMessage;
 use crate::GLOBALS;
-use eframe::egui;
+use eframe::egui::{self, TextBuffer};
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout, ScrollArea, Ui, Vec2};
 
@@ -185,7 +185,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             .on_hover_text("Switch to dark mode")
                             .clicked()
                         {
-                            ui.ctx().set_visuals(super::theme::current_theme().dark_mode().visuals);
+                            super::theme::set_dark_mode(true, ui.ctx());
                             app.settings.light_mode = false;
                         }
                     } else {
@@ -194,10 +194,23 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             .on_hover_text("Switch to light mode")
                             .clicked()
                         {
-                            ui.ctx().set_visuals(super::theme::current_theme().light_mode().visuals);
+                            super::theme::set_dark_mode(false, ui.ctx());
                             app.settings.light_mode = true;
                         }
                     }
+                    let theme_combo = egui::ComboBox::from_label("Theme");
+                    theme_combo
+                        .selected_text( theme::current_theme().name().as_str() )
+                        .show_ui(ui, |ui| {
+                        let themes = theme::list_themes();
+                        for theme in themes {
+                            let some_theme = Some(String::from(theme));
+                            let selected = some_theme == Some(String::from(theme::current_theme().name()));
+                            if ui.add(egui::widgets::SelectableLabel::new(selected, theme)).clicked() {
+                                theme::switch(&some_theme, ui.ctx());
+                            };
+                        }
+                    });
                 });
 
                 ui.horizontal(|ui| {

@@ -178,17 +178,9 @@ impl GossipUi {
             });
         }
 
-        if !settings.light_mode {
-            cctx.egui_ctx.set_style(theme::current_theme().dark_mode())
-        } else {
-            cctx.egui_ctx.set_style(theme::current_theme().light_mode())
-        };
-
-        cctx.egui_ctx.set_fonts(theme::current_theme().font_definitions());
-
-        let mut style: egui::Style = (*cctx.egui_ctx.style()).clone();
-        style.text_styles = theme::current_theme().text_styles();
-        cctx.egui_ctx.set_style(style);
+        // Set-up Theme and dark_mode selection
+        theme::set_dark_mode(!settings.light_mode, &cctx.egui_ctx);
+        theme::switch(&settings.theme, &cctx.egui_ctx);
 
         let icon_texture_handle = {
             let bytes = include_bytes!("../../gossip.png");

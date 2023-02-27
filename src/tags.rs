@@ -103,7 +103,7 @@ pub(crate) enum HighlightType {
 }
 
 #[memoize]
-pub fn textarea_highlighter(text: String, dark_mode: bool) -> LayoutJob {
+pub fn textarea_highlighter(text: String) -> LayoutJob {
     let mut job = LayoutJob::default();
 
     let ids = notes_from_text(&text);
@@ -139,7 +139,7 @@ pub fn textarea_highlighter(text: String, dark_mode: bool) -> LayoutJob {
         job.append(
             chunk,
             0.0,
-            crate::ui::theme::current_theme().highlight_text_format(highlight, dark_mode),
+            crate::ui::theme::current_theme().highlight_text_format(highlight),
         );
 
         curr = index;
