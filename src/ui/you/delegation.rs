@@ -1,5 +1,5 @@
 use super::GossipUi;
-// use crate::globals::GLOBALS;
+use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, TextEdit, Ui};
 use nostr_types::{PublicKey, PublicKeyHex, Signature, SignatureHex, Tag};
@@ -8,7 +8,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.heading("Delegatee");
     ui.add_space(24.0);
 
-    ui.label("Enter NIP-26 delegation tag, to post on the behalf of another indentity (delegatee)");
+    ui.label("Enter NIP-26 delegation tag, to post on the behalf of another indentity (I will be the delegatee)");
     // TODO validate&set automatically upon entry
     ui.add(
         TextEdit::multiline(&mut app.delegation_tag_str)
@@ -26,20 +26,22 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
     ui.horizontal(|ui| {
         if ui.button("Set").clicked() {
-            app.delegation_tag = None;
             match parse_delegation_tag(&app.delegation_tag_str) {
-                Err(_e) => {}, // TODO *GLOBALS.status_message.write().await = format!("Could not parse tag {e}"),
+                Err(e) => *GLOBALS.status_message.blocking_write() = format!("Could not parse tag {e}"),
                 Ok((tag, delegator_pubkey)) => {
                     app.delegation_tag = Some(tag);
                     app.delegation_delegator = Some(delegator_pubkey);
-                    // TODO *GLOBALS.status_message.write().await = format!("Delegation tag set, delegator {pubkeybech}");
+                    *GLOBALS.status_message.blocking_write() = format!("Delegation tag set, delegator: {}", delegator_pubkey.try_as_bech32_string().unwrap_or_default());
                 },
             }
         }
-        if ui.button("Reset").clicked() {
-            app.delegation_tag = None;
-            app.delegation_tag_str = String::new();
-            app.delegation_delegator = None;
+        if ui.button("Remove").clicked() {
+            if app.delegation_tag != None || !app.delegation_tag_str.is_empty() || app.delegation_delegator != None {
+                app.delegation_tag = None;
+                app.delegation_tag_str = String::new();
+                app.delegation_delegator = None;
+                *GLOBALS.status_message.blocking_write() = format!("Delegation tag removed");
+            }
         }
     });
     ui.separator();
