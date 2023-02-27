@@ -67,6 +67,7 @@ enum Page {
     Person(PublicKeyHex),
     YourKeys,
     YourMetadata,
+    YourDelegation,
     RelaysLive,
     RelaysAll,
     Settings,
@@ -122,6 +123,9 @@ struct GossipUi {
     // User entry: metadata
     editing_metadata: bool,
     metadata: Metadata,
+
+    // User entry: delegation
+    delegation_tag: String,
 
     // User entry: general
     nprofile_follow: String,
@@ -259,6 +263,7 @@ impl GossipUi {
             replying_to: None,
             editing_metadata: false,
             metadata: Metadata::new(),
+            delegation_tag: "".to_owned(),
             nprofile_follow: "".to_owned(),
             nip05follow: "".to_owned(),
             follow_pubkey: "".to_owned(),
@@ -402,7 +407,9 @@ impl eframe::App for GossipUi {
                 ui.separator();
                 if ui
                     .add(SelectableLabel::new(
-                        self.page == Page::YourKeys || self.page == Page::YourMetadata,
+                        self.page == Page::YourKeys
+                            || self.page == Page::YourMetadata
+                            || self.page == Page::YourDelegation,
                         "You",
                     ))
                     .clicked()
@@ -464,7 +471,9 @@ impl eframe::App for GossipUi {
             Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
                 people::update(self, ctx, frame, ui)
             }
-            Page::YourKeys | Page::YourMetadata => you::update(self, ctx, frame, ui),
+            Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
+                you::update(self, ctx, frame, ui)
+            }
             Page::RelaysLive | Page::RelaysAll => relays::update(self, ctx, frame, ui),
             Page::Settings => settings::update(self, ctx, frame, ui),
             Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
