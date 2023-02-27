@@ -185,7 +185,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             .on_hover_text("Switch to dark mode")
                             .clicked()
                         {
-                            ui.ctx().set_visuals(super::style::dark_mode_visuals());
+                            ui.ctx().set_visuals(super::theme::current_theme().dark_mode().visuals);
                             app.settings.light_mode = false;
                         }
                     } else {
@@ -194,7 +194,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             .on_hover_text("Switch to light mode")
                             .clicked()
                         {
-                            ui.ctx().set_visuals(super::style::light_mode_visuals());
+                            ui.ctx().set_visuals(super::theme::current_theme().light_mode().visuals);
                             app.settings.light_mode = true;
                         }
                     }

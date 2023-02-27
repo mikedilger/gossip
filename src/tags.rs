@@ -139,7 +139,7 @@ pub fn textarea_highlighter(text: String, dark_mode: bool) -> LayoutJob {
         job.append(
             chunk,
             0.0,
-            crate::ui::style::highlight_text_format(highlight, dark_mode),
+            crate::ui::theme::current_theme().highlight_text_format(highlight, dark_mode),
         );
 
         curr = index;

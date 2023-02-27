@@ -3,7 +3,7 @@ mod help;
 mod people;
 mod relays;
 mod settings;
-pub(crate) mod style;
+pub(crate) mod theme;
 mod widgets;
 mod you;
 
@@ -15,7 +15,7 @@ use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::settings::Settings;
 use crate::ui::widgets::CopyButton;
-use eframe::{egui, IconData, Theme};
+use eframe::{egui, IconData};
 use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
@@ -34,7 +34,7 @@ pub fn run() -> Result<(), Error> {
     let options = eframe::NativeOptions {
         decorated: true,
         drag_and_drop_support: true,
-        default_theme: Theme::Light,
+        default_theme: eframe::Theme::Light,
         icon_data: Some(IconData {
             rgba: icon.into_raw(),
             width: icon_width,
@@ -179,15 +179,15 @@ impl GossipUi {
         }
 
         if !settings.light_mode {
-            cctx.egui_ctx.set_visuals(style::dark_mode_visuals());
+            cctx.egui_ctx.set_style(theme::current_theme().dark_mode())
         } else {
-            cctx.egui_ctx.set_visuals(style::light_mode_visuals());
+            cctx.egui_ctx.set_style(theme::current_theme().light_mode())
         };
 
-        cctx.egui_ctx.set_fonts(style::font_definitions());
+        cctx.egui_ctx.set_fonts(theme::current_theme().font_definitions());
 
         let mut style: egui::Style = (*cctx.egui_ctx.style()).clone();
-        style.text_styles = style::text_styles();
+        style.text_styles = theme::current_theme().text_styles();
         cctx.egui_ctx.set_style(style);
 
         let icon_texture_handle = {
