@@ -1606,6 +1606,7 @@ dependencies = [
  "dashmap",
  "dirs",
  "eframe",
+ "egui-winit",
  "egui_extras",
  "encoding_rs",
  "futures",
