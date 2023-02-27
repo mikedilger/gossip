@@ -27,16 +27,24 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         if ui.button("Set").clicked() {
             match parse_delegation_tag(&app.delegation_tag_str) {
-                Err(e) => *GLOBALS.status_message.blocking_write() = format!("Could not parse tag {e}"),
+                Err(e) => {
+                    *GLOBALS.status_message.blocking_write() = format!("Could not parse tag {e}")
+                }
                 Ok((tag, delegator_pubkey)) => {
                     app.delegation_tag = Some(tag);
                     app.delegation_delegator = Some(delegator_pubkey);
-                    *GLOBALS.status_message.blocking_write() = format!("Delegation tag set, delegator: {}", delegator_pubkey.try_as_bech32_string().unwrap_or_default());
-                },
+                    *GLOBALS.status_message.blocking_write() = format!(
+                        "Delegation tag set, delegator: {}",
+                        delegator_pubkey.try_as_bech32_string().unwrap_or_default()
+                    );
+                }
             }
         }
         if ui.button("Remove").clicked() {
-            if app.delegation_tag != None || !app.delegation_tag_str.is_empty() || app.delegation_delegator != None {
+            if app.delegation_tag != None
+                || !app.delegation_tag_str.is_empty()
+                || app.delegation_delegator != None
+            {
                 app.delegation_tag = None;
                 app.delegation_tag_str = String::new();
                 app.delegation_delegator = None;
@@ -56,7 +64,8 @@ fn parse_delegation_tag(tag: &str) -> Result<(Tag, PublicKey), String> {
             if !jv.is_array() || jv.len() < 4 {
                 return Err(format!("Expected array with 4 elements"));
             }
-            if !jv[0].is_string() || !jv[1].is_string() || !jv[2].is_string() || !jv[3].is_string() {
+            if !jv[0].is_string() || !jv[1].is_string() || !jv[2].is_string() || !jv[3].is_string()
+            {
                 return Err(format!("Expected array with 4 strings"));
             }
             if jv[0].as_str().unwrap() != "delegation" {
@@ -69,10 +78,19 @@ fn parse_delegation_tag(tag: &str) -> Result<(Tag, PublicKey), String> {
                     let conditions = jv[2].as_str().unwrap().to_string();
                     let sig_str = jv[3].as_str().unwrap();
                     match Signature::try_from_hex_string(sig_str) {
-                        Err(e) => return Err(format!("Could not parse signature, {}", e.to_string())),
+                        Err(e) => {
+                            return Err(format!("Could not parse signature, {}", e.to_string()))
+                        }
                         Ok(signature) => {
                             let sig = SignatureHex::from(signature);
-                            Ok((Tag::Delegation { pubkey, conditions, sig }, public_key))
+                            Ok((
+                                Tag::Delegation {
+                                    pubkey,
+                                    conditions,
+                                    sig,
+                                },
+                                public_key,
+                            ))
                         }
                     }
                 }
