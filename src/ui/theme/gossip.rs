@@ -369,7 +369,11 @@ impl Theme for Gossip {
         }
     }
     fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke {
-        eframe::egui::Stroke::default()
+        if self.dark_mode {
+            Stroke::new(1.0, Color32::from_gray(72))
+        } else {
+            Stroke::new(1.0, Color32::from_gray(192))
+        }
     }
     fn feed_frame_inner_margin(&self) -> eframe::egui::Margin {
         eframe::egui::Margin::default()
@@ -399,6 +403,6 @@ impl Theme for Gossip {
         }
     }
     fn feed_frame_stroke(&self, _: bool, _: bool) -> eframe::egui::Stroke {
-        Stroke::NONE
+         Stroke::NONE
     }
 }
