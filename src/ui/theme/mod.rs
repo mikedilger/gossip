@@ -7,6 +7,9 @@ use eframe::epaint::{FontFamily, FontId, Shadow};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+mod classic;
+pub use classic::ClassicTheme;
+
 mod default;
 pub use default::DefaultTheme;
 
@@ -23,6 +26,7 @@ pub fn apply_theme(theme: Theme, dark_mode: bool, ctx: &Context) {
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Theme {
+    Classic,
     Default,
     Roundy,
 }
@@ -120,8 +124,12 @@ macro_rules! theme_dispatch {
 }
 
 theme_dispatch!(
-    Theme::Default, DefaultTheme,
-    Theme::Roundy, RoundyTheme
+    Theme::Classic,
+    ClassicTheme,
+    Theme::Default,
+    DefaultTheme,
+    Theme::Roundy,
+    RoundyTheme
 );
 
 pub trait ThemeDef: Send + Sync {
