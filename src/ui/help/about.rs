@@ -53,7 +53,7 @@ We are storing data on your system in this directory: {}. This data is only used
                 .text_style(TextStyle::Small)
         );
         ui.label(
-            RichText::new(&app.about.authors)
+            RichText::new(app.about.authors.replace(':', "\n"))
                 .text_style(TextStyle::Small)
         );
 
