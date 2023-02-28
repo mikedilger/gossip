@@ -1,7 +1,7 @@
-use super::{theme, GossipUi};
+use super::{GossipUi, Theme};
 use crate::comms::ToOverlordMessage;
 use crate::GLOBALS;
-use eframe::egui::{self, TextBuffer};
+use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout, ScrollArea, Ui, Vec2};
 
@@ -185,7 +185,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             .on_hover_text("Switch to dark mode")
                             .clicked()
                         {
-                            super::theme::set_dark_mode(true, ui.ctx());
                             app.settings.light_mode = false;
                         }
                     } else {
@@ -194,21 +193,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             .on_hover_text("Switch to light mode")
                             .clicked()
                         {
-                            super::theme::set_dark_mode(false, ui.ctx());
                             app.settings.light_mode = true;
                         }
                     }
                     let theme_combo = egui::ComboBox::from_label("Theme");
                     theme_combo
-                        .selected_text( theme::current_theme().name().as_str() )
+                        .selected_text( app.settings.theme.name() )
                         .show_ui(ui, |ui| {
-                            let themes = theme::list_themes();
-                            for theme in themes {
-                                let some_theme = Some(String::from(theme));
-                                let selected = some_theme == Some(String::from(theme::current_theme().name()));
-                                if ui.add(egui::widgets::SelectableLabel::new(selected, theme)).clicked() {
-                                    theme::switch(&some_theme, ui.ctx());
-                                    app.settings.theme = some_theme;
+                            for theme in Theme::all() {
+                                if ui.add(egui::widgets::SelectableLabel::new(*theme == app.settings.theme, theme.name())).clicked() {
+                                    app.settings.theme = theme.to_owned();
+                                    super::theme::apply_theme(app.settings.theme, !app.settings.light_mode, ctx);
                                 };
                             }
                         });

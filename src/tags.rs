@@ -1,6 +1,4 @@
 use crate::db::DbRelay;
-use eframe::epaint::text::LayoutJob;
-use memoize::memoize;
 use nostr_types::{Id, PublicKey, PublicKeyHex, Tag};
 
 pub fn keys_from_text(text: &str) -> Vec<(String, PublicKey)> {
@@ -94,58 +92,6 @@ pub fn add_subject_to_tags_if_missing(existing_tags: &mut Vec<Tag>, subject: Str
     if !existing_tags.iter().any(|t| matches!(t, Tag::Subject(_))) {
         existing_tags.push(Tag::Subject(subject));
     }
-}
-
-pub(crate) enum HighlightType {
-    Nothing,
-    PublicKey,
-    Event,
-}
-
-#[memoize]
-pub fn textarea_highlighter(text: String) -> LayoutJob {
-    let mut job = LayoutJob::default();
-
-    let ids = notes_from_text(&text);
-    let pks = keys_from_text(&text);
-
-    // we will gather indices such that we can split the text in chunks
-    let mut indices: Vec<(usize, HighlightType)> = vec![];
-    for pk in pks {
-        for m in text.match_indices(&pk.0) {
-            indices.push((m.0, HighlightType::Nothing));
-            indices.push((m.0 + pk.0.len(), HighlightType::PublicKey));
-        }
-    }
-    for id in ids {
-        for m in text.match_indices(&id.0) {
-            indices.push((m.0, HighlightType::Nothing));
-            indices.push((m.0 + id.0.len(), HighlightType::Event));
-        }
-    }
-    indices.sort_by_key(|x| x.0);
-    indices.dedup_by_key(|x| x.0);
-
-    // add a breakpoint at the end if it doesn't exist
-    if indices.is_empty() || indices[indices.len() - 1].0 != text.len() {
-        indices.push((text.len(), HighlightType::Nothing));
-    }
-
-    // now we will add each chunk back to the textarea with custom formatting
-    let mut curr = 0;
-    for (index, highlight) in indices {
-        let chunk = &text[curr..index];
-
-        job.append(
-            chunk,
-            0.0,
-            crate::ui::theme::current_theme().highlight_text_format(highlight),
-        );
-
-        curr = index;
-    }
-
-    job
 }
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::ui::Theme;
 use nostr_types::PublicKey;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
@@ -14,6 +15,7 @@ pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 3500;
 pub const DEFAULT_POW: u8 = 0;
 pub const DEFAULT_OFFLINE: bool = false;
 pub const DEFAULT_LIGHT_MODE: bool = true; // true = light false = dark
+pub const DEFAULT_THEME: Theme = Theme::GossipDefault;
 pub const DEFAULT_SET_CLIENT_TAG: bool = false;
 pub const DEFAULT_SET_USER_AGENT: bool = false;
 pub const DEFAULT_OVERRIDE_DPI: Option<u32> = None;
@@ -26,7 +28,7 @@ pub const DEFAULT_REPLIES_IN_FOLLOWS: bool = true;
 pub const DEFAULT_DIRECT_MESSAGES: bool = true;
 pub const DEFAULT_AUTOMATICALLY_FETCH_METADATA: bool = true;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Settings {
     pub feed_chunk: u64,
     pub replies_chunk: u64,
@@ -39,7 +41,7 @@ pub struct Settings {
     pub pow: u8,
     pub offline: bool,
     pub light_mode: bool,
-    pub theme: Option<String>,
+    pub theme: Theme,
     pub set_client_tag: bool,
     pub set_user_agent: bool,
     pub override_dpi: Option<u32>,
@@ -67,7 +69,7 @@ impl Default for Settings {
             pow: DEFAULT_POW,
             offline: DEFAULT_OFFLINE,
             light_mode: DEFAULT_LIGHT_MODE,
-            theme: None,
+            theme: DEFAULT_THEME,
             set_client_tag: DEFAULT_SET_CLIENT_TAG,
             set_user_agent: DEFAULT_SET_USER_AGENT,
             override_dpi: DEFAULT_OVERRIDE_DPI,
@@ -132,7 +134,15 @@ impl Settings {
                 "pow" => settings.pow = row.1.parse::<u8>().unwrap_or(DEFAULT_POW),
                 "offline" => settings.offline = numstr_to_bool(row.1),
                 "light_mode" => settings.light_mode = numstr_to_bool(row.1),
-                "theme" => settings.theme = Some(row.1),
+                "theme" => {
+                    settings.theme = Theme::GossipDefault;
+                    for theme in Theme::all() {
+                        if &*row.1 == theme.name() {
+                            settings.theme = theme.to_owned();
+                            break;
+                        }
+                    }
+                }
                 "set_client_tag" => settings.set_client_tag = numstr_to_bool(row.1),
                 "set_user_agent" => settings.set_user_agent = numstr_to_bool(row.1),
                 "override_dpi" => {
@@ -186,6 +196,7 @@ impl Settings {
              ('pow', ?),\
              ('offline', ?),\
              ('light_mode', ?),\
+             ('theme', ?),\
              ('set_client_tag', ?),\
              ('set_user_agent', ?),\
              ('reactions', ?),\
@@ -208,6 +219,7 @@ impl Settings {
             self.pow,
             bool_to_numstr(self.offline),
             bool_to_numstr(self.light_mode),
+            self.theme.name(),
             bool_to_numstr(self.set_client_tag),
             bool_to_numstr(self.set_user_agent),
             bool_to_numstr(self.reactions),
@@ -242,16 +254,6 @@ impl Settings {
         } else {
             // Otherwise delete any such setting
             let mut stmt = db.prepare("DELETE FROM settings WHERE key='public_key'")?;
-            stmt.execute(())?;
-        }
-
-        // Save theme name
-        if let Some(ref name) = self.theme {
-            let mut stmt = db.prepare("REPLACE INTO SETTINGS (key, value) VALUES ('theme', ?)")?;
-            stmt.execute((name,))?;
-        } else {
-            // Otherwise delete any such setting
-            let mut stmt = db.prepare("DELETE FROM settings WHERE key='theme'")?;
             stmt.execute(())?;
         }
 

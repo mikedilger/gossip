@@ -1,11 +1,59 @@
 use super::FeedPostParams;
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
-use crate::tags::{keys_from_text, textarea_highlighter};
-use crate::ui::{GossipUi, Page};
+use crate::tags::{keys_from_text, notes_from_text};
+use crate::ui::{GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
+use eframe::epaint::text::LayoutJob;
 use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, Ui, Vec2};
+use memoize::memoize;
 use nostr_types::Tag;
+
+#[memoize]
+pub fn textarea_highlighter(theme: Theme, dark_mode: bool, text: String) -> LayoutJob {
+    let mut job = LayoutJob::default();
+
+    let ids = notes_from_text(&text);
+    let pks = keys_from_text(&text);
+
+    // we will gather indices such that we can split the text in chunks
+    let mut indices: Vec<(usize, HighlightType)> = vec![];
+    for pk in pks {
+        for m in text.match_indices(&pk.0) {
+            indices.push((m.0, HighlightType::Nothing));
+            indices.push((m.0 + pk.0.len(), HighlightType::PublicKey));
+        }
+    }
+    for id in ids {
+        for m in text.match_indices(&id.0) {
+            indices.push((m.0, HighlightType::Nothing));
+            indices.push((m.0 + id.0.len(), HighlightType::Event));
+        }
+    }
+    indices.sort_by_key(|x| x.0);
+    indices.dedup_by_key(|x| x.0);
+
+    // add a breakpoint at the end if it doesn't exist
+    if indices.is_empty() || indices[indices.len() - 1].0 != text.len() {
+        indices.push((text.len(), HighlightType::Nothing));
+    }
+
+    // now we will add each chunk back to the textarea with custom formatting
+    let mut curr = 0;
+    for (index, highlight) in indices {
+        let chunk = &text[curr..index];
+
+        job.append(
+            chunk,
+            0.0,
+            theme.highlight_text_format(highlight, dark_mode),
+        );
+
+        curr = index;
+    }
+
+    job
+}
 
 pub(super) fn posting_area(
     app: &mut GossipUi,
@@ -63,8 +111,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 
     // Text area
+    let theme = app.settings.theme;
+    let dark_mode = !app.settings.light_mode;
     let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-        let mut layout_job = textarea_highlighter(text.to_owned());
+        let mut layout_job = textarea_highlighter(theme, dark_mode, text.to_owned());
         layout_job.wrap.max_width = wrap_width;
         ui.fonts(|f| f.layout_job(layout_job))
     };

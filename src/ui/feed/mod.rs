@@ -125,7 +125,11 @@ fn render_a_feed(
         })
         .show(ui, |ui| {
             Frame::none()
-                .fill(super::theme::current_theme().feed_scroll_fill())
+                .fill(
+                    app.settings
+                        .theme
+                        .feed_scroll_fill(!app.settings.light_mode),
+                )
                 .show(ui, |ui| {
                     for id in feed.iter() {
                         render_post_maybe_fake(
@@ -280,15 +284,25 @@ fn render_post_actual(
         }
     };
 
-    let theme = super::theme::current_theme();
-
     let inner_response = Frame::none()
-        .inner_margin(theme.feed_frame_inner_margin())
-        .outer_margin(theme.feed_frame_outer_margin())
-        .rounding(theme.feed_frame_rounding())
-        .shadow(theme.feed_frame_shadow())
-        .fill(theme.feed_frame_fill(is_new, is_main_event))
-        .stroke(theme.feed_frame_stroke(is_new, is_main_event))
+        .inner_margin(app.settings.theme.feed_frame_inner_margin())
+        .outer_margin(app.settings.theme.feed_frame_outer_margin())
+        .rounding(app.settings.theme.feed_frame_rounding())
+        .shadow(
+            app.settings
+                .theme
+                .feed_frame_shadow(!app.settings.light_mode),
+        )
+        .fill(
+            app.settings
+                .theme
+                .feed_frame_fill(is_new, is_main_event, !app.settings.light_mode),
+        )
+        .stroke(app.settings.theme.feed_frame_stroke(
+            is_new,
+            is_main_event,
+            !app.settings.light_mode,
+        ))
         .show(ui, |ui| {
             if is_main_event {
                 thin_red_separator(ui);
@@ -329,7 +343,9 @@ fn render_post_actual(
 
     thin_separator(
         ui,
-        super::theme::current_theme().feed_post_separator_stroke(),
+        app.settings
+            .theme
+            .feed_post_separator_stroke(!app.settings.light_mode),
     );
 
     if threaded && !as_reply_to {

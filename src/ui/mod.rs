@@ -3,7 +3,7 @@ mod help;
 mod people;
 mod relays;
 mod settings;
-pub(crate) mod theme;
+mod theme;
 mod widgets;
 mod you;
 
@@ -14,6 +14,7 @@ use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::settings::Settings;
+pub use crate::ui::theme::Theme;
 use crate::ui::widgets::CopyButton;
 use eframe::{egui, IconData};
 use egui::{
@@ -73,6 +74,12 @@ enum Page {
     HelpHelp,
     HelpStats,
     HelpAbout,
+}
+
+pub enum HighlightType {
+    Nothing,
+    PublicKey,
+    Event,
 }
 
 struct GossipUi {
@@ -178,10 +185,6 @@ impl GossipUi {
             });
         }
 
-        // Set-up Theme and dark_mode selection
-        theme::set_dark_mode(!settings.light_mode, &cctx.egui_ctx);
-        theme::switch(&settings.theme, &cctx.egui_ctx);
-
         let icon_texture_handle = {
             let bytes = include_bytes!("../../gossip.png");
             let image = image::load_from_memory(bytes).unwrap();
@@ -219,6 +222,9 @@ impl GossipUi {
         } else {
             Page::Feed(FeedKind::General)
         };
+
+        // Apply current theme
+        theme::apply_theme(settings.theme, !settings.light_mode, &cctx.egui_ctx);
 
         GossipUi {
             next_frame: Instant::now(),

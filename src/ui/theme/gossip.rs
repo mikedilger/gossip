@@ -1,44 +1,20 @@
+use super::ThemeDef;
+use crate::ui::HighlightType;
+use eframe::egui;
+use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
+use eframe::egui::{FontDefinitions, TextFormat, TextStyle, Visuals};
+use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
 use std::collections::BTreeMap;
 
-use crate::tags::HighlightType;
-
-use super::Theme;
-use eframe::egui;
-use eframe::egui::style::Selection;
-use eframe::egui::style::WidgetVisuals;
-use eframe::egui::style::Widgets;
-use eframe::egui::FontDefinitions;
-use eframe::egui::TextFormat;
-use eframe::egui::TextStyle;
-use eframe::egui::Visuals;
-use eframe::epaint::Color32;
-use eframe::epaint::FontFamily;
-use eframe::epaint::FontId;
-use eframe::epaint::Rounding;
-use eframe::epaint::Shadow;
-use eframe::epaint::Stroke;
-
 #[derive(Default)]
-pub(crate) struct Gossip {
-    dark_mode: bool,
-}
+pub struct GossipTheme {}
 
-impl Theme for Gossip {
-    fn dark_mode(&mut self, dark_mode: bool) {
-        self.dark_mode = dark_mode;
-    }
-    fn is_dark_mode(&self) -> bool {
-        self.dark_mode
-    }
-    fn name(&self) -> &'static str {
+impl ThemeDef for GossipTheme {
+    fn name() -> &'static str {
         "Gossip Default"
     }
-    fn make_copy(&self) -> std::sync::Arc<dyn Theme> {
-        std::sync::Arc::new(Self {
-            dark_mode: self.dark_mode,
-        })
-    }
-    fn get_style(&self) -> eframe::egui::Style {
+
+    fn get_style(dark_mode: bool) -> eframe::egui::Style {
         let mut style = egui::Style::default();
 
         // /// `item_spacing` is inserted _after_ adding a widget, so to increase the spacing between
@@ -103,7 +79,7 @@ impl Theme for Gossip {
         // /// Margin between scroll bar and the outer container (e.g. right of a vertical scroll bar).
         // pub scroll_bar_outer_margin: f32,
 
-        if self.dark_mode {
+        if dark_mode {
             style.visuals = Visuals {
                 dark_mode: true,
                 widgets: Widgets {
@@ -267,54 +243,11 @@ impl Theme for Gossip {
         style
     }
 
-    fn font_definitions(&self) -> FontDefinitions {
+    fn font_definitions() -> FontDefinitions {
         super::font_definitions() // use default gossip font definitions
     }
 
-    fn highlight_text_format(&self, highlight_type: HighlightType) -> TextFormat {
-        let main = if self.dark_mode {
-            Color32::WHITE
-        } else {
-            Color32::BLACK
-        };
-        let grey = if self.dark_mode {
-            Color32::DARK_GRAY
-        } else {
-            Color32::LIGHT_GRAY
-        };
-        let green = if self.dark_mode {
-            Color32::LIGHT_GREEN
-        } else {
-            Color32::DARK_GREEN
-        };
-        let red = if self.dark_mode {
-            Color32::LIGHT_RED
-        } else {
-            Color32::DARK_RED
-        };
-
-        match highlight_type {
-            HighlightType::Nothing => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Proportional),
-                color: main,
-                ..Default::default()
-            },
-            HighlightType::PublicKey => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Monospace),
-                background: grey,
-                color: green,
-                ..Default::default()
-            },
-            HighlightType::Event => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Monospace),
-                background: grey,
-                color: red,
-                ..Default::default()
-            },
-        }
-    }
-
-    fn text_styles(&self) -> BTreeMap<TextStyle, FontId> {
+    fn text_styles() -> BTreeMap<TextStyle, FontId> {
         let mut text_styles: BTreeMap<TextStyle, FontId> = BTreeMap::new();
 
         text_styles.insert(
@@ -360,49 +293,92 @@ impl Theme for Gossip {
         text_styles
     }
 
+    fn highlight_text_format(highlight_type: HighlightType, dark_mode: bool) -> TextFormat {
+        let main = if dark_mode {
+            Color32::WHITE
+        } else {
+            Color32::BLACK
+        };
+        let grey = if dark_mode {
+            Color32::DARK_GRAY
+        } else {
+            Color32::LIGHT_GRAY
+        };
+        let green = if dark_mode {
+            Color32::LIGHT_GREEN
+        } else {
+            Color32::DARK_GREEN
+        };
+        let red = if dark_mode {
+            Color32::LIGHT_RED
+        } else {
+            Color32::DARK_RED
+        };
+
+        match highlight_type {
+            HighlightType::Nothing => TextFormat {
+                font_id: FontId::new(12.5, FontFamily::Proportional),
+                color: main,
+                ..Default::default()
+            },
+            HighlightType::PublicKey => TextFormat {
+                font_id: FontId::new(12.5, FontFamily::Monospace),
+                background: grey,
+                color: green,
+                ..Default::default()
+            },
+            HighlightType::Event => TextFormat {
+                font_id: FontId::new(12.5, FontFamily::Monospace),
+                background: grey,
+                color: red,
+                ..Default::default()
+            },
+        }
+    }
+
     // feed styling
-    fn feed_scroll_fill(&self) -> eframe::egui::Color32 {
-        if self.dark_mode {
+    fn feed_scroll_fill(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
             Color32::BLACK
         } else {
             Color32::WHITE
         }
     }
-    fn feed_post_separator_stroke(&self) -> eframe::egui::Stroke {
-        if self.dark_mode {
+    fn feed_post_separator_stroke(dark_mode: bool) -> eframe::egui::Stroke {
+        if dark_mode {
             Stroke::new(1.0, Color32::from_gray(72))
         } else {
             Stroke::new(1.0, Color32::from_gray(192))
         }
     }
-    fn feed_frame_inner_margin(&self) -> eframe::egui::Margin {
+    fn feed_frame_inner_margin() -> eframe::egui::Margin {
         eframe::egui::Margin::default()
     }
-    fn feed_frame_outer_margin(&self) -> eframe::egui::Margin {
+    fn feed_frame_outer_margin() -> eframe::egui::Margin {
         eframe::egui::Margin::default()
     }
-    fn feed_frame_rounding(&self) -> eframe::egui::Rounding {
+    fn feed_frame_rounding() -> eframe::egui::Rounding {
         eframe::egui::Rounding::default()
     }
-    fn feed_frame_shadow(&self) -> eframe::epaint::Shadow {
+    fn feed_frame_shadow(_dark_mode: bool) -> eframe::epaint::Shadow {
         eframe::epaint::Shadow::default()
     }
-    fn feed_frame_fill(&self, is_new: bool, _: bool) -> eframe::egui::Color32 {
+    fn feed_frame_fill(is_new: bool, _: bool, dark_mode: bool) -> eframe::egui::Color32 {
         if is_new {
-            if self.dark_mode {
+            if dark_mode {
                 Color32::from_rgb(60, 0, 0)
             } else {
                 Color32::LIGHT_YELLOW
             }
         } else {
-            if self.dark_mode {
+            if dark_mode {
                 Color32::BLACK
             } else {
                 Color32::WHITE
             }
         }
     }
-    fn feed_frame_stroke(&self, _: bool, _: bool) -> eframe::egui::Stroke {
-         Stroke::NONE
+    fn feed_frame_stroke(_: bool, _: bool, _: bool) -> eframe::egui::Stroke {
+        Stroke::NONE
     }
 }
