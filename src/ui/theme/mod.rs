@@ -7,8 +7,8 @@ use eframe::epaint::{FontFamily, FontId, Shadow};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-mod gossip;
-pub use gossip::GossipTheme;
+mod default;
+pub use default::DefaultTheme;
 
 mod roundy;
 pub use roundy::RoundyTheme;
@@ -23,7 +23,7 @@ pub fn apply_theme(theme: Theme, dark_mode: bool, ctx: &Context) {
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Theme {
-    GossipDefault,
+    Default,
     Roundy,
 }
 
@@ -31,33 +31,33 @@ pub enum Theme {
 //        that we could probably macro it.
 impl Theme {
     pub fn all() -> &'static [Theme] {
-        &[Theme::GossipDefault, Theme::Roundy]
+        &[Theme::Default, Theme::Roundy]
     }
 
     pub fn name(&self) -> &'static str {
         match *self {
-            Theme::GossipDefault => GossipTheme::name(),
+            Theme::Default => DefaultTheme::name(),
             Theme::Roundy => RoundyTheme::name(),
         }
     }
 
     pub fn get_style(&self, dark_mode: bool) -> Style {
         match *self {
-            Theme::GossipDefault => GossipTheme::get_style(dark_mode),
+            Theme::Default => DefaultTheme::get_style(dark_mode),
             Theme::Roundy => RoundyTheme::get_style(dark_mode),
         }
     }
 
     pub fn font_definitions(&self) -> FontDefinitions {
         match *self {
-            Theme::GossipDefault => GossipTheme::font_definitions(),
+            Theme::Default => DefaultTheme::font_definitions(),
             Theme::Roundy => RoundyTheme::font_definitions(),
         }
     }
 
     pub fn text_styles(&self) -> BTreeMap<TextStyle, FontId> {
         match *self {
-            Theme::GossipDefault => GossipTheme::text_styles(),
+            Theme::Default => DefaultTheme::text_styles(),
             Theme::Roundy => RoundyTheme::text_styles(),
         }
     }
@@ -67,65 +67,63 @@ impl Theme {
         dark_mode: bool,
     ) -> TextFormat {
         match *self {
-            Theme::GossipDefault => GossipTheme::highlight_text_format(highlight_type, dark_mode),
+            Theme::Default => DefaultTheme::highlight_text_format(highlight_type, dark_mode),
             Theme::Roundy => RoundyTheme::highlight_text_format(highlight_type, dark_mode),
         }
     }
 
     pub fn feed_scroll_fill(&self, dark_mode: bool) -> Color32 {
         match *self {
-            Theme::GossipDefault => GossipTheme::feed_scroll_fill(dark_mode),
+            Theme::Default => DefaultTheme::feed_scroll_fill(dark_mode),
             Theme::Roundy => RoundyTheme::feed_scroll_fill(dark_mode),
         }
     }
 
     pub fn feed_post_separator_stroke(&self, dark_mode: bool) -> Stroke {
         match *self {
-            Theme::GossipDefault => GossipTheme::feed_post_separator_stroke(dark_mode),
+            Theme::Default => DefaultTheme::feed_post_separator_stroke(dark_mode),
             Theme::Roundy => RoundyTheme::feed_post_separator_stroke(dark_mode),
         }
     }
 
     pub fn feed_frame_inner_margin(&self) -> Margin {
         match *self {
-            Theme::GossipDefault => GossipTheme::feed_frame_inner_margin(),
+            Theme::Default => DefaultTheme::feed_frame_inner_margin(),
             Theme::Roundy => RoundyTheme::feed_frame_inner_margin(),
         }
     }
 
     pub fn feed_frame_outer_margin(&self) -> Margin {
         match *self {
-            Theme::GossipDefault => GossipTheme::feed_frame_outer_margin(),
+            Theme::Default => DefaultTheme::feed_frame_outer_margin(),
             Theme::Roundy => RoundyTheme::feed_frame_outer_margin(),
         }
     }
 
     pub fn feed_frame_rounding(&self) -> Rounding {
         match *self {
-            Theme::GossipDefault => GossipTheme::feed_frame_rounding(),
+            Theme::Default => DefaultTheme::feed_frame_rounding(),
             Theme::Roundy => RoundyTheme::feed_frame_rounding(),
         }
     }
 
     pub fn feed_frame_shadow(&self, dark_mode: bool) -> Shadow {
         match *self {
-            Theme::GossipDefault => GossipTheme::feed_frame_shadow(dark_mode),
+            Theme::Default => DefaultTheme::feed_frame_shadow(dark_mode),
             Theme::Roundy => RoundyTheme::feed_frame_shadow(dark_mode),
         }
     }
 
     pub fn feed_frame_fill(&self, is_new: bool, is_main_event: bool, dark_mode: bool) -> Color32 {
         match *self {
-            Theme::GossipDefault => GossipTheme::feed_frame_fill(is_new, is_main_event, dark_mode),
+            Theme::Default => DefaultTheme::feed_frame_fill(is_new, is_main_event, dark_mode),
             Theme::Roundy => RoundyTheme::feed_frame_fill(is_new, is_main_event, dark_mode),
         }
     }
 
     pub fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool, dark_mode: bool) -> Stroke {
         match *self {
-            Theme::GossipDefault => {
-                GossipTheme::feed_frame_stroke(is_new, is_main_event, dark_mode)
-            }
+            Theme::Default => DefaultTheme::feed_frame_stroke(is_new, is_main_event, dark_mode),
             Theme::Roundy => RoundyTheme::feed_frame_stroke(is_new, is_main_event, dark_mode),
         }
     }

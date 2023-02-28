@@ -7,11 +7,11 @@ use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
-pub struct GossipTheme {}
+pub struct DefaultTheme {}
 
-impl ThemeDef for GossipTheme {
+impl ThemeDef for DefaultTheme {
     fn name() -> &'static str {
-        "Gossip Default"
+        "Default"
     }
 
     fn get_style(dark_mode: bool) -> eframe::egui::Style {

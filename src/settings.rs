@@ -15,7 +15,7 @@ pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 3500;
 pub const DEFAULT_POW: u8 = 0;
 pub const DEFAULT_OFFLINE: bool = false;
 pub const DEFAULT_DARK_MODE: bool = false;
-pub const DEFAULT_THEME: Theme = Theme::GossipDefault;
+pub const DEFAULT_THEME: Theme = Theme::Default;
 pub const DEFAULT_SET_CLIENT_TAG: bool = false;
 pub const DEFAULT_SET_USER_AGENT: bool = false;
 pub const DEFAULT_OVERRIDE_DPI: Option<u32> = None;
@@ -135,7 +135,7 @@ impl Settings {
                 "offline" => settings.offline = numstr_to_bool(row.1),
                 "dark_mode" => settings.dark_mode = numstr_to_bool(row.1),
                 "theme" => {
-                    settings.theme = Theme::GossipDefault;
+                    settings.theme = Theme::Default;
                     for theme in Theme::all() {
                         if &*row.1 == theme.name() {
                             settings.theme = theme.to_owned();
