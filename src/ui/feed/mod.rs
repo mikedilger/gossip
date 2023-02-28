@@ -72,11 +72,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
         }
     });
-    ui.separator();
+
+    ui.add_space(10.0);
 
     post::posting_area(app, ctx, frame, ui);
 
-    ui.separator();
+    ui.add_space(10.0);
 
     match feed_kind {
         FeedKind::General => {
@@ -296,10 +297,7 @@ fn render_post_actual(
                 .feed_frame_stroke(is_new, is_main_event, app.settings.dark_mode),
         )
         .show(ui, |ui| {
-            if is_main_event {
-                thin_red_separator(ui);
-            }
-
+            
             ui.add_space(4.0);
 
             ui.horizontal_wrapped(|ui| {
@@ -319,9 +317,6 @@ fn render_post_actual(
                 }
             });
 
-            if is_main_event {
-                thin_red_separator(ui);
-            }
         });
 
     // Mark post as viewed if hovered AND we are not scrolling
@@ -520,7 +515,7 @@ fn render_post_inner(
                         None => DbPerson::new(inner_event.pubkey.into()),
                     };
                     ui.vertical(|ui| {
-                        thin_blue_separator(ui);
+                        thin_repost_separator(ui);
                         ui.add_space(4.0);
                         ui.horizontal_wrapped(|ui| {
                             render_post_inner(
@@ -533,7 +528,7 @@ fn render_post_inner(
                                 false,
                             );
                         });
-                        thin_blue_separator(ui);
+                        thin_repost_separator(ui);
                     });
                 } else if event.content.is_empty() {
                     content::render_content(
@@ -672,22 +667,17 @@ fn render_post_inner(
     });
 }
 
-fn thin_red_separator(ui: &mut Ui) {
+fn thin_repost_separator(ui: &mut Ui) {
+    let color = if ui.visuals().dark_mode {
+        Color32::from_gray(80)
+    } else {
+        Color32::from_gray(200)
+    };
     thin_separator(
         ui,
         Stroke {
             width: 1.0,
-            color: Color32::from_rgb(160, 0, 0),
-        },
-    );
-}
-
-fn thin_blue_separator(ui: &mut Ui) {
-    thin_separator(
-        ui,
-        Stroke {
-            width: 1.0,
-            color: Color32::from_rgb(0, 0, 160),
+            color,
         },
     );
 }

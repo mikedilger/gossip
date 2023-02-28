@@ -364,6 +364,7 @@ impl eframe::App for GossipUi {
         }
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
+            ui.add_space(6.0);
             ui.horizontal(|ui| {
                 let back_label_text = RichText::new("‹ Back");
                 let label = if self.history.is_empty() {
@@ -441,6 +442,7 @@ impl eframe::App for GossipUi {
                 }
                 ui.separator();
             });
+            ui.add_space(4.0);
         });
 
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {

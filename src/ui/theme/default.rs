@@ -86,34 +86,34 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_white_alpha(8),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(72)), // separators, borders
+                        bg_stroke: Stroke::new(1.0, Color32::from_gray(30)), // separators, borders
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
-                        weak_bg_fill: Color32::from_gray(60),
+                        weak_bg_fill: Color32::from_gray(20),
                         bg_fill: Color32::from_white_alpha(8),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(72)), // separators, borders
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // button text
+                        bg_stroke: Stroke::new(0.0, Color32::from_gray(72)), // separators, borders
+                        fg_stroke: Stroke::new(1.0, Color32::from_gray(120)), // button text
                         rounding: Rounding::same(2.0),
-                        expansion: 0.0,
+                        expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(70),
                         bg_fill: Color32::from_gray(70),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(150)), // e.g. hover over window edge or button
+                        bg_stroke: Stroke::new(0.0, Color32::from_gray(150)), // e.g. hover over window edge or button
                         fg_stroke: Stroke::new(1.5, Color32::from_gray(240)),
                         rounding: Rounding::same(3.0),
-                        expansion: 1.0,
+                        expansion: 2.0,
                     },
                     active: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(55),
                         bg_fill: Color32::from_gray(55),
-                        bg_stroke: Stroke::new(1.0, Color32::WHITE),
-                        fg_stroke: Stroke::new(2.0, Color32::WHITE),
+                        bg_stroke: Stroke::new(0.0, Color32::WHITE),
+                        fg_stroke: Stroke::new(2.0, Color32::from_gray(160)),
                         rounding: Rounding::same(2.0),
-                        expansion: 1.0,
+                        expansion: 2.0,
                     },
                     open: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(27),
@@ -127,7 +127,7 @@ impl ThemeDef for DefaultTheme {
 
                 // Background colors
                 window_fill: Color32::from_gray(0x24),
-                panel_fill: Color32::from_gray(0x24),
+                panel_fill: Color32::from_gray(10),
                 faint_bg_color: Color32::from_gray(0x14),
                 extreme_bg_color: Color32::from_gray(0),
                 code_bg_color: Color32::from_gray(64),
@@ -140,8 +140,8 @@ impl ThemeDef for DefaultTheme {
                 hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae), // light blue?
 
                 selection: Selection {
-                    bg_fill: Color32::from_rgb(0x57, 0x4a, 0x40),
-                    stroke: Stroke::new(1.0, Color32::from_gray(230)),
+                    bg_fill: Color32::from_gray(40),
+                    stroke: Stroke::new(0.0, Color32::from_gray(220))
                 },
 
                 window_shadow: Shadow::big_dark(),
@@ -166,7 +166,7 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(248),
                         bg_fill: Color32::from_black_alpha(20),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(192)),
+                        bg_stroke: Stroke::new(1.0, Color32::from_gray(230)),
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(80)), // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
@@ -174,26 +174,26 @@ impl ThemeDef for DefaultTheme {
                     inactive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(230),
                         bg_fill: Color32::from_black_alpha(20),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(192)),
+                        bg_stroke: Stroke::new(0.0, Color32::from_gray(192)),
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // button text
                         rounding: Rounding::same(2.0),
-                        expansion: 0.0,
+                        expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(220),
                         bg_fill: Color32::from_gray(220),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(105)), // e.g. hover over window edge or button
+                        bg_stroke: Stroke::new(0.0, Color32::from_gray(105)), // e.g. hover over window edge or button
                         fg_stroke: Stroke::new(1.5, Color32::BLACK),
                         rounding: Rounding::same(3.0),
-                        expansion: 1.0,
+                        expansion: 2.0,
                     },
                     active: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(165),
                         bg_fill: Color32::from_gray(165),
-                        bg_stroke: Stroke::new(1.0, Color32::BLACK),
+                        bg_stroke: Stroke::new(0.0, Color32::BLACK),
                         fg_stroke: Stroke::new(2.0, Color32::BLACK),
                         rounding: Rounding::same(2.0),
-                        expansion: 1.0,
+                        expansion: 2.0,
                     },
                     open: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(220),
@@ -220,8 +220,8 @@ impl ThemeDef for DefaultTheme {
                 hyperlink_color: Color32::from_rgb(0x55, 0x7a, 0x95), // DONE
 
                 selection: Selection {
-                    bg_fill: Color32::from_rgb(0xb1, 0xa2, 0x96), // DONE
-                    stroke: Stroke::new(1.0, Color32::from_rgb(0x5d, 0x5c, 0x61)), // DONE
+                    bg_fill: Color32::from_gray(220), // DONE
+                    stroke: Stroke::new(1.0, Color32::from_gray(40)), // DONE
                 },
 
                 window_shadow: Shadow::big_light(),
@@ -339,9 +339,9 @@ impl ThemeDef for DefaultTheme {
     // feed styling
     fn feed_scroll_fill(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            Color32::BLACK
+            Color32::from_gray(0)
         } else {
-            Color32::WHITE
+            Color32::from_gray(240)
         }
     }
     fn feed_post_separator_stroke(dark_mode: bool) -> eframe::egui::Stroke {
@@ -352,27 +352,34 @@ impl ThemeDef for DefaultTheme {
         }
     }
     fn feed_frame_inner_margin() -> eframe::egui::Margin {
-        eframe::egui::Margin::default()
+        eframe::egui::Margin::symmetric(10.0, 10.0)
     }
     fn feed_frame_outer_margin() -> eframe::egui::Margin {
-        eframe::egui::Margin::default()
+        eframe::egui::Margin::symmetric(0.0, 0.0)
     }
     fn feed_frame_rounding() -> eframe::egui::Rounding {
-        eframe::egui::Rounding::default()
+        eframe::egui::Rounding::same(4.0)
     }
     fn feed_frame_shadow(_dark_mode: bool) -> eframe::epaint::Shadow {
         eframe::epaint::Shadow::default()
     }
-    fn feed_frame_fill(is_new: bool, _: bool, dark_mode: bool) -> eframe::egui::Color32 {
-        if is_new {
+    fn feed_frame_fill(is_new: bool, is_main_event: bool, dark_mode: bool) -> eframe::egui::Color32 {
+
+        if is_main_event {
             if dark_mode {
-                Color32::from_rgb(60, 0, 0)
+                Color32::from_rgb(16, 23, 33)
             } else {
-                Color32::LIGHT_YELLOW
+                Color32::from_rgb(246, 252, 227)
+            }
+        } else if is_new {
+            if dark_mode {
+                Color32::from_rgb(34, 28, 38)
+            } else {
+                Color32::from_rgb(255, 255, 237)
             }
         } else {
             if dark_mode {
-                Color32::BLACK
+                Color32::from_rgb(30, 30, 30)
             } else {
                 Color32::WHITE
             }
