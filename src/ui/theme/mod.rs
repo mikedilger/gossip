@@ -27,107 +27,102 @@ pub enum Theme {
     Roundy,
 }
 
-// FIXME: This enum dispatch into the ThemeDef trait objects is predictable enough
-//        that we could probably macro it.
-impl Theme {
-    pub fn all() -> &'static [Theme] {
-        &[Theme::Default, Theme::Roundy]
-    }
+macro_rules! theme_dispatch {
+    ($($variant:path, $class:ident),+) => {
+        impl Theme {
+            pub fn all() -> &'static [Theme] {
+                &[$($variant),+]
+            }
 
-    pub fn name(&self) -> &'static str {
-        match *self {
-            Theme::Default => DefaultTheme::name(),
-            Theme::Roundy => RoundyTheme::name(),
-        }
-    }
+            pub fn name(&self) -> &'static str {
+                match *self {
+                    $( $variant => $class::name(), )+
+                }
+            }
 
-    pub fn get_style(&self, dark_mode: bool) -> Style {
-        match *self {
-            Theme::Default => DefaultTheme::get_style(dark_mode),
-            Theme::Roundy => RoundyTheme::get_style(dark_mode),
-        }
-    }
+            pub fn get_style(&self, dark_mode: bool) -> Style {
+                match *self {
+                    $( $variant => $class::get_style(dark_mode), )+
+                }
+            }
 
-    pub fn font_definitions(&self) -> FontDefinitions {
-        match *self {
-            Theme::Default => DefaultTheme::font_definitions(),
-            Theme::Roundy => RoundyTheme::font_definitions(),
-        }
-    }
+            pub fn font_definitions(&self) -> FontDefinitions {
+                match *self {
+                    $( $variant => $class::font_definitions(), )+
+                }
+            }
 
-    pub fn text_styles(&self) -> BTreeMap<TextStyle, FontId> {
-        match *self {
-            Theme::Default => DefaultTheme::text_styles(),
-            Theme::Roundy => RoundyTheme::text_styles(),
-        }
-    }
-    pub fn highlight_text_format(
-        &self,
-        highlight_type: HighlightType,
-        dark_mode: bool,
-    ) -> TextFormat {
-        match *self {
-            Theme::Default => DefaultTheme::highlight_text_format(highlight_type, dark_mode),
-            Theme::Roundy => RoundyTheme::highlight_text_format(highlight_type, dark_mode),
-        }
-    }
+            pub fn text_styles(&self) -> BTreeMap<TextStyle, FontId> {
+                match *self {
+                    $( $variant => $class::text_styles(), )+
+                }
+            }
 
-    pub fn feed_scroll_fill(&self, dark_mode: bool) -> Color32 {
-        match *self {
-            Theme::Default => DefaultTheme::feed_scroll_fill(dark_mode),
-            Theme::Roundy => RoundyTheme::feed_scroll_fill(dark_mode),
-        }
-    }
+            pub fn highlight_text_format(
+                &self,
+                highlight_type: HighlightType,
+                dark_mode: bool,
+            ) -> TextFormat {
+                match *self {
+                    $( $variant => $class::highlight_text_format(highlight_type, dark_mode) ),+
+                }
+            }
 
-    pub fn feed_post_separator_stroke(&self, dark_mode: bool) -> Stroke {
-        match *self {
-            Theme::Default => DefaultTheme::feed_post_separator_stroke(dark_mode),
-            Theme::Roundy => RoundyTheme::feed_post_separator_stroke(dark_mode),
-        }
-    }
+            pub fn feed_scroll_fill(&self, dark_mode: bool) -> Color32 {
+                match *self {
+                    $( $variant => $class::feed_scroll_fill(dark_mode), )+
+                }
+            }
 
-    pub fn feed_frame_inner_margin(&self) -> Margin {
-        match *self {
-            Theme::Default => DefaultTheme::feed_frame_inner_margin(),
-            Theme::Roundy => RoundyTheme::feed_frame_inner_margin(),
-        }
-    }
+            pub fn feed_post_separator_stroke(&self, dark_mode: bool) -> Stroke {
+                match *self {
+                    $( $variant => $class::feed_post_separator_stroke(dark_mode), )+
+                }
+            }
 
-    pub fn feed_frame_outer_margin(&self) -> Margin {
-        match *self {
-            Theme::Default => DefaultTheme::feed_frame_outer_margin(),
-            Theme::Roundy => RoundyTheme::feed_frame_outer_margin(),
-        }
-    }
+            pub fn feed_frame_inner_margin(&self) -> Margin {
+                match *self {
+                    $( $variant => $class::feed_frame_inner_margin(), )+
+                }
+            }
 
-    pub fn feed_frame_rounding(&self) -> Rounding {
-        match *self {
-            Theme::Default => DefaultTheme::feed_frame_rounding(),
-            Theme::Roundy => RoundyTheme::feed_frame_rounding(),
-        }
-    }
+            pub fn feed_frame_outer_margin(&self) -> Margin {
+                match *self {
+                    $( $variant => $class::feed_frame_outer_margin(), )+
+                }
+            }
 
-    pub fn feed_frame_shadow(&self, dark_mode: bool) -> Shadow {
-        match *self {
-            Theme::Default => DefaultTheme::feed_frame_shadow(dark_mode),
-            Theme::Roundy => RoundyTheme::feed_frame_shadow(dark_mode),
-        }
-    }
+            pub fn feed_frame_rounding(&self) -> Rounding {
+                match *self {
+                    $( $variant => $class::feed_frame_rounding(), )+
+                }
+            }
 
-    pub fn feed_frame_fill(&self, is_new: bool, is_main_event: bool, dark_mode: bool) -> Color32 {
-        match *self {
-            Theme::Default => DefaultTheme::feed_frame_fill(is_new, is_main_event, dark_mode),
-            Theme::Roundy => RoundyTheme::feed_frame_fill(is_new, is_main_event, dark_mode),
-        }
-    }
+            pub fn feed_frame_shadow(&self, dark_mode: bool) -> Shadow {
+                match *self {
+                    $( $variant => $class::feed_frame_shadow(dark_mode), )+
+                }
+            }
 
-    pub fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool, dark_mode: bool) -> Stroke {
-        match *self {
-            Theme::Default => DefaultTheme::feed_frame_stroke(is_new, is_main_event, dark_mode),
-            Theme::Roundy => RoundyTheme::feed_frame_stroke(is_new, is_main_event, dark_mode),
+            pub fn feed_frame_fill(&self, is_new: bool, is_main_event: bool, dark_mode: bool) -> Color32 {
+                match *self {
+                    $( $variant => $class::feed_frame_fill(is_new, is_main_event, dark_mode), )+
+                }
+            }
+
+            pub fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool, dark_mode: bool) -> Stroke {
+                match *self {
+                    $( $variant => $class::feed_frame_stroke(is_new, is_main_event, dark_mode), )+
+                }
+            }
         }
     }
 }
+
+theme_dispatch!(
+    Theme::Default, DefaultTheme,
+    Theme::Roundy, RoundyTheme
+);
 
 pub trait ThemeDef: Send + Sync {
     // user facing name
