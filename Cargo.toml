@@ -2,7 +2,7 @@
 name = "gossip"
 version = "0.4.90-unstable"
 description = "A social media client for nostr"
-authors = ["Mike Dilger <mike@mikedilger.com>", "fiatjaf <fiatjaf@gmail.com>", "Nate Levin <nate@ezicheq.com>", "Nethanja Focking <nethanja@nethanja.de>", "Daniele Tonon <tonon@vitamino.it>"]
+authors = ["Mike Dilger <mike@mikedilger.com>", "fiatjaf <fiatjaf@gmail.com>", "Nate Levin <nate@ezicheq.com>", "Nethanja Focking <nethanja@nethanja.de>", "Daniele Tonon <tonon@vitamino.it>", "jeremyd (@jeremyd)"]
 license = "MIT"
 repository = "https://github.com/mikedilger/gossip"
 homepage = "https://github.com/mikedilger/gossip"
