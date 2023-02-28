@@ -112,7 +112,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     // Text area
     let theme = app.settings.theme;
-    let dark_mode = !app.settings.light_mode;
+    let dark_mode = app.settings.dark_mode;
     let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
         let mut layout_job = textarea_highlighter(theme, dark_mode, text.to_owned());
         layout_job.wrap.max_width = wrap_width;

@@ -224,7 +224,7 @@ impl GossipUi {
         };
 
         // Apply current theme
-        theme::apply_theme(settings.theme, !settings.light_mode, &cctx.egui_ctx);
+        theme::apply_theme(settings.theme, settings.dark_mode, &cctx.egui_ctx);
 
         GossipUi {
             next_frame: Instant::now(),

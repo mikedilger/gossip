@@ -14,7 +14,7 @@ pub const DEFAULT_MAX_FPS: u32 = 15;
 pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 3500;
 pub const DEFAULT_POW: u8 = 0;
 pub const DEFAULT_OFFLINE: bool = false;
-pub const DEFAULT_LIGHT_MODE: bool = true; // true = light false = dark
+pub const DEFAULT_DARK_MODE: bool = false;
 pub const DEFAULT_THEME: Theme = Theme::GossipDefault;
 pub const DEFAULT_SET_CLIENT_TAG: bool = false;
 pub const DEFAULT_SET_USER_AGENT: bool = false;
@@ -40,7 +40,7 @@ pub struct Settings {
     pub feed_recompute_interval_ms: u32,
     pub pow: u8,
     pub offline: bool,
-    pub light_mode: bool,
+    pub dark_mode: bool,
     pub theme: Theme,
     pub set_client_tag: bool,
     pub set_user_agent: bool,
@@ -68,7 +68,7 @@ impl Default for Settings {
             feed_recompute_interval_ms: DEFAULT_FEED_RECOMPUTE_INTERVAL_MS,
             pow: DEFAULT_POW,
             offline: DEFAULT_OFFLINE,
-            light_mode: DEFAULT_LIGHT_MODE,
+            dark_mode: DEFAULT_DARK_MODE,
             theme: DEFAULT_THEME,
             set_client_tag: DEFAULT_SET_CLIENT_TAG,
             set_user_agent: DEFAULT_SET_USER_AGENT,
@@ -133,7 +133,7 @@ impl Settings {
                 }
                 "pow" => settings.pow = row.1.parse::<u8>().unwrap_or(DEFAULT_POW),
                 "offline" => settings.offline = numstr_to_bool(row.1),
-                "light_mode" => settings.light_mode = numstr_to_bool(row.1),
+                "dark_mode" => settings.dark_mode = numstr_to_bool(row.1),
                 "theme" => {
                     settings.theme = Theme::GossipDefault;
                     for theme in Theme::all() {
@@ -195,7 +195,7 @@ impl Settings {
              ('feed_recompute_interval_ms', ?),\
              ('pow', ?),\
              ('offline', ?),\
-             ('light_mode', ?),\
+             ('dark_mode', ?),\
              ('theme', ?),\
              ('set_client_tag', ?),\
              ('set_user_agent', ?),\
@@ -218,7 +218,7 @@ impl Settings {
             self.feed_recompute_interval_ms,
             self.pow,
             bool_to_numstr(self.offline),
-            bool_to_numstr(self.light_mode),
+            bool_to_numstr(self.dark_mode),
             self.theme.name(),
             bool_to_numstr(self.set_client_tag),
             bool_to_numstr(self.set_user_agent),

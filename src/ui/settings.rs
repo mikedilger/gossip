@@ -178,22 +178,23 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.heading("User Interface");
 
                 ui.horizontal(|ui| {
-                    ui.label("Switch to");
-                    if app.settings.light_mode {
+                    if app.settings.dark_mode {
                         if ui
                             .add(Button::new("🌙 Dark"))
-                            .on_hover_text("Switch to dark mode")
+                            .on_hover_text("Switch to light mode")
                             .clicked()
                         {
-                            app.settings.light_mode = false;
+                            app.settings.dark_mode = false;
+                            super::theme::apply_theme(app.settings.theme, app.settings.dark_mode, ctx);
                         }
                     } else {
                         if ui
                             .add(Button::new("☀ Light"))
-                            .on_hover_text("Switch to light mode")
+                            .on_hover_text("Switch to dark mode")
                             .clicked()
                         {
-                            app.settings.light_mode = true;
+                            app.settings.dark_mode = true;
+                            super::theme::apply_theme(app.settings.theme, app.settings.dark_mode, ctx);
                         }
                     }
                     let theme_combo = egui::ComboBox::from_label("Theme");
@@ -203,7 +204,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             for theme in Theme::all() {
                                 if ui.add(egui::widgets::SelectableLabel::new(*theme == app.settings.theme, theme.name())).clicked() {
                                     app.settings.theme = theme.to_owned();
-                                    super::theme::apply_theme(app.settings.theme, !app.settings.light_mode, ctx);
+                                    super::theme::apply_theme(app.settings.theme, app.settings.dark_mode, ctx);
                                 };
                             }
                         });
