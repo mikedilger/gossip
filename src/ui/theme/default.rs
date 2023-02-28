@@ -344,8 +344,8 @@ impl ThemeDef for DefaultTheme {
             Color32::from_gray(240)
         }
     }
-    fn feed_post_separator_stroke(dark_mode: bool) -> eframe::egui::Stroke {
-        eframe::egui::Stroke::default()
+    fn feed_post_separator_stroke(_dark_mode: bool) -> eframe::egui::Stroke {
+        eframe::egui::Stroke::NONE
     }
     fn feed_frame_inner_margin() -> eframe::egui::Margin {
         eframe::egui::Margin::symmetric(10.0, 10.0)
