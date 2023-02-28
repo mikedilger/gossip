@@ -345,11 +345,7 @@ impl ThemeDef for DefaultTheme {
         }
     }
     fn feed_post_separator_stroke(dark_mode: bool) -> eframe::egui::Stroke {
-        if dark_mode {
-            Stroke::new(1.0, Color32::from_gray(72))
-        } else {
-            Stroke::new(1.0, Color32::from_gray(192))
-        }
+        eframe::egui::Stroke::default()
     }
     fn feed_frame_inner_margin() -> eframe::egui::Margin {
         eframe::egui::Margin::symmetric(10.0, 10.0)
