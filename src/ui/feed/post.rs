@@ -109,8 +109,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             .layouter(&mut layouter),
     );
 
+    ui.add_space(4.0);
     ui.horizontal(|ui| {
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+            ui.add_space(12.0);
             if ui.button("Send").clicked() && !app.draft.is_empty() {
                 match app.replying_to {
                     Some(replying_to_id) => {
