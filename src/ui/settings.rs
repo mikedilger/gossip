@@ -202,15 +202,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     theme_combo
                         .selected_text( theme::current_theme().name().as_str() )
                         .show_ui(ui, |ui| {
-                        let themes = theme::list_themes();
-                        for theme in themes {
-                            let some_theme = Some(String::from(theme));
-                            let selected = some_theme == Some(String::from(theme::current_theme().name()));
-                            if ui.add(egui::widgets::SelectableLabel::new(selected, theme)).clicked() {
-                                theme::switch(&some_theme, ui.ctx());
-                            };
-                        }
-                    });
+                            let themes = theme::list_themes();
+                            for theme in themes {
+                                let some_theme = Some(String::from(theme));
+                                let selected = some_theme == Some(String::from(theme::current_theme().name()));
+                                if ui.add(egui::widgets::SelectableLabel::new(selected, theme)).clicked() {
+                                    theme::switch(&some_theme, ui.ctx());
+                                    app.settings.theme = some_theme;
+                                };
+                            }
+                        });
                 });
 
                 ui.horizontal(|ui| {
