@@ -297,7 +297,6 @@ fn render_post_actual(
                 .feed_frame_stroke(is_new, is_main_event, app.settings.dark_mode),
         )
         .show(ui, |ui| {
-            
             ui.add_space(4.0);
 
             ui.horizontal_wrapped(|ui| {
@@ -316,7 +315,6 @@ fn render_post_actual(
                     render_post_inner(app, ctx, ui, event, person, is_main_event, as_reply_to);
                 }
             });
-
         });
 
     // Mark post as viewed if hovered AND we are not scrolling
@@ -673,13 +671,7 @@ fn thin_repost_separator(ui: &mut Ui) {
     } else {
         Color32::from_gray(200)
     };
-    thin_separator(
-        ui,
-        Stroke {
-            width: 1.0,
-            color,
-        },
-    );
+    thin_separator(ui, Stroke { width: 1.0, color });
 }
 
 fn thin_separator(ui: &mut Ui, stroke: Stroke) {

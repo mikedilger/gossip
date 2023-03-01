@@ -141,7 +141,7 @@ impl ThemeDef for DefaultTheme {
 
                 selection: Selection {
                     bg_fill: Color32::from_gray(40),
-                    stroke: Stroke::new(0.0, Color32::from_gray(220))
+                    stroke: Stroke::new(0.0, Color32::from_gray(220)),
                 },
 
                 window_shadow: Shadow::big_dark(),
@@ -220,7 +220,7 @@ impl ThemeDef for DefaultTheme {
                 hyperlink_color: Color32::from_rgb(0x55, 0x7a, 0x95), // DONE
 
                 selection: Selection {
-                    bg_fill: Color32::from_gray(220), // DONE
+                    bg_fill: Color32::from_gray(220),                 // DONE
                     stroke: Stroke::new(1.0, Color32::from_gray(40)), // DONE
                 },
 
@@ -359,8 +359,11 @@ impl ThemeDef for DefaultTheme {
     fn feed_frame_shadow(_dark_mode: bool) -> eframe::epaint::Shadow {
         eframe::epaint::Shadow::default()
     }
-    fn feed_frame_fill(is_new: bool, is_main_event: bool, dark_mode: bool) -> eframe::egui::Color32 {
-
+    fn feed_frame_fill(
+        is_new: bool,
+        is_main_event: bool,
+        dark_mode: bool,
+    ) -> eframe::egui::Color32 {
         if is_main_event {
             if dark_mode {
                 Color32::from_rgb(16, 23, 33)
@@ -383,5 +386,9 @@ impl ThemeDef for DefaultTheme {
     }
     fn feed_frame_stroke(_: bool, _: bool, _: bool) -> eframe::egui::Stroke {
         Stroke::NONE
+    }
+
+    fn round_image() -> bool {
+        true
     }
 }

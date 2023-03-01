@@ -392,4 +392,8 @@ impl ThemeDef for RoundyTheme {
             }
         }
     }
+
+    fn round_image() -> bool {
+        true
+    }
 }

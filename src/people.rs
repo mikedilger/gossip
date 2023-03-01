@@ -4,7 +4,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
-use eframe::egui::ColorImage;
+use eframe::egui::{Color32, ColorImage};
 use egui_extras::image::FitTo;
 use gossip_relay_picker::Direction;
 use image::imageops::FilterType;
@@ -558,23 +558,49 @@ impl People {
                             .pixels_per_point_times_100
                             .load(Ordering::Relaxed)
                         / 100;
-                    if let Ok(image) = image::load_from_memory(&bytes) {
+                    if let Ok(mut image) = image::load_from_memory(&bytes) {
                         // Note: we can't use egui_extras::image::load_image_bytes because we
-                        // need to force a resize
+                        // need to modify the image
+
+                        // Crop square
+                        let smaller = image.width().min(image.height());
+                        if image.width() > smaller {
+                            let excess = image.width() - smaller;
+                            image = image.crop_imm(
+                                excess / 2,
+                                0,
+                                image.width() - excess,
+                                image.height(),
+                            );
+                        } else if image.height() > smaller {
+                            let excess = image.height() - smaller;
+                            image = image.crop_imm(
+                                0,
+                                excess / 2,
+                                image.width(),
+                                image.height() - excess,
+                            );
+                        }
                         let image = image.resize(size, size, FilterType::CatmullRom); // DynamicImage
                         let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
-                        let color_image = ColorImage::from_rgba_unmultiplied(
+                        let mut color_image = ColorImage::from_rgba_unmultiplied(
                             [
                                 image_buffer.width() as usize,
                                 image_buffer.height() as usize,
                             ],
                             image_buffer.as_flat_samples().as_slice(),
                         );
+                        if GLOBALS.settings.read().theme.round_image() {
+                            round_image(&mut color_image);
+                        }
                         GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
-                    } else if let Ok(color_image) = egui_extras::image::load_svg_bytes_with_size(
+                    } else if let Ok(mut color_image) = egui_extras::image::load_svg_bytes_with_size(
                         &bytes,
                         FitTo::Size(size, size),
                     ) {
+                        if GLOBALS.settings.read().theme.round_image() {
+                            round_image(&mut color_image);
+                        }
                         GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
                     } else {
                         GLOBALS.people.avatars_failed.insert(apubkeyhex.clone());
@@ -1224,6 +1250,30 @@ fn repeat_vars(count: usize) -> String {
     // Remove trailing comma
     s.pop();
     s
+}
+
+fn round_image(image: &mut ColorImage) {
+    let half = image.size[0] as f32 / 2.0; // 24
+    for (pixnum, pixel) in image.pixels.iter_mut().enumerate() {
+        let uy = pixnum / image.size[0];
+        let ux = pixnum % image.size[0];
+        let x = ux as f32;
+        let y = uy as f32;
+        let pixel_radius: f32 = ((half - x) * (half - x) + (half - y) * (half - y)).sqrt();
+        let distance = pixel_radius - half;
+        if distance >= 0.0 {
+            *pixel = Color32::TRANSPARENT;
+        } else if distance >= -1.0 {
+            let num: u16 = 100 - (100.0 * (distance + 1.0)) as u16;
+            let denom: u16 = 100_u16;
+            *pixel = Color32::from_rgba_premultiplied(
+                (pixel.r() as u16 * num / denom) as u8,
+                (pixel.g() as u16 * num / denom) as u8,
+                (pixel.b() as u16 * num / denom) as u8,
+                (pixel.a() as u16 * num / denom) as u8,
+            );
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

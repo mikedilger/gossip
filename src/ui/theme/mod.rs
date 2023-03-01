@@ -119,6 +119,12 @@ macro_rules! theme_dispatch {
                     $( $variant => $class::feed_frame_stroke(is_new, is_main_event, dark_mode), )+
                 }
             }
+
+            pub fn round_image(&self) -> bool {
+                match *self {
+                    $( $variant => $class::round_image(), )+
+                }
+            }
         }
     }
 }
@@ -151,6 +157,9 @@ pub trait ThemeDef: Send + Sync {
     fn feed_frame_shadow(dark_mode: bool) -> Shadow;
     fn feed_frame_fill(is_new: bool, is_main_event: bool, dark_mode: bool) -> Color32;
     fn feed_frame_stroke(is_new: bool, is_main_event: bool, dark_mode: bool) -> Stroke;
+
+    // image rounding
+    fn round_image() -> bool;
 }
 
 pub(super) fn font_definitions() -> FontDefinitions {

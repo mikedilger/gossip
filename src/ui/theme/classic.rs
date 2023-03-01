@@ -381,4 +381,8 @@ impl ThemeDef for ClassicTheme {
     fn feed_frame_stroke(_: bool, _: bool, _: bool) -> eframe::egui::Stroke {
         Stroke::NONE
     }
+
+    fn round_image() -> bool {
+        false
+    }
 }
