@@ -9,7 +9,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(24.0);
 
     ui.label("Enter NIP-26 delegation tag, to post on the behalf of another indentity (I will be the delegatee)");
-    // TODO validate&set automatically upon entry
     ui.add(
         TextEdit::multiline(&mut app.delegatee_tag_str)
             .hint_text("full delegation tag, JSON")

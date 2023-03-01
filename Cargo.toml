@@ -49,8 +49,6 @@ tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
 tokio-tungstenite = { version = "0.18", features = [ "rustls-tls-webpki-roots" ] }
 tungstenite = { version = "0.18", features = [ "rustls-tls-webpki-roots" ] }
 zeroize = "1.5"
-# Remove once nostr v0.19 is available
-json = "0.12.4"
 
 # Force scrypt to build with release-like speed even in dev mode
 [profile.dev.package.scrypt]
