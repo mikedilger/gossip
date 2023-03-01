@@ -3,6 +3,7 @@ use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, TextEdit, Ui};
 use nostr_types::{PublicKey, PublicKeyHex, Signature, SignatureHex, Tag};
+use serde_json::json;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Delegatee");
@@ -31,8 +32,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     *GLOBALS.status_message.blocking_write() = format!("Could not parse tag {e}")
                 }
                 Ok((tag, delegator_pubkey)) => {
-                    app.delegation_tag = Some(tag);
+                    app.delegation_tag = Some(tag.clone());
                     app.delegation_delegator = Some(delegator_pubkey);
+                    // normalize string
+                    app.delegation_tag_str = serialize_delegation_tag(&tag);
                     *GLOBALS.status_message.blocking_write() = format!(
                         "Delegation tag set, delegator: {}",
                         delegator_pubkey.try_as_bech32_string().unwrap_or_default()
@@ -56,6 +59,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 }
 
 // Returns parsed tag & delegator pub; error is string (for simplicity)
+// TODO should come from nostr-types
 fn parse_delegation_tag(tag: &str) -> Result<(Tag, PublicKey), String> {
     // TODO parsing should be done using nostr crate v0.19 DelegationTag
     match json::parse(tag) {
@@ -96,5 +100,18 @@ fn parse_delegation_tag(tag: &str) -> Result<(Tag, PublicKey), String> {
                 }
             }
         }
+    }
+}
+
+/// Serialize a delegation tag into JSON string
+// TODO should come from nostr-types
+fn serialize_delegation_tag(tag: &Tag) -> String {
+    match tag {
+        Tag::Delegation {
+            pubkey,
+            conditions,
+            sig,
+        } => json!(["delegation", pubkey.as_str(), conditions, sig.to_string(),]).to_string(),
+        _ => "".to_string(),
     }
 }
