@@ -50,6 +50,7 @@ pub struct Settings {
     pub replies_in_follows: bool,
     pub direct_messages: bool,
     pub automatically_fetch_metadata: bool,
+    pub delegatee_tag: String,
 }
 
 impl Default for Settings {
@@ -77,6 +78,7 @@ impl Default for Settings {
             replies_in_follows: DEFAULT_REPLIES_IN_FOLLOWS,
             direct_messages: DEFAULT_DIRECT_MESSAGES,
             automatically_fetch_metadata: DEFAULT_AUTOMATICALLY_FETCH_METADATA,
+            delegatee_tag: String::new(),
         }
     }
 }
@@ -152,6 +154,7 @@ impl Settings {
                 "automatically_fetch_metadata" => {
                     settings.automatically_fetch_metadata = numstr_to_bool(row.1)
                 }
+                "delegatee_tag" => settings.delegatee_tag = row.1,
                 _ => {}
             }
         }
@@ -192,7 +195,8 @@ impl Settings {
              ('direct_replies_only', ?),\
              ('replies_in_follows', ?),\
              ('direct_messages', ?),\
-             ('automatically_fetch_metadata', ?)",
+             ('automatically_fetch_metadata', ?),\
+             ('delegatee_tag', ?)",
         )?;
         stmt.execute(params![
             self.feed_chunk,
@@ -215,6 +219,7 @@ impl Settings {
             bool_to_numstr(self.replies_in_follows),
             bool_to_numstr(self.direct_messages),
             bool_to_numstr(self.automatically_fetch_metadata),
+            self.delegatee_tag,
         ])?;
 
         // Settings which are Options should not even exist when None.  We don't accept null valued

@@ -20,7 +20,7 @@ use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, Tag};
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -124,12 +124,8 @@ struct GossipUi {
     editing_metadata: bool,
     metadata: Metadata,
 
-    // NIP-26 delegation tag
-    delegation_tag: Option<Tag>,
-    // User entry: delegation tag (as JSON string)
-    delegation_tag_str: String,
-    // Delegation: Pubkey of the delegator
-    delegation_delegator: Option<PublicKey>,
+    // User entry: delegatee tag (as JSON string)
+    delegatee_tag_str: String,
 
     // User entry: general
     nprofile_follow: String,
@@ -267,9 +263,7 @@ impl GossipUi {
             replying_to: None,
             editing_metadata: false,
             metadata: Metadata::new(),
-            delegation_tag: None,
-            delegation_tag_str: "".to_owned(),
-            delegation_delegator: None,
+            delegatee_tag_str: GLOBALS.delegation.get_delegatee_tag_as_str(),
             nprofile_follow: "".to_owned(),
             nip05follow: "".to_owned(),
             follow_pubkey: "".to_owned(),
