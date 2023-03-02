@@ -1258,7 +1258,6 @@ fn round_image(image: &mut ColorImage) {
     let edge_radius_squared = edge_radius * edge_radius;
 
     for (pixnum, pixel) in image.pixels.iter_mut().enumerate() {
-
         // y coordinate
         let uy = pixnum / image.size[0];
         let y = uy as f32;
@@ -1290,7 +1289,8 @@ fn round_image(image: &mut ColorImage) {
                     (pixel.a() as f32 * distance) as u8,
                 );
             }
-        } else { // Outside of the avatar circle
+        } else {
+            // Outside of the avatar circle
             *pixel = Color32::TRANSPARENT;
         }
     }

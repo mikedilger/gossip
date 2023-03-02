@@ -14,7 +14,7 @@ use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::settings::Settings;
-pub use crate::ui::theme::Theme;
+pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::ui::widgets::CopyButton;
 use eframe::{egui, IconData};
 use egui::{
@@ -224,7 +224,7 @@ impl GossipUi {
         };
 
         // Apply current theme
-        theme::apply_theme(settings.theme, settings.dark_mode, &cctx.egui_ctx);
+        theme::apply_theme(settings.theme, &cctx.egui_ctx);
 
         GossipUi {
             next_frame: Instant::now(),

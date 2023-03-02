@@ -10,7 +10,7 @@ use memoize::memoize;
 use nostr_types::Tag;
 
 #[memoize]
-pub fn textarea_highlighter(theme: Theme, dark_mode: bool, text: String) -> LayoutJob {
+pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
     let mut job = LayoutJob::default();
 
     let ids = notes_from_text(&text);
@@ -43,11 +43,7 @@ pub fn textarea_highlighter(theme: Theme, dark_mode: bool, text: String) -> Layo
     for (index, highlight) in indices {
         let chunk = &text[curr..index];
 
-        job.append(
-            chunk,
-            0.0,
-            theme.highlight_text_format(highlight, dark_mode),
-        );
+        job.append(chunk, 0.0, theme.highlight_text_format(highlight));
 
         curr = index;
     }
@@ -112,9 +108,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     // Text area
     let theme = app.settings.theme;
-    let dark_mode = app.settings.dark_mode;
     let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-        let mut layout_job = textarea_highlighter(theme, dark_mode, text.to_owned());
+        let mut layout_job = textarea_highlighter(theme, text.to_owned());
         layout_job.wrap.max_width = wrap_width;
         ui.fonts(|f| f.layout_job(layout_job))
     };

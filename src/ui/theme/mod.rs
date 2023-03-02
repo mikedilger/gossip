@@ -16,48 +16,64 @@ pub use default::DefaultTheme;
 mod roundy;
 pub use roundy::RoundyTheme;
 
-pub fn apply_theme(theme: Theme, dark_mode: bool, ctx: &Context) {
-    ctx.set_style(theme.get_style(dark_mode));
+pub fn apply_theme(theme: Theme, ctx: &Context) {
+    ctx.set_style(theme.get_style());
     ctx.set_fonts(theme.font_definitions());
     let mut style: eframe::egui::Style = (*ctx.style()).clone();
     style.text_styles = theme.text_styles();
     ctx.set_style(style);
 }
 
+// note: if we store anything inside the variants, we can't use macro_rules.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Theme {
+pub enum ThemeVariant {
     Classic,
     Default,
     Roundy,
 }
 
-macro_rules! theme_dispatch {
-    ($($variant:path, $class:ident),+) => {
-        impl Theme {
-            pub fn all() -> &'static [Theme] {
-                &[$($variant),+]
-            }
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Theme {
+    pub variant: ThemeVariant,
+    pub dark_mode: bool,
+}
 
+macro_rules! theme_dispatch {
+    ($($variant:path, $class:ident, $name:literal),+) => {
+
+        impl ThemeVariant {
             pub fn name(&self) -> &'static str {
                 match *self {
-                    $( $variant => $class::name(), )+
+                    $( $variant => $name, )+
                 }
             }
 
-            pub fn get_style(&self, dark_mode: bool) -> Style {
-                match *self {
-                    $( $variant => $class::get_style(dark_mode), )+
+            pub fn all() -> &'static [ThemeVariant] {
+                &[
+                    $( $variant, )+
+                ]
+            }
+        }
+
+        impl Theme {
+            pub fn name(&self) -> &'static str {
+                self.variant.name()
+            }
+
+            pub fn get_style(&self) -> Style {
+                match self.variant {
+                    $( $variant => $class::get_style(self.dark_mode), )+
                 }
             }
 
             pub fn font_definitions(&self) -> FontDefinitions {
-                match *self {
+                match self.variant {
                     $( $variant => $class::font_definitions(), )+
                 }
             }
 
             pub fn text_styles(&self) -> BTreeMap<TextStyle, FontId> {
-                match *self {
+                match self.variant {
                     $( $variant => $class::text_styles(), )+
                 }
             }
@@ -65,63 +81,62 @@ macro_rules! theme_dispatch {
             pub fn highlight_text_format(
                 &self,
                 highlight_type: HighlightType,
-                dark_mode: bool,
             ) -> TextFormat {
-                match *self {
-                    $( $variant => $class::highlight_text_format(highlight_type, dark_mode) ),+
+                match self.variant {
+                    $( $variant => $class::highlight_text_format(highlight_type, self.dark_mode) ),+
                 }
             }
 
-            pub fn feed_scroll_fill(&self, dark_mode: bool) -> Color32 {
-                match *self {
-                    $( $variant => $class::feed_scroll_fill(dark_mode), )+
+            pub fn feed_scroll_fill(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::feed_scroll_fill(self.dark_mode), )+
                 }
             }
 
-            pub fn feed_post_separator_stroke(&self, dark_mode: bool) -> Stroke {
-                match *self {
-                    $( $variant => $class::feed_post_separator_stroke(dark_mode), )+
+            pub fn feed_post_separator_stroke(&self) -> Stroke {
+                match self.variant {
+                    $( $variant => $class::feed_post_separator_stroke(self.dark_mode), )+
                 }
             }
 
             pub fn feed_frame_inner_margin(&self) -> Margin {
-                match *self {
+                match self.variant {
                     $( $variant => $class::feed_frame_inner_margin(), )+
                 }
             }
 
             pub fn feed_frame_outer_margin(&self) -> Margin {
-                match *self {
+                match self.variant {
                     $( $variant => $class::feed_frame_outer_margin(), )+
                 }
             }
 
             pub fn feed_frame_rounding(&self) -> Rounding {
-                match *self {
+                match self.variant {
                     $( $variant => $class::feed_frame_rounding(), )+
                 }
             }
 
-            pub fn feed_frame_shadow(&self, dark_mode: bool) -> Shadow {
-                match *self {
-                    $( $variant => $class::feed_frame_shadow(dark_mode), )+
+            pub fn feed_frame_shadow(&self) -> Shadow {
+                match self.variant {
+                    $( $variant => $class::feed_frame_shadow(self.dark_mode), )+
                 }
             }
 
-            pub fn feed_frame_fill(&self, is_new: bool, is_main_event: bool, dark_mode: bool) -> Color32 {
-                match *self {
-                    $( $variant => $class::feed_frame_fill(is_new, is_main_event, dark_mode), )+
+            pub fn feed_frame_fill(&self, is_new: bool, is_main_event: bool) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::feed_frame_fill(is_new, is_main_event, self.dark_mode), )+
                 }
             }
 
-            pub fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool, dark_mode: bool) -> Stroke {
-                match *self {
-                    $( $variant => $class::feed_frame_stroke(is_new, is_main_event, dark_mode), )+
+            pub fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool) -> Stroke {
+                match self.variant {
+                    $( $variant => $class::feed_frame_stroke(is_new, is_main_event, self.dark_mode), )+
                 }
             }
 
             pub fn round_image(&self) -> bool {
-                match *self {
+                match self.variant {
                     $( $variant => $class::round_image(), )+
                 }
             }
@@ -130,12 +145,15 @@ macro_rules! theme_dispatch {
 }
 
 theme_dispatch!(
-    Theme::Classic,
+    ThemeVariant::Classic,
     ClassicTheme,
-    Theme::Default,
+    "Classic",
+    ThemeVariant::Default,
     DefaultTheme,
-    Theme::Roundy,
-    RoundyTheme
+    "Default",
+    ThemeVariant::Roundy,
+    RoundyTheme,
+    "Roundy"
 );
 
 pub trait ThemeDef: Send + Sync {

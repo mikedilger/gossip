@@ -1,4 +1,4 @@
-use super::{GossipUi, Theme};
+use super::{GossipUi, ThemeVariant};
 use crate::comms::ToOverlordMessage;
 use crate::GLOBALS;
 use eframe::egui;
@@ -178,14 +178,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.heading("User Interface");
 
                 ui.horizontal(|ui| {
-                    if app.settings.dark_mode {
+                    if app.settings.theme.dark_mode {
                         if ui
                             .add(Button::new("🌙 Dark"))
                             .on_hover_text("Switch to light mode")
                             .clicked()
                         {
-                            app.settings.dark_mode = false;
-                            super::theme::apply_theme(app.settings.theme, app.settings.dark_mode, ctx);
+                            app.settings.theme.dark_mode = false;
+                            super::theme::apply_theme(app.settings.theme, ctx);
                         }
                     } else {
                         if ui
@@ -193,18 +193,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             .on_hover_text("Switch to dark mode")
                             .clicked()
                         {
-                            app.settings.dark_mode = true;
-                            super::theme::apply_theme(app.settings.theme, app.settings.dark_mode, ctx);
+                            app.settings.theme.dark_mode = true;
+                            super::theme::apply_theme(app.settings.theme, ctx);
                         }
                     }
                     let theme_combo = egui::ComboBox::from_label("Theme");
                     theme_combo
                         .selected_text( app.settings.theme.name() )
                         .show_ui(ui, |ui| {
-                            for theme in Theme::all() {
-                                if ui.add(egui::widgets::SelectableLabel::new(*theme == app.settings.theme, theme.name())).clicked() {
-                                    app.settings.theme = theme.to_owned();
-                                    super::theme::apply_theme(app.settings.theme, app.settings.dark_mode, ctx);
+                            for theme_variant in ThemeVariant::all() {
+                                if ui.add(egui::widgets::SelectableLabel::new(*theme_variant == app.settings.theme.variant, theme_variant.name())).clicked() {
+                                    app.settings.theme.variant = *theme_variant;
+                                    super::theme::apply_theme(app.settings.theme, ctx);
                                 };
                             }
                         });

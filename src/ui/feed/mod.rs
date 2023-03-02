@@ -126,7 +126,7 @@ fn render_a_feed(
         })
         .show(ui, |ui| {
             Frame::none()
-                .fill(app.settings.theme.feed_scroll_fill(app.settings.dark_mode))
+                .fill(app.settings.theme.feed_scroll_fill())
                 .show(ui, |ui| {
                     for id in feed.iter() {
                         render_post_maybe_fake(
@@ -285,17 +285,9 @@ fn render_post_actual(
         .inner_margin(app.settings.theme.feed_frame_inner_margin())
         .outer_margin(app.settings.theme.feed_frame_outer_margin())
         .rounding(app.settings.theme.feed_frame_rounding())
-        .shadow(app.settings.theme.feed_frame_shadow(app.settings.dark_mode))
-        .fill(
-            app.settings
-                .theme
-                .feed_frame_fill(is_new, is_main_event, app.settings.dark_mode),
-        )
-        .stroke(
-            app.settings
-                .theme
-                .feed_frame_stroke(is_new, is_main_event, app.settings.dark_mode),
-        )
+        .shadow(app.settings.theme.feed_frame_shadow())
+        .fill(app.settings.theme.feed_frame_fill(is_new, is_main_event))
+        .stroke(app.settings.theme.feed_frame_stroke(is_new, is_main_event))
         .show(ui, |ui| {
             ui.add_space(4.0);
 
@@ -326,12 +318,7 @@ fn render_post_actual(
     let bottom = ui.next_widget_position();
     app.height.insert(id, bottom.y - top.y);
 
-    thin_separator(
-        ui,
-        app.settings
-            .theme
-            .feed_post_separator_stroke(app.settings.dark_mode),
-    );
+    thin_separator(ui, app.settings.theme.feed_post_separator_stroke());
 
     if threaded && !as_reply_to {
         let replies = Globals::get_replies_sync(id);
