@@ -339,6 +339,22 @@ impl ThemeDef for RoundyTheme {
         }
     }
 
+    fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::LIGHT_RED
+        } else {
+            Color32::DARK_RED
+        }
+    }
+
+    fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::LIGHT_BLUE
+        } else {
+            Color32::DARK_BLUE
+        }
+    }
+
     // feed styling
     fn feed_scroll_fill(_dark_mode: bool) -> eframe::egui::Color32 {
         Color32::TRANSPARENT

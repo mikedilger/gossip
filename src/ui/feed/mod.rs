@@ -7,8 +7,8 @@ use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{
-    Align, Color32, Context, Frame, Image, Label, Layout, RichText, ScrollArea, SelectableLabel,
-    Sense, Separator, Stroke, TextStyle, Ui, Vec2,
+    Align, Context, Frame, Image, Label, Layout, RichText, ScrollArea, SelectableLabel, Sense,
+    Separator, Stroke, TextStyle, Ui, Vec2,
 };
 use nostr_types::{Event, EventKind, Id, IdHex};
 use std::sync::atomic::Ordering;
@@ -397,29 +397,17 @@ fn render_post_inner(
             }
 
             if deletion.is_some() {
-                let color = if ui.visuals().dark_mode {
-                    Color32::LIGHT_RED
-                } else {
-                    Color32::DARK_RED
-                };
+                let color = app.settings.theme.warning_marker_text_color();
                 ui.label(RichText::new("DELETED").color(color));
             }
 
             if event.kind == EventKind::Repost {
-                let color = if ui.visuals().dark_mode {
-                    Color32::LIGHT_BLUE
-                } else {
-                    Color32::DARK_BLUE
-                };
+                let color = app.settings.theme.notice_marker_text_color();
                 ui.label(RichText::new("REPOSTED").color(color));
             }
 
             if event.kind == EventKind::EncryptedDirectMessage {
-                let color = if ui.visuals().dark_mode {
-                    Color32::LIGHT_BLUE
-                } else {
-                    Color32::DARK_BLUE
-                };
+                let color = app.settings.theme.notice_marker_text_color();
                 ui.label(RichText::new("ENCRYPTED DM").color(color));
             }
 
@@ -653,12 +641,8 @@ fn render_post_inner(
 }
 
 fn thin_repost_separator(ui: &mut Ui) {
-    let color = if ui.visuals().dark_mode {
-        Color32::from_gray(80)
-    } else {
-        Color32::from_gray(200)
-    };
-    thin_separator(ui, Stroke { width: 1.0, color });
+    let stroke = ui.style().visuals.widgets.noninteractive.bg_stroke;
+    thin_separator(ui, stroke);
 }
 
 fn thin_separator(ui: &mut Ui, stroke: Stroke) {

@@ -5,7 +5,7 @@ use crate::tags::{keys_from_text, notes_from_text};
 use crate::ui::{GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
-use egui::{Align, Color32, Context, Layout, RichText, ScrollArea, TextEdit, Ui, Vec2};
+use egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, Ui, Vec2};
 use memoize::memoize;
 use nostr_types::Tag;
 
@@ -120,11 +120,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add(
                 TextEdit::singleline(&mut app.subject)
                     .hint_text("Type subject here")
-                    .text_color(if ui.visuals().dark_mode {
-                        Color32::WHITE
-                    } else {
-                        Color32::BLACK
-                    })
                     .desired_width(f32::INFINITY),
             );
         });
@@ -136,11 +131,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add(
                 TextEdit::singleline(&mut app.content_warning)
                     .hint_text("Type content warning here")
-                    .text_color(if ui.visuals().dark_mode {
-                        Color32::WHITE
-                    } else {
-                        Color32::BLACK
-                    })
                     .desired_width(f32::INFINITY),
             );
         });

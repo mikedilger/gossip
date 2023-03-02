@@ -58,7 +58,6 @@ impl ThemeDef for ClassicTheme {
         // /// Checkboxes, radio button and collapsing headers have an icon at the start.
         // /// This is the spacing between the icon and the text
         // pub icon_spacing: f32,
-
         // /// Width of a tooltip (`on_hover_ui`, `on_hover_text` etc).
         // pub tooltip_width: f32,
 
@@ -333,6 +332,22 @@ impl ThemeDef for ClassicTheme {
                 color: red,
                 ..Default::default()
             },
+        }
+    }
+
+    fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::LIGHT_RED
+        } else {
+            Color32::DARK_RED
+        }
+    }
+
+    fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::LIGHT_BLUE
+        } else {
+            Color32::DARK_BLUE
         }
     }
 

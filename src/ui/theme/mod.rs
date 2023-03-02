@@ -83,7 +83,19 @@ macro_rules! theme_dispatch {
                 highlight_type: HighlightType,
             ) -> TextFormat {
                 match self.variant {
-                    $( $variant => $class::highlight_text_format(highlight_type, self.dark_mode) ),+
+                    $( $variant => $class::highlight_text_format(highlight_type, self.dark_mode), )+
+                }
+            }
+
+            pub fn warning_marker_text_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::warning_marker_text_color(self.dark_mode), )+
+                }
+            }
+
+            pub fn notice_marker_text_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::notice_marker_text_color(self.dark_mode), )+
                 }
             }
 
@@ -165,6 +177,8 @@ pub trait ThemeDef: Send + Sync {
     fn font_definitions() -> FontDefinitions;
     fn text_styles() -> BTreeMap<TextStyle, FontId>;
     fn highlight_text_format(highlight_type: HighlightType, dark_mode: bool) -> TextFormat;
+    fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
+    fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
 
     // feed styling
     fn feed_scroll_fill(dark_mode: bool) -> Color32;
