@@ -99,18 +99,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     "Enable reposts (show)",
                 );
 
-                ui.add_space(12.0);
-
                 ui.checkbox(
                     &mut app.settings.direct_replies_only,
-                    "Show Direct Replies Only",
+                    "Show Direct Replies Only in your Inbox",
                 )
                     .on_hover_text("Takes effect when the feed refreshes.");
-
-                ui.add_space(12.0);
-
-                ui.add_space(12.0);
-
 
                 ui.checkbox(
                     &mut app.settings.direct_messages,
