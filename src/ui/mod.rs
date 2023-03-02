@@ -224,7 +224,7 @@ impl GossipUi {
         let start_page = if GLOBALS.first_run.load(Ordering::Relaxed) {
             Page::HelpHelp
         } else {
-            Page::Feed(FeedKind::General)
+            Page::Feed(FeedKind::Main)
         };
 
         // Apply current theme
@@ -304,6 +304,9 @@ impl GossipUi {
         match &page {
             Page::Feed(FeedKind::General) => {
                 GLOBALS.feed.set_feed_to_general();
+            }
+            Page::Feed(FeedKind::Main) => {
+                GLOBALS.feed.set_feed_to_main();
             }
             Page::Feed(FeedKind::Replies) => {
                 GLOBALS.feed.set_feed_to_replies();
@@ -388,7 +391,7 @@ impl eframe::App for GossipUi {
                     ))
                     .clicked()
                 {
-                    self.set_page(Page::Feed(FeedKind::General));
+                    self.set_page(Page::Feed(FeedKind::Main));
                 }
                 ui.separator();
                 if ui
