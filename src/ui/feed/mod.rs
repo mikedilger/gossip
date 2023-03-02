@@ -360,8 +360,19 @@ fn render_post_inner(
     } else {
         app.placeholder_avatar.clone()
     };
-    let size =
-        AVATAR_SIZE_F32 * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32 / 100.0;
+
+    // If it is a repost without any comment, resize the avatar to highlight the original poster's one
+    let resize_factor = if event.kind == EventKind::Repost
+        && (event.content.is_empty() || serde_json::from_str::<Event>(&event.content).is_ok())
+    {
+        180.0
+    } else {
+        100.0
+    };
+
+    let size = AVATAR_SIZE_F32 * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
+        / resize_factor;
+
     if ui
         .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
         .clicked()
