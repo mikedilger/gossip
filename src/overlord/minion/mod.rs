@@ -182,8 +182,8 @@ impl Minion {
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
                 // Cameri said people with >2k followers were losing data at 128kb cutoff.
                 max_message_size: Some(1024 * 1024), // 1 MB
-                max_frame_size: Some(1024 * 1024), // 1 MB
-                accept_unmasked_frames: false, // default is false which is the standard
+                max_frame_size: Some(1024 * 1024),   // 1 MB
+                accept_unmasked_frames: false,       // default is false which is the standard
             };
 
             let (websocket_stream, _response) = tokio::time::timeout(

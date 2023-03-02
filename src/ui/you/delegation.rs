@@ -56,7 +56,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     if let Err(e) = GLOBALS.delegation.save_through_settings().await {
                         tracing::error!("{}", e);
                     }
-                    *GLOBALS.status_message.write().await = format!("Delegation tag removed");
+                    *GLOBALS.status_message.write().await = "Delegation tag removed".to_string();
                 });
             }
         }

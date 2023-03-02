@@ -22,27 +22,22 @@ impl Delegation {
     }
 
     pub fn get_delegator_pubkey(&self) -> Option<PublicKey> {
-        if let Some(tag) = self.get_delegatee_tag() {
-            if let Tag::Delegation {
-                pubkey,
-                conditions: _,
-                sig: _,
-            } = tag
-            {
-                if let Ok(pk) = PublicKey::try_from_hex_string(pubkey.as_str()) {
-                    return Some(pk);
-                }
+        if let Some(Tag::Delegation {
+            pubkey,
+            conditions: _,
+            sig: _,
+        }) = self.get_delegatee_tag()
+        {
+            if let Ok(pk) = PublicKey::try_from_hex_string(pubkey.as_str()) {
+                return Some(pk);
             }
         }
         None
     }
 
     pub fn get_delegator_pubkey_as_bech32_str(&self) -> Option<String> {
-        if let Some(pubkey) = self.get_delegator_pubkey() {
-            Some(pubkey.try_as_bech32_string().unwrap_or_default())
-        } else {
-            None
-        }
+        self.get_delegator_pubkey()
+            .map(|pubkey| pubkey.try_as_bech32_string().unwrap_or_default())
     }
 
     pub fn set(&self, tag_str: &str) -> Result<(), Error> {
