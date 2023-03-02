@@ -178,10 +178,11 @@ impl Minion {
             let config: WebSocketConfig = WebSocketConfig {
                 max_send_queue: None,
                 // Tungstenite default is 64 MiB.
+                // Cameri nostream relay limits to 0.5 a megabyte
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
-                // 128KB seems like  a reasonable cutoff.
-                max_message_size: Some(1024 * 128),
-                max_frame_size: Some(1024 * 128),
+                // Cameri said people with >2k followers were losing data at 128kb cutoff.
+                max_message_size: Some(1024 * 1024), // 1 MB
+                max_frame_size: Some(1024 * 1024), // 1 MB
                 accept_unmasked_frames: false, // default is false which is the standard
             };
 
