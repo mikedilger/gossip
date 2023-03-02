@@ -10,6 +10,7 @@ use tokio::task;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FeedKind {
     General,
+    Main,
     Replies,
     Thread { id: Id, referenced_by: Id },
     Person(PublicKeyHex),
@@ -19,6 +20,7 @@ pub struct Feed {
     current_feed_kind: RwLock<FeedKind>,
 
     general_feed: RwLock<Vec<Id>>,
+    main_feed: RwLock<Vec<Id>>,
     replies_feed: RwLock<Vec<Id>>,
 
     // We only recompute the feed at specified intervals
@@ -35,8 +37,9 @@ pub struct Feed {
 impl Feed {
     pub fn new() -> Feed {
         Feed {
-            current_feed_kind: RwLock::new(FeedKind::General),
+            current_feed_kind: RwLock::new(FeedKind::Main),
             general_feed: RwLock::new(Vec::new()),
+            main_feed: RwLock::new(Vec::new()),
             replies_feed: RwLock::new(Vec::new()),
             interval_ms: RwLock::new(1000), // Every second, until we load from settings
             last_computed: RwLock::new(Instant::now()),
@@ -51,6 +54,23 @@ impl Feed {
         // because it won't have changed, but the relays will shower you with
         // all those events again.
         *self.current_feed_kind.write() = FeedKind::General;
+        *self.thread_parent.write() = None;
+
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribeThreadFeed,
+        });
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribePersonFeed,
+        });
+    }
+
+    pub fn set_feed_to_main(&self) {
+        // We are always subscribed to the general feed. Don't resubscribe here
+        // because it won't have changed, but the relays will shower you with
+        // all those events again.
+        *self.current_feed_kind.write() = FeedKind::Main;
         *self.thread_parent.write() = None;
 
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
@@ -113,6 +133,11 @@ impl Feed {
     pub fn get_general(&self) -> Vec<Id> {
         self.maybe_recompute();
         self.general_feed.read().clone()
+    }
+
+    pub fn get_main(&self) -> Vec<Id> {
+        self.maybe_recompute();
+        self.main_feed.read().clone()
     }
 
     pub fn get_replies(&self) -> Vec<Id> {
@@ -212,25 +237,26 @@ impl Feed {
         let now = Unixtime::now().unwrap();
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
-        // Filter out replies if the user doesn't want them
-        let replies_in_follows = GLOBALS.settings.read().replies_in_follows;
-
-        let mut fevents: Vec<Event> = events
+        let mut gevents: Vec<Event> = events
             .iter()
             .filter(|e| !dismissed.contains(&e.id))
-            .filter(|e| {
-                if replies_in_follows {
-                    true
-                } else {
-                    !matches!(e.replies_to(), Some((_id, _)))
-                }
-            })
             .filter(|e| followed_pubkeys.contains(&e.pubkey.into())) // something we follow
             .filter(|e| e.created_at <= now)
             .cloned()
             .collect();
-        fevents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        *self.general_feed.write() = fevents.iter().map(|e| e.id).collect();
+        gevents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        *self.general_feed.write() = gevents.iter().map(|e| e.id).collect();
+
+        let mut mevents: Vec<Event> = events
+            .iter()
+            .filter(|e| !dismissed.contains(&e.id))
+            .filter(|e| { !matches!(e.replies_to(), Some((_id, _))) })
+            .filter(|e| followed_pubkeys.contains(&e.pubkey.into())) // something we follow
+            .filter(|e| e.created_at <= now)
+            .cloned()
+            .collect();
+        mevents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        *self.main_feed.write() = mevents.iter().map(|e| e.id).collect();
 
         // Filter differently for the replies feed
         let direct_only = GLOBALS.settings.read().direct_replies_only;

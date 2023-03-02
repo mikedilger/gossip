@@ -30,8 +30,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.horizontal(|ui| {
         if ui
             .add(SelectableLabel::new(
+                app.page == Page::Feed(FeedKind::Main),
+                "Main feed",
+            ))
+            .clicked()
+        {
+            app.set_page(Page::Feed(FeedKind::Main));
+        }
+        ui.separator();
+        if ui
+            .add(SelectableLabel::new(
                 app.page == Page::Feed(FeedKind::General),
-                "Following",
+                "Conversations",
             ))
             .clicked()
         {
@@ -80,6 +90,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.add_space(10.0);
 
     match feed_kind {
+        FeedKind::Main => {
+            let feed = GLOBALS.feed.get_main();
+            render_a_feed(app, ctx, frame, ui, feed, false, "main");
+        }
         FeedKind::General => {
             let feed = GLOBALS.feed.get_general();
             render_a_feed(app, ctx, frame, ui, feed, false, "general");
