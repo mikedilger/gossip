@@ -237,26 +237,26 @@ impl Feed {
         let now = Unixtime::now().unwrap();
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
-        let mut gevents: Vec<Event> = events
+        let mut gevents: Vec<(Unixtime, Id)> = events
             .iter()
             .filter(|e| !dismissed.contains(&e.id))
             .filter(|e| followed_pubkeys.contains(&e.pubkey.into())) // something we follow
             .filter(|e| e.created_at <= now)
-            .cloned()
+            .map(|e| (e.created_at, e.id))
             .collect();
-        gevents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        *self.general_feed.write() = gevents.iter().map(|e| e.id).collect();
+        gevents.sort_by(|a, b| b.0.cmp(&a.0));
+        *self.general_feed.write() = gevents.iter().map(|e| e.1).collect();
 
-        let mut mevents: Vec<Event> = events
+        let mut mevents: Vec<(Unixtime, Id)> = events
             .iter()
             .filter(|e| !dismissed.contains(&e.id))
             .filter(|e| { !matches!(e.replies_to(), Some((_id, _))) })
             .filter(|e| followed_pubkeys.contains(&e.pubkey.into())) // something we follow
             .filter(|e| e.created_at <= now)
-            .cloned()
+            .map(|e| (e.created_at, e.id))
             .collect();
-        mevents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        *self.main_feed.write() = mevents.iter().map(|e| e.id).collect();
+        mevents.sort_by(|a, b| b.0.cmp(&a.0));
+        *self.main_feed.write() = mevents.iter().map(|e| e.1).collect();
 
         // Filter differently for the replies feed
         let direct_only = GLOBALS.settings.read().direct_replies_only;
