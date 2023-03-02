@@ -9,6 +9,9 @@ pub enum Error {
     #[error("Error receiving broadcast: {0}")]
     BroadcastReceive(#[from] tokio::sync::broadcast::error::RecvError),
 
+    #[error("NIP-26 delegation general: {0}")]
+    Delegation(String),
+
     #[error("Error: {0}")]
     General(String),
 

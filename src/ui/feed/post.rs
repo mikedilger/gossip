@@ -165,6 +165,9 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         if app.include_content_warning {
                             tags.push(Tag::ContentWarning(app.content_warning.clone()));
                         }
+                        if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
+                            tags.push(delegatee_tag);
+                        }
                         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
                             app.draft.clone(),
                             tags,

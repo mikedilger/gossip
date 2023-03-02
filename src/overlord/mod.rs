@@ -103,6 +103,9 @@ impl Overlord {
         // Load followed people from the database
         GLOBALS.people.load_all_followed().await?;
 
+        // Load delegation tag
+        GLOBALS.delegation.load_through_settings()?;
+
         // Initialize the relay picker
         GLOBALS.relay_picker.init().await?;
 

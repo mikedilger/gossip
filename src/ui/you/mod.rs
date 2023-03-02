@@ -8,6 +8,7 @@ use egui::{Color32, Context, Frame, ScrollArea, SelectableLabel, Stroke, TextEdi
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
+mod delegation;
 mod metadata;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -27,6 +28,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .clicked()
         {
             app.set_page(Page::YourMetadata);
+        }
+        ui.separator();
+        if ui
+            .add(SelectableLabel::new(
+                app.page == Page::YourDelegation,
+                "Delegation",
+            ))
+            .clicked()
+        {
+            app.set_page(Page::YourDelegation);
         }
         ui.separator();
     });
@@ -138,6 +149,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             });
     } else if app.page == Page::YourMetadata {
         metadata::update(app, ctx, _frame, ui);
+    } else if app.page == Page::YourDelegation {
+        delegation::update(app, ctx, _frame, ui);
     }
 }
 

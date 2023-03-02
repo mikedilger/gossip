@@ -1,5 +1,6 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
 use crate::db::DbRelay;
+use crate::delegation::Delegation;
 use crate::events::Events;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
@@ -91,6 +92,9 @@ pub struct Globals {
     pub pull_following_merge: AtomicBool,
 
     pub bytes_read: AtomicUsize,
+
+    /// Delegation handling
+    pub delegation: Delegation,
 }
 
 lazy_static! {
@@ -126,6 +130,7 @@ lazy_static! {
             status_message: RwLock::new("Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()),
             pull_following_merge: AtomicBool::new(true),
             bytes_read: AtomicUsize::new(0),
+            delegation: Delegation::default(),
         }
     };
 }
