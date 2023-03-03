@@ -311,6 +311,9 @@ impl GossipUi {
             Page::Feed(FeedKind::Replies) => {
                 GLOBALS.feed.set_feed_to_replies();
             }
+            Page::Feed(FeedKind::Activity) => {
+                GLOBALS.feed.set_feed_to_activity();
+            }
             Page::Feed(FeedKind::Thread { id, referenced_by }) => {
                 GLOBALS.feed.set_feed_to_thread(*id, *referenced_by);
             }
