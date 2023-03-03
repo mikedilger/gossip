@@ -16,7 +16,7 @@ use std::sync::atomic::Ordering;
 mod content;
 mod post;
 
-struct FeedPostParams {
+struct FeedNoteParams {
     id: Id,
     indent: usize,
     as_reply_to: bool,
@@ -143,12 +143,12 @@ fn render_a_feed(
                 .fill(app.settings.theme.feed_scroll_fill())
                 .show(ui, |ui| {
                     for id in feed.iter() {
-                        render_post_maybe_fake(
+                        render_note_maybe_fake(
                             app,
                             ctx,
                             frame,
                             ui,
-                            FeedPostParams {
+                            FeedNoteParams {
                                 id: *id,
                                 indent: 0,
                                 as_reply_to: false,
@@ -160,19 +160,19 @@ fn render_a_feed(
         });
 }
 
-fn render_post_maybe_fake(
+fn render_note_maybe_fake(
     app: &mut GossipUi,
     ctx: &Context,
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
-    feed_post_params: FeedPostParams,
+    feed_note_params: FeedNoteParams,
 ) {
-    let FeedPostParams {
+    let FeedNoteParams {
         id,
         indent,
         as_reply_to,
         threaded,
-    } = feed_post_params;
+    } = feed_note_params;
 
     // We always get the event even offscreen so we can estimate its height
     let maybe_event = GLOBALS.events.get(&id);
@@ -192,12 +192,12 @@ fn render_post_maybe_fake(
             // render the actual post and return
             // The first frame will be very slow, but it will only need to do this
             // once per post.
-            render_post_actual(
+            render_note_actual(
                 app,
                 ctx,
                 _frame,
                 ui,
-                FeedPostParams {
+                FeedNoteParams {
                     id,
                     indent,
                     as_reply_to,
@@ -218,12 +218,12 @@ fn render_post_maybe_fake(
         if threaded && !as_reply_to {
             let replies = Globals::get_replies_sync(event.id);
             for reply_id in replies {
-                render_post_maybe_fake(
+                render_note_maybe_fake(
                     app,
                     ctx,
                     _frame,
                     ui,
-                    FeedPostParams {
+                    FeedNoteParams {
                         id: reply_id,
                         indent: indent + 1,
                         as_reply_to,
@@ -233,12 +233,12 @@ fn render_post_maybe_fake(
             }
         }
     } else {
-        render_post_actual(
+        render_note_actual(
             app,
             ctx,
             _frame,
             ui,
-            FeedPostParams {
+            FeedNoteParams {
                 id,
                 indent,
                 as_reply_to,
@@ -248,19 +248,19 @@ fn render_post_maybe_fake(
     }
 }
 
-fn render_post_actual(
+fn render_note_actual(
     app: &mut GossipUi,
     ctx: &Context,
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
-    feed_post_params: FeedPostParams,
+    feed_note_params: FeedNoteParams,
 ) {
-    let FeedPostParams {
+    let FeedNoteParams {
         id,
         indent,
         as_reply_to,
         threaded,
-    } = feed_post_params;
+    } = feed_note_params;
 
     let maybe_event = GLOBALS.events.get(&id);
     if maybe_event.is_none() {
@@ -318,7 +318,7 @@ fn render_post_actual(
                 if person.muted > 0 {
                     ui.label(RichText::new("MUTED POST").monospace().italics());
                 } else {
-                    render_post_inner(app, ctx, ui, event, person, is_main_event, as_reply_to);
+                    render_note_inner(app, ctx, ui, event, person, is_main_event, as_reply_to);
                 }
             });
         });
@@ -337,12 +337,12 @@ fn render_post_actual(
     if threaded && !as_reply_to {
         let replies = Globals::get_replies_sync(id);
         for reply_id in replies {
-            render_post_maybe_fake(
+            render_note_maybe_fake(
                 app,
                 ctx,
                 _frame,
                 ui,
-                FeedPostParams {
+                FeedNoteParams {
                     id: reply_id,
                     indent: indent + 1,
                     as_reply_to,
@@ -353,7 +353,7 @@ fn render_post_actual(
     }
 }
 
-fn render_post_inner(
+fn render_note_inner(
     app: &mut GossipUi,
     ctx: &Context,
     ui: &mut Ui,
@@ -516,7 +516,7 @@ fn render_post_inner(
                         thin_repost_separator(ui);
                         ui.add_space(4.0);
                         ui.horizontal_wrapped(|ui| {
-                            render_post_inner(
+                            render_note_inner(
                                 app,
                                 ctx,
                                 ui,

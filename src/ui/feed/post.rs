@@ -1,4 +1,4 @@
-use super::FeedPostParams;
+use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::tags::{keys_from_text, notes_from_text};
@@ -91,12 +91,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 y: app.current_scroll_offset,
             })
             .show(ui, |ui| {
-                super::render_post_actual(
+                super::render_note_actual(
                     app,
                     ctx,
                     frame,
                     ui,
-                    FeedPostParams {
+                    FeedNoteParams {
                         id,
                         indent: 0,
                         as_reply_to: true,
