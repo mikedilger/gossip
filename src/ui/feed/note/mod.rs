@@ -16,6 +16,46 @@ use std::sync::atomic::Ordering;
 
 mod content;
 
+struct NoteData {
+    event: Event,
+    delegation: EventDelegation,
+    author: DbPerson,
+}
+
+impl NoteData {
+    pub fn new(event: Event) -> Option<NoteData> {
+        // Only render known relevent events
+        let enable_reposts = GLOBALS.settings.read().reposts;
+        let direct_messages = GLOBALS.settings.read().direct_messages;
+        if event.kind != EventKind::TextNote
+            && !(enable_reposts && (event.kind == EventKind::Repost))
+            && !(direct_messages && (event.kind == EventKind::EncryptedDirectMessage))
+        {
+            return None;
+        }
+
+        let delegation = event.delegation();
+
+        // If delegated, use the delegated person
+        let author_pubkey: PublicKeyHex = if let EventDelegation::DelegatedBy(pubkey) = delegation {
+            pubkey.into()
+        } else {
+            event.pubkey.into()
+        };
+
+        let author = match GLOBALS.people.get(&author_pubkey) {
+            Some(p) => p,
+            None => DbPerson::new(author_pubkey),
+        };
+
+        Some(NoteData {
+            event,
+            delegation,
+            author,
+        })
+    }
+}
+
 pub(super) fn render_note(
     app: &mut GossipUi,
     ctx: &Context,
@@ -30,47 +70,30 @@ pub(super) fn render_note(
         threaded,
     } = feed_note_params;
 
-    let maybe_event = GLOBALS.events.get(&id);
-    if maybe_event.is_none() {
-        return;
-    }
-    let event = maybe_event.unwrap();
+    let note_data = {
+        let maybe_event = GLOBALS.events.get(&id);
+        if maybe_event.is_none() {
+            return;
+        }
+        let event = maybe_event.unwrap();
 
-    let top = ui.next_widget_position();
-
-    // Only render known relevent events
-    let enable_reposts = GLOBALS.settings.read().reposts;
-    let direct_messages = GLOBALS.settings.read().direct_messages;
-    if event.kind != EventKind::TextNote
-        && !(enable_reposts && (event.kind == EventKind::Repost))
-        && !(direct_messages && (event.kind == EventKind::EncryptedDirectMessage))
-    {
-        return;
-    }
-
-    let delegation = event.delegation();
-
-    // If delegated, use the delegated person
-    let author_pubkey: PublicKeyHex = if let EventDelegation::DelegatedBy(pubkey) = delegation {
-        pubkey.into()
-    } else {
-        event.pubkey.into()
+        match NoteData::new(event) {
+            Some(nd) => nd,
+            None => return,
+        }
     };
 
-    let author = match GLOBALS.people.get(&author_pubkey) {
-        Some(p) => p,
-        None => DbPerson::new(author_pubkey),
-    };
-
-    let is_new = !app.viewed.contains(&event.id);
+    let is_new = !app.viewed.contains(&note_data.event.id);
 
     let is_main_event: bool = {
         let feed_kind = GLOBALS.feed.get_feed_kind();
         match feed_kind {
-            FeedKind::Thread { id, .. } => id == event.id,
+            FeedKind::Thread { id, .. } => id == note_data.event.id,
             _ => false,
         }
     };
+
+    let top = ui.next_widget_position();
 
     let inner_response = Frame::none()
         .inner_margin(app.settings.theme.feed_frame_inner_margin())
@@ -92,19 +115,10 @@ pub(super) fn render_note(
                     }
                 }
 
-                if author.muted > 0 {
+                if note_data.author.muted > 0 {
                     ui.label(RichText::new("MUTED POST").monospace().italics());
                 } else {
-                    render_note_inner(
-                        app,
-                        ctx,
-                        ui,
-                        event,
-                        delegation,
-                        author,
-                        is_main_event,
-                        as_reply_to,
-                    );
+                    render_note_inner(app, ctx, ui, note_data, is_main_event, as_reply_to);
                 }
             });
         });
@@ -140,17 +154,20 @@ pub(super) fn render_note(
 }
 
 // FIXME, create some way to limit the arguments here.
-#[allow(clippy::too_many_arguments)]
 fn render_note_inner(
     app: &mut GossipUi,
     ctx: &Context,
     ui: &mut Ui,
-    event: Event,
-    delegation: EventDelegation,
-    author: DbPerson,
+    note_data: NoteData,
     is_main_event: bool,
     as_reply_to: bool,
 ) {
+    let NoteData {
+        event,
+        delegation,
+        author,
+    } = note_data;
+
     let deletion = Globals::get_deletion_sync(event.id);
 
     let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
@@ -310,38 +327,18 @@ fn render_note_inner(
                 }
             } else if event.kind == EventKind::Repost {
                 if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                    let inner_delegation = inner_event.delegation();
-
-                    // If delegated, use the delegated person
-                    let inner_author_pubkey: PublicKeyHex =
-                        if let EventDelegation::DelegatedBy(pubkey) = inner_delegation {
-                            pubkey.into()
-                        } else {
-                            inner_event.pubkey.into()
-                        };
-
-                    let inner_person = match GLOBALS.people.get(&inner_author_pubkey) {
-                        Some(p) => p,
-                        None => DbPerson::new(inner_author_pubkey),
-                    };
-
-                    ui.vertical(|ui| {
-                        thin_repost_separator(ui);
-                        ui.add_space(4.0);
-                        ui.horizontal_wrapped(|ui| {
-                            render_note_inner(
-                                app,
-                                ctx,
-                                ui,
-                                inner_event,
-                                inner_delegation,
-                                inner_person,
-                                false,
-                                false,
-                            );
+                    if let Some(inner_note_data) = NoteData::new(inner_event) {
+                        ui.vertical(|ui| {
+                            thin_repost_separator(ui);
+                            ui.add_space(4.0);
+                            ui.horizontal_wrapped(|ui| {
+                                render_note_inner(app, ctx, ui, inner_note_data, false, false);
+                            });
+                            thin_repost_separator(ui);
                         });
-                        thin_repost_separator(ui);
-                    });
+                    } else {
+                        ui.label("REPOSTED EVENT IS NOT RELEVANT");
+                    }
                 } else if event.content.is_empty() {
                     content::render_content(
                         app,
