@@ -203,6 +203,13 @@ pub(super) fn font_definitions() -> FontDefinitions {
         FontData::from_static(include_bytes!("../../../fonts/DejaVuSansSansEmoji.ttf")),
     );
 
+    if cfg!(feature = "lang-cjk") {
+        font_data.insert(
+            "NotoSansCJK".to_owned(),
+            FontData::from_static(include_bytes!("../../../fonts/NotoSansCJK-Regular.ttc")),
+        );
+    }
+
     font_data.insert(
         "Inconsolata".to_owned(),
         FontData::from_static(include_bytes!("../../../fonts/Inconsolata-Regular.ttf")).tweak(
@@ -226,9 +233,14 @@ pub(super) fn font_definitions() -> FontDefinitions {
         ),
     );
 
+    let mut proportional = vec!["DejaVuSans".to_owned(), "NotoEmoji-Regular".to_owned()];
+    if cfg!(feature = "lang-cjk") {
+        proportional.push("NotoSansCJK".to_owned());
+    }
+
     families.insert(
         FontFamily::Proportional,
-        vec!["DejaVuSans".to_owned(), "NotoEmoji-Regular".to_owned()],
+        proportional
     );
 
     families.insert(

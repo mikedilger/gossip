@@ -9,7 +9,9 @@ homepage = "https://github.com/mikedilger/gossip"
 default-run = "gossip"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+lang-cjk = []
 
 [dependencies]
 async-recursion = "1.0"
