@@ -11,7 +11,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventKind, IdHex};
+use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex};
 use std::sync::atomic::Ordering;
 
 mod content;
@@ -48,9 +48,18 @@ pub(super) fn render_note(
         return;
     }
 
-    let person = match GLOBALS.people.get(&event.pubkey.into()) {
+    let delegation = event.delegation();
+
+    // If delegated, use the delegated person
+    let author_pubkey: PublicKeyHex = if let EventDelegation::DelegatedBy(pubkey) = delegation {
+        pubkey.into()
+    } else {
+        event.pubkey.into()
+    };
+
+    let author = match GLOBALS.people.get(&author_pubkey) {
         Some(p) => p,
-        None => DbPerson::new(event.pubkey.into()),
+        None => DbPerson::new(author_pubkey),
     };
 
     let is_new = !app.viewed.contains(&event.id);
@@ -83,10 +92,19 @@ pub(super) fn render_note(
                     }
                 }
 
-                if person.muted > 0 {
+                if author.muted > 0 {
                     ui.label(RichText::new("MUTED POST").monospace().italics());
                 } else {
-                    render_note_inner(app, ctx, ui, event, person, is_main_event, as_reply_to);
+                    render_note_inner(
+                        app,
+                        ctx,
+                        ui,
+                        event,
+                        delegation,
+                        author,
+                        is_main_event,
+                        as_reply_to,
+                    );
                 }
             });
         });
@@ -121,12 +139,15 @@ pub(super) fn render_note(
     }
 }
 
+// FIXME, create some way to limit the arguments here.
+#[allow(clippy::too_many_arguments)]
 fn render_note_inner(
     app: &mut GossipUi,
     ctx: &Context,
     ui: &mut Ui,
     event: Event,
-    person: DbPerson,
+    delegation: EventDelegation,
+    author: DbPerson,
     is_main_event: bool,
     as_reply_to: bool,
 ) {
@@ -137,7 +158,7 @@ fn render_note_inner(
     let tag_re = app.tag_re.clone();
 
     // Avatar first
-    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
+    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &author.pubkey) {
         avatar
     } else {
         app.placeholder_avatar.clone()
@@ -159,14 +180,14 @@ fn render_note_inner(
         .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
         .clicked()
     {
-        app.set_page(Page::Person(person.pubkey.clone()));
+        app.set_page(Page::Person(author.pubkey.clone()));
     };
 
     // Everything else next
     ui.vertical(|ui| {
         // First row
         ui.horizontal_wrapped(|ui| {
-            GossipUi::render_person_name_line(app, ui, &person);
+            GossipUi::render_person_name_line(app, ui, &author);
 
             if let Some((irt, _)) = event.replies_to() {
                 ui.add_space(8.0);
@@ -187,6 +208,19 @@ fn render_note_inner(
 
             if event.pow() > 0 {
                 ui.label(format!("POW={}", event.pow()));
+            }
+
+            match delegation {
+                EventDelegation::InvalidDelegation(why) => {
+                    let color = app.settings.theme.warning_marker_text_color();
+                    ui.add(Label::new(RichText::new("INVALID DELEGATION").color(color)))
+                        .on_hover_text(why);
+                }
+                EventDelegation::DelegatedBy(_) => {
+                    let color = app.settings.theme.notice_marker_text_color();
+                    ui.label(RichText::new("DELEGATED").color(color));
+                }
+                _ => {}
             }
 
             if deletion.is_some() {
@@ -276,10 +310,21 @@ fn render_note_inner(
                 }
             } else if event.kind == EventKind::Repost {
                 if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                    let inner_person = match GLOBALS.people.get(&inner_event.pubkey.into()) {
+                    let inner_delegation = inner_event.delegation();
+
+                    // If delegated, use the delegated person
+                    let inner_author_pubkey: PublicKeyHex =
+                        if let EventDelegation::DelegatedBy(pubkey) = inner_delegation {
+                            pubkey.into()
+                        } else {
+                            inner_event.pubkey.into()
+                        };
+
+                    let inner_person = match GLOBALS.people.get(&inner_author_pubkey) {
                         Some(p) => p,
-                        None => DbPerson::new(inner_event.pubkey.into()),
+                        None => DbPerson::new(inner_author_pubkey),
                     };
+
                     ui.vertical(|ui| {
                         thin_repost_separator(ui);
                         ui.add_space(4.0);
@@ -289,6 +334,7 @@ fn render_note_inner(
                                 ctx,
                                 ui,
                                 inner_event,
+                                inner_delegation,
                                 inner_person,
                                 false,
                                 false,
