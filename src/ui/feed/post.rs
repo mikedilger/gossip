@@ -91,7 +91,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 y: app.current_scroll_offset,
             })
             .show(ui, |ui| {
-                super::render_note_actual(
+                super::note::render_note(
                     app,
                     ctx,
                     frame,
