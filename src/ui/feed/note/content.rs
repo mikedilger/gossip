@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{RichText, Ui};
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{Event, EventKind, IdHex, Tag};
+use nostr_types::{Event, IdHex, Tag};
 
 pub(super) fn render_content(
     app: &mut GossipUi,
@@ -12,21 +12,9 @@ pub(super) fn render_content(
     tag_re: &regex::Regex,
     event: &Event,
     as_deleted: bool,
-    override_content: Option<String>,
+    content: &str,
 ) {
-    let content = match override_content {
-        Some(s) => s,
-        None => match event.kind {
-            EventKind::TextNote | EventKind::Repost => event.content.clone(),
-            EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(event) {
-                Ok(m) => m,
-                Err(_) => "DECRYPTION FAILED".to_owned(),
-            },
-            _ => "NON FEED RELATED EVENT".to_owned(),
-        },
-    };
-
-    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(&content) {
+    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
             ui.hyperlink_to(span.as_str(), span.as_str());
         } else {

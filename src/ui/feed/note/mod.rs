@@ -306,12 +306,29 @@ fn render_note_inner(
 
         ui.add_space(2.0);
 
+        // Compute the content
+        let content = match event.kind {
+            EventKind::TextNote => event.content.clone(),
+            EventKind::Repost => {
+                if event.content.is_empty() {
+                    "#[0]".to_owned() // a bit of a hack
+                } else {
+                    event.content.clone()
+                }
+            }
+            EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
+                Ok(m) => m,
+                Err(_) => "DECRYPTION FAILED".to_owned(),
+            },
+            _ => "NON FEED RELATED EVENT".to_owned(),
+        };
+
         // MAIN CONTENT
         ui.horizontal_wrapped(|ui| {
             if app.render_raw == Some(event.id) {
                 ui.label(serde_json::to_string_pretty(&event).unwrap());
             } else if app.render_qr == Some(event.id) {
-                app.render_qr(ui, ctx, "feedqr", event.content.trim());
+                app.render_qr(ui, ctx, "feedqr", content.trim());
             } else if event.content_warning().is_some() && !app.approved.contains(&event.id) {
                 ui.label(
                     RichText::new(format!(
@@ -326,7 +343,7 @@ fn render_note_inner(
                     app.height.remove(&event.id); // will need to be recalculated.
                 }
             } else if event.kind == EventKind::Repost {
-                if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+                if let Ok(inner_event) = serde_json::from_str::<Event>(&content) {
                     if let Some(inner_note_data) = NoteData::new(inner_event) {
                         ui.vertical(|ui| {
                             thin_repost_separator(ui);
@@ -339,21 +356,12 @@ fn render_note_inner(
                     } else {
                         ui.label("REPOSTED EVENT IS NOT RELEVANT");
                     }
-                } else if event.content.is_empty() {
-                    content::render_content(
-                        app,
-                        ui,
-                        &tag_re,
-                        &event,
-                        deletion.is_some(),
-                        Some("#[0]".to_owned()),
-                    );
                 } else {
                     // render like a kind-1 event with a mention
-                    content::render_content(app, ui, &tag_re, &event, deletion.is_some(), None);
+                    content::render_content(app, ui, &tag_re, &event, deletion.is_some(), &content);
                 }
             } else {
-                content::render_content(app, ui, &tag_re, &event, deletion.is_some(), None);
+                content::render_content(app, ui, &tag_re, &event, deletion.is_some(), &content);
             }
         });
 
@@ -376,7 +384,7 @@ fn render_note_inner(
                     if app.render_raw == Some(event.id) {
                         ui.output_mut(|o| o.copied_text = serde_json::to_string(&event).unwrap());
                     } else {
-                        ui.output_mut(|o| o.copied_text = event.content.clone());
+                        ui.output_mut(|o| o.copied_text = content.clone());
                     }
                 }
 
