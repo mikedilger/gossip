@@ -10,7 +10,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, ScrollArea, SelectableLabel, Sense,
     Separator, Stroke, TextStyle, Ui, Vec2,
 };
-use nostr_types::{Event, EventKind, Id, IdHex};
+use nostr_types::{Event, EventDelegation, EventKind, Id, IdHex, PublicKey};
 use std::sync::atomic::Ordering;
 
 mod content;
@@ -248,6 +248,15 @@ fn render_post_maybe_fake(
     }
 }
 
+/// Get the intended pubkey (publisher) of the event: most of the time it's just the pubkey, but for events with valid delegations, it's the delegator pubkey
+// TODO could be in nostr-types lib
+fn get_intended_pubkey(event: &Event) -> PublicKey {
+    match event.delegation() {
+        EventDelegation::DelegatedBy(pk) => pk,
+        _ => event.pubkey,
+    }
+}
+
 fn render_post_actual(
     app: &mut GossipUi,
     ctx: &Context,
@@ -280,9 +289,9 @@ fn render_post_actual(
         return;
     }
 
-    let person = match GLOBALS.people.get(&event.pubkey.into()) {
+    let person = match GLOBALS.people.get(&get_intended_pubkey(&event).into()) {
         Some(p) => p,
-        None => DbPerson::new(event.pubkey.into()),
+        None => DbPerson::new(get_intended_pubkey(&event).into()),
     };
 
     let is_new = !app.viewed.contains(&event.id);
@@ -369,7 +378,8 @@ fn render_post_inner(
     let tag_re = app.tag_re.clone();
 
     // Avatar first
-    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &event.pubkey.into()) {
+    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &get_intended_pubkey(&event).into())
+    {
         avatar
     } else {
         app.placeholder_avatar.clone()
@@ -391,7 +401,7 @@ fn render_post_inner(
         .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
         .clicked()
     {
-        app.set_page(Page::Person(event.pubkey.into()));
+        app.set_page(Page::Person(get_intended_pubkey(&event).into()));
     };
 
     // Everything else next
@@ -508,9 +518,12 @@ fn render_post_inner(
                 }
             } else if event.kind == EventKind::Repost {
                 if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                    let inner_person = match GLOBALS.people.get(&inner_event.pubkey.into()) {
+                    let inner_person = match GLOBALS
+                        .people
+                        .get(&get_intended_pubkey(&inner_event).into())
+                    {
                         Some(p) => p,
-                        None => DbPerson::new(inner_event.pubkey.into()),
+                        None => DbPerson::new(get_intended_pubkey(&inner_event).into()),
                     };
                     ui.vertical(|ui| {
                         thin_repost_separator(ui);
@@ -644,9 +657,10 @@ fn render_post_inner(
                         )
                         .clicked()
                     {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Like(
+                            event.id,
+                            get_intended_pubkey(&event),
+                        ));
                     }
                     for (ch, count) in reactions.iter() {
                         if *ch == '+' {
