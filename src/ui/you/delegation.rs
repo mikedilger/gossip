@@ -1,5 +1,6 @@
 use super::GossipUi;
 use crate::globals::GLOBALS;
+use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::{Context, TextEdit, Ui};
 use tokio::task;
@@ -20,8 +21,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             .delegation
             .get_delegator_pubkey_as_bech32_str()
             .unwrap_or("(not set)".to_string());
-        // TODO: read-only edit box so it can be copied?
         ui.label(&delegator_npub);
+        if ui
+            .add(CopyButton {})
+            .on_hover_text("Copy Public Key")
+            .clicked()
+        {
+            ui.output_mut(|o| o.copied_text = delegator_npub);
+        }
     });
     ui.horizontal(|ui| {
         if ui.button("Set").clicked() {
