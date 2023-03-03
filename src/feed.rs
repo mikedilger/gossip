@@ -250,7 +250,7 @@ impl Feed {
         let mut mevents: Vec<(Unixtime, Id)> = events
             .iter()
             .filter(|e| !dismissed.contains(&e.id))
-            .filter(|e| { !matches!(e.replies_to(), Some((_id, _))) })
+            .filter(|e| !matches!(e.replies_to(), Some((_id, _))))
             .filter(|e| followed_pubkeys.contains(&e.pubkey.into())) // something we follow
             .filter(|e| e.created_at <= now)
             .map(|e| (e.created_at, e.id))

@@ -238,10 +238,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
         proportional.push("NotoSansCJK".to_owned());
     }
 
-    families.insert(
-        FontFamily::Proportional,
-        proportional
-    );
+    families.insert(FontFamily::Proportional, proportional);
 
     families.insert(
         FontFamily::Monospace,
