@@ -1,5 +1,6 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
+use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
@@ -20,6 +21,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             app.set_page(Page::YourKeys);
         }
         ui.separator();
+        if let Some(pubkeyhex) = GLOBALS.signer.public_key() {
+            if ui
+                .add(SelectableLabel::new(
+                    app.page == Page::Feed(FeedKind::Person(pubkeyhex.into())),
+                    "Notes »",
+                ))
+                .clicked()
+            {
+                app.set_page(Page::Feed(FeedKind::Person(pubkeyhex.into())));
+            }
+            ui.separator();
+        }
         if ui
             .add(SelectableLabel::new(
                 app.page == Page::YourMetadata,
