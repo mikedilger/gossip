@@ -151,6 +151,29 @@ $ strip ./target/release/gossip
 $ ./target/release/gossip
 ````
 
+## Compile Options
+
+### TLS
+
+Gossip uses rustls by default. This is an SSL library in rust, which gets compiled into the binary, meaning we won't have issues trying to find your system SSL library or system CA certificates. It also means:
+
+- Gossip will fail to negotiate SSL with servers that don't have any strong ciphersuites. This is a feature, but not one that everybody wants.
+- Gossip may not compile on hardware that the `ring` crypto library does not yet support.
+
+If you wish to switch to your native TLS provider, use the following compile options:
+
+````
+  --no-default-features --features=native-tls
+````
+
+### Chinese, Japanese and Korean character sets
+
+Gossip by default does not include the CJK font because it is larger than all other languages put together, and most gossip users don't recognize those characters. If you do recognize such characters, you can compile in that font with:
+
+````
+  --features=lang-cjk
+````
+
 ## Technology Involved
 
 - Rust Language
