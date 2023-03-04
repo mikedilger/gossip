@@ -1,8 +1,7 @@
-use super::ThemeDef;
+use super::{FeedProperties, PostProperties, ThemeDef};
 use crate::ui::HighlightType;
-use eframe::egui;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
-use eframe::egui::{FontDefinitions, TextFormat, TextStyle, Visuals};
+use eframe::egui::{FontDefinitions, Margin, RichText, Style, TextFormat, TextStyle, Visuals};
 use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
 use std::collections::BTreeMap;
 
@@ -14,8 +13,8 @@ impl ThemeDef for DefaultTheme {
         "Default"
     }
 
-    fn get_style(dark_mode: bool) -> eframe::egui::Style {
-        let mut style = egui::Style::default();
+    fn get_style(dark_mode: bool) -> Style {
+        let mut style = Style::default();
 
         // /// `item_spacing` is inserted _after_ adding a widget, so to increase the spacing between
         // /// widgets `A` and `B` you need to change `item_spacing` before adding `A`.
@@ -353,40 +352,56 @@ impl ThemeDef for DefaultTheme {
     }
 
     // feed styling
-    fn feed_scroll_fill(dark_mode: bool) -> eframe::egui::Color32 {
+    fn feed_scroll_rounding(_feed: &FeedProperties) -> Rounding {
+        Rounding::none()
+    }
+    fn feed_scroll_fill(dark_mode: bool, _feed: &FeedProperties) -> Color32 {
         if dark_mode {
             Color32::from_gray(0)
         } else {
             Color32::from_gray(240)
         }
     }
-    fn feed_post_separator_stroke(_dark_mode: bool) -> eframe::egui::Stroke {
-        eframe::egui::Stroke::NONE
+    fn feed_scroll_stroke(_dark_mode: bool, _feed: &FeedProperties) -> Stroke {
+        Stroke::NONE
     }
-    fn feed_frame_inner_margin() -> eframe::egui::Margin {
-        eframe::egui::Margin::symmetric(10.0, 10.0)
+    fn feed_post_separator_stroke(_dark_mode: bool, _post: &PostProperties) -> Stroke {
+        Stroke::NONE
     }
-    fn feed_frame_outer_margin() -> eframe::egui::Margin {
-        eframe::egui::Margin::symmetric(0.0, 0.0)
+    fn feed_post_outer_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
+    fn feed_post_inner_indent(ui: &mut eframe::egui::Ui, post: &PostProperties) {
+        if post.is_thread {
+            let space = 100.0 * (10.0 - (1000.0 / (post.thread_position as f32 + 100.0)));
+            ui.add_space(space);
+            if post.thread_position > 0 {
+                ui.label(
+                    RichText::new(format!("{}>", post.thread_position))
+                        .italics()
+                        .weak(),
+                );
+            }
+        }
     }
-    fn feed_frame_rounding() -> eframe::egui::Rounding {
-        eframe::egui::Rounding::same(4.0)
+    fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
+        Margin::symmetric(10.0, 10.0)
     }
-    fn feed_frame_shadow(_dark_mode: bool) -> eframe::epaint::Shadow {
-        eframe::epaint::Shadow::default()
+    fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
+        Margin::symmetric(0.0, 0.0)
     }
-    fn feed_frame_fill(
-        is_new: bool,
-        is_main_event: bool,
-        dark_mode: bool,
-    ) -> eframe::egui::Color32 {
-        if is_main_event {
+    fn feed_frame_rounding(_post: &PostProperties) -> Rounding {
+        Rounding::same(4.0)
+    }
+    fn feed_frame_shadow(_dark_mode: bool, _post: &PostProperties) -> Shadow {
+        Shadow::default()
+    }
+    fn feed_frame_fill(dark_mode: bool, post: &PostProperties) -> Color32 {
+        if post.is_focused {
             if dark_mode {
                 Color32::from_rgb(16, 23, 33)
             } else {
                 Color32::from_rgb(246, 252, 227)
             }
-        } else if is_new {
+        } else if post.is_new {
             if dark_mode {
                 Color32::from_rgb(34, 28, 38)
             } else {
@@ -400,7 +415,7 @@ impl ThemeDef for DefaultTheme {
             }
         }
     }
-    fn feed_frame_stroke(_: bool, _: bool, _: bool) -> eframe::egui::Stroke {
+    fn feed_frame_stroke(_dark_mode: bool, _post: &PostProperties) -> Stroke {
         Stroke::NONE
     }
 

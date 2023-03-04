@@ -1,8 +1,7 @@
-use super::ThemeDef;
+use super::{FeedProperties, PostProperties, ThemeDef};
 use crate::ui::HighlightType;
-use eframe::egui;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
-use eframe::egui::{FontDefinitions, Margin, TextFormat, TextStyle, Visuals};
+use eframe::egui::{FontDefinitions, Margin, Style, TextFormat, TextStyle, Visuals};
 use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
 use std::collections::BTreeMap;
 
@@ -14,8 +13,8 @@ impl ThemeDef for RoundyTheme {
         "Roundy"
     }
 
-    fn get_style(dark_mode: bool) -> eframe::egui::Style {
-        let mut style = egui::Style::default();
+    fn get_style(dark_mode: bool) -> Style {
+        let mut style = Style::default();
 
         // /// `item_spacing` is inserted _after_ adding a widget, so to increase the spacing between
         // /// widgets `A` and `B` you need to change `item_spacing` before adding `A`.
@@ -30,6 +29,7 @@ impl ThemeDef for RoundyTheme {
 
         // /// Horizontal and vertical margins within a menu frame.
         // pub menu_margin: Margin,
+        style.spacing.menu_margin = Margin::symmetric(10.0, 5.0);
 
         // /// Indent collapsing regions etc by this much.
         // pub indent: f32,
@@ -70,6 +70,7 @@ impl ThemeDef for RoundyTheme {
         // pub combo_height: f32,
 
         // pub scroll_bar_width: f32,
+        style.spacing.scroll_bar_width = 30.0;
 
         // /// Make sure the scroll handle is at least this big
         // pub scroll_handle_min_length: f32,
@@ -128,8 +129,8 @@ impl ThemeDef for RoundyTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(0x24),
-                panel_fill: Color32::from_gray(0x24),
+                window_fill: Color32::from_gray(30),
+                panel_fill: Color32::from_gray(30),
                 faint_bg_color: Color32::from_gray(0x14),
                 extreme_bg_color: Color32::from_gray(0),
                 code_bg_color: Color32::from_gray(64),
@@ -356,30 +357,48 @@ impl ThemeDef for RoundyTheme {
     }
 
     // feed styling
-    fn feed_scroll_fill(_dark_mode: bool) -> eframe::egui::Color32 {
+    fn feed_scroll_rounding(_feed: &FeedProperties) -> Rounding {
+        Rounding::same(7.0)
+    }
+    fn feed_scroll_fill(_dark_mode: bool, _feed: &FeedProperties) -> Color32 {
         Color32::TRANSPARENT
     }
-    fn feed_post_separator_stroke(_dark_mode: bool) -> eframe::egui::Stroke {
-        eframe::egui::Stroke::NONE
+    fn feed_scroll_stroke(_dark_mode: bool, _feed: &FeedProperties) -> Stroke {
+        Stroke::NONE
     }
-    fn feed_frame_inner_margin() -> eframe::egui::Margin {
-        eframe::egui::Margin::symmetric(10.0, 5.0)
+    fn feed_post_separator_stroke(_dark_mode: bool, _post: &PostProperties) -> Stroke {
+        Stroke::new(1.0, Color32::TRANSPARENT)
     }
-    fn feed_frame_outer_margin() -> eframe::egui::Margin {
-        eframe::egui::Margin::default()
+    fn feed_post_outer_indent(ui: &mut eframe::egui::Ui, post: &PostProperties) {
+        if post.is_thread {
+            let space = 100.0 * (10.0 - (1000.0 / (post.thread_position as f32 + 100.0)));
+            ui.add_space(space);
+        }
     }
-    fn feed_frame_rounding() -> eframe::egui::Rounding {
-        eframe::egui::Rounding::same(7.0)
+    fn feed_post_inner_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
+    fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
+        Margin::symmetric(10.0, 5.0)
     }
-    fn feed_frame_shadow(_dark_mode: bool) -> eframe::epaint::Shadow {
-        eframe::epaint::Shadow::default()
+    fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
+        Margin::default()
     }
-    fn feed_frame_fill(
-        is_new: bool,
-        is_main_event: bool,
-        dark_mode: bool,
-    ) -> eframe::egui::Color32 {
-        if is_new && !is_main_event {
+    fn feed_frame_rounding(post: &PostProperties) -> Rounding {
+        if post.is_thread {
+            let mut rounding = Rounding::none();
+            if post.is_first && post.thread_position == 0 {
+                rounding.nw = 7.0;
+                rounding.ne = 7.0;
+            }
+            rounding
+        } else {
+            Rounding::same(7.0)
+        }
+    }
+    fn feed_frame_shadow(_dark_mode: bool, _post: &PostProperties) -> Shadow {
+        Shadow::NONE
+    }
+    fn feed_frame_fill(dark_mode: bool, post: &PostProperties) -> Color32 {
+        if post.is_new {
             if dark_mode {
                 Color32::from_rgb(45, 45, 46)
             } else {
@@ -393,19 +412,11 @@ impl ThemeDef for RoundyTheme {
             }
         }
     }
-    fn feed_frame_stroke(
-        is_new: bool,
-        is_main_event: bool,
-        _dark_mode: bool,
-    ) -> eframe::egui::Stroke {
-        if is_main_event {
-            Stroke::new(1.0, Color32::from_rgb(0x99, 0x66, 0x66))
+    fn feed_frame_stroke(_dark_mode: bool, post: &PostProperties) -> Stroke {
+        if post.is_focused {
+            Stroke::new(1.0, Color32::from_rgb(64, 96, 64))
         } else {
-            if is_new {
-                Stroke::new(1.0, Color32::from_gray(0x99))
-            } else {
-                Stroke::new(1.0, Color32::from_gray(0x66))
-            }
+            Stroke::new(1.0, Color32::from_gray(50))
         }
     }
 

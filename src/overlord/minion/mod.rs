@@ -1,11 +1,11 @@
 mod handle_websocket;
 mod subscription;
 
-use crate::USER_AGENT;
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::DbRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::USER_AGENT;
 use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};
 use futures::{SinkExt, StreamExt};

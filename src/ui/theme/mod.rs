@@ -1,7 +1,7 @@
 use super::HighlightType;
 use eframe::egui::{
     Color32, Context, FontData, FontDefinitions, FontTweak, Margin, Rounding, Stroke, Style,
-    TextFormat, TextStyle,
+    TextFormat, TextStyle, Ui,
 };
 use eframe::epaint::{FontFamily, FontId, Shadow};
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,24 @@ pub enum ThemeVariant {
 pub struct Theme {
     pub variant: ThemeVariant,
     pub dark_mode: bool,
+}
+pub struct FeedProperties {
+    /// This is a thread
+    pub is_thread: bool,
+}
+
+pub struct PostProperties {
+    pub is_new: bool,
+    /// This message is the focus of the view (formerly called is_main_event)
+    pub is_focused: bool,
+    /// This message is part of a thread
+    pub is_thread: bool,
+    /// Is this the first post in the display?
+    pub is_first: bool,
+    /// Is this the last post in the display
+    pub is_last: bool,
+    /// Position in the thread, focused message = 0
+    pub thread_position: i32,
 }
 
 macro_rules! theme_dispatch {
@@ -99,51 +117,75 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn feed_scroll_fill(&self) -> Color32 {
+            pub fn feed_scroll_fill(&self, feed: &FeedProperties) -> Color32 {
                 match self.variant {
-                    $( $variant => $class::feed_scroll_fill(self.dark_mode), )+
+                    $( $variant => $class::feed_scroll_fill(self.dark_mode, feed), )+
                 }
             }
 
-            pub fn feed_post_separator_stroke(&self) -> Stroke {
+            pub fn feed_scroll_stroke(&self, feed: &FeedProperties) -> Stroke {
                 match self.variant {
-                    $( $variant => $class::feed_post_separator_stroke(self.dark_mode), )+
+                    $( $variant => $class::feed_scroll_stroke(self.dark_mode, feed), )+
                 }
             }
 
-            pub fn feed_frame_inner_margin(&self) -> Margin {
+            pub fn feed_scroll_rounding(&self, feed: &FeedProperties) -> Rounding {
                 match self.variant {
-                    $( $variant => $class::feed_frame_inner_margin(), )+
+                    $( $variant => $class::feed_scroll_rounding(feed), )+
                 }
             }
 
-            pub fn feed_frame_outer_margin(&self) -> Margin {
+            pub fn feed_post_separator_stroke(&self, post: &PostProperties) -> Stroke {
                 match self.variant {
-                    $( $variant => $class::feed_frame_outer_margin(), )+
+                    $( $variant => $class::feed_post_separator_stroke(self.dark_mode, post), )+
                 }
             }
 
-            pub fn feed_frame_rounding(&self) -> Rounding {
+            pub fn feed_post_outer_indent(&self, ui: &mut Ui, post: &PostProperties) {
                 match self.variant {
-                    $( $variant => $class::feed_frame_rounding(), )+
+                    $( $variant => $class::feed_post_outer_indent(ui, post), )+
                 }
             }
 
-            pub fn feed_frame_shadow(&self) -> Shadow {
+            pub fn feed_post_inner_indent(&self, ui: &mut Ui, post: &PostProperties) {
                 match self.variant {
-                    $( $variant => $class::feed_frame_shadow(self.dark_mode), )+
+                    $( $variant => $class::feed_post_inner_indent(ui, post), )+
                 }
             }
 
-            pub fn feed_frame_fill(&self, is_new: bool, is_main_event: bool) -> Color32 {
+            pub fn feed_frame_inner_margin(&self, post: &PostProperties) -> Margin {
                 match self.variant {
-                    $( $variant => $class::feed_frame_fill(is_new, is_main_event, self.dark_mode), )+
+                    $( $variant => $class::feed_frame_inner_margin(post), )+
                 }
             }
 
-            pub fn feed_frame_stroke(&self, is_new: bool, is_main_event: bool) -> Stroke {
+            pub fn feed_frame_outer_margin(&self, post: &PostProperties) -> Margin {
                 match self.variant {
-                    $( $variant => $class::feed_frame_stroke(is_new, is_main_event, self.dark_mode), )+
+                    $( $variant => $class::feed_frame_outer_margin(post), )+
+                }
+            }
+
+            pub fn feed_frame_rounding(&self, post: &PostProperties) -> Rounding {
+                match self.variant {
+                    $( $variant => $class::feed_frame_rounding(post), )+
+                }
+            }
+
+            pub fn feed_frame_shadow(&self, post: &PostProperties) -> Shadow {
+                match self.variant {
+                    $( $variant => $class::feed_frame_shadow(self.dark_mode, post), )+
+                }
+            }
+
+            pub fn feed_frame_fill(&self, post: &PostProperties) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::feed_frame_fill(self.dark_mode, post), )+
+                }
+            }
+
+            pub fn feed_frame_stroke(&self, post: &PostProperties) -> Stroke {
+                match self.variant {
+                    $( $variant => $class::feed_frame_stroke(self.dark_mode, post), )+
                 }
             }
 
@@ -181,14 +223,18 @@ pub trait ThemeDef: Send + Sync {
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
 
     // feed styling
-    fn feed_scroll_fill(dark_mode: bool) -> Color32;
-    fn feed_post_separator_stroke(dark_mode: bool) -> Stroke;
-    fn feed_frame_inner_margin() -> Margin;
-    fn feed_frame_outer_margin() -> Margin;
-    fn feed_frame_rounding() -> Rounding;
-    fn feed_frame_shadow(dark_mode: bool) -> Shadow;
-    fn feed_frame_fill(is_new: bool, is_main_event: bool, dark_mode: bool) -> Color32;
-    fn feed_frame_stroke(is_new: bool, is_main_event: bool, dark_mode: bool) -> Stroke;
+    fn feed_scroll_rounding(feed: &FeedProperties) -> Rounding;
+    fn feed_scroll_fill(dark_mode: bool, feed: &FeedProperties) -> Color32;
+    fn feed_scroll_stroke(dark_mode: bool, feed: &FeedProperties) -> Stroke;
+    fn feed_post_separator_stroke(dark_mode: bool, post: &PostProperties) -> Stroke;
+    fn feed_post_outer_indent(ui: &mut Ui, post: &PostProperties);
+    fn feed_post_inner_indent(ui: &mut Ui, post: &PostProperties);
+    fn feed_frame_inner_margin(post: &PostProperties) -> Margin;
+    fn feed_frame_outer_margin(post: &PostProperties) -> Margin;
+    fn feed_frame_rounding(post: &PostProperties) -> Rounding;
+    fn feed_frame_shadow(dark_mode: bool, post: &PostProperties) -> Shadow;
+    fn feed_frame_fill(dark_mode: bool, post: &PostProperties) -> Color32;
+    fn feed_frame_stroke(dark_mode: bool, post: &PostProperties) -> Stroke;
 
     // image rounding
     fn round_image() -> bool;
