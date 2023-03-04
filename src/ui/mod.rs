@@ -224,7 +224,7 @@ impl GossipUi {
         let start_page = if GLOBALS.first_run.load(Ordering::Relaxed) {
             Page::HelpHelp
         } else {
-            Page::Feed(FeedKind::Main)
+            Page::Feed(FeedKind::Followed(false))
         };
 
         // Apply current theme
@@ -302,17 +302,11 @@ impl GossipUi {
     fn set_page_inner(&mut self, page: Page) {
         // Setting the page often requires some associated actions:
         match &page {
-            Page::Feed(FeedKind::General) => {
-                GLOBALS.feed.set_feed_to_general();
+            Page::Feed(FeedKind::Followed(with_replies)) => {
+                GLOBALS.feed.set_feed_to_followed(*with_replies);
             }
-            Page::Feed(FeedKind::Main) => {
-                GLOBALS.feed.set_feed_to_main();
-            }
-            Page::Feed(FeedKind::Replies) => {
-                GLOBALS.feed.set_feed_to_replies();
-            }
-            Page::Feed(FeedKind::Activity) => {
-                GLOBALS.feed.set_feed_to_activity();
+            Page::Feed(FeedKind::Inbox(indirect)) => {
+                GLOBALS.feed.set_feed_to_inbox(*indirect);
             }
             Page::Feed(FeedKind::Thread { id, referenced_by }) => {
                 GLOBALS.feed.set_feed_to_thread(*id, *referenced_by);
@@ -394,7 +388,7 @@ impl eframe::App for GossipUi {
                     ))
                     .clicked()
                 {
-                    self.set_page(Page::Feed(FeedKind::Main));
+                    self.set_page(Page::Feed(FeedKind::Followed(false)));
                 }
                 ui.separator();
                 if ui

@@ -22,42 +22,42 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.horizontal(|ui| {
         if ui
             .add(SelectableLabel::new(
-                app.page == Page::Feed(FeedKind::Main),
+                app.page == Page::Feed(FeedKind::Followed(false)),
                 "Main feed",
             ))
             .clicked()
         {
-            app.set_page(Page::Feed(FeedKind::Main));
+            app.set_page(Page::Feed(FeedKind::Followed(false)));
         }
         ui.separator();
         if ui
             .add(SelectableLabel::new(
-                app.page == Page::Feed(FeedKind::General),
+                app.page == Page::Feed(FeedKind::Followed(true)),
                 "Conversations",
             ))
             .clicked()
         {
-            app.set_page(Page::Feed(FeedKind::General));
+            app.set_page(Page::Feed(FeedKind::Followed(true)));
         }
         ui.separator();
         if ui
             .add(SelectableLabel::new(
-                app.page == Page::Feed(FeedKind::Replies),
+                app.page == Page::Feed(FeedKind::Inbox(false)),
                 "Inbox",
             ))
             .clicked()
         {
-            app.set_page(Page::Feed(FeedKind::Replies));
+            app.set_page(Page::Feed(FeedKind::Inbox(false)));
         }
         ui.separator();
         if ui
             .add(SelectableLabel::new(
-                app.page == Page::Feed(FeedKind::Activity),
+                app.page == Page::Feed(FeedKind::Inbox(true)),
                 "Activity",
             ))
             .clicked()
         {
-            app.set_page(Page::Feed(FeedKind::Activity));
+            app.set_page(Page::Feed(FeedKind::Inbox(true)));
         }
         if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
             ui.separator();
@@ -92,15 +92,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.add_space(10.0);
 
     match feed_kind {
-        FeedKind::Main => {
-            let feed = GLOBALS.feed.get_main();
-            render_a_feed(app, ctx, frame, ui, feed, false, "main");
+        FeedKind::Followed(with_replies) => {
+            let feed = GLOBALS.feed.get_followed();
+            let id = if with_replies { "main" } else { "general" };
+            render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
-        FeedKind::General => {
-            let feed = GLOBALS.feed.get_general();
-            render_a_feed(app, ctx, frame, ui, feed, false, "general");
-        }
-        FeedKind::Replies => {
+        FeedKind::Inbox(indirect) => {
             if GLOBALS.signer.public_key().is_none() {
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
@@ -110,21 +107,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.label(" to see any replies to that identity.");
                 });
             }
-            let feed = GLOBALS.feed.get_replies();
-            render_a_feed(app, ctx, frame, ui, feed, false, "replies");
-        }
-        FeedKind::Activity => {
-            if GLOBALS.signer.public_key().is_none() {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label("You need to ");
-                    if ui.link("setup an identity").clicked() {
-                        app.set_page(Page::YourKeys);
-                    }
-                    ui.label(" to see any replies to that identity.");
-                });
-            }
-            let feed = GLOBALS.feed.get_activity();
-            render_a_feed(app, ctx, frame, ui, feed, false, "activity");
+            let feed = GLOBALS.feed.get_inbox();
+            let id = if indirect { "activity" } else { "inbox" };
+            render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
@@ -147,6 +132,17 @@ fn render_a_feed(
     threaded: bool,
     scroll_area_id: &str,
 ) {
+    if GLOBALS
+        .feed
+        .switched_and_recomputing
+        .load(std::sync::atomic::Ordering::Relaxed)
+    {
+        ui.centered_and_justified(|ui| {
+            ui.label("RECOMPUTING...");
+        });
+        return;
+    }
+
     ScrollArea::vertical()
         .id_source(scroll_area_id)
         .override_scroll_delta(Vec2 {
