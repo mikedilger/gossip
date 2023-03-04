@@ -30,7 +30,8 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 
 ### Screenshot
 
-![Gossip Screenshot](gossip_screenshot.png)
+![Gossip Screenshot, Default Light Theme](assets/gossip_screenshot_light.png)
+![Gossip Screenshot, Default Dark Theme](assets/gossip_screenshot_dark.png)
 
 ### Videos
 
