@@ -33,7 +33,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use std::ops::DerefMut;
 use std::{env, mem, thread};
-use tracing_subscriber::filter::EnvFilter;
+use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 pub const AVATAR_SIZE: u32 = 48; // points, not pixels
 pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
@@ -45,12 +45,18 @@ fn main() -> Result<(), Error> {
         env::set_var("RUST_LOG", "info");
     }
 
+    let env_filter = EnvFilter::from_default_env();
+    let max_level = match env_filter.max_level_hint() {
+        Some(l) => l,
+        None => LevelFilter::ERROR,
+    };
+    let show_debug = cfg!(debug_assertions) || max_level <= LevelFilter::DEBUG;
     tracing_subscriber::fmt::fmt()
         .without_time()
         .with_target(false)
-        .with_file(cfg!(debug_assertions))
-        .with_line_number(cfg!(debug_assertions))
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_file(show_debug)
+        .with_line_number(show_debug)
+        .with_env_filter(env_filter)
         .init();
 
     // Setup the database (possibly create, possibly upgrade)
