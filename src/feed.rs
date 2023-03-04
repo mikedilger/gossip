@@ -317,7 +317,6 @@ impl Feed {
             *self.replies_feed.write() = revents.iter().map(|e| e.id).collect();
         }
 
-
         // Filter all post where user is tagged for the activity feed
         if let Some(my_pubkey) = GLOBALS.signer.public_key() {
             let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();
