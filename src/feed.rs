@@ -12,6 +12,7 @@ pub enum FeedKind {
     General,
     Main,
     Replies,
+    Activity,
     Thread { id: Id, referenced_by: Id },
     Person(PublicKeyHex),
 }
@@ -22,6 +23,7 @@ pub struct Feed {
     general_feed: RwLock<Vec<Id>>,
     main_feed: RwLock<Vec<Id>>,
     replies_feed: RwLock<Vec<Id>>,
+    activity_feed: RwLock<Vec<Id>>,
 
     // We only recompute the feed at specified intervals
     interval_ms: RwLock<u32>,
@@ -41,6 +43,7 @@ impl Feed {
             general_feed: RwLock::new(Vec::new()),
             main_feed: RwLock::new(Vec::new()),
             replies_feed: RwLock::new(Vec::new()),
+            activity_feed: RwLock::new(Vec::new()),
             interval_ms: RwLock::new(1000), // Every second, until we load from settings
             last_computed: RwLock::new(Instant::now()),
             my_event_ids: RwLock::new(Vec::new()),
@@ -85,6 +88,20 @@ impl Feed {
 
     pub fn set_feed_to_replies(&self) {
         *self.current_feed_kind.write() = FeedKind::Replies;
+        *self.thread_parent.write() = None;
+
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribeThreadFeed,
+        });
+        let _ = GLOBALS.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload::UnsubscribePersonFeed,
+        });
+    }
+
+    pub fn set_feed_to_activity(&self) {
+        *self.current_feed_kind.write() = FeedKind::Activity;
         *self.thread_parent.write() = None;
 
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
@@ -143,6 +160,11 @@ impl Feed {
     pub fn get_replies(&self) -> Vec<Id> {
         self.maybe_recompute();
         self.replies_feed.read().clone()
+    }
+
+    pub fn get_activity(&self) -> Vec<Id> {
+        self.maybe_recompute();
+        self.activity_feed.read().clone()
     }
 
     pub fn get_person_feed(&self, person: PublicKeyHex) -> Vec<Id> {
@@ -247,6 +269,7 @@ impl Feed {
         gevents.sort_by(|a, b| b.0.cmp(&a.0));
         *self.general_feed.write() = gevents.iter().map(|e| e.1).collect();
 
+        // Filter the main feed with only main posts
         let mut mevents: Vec<(Unixtime, Id)> = events
             .iter()
             .filter(|e| !dismissed.contains(&e.id))
@@ -258,9 +281,7 @@ impl Feed {
         mevents.sort_by(|a, b| b.0.cmp(&a.0));
         *self.main_feed.write() = mevents.iter().map(|e| e.1).collect();
 
-        // Filter differently for the replies feed
-        let direct_only = GLOBALS.settings.read().direct_replies_only;
-
+        // Filter direct replies for the inbox feed
         if let Some(my_pubkey) = GLOBALS.signer.public_key() {
             let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();
             let mut revents: Vec<Event> = events
@@ -280,14 +301,13 @@ impl Feed {
                         }
                     }
 
-                    if direct_only && e.kind != EventKind::EncryptedDirectMessage {
+                    if e.kind != EventKind::EncryptedDirectMessage {
                         // Include if it directly references me in the content
                         e.referenced_people()
                             .iter()
                             .any(|(p, _, _)| *p == my_pubkey.into())
                     } else {
-                        // Include if it tags me
-                        e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                        false
                     }
                 })
                 .cloned()
@@ -295,6 +315,37 @@ impl Feed {
 
             revents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
             *self.replies_feed.write() = revents.iter().map(|e| e.id).collect();
+        }
+
+
+        // Filter all post where user is tagged for the activity feed
+        if let Some(my_pubkey) = GLOBALS.signer.public_key() {
+            let my_events: HashSet<Id> = self.my_event_ids.read().iter().copied().collect();
+            let mut aevents: Vec<Event> = events
+                .iter()
+                .filter(|e| !dismissed.contains(&e.id))
+                .filter(|e| {
+                    // Don't include my own posts
+                    if e.pubkey == my_pubkey {
+                        return false;
+                    }
+
+                    // Include if it directly replies to one of my events
+                    // FIXME: maybe try replies_to_ancestors to go deeper
+                    if let Some((id, _)) = e.replies_to() {
+                        if my_events.contains(&id) {
+                            return true;
+                        }
+                    }
+
+                    // Include if it tags me
+                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                })
+                .cloned()
+                .collect();
+
+            aevents.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            *self.activity_feed.write() = aevents.iter().map(|e| e.id).collect();
         }
 
         // Potentially update thread parent to a higher parent

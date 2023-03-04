@@ -25,7 +25,6 @@ pub const DEFAULT_REACTIONS: bool = true;
 pub const DEFAULT_REPOSTS: bool = true;
 pub const DEFAULT_LOAD_AVATARS: bool = true;
 pub const DEFAULT_CHECK_NIP05: bool = true;
-pub const DEFAULT_DIRECT_REPLIES_ONLY: bool = true;
 pub const DEFAULT_DIRECT_MESSAGES: bool = true;
 pub const DEFAULT_AUTOMATICALLY_FETCH_METADATA: bool = true;
 
@@ -49,7 +48,6 @@ pub struct Settings {
     pub reposts: bool,
     pub load_avatars: bool,
     pub check_nip05: bool,
-    pub direct_replies_only: bool,
     pub direct_messages: bool,
     pub automatically_fetch_metadata: bool,
     pub delegatee_tag: String,
@@ -76,7 +74,6 @@ impl Default for Settings {
             reposts: DEFAULT_REPOSTS,
             load_avatars: DEFAULT_LOAD_AVATARS,
             check_nip05: DEFAULT_CHECK_NIP05,
-            direct_replies_only: DEFAULT_DIRECT_REPLIES_ONLY,
             direct_messages: DEFAULT_DIRECT_MESSAGES,
             automatically_fetch_metadata: DEFAULT_AUTOMATICALLY_FETCH_METADATA,
             delegatee_tag: String::new(),
@@ -157,7 +154,6 @@ impl Settings {
                 "reposts" => settings.reposts = numstr_to_bool(row.1),
                 "load_avatars" => settings.load_avatars = numstr_to_bool(row.1),
                 "check_nip05" => settings.check_nip05 = numstr_to_bool(row.1),
-                "direct_replies_only" => settings.direct_replies_only = numstr_to_bool(row.1),
                 "direct_messages" => settings.direct_messages = numstr_to_bool(row.1),
                 "automatically_fetch_metadata" => {
                     settings.automatically_fetch_metadata = numstr_to_bool(row.1)
@@ -201,7 +197,6 @@ impl Settings {
              ('reposts', ?),\
              ('load_avatars', ?),\
              ('check_nip05', ?),\
-             ('direct_replies_only', ?),\
              ('direct_messages', ?),\
              ('automatically_fetch_metadata', ?),\
              ('delegatee_tag', ?)",
@@ -224,7 +219,6 @@ impl Settings {
             bool_to_numstr(self.reposts),
             bool_to_numstr(self.load_avatars),
             bool_to_numstr(self.check_nip05),
-            bool_to_numstr(self.direct_replies_only),
             bool_to_numstr(self.direct_messages),
             bool_to_numstr(self.automatically_fetch_metadata),
             self.delegatee_tag,

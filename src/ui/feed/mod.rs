@@ -49,6 +49,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         {
             app.set_page(Page::Feed(FeedKind::Replies));
         }
+        ui.separator();
+        if ui
+            .add(SelectableLabel::new(
+                app.page == Page::Feed(FeedKind::Activity),
+                "Activity",
+            ))
+            .clicked()
+        {
+            app.set_page(Page::Feed(FeedKind::Activity));
+        }
         if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
             ui.separator();
             if ui
@@ -102,6 +112,19 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
             let feed = GLOBALS.feed.get_replies();
             render_a_feed(app, ctx, frame, ui, feed, false, "replies");
+        }
+        FeedKind::Activity => {
+            if GLOBALS.signer.public_key().is_none() {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("You need to ");
+                    if ui.link("setup an identity").clicked() {
+                        app.set_page(Page::YourKeys);
+                    }
+                    ui.label(" to see any replies to that identity.");
+                });
+            }
+            let feed = GLOBALS.feed.get_activity();
+            render_a_feed(app, ctx, frame, ui, feed, false, "activity");
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
