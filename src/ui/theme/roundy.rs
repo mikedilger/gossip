@@ -2,7 +2,7 @@ use super::{FeedProperties, PostProperties, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{FontDefinitions, Margin, Style, TextFormat, TextStyle, Visuals};
-use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
+use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke, Vec2};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -22,10 +22,11 @@ impl ThemeDef for RoundyTheme {
 
         // /// Horizontal and vertical margins within a window frame.
         // pub window_margin: Margin,
-        style.spacing.window_margin = Margin::symmetric(10.0, 5.0);
+        style.spacing.window_margin = Margin::symmetric(20.0, 20.0);
 
         // /// Button size is text size plus this on each side
         // pub button_padding: Vec2,
+        style.spacing.button_padding = Vec2::new(7.0, 3.0);
 
         // /// Horizontal and vertical margins within a menu frame.
         // pub menu_margin: Margin,
@@ -70,10 +71,10 @@ impl ThemeDef for RoundyTheme {
         // pub combo_height: f32,
 
         // pub scroll_bar_width: f32,
-        style.spacing.scroll_bar_width = 30.0;
+        style.spacing.scroll_bar_width = 15.0;
 
         // /// Make sure the scroll handle is at least this big
-        // pub scroll_handle_min_length: f32,
+        style.spacing.scroll_handle_min_length = 40.0;
 
         // /// Margin between contents and scroll bar.
         // pub scroll_bar_inner_margin: f32,
@@ -210,8 +211,8 @@ impl ThemeDef for RoundyTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(0xed),
-                panel_fill: Color32::from_gray(0xed),
+                window_fill: Color32::from_gray(0xec),
+                panel_fill: Color32::from_gray(0xec),
                 faint_bg_color: Color32::from_gray(0xf9),
                 extreme_bg_color: Color32::from_gray(0xff),
                 code_bg_color: Color32::from_gray(230),
@@ -224,7 +225,7 @@ impl ThemeDef for RoundyTheme {
                 hyperlink_color: Color32::from_rgb(0x55, 0x7a, 0x95), // DONE
 
                 selection: Selection {
-                    bg_fill: Color32::from_rgb(0xb1, 0xa2, 0x96), // DONE
+                    bg_fill: Color32::WHITE, // DONE
                     stroke: Stroke::new(1.0, Color32::from_rgb(0x5d, 0x5c, 0x61)), // DONE
                 },
 
@@ -377,7 +378,7 @@ impl ThemeDef for RoundyTheme {
     }
     fn feed_post_inner_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
     fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
-        Margin::symmetric(10.0, 5.0)
+        Margin { left: 5.0, right: 10.0, top: 10.0, bottom: 5.0 }
     }
     fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
         Margin::default()
@@ -402,7 +403,7 @@ impl ThemeDef for RoundyTheme {
             if dark_mode {
                 Color32::from_rgb(45, 45, 46)
             } else {
-                Color32::LIGHT_YELLOW
+                Color32::from_rgb(0xFF, 0xFF, 0xFA)
             }
         } else {
             if dark_mode {
@@ -412,11 +413,19 @@ impl ThemeDef for RoundyTheme {
             }
         }
     }
-    fn feed_frame_stroke(_dark_mode: bool, post: &PostProperties) -> Stroke {
+    fn feed_frame_stroke(dark_mode: bool, post: &PostProperties) -> Stroke {
         if post.is_focused {
-            Stroke::new(1.0, Color32::from_rgb(64, 96, 64))
+            if dark_mode {
+                Stroke::new(1.0, Color32::from_rgb(64, 96, 64))
+            } else {
+                Stroke::new(1.0, Color32::from_rgb(96, 128, 96))
+            }
         } else {
-            Stroke::new(1.0, Color32::from_gray(50))
+            if dark_mode {
+                Stroke::new(1.0, Color32::from_gray(50))
+            } else {
+                Stroke::new(1.0, Color32::from_gray(0xCC))
+            }
         }
     }
 
