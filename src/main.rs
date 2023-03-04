@@ -38,6 +38,8 @@ use tracing_subscriber::filter::EnvFilter;
 pub const AVATAR_SIZE: u32 = 48; // points, not pixels
 pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
 
+static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
 fn main() -> Result<(), Error> {
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "info");

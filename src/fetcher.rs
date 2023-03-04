@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::USER_AGENT;
 use nostr_types::Url;
 use reqwest::Client;
 use sha2::Digest;
@@ -30,9 +31,6 @@ pub struct Fetcher {
 impl Fetcher {
     pub fn new() -> Fetcher {
         let client = match Client::builder()
-            // .user_agent...
-            // .timeout(std::time::Duration::new(60, 0)) ?
-            // .redirect(reqwest::redirect::Policy::none()) ?
             .gzip(true)
             .brotli(true)
             .deflate(true)
@@ -162,7 +160,15 @@ impl Fetcher {
             .fetch_add(1, Ordering::SeqCst);
 
         // Fetch the resource
-        let maybe_response = client.get(&url.0).timeout(timeout).send().await;
+        let req = client.get(&url.0).timeout(timeout);
+
+        let req = if GLOBALS.settings.read().set_user_agent {
+            req.header("User-Agent", USER_AGENT)
+        } else {
+            req
+        };
+
+        let maybe_response = req.send().await;
 
         // Deal with response errors
         let response = match maybe_response {

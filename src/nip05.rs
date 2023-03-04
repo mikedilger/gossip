@@ -169,6 +169,8 @@ fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
 }
 
 async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
+    // FIXME add user-agent if configured
+
     let nip05_future = reqwest::Client::builder()
         .timeout(std::time::Duration::new(60, 0))
         .redirect(reqwest::redirect::Policy::none()) // see NIP-05

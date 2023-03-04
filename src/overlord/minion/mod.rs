@@ -1,6 +1,7 @@
 mod handle_websocket;
 mod subscription;
 
+use crate::USER_AGENT;
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::DbRelay;
 use crate::error::Error;
@@ -145,8 +146,7 @@ impl Minion {
             let req = http::request::Request::builder().method("GET");
 
             let req = if GLOBALS.settings.read().set_user_agent {
-                let about = crate::about::about();
-                req.header("User-Agent", format!("gossip/{}", about.version))
+                req.header("User-Agent", USER_AGENT)
             } else {
                 req
             };
