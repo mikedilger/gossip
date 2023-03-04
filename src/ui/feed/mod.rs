@@ -162,10 +162,10 @@ fn render_a_feed(
                 .fill(app.settings.theme.feed_scroll_fill(&feed_properties))
                 .stroke(app.settings.theme.feed_scroll_stroke(&feed_properties))
                 .show(ui, |ui| {
-                    let mut iter = feed.iter();
+                    let iter = feed.iter();
                     let first = feed.first();
                     let last = feed.last();
-                    while let Some(id) = iter.next() {
+                    for id in iter {
                         render_note_maybe_fake(
                             app,
                             ctx,
@@ -246,10 +246,10 @@ fn render_note_maybe_fake(
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to {
             let replies = Globals::get_replies_sync(event.id);
-            let mut iter = replies.iter();
+            let iter = replies.iter();
             let first = replies.first();
             let last = replies.last();
-            while let Some(reply_id) = iter.next() {
+            for reply_id in iter {
                 render_note_maybe_fake(
                     app,
                     ctx,

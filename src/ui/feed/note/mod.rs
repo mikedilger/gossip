@@ -156,10 +156,10 @@ pub(super) fn render_note(
 
     if threaded && !as_reply_to {
         let replies = Globals::get_replies_sync(id);
-        let mut iter = replies.iter();
+        let iter = replies.iter();
         let first = replies.first();
         let last = replies.last();
-        while let Some(reply_id) = iter.next() {
+        for reply_id in iter {
             super::render_note_maybe_fake(
                 app,
                 ctx,
