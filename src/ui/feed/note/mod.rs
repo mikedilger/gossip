@@ -121,8 +121,6 @@ pub(super) fn render_note(
             .fill(app.settings.theme.feed_frame_fill(&post_properties))
             .stroke(app.settings.theme.feed_frame_stroke(&post_properties))
             .show(ui, |ui| {
-                ui.add_space(4.0);
-
                 ui.horizontal_wrapped(|ui| {
                     // Innter indents first
                     app.settings

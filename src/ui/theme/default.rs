@@ -383,7 +383,7 @@ impl ThemeDef for DefaultTheme {
         }
     }
     fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
-        Margin::symmetric(10.0, 10.0)
+        Margin{ left: 10.0, top: 14.0, right: 10.0, bottom: 10.0 }
     }
     fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
         Margin::symmetric(0.0, 0.0)

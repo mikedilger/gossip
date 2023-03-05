@@ -378,7 +378,7 @@ impl ThemeDef for RoundyTheme {
     }
     fn feed_post_inner_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
     fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
-        Margin { left: 5.0, right: 10.0, top: 10.0, bottom: 5.0 }
+        Margin { left: 10.0, right: 10.0, top: 10.0, bottom: 5.0 }
     }
     fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
         Margin::default()
