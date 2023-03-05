@@ -24,7 +24,7 @@ The following features make gossip different than most other nostr clients so fa
 
 ### Status
 
-Gossip is ready to use as a daily client if you wish. There are shortcomings, and active development is ongoing.
+Gossip is ready to use as a daily client if you wish. There are shortcomings, and active [development](DEVELOPING.md) is ongoing.
 
 ## Media
 
@@ -191,7 +191,7 @@ Gossip by default does not include the CJK font because it is larger than all ot
 
 ### Contribution
 
-All contributions welcome.
+All contributions welcome, please check the [development guidelines](DEVELOPING.md) before starting to code.
 
 Anyone interested in replacing the GUI with something much better, or keeping it as egui but making it much better, would be greatly appreciated.
 
