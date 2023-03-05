@@ -1,3 +1,4 @@
+use super::theme::FeedProperties;
 use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
@@ -13,6 +14,8 @@ struct FeedNoteParams {
     indent: usize,
     as_reply_to: bool,
     threaded: bool,
+    is_first: bool,
+    is_last: bool,
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -132,6 +135,10 @@ fn render_a_feed(
     threaded: bool,
     scroll_area_id: &str,
 ) {
+    let feed_properties = FeedProperties {
+        is_thread: threaded,
+    };
+
     if GLOBALS
         .feed
         .switched_and_recomputing
@@ -151,9 +158,14 @@ fn render_a_feed(
         })
         .show(ui, |ui| {
             Frame::none()
-                .fill(app.settings.theme.feed_scroll_fill())
+                .rounding(app.settings.theme.feed_scroll_rounding(&feed_properties))
+                .fill(app.settings.theme.feed_scroll_fill(&feed_properties))
+                .stroke(app.settings.theme.feed_scroll_stroke(&feed_properties))
                 .show(ui, |ui| {
-                    for id in feed.iter() {
+                    let iter = feed.iter();
+                    let first = feed.first();
+                    let last = feed.last();
+                    for id in iter {
                         render_note_maybe_fake(
                             app,
                             ctx,
@@ -164,6 +176,8 @@ fn render_a_feed(
                                 indent: 0,
                                 as_reply_to: false,
                                 threaded,
+                                is_first: Some(id) == first,
+                                is_last: Some(id) == last,
                             },
                         );
                     }
@@ -183,6 +197,8 @@ fn render_note_maybe_fake(
         indent,
         as_reply_to,
         threaded,
+        is_first,
+        is_last,
     } = feed_note_params;
 
     // We always get the event even offscreen so we can estimate its height
@@ -213,6 +229,8 @@ fn render_note_maybe_fake(
                     indent,
                     as_reply_to,
                     threaded,
+                    is_first,
+                    is_last,
                 },
             );
             return;
@@ -228,17 +246,22 @@ fn render_note_maybe_fake(
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to {
             let replies = Globals::get_replies_sync(event.id);
-            for reply_id in replies {
+            let iter = replies.iter();
+            let first = replies.first();
+            let last = replies.last();
+            for reply_id in iter {
                 render_note_maybe_fake(
                     app,
                     ctx,
                     _frame,
                     ui,
                     FeedNoteParams {
-                        id: reply_id,
+                        id: *reply_id,
                         indent: indent + 1,
                         as_reply_to,
                         threaded,
+                        is_first: Some(reply_id) == first,
+                        is_last: Some(reply_id) == last,
                     },
                 );
             }
@@ -254,6 +277,8 @@ fn render_note_maybe_fake(
                 indent,
                 as_reply_to,
                 threaded,
+                is_first,
+                is_last,
             },
         );
     }

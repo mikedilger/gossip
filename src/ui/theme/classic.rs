@@ -1,8 +1,7 @@
-use super::ThemeDef;
+use super::{FeedProperties, PostProperties, ThemeDef};
 use crate::ui::HighlightType;
-use eframe::egui;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
-use eframe::egui::{FontDefinitions, TextFormat, TextStyle, Visuals};
+use eframe::egui::{FontDefinitions, Margin, RichText, Style, TextFormat, TextStyle, Visuals};
 use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
 use std::collections::BTreeMap;
 
@@ -14,8 +13,8 @@ impl ThemeDef for ClassicTheme {
         "Classic"
     }
 
-    fn get_style(dark_mode: bool) -> eframe::egui::Style {
-        let mut style = egui::Style::default();
+    fn get_style(dark_mode: bool) -> Style {
+        let mut style = Style::default();
 
         // /// `item_spacing` is inserted _after_ adding a widget, so to increase the spacing between
         // /// widgets `A` and `B` you need to change `item_spacing` before adding `A`.
@@ -352,34 +351,54 @@ impl ThemeDef for ClassicTheme {
     }
 
     // feed styling
-    fn feed_scroll_fill(dark_mode: bool) -> eframe::egui::Color32 {
+    fn feed_scroll_rounding(_feed: &FeedProperties) -> Rounding {
+        Rounding::none()
+    }
+    fn feed_scroll_fill(dark_mode: bool, _feed: &FeedProperties) -> Color32 {
         if dark_mode {
             Color32::BLACK
         } else {
             Color32::WHITE
         }
     }
-    fn feed_post_separator_stroke(dark_mode: bool) -> eframe::egui::Stroke {
+    fn feed_scroll_stroke(_dark_mode: bool, _feed: &FeedProperties) -> Stroke {
+        Stroke::NONE
+    }
+    fn feed_post_separator_stroke(dark_mode: bool, _post: &PostProperties) -> Stroke {
         if dark_mode {
             Stroke::new(1.0, Color32::from_gray(72))
         } else {
             Stroke::new(1.0, Color32::from_gray(192))
         }
     }
-    fn feed_frame_inner_margin() -> eframe::egui::Margin {
-        eframe::egui::Margin::default()
+    fn feed_post_outer_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
+    fn feed_post_inner_indent(ui: &mut eframe::egui::Ui, post: &PostProperties) {
+        if post.is_thread {
+            let space = 100.0 * (10.0 - (1000.0 / (post.thread_position as f32 + 100.0)));
+            ui.add_space(space);
+            if post.thread_position > 0 {
+                ui.label(
+                    RichText::new(format!("{}>", post.thread_position))
+                        .italics()
+                        .weak(),
+                );
+            }
+        }
     }
-    fn feed_frame_outer_margin() -> eframe::egui::Margin {
-        eframe::egui::Margin::default()
+    fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
+        Margin { left: 0.0, top: 4.0, right: 0.0, bottom: 0.0 }
     }
-    fn feed_frame_rounding() -> eframe::egui::Rounding {
-        eframe::egui::Rounding::default()
+    fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
+        Margin::default()
     }
-    fn feed_frame_shadow(_dark_mode: bool) -> eframe::epaint::Shadow {
-        eframe::epaint::Shadow::default()
+    fn feed_frame_rounding(_post: &PostProperties) -> Rounding {
+        Rounding::default()
     }
-    fn feed_frame_fill(is_new: bool, _: bool, dark_mode: bool) -> eframe::egui::Color32 {
-        if is_new {
+    fn feed_frame_shadow(_dark_mode: bool, _post: &PostProperties) -> Shadow {
+        Shadow::default()
+    }
+    fn feed_frame_fill(dark_mode: bool, post: &PostProperties) -> Color32 {
+        if post.is_new {
             if dark_mode {
                 Color32::from_rgb(60, 0, 0)
             } else {
@@ -393,7 +412,7 @@ impl ThemeDef for ClassicTheme {
             }
         }
     }
-    fn feed_frame_stroke(_: bool, _: bool, _: bool) -> eframe::egui::Stroke {
+    fn feed_frame_stroke(_dark_mode: bool, _post: &PostProperties) -> Stroke {
         Stroke::NONE
     }
 

@@ -3,6 +3,7 @@ use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::people::DbPerson;
+use crate::ui::theme::PostProperties;
 use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
@@ -68,6 +69,8 @@ pub(super) fn render_note(
         indent,
         as_reply_to,
         threaded,
+        is_first,
+        is_last,
     } = feed_note_params;
 
     let note_data = {
@@ -93,60 +96,80 @@ pub(super) fn render_note(
         }
     };
 
+    let post_properties = PostProperties {
+        is_new,
+        is_thread: threaded,
+        is_first,
+        is_last,
+        is_focused: is_main_event,
+        thread_position: indent as i32,
+    };
+
     let top = ui.next_widget_position();
 
-    let inner_response = Frame::none()
-        .inner_margin(app.settings.theme.feed_frame_inner_margin())
-        .outer_margin(app.settings.theme.feed_frame_outer_margin())
-        .rounding(app.settings.theme.feed_frame_rounding())
-        .shadow(app.settings.theme.feed_frame_shadow())
-        .fill(app.settings.theme.feed_frame_fill(is_new, is_main_event))
-        .stroke(app.settings.theme.feed_frame_stroke(is_new, is_main_event))
-        .show(ui, |ui| {
-            ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        // Outer indents first
+        app.settings
+            .theme
+            .feed_post_outer_indent(ui, &post_properties);
 
-            ui.horizontal_wrapped(|ui| {
-                // Indents first (if threaded)
-                if threaded {
-                    let space = 100.0 * (10.0 - (1000.0 / (indent as f32 + 100.0)));
-                    ui.add_space(space);
-                    if indent > 0 {
-                        ui.label(RichText::new(format!("{}>", indent)).italics().weak());
+        let inner_response = Frame::none()
+            .inner_margin(app.settings.theme.feed_frame_inner_margin(&post_properties))
+            .outer_margin(app.settings.theme.feed_frame_outer_margin(&post_properties))
+            .rounding(app.settings.theme.feed_frame_rounding(&post_properties))
+            .shadow(app.settings.theme.feed_frame_shadow(&post_properties))
+            .fill(app.settings.theme.feed_frame_fill(&post_properties))
+            .stroke(app.settings.theme.feed_frame_stroke(&post_properties))
+            .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    // Innter indents first
+                    app.settings
+                        .theme
+                        .feed_post_inner_indent(ui, &post_properties);
+
+                    if note_data.author.muted > 0 {
+                        ui.label(RichText::new("MUTED POST").monospace().italics());
+                    } else {
+                        render_note_inner(app, ctx, ui, note_data, is_main_event, as_reply_to);
                     }
-                }
-
-                if note_data.author.muted > 0 {
-                    ui.label(RichText::new("MUTED POST").monospace().italics());
-                } else {
-                    render_note_inner(app, ctx, ui, note_data, is_main_event, as_reply_to);
-                }
+                });
             });
-        });
 
-    // Mark post as viewed if hovered AND we are not scrolling
-    if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
-        app.viewed.insert(id);
-    }
+        // Mark post as viewed if hovered AND we are not scrolling
+        if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
+            app.viewed.insert(id);
+        }
+    });
 
     // Store actual rendered height for future reference
     let bottom = ui.next_widget_position();
     app.height.insert(id, bottom.y - top.y);
 
-    thin_separator(ui, app.settings.theme.feed_post_separator_stroke());
+    thin_separator(
+        ui,
+        app.settings
+            .theme
+            .feed_post_separator_stroke(&post_properties),
+    );
 
     if threaded && !as_reply_to {
         let replies = Globals::get_replies_sync(id);
-        for reply_id in replies {
+        let iter = replies.iter();
+        let first = replies.first();
+        let last = replies.last();
+        for reply_id in iter {
             super::render_note_maybe_fake(
                 app,
                 ctx,
                 _frame,
                 ui,
                 FeedNoteParams {
-                    id: reply_id,
+                    id: *reply_id,
                     indent: indent + 1,
                     as_reply_to,
                     threaded,
+                    is_first: Some(reply_id) == first,
+                    is_last: Some(reply_id) == last,
                 },
             );
         }
