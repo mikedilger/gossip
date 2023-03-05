@@ -43,6 +43,8 @@ pub struct FeedProperties {
 }
 
 pub struct PostProperties {
+    pub height: f32,
+    /// Post height
     pub is_new: bool,
     /// This message is the focus of the view (formerly called is_main_event)
     pub is_focused: bool,

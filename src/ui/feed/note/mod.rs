@@ -96,7 +96,9 @@ pub(super) fn render_note(
         }
     };
 
+    let height = if let Some(height) = app.height.get(&id) { height } else { &0.0 };
     let post_properties = PostProperties {
+        height: *height,
         is_new,
         is_thread: threaded,
         is_first,
