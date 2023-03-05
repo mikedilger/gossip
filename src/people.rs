@@ -30,6 +30,7 @@ pub struct DbPerson {
     pub muted: u8,
     pub relay_list_last_received: i64,
     pub relay_list_created_at: i64,
+    pub loaded: bool, // if this record came from the database
 }
 
 impl DbPerson {
@@ -45,6 +46,7 @@ impl DbPerson {
             muted: 0,
             relay_list_last_received: 0,
             relay_list_created_at: 0,
+            loaded: false,
         }
     }
 
@@ -115,8 +117,10 @@ pub struct People {
     // the person's NIP-05 when that metadata come in. We remember this here.
     recheck_nip05: DashSet<PublicKeyHex>,
 
-    // People that need metadata, which the UI has asked for
+    // People that need metadata, which the UI has asked for. These people
+    // might simply not be loaded from the database yet.
     need_metadata: DashSet<PublicKeyHex>,
+
     // People who we already tried to get their metadata (we do not retry
     // until client restart)
     tried_metadata: DashSet<PublicKeyHex>,
@@ -147,7 +151,7 @@ impl People {
             loop {
                 tokio::time::sleep(Duration::from_millis(1500)).await;
 
-                GLOBALS.people.maybe_fetch_metadata();
+                GLOBALS.people.maybe_fetch_metadata().await;
 
                 // check for shutdown condition
                 if GLOBALS.shutting_down.load(Ordering::Relaxed) {
@@ -255,10 +259,19 @@ impl People {
 
         match self.people.get(&pubkeyhex) {
             Some(person) => {
-                if person.metadata_at.is_none() {
+                if person.loaded {
+                    if person.metadata_at.is_none() {
+                        if !self.need_metadata.contains(&pubkeyhex) {
+                            self.need_metadata.insert(pubkeyhex.clone());
+                        }
+                        //} else {
+                        // TBD check if it needs update
+                    }
+                } else {
+                    // create/load them
+                    self.create_if_missing_sync(pubkeyhex.clone());
                     if !self.need_metadata.contains(&pubkeyhex) {
                         self.need_metadata.insert(pubkeyhex.clone());
-                        tracing::debug!("Need metadata for {} pubkeys", self.need_metadata.len());
                     }
                 }
             }
@@ -266,31 +279,58 @@ impl People {
                 self.create_if_missing_sync(pubkeyhex.clone());
                 if !self.need_metadata.contains(&pubkeyhex) {
                     self.need_metadata.insert(pubkeyhex.clone());
-                    tracing::debug!("Need metadata for {} pubkeys", self.need_metadata.len());
                 }
             }
         }
     }
 
-    // This is run periodically
-    pub fn maybe_fetch_metadata(&self) {
-        if self.need_metadata.is_empty() {
-            return;
-        }
+    // This is run periodically. It checks the database first, only then does it
+    // ask the overlord to update the metadata from the relays.
+    async fn maybe_fetch_metadata(&self) {
+        let mut verified_need: Vec<PublicKeyHex> = Vec::new();
 
-        let mut maybe_pubkey: Option<PublicKeyHex> = None;
+        // Take from self.need_metadata;
+        let mut need_metadata: Vec<PublicKeyHex> = self
+            .need_metadata
+            .iter()
+            .map(|refmulti| refmulti.key().to_owned())
+            .collect();
+        self.need_metadata.clear();
 
-        if let Some(refmulti) = self.need_metadata.iter().next() {
-            maybe_pubkey = Some(refmulti.key().to_owned());
-        }
-
-        if let Some(pubkey) = maybe_pubkey {
+        for pubkey in need_metadata.drain(..) {
             self.need_metadata.remove(&pubkey);
-            self.tried_metadata.insert(pubkey.clone());
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::UpdateMetadata(pubkey));
+            if self.truly_lacks_metadata(&pubkey).await {
+                verified_need.push(pubkey.clone());
+                self.tried_metadata.insert(pubkey);
+            }
         }
+
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::UpdateMetadataInBulk(verified_need));
+    }
+
+    async fn truly_lacks_metadata(&self, pubkey: &PublicKeyHex) -> bool {
+        if let Some(person) = self.people.get(pubkey) {
+            if person.metadata_at.is_some() {
+                return false; // we have it
+            } else if person.loaded {
+                return true; // they are loaded but don't have it
+            }
+        }
+
+        // They weren't loaded. Let's load them.
+        match People::fetch_one(pubkey).await {
+            Ok(Some(person)) => {
+                let retval = person.metadata_at.is_none();
+                let _ = self.people.insert(pubkey.clone(), person);
+                return retval;
+            }
+            Err(e) => tracing::error!("{}", e),
+            _ => {}
+        }
+
+        false // we couldn't load them, just give up
     }
 
     pub fn recheck_nip05_on_update_metadata(&self, pubkeyhex: &PublicKeyHex) {
@@ -452,6 +492,7 @@ impl People {
                     muted: row.get(7)?,
                     relay_list_last_received: row.get(8)?,
                     relay_list_created_at: row.get(9)?,
+                    loaded: true,
                 });
             }
             Ok(output)
@@ -465,6 +506,7 @@ impl People {
         Ok(())
     }
 
+    // Get from our memory map. If missing, eventually load from the database
     pub fn get(&self, pubkeyhex: &PublicKeyHex) -> Option<DbPerson> {
         if self.people.contains_key(pubkeyhex) {
             self.people.get(pubkeyhex).map(|o| o.value().to_owned())
@@ -1097,6 +1139,7 @@ impl People {
                     muted: row.get(7)?,
                     relay_list_last_received: row.get(8)?,
                     relay_list_created_at: row.get(9)?,
+                    loaded: true,
                 });
             }
             Ok(output)
@@ -1158,6 +1201,7 @@ impl People {
                     muted: row.get(7)?,
                     relay_list_last_received: row.get(8)?,
                     relay_list_created_at: row.get(9)?,
+                    loaded: true,
                 });
             }
 
