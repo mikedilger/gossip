@@ -226,6 +226,7 @@ fn render_note_inner(
     };
 
     // Everything else next
+    ui.add_space(6.0);
     ui.vertical(|ui| {
         // First row
         ui.horizontal_wrapped(|ui| {
