@@ -448,6 +448,14 @@ impl eframe::App for GossipUi {
                     self.set_page(Page::HelpHelp);
                 }
                 ui.separator();
+
+                if GLOBALS
+                    .feed
+                    .switched_and_recomputing
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                {
+                    ui.label("RECOMPUTING...");
+                }
             });
             ui.add_space(4.0);
         });

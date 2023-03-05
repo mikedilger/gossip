@@ -139,16 +139,6 @@ fn render_a_feed(
         is_thread: threaded,
     };
 
-    if GLOBALS
-        .feed
-        .switched_and_recomputing
-        .load(std::sync::atomic::Ordering::Relaxed)
-    {
-        ui.centered_and_justified(|ui| {
-            ui.label("RECOMPUTING...");
-        });
-        return;
-    }
 
     ScrollArea::vertical()
         .id_source(scroll_area_id)
