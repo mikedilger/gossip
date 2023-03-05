@@ -306,7 +306,7 @@ impl People {
         // Sync in from database first
         self.create_all_if_missing(&[pubkeyhex.to_owned()]).await?;
 
-        let person = self.people.get(pubkeyhex).unwrap().to_owned();
+        let mut person = self.people.get(pubkeyhex).unwrap().to_owned();
 
         // Remove from list of people that need metadata
         self.need_metadata.remove(pubkeyhex);
@@ -326,7 +326,8 @@ impl People {
                 metadata.nip05.is_some()
             };
 
-            {
+            // Update person in the map, and the local variable
+            person = {
                 let mut person_mut = self.people.get_mut(pubkeyhex).unwrap();
                 person_mut.metadata = Some(metadata);
                 person_mut.metadata_at = Some(asof.0);
@@ -334,16 +335,17 @@ impl People {
                     person_mut.nip05_valid = 0; // changed, so reset to invalid
                     person_mut.nip05_last_checked = None; // we haven't checked this one yet
                 }
-            }
+                person_mut.clone()
+            };
 
             // Update the database
             let pubkeyhex2 = pubkeyhex.to_owned();
-            let person = person.clone();
+            let person_inner = person.clone();
             task::spawn_blocking(move || {
                 let maybe_db = GLOBALS.db.blocking_lock();
                 let db = maybe_db.as_ref().unwrap();
 
-                let metadata_json: Option<String> = if let Some(md) = &person.metadata {
+                let metadata_json: Option<String> = if let Some(md) = &person_inner.metadata {
                     Some(serde_json::to_string(md)?)
                 } else {
                     None
@@ -354,9 +356,9 @@ impl People {
                 )?;
                 stmt.execute((
                     &metadata_json,
-                    &person.metadata_at,
-                    &person.nip05_valid,
-                    &person.nip05_last_checked,
+                    &person_inner.metadata_at,
+                    &person_inner.nip05_valid,
+                    &person_inner.nip05_last_checked,
                     pubkeyhex2.as_str(),
                 ))?;
                 Ok::<(), Error>(())
