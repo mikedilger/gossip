@@ -54,6 +54,8 @@ impl Feed {
         // Recompute as they switch
         self.switched_and_recomputing.store(true, Ordering::Relaxed);
         task::spawn(async move {
+            let now = Instant::now();
+            *GLOBALS.feed.last_computed.write() = now;
             if let Err(e) = GLOBALS.feed.recompute().await {
                 tracing::error!("{}", e);
             }
@@ -77,6 +79,8 @@ impl Feed {
         // Recompute as they switch
         self.switched_and_recomputing.store(true, Ordering::Relaxed);
         task::spawn(async move {
+            let now = Instant::now();
+            *GLOBALS.feed.last_computed.write() = now;
             if let Err(e) = GLOBALS.feed.recompute().await {
                 tracing::error!("{}", e);
             }
@@ -174,10 +178,10 @@ impl Feed {
         {
             let now = now;
             task::spawn(async move {
+                *GLOBALS.feed.last_computed.write() = now;
                 if let Err(e) = GLOBALS.feed.recompute().await {
                     tracing::error!("{}", e);
                 }
-                *GLOBALS.feed.last_computed.write() = now;
             });
         }
     }
