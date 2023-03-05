@@ -81,7 +81,9 @@ pub struct Globals {
     /// Fetcher
     pub fetcher: Fetcher,
 
-    /// Failed Avatar Fetches
+    /// Failed Avatars
+    /// If in this map, the avatar failed to load or process and is unrecoverable
+    /// (but we will take them out and try again if new metadata flows in)
     pub failed_avatars: RwLock<HashSet<PublicKeyHex>>,
 
     pub pixels_per_point_times_100: AtomicU32,

@@ -583,25 +583,17 @@ impl GossipUi {
             return Some(th.to_owned());
         }
 
-        match GLOBALS.people.get_avatar(pubkeyhex) {
-            Err(_) => {
-                GLOBALS
-                    .failed_avatars
-                    .blocking_write()
-                    .insert(pubkeyhex.to_owned());
-                None
-            }
-            Ok(Some(color_image)) => {
-                let texture_handle = ctx.load_texture(
-                    pubkeyhex.to_string(),
-                    color_image,
-                    TextureOptions::default(),
-                );
-                self.avatars
-                    .insert(pubkeyhex.to_owned(), texture_handle.clone());
-                Some(texture_handle)
-            }
-            Ok(None) => None,
+        if let Some(color_image) = GLOBALS.people.get_avatar(pubkeyhex) {
+            let texture_handle = ctx.load_texture(
+                pubkeyhex.to_string(),
+                color_image,
+                TextureOptions::default(),
+            );
+            self.avatars
+                .insert(pubkeyhex.to_owned(), texture_handle.clone());
+            Some(texture_handle)
+        } else {
+            None
         }
     }
 

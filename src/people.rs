@@ -111,7 +111,6 @@ pub struct People {
     // longer and the UI can do as little work as possible.
     avatars_temp: DashMap<PublicKeyHex, ColorImage>,
     avatars_pending_processing: DashSet<PublicKeyHex>,
-    avatars_failed: DashSet<PublicKeyHex>,
 
     // When we manually ask for updating metadata, we want to recheck
     // the person's NIP-05 when that metadata come in. We remember this here.
@@ -137,7 +136,6 @@ impl People {
             active_persons_write_relays: RwLock::new(vec![]),
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
-            avatars_failed: DashSet::new(),
             recheck_nip05: DashSet::new(),
             need_metadata: DashSet::new(),
             tried_metadata: DashSet::new(),
@@ -545,54 +543,63 @@ impl People {
         v
     }
 
-    // If returns Err, means you're never going to get it so stop trying.
-    pub fn get_avatar(&self, pubkeyhex: &PublicKeyHex) -> Result<Option<ColorImage>, ()> {
+    pub fn get_avatar(&self, pubkeyhex: &PublicKeyHex) -> Option<ColorImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.avatars_temp.remove(pubkeyhex) {
-            return Ok(Some(th.1));
+            return Some(th.1);
         }
 
         // If it failed before, error out now
-        if self.avatars_failed.contains(pubkeyhex) {
-            return Err(());
+        if GLOBALS.failed_avatars.blocking_read().contains(pubkeyhex) {
+            return None; // cannot recover.
         }
 
         // If it is pending processing, respond now
         if self.avatars_pending_processing.contains(pubkeyhex) {
-            return Ok(None);
+            return None; // will recover after processing completes
+        }
+
+        // Do not fetch if disabled
+        if !GLOBALS.settings.read().load_avatars {
+            return None; // can recover if the setting is switched
         }
 
         // Get the person this is about
         let person = match self.people.get(pubkeyhex) {
             Some(person) => person,
             None => {
-                return Err(());
+                return None; // can recover once the person is loaded
             }
         };
 
-        // Fail if they don't have a picture url
-        // FIXME: we could get metadata that sets this while we are running, so just failing for
-        //        the duration of the client isn't quite right. But for now, retrying is taxing.
+        // Fail permanently if they don't have a picture url
         if person.picture().is_none() {
-            return Err(());
+            // this cannot recover without new metadata
+            GLOBALS
+                .failed_avatars
+                .blocking_write()
+                .insert(pubkeyhex.to_owned());
+
+            return None;
         }
 
-        // FIXME: we could get metadata that sets this while we are running, so just failing for
-        //        the duration of the client isn't quite right. But for now, retrying is taxing.
+        // Fail permanently if the URL is bad
         let url = UncheckedUrl(person.picture().unwrap().to_string());
         let url = match Url::try_from_unchecked_url(&url) {
             Ok(url) => url,
-            Err(_) => return Err(()),
+            Err(_) => {
+                // this cannot recover without new metadata
+                GLOBALS
+                    .failed_avatars
+                    .blocking_write()
+                    .insert(pubkeyhex.to_owned());
+
+                return None;
+            }
         };
 
-        // Do not fetch if disabled
-        if !GLOBALS.settings.read().load_avatars {
-            GLOBALS.people.avatars_failed.insert(pubkeyhex.clone());
-            return Err(());
-        }
-
         match GLOBALS.fetcher.try_get(url) {
-            Ok(None) => Ok(None),
+            Ok(None) => None,
             Ok(Some(bytes)) => {
                 // Finish this later (spawn)
                 let apubkeyhex = pubkeyhex.to_owned();
@@ -647,16 +654,24 @@ impl People {
                         }
                         GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
                     } else {
-                        GLOBALS.people.avatars_failed.insert(apubkeyhex.clone());
+                        // this cannot recover without new metadata
+                        GLOBALS
+                            .failed_avatars
+                            .blocking_write()
+                            .insert(apubkeyhex.to_owned());
                     };
                 });
                 self.avatars_pending_processing.insert(pubkeyhex.to_owned());
-                Ok(None)
+                None
             }
             Err(e) => {
                 tracing::error!("{}", e);
-                self.avatars_failed.insert(pubkeyhex.to_owned());
-                Err(())
+                // this cannot recover without new metadata
+                GLOBALS
+                    .failed_avatars
+                    .blocking_write()
+                    .insert(pubkeyhex.to_owned());
+                None
             }
         }
     }
