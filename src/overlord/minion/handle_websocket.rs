@@ -125,13 +125,17 @@ impl Minion {
             }
             RelayMessage::Ok(id, ok, ok_message) => {
                 // These don't have to be processed.
-                tracing::info!(
+                let relay_response = format!(
                     "{}: OK: id={} ok={} message=\"{}\"",
                     &self.url,
                     id.as_hex_string(),
                     ok,
                     ok_message
                 );
+                match ok {
+                    true => tracing::info!(relay_response),
+                    false => tracing::warn!(relay_response),
+                }
             }
             RelayMessage::Auth(challenge) => {
                 if !GLOBALS.signer.is_ready() {
