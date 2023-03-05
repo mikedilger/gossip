@@ -225,7 +225,7 @@ impl ThemeDef for RoundyTheme {
                 hyperlink_color: Color32::from_rgb(0x55, 0x7a, 0x95), // DONE
 
                 selection: Selection {
-                    bg_fill: Color32::WHITE, // DONE
+                    bg_fill: Color32::WHITE,                                       // DONE
                     stroke: Stroke::new(1.0, Color32::from_rgb(0x5d, 0x5c, 0x61)), // DONE
                 },
 
@@ -378,7 +378,12 @@ impl ThemeDef for RoundyTheme {
     }
     fn feed_post_inner_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
     fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
-        Margin { left: 10.0, right: 10.0, top: 10.0, bottom: 5.0 }
+        Margin {
+            left: 10.0,
+            right: 10.0,
+            top: 10.0,
+            bottom: 5.0,
+        }
     }
     fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
         Margin::default()
