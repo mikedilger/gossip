@@ -16,8 +16,28 @@ pub async fn process_new_event(
     event: &Event,
     from_relay: bool,
     seen_on: Option<RelayUrl>,
-    _subscription: Option<String>,
+    subscription: Option<String>,
 ) -> Result<(), Error> {
+    if GLOBALS.events.get(&event.id).is_some() {
+        tracing::debug!(
+            "{}: Old Event: {} {:?} @{}",
+            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+            subscription.unwrap_or("_".to_string()),
+            event.kind,
+            event.created_at
+        );
+        // We arleady had this event.
+        return Ok(());
+    } else {
+        tracing::debug!(
+            "{}: New Event: {} {:?} @{}",
+            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+            subscription.unwrap_or("_".to_string()),
+            event.kind,
+            event.created_at
+        );
+    }
+
     // Save the event into the database
     if from_relay {
         // Convert a nostr Event into a DbEvent

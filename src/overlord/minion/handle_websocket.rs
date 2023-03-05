@@ -40,8 +40,6 @@ impl Minion {
                         .get_handle_by_id(&subid.0)
                         .unwrap_or_else(|| "_".to_owned());
 
-                    tracing::debug!("{}: {}: New Event: {:?}", &self.url, handle, event.kind);
-
                     // Events that come in after EOSE on the general feed bump the last_general_eose
                     // timestamp for that relay, so we don't query before them next time we run.
                     if let Some(sub) = self.subscriptions.get_mut_by_id(&subid.0) {
