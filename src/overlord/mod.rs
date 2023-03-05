@@ -617,6 +617,33 @@ impl Overlord {
                 // comes in
                 GLOBALS.people.recheck_nip05_on_update_metadata(&pubkey);
             }
+            ToOverlordMessage::UpdateMetadataInBulk(mut pubkeys) => {
+                let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
+                let mut map: HashMap<RelayUrl, Vec<PublicKeyHex>> = HashMap::new();
+                for pubkey in pubkeys.drain(..) {
+                    let best_relays =
+                        DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
+                    for (relay_url, _score) in
+                        best_relays.iter().take(num_relays_per_person as usize + 1)
+                    {
+                        map.entry(relay_url.to_owned())
+                            .and_modify(|entry| entry.push(pubkey.clone()))
+                            .or_insert_with(|| vec![pubkey.clone()]);
+                    }
+                }
+                for (relay_url, pubkeys) in map.drain() {
+                    // Start a minion for this relay if there is none
+                    if !GLOBALS.relay_is_connected(&relay_url) {
+                        self.start_minion(relay_url.clone()).await?;
+                    }
+
+                    // Subscribe to metadata and contact lists for this person
+                    let _ = self.to_minions.send(ToMinionMessage {
+                        target: relay_url.to_string(),
+                        payload: ToMinionPayload::TempSubscribeMetadata(pubkeys),
+                    });
+                }
+            }
         }
 
         Ok(true)

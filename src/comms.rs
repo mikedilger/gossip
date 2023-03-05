@@ -35,6 +35,7 @@ pub enum ToOverlordMessage {
     Shutdown,
     UnlockKey(String),
     UpdateMetadata(PublicKeyHex),
+    UpdateMetadataInBulk(Vec<PublicKeyHex>),
 }
 
 /// This is a message sent to the minions
