@@ -14,7 +14,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
 
     ui.horizontal(|ui| {
         ui.label("🔎");
-        let response = ui.add(TextEdit::singleline(&mut app.search).desired_width(f32::INFINITY));
+        let response = ui.add(
+            TextEdit::singleline(&mut app.search)
+                .hint_text("npub1 or note1, other kinds of searches not yet implemented")
+                .desired_width(f32::INFINITY),
+        );
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
             do_search = true;
         }
@@ -98,5 +102,6 @@ fn search_result(app: &mut GossipUi, _ctx: &Context, _ui: &mut Ui) {
     // TBD.
 
     // If nothing worked, let them know.
-    app.search_result = format!("No result for {}", app.search.clone());
+    app.search_result = format!("No result for {}.\n\nFulltext search and nym search are not yet implemented, only note1 and npub1.", app.search.clone());
+    app.search = "".to_owned();
 }
