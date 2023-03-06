@@ -122,19 +122,14 @@ impl Events {
         tracing::trace!("get_local_events_by_filter SQL={}", &sql);
 
         let pool = GLOBALS.db.clone();
-        let events_result = task::spawn_blocking(move || -> Result<Vec<Event>, Error> {
-            let db = pool.get()?;
-            let mut stmt = db.prepare(&sql)?;
-            let mut rows = stmt.raw_query();
-            let mut events: Vec<Event> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let s: String = row.get(0)?;
-                events.push(serde_json::from_str(&s)?);
-            }
-            Ok(events)
-        })
-        .await?;
-        let events = events_result?;
+        let db = pool.get()?;
+        let mut stmt = db.prepare(&sql)?;
+        let mut rows = stmt.raw_query();
+        let mut events: Vec<Event> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let s: String = row.get(0)?;
+            events.push(serde_json::from_str(&s)?);
+        }
 
         for event in events.iter() {
             // Process that event

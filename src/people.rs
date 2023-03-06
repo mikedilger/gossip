@@ -381,28 +381,24 @@ impl People {
             let person_inner = person.clone();
 
             let pool = GLOBALS.db.clone();
-            task::spawn_blocking(move || {
-                let db = pool.get()?;
+            let db = pool.get()?;
 
-                let metadata_json: Option<String> = if let Some(md) = &person_inner.metadata {
-                    Some(serde_json::to_string(md)?)
-                } else {
-                    None
-                };
+            let metadata_json: Option<String> = if let Some(md) = &person_inner.metadata {
+                Some(serde_json::to_string(md)?)
+            } else {
+                None
+            };
 
-                let mut stmt = db.prepare(
-                    "UPDATE person SET metadata=?, metadata_at=?, nip05_valid=?, nip05_last_checked=? WHERE pubkey=?"
-                )?;
-                stmt.execute((
-                    &metadata_json,
-                    &person_inner.metadata_at,
-                    &person_inner.nip05_valid,
-                    &person_inner.nip05_last_checked,
-                    pubkeyhex2.as_str(),
-                ))?;
-                Ok::<(), Error>(())
-            })
-                .await??;
+            let mut stmt = db.prepare(
+                "UPDATE person SET metadata=?, metadata_at=?, nip05_valid=?, nip05_last_checked=? WHERE pubkey=?"
+            )?;
+            stmt.execute((
+                &metadata_json,
+                &person_inner.metadata_at,
+                &person_inner.nip05_valid,
+                &person_inner.nip05_last_checked,
+                pubkeyhex2.as_str(),
+            ))?;
         }
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
@@ -467,38 +463,34 @@ impl People {
             .to_owned();
 
         let pool = GLOBALS.db.clone();
-        let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
-            let db = pool.get()?;
+        let db = pool.get()?;
 
-            let mut stmt = db.prepare(&sql)?;
-            let mut rows = stmt.query([])?;
-            let mut output: Vec<DbPerson> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let metadata_json: Option<String> = row.get(1)?;
-                let metadata = match metadata_json {
-                    Some(s) => serde_json::from_str(&s)?,
-                    None => None,
-                };
-                let pk: String = row.get(0)?;
-                output.push(DbPerson {
-                    pubkey: PublicKeyHex::try_from_string(pk)?,
-                    metadata,
-                    metadata_at: row.get(2)?,
-                    nip05_valid: row.get(3)?,
-                    nip05_last_checked: row.get(4)?,
-                    followed: row.get(5)?,
-                    followed_last_updated: row.get(6)?,
-                    muted: row.get(7)?,
-                    relay_list_last_received: row.get(8)?,
-                    relay_list_created_at: row.get(9)?,
-                    loaded: true,
-                });
-            }
-            Ok(output)
-        })
-        .await?;
+        let mut stmt = db.prepare(&sql)?;
+        let mut rows = stmt.query([])?;
+        let mut output: Vec<DbPerson> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let metadata_json: Option<String> = row.get(1)?;
+            let metadata = match metadata_json {
+                Some(s) => serde_json::from_str(&s)?,
+                None => None,
+            };
+            let pk: String = row.get(0)?;
+            output.push(DbPerson {
+                pubkey: PublicKeyHex::try_from_string(pk)?,
+                metadata,
+                metadata_at: row.get(2)?,
+                nip05_valid: row.get(3)?,
+                nip05_last_checked: row.get(4)?,
+                followed: row.get(5)?,
+                followed_last_updated: row.get(6)?,
+                muted: row.get(7)?,
+                relay_list_last_received: row.get(8)?,
+                relay_list_created_at: row.get(9)?,
+                loaded: true,
+            });
+        }
 
-        for person in output? {
+        for person in output {
             self.people.insert(person.pubkey.clone(), person);
         }
 
@@ -762,12 +754,8 @@ impl People {
         let sql = "INSERT or IGNORE INTO person (pubkey) SELECT DISTINCT pubkey FROM EVENT";
 
         let pool = GLOBALS.db.clone();
-        task::spawn_blocking(move || {
-            let db = pool.get()?;
-            db.execute(sql, [])?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let db = pool.get()?;
+        db.execute(sql, [])?;
 
         Ok(())
     }
@@ -909,20 +897,16 @@ impl People {
         let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
         let pool = GLOBALS.db.clone();
-        task::spawn_blocking(move || {
-            let db = pool.get()?;
-            let mut stmt = db.prepare(&sql)?;
-            stmt.raw_bind_parameter(1, asof.0)?;
-            let mut pos = 2;
-            for pk in pubkey_strings.iter() {
-                stmt.raw_bind_parameter(pos, pk)?;
-                pos += 1;
-            }
-            stmt.raw_bind_parameter(pos, asof.0)?;
-            stmt.raw_execute()?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let db = pool.get()?;
+        let mut stmt = db.prepare(&sql)?;
+        stmt.raw_bind_parameter(1, asof.0)?;
+        let mut pos = 2;
+        for pk in pubkey_strings.iter() {
+            stmt.raw_bind_parameter(pos, pk)?;
+            pos += 1;
+        }
+        stmt.raw_bind_parameter(pos, asof.0)?;
+        stmt.raw_execute()?;
 
         if !merge {
             // Unfollow in database
@@ -935,20 +919,16 @@ impl People {
             let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
             let pool = GLOBALS.db.clone();
-            task::spawn_blocking(move || {
-                let db = pool.get()?;
-                let mut stmt = db.prepare(&sql)?;
-                stmt.raw_bind_parameter(1, asof.0)?;
-                let mut pos = 2;
-                for pk in pubkey_strings.iter() {
-                    stmt.raw_bind_parameter(pos, pk)?;
-                    pos += 1;
-                }
-                stmt.raw_bind_parameter(pos, asof.0)?;
-                stmt.raw_execute()?;
-                Ok::<(), Error>(())
-            })
-            .await??;
+            let db = pool.get()?;
+            let mut stmt = db.prepare(&sql)?;
+            stmt.raw_bind_parameter(1, asof.0)?;
+            let mut pos = 2;
+            for pk in pubkey_strings.iter() {
+                stmt.raw_bind_parameter(pos, pk)?;
+                pos += 1;
+            }
+            stmt.raw_bind_parameter(pos, asof.0)?;
+            stmt.raw_execute()?;
         }
 
         // Make sure memory matches
@@ -1036,16 +1016,12 @@ impl People {
         }
 
         let pool = GLOBALS.db.clone();
-        task::spawn_blocking(move || {
-            let db = pool.get()?;
-            let mut stmt = db.prepare(
-                "UPDATE person SET relay_list_last_received=?, \
+        let db = pool.get()?;
+        let mut stmt = db.prepare(
+            "UPDATE person SET relay_list_last_received=?, \
                             relay_list_created_at=? WHERE pubkey=?",
-            )?;
-            stmt.execute((&now, &created_at, pubkeyhex.as_str()))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        )?;
+        stmt.execute((&now, &created_at, pubkeyhex.as_str()))?;
 
         Ok(retval)
     }
@@ -1058,13 +1034,10 @@ impl People {
         }
 
         let pool = GLOBALS.db.clone();
-        task::spawn_blocking(move || {
-            let db = pool.get()?;
-            let mut stmt = db.prepare("UPDATE person SET nip05_last_checked=? WHERE pubkey=?")?;
-            stmt.execute((&now, pubkeyhex.as_str()))?;
-            Ok(())
-        })
-        .await?
+        let db = pool.get()?;
+        let mut stmt = db.prepare("UPDATE person SET nip05_last_checked=? WHERE pubkey=?")?;
+        stmt.execute((&now, pubkeyhex.as_str()))?;
+        Ok(())
     }
 
     pub async fn upsert_nip05_validity(
@@ -1095,28 +1068,24 @@ impl People {
 
         let pubkeyhex2 = pubkeyhex.to_owned();
         let pool = GLOBALS.db.clone();
-        task::spawn_blocking(move || {
-            let db = pool.get()?;
+        let db = pool.get()?;
 
-            let mut metadata = Metadata::new();
-            metadata.nip05 = nip05.clone();
-            let metadata_json: Option<String> = Some(serde_json::to_string(&metadata)?);
-            let metadata_patch = Nip05Patch { nip05 };
-            let metadata_patch_str = serde_json::to_string(&metadata_patch)?;
+        let mut metadata = Metadata::new();
+        metadata.nip05 = nip05.clone();
+        let metadata_json: Option<String> = Some(serde_json::to_string(&metadata)?);
+        let metadata_patch = Nip05Patch { nip05 };
+        let metadata_patch_str = serde_json::to_string(&metadata_patch)?;
 
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                pubkeyhex2.as_str(),
-                &metadata_json,
-                &nip05_valid,
-                &nip05_last_checked,
-                &metadata_patch_str,
-                &nip05_valid,
-                &nip05_last_checked,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((
+            pubkeyhex2.as_str(),
+            &metadata_json,
+            &nip05_valid,
+            &nip05_last_checked,
+            &metadata_patch_str,
+            &nip05_valid,
+            &nip05_last_checked,
+        ))?;
 
         Ok(())
     }
@@ -1133,38 +1102,33 @@ impl People {
             Some(crit) => format!("{} WHERE {}", sql, crit),
         };
         let pool = GLOBALS.db.clone();
-        let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
-            let db = pool.get()?;
+        let db = pool.get()?;
 
-            let mut stmt = db.prepare(&sql)?;
-            let mut rows = stmt.query([])?;
-            let mut output: Vec<DbPerson> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let metadata_json: Option<String> = row.get(1)?;
-                let metadata = match metadata_json {
-                    Some(s) => serde_json::from_str(&s)?,
-                    None => None,
-                };
-                let pk: String = row.get(0)?;
-                output.push(DbPerson {
-                    pubkey: PublicKeyHex::try_from_string(pk)?,
-                    metadata,
-                    metadata_at: row.get(2)?,
-                    nip05_valid: row.get(3)?,
-                    nip05_last_checked: row.get(4)?,
-                    followed: row.get(5)?,
-                    followed_last_updated: row.get(6)?,
-                    muted: row.get(7)?,
-                    relay_list_last_received: row.get(8)?,
-                    relay_list_created_at: row.get(9)?,
-                    loaded: true,
-                });
-            }
-            Ok(output)
-        })
-        .await?;
-
-        output
+        let mut stmt = db.prepare(&sql)?;
+        let mut rows = stmt.query([])?;
+        let mut output: Vec<DbPerson> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let metadata_json: Option<String> = row.get(1)?;
+            let metadata = match metadata_json {
+                Some(s) => serde_json::from_str(&s)?,
+                None => None,
+            };
+            let pk: String = row.get(0)?;
+            output.push(DbPerson {
+                pubkey: PublicKeyHex::try_from_string(pk)?,
+                metadata,
+                metadata_at: row.get(2)?,
+                nip05_valid: row.get(3)?,
+                nip05_last_checked: row.get(4)?,
+                followed: row.get(5)?,
+                followed_last_updated: row.get(6)?,
+                muted: row.get(7)?,
+                relay_list_last_received: row.get(8)?,
+                relay_list_created_at: row.get(9)?,
+                loaded: true,
+            });
+        }
+        Ok(output)
     }
 
     async fn fetch_one(pubkeyhex: &PublicKeyHex) -> Result<Option<DbPerson>, Error> {
@@ -1188,46 +1152,41 @@ impl People {
         let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
         let pool = GLOBALS.db.clone();
-        let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
-            let db = pool.get()?;
+        let db = pool.get()?;
 
-            let mut stmt = db.prepare(&sql)?;
+        let mut stmt = db.prepare(&sql)?;
 
-            let mut pos = 1;
-            for pk in pubkey_strings.iter() {
-                stmt.raw_bind_parameter(pos, pk)?;
-                pos += 1;
-            }
+        let mut pos = 1;
+        for pk in pubkey_strings.iter() {
+            stmt.raw_bind_parameter(pos, pk)?;
+            pos += 1;
+        }
 
-            let mut rows = stmt.raw_query();
-            let mut people: Vec<DbPerson> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let metadata_json: Option<String> = row.get(1)?;
-                let metadata = match metadata_json {
-                    Some(s) => serde_json::from_str(&s)?,
-                    None => None,
-                };
-                let pk: String = row.get(0)?;
-                people.push(DbPerson {
-                    pubkey: PublicKeyHex::try_from_string(pk)?,
-                    metadata,
-                    metadata_at: row.get(2)?,
-                    nip05_valid: row.get(3)?,
-                    nip05_last_checked: row.get(4)?,
-                    followed: row.get(5)?,
-                    followed_last_updated: row.get(6)?,
-                    muted: row.get(7)?,
-                    relay_list_last_received: row.get(8)?,
-                    relay_list_created_at: row.get(9)?,
-                    loaded: true,
-                });
-            }
+        let mut rows = stmt.raw_query();
+        let mut people: Vec<DbPerson> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let metadata_json: Option<String> = row.get(1)?;
+            let metadata = match metadata_json {
+                Some(s) => serde_json::from_str(&s)?,
+                None => None,
+            };
+            let pk: String = row.get(0)?;
+            people.push(DbPerson {
+                pubkey: PublicKeyHex::try_from_string(pk)?,
+                metadata,
+                metadata_at: row.get(2)?,
+                nip05_valid: row.get(3)?,
+                nip05_last_checked: row.get(4)?,
+                followed: row.get(5)?,
+                followed_last_updated: row.get(6)?,
+                muted: row.get(7)?,
+                relay_list_last_received: row.get(8)?,
+                relay_list_created_at: row.get(9)?,
+                loaded: true,
+            });
+        }
 
-            Ok(people)
-        })
-        .await?;
-
-        output
+        Ok(people)
     }
 
     /*

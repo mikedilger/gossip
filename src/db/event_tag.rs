@@ -1,7 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use serde::{Deserialize, Serialize};
-use tokio::task::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEventTag {
@@ -59,22 +58,18 @@ impl DbEventTag {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
 
         let pool = GLOBALS.db.clone();
-        spawn_blocking(move || {
-            let db = pool.get()?;
+        let db = pool.get()?;
 
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                &event_tag.event,
-                &event_tag.seq,
-                &event_tag.label,
-                &event_tag.field0,
-                &event_tag.field1,
-                &event_tag.field2,
-                &event_tag.field3,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((
+            &event_tag.event,
+            &event_tag.seq,
+            &event_tag.label,
+            &event_tag.field0,
+            &event_tag.field1,
+            &event_tag.field2,
+            &event_tag.field3,
+        ))?;
 
         Ok(())
     }

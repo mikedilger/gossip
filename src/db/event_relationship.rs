@@ -1,7 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use serde::{Deserialize, Serialize};
-use tokio::task::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEventRelationship {
@@ -20,13 +19,9 @@ impl DbEventRelationship {
         let sql = "INSERT OR IGNORE INTO event_relationship (original, refers_to, relationship, content) VALUES (?, ?, ?, ?)";
 
         let pool = GLOBALS.db.clone();
-        spawn_blocking(move || {
-            let db = pool.get()?;
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((&original, &refers_to, &relationship, &content))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let db = pool.get()?;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((&original, &refers_to, &relationship, &content))?;
         Ok(())
     }
 
