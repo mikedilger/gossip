@@ -13,9 +13,11 @@ use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
 use parking_lot::RwLock as PRwLock;
-use rusqlite::Connection;
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
+use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 /// Only one of these is ever created, via lazy_static!, and represents
@@ -25,7 +27,7 @@ pub struct Globals {
     pub first_run: AtomicBool,
 
     /// This is our connection to SQLite. Only one thread at a time.
-    pub db: Mutex<Option<Connection>>,
+    pub db: Arc<Pool<SqliteConnectionManager>>,
 
     /// This is a broadcast channel. All Minions should listen on it.
     /// To create a receiver, just run .subscribe() on it.
@@ -117,7 +119,7 @@ lazy_static! {
 
         Globals {
             first_run: AtomicBool::new(false),
-            db: Mutex::new(None),
+            db: Arc::new(crate::db::init_database().expect("Failed to init DB pool")),
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
