@@ -150,7 +150,7 @@ pub async fn prune() -> Result<(), Error> {
     Ok(())
 }
 
-const UPGRADE_SQL: [&str; 26] = [
+const UPGRADE_SQL: [&str; 27] = [
     include_str!("sql/schema1.sql"),
     include_str!("sql/schema2.sql"),
     include_str!("sql/schema3.sql"),
@@ -177,4 +177,5 @@ const UPGRADE_SQL: [&str; 26] = [
     include_str!("sql/schema24.sql"),
     include_str!("sql/schema25.sql"),
     include_str!("sql/schema26.sql"),
+    include_str!("sql/schema27.sql"),
 ];
