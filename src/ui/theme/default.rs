@@ -133,7 +133,7 @@ impl ThemeDef for DefaultTheme {
                 window_fill: Color32::from_gray(0x24),
                 panel_fill: Color32::from_gray(10),
                 faint_bg_color: Color32::from_gray(0x14),
-                extreme_bg_color: Color32::from_gray(0),
+                extreme_bg_color: Color32::from_gray(36),
                 code_bg_color: Color32::from_gray(64),
 
                 // Foreground colors
@@ -361,7 +361,7 @@ impl ThemeDef for DefaultTheme {
 
     fn input_text_color(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            Color32::from_gray(120)
+            Color32::from_gray(190)
         } else {
             Color32::from_gray(60)
         }
