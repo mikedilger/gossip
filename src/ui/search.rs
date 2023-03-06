@@ -2,7 +2,8 @@ use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::GLOBALS;
 use eframe::{egui, Frame};
-use egui::{Context, Ui};
+use egui::{Context, TextEdit, Ui};
+use egui::widgets::{Button};
 use nostr_types::{Id, PublicKey};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
@@ -16,8 +17,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
         let response = ui.add(
             text_edit_line!(app, app.search)
                 .hint_text("npub1 or note1, other kinds of searches not yet implemented")
-                .desired_width(f32::INFINITY),
+                .desired_width(700.0)
         );
+        if ui
+            .add(Button::new("Search"))
+            .clicked()
+        {
+            do_search = true;
+        }
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
             do_search = true;
         }
