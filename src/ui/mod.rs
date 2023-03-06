@@ -2,6 +2,7 @@ mod feed;
 mod help;
 mod people;
 mod relays;
+mod search;
 mod settings;
 mod theme;
 mod widgets;
@@ -71,6 +72,7 @@ enum Page {
     YourDelegation,
     RelaysLive,
     RelaysAll,
+    Search,
     Settings,
     HelpHelp,
     HelpStats,
@@ -118,6 +120,9 @@ struct GossipUi {
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     tag_re: regex::Regex,
 
+    // Search result
+    search_result: String,
+
     // User entry: posts
     draft: String,
     tag_someone: String,
@@ -147,6 +152,7 @@ struct GossipUi {
     import_priv: String,
     import_pub: String,
     new_relay_url: String,
+    search: String,
 }
 
 impl Drop for GossipUi {
@@ -252,6 +258,7 @@ impl GossipUi {
             settings,
             avatars: HashMap::new(),
             tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
+            search_result: "".to_owned(),
             draft: "".to_owned(),
             tag_someone: "".to_owned(),
             include_subject: false,
@@ -274,6 +281,7 @@ impl GossipUi {
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
             new_relay_url: "".to_owned(),
+            search: "".to_owned(),
         }
     }
 
@@ -427,6 +435,13 @@ impl eframe::App for GossipUi {
                 }
                 ui.separator();
                 if ui
+                    .add(SelectableLabel::new(self.page == Page::Search, "Search"))
+                    .clicked()
+                {
+                    self.set_page(Page::Search);
+                }
+                ui.separator();
+                if ui
                     .add(SelectableLabel::new(
                         self.page == Page::Settings,
                         "Settings",
@@ -483,6 +498,7 @@ impl eframe::App for GossipUi {
                 you::update(self, ctx, frame, ui)
             }
             Page::RelaysLive | Page::RelaysAll => relays::update(self, ctx, frame, ui),
+            Page::Search => search::update(self, ctx, frame, ui),
             Page::Settings => settings::update(self, ctx, frame, ui),
             Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                 help::update(self, ctx, frame, ui)
