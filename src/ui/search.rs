@@ -6,14 +6,13 @@ use egui::{Context, Ui};
 use nostr_types::{Id, PublicKey};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
-    ui.heading("Search");
+    ui.heading("Search notes and users");
 
     ui.add_space(12.0);
 
     let mut do_search = false;
 
     ui.horizontal(|ui| {
-        ui.label("🔎");
         let response = ui.add(
             text_edit_line!(app, app.search)
                 .hint_text("npub1 or note1, other kinds of searches not yet implemented")
