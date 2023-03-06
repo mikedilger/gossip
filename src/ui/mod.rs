@@ -1,3 +1,4 @@
+mod components;
 mod feed;
 mod help;
 mod people;
