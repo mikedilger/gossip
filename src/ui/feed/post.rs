@@ -121,6 +121,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.label("Subject: ");
             ui.add(
                 TextEdit::singleline(&mut app.subject)
+                    .text_color(app.settings.theme.input_text_color())
                     .hint_text("Type subject here")
                     .desired_width(f32::INFINITY),
             );
@@ -132,6 +133,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.label("Content Warning: ");
             ui.add(
                 TextEdit::singleline(&mut app.content_warning)
+                    .text_color(app.settings.theme.input_text_color())
                     .hint_text("Type content warning here")
                     .desired_width(f32::INFINITY),
             );
@@ -140,6 +142,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     ui.add(
         TextEdit::multiline(&mut app.draft)
+            .text_color(app.settings.theme.input_text_color())
             .hint_text("Type your message here")
             .desired_width(f32::INFINITY)
             .lock_focus(true)
@@ -186,6 +189,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             ui.add(
                 TextEdit::singleline(&mut app.tag_someone)
+                    .text_color(app.settings.theme.input_text_color())
                     .desired_width(100.0)
                     .hint_text("@username"),
             );

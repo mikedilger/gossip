@@ -12,6 +12,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.label("Enter NIP-26 delegation tag, to post on the behalf of another indentity (I will be the delegatee)");
     ui.add(
         TextEdit::multiline(&mut app.delegatee_tag_str)
+            .text_color(app.settings.theme.input_text_color())
             .hint_text("full delegation tag, JSON")
             .desired_width(f32::INFINITY),
     );

@@ -119,6 +119,12 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn input_text_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::input_text_color(self.dark_mode), )+
+                }
+            }
+
             pub fn feed_scroll_fill(&self, feed: &FeedProperties) -> Color32 {
                 match self.variant {
                     $( $variant => $class::feed_scroll_fill(self.dark_mode, feed), )+
@@ -213,16 +219,23 @@ theme_dispatch!(
 );
 
 pub trait ThemeDef: Send + Sync {
-    // user facing name
+    // User facing name
     fn name() -> &'static str;
 
-    // general styling
+    // These styles are used by egui by default for widgets if you don't override them
+    // in place.
     fn get_style(dark_mode: bool) -> Style;
+
     fn font_definitions() -> FontDefinitions;
     fn text_styles() -> BTreeMap<TextStyle, FontId>;
     fn highlight_text_format(highlight_type: HighlightType, dark_mode: bool) -> TextFormat;
     fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
+
+    // egui by default uses inactive.fg_stroke for multiple things (buttons, any
+    // labels made clickable, and TextEdit text. We try to always override TextEdit
+    // text with this color instead.
+    fn input_text_color(dark_mode: bool) -> eframe::egui::Color32;
 
     // feed styling
     fn feed_scroll_rounding(feed: &FeedProperties) -> Rounding;

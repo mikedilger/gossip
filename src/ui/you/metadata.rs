@@ -2,7 +2,7 @@ use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Align, Context, Layout, RichText, TextEdit, Ui};
+use egui::{Align, Color32, Context, Layout, RichText, TextEdit, Ui};
 use nostr_types::Metadata;
 use serde_json::map::Map;
 use serde_json::value::Value;
@@ -51,16 +51,17 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     }
 
+    let edit_color = app.settings.theme.input_text_color();
     if app.editing_metadata {
-        edit_line(ui, "Name", &mut app.metadata.name);
+        edit_line(ui, "Name", &mut app.metadata.name, edit_color);
         ui.add_space(18.0);
-        edit_line(ui, "About", &mut app.metadata.about);
+        edit_line(ui, "About", &mut app.metadata.about, edit_color);
         ui.add_space(18.0);
-        edit_line(ui, "Picture", &mut app.metadata.picture);
+        edit_line(ui, "Picture", &mut app.metadata.picture, edit_color);
         ui.add_space(18.0);
-        edit_line(ui, "NIP-05", &mut app.metadata.nip05);
+        edit_line(ui, "NIP-05", &mut app.metadata.nip05, edit_color);
         ui.add_space(18.0);
-        edit_lines_other(ui, &mut app.metadata.other);
+        edit_lines_other(ui, &mut app.metadata.other, edit_color);
         ui.add_space(18.0);
     } else {
         view_line(ui, "Name", view_metadata.name.as_ref());
@@ -79,7 +80,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         if app.editing_metadata {
             ui.horizontal(|ui| {
                 ui.label("Add new field: ");
-                ui.add(TextEdit::singleline(&mut app.new_metadata_fieldname).desired_width(120.0));
+                ui.add(
+                    TextEdit::singleline(&mut app.new_metadata_fieldname)
+                        .text_color(app.settings.theme.input_text_color())
+                        .desired_width(120.0),
+                );
                 if ui.button("ADD").clicked() {
                     app.metadata.other.insert(
                         app.new_metadata_fieldname.clone(),
@@ -145,7 +150,7 @@ fn view_line(ui: &mut Ui, field: &str, data: Option<&String>) {
     });
 }
 
-fn edit_line(ui: &mut Ui, field: &str, data: &mut Option<String>) {
+fn edit_line(ui: &mut Ui, field: &str, data: &mut Option<String>, edit_color: Color32) {
     ui.horizontal(|ui| {
         ui.label(&format!("{}: ", field));
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
@@ -154,11 +159,15 @@ fn edit_line(ui: &mut Ui, field: &str, data: &mut Option<String>) {
                     *data = None;
                 } else if field == "About" {
                     ui.add(
-                        TextEdit::multiline(data.as_mut().unwrap()).desired_width(f32::INFINITY),
+                        TextEdit::multiline(data.as_mut().unwrap())
+                            .text_color(edit_color)
+                            .desired_width(f32::INFINITY),
                     );
                 } else {
                     ui.add(
-                        TextEdit::singleline(data.as_mut().unwrap()).desired_width(f32::INFINITY),
+                        TextEdit::singleline(data.as_mut().unwrap())
+                            .text_color(edit_color)
+                            .desired_width(f32::INFINITY),
                     );
                 }
             } else if ui.button("Add").clicked() {
@@ -184,7 +193,7 @@ fn view_lines_other(ui: &mut Ui, other: &Map<String, Value>) {
     }
 }
 
-fn edit_lines_other(ui: &mut Ui, other: &mut Map<String, Value>) {
+fn edit_lines_other(ui: &mut Ui, other: &mut Map<String, Value>, edit_color: Color32) {
     let mut to_remove: Vec<String> = Vec::new();
     for (field, jsonvalue) in other.iter_mut() {
         ui.horizontal(|ui| {
@@ -194,7 +203,11 @@ fn edit_lines_other(ui: &mut Ui, other: &mut Map<String, Value>) {
                     if ui.button("Remove").clicked() {
                         to_remove.push(field.to_owned());
                     }
-                    ui.add(TextEdit::singleline(s).desired_width(f32::INFINITY));
+                    ui.add(
+                        TextEdit::singleline(s)
+                            .text_color(edit_color)
+                            .desired_width(f32::INFINITY),
+                    );
                 });
             }
         });

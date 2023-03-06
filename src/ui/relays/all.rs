@@ -13,7 +13,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Enter a new relay URL:");
-        ui.add(TextEdit::singleline(&mut app.new_relay_url));
+        ui.add(
+            TextEdit::singleline(&mut app.new_relay_url)
+                .text_color(app.settings.theme.input_text_color()),
+        );
         if ui.button("Add").clicked() {
             if let Ok(url) = RelayUrl::try_from_str(&app.new_relay_url) {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url));

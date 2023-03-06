@@ -218,7 +218,11 @@ fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 
     ui.horizontal(|ui| {
         ui.label("Passphrase: ");
-        let response = ui.add(TextEdit::singleline(&mut app.password).password(true));
+        let response = ui.add(
+            TextEdit::singleline(&mut app.password)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
             let _ = GLOBALS
                 .to_overlord
@@ -267,19 +271,31 @@ fn offer_change_password(app: &mut GossipUi, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.add_space(10.0);
         ui.label("Enter Existing Passphrase: ");
-        ui.add(TextEdit::singleline(&mut app.password).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
 
     ui.horizontal(|ui| {
         ui.add_space(10.0);
         ui.label("Enter New Passphrase: ");
-        ui.add(TextEdit::singleline(&mut app.password2).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password2)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
 
     ui.horizontal(|ui| {
         ui.add_space(10.0);
         ui.label("Repeat New Passphrase: ");
-        ui.add(TextEdit::singleline(&mut app.password3).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password3)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
 
     if ui.button("Change Passphrase").clicked() {
@@ -317,7 +333,11 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.add_space(10.0);
         ui.label("Enter Passphrase To Export: ");
-        ui.add(TextEdit::singleline(&mut app.password).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
 
     if ui.button("Export Private Key as bech32").clicked() {
@@ -355,6 +375,7 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         ui.label("Enter private key");
         ui.add(
             TextEdit::singleline(&mut app.import_priv)
+                .text_color(app.settings.theme.input_text_color())
                 .hint_text("nsec1, or hex")
                 .desired_width(f32::INFINITY)
                 .password(true),
@@ -362,11 +383,19 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     });
     ui.horizontal(|ui| {
         ui.label("Enter a passphrase to keep it encrypted under");
-        ui.add(TextEdit::singleline(&mut app.password).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
     ui.horizontal(|ui| {
         ui.label("Repeat passphrase to be sure");
-        ui.add(TextEdit::singleline(&mut app.password2).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password2)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
     if ui.button("import").clicked() {
         if app.password != app.password2 {
@@ -395,6 +424,7 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         ui.label("Enter encrypted private key");
         ui.add(
             TextEdit::singleline(&mut app.import_priv)
+                .text_color(app.settings.theme.input_text_color())
                 .hint_text("ncryptsec1")
                 .desired_width(f32::INFINITY)
                 .password(true),
@@ -402,7 +432,11 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     });
     ui.horizontal(|ui| {
         ui.label("Enter the passphrase it is encrypted under");
-        ui.add(TextEdit::singleline(&mut app.password).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
     if ui.button("import").clicked() {
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
@@ -450,6 +484,7 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
             ui.label("Enter your public key");
             ui.add(
                 TextEdit::singleline(&mut app.import_pub)
+                    .text_color(app.settings.theme.input_text_color())
                     .hint_text("npub1 or hex")
                     .desired_width(f32::INFINITY),
             );
@@ -486,11 +521,19 @@ fn offer_generate(app: &mut GossipUi, ui: &mut Ui) {
 
     ui.horizontal(|ui| {
         ui.label("Enter a passphrase to keep it encrypted under");
-        ui.add(TextEdit::singleline(&mut app.password).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
     ui.horizontal(|ui| {
         ui.label("Repeat passphrase to be sure");
-        ui.add(TextEdit::singleline(&mut app.password2).password(true));
+        ui.add(
+            TextEdit::singleline(&mut app.password2)
+                .text_color(app.settings.theme.input_text_color())
+                .password(true),
+        );
     });
     if ui.button("Generate Now").clicked() {
         if app.password != app.password2 {

@@ -99,6 +99,9 @@ impl ThemeDef for RoundyTheme {
                         weak_bg_fill: Color32::from_gray(60),
                         bg_fill: Color32::from_white_alpha(8),
                         bg_stroke: Stroke::new(1.0, Color32::from_gray(72)), // separators, borders
+                        // The following is used for All buttons, any clickable text,
+                        //    AND text inputs, whether they are inactive OR active. It's really
+                        //    overloaded.
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // button text
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
@@ -180,6 +183,9 @@ impl ThemeDef for RoundyTheme {
                         weak_bg_fill: Color32::from_gray(230),
                         bg_fill: Color32::from_black_alpha(20),
                         bg_stroke: Stroke::new(1.0, Color32::from_gray(192)),
+                        // The following is used for All buttons, any clickable text,
+                        //    AND text inputs, whether they are inactive OR active. It's really
+                        //    overloaded.
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // button text
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
@@ -354,6 +360,14 @@ impl ThemeDef for RoundyTheme {
             Color32::LIGHT_BLUE
         } else {
             Color32::DARK_BLUE
+        }
+    }
+
+    fn input_text_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::from_gray(190)
+        } else {
+            Color32::from_gray(60)
         }
     }
 
