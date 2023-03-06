@@ -2,7 +2,7 @@ use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::GLOBALS;
 use eframe::{egui, Frame};
-use egui::{Context, TextEdit, Ui};
+use egui::{Context, Ui};
 use nostr_types::{Id, PublicKey};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
@@ -15,7 +15,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
     ui.horizontal(|ui| {
         ui.label("🔎");
         let response = ui.add(
-            TextEdit::singleline(&mut app.search)
+            text_edit_line!(app, app.search)
                 .hint_text("npub1 or note1, other kinds of searches not yet implemented")
                 .desired_width(f32::INFINITY),
         );

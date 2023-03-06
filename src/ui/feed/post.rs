@@ -5,7 +5,7 @@ use crate::tags::{keys_from_text, notes_from_text};
 use crate::ui::{GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
-use egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, Ui, Vec2};
+use egui::{Align, Context, Layout, RichText, ScrollArea, Ui, Vec2};
 use memoize::memoize;
 use nostr_types::Tag;
 
@@ -120,8 +120,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.horizontal(|ui| {
             ui.label("Subject: ");
             ui.add(
-                TextEdit::singleline(&mut app.subject)
-                    .text_color(app.settings.theme.input_text_color())
+                text_edit_line!(app, app.subject)
                     .hint_text("Type subject here")
                     .desired_width(f32::INFINITY),
             );
@@ -132,8 +131,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.horizontal(|ui| {
             ui.label("Content Warning: ");
             ui.add(
-                TextEdit::singleline(&mut app.content_warning)
-                    .text_color(app.settings.theme.input_text_color())
+                text_edit_line!(app, app.content_warning)
                     .hint_text("Type content warning here")
                     .desired_width(f32::INFINITY),
             );
@@ -141,8 +139,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 
     ui.add(
-        TextEdit::multiline(&mut app.draft)
-            .text_color(app.settings.theme.input_text_color())
+        text_edit_multiline!(app, app.draft)
             .hint_text("Type your message here")
             .desired_width(f32::INFINITY)
             .lock_focus(true)
@@ -188,8 +185,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
 
             ui.add(
-                TextEdit::singleline(&mut app.tag_someone)
-                    .text_color(app.settings.theme.input_text_color())
+                text_edit_line!(app, app.tag_someone)
                     .desired_width(100.0)
                     .hint_text("@username"),
             );

@@ -80,11 +80,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         if app.editing_metadata {
             ui.horizontal(|ui| {
                 ui.label("Add new field: ");
-                ui.add(
-                    TextEdit::singleline(&mut app.new_metadata_fieldname)
-                        .text_color(app.settings.theme.input_text_color())
-                        .desired_width(120.0),
-                );
+                ui.add(text_edit_line!(app, app.new_metadata_fieldname).desired_width(120.0));
                 if ui.button("ADD").clicked() {
                     app.metadata.other.insert(
                         app.new_metadata_fieldname.clone(),

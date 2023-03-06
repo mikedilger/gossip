@@ -1,3 +1,17 @@
+macro_rules! text_edit_line {
+    ($app:ident, $var:expr) => {
+        egui::widgets::TextEdit::singleline(&mut $var)
+            .text_color($app.settings.theme.input_text_color())
+    };
+}
+
+macro_rules! text_edit_multiline {
+    ($app:ident, $var:expr) => {
+        egui::widgets::TextEdit::multiline(&mut $var)
+            .text_color($app.settings.theme.input_text_color())
+    };
+}
+
 mod components;
 mod feed;
 mod help;

@@ -2,7 +2,7 @@ use super::GossipUi;
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, TextEdit, Ui};
+use egui::{Context, Ui};
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -24,11 +24,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Enter");
-        ui.add(
-            TextEdit::singleline(&mut app.nprofile_follow)
-                .text_color(app.settings.theme.input_text_color())
-                .hint_text("nprofile1..."),
-        );
+        ui.add(text_edit_line!(app, app.nprofile_follow).hint_text("nprofile1..."));
     });
     if ui.button("follow").clicked() {
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
@@ -45,11 +41,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Enter user@domain");
-        ui.add(
-            TextEdit::singleline(&mut app.nip05follow)
-                .text_color(app.settings.theme.input_text_color())
-                .hint_text("user@domain"),
-        );
+        ui.add(text_edit_line!(app, app.nip05follow).hint_text("user@domain"));
     });
     if ui.button("follow").clicked() {
         let _ = GLOBALS
@@ -66,19 +58,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Enter public key");
-        ui.add(
-            TextEdit::singleline(&mut app.follow_pubkey)
-                .text_color(app.settings.theme.input_text_color())
-                .hint_text("npub1 or hex"),
-        );
+        ui.add(text_edit_line!(app, app.follow_pubkey).hint_text("npub1 or hex"));
     });
     ui.horizontal(|ui| {
         ui.label("Enter a relay URL where we can find them");
-        ui.add(
-            TextEdit::singleline(&mut app.follow_pubkey_at_relay)
-                .text_color(app.settings.theme.input_text_color())
-                .hint_text("wss://..."),
-        );
+        ui.add(text_edit_line!(app, app.follow_pubkey_at_relay).hint_text("wss://..."));
     });
     if ui.button("follow").clicked() {
         if let Ok(url) = RelayUrl::try_from_str(&app.follow_pubkey_at_relay) {

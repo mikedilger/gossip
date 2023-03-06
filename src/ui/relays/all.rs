@@ -3,7 +3,7 @@ use crate::comms::ToOverlordMessage;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Align, Context, Layout, TextEdit, Ui};
+use egui::{Align, Context, Layout, Ui};
 use egui_extras::{Column, TableBuilder};
 use nostr_types::{RelayUrl, Unixtime};
 
@@ -13,10 +13,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Enter a new relay URL:");
-        ui.add(
-            TextEdit::singleline(&mut app.new_relay_url)
-                .text_color(app.settings.theme.input_text_color()),
-        );
+        ui.add(text_edit_line!(app, app.new_relay_url));
         if ui.button("Add").clicked() {
             if let Ok(url) = RelayUrl::try_from_str(&app.new_relay_url) {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url));
