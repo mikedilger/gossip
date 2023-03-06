@@ -4,7 +4,7 @@ use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{
     FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle, Visuals,
 };
-use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow};
+use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -382,7 +382,21 @@ impl ThemeDef for DefaultTheme {
                 let current = ui.next_widget_position();
                 let start_point = Pos2::new(current.x - 12.0, current.y + 12.0);
                 let end_point = Pos2::new(start_point.x, start_point.y + post.height - 60.0);
-                let color = ui.style().visuals.widgets.noninteractive.weak_bg_fill;
+
+                // FIXME: rather than doing color calculations these could all be
+                // precalculated. However, this is safer since if we change things it
+                // still makes a matching color, whereas the other way we might forget.
+                //
+                // HsvaGamma has 'value' (lightness) close to perceptually even.
+                let dark_mode = ui.visuals().dark_mode;
+                let mut hsva: ecolor::HsvaGamma = Self::feed_frame_fill(dark_mode, post).into();
+                if dark_mode {
+                    hsva.v = (hsva.v + 0.05).min(1.0); // lighten
+                } else {
+                    hsva.v = (hsva.v - 0.05).max(0.0); // darken
+                }
+                let color: Color32 = hsva.into();
+
                 let thickness = 2.0;
                 ui.painter().add(Shape::line_segment(
                     [start_point, end_point],
