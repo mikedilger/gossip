@@ -139,7 +139,6 @@ fn render_a_feed(
         is_thread: threaded,
     };
 
-
     ScrollArea::vertical()
         .id_source(scroll_area_id)
         .override_scroll_delta(Vec2 {

@@ -1,7 +1,9 @@
 use super::{FeedProperties, PostProperties, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
-use eframe::egui::{FontDefinitions, Margin, Pos2, RichText, Shape, Style, Stroke, TextFormat, TextStyle, Visuals};
+use eframe::egui::{
+    FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle, Visuals,
+};
 use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow};
 use std::collections::BTreeMap;
 
@@ -374,11 +376,8 @@ impl ThemeDef for DefaultTheme {
             if post.thread_position > 0 {
                 let space = 150.0 * (10.0 - (1000.0 / (post.thread_position as f32 + 100.0)));
                 ui.add_space(space);
-                
-                ui.label(
-                    RichText::new(format!("{}", post.thread_position))
-                        .weak(),
-                );
+
+                ui.label(RichText::new(format!("{}", post.thread_position)).weak());
 
                 let current = ui.next_widget_position();
                 let start_point = Pos2::new(current.x - 12.0, current.y + 12.0);
@@ -389,7 +388,7 @@ impl ThemeDef for DefaultTheme {
                     [start_point, end_point],
                     Stroke::new(thickness, color),
                 ));
-                
+
                 ui.add_space(4.0);
             }
         }
