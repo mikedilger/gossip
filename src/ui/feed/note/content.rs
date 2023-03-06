@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
@@ -16,9 +18,17 @@ pub(super) fn render_content(
 ) {
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
-            ui.hyperlink_to(span.as_str(), span.as_str());
+            ui.hyperlink_to(span.as_str().trim(), span.as_str().trim());
         } else {
-            let s = span.as_str();
+            let str = span.as_str();
+            let mut end_newline = 0;
+            for char in str.chars().rev() {
+                if char != '\n' {
+                    break;
+                }
+                end_newline = end_newline.add(1);
+            }
+            let s = str.trim_end();
             let mut pos = 0;
             for mat in tag_re.find_iter(s) {
                 ui.label(&s[pos..mat.start()]);
@@ -67,6 +77,9 @@ pub(super) fn render_content(
                 ui.label(RichText::new(&s[pos..]).strikethrough());
             } else {
                 ui.label(&s[pos..]);
+            }
+            for _ in 0..end_newline {
+                ui.end_row();
             }
         }
     }
