@@ -96,7 +96,9 @@ pub(super) fn render_note(
         }
     };
 
+    let height = if let Some(height) = app.height.get(&id) { height } else { &0.0 };
     let post_properties = PostProperties {
+        height: *height,
         is_new,
         is_thread: threaded,
         is_first,
@@ -224,6 +226,7 @@ fn render_note_inner(
     };
 
     // Everything else next
+    ui.add_space(6.0);
     ui.vertical(|ui| {
         // First row
         ui.horizontal_wrapped(|ui| {

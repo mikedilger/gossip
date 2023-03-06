@@ -1,8 +1,8 @@
 use super::{FeedProperties, PostProperties, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
-use eframe::egui::{FontDefinitions, Margin, RichText, Style, TextFormat, TextStyle, Visuals};
-use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
+use eframe::egui::{FontDefinitions, Margin, Pos2, RichText, Shape, Style, Stroke, TextFormat, TextStyle, Visuals};
+use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -371,14 +371,26 @@ impl ThemeDef for DefaultTheme {
     fn feed_post_outer_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
     fn feed_post_inner_indent(ui: &mut eframe::egui::Ui, post: &PostProperties) {
         if post.is_thread {
-            let space = 100.0 * (10.0 - (1000.0 / (post.thread_position as f32 + 100.0)));
-            ui.add_space(space);
             if post.thread_position > 0 {
+                let space = 150.0 * (10.0 - (1000.0 / (post.thread_position as f32 + 100.0)));
+                ui.add_space(space);
+                
                 ui.label(
-                    RichText::new(format!("{}>", post.thread_position))
-                        .italics()
+                    RichText::new(format!("{}", post.thread_position))
                         .weak(),
                 );
+
+                let current = ui.next_widget_position();
+                let start_point = Pos2::new(current.x - 12.0, current.y + 12.0);
+                let end_point = Pos2::new(start_point.x, start_point.y + post.height - 60.0);
+                let color = ui.style().visuals.widgets.noninteractive.weak_bg_fill;
+                let thickness = 2.0;
+                ui.painter().add(Shape::line_segment(
+                    [start_point, end_point],
+                    Stroke::new(thickness, color),
+                ));
+                
+                ui.add_space(4.0);
             }
         }
     }
@@ -387,7 +399,7 @@ impl ThemeDef for DefaultTheme {
             left: 10.0,
             top: 14.0,
             right: 10.0,
-            bottom: 10.0,
+            bottom: 6.0,
         }
     }
     fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
