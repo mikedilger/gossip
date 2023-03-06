@@ -109,5 +109,4 @@ fn search_result(app: &mut GossipUi, _ctx: &Context, _ui: &mut Ui) {
 
     // If nothing worked, let them know.
     app.search_result = format!("No result for {}.\n\nFulltext search and nym search are not yet implemented, only note1 and npub1.", app.search.clone());
-    app.search = "".to_owned();
 }
