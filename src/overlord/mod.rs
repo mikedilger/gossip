@@ -1,7 +1,7 @@
 mod minion;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
-use crate::db::{DbEvent, DbEventSeen, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbEventFlags, DbEventSeen, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
@@ -173,6 +173,32 @@ impl Overlord {
             }
             tracing::info!("Loaded {} feed related events from the database", count);
         }
+
+        // Load viewed events set into memory
+        for id in DbEventFlags::load_all_viewed().await?.iter() {
+            GLOBALS.viewed_events.insert(*id);
+        }
+
+        // Start a reaper that collects new_viewed_events and saves them to the database
+        std::mem::drop(tokio::spawn(async move {
+            loop {
+                // sleep 5 seconds
+                tokio::time::sleep(std::time::Duration::new(5, 0)).await;
+
+                // Take all viewed events
+                let ids = {
+                    let map = GLOBALS.new_viewed_events.write().await;
+                    let ids: Vec<Id> = map.iter().map(|elem| *elem.key()).collect();
+                    map.clear();
+                    ids
+                };
+
+                // Save all viewed events
+                if let Err(e) = DbEventFlags::mark_all_as_viewed(ids).await {
+                    tracing::error!("Could not save viewed events to database: {}", e);
+                }
+            }
+        }));
 
         // Load relay lists from the database and process
         {
