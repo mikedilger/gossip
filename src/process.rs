@@ -1,6 +1,6 @@
 use crate::comms::ToOverlordMessage;
 use crate::db::{
-    DbEvent, DbEventHashtag, DbEventRelationship, DbEventSeen, DbEventTag, DbPersonRelay, DbRelay,
+    DbEvent, DbEventHashtag, DbEventRelationship, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay,
 };
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
@@ -59,13 +59,13 @@ pub async fn process_new_event(
         if let Some(url) = seen_on {
             let now = Unixtime::now()?.0 as u64;
 
-            // Save event_seen data
-            let db_event_seen = DbEventSeen {
+            // Save event_relay data
+            let db_event_relay = DbEventRelay {
                 event: event.id.as_hex_string(),
                 relay: url.0.to_owned(),
                 when_seen: now,
             };
-            DbEventSeen::replace(db_event_seen).await?;
+            DbEventRelay::replace(db_event_relay).await?;
 
             // Create the person if missing in the database
             GLOBALS

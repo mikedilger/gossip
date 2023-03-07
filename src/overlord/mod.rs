@@ -1,7 +1,7 @@
 mod minion;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
-use crate::db::{DbEvent, DbEventFlags, DbEventSeen, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbEventFlags, DbEventRelay, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::People;
@@ -1157,8 +1157,8 @@ impl Overlord {
         let mut relays: Vec<RelayUrl> = Vec::new();
 
         // Include the relays where the referenced_by event was seen
-        relays.extend(DbEventSeen::get_relays_for_event(referenced_by).await?);
-        relays.extend(DbEventSeen::get_relays_for_event(id).await?);
+        relays.extend(DbEventRelay::get_relays_for_event(referenced_by).await?);
+        relays.extend(DbEventRelay::get_relays_for_event(id).await?);
 
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription

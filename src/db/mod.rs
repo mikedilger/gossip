@@ -4,8 +4,8 @@ pub use event::DbEvent;
 mod event_flags;
 pub use event_flags::DbEventFlags;
 
-mod event_seen;
-pub use event_seen::DbEventSeen;
+mod event_relay;
+pub use event_relay::DbEventRelay;
 
 mod event_hashtag;
 pub use event_hashtag::DbEventHashtag;
@@ -153,7 +153,7 @@ pub async fn prune() -> Result<(), Error> {
     Ok(())
 }
 
-const UPGRADE_SQL: [&str; 28] = [
+const UPGRADE_SQL: [&str; 29] = [
     include_str!("sql/schema1.sql"),
     include_str!("sql/schema2.sql"),
     include_str!("sql/schema3.sql"),
@@ -182,4 +182,5 @@ const UPGRADE_SQL: [&str; 28] = [
     include_str!("sql/schema26.sql"),
     include_str!("sql/schema27.sql"),
     include_str!("sql/schema28.sql"),
+    include_str!("sql/schema29.sql"),
 ];

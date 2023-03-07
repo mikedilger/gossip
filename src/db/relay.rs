@@ -282,8 +282,8 @@ impl DbRelay {
     pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
         // Try to find a relay where the event was seen AND that I write to which
         // has a rank>1
-        let sql = "SELECT url FROM relay INNER JOIN event_seen ON relay.url=event_seen.relay \
-                   WHERE event_seen.event=? AND relay.write=1 AND relay.rank>1";
+        let sql = "SELECT url FROM relay INNER JOIN event_relay ON relay.url=event_relay.relay \
+                   WHERE event_relay.event=? AND relay.write=1 AND relay.rank>1";
         let output: Option<RelayUrl> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
@@ -304,7 +304,7 @@ impl DbRelay {
         }
 
         // Fallback to finding any relay where the event was seen
-        let sql = "SELECT relay FROM event_seen WHERE event=?";
+        let sql = "SELECT relay FROM event_relay WHERE event=?";
         let output: Option<RelayUrl> = spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
