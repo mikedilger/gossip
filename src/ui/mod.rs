@@ -167,6 +167,8 @@ struct GossipUi {
     import_pub: String,
     new_relay_url: String,
     search: String,
+    search_page: bool,
+
 }
 
 impl Drop for GossipUi {
@@ -295,6 +297,7 @@ impl GossipUi {
             import_pub: "".to_owned(),
             new_relay_url: "".to_owned(),
             search: "".to_owned(),
+            search_page: false,
         }
     }
 
