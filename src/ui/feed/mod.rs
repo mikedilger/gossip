@@ -233,6 +233,13 @@ fn render_note_maybe_fake(
     }
     let event = maybe_event.unwrap();
 
+    // Stop rendering if the note is included in a collapsed thread
+    if let Some((id, _)) = event.replies_to() {
+        if app.collapsed.contains(&id) {
+            return;
+        }
+    }
+
     let screen_rect = ctx.input(|i| i.screen_rect); // Rect
     let pos2 = ui.next_widget_position();
 

@@ -167,6 +167,10 @@ struct GossipUi {
     import_pub: String,
     new_relay_url: String,
     search: String,
+
+    // Collapsed threads
+    collapsed: Vec<Id>,
+    
 }
 
 impl Drop for GossipUi {
@@ -295,6 +299,7 @@ impl GossipUi {
             import_pub: "".to_owned(),
             new_relay_url: "".to_owned(),
             search: "".to_owned(),
+            collapsed: vec![],
         }
     }
 
