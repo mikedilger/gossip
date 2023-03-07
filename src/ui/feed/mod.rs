@@ -25,7 +25,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.horizontal(|ui| {
         if ui
             .add(SelectableLabel::new(
-                app.page == Page::Feed(FeedKind::Followed(false)),
+                matches!(app.page, Page::Feed(FeedKind::Followed(_))),
                 "Main feed",
             ))
             .clicked()
@@ -35,17 +35,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.separator();
         if ui
             .add(SelectableLabel::new(
-                app.page == Page::Feed(FeedKind::Followed(true)),
-                "Conversations",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::Feed(FeedKind::Followed(true)));
-        }
-        ui.separator();
-        if ui
-            .add(SelectableLabel::new(
-                app.page == Page::Feed(FeedKind::Inbox(false)),
+                matches!(app.page, Page::Feed(FeedKind::Inbox(_))),
                 "Inbox",
             ))
             .clicked()
@@ -53,15 +43,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             app.set_page(Page::Feed(FeedKind::Inbox(false)));
         }
         ui.separator();
-        if ui
-            .add(SelectableLabel::new(
-                app.page == Page::Feed(FeedKind::Inbox(true)),
-                "Activity",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::Feed(FeedKind::Inbox(true)));
-        }
         if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
             ui.separator();
             if ui
@@ -86,6 +67,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 app.set_page(Page::Feed(feed_kind.clone()));
             }
         }
+
+        if GLOBALS
+            .feed
+            .switched_and_recomputing
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            ui.separator();
+            ui.label("RECOMPUTING...");
+        }
     });
 
     ui.add_space(10.0);
@@ -98,6 +88,29 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         FeedKind::Followed(with_replies) => {
             let feed = GLOBALS.feed.get_followed();
             let id = if with_replies { "main" } else { "general" };
+
+            ui.horizontal(|ui| {
+                if ui
+                    .add(SelectableLabel::new(
+                        app.page == Page::Feed(FeedKind::Followed(false)),
+                        "Root Posts Only",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(FeedKind::Followed(false)));
+                }
+                if ui
+                    .add(SelectableLabel::new(
+                        app.page == Page::Feed(FeedKind::Followed(true)),
+                        "Any Post",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(FeedKind::Followed(true)));
+                }
+                ui.separator();
+            });
+            ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Inbox(indirect) => {
@@ -112,6 +125,29 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
             let feed = GLOBALS.feed.get_inbox();
             let id = if indirect { "activity" } else { "inbox" };
+
+            ui.horizontal(|ui| {
+                if ui
+                    .add(SelectableLabel::new(
+                        app.page == Page::Feed(FeedKind::Inbox(false)),
+                        "Direct Replies Only",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(FeedKind::Inbox(false)));
+                }
+                if ui
+                    .add(SelectableLabel::new(
+                        app.page == Page::Feed(FeedKind::Inbox(true)),
+                        "Everything you are Tagged On",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(FeedKind::Inbox(true)));
+                }
+                ui.separator();
+            });
+            ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Thread { id, .. } => {
