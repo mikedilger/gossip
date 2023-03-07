@@ -210,7 +210,6 @@ impl Feed {
                     .filter(|e| {
                         // feed related
                         e.kind == EventKind::TextNote
-                            || e.kind == EventKind::EncryptedDirectMessage
                             || (settings.reposts && (e.kind == EventKind::Repost))
                     })
                     .filter(|e| !dismissed.contains(&e.id)) // not dismissed
