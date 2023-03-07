@@ -4,7 +4,6 @@ use async_recursion::async_recursion;
 use dashmap::DashMap;
 use nostr_types::{Event, Filter, Id};
 use std::fmt::Display;
-use tokio::task;
 
 pub struct Events {
     events: DashMap<Id, Event>,
@@ -38,27 +37,29 @@ impl Events {
         }
 
         let pool = GLOBALS.db.clone();
-        if let Some(event) = task::spawn_blocking(move || {
-            let db = pool.get()?;
+        let db = pool.get()?;
+        let opt_event: Option<Event> = {
             let mut stmt = db.prepare("SELECT raw FROM event WHERE id=?")?;
             stmt.raw_bind_parameter(1, id.as_hex_string())?;
             let mut rows = stmt.raw_query();
-            if let Some(row) = rows.next()? {
-                let s: String = row.get(0)?;
-                Ok(Some(serde_json::from_str(&s)?))
-            } else {
-                Ok::<Option<Event>, Error>(None)
+            match rows.next()? {
+                None => None,
+                Some(row) => {
+                    let s: String = row.get(0)?;
+                    Some(serde_json::from_str(&s)?)
+                }
             }
-        })
-        .await??
-        {
-            // Process that event
-            crate::process::process_new_event(&event, false, None, None).await?;
+        };
 
-            self.insert(event.clone());
-            Ok(Some(event))
-        } else {
-            Ok(None)
+        match opt_event {
+            None => Ok(None),
+            Some(event) => {
+                // Process that event
+                crate::process::process_new_event(&event, false, None, None).await?;
+
+                self.insert(event.clone());
+                Ok(Some(event))
+            }
         }
     }
 
