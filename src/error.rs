@@ -45,6 +45,9 @@ pub enum Error {
     #[error("INTERNAL: {0}")]
     Internal(String),
 
+    #[error("Invalid URI parts: {0}")]
+    InvalidUriParts(#[from] http::uri::InvalidUriParts),
+
     #[error("Invalid DNS ID (nip-05), should be user@domain")]
     InvalidDnsId,
 

@@ -10,6 +10,7 @@ use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};
 use futures::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
+use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
@@ -95,21 +96,16 @@ impl Minion {
         // Connect to the relay
         let websocket_stream = {
             let uri: http::Uri = self.url.0.parse::<Uri>()?;
-            let scheme_str = match uri.scheme_str() {
-                Some("wss") => "https",
-                Some("ws") => "http",
-                _ => "https",
+            let mut parts: Parts = uri.into_parts();
+            parts.scheme = match parts.scheme {
+                Some(scheme) => match scheme.as_str() {
+                    "wss" => Some(Scheme::HTTPS),
+                    "ws" => Some(Scheme::HTTP),
+                    _ => Some(Scheme::HTTPS),
+                },
+                None => Some(Scheme::HTTPS),
             };
-            let authority = uri.authority().ok_or(Error::UrlHasNoHostname)?.as_str();
-            let host = authority
-                .find('@')
-                .map(|idx| authority.split_at(idx + 1).1)
-                .unwrap_or_else(|| authority);
-            if host.is_empty() {
-                return Err(Error::UrlHasEmptyHostname);
-            }
-
-            // Read NIP-11 information
+            let uri = http::Uri::from_parts(parts)?;
             let request_nip11_future = reqwest::Client::builder()
                 .timeout(std::time::Duration::new(30, 0))
                 .redirect(reqwest::redirect::Policy::none())
@@ -117,7 +113,7 @@ impl Minion {
                 .brotli(true)
                 .deflate(true)
                 .build()?
-                .get(format!("{}://{}", scheme_str, host))
+                .get(format!("{}", uri))
                 .header("Accept", "application/nostr+json")
                 .send();
             let response = request_nip11_future.await?;
@@ -163,6 +159,8 @@ impl Minion {
                 req
             };
 
+            let uri: http::Uri = self.url.0.parse::<Uri>()?;
+            let host = uri.host().unwrap(); // fixme
             let req = req
                 .header("Host", host)
                 .header("Connection", "Upgrade")
