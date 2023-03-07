@@ -304,7 +304,7 @@ fn render_note_inner(
                         ui.output_mut(|o| o.copied_text = event.id.as_hex_string());
                     }
                     if ui.button("Dismiss").clicked() {
-                        GLOBALS.dismissed.blocking_write().push(event.id);
+                        GLOBALS.dismissed.write().push(event.id);
                     }
                 });
 
