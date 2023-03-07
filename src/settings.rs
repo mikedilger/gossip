@@ -27,6 +27,7 @@ pub const DEFAULT_LOAD_AVATARS: bool = true;
 pub const DEFAULT_CHECK_NIP05: bool = true;
 pub const DEFAULT_DIRECT_MESSAGES: bool = true;
 pub const DEFAULT_AUTOMATICALLY_FETCH_METADATA: bool = true;
+pub const DEFAULT_HIGHLIGHT_UNREAD_EVENTS: bool = true;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Settings {
@@ -51,6 +52,7 @@ pub struct Settings {
     pub direct_messages: bool,
     pub automatically_fetch_metadata: bool,
     pub delegatee_tag: String,
+    pub highlight_unread_events: bool,
 }
 
 impl Default for Settings {
@@ -77,6 +79,7 @@ impl Default for Settings {
             direct_messages: DEFAULT_DIRECT_MESSAGES,
             automatically_fetch_metadata: DEFAULT_AUTOMATICALLY_FETCH_METADATA,
             delegatee_tag: String::new(),
+            highlight_unread_events: DEFAULT_HIGHLIGHT_UNREAD_EVENTS,
         }
     }
 }
@@ -159,6 +162,9 @@ impl Settings {
                     settings.automatically_fetch_metadata = numstr_to_bool(row.1)
                 }
                 "delegatee_tag" => settings.delegatee_tag = row.1,
+                "highlight_unread_events" => {
+                    settings.highlight_unread_events = numstr_to_bool(row.1)
+                }
                 _ => {}
             }
         }
@@ -199,7 +205,8 @@ impl Settings {
              ('check_nip05', ?),\
              ('direct_messages', ?),\
              ('automatically_fetch_metadata', ?),\
-             ('delegatee_tag', ?)",
+             ('delegatee_tag', ?),\
+             ('highlight_unread_events', ?)",
         )?;
         stmt.execute(params![
             self.feed_chunk,
@@ -222,6 +229,7 @@ impl Settings {
             bool_to_numstr(self.direct_messages),
             bool_to_numstr(self.automatically_fetch_metadata),
             self.delegatee_tag,
+            bool_to_numstr(self.highlight_unread_events),
         ])?;
 
         // Settings which are Options should not even exist when None.  We don't accept null valued

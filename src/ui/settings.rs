@@ -158,6 +158,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                     ui.heading("User Interface");
 
+                    ui.add_space(12.0);
+                    ui.checkbox(
+                        &mut app.settings.highlight_unread_events,
+                        "Highlight unread events",
+                    );
+                    ui.add_space(12.0);
+
                     ui.horizontal(|ui| {
                         if app.settings.theme.dark_mode {
                             if ui
@@ -191,6 +198,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             });
                     });
 
+                    ui.add_space(12.0);
 
                     ui.horizontal(|ui| {
                         ui.label("Override DPI: ")

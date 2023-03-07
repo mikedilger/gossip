@@ -86,7 +86,8 @@ pub(super) fn render_note(
         }
     };
 
-    let is_new = !GLOBALS.viewed_events.contains(&note_data.event.id);
+    let is_new = app.settings.highlight_unread_events
+        && !GLOBALS.viewed_events.contains(&note_data.event.id);
 
     let is_main_event: bool = {
         let feed_kind = GLOBALS.feed.get_feed_kind();
