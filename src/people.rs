@@ -657,7 +657,8 @@ impl People {
                         // this cannot recover without new metadata
                         GLOBALS
                             .failed_avatars
-                            .blocking_write()
+                            .write()
+                            .await
                             .insert(apubkeyhex.to_owned());
                     };
                 });
