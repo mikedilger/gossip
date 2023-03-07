@@ -53,14 +53,13 @@ impl Feed {
 
         // Recompute as they switch
         self.switched_and_recomputing.store(true, Ordering::Relaxed);
-
-        {
+        task::spawn(async move {
             let now = Instant::now();
             *GLOBALS.feed.last_computed.write() = now;
-            if let Err(e) = GLOBALS.feed.recompute() {
+            if let Err(e) = GLOBALS.feed.recompute().await {
                 tracing::error!("{}", e);
             }
-        }
+        });
 
         // When going to Followed or Inbox, we stop listening for Thread/Person events
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
@@ -79,14 +78,13 @@ impl Feed {
 
         // Recompute as they switch
         self.switched_and_recomputing.store(true, Ordering::Relaxed);
-
-        {
+        task::spawn(async move {
             let now = Instant::now();
             *GLOBALS.feed.last_computed.write() = now;
-            if let Err(e) = GLOBALS.feed.recompute() {
+            if let Err(e) = GLOBALS.feed.recompute().await {
                 tracing::error!("{}", e);
             }
-        }
+        });
 
         // When going to Followed or Inbox, we stop listening for Thread/Person events
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
@@ -156,7 +154,7 @@ impl Feed {
                     || (enable_reposts && (e.kind == EventKind::Repost))
             })
             .filter(|e| e.pubkey.as_hex_string() == person.as_str())
-            .filter(|e| !GLOBALS.dismissed.read().contains(&e.id))
+            .filter(|e| !GLOBALS.dismissed.blocking_read().contains(&e.id))
             .collect();
 
         events.sort_unstable_by(|a, b| b.created_at.cmp(&a.created_at));
@@ -179,22 +177,21 @@ impl Feed {
         if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now
         {
             let now = now;
-
-            {
+            task::spawn(async move {
                 *GLOBALS.feed.last_computed.write() = now;
-                if let Err(e) = GLOBALS.feed.recompute() {
+                if let Err(e) = GLOBALS.feed.recompute().await {
                     tracing::error!("{}", e);
                 }
-            }
+            });
         }
     }
 
-    pub fn recompute(&self) -> Result<(), Error> {
+    pub async fn recompute(&self) -> Result<(), Error> {
         let settings = GLOBALS.settings.read().clone();
         *self.interval_ms.write() = settings.feed_recompute_interval_ms;
 
         // Filter further for the general feed
-        let dismissed = GLOBALS.dismissed.read().clone();
+        let dismissed = GLOBALS.dismissed.read().await.clone();
         let now = Unixtime::now().unwrap();
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
@@ -231,34 +228,42 @@ impl Feed {
             }
             FeedKind::Inbox(with_replies) => {
                 if let Some(my_pubkey) = GLOBALS.signer.public_key() {
-
-                    let my_event_ids: HashSet<Id> = GLOBALS
+                    let events: Vec<Event> = GLOBALS
                         .events
                         .iter()
+                        .map(|r| r.value().to_owned())
+                        .filter(|e| e.created_at <= now) // no future events
+                        .filter(|e| {
+                            // feed related
+                            e.kind == EventKind::TextNote
+                                || e.kind == EventKind::EncryptedDirectMessage
+                                || (settings.reposts && (e.kind == EventKind::Repost))
+                        })
+                        .filter(|e| !dismissed.contains(&e.id)) // not dismissed
+                        .collect();
+
+                    let my_event_ids: HashSet<Id> = events
+                        .iter()
                         .filter_map(|e| {
-                            if e.value().pubkey == my_pubkey {
-                                Some(e.value().id)
+                            if e.pubkey == my_pubkey {
+                                Some(e.id)
                             } else {
                                 None
                             }
                         })
                         .collect();
 
-                    let mut inbox_events: Vec<(Unixtime, Id)> = GLOBALS
-                        .events
+                    let mut inbox_events: Vec<(Unixtime, Id)> = events
                         .iter()
-                        .filter(|e| e.value().created_at <= now) // no future events
                         .filter(|e| {
-                            // feed related
-                            e.value().kind == EventKind::TextNote
-                                || e.value().kind == EventKind::EncryptedDirectMessage
-                                || (settings.reposts && (e.value().kind == EventKind::Repost))
-                        })
-                        .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
-                        .filter(|e| e.value().pubkey != my_pubkey) // not self-authored
-                        .filter(|e| {
+                            // Don't include my own posts
+                            if e.pubkey == my_pubkey {
+                                return false;
+                            }
+
                             // Include if it directly replies to one of my events
-                            if let Some((id, _)) = e.value().replies_to() {
+                            // FIXME: maybe try replies_to_ancestors to go deeper
+                            if let Some((id, _)) = e.replies_to() {
                                 if my_event_ids.contains(&id) {
                                     return true;
                                 }
@@ -266,11 +271,11 @@ impl Feed {
 
                             if with_replies {
                                 // Include if it tags me
-                                e.value().people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                                e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
                             } else {
-                                if e.value().kind != EventKind::EncryptedDirectMessage {
+                                if e.kind != EventKind::EncryptedDirectMessage {
                                     // Include if it directly references me in the content
-                                    e.value().referenced_people()
+                                    e.referenced_people()
                                         .iter()
                                         .any(|(p, _, _)| *p == my_pubkey.into())
                                 } else {
@@ -278,22 +283,22 @@ impl Feed {
                                 }
                             }
                         })
-                        .map(|e| (e.value().created_at, e.value().id))
+                        .map(|e| (e.created_at, e.id))
                         .collect();
-
-                    // Sort
                     inbox_events.sort_by(|a, b| b.0.cmp(&a.0));
-
                     *self.inbox_feed.write() = inbox_events.iter().map(|e| e.1).collect();
                 }
             }
             FeedKind::Thread { .. } => {
-                // This will appear instant, but it actually will happen "whenever".
-                std::mem::drop(task::spawn(async move {
-                    if let Err(e) = GLOBALS.feed.try_to_update_thread_parent().await {
-                        tracing::error!("{}", e);
+                // Potentially update thread parent to a higher parent
+                let maybe_tp = *self.thread_parent.read();
+                if let Some(tp) = maybe_tp {
+                    if let Some(new_tp) = GLOBALS.events.get_highest_local_parent(&tp).await? {
+                        if new_tp != tp {
+                            *self.thread_parent.write() = Some(new_tp);
+                        }
                     }
-                }));
+                }
             }
             _ => {}
         }
@@ -301,19 +306,6 @@ impl Feed {
         self.switched_and_recomputing
             .store(false, Ordering::Relaxed);
 
-        Ok(())
-    }
-
-    pub async fn try_to_update_thread_parent(&self) -> Result<(), Error> {
-        let maybe_tp = *self.thread_parent.read();
-        if let Some(tp) = maybe_tp {
-            // Potentially update thread parent to a higher parent
-            if let Some(new_tp) = GLOBALS.events.get_highest_local_parent(&tp).await? {
-                if new_tp != tp {
-                    *self.thread_parent.write() = Some(new_tp);
-                }
-            }
-        }
         Ok(())
     }
 }
