@@ -838,6 +838,9 @@ impl Overlord {
             GLOBALS.signer.sign_preevent(pre_event, pow)?
         };
 
+        // Process this event locally
+        crate::process::process_new_event(&event, false, None, None).await?;
+
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
