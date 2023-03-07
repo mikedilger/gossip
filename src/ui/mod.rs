@@ -125,6 +125,10 @@ struct GossipUi {
     // Page
     page: Page,
     history: Vec<Page>,
+    // last Followed settings
+    last_followed_replies: bool,
+    // last Inbox settings
+    last_inbox_indirect: bool,
 
     // General Data
     about: About,
@@ -265,6 +269,8 @@ impl GossipUi {
             setting_active_person: false,
             page: start_page,
             history: vec![],
+            last_followed_replies: false,
+            last_inbox_indirect: false,
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
