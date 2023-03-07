@@ -60,10 +60,13 @@ impl Feed {
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
+        GLOBALS
+            .feed
+            .switched_and_recomputing
+            .store(true, Ordering::Relaxed);
         task::spawn(async move {
-            match GLOBALS.feed.recompute().await {
-                Ok(_) => GLOBALS.feed.switched_and_recomputing.store(true, Ordering::Relaxed),
-                Err(e) => tracing::error!("{}", e),
+            if let Err(e) = GLOBALS.feed.recompute().await {
+                tracing::error!("{}", e);
             }
         });
 
@@ -83,10 +86,13 @@ impl Feed {
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
+        GLOBALS
+            .feed
+            .switched_and_recomputing
+            .store(true, Ordering::Relaxed);
         task::spawn(async move {
-            match GLOBALS.feed.recompute().await {
-                Ok(_) => GLOBALS.feed.switched_and_recomputing.store(true, Ordering::Relaxed),
-                Err(e) => tracing::error!("{}", e),
+            if let Err(e) = GLOBALS.feed.recompute().await {
+                tracing::error!("{}", e);
             }
         });
 
@@ -191,7 +197,6 @@ impl Feed {
             .unwrap_or(true);
         if recompute {
             task::spawn(async move {
-                *GLOBALS.feed.last_computed.write() = Some(now);
                 if let Err(e) = GLOBALS.feed.recompute().await {
                     tracing::error!("{}", e);
                 }
@@ -206,8 +211,16 @@ impl Feed {
 
         *self.last_computed.write() = Some(Instant::now());
 
-        let settings = GLOBALS.settings.read().clone();
-        *self.interval_ms.write() = settings.feed_recompute_interval_ms;
+        // Copy some values from settings
+        let (feed_recompute_interval_ms, reposts) = {
+            let settings = GLOBALS.settings.read();
+            (settings.feed_recompute_interval_ms, settings.reposts)
+        };
+
+        // We only need to set this the first time, but has to be after
+        // settings is loaded (can't be in new()).  Doing it every time is
+        // ok because it is more reactive to changes to the setting.
+        *self.interval_ms.write() = feed_recompute_interval_ms;
 
         // Filter further for the general feed
         let dismissed = GLOBALS.dismissed.read().await.clone();
@@ -228,8 +241,7 @@ impl Feed {
                     .filter(|e| e.created_at <= now) // no future events
                     .filter(|e| {
                         // feed related
-                        e.kind == EventKind::TextNote
-                            || (settings.reposts && (e.kind == EventKind::Repost))
+                        e.kind == EventKind::TextNote || (reposts && (e.kind == EventKind::Repost))
                     })
                     .filter(|e| !dismissed.contains(&e.id)) // not dismissed
                     .filter(|e| {
@@ -267,7 +279,7 @@ impl Feed {
                             // feed related
                             e.value().kind == EventKind::TextNote
                                 || e.value().kind == EventKind::EncryptedDirectMessage
-                                || (settings.reposts && (e.value().kind == EventKind::Repost))
+                                || (reposts && (e.value().kind == EventKind::Repost))
                         })
                         .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
                         .filter(|e| e.value().pubkey != my_pubkey) // not self-authored
@@ -281,11 +293,15 @@ impl Feed {
 
                             if with_replies {
                                 // Include if it tags me
-                                e.value().people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                                e.value()
+                                    .people()
+                                    .iter()
+                                    .any(|(p, _, _)| *p == my_pubkey.into())
                             } else {
                                 if e.value().kind != EventKind::EncryptedDirectMessage {
                                     // Include if it directly references me in the content
-                                    e.value().referenced_people()
+                                    e.value()
+                                        .referenced_people()
                                         .iter()
                                         .any(|(p, _, _)| *p == my_pubkey.into())
                                 } else {
