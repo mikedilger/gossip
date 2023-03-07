@@ -228,42 +228,33 @@ impl Feed {
             }
             FeedKind::Inbox(with_replies) => {
                 if let Some(my_pubkey) = GLOBALS.signer.public_key() {
-                    let events: Vec<Event> = GLOBALS
+                    let my_event_ids: HashSet<Id> = GLOBALS
                         .events
                         .iter()
-                        .map(|r| r.value().to_owned())
-                        .filter(|e| e.created_at <= now) // no future events
-                        .filter(|e| {
-                            // feed related
-                            e.kind == EventKind::TextNote
-                                || e.kind == EventKind::EncryptedDirectMessage
-                                || (settings.reposts && (e.kind == EventKind::Repost))
-                        })
-                        .filter(|e| !dismissed.contains(&e.id)) // not dismissed
-                        .collect();
-
-                    let my_event_ids: HashSet<Id> = events
-                        .iter()
                         .filter_map(|e| {
-                            if e.pubkey == my_pubkey {
-                                Some(e.id)
+                            if e.value().pubkey == my_pubkey {
+                                Some(e.value().id)
                             } else {
                                 None
                             }
                         })
                         .collect();
 
-                    let mut inbox_events: Vec<(Unixtime, Id)> = events
+                    let mut inbox_events: Vec<(Unixtime, Id)> = GLOBALS
+                        .events
                         .iter()
+                        .filter(|e| e.value().created_at <= now) // no future events
                         .filter(|e| {
-                            // Don't include my own posts
-                            if e.pubkey == my_pubkey {
-                                return false;
-                            }
-
+                            // feed related
+                            e.value().kind == EventKind::TextNote
+                                || e.value().kind == EventKind::EncryptedDirectMessage
+                                || (settings.reposts && (e.value().kind == EventKind::Repost))
+                        })
+                        .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
+                        .filter(|e| e.value().pubkey != my_pubkey) // not self-authored
+                        .filter(|e| {
                             // Include if it directly replies to one of my events
-                            // FIXME: maybe try replies_to_ancestors to go deeper
-                            if let Some((id, _)) = e.replies_to() {
+                            if let Some((id, _)) = e.value().replies_to() {
                                 if my_event_ids.contains(&id) {
                                     return true;
                                 }
@@ -271,11 +262,11 @@ impl Feed {
 
                             if with_replies {
                                 // Include if it tags me
-                                e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                                e.value().people().iter().any(|(p, _, _)| *p == my_pubkey.into())
                             } else {
-                                if e.kind != EventKind::EncryptedDirectMessage {
+                                if e.value().kind != EventKind::EncryptedDirectMessage {
                                     // Include if it directly references me in the content
-                                    e.referenced_people()
+                                    e.value().referenced_people()
                                         .iter()
                                         .any(|(p, _, _)| *p == my_pubkey.into())
                                 } else {
@@ -283,9 +274,12 @@ impl Feed {
                                 }
                             }
                         })
-                        .map(|e| (e.created_at, e.id))
+                        .map(|e| (e.value().created_at, e.value().id))
                         .collect();
-                    inbox_events.sort_by(|a, b| b.0.cmp(&a.0));
+
+                    // Sort
+                    inbox_events.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+
                     *self.inbox_feed.write() = inbox_events.iter().map(|e| e.1).collect();
                 }
             }
