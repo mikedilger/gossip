@@ -172,6 +172,10 @@ impl Overlord {
                 crate::process::process_new_event(event, false, None, None).await?;
             }
             tracing::info!("Loaded {} feed related events from the database", count);
+
+            // As soon as we have the feed events loaded, we trigger a feed recompute
+            GLOBALS.feed.ready.store(true, Ordering::Relaxed);
+            GLOBALS.feed.recompute().await?;
         }
 
         // Load viewed events set into memory

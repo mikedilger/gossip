@@ -17,6 +17,13 @@ pub enum FeedKind {
 }
 
 pub struct Feed {
+    /// Indicates that feed events have been loaded from the DB into [GLOBALS.events], and therefore
+    /// [Feed] rendering methods have data on which they can work.
+    ///
+    /// Calling [Feed::maybe_recompute] when this is false will simply return.
+    ///
+    /// Calling [Feed::recompute] when this is false with throw an error.
+    pub ready: AtomicBool,
     pub switched_and_recomputing: AtomicBool,
 
     current_feed_kind: RwLock<FeedKind>,
@@ -26,7 +33,7 @@ pub struct Feed {
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
-    last_computed: RwLock<Instant>,
+    last_computed: RwLock<Option<Instant>>,
 
     thread_parent: RwLock<Option<Id>>,
 }
@@ -34,12 +41,13 @@ pub struct Feed {
 impl Feed {
     pub fn new() -> Feed {
         Feed {
+            ready: AtomicBool::new(false),
             switched_and_recomputing: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::Followed(false)),
             followed_feed: RwLock::new(Vec::new()),
             inbox_feed: RwLock::new(Vec::new()),
             interval_ms: RwLock::new(1000), // Every second, until we load from settings
-            last_computed: RwLock::new(Instant::now()),
+            last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
         }
     }
@@ -52,12 +60,10 @@ impl Feed {
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
-        self.switched_and_recomputing.store(true, Ordering::Relaxed);
         task::spawn(async move {
-            let now = Instant::now();
-            *GLOBALS.feed.last_computed.write() = now;
-            if let Err(e) = GLOBALS.feed.recompute().await {
-                tracing::error!("{}", e);
+            match GLOBALS.feed.recompute().await {
+                Ok(_) => GLOBALS.feed.switched_and_recomputing.store(true, Ordering::Relaxed),
+                Err(e) => tracing::error!("{}", e),
             }
         });
 
@@ -77,12 +83,10 @@ impl Feed {
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
-        self.switched_and_recomputing.store(true, Ordering::Relaxed);
         task::spawn(async move {
-            let now = Instant::now();
-            *GLOBALS.feed.last_computed.write() = now;
-            if let Err(e) = GLOBALS.feed.recompute().await {
-                tracing::error!("{}", e);
+            match GLOBALS.feed.recompute().await {
+                Ok(_) => GLOBALS.feed.switched_and_recomputing.store(true, Ordering::Relaxed),
+                Err(e) => tracing::error!("{}", e),
             }
         });
 
@@ -173,12 +177,21 @@ impl Feed {
     }
 
     pub fn maybe_recompute(&self) {
+        if !self.ready.load(Ordering::Relaxed) {
+            return;
+        }
+
         let now = Instant::now();
-        if *self.last_computed.read() + Duration::from_millis(*self.interval_ms.read() as u64) < now
-        {
-            let now = now;
+        let recompute = self
+            .last_computed
+            .read()
+            .map(|last_computed| {
+                last_computed + Duration::from_millis(*self.interval_ms.read() as u64) < now
+            })
+            .unwrap_or(true);
+        if recompute {
             task::spawn(async move {
-                *GLOBALS.feed.last_computed.write() = now;
+                *GLOBALS.feed.last_computed.write() = Some(now);
                 if let Err(e) = GLOBALS.feed.recompute().await {
                     tracing::error!("{}", e);
                 }
@@ -187,6 +200,12 @@ impl Feed {
     }
 
     pub async fn recompute(&self) -> Result<(), Error> {
+        if !self.ready.load(Ordering::Relaxed) {
+            return Err("Feed is not yet ready")?;
+        }
+
+        *self.last_computed.write() = Some(Instant::now());
+
         let settings = GLOBALS.settings.read().clone();
         *self.interval_ms.write() = settings.feed_recompute_interval_ms;
 
