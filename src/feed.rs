@@ -257,7 +257,7 @@ impl Feed {
                 followed_events.sort_by(|a, b| b.0.cmp(&a.0));
                 *self.followed_feed.write() = followed_events.iter().map(|e| e.1).collect();
             }
-            FeedKind::Inbox(with_replies) => {
+            FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.signer.public_key() {
                     let my_event_ids: HashSet<Id> = GLOBALS
                         .events
@@ -291,7 +291,7 @@ impl Feed {
                                 }
                             }
 
-                            if with_replies {
+                            if indirect {
                                 // Include if it tags me
                                 e.value()
                                     .people()
