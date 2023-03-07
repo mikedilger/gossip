@@ -86,7 +86,7 @@ pub(super) fn render_note(
         }
     };
 
-    let is_new = !app.viewed.contains(&note_data.event.id);
+    let is_new = !GLOBALS.viewed_events.contains(&note_data.event.id);
 
     let is_main_event: bool = {
         let feed_kind = GLOBALS.feed.get_feed_kind();
@@ -143,7 +143,8 @@ pub(super) fn render_note(
 
         // Mark post as viewed if hovered AND we are not scrolling
         if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
-            app.viewed.insert(id);
+            GLOBALS.viewed_events.insert(id);
+            GLOBALS.new_viewed_events.blocking_write().insert(id);
         }
     });
 

@@ -115,7 +115,6 @@ struct GossipUi {
     // Post rendering
     render_raw: Option<Id>,
     render_qr: Option<Id>,
-    viewed: HashSet<Id>,
     approved: HashSet<Id>, // content warning posts
     height: HashMap<Id, f32>,
 
@@ -260,7 +259,6 @@ impl GossipUi {
             qr_codes: HashMap::new(),
             render_raw: None,
             render_qr: None,
-            viewed: HashSet::new(),
             approved: HashSet::new(),
             height: HashMap::new(),
             person_qr: None,
