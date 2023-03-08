@@ -170,7 +170,6 @@ struct GossipUi {
     new_relay_url: String,
     search: String,
     search_page: bool,
-
 }
 
 impl Drop for GossipUi {

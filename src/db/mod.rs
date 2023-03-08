@@ -175,7 +175,7 @@ fn normalize_urls() -> Result<(), Error> {
     let urls_are_normalized: bool = db.query_row(
         "SELECT urls_are_normalized FROM local_settings LIMIT 1",
         [],
-        |row| row.get::<usize, bool>(0)
+        |row| row.get::<usize, bool>(0),
     )?;
 
     if urls_are_normalized {
@@ -190,7 +190,7 @@ fn normalize_urls() -> Result<(), Error> {
     let rows = stmt.query([])?;
     let all_rows: Vec<String> = rows.map(|row| row.get(0)).collect()?;
     for urlkey in all_rows.iter() {
-        match nostr_types::RelayUrl::try_from_str(&urlkey) {
+        match nostr_types::RelayUrl::try_from_str(urlkey) {
             Ok(url) => {
                 let urlstr = url.as_str().to_owned();
                 // Update if not equal
@@ -199,24 +199,15 @@ fn normalize_urls() -> Result<(), Error> {
                     // tracing::debug!("Updating non-canonical URL from {} to {}", urlkey, urlstr);
                     let usql = "UPDATE relay SET url=? WHERE url=?";
                     let mut stmt = db.prepare(usql)?;
-                    stmt.execute((
-                        &urlstr,
-                        urlkey,
-                    ))?;
+                    stmt.execute((&urlstr, urlkey))?;
 
                     let usql = "UPDATE person_relay SET relay=? WHERE relay=?";
                     let mut stmt = db.prepare(usql)?;
-                    stmt.execute((
-                        &urlstr,
-                        urlkey,
-                    ))?;
+                    stmt.execute((&urlstr, urlkey))?;
 
                     let usql = "UPDATE event_relay SET relay=? WHERE relay=?";
                     let mut stmt = db.prepare(usql)?;
-                    stmt.execute((
-                        &urlstr,
-                        urlkey,
-                    ))?;
+                    stmt.execute((&urlstr, urlkey))?;
                 }
             }
             Err(_) => {
@@ -225,21 +216,15 @@ fn normalize_urls() -> Result<(), Error> {
 
                 let dsql = "DELETE FROM relay WHERE url=?";
                 let mut stmt = db.prepare(dsql)?;
-                stmt.execute((
-                    urlkey,
-                ))?;
+                stmt.execute((urlkey,))?;
 
                 let dsql = "DELETE FROM person_relay WHERE relay=?";
                 let mut stmt = db.prepare(dsql)?;
-                stmt.execute((
-                    urlkey,
-                ))?;
+                stmt.execute((urlkey,))?;
 
                 let dsql = "DELETE FROM event_relay WHERE relay=?";
                 let mut stmt = db.prepare(dsql)?;
-                stmt.execute((
-                    urlkey,
-                ))?;
+                stmt.execute((urlkey,))?;
             }
         };
     }
