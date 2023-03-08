@@ -30,7 +30,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ))
             .clicked()
         {
-            app.set_page(Page::Feed(FeedKind::Followed(app.last_followed_replies)));
+            app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
         }
         ui.separator();
         if ui
@@ -40,7 +40,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ))
             .clicked()
         {
-            app.set_page(Page::Feed(FeedKind::Inbox(app.last_inbox_indirect)));
+            app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
         }
         ui.separator();
         if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
@@ -97,7 +97,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ))
                     .clicked()
                 {
-                    app.last_followed_replies = false;
+                    app.mainfeed_include_nonroot = false;
                     app.set_page(Page::Feed(FeedKind::Followed(false)));
                 }
                 if ui
@@ -107,7 +107,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ))
                     .clicked()
                 {
-                    app.last_followed_replies = true;
+                    app.mainfeed_include_nonroot = true;
                     app.set_page(Page::Feed(FeedKind::Followed(true)));
                 }
                 ui.separator();
@@ -136,7 +136,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ))
                     .clicked()
                 {
-                    app.last_inbox_indirect = false;
+                    app.inbox_include_indirect = false;
                     app.set_page(Page::Feed(FeedKind::Inbox(false)));
                 }
                 if ui
@@ -146,7 +146,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ))
                     .clicked()
                 {
-                    app.last_inbox_indirect = true;
+                    app.inbox_include_indirect = true;
                     app.set_page(Page::Feed(FeedKind::Inbox(true)));
                 }
                 ui.separator();
