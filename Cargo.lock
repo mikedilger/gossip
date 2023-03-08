@@ -1633,6 +1633,7 @@ dependencies = [
  "egui-winit",
  "egui_extras",
  "encoding_rs",
+ "fallible-iterator",
  "futures",
  "futures-util",
  "gossip-relay-picker",
