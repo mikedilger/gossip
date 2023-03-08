@@ -52,7 +52,6 @@ fn main() -> Result<(), Error> {
     };
     let show_debug = cfg!(debug_assertions) || max_level <= LevelFilter::DEBUG;
     tracing_subscriber::fmt::fmt()
-        .without_time()
         .with_target(false)
         .with_file(show_debug)
         .with_line_number(show_debug)
