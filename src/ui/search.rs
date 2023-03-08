@@ -20,9 +20,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                 .desired_width(600.0),
         );
 
-        if !app.search_page {
+        if app.entering_search_page {
             response.request_focus();
-            app.search_page = true;
+            app.entering_search_page = false;
         }
 
         if ui.add(Button::new("Search")).clicked() {

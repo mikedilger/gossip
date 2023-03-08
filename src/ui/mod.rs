@@ -169,7 +169,7 @@ struct GossipUi {
     import_pub: String,
     new_relay_url: String,
     search: String,
-    search_page: bool,
+    entering_search_page: bool,
 }
 
 impl Drop for GossipUi {
@@ -300,7 +300,7 @@ impl GossipUi {
             import_pub: "".to_owned(),
             new_relay_url: "".to_owned(),
             search: "".to_owned(),
-            search_page: false,
+            entering_search_page: false,
         }
     }
 
@@ -340,6 +340,9 @@ impl GossipUi {
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
+            }
+            Page::Search => {
+                self.entering_search_page = true;
             }
             _ => {}
         }
