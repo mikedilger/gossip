@@ -40,7 +40,6 @@ pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
     output
 }
 
-#[allow(dead_code)]
 pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
     let desired_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
     let (rect, mut response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
