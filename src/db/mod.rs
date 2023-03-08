@@ -65,6 +65,13 @@ pub fn setup_database() -> Result<(), Error> {
     // Check and upgrade our data schema
     check_and_upgrade()?;
 
+    // Enforce foreign key relationships
+    {
+        let maybe_db = GLOBALS.db.blocking_lock();
+        let db = maybe_db.as_ref().unwrap();
+        db.pragma_update(None, "foreign_keys", "ON")?;
+    }
+
     Ok(())
 }
 
