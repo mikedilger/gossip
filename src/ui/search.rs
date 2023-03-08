@@ -3,22 +3,34 @@ use crate::feed::FeedKind;
 use crate::GLOBALS;
 use eframe::{egui, Frame};
 use egui::{Context, Ui};
+use egui::widgets::{Button};
 use nostr_types::{Id, PublicKey};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
-    ui.heading("Search");
+    ui.heading("Search notes and users");
 
     ui.add_space(12.0);
 
     let mut do_search = false;
 
     ui.horizontal(|ui| {
-        ui.label("🔎");
         let response = ui.add(
             text_edit_line!(app, app.search)
                 .hint_text("npub1 or note1, other kinds of searches not yet implemented")
-                .desired_width(f32::INFINITY),
+                .desired_width(600.0)
         );
+
+        if !app.search_page {
+            response.request_focus();
+            app.search_page = true;
+        }
+
+        if ui
+            .add(Button::new("Search"))
+            .clicked()
+        {
+            do_search = true;
+        }
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
             do_search = true;
         }
@@ -103,5 +115,4 @@ fn search_result(app: &mut GossipUi, _ctx: &Context, _ui: &mut Ui) {
 
     // If nothing worked, let them know.
     app.search_result = format!("No result for {}.\n\nFulltext search and nym search are not yet implemented, only note1 and npub1.", app.search.clone());
-    app.search = "".to_owned();
 }
