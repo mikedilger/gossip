@@ -738,6 +738,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-net"
+version = "0.1.0"
+source = "git+https://github.com/mikedilger/core-net#2096de8ab092352d0527addcb65eb4f75e17f18f"
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2349,13 +2354,14 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.4.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types#f8ff99b5b7db345d5d5cb9fd88b68d6e093e864a"
+source = "git+https://github.com/mikedilger/nostr-types#38635366ba1e4d63543e18fbfc77b69fdb9920c8"
 dependencies = [
  "aes",
  "base64 0.21.0",
  "bech32",
  "cbc",
  "chacha20poly1305",
+ "core-net",
  "derive_more",
  "hex",
  "hmac",
@@ -2374,6 +2380,7 @@ dependencies = [
  "sha2",
  "thiserror",
  "tungstenite",
+ "url",
  "zeroize",
 ]
 
