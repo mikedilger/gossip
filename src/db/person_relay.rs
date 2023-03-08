@@ -98,6 +98,7 @@ impl DbPersonRelay {
 
         Ok(())
     }
+
     pub async fn upsert_last_suggested_bytag(
         person: String,
         relay: RelayUrl,

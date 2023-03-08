@@ -27,6 +27,7 @@ pub use person_relay::DbPersonRelay;
 
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use fallible_iterator::FallibleIterator;
 use rusqlite::Connection;
 use std::fs;
 use std::sync::atomic::Ordering;
@@ -64,6 +65,16 @@ pub fn setup_database() -> Result<(), Error> {
 
     // Check and upgrade our data schema
     check_and_upgrade()?;
+
+    // Normalize URLs
+    normalize_urls()?;
+
+    // Enforce foreign key relationships
+    {
+        let maybe_db = GLOBALS.db.blocking_lock();
+        let db = maybe_db.as_ref().unwrap();
+        db.pragma_update(None, "foreign_keys", "ON")?;
+    }
 
     Ok(())
 }
@@ -153,7 +164,94 @@ pub async fn prune() -> Result<(), Error> {
     Ok(())
 }
 
-const UPGRADE_SQL: [&str; 29] = [
+fn normalize_urls() -> Result<(), Error> {
+    // FIXME make a database backup first (I got a "database disk image is malformed" from this process once)
+
+    tracing::info!("Normalizing Database URLs (this will take some time)");
+
+    let maybe_db = GLOBALS.db.blocking_lock();
+    let db = maybe_db.as_ref().unwrap();
+
+    let urls_are_normalized: bool = db.query_row(
+        "SELECT urls_are_normalized FROM local_settings LIMIT 1",
+        [],
+        |row| row.get::<usize, bool>(0)
+    )?;
+
+    if urls_are_normalized {
+        return Ok(());
+    }
+
+    db.pragma_update(None, "foreign_keys", "OFF")?;
+
+    // relay.url
+    let sql = "SELECT url FROM relay";
+    let mut stmt = db.prepare(sql)?;
+    let rows = stmt.query([])?;
+    let all_rows: Vec<String> = rows.map(|row| row.get(0)).collect()?;
+    for urlkey in all_rows.iter() {
+        match nostr_types::RelayUrl::try_from_str(&urlkey) {
+            Ok(url) => {
+                let urlstr = url.as_str().to_owned();
+                // Update if not equal
+                if *urlkey != urlstr {
+                    // this one is too verbose
+                    // tracing::debug!("Updating non-canonical URL from {} to {}", urlkey, urlstr);
+                    let usql = "UPDATE relay SET url=? WHERE url=?";
+                    let mut stmt = db.prepare(usql)?;
+                    stmt.execute((
+                        &urlstr,
+                        urlkey,
+                    ))?;
+
+                    let usql = "UPDATE person_relay SET relay=? WHERE relay=?";
+                    let mut stmt = db.prepare(usql)?;
+                    stmt.execute((
+                        &urlstr,
+                        urlkey,
+                    ))?;
+
+                    let usql = "UPDATE event_relay SET relay=? WHERE relay=?";
+                    let mut stmt = db.prepare(usql)?;
+                    stmt.execute((
+                        &urlstr,
+                        urlkey,
+                    ))?;
+                }
+            }
+            Err(_) => {
+                // Delete if did not parse properly
+                tracing::debug!("Deleting invalid relay url {}", urlkey);
+
+                let dsql = "DELETE FROM relay WHERE url=?";
+                let mut stmt = db.prepare(dsql)?;
+                stmt.execute((
+                    urlkey,
+                ))?;
+
+                let dsql = "DELETE FROM person_relay WHERE relay=?";
+                let mut stmt = db.prepare(dsql)?;
+                stmt.execute((
+                    urlkey,
+                ))?;
+
+                let dsql = "DELETE FROM event_relay WHERE relay=?";
+                let mut stmt = db.prepare(dsql)?;
+                stmt.execute((
+                    urlkey,
+                ))?;
+            }
+        };
+    }
+
+    let sql = "UPDATE local_settings SET urls_are_normalized=1";
+    let mut stmt = db.prepare(sql)?;
+    stmt.execute(())?;
+
+    Ok(())
+}
+
+const UPGRADE_SQL: [&str; 30] = [
     include_str!("sql/schema1.sql"),
     include_str!("sql/schema2.sql"),
     include_str!("sql/schema3.sql"),
@@ -183,4 +281,5 @@ const UPGRADE_SQL: [&str; 29] = [
     include_str!("sql/schema27.sql"),
     include_str!("sql/schema28.sql"),
     include_str!("sql/schema29.sql"),
+    include_str!("sql/schema30.sql"),
 ];
