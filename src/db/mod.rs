@@ -199,7 +199,19 @@ fn normalize_urls() -> Result<(), Error> {
                     // tracing::debug!("Updating non-canonical URL from {} to {}", urlkey, urlstr);
                     let usql = "UPDATE relay SET url=? WHERE url=?";
                     let mut stmt = db.prepare(usql)?;
-                    stmt.execute((&urlstr, urlkey))?;
+                    if let Err(e) = stmt.execute((&urlstr, urlkey)) {
+                        if let rusqlite::Error::SqliteFailure(_, Some(ref s)) = e {
+                            if s.contains("constraint failed") {
+                                // Delete this row instead, there is some other row that is already
+                                // what we are trying to turn this row into
+                                let dsql = "DELETE FROM relay WHERE url=?";
+                                let mut stmt = db.prepare(dsql)?;
+                                stmt.execute((&urlkey,))?;
+                            }
+                        } else {
+                            return Err(e.into());
+                        }
+                    }
 
                     let usql = "UPDATE person_relay SET relay=? WHERE relay=?";
                     let mut stmt = db.prepare(usql)?;
