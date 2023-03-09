@@ -170,6 +170,9 @@ struct GossipUi {
     new_relay_url: String,
     search: String,
     entering_search_page: bool,
+
+    // Collapsed threads
+    collapsed: Vec<Id>,
 }
 
 impl Drop for GossipUi {
@@ -301,6 +304,7 @@ impl GossipUi {
             new_relay_url: "".to_owned(),
             search: "".to_owned(),
             entering_search_page: false,
+            collapsed: vec![],
         }
     }
 

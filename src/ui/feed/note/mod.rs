@@ -205,6 +205,8 @@ fn render_note_inner(
 
     let tag_re = app.tag_re.clone();
 
+    let collapsed = app.collapsed.contains(&event.id);
+
     // Avatar first
     let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &author.pubkey) {
         avatar
@@ -231,6 +233,8 @@ fn render_note_inner(
         app.set_page(Page::Person(author.pubkey.clone()));
     };
 
+    let mut is_a_reply = false;
+
     // Everything else next
     ui.add_space(6.0);
     ui.vertical(|ui| {
@@ -239,11 +243,12 @@ fn render_note_inner(
             GossipUi::render_person_name_line(app, ui, &author);
 
             if let Some((irt, _)) = event.replies_to() {
+                is_a_reply = true;
                 ui.add_space(8.0);
 
                 ui.style_mut().override_text_style = Some(TextStyle::Small);
                 let idhex: IdHex = irt.into();
-                let nam = format!("replies to #{}", GossipUi::hex_id_short(&idhex));
+                let nam = format!("▲ #{}", GossipUi::hex_id_short(&idhex));
                 if ui.link(&nam).clicked() {
                     app.set_page(Page::Feed(FeedKind::Thread {
                         id: irt,
@@ -288,7 +293,7 @@ fn render_note_inner(
             }
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                ui.menu_button(RichText::new("📃▼").size(13.0), |ui| {
+                ui.menu_button(RichText::new("=").size(13.0), |ui| {
                     if !is_main_event && event.kind != EventKind::EncryptedDirectMessage {
                         if ui.button("View Thread").clicked() {
                             app.set_page(Page::Feed(FeedKind::Thread {
@@ -307,10 +312,41 @@ fn render_note_inner(
                         GLOBALS.dismissed.blocking_write().push(event.id);
                     }
                 });
+                ui.add_space(4.0);
+
+                let is_thread_view: bool = {
+                    let feed_kind = GLOBALS.feed.get_feed_kind();
+                    match feed_kind {
+                        FeedKind::Thread { .. } => true,
+                        _ => false,
+                    }
+                };
+
+                if is_thread_view && is_a_reply {
+                    if collapsed {
+                        let color = app.settings.theme.warning_marker_text_color();
+                        if ui
+                            .button(RichText::new("▼").size(13.0).color(color))
+                            .on_hover_text("Expand thread")
+                            .clicked()
+                        {
+                            app.collapsed.retain(|&id| id != event.id);
+                        }
+                    } else {
+                        if ui
+                            .button(RichText::new("△").size(13.0))
+                            .on_hover_text("Collapse thread")
+                            .clicked()
+                        {
+                            app.collapsed.push(event.id);
+                        }
+                    }
+                    ui.add_space(4.0);
+                }
 
                 if !is_main_event && event.kind != EventKind::EncryptedDirectMessage {
                     if ui
-                        .button(RichText::new("➤").size(13.0))
+                        .button(RichText::new("◉").size(13.0))
                         .on_hover_text("View Thread")
                         .clicked()
                     {
@@ -356,162 +392,164 @@ fn render_note_inner(
         };
 
         // MAIN CONTENT
-        ui.horizontal_wrapped(|ui| {
-            if app.render_raw == Some(event.id) {
-                ui.label(serde_json::to_string_pretty(&event).unwrap());
-            } else if app.render_qr == Some(event.id) {
-                app.render_qr(ui, ctx, "feedqr", content.trim());
-            } else if event.content_warning().is_some() && !app.approved.contains(&event.id) {
-                ui.label(
-                    RichText::new(format!(
-                        "Content-Warning: {}",
-                        event.content_warning().unwrap()
-                    ))
-                    .monospace()
-                    .italics(),
-                );
-                if ui.button("Show Post").clicked() {
-                    app.approved.insert(event.id);
-                    app.height.remove(&event.id); // will need to be recalculated.
-                }
-            } else if event.kind == EventKind::Repost {
-                if let Ok(inner_event) = serde_json::from_str::<Event>(&content) {
-                    if let Some(inner_note_data) = NoteData::new(inner_event) {
-                        ui.vertical(|ui| {
-                            thin_repost_separator(ui);
-                            ui.add_space(4.0);
-                            ui.horizontal_wrapped(|ui| {
-                                render_note_inner(app, ctx, ui, inner_note_data, false, false);
+        if !collapsed {
+            ui.horizontal_wrapped(|ui| {
+                if app.render_raw == Some(event.id) {
+                    ui.label(serde_json::to_string_pretty(&event).unwrap());
+                } else if app.render_qr == Some(event.id) {
+                    app.render_qr(ui, ctx, "feedqr", content.trim());
+                } else if event.content_warning().is_some() && !app.approved.contains(&event.id) {
+                    ui.label(
+                        RichText::new(format!(
+                            "Content-Warning: {}",
+                            event.content_warning().unwrap()
+                        ))
+                        .monospace()
+                        .italics(),
+                    );
+                    if ui.button("Show Post").clicked() {
+                        app.approved.insert(event.id);
+                        app.height.remove(&event.id); // will need to be recalculated.
+                    }
+                } else if event.kind == EventKind::Repost {
+                    if let Ok(inner_event) = serde_json::from_str::<Event>(&content) {
+                        if let Some(inner_note_data) = NoteData::new(inner_event) {
+                            ui.vertical(|ui| {
+                                thin_repost_separator(ui);
+                                ui.add_space(4.0);
+                                ui.horizontal_wrapped(|ui| {
+                                    render_note_inner(app, ctx, ui, inner_note_data, false, false);
+                                });
+                                thin_repost_separator(ui);
                             });
-                            thin_repost_separator(ui);
-                        });
+                        } else {
+                            ui.label("REPOSTED EVENT IS NOT RELEVANT");
+                        }
                     } else {
-                        ui.label("REPOSTED EVENT IS NOT RELEVANT");
+                        // render like a kind-1 event with a mention
+                        content::render_content(app, ui, &tag_re, &event, deletion.is_some(), &content);
                     }
                 } else {
-                    // render like a kind-1 event with a mention
                     content::render_content(app, ui, &tag_re, &event, deletion.is_some(), &content);
                 }
-            } else {
-                content::render_content(app, ui, &tag_re, &event, deletion.is_some(), &content);
-            }
-        });
+            });
 
-        ui.add_space(8.0);
-
-        // deleted?
-        if let Some(delete_reason) = &deletion {
-            ui.label(RichText::new(format!("Deletion Reason: {}", delete_reason)).italics());
             ui.add_space(8.0);
-        }
 
-        // Under row
-        if !as_reply_to {
-            ui.horizontal_wrapped(|ui| {
-                if ui
-                    .add(CopyButton {})
-                    .on_hover_text("Copy Contents")
-                    .clicked()
-                {
-                    if app.render_raw == Some(event.id) {
-                        ui.output_mut(|o| o.copied_text = serde_json::to_string(&event).unwrap());
-                    } else {
-                        ui.output_mut(|o| o.copied_text = content.clone());
-                    }
-                }
+            // deleted?
+            if let Some(delete_reason) = &deletion {
+                ui.label(RichText::new(format!("Deletion Reason: {}", delete_reason)).italics());
+                ui.add_space(8.0);
+            }
 
-                ui.add_space(24.0);
-
-                // Button to quote note
-                if ui
-                    .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
-                    .on_hover_text("Quote")
-                    .clicked()
-                {
-                    if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                        app.draft.push(' ');
-                    }
-                    app.draft
-                        .push_str(&event.id.try_as_bech32_string().unwrap());
-                }
-
-                ui.add_space(24.0);
-
-                // Button to reply
-                if event.kind != EventKind::EncryptedDirectMessage {
+            // Under row
+            if !as_reply_to {
+                ui.horizontal_wrapped(|ui| {
                     if ui
-                        .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
-                        .on_hover_text("Reply")
+                        .add(CopyButton {})
+                        .on_hover_text("Copy Contents")
                         .clicked()
                     {
-                        app.replying_to = Some(event.id);
+                        if app.render_raw == Some(event.id) {
+                            ui.output_mut(|o| o.copied_text = serde_json::to_string(&event).unwrap());
+                        } else {
+                            ui.output_mut(|o| o.copied_text = content.clone());
+                        }
                     }
 
                     ui.add_space(24.0);
-                }
 
-                // Button to render raw
-                if ui
-                    .add(Label::new(RichText::new("🥩").size(13.0)).sense(Sense::click()))
-                    .on_hover_text("Raw")
-                    .clicked()
-                {
-                    if app.render_raw != Some(event.id) {
-                        app.render_raw = Some(event.id);
-                    } else {
-                        app.render_raw = None;
-                    }
-                }
-
-                ui.add_space(24.0);
-
-                // Button to render QR code
-                if ui
-                    .add(Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()))
-                    .on_hover_text("QR Code")
-                    .clicked()
-                {
-                    if app.render_qr != Some(event.id) {
-                        app.render_qr = Some(event.id);
-                        app.qr_codes.remove("feedqr");
-                    } else {
-                        app.render_qr = None;
-                        app.qr_codes.remove("feedqr");
-                    }
-                }
-
-                ui.add_space(24.0);
-
-                // Buttons to react and reaction counts
-                if app.settings.reactions {
-                    let default_reaction_icon = match self_already_reacted {
-                        true => "♥",
-                        false => "♡",
-                    };
+                    // Button to quote note
                     if ui
-                        .add(
-                            Label::new(RichText::new(default_reaction_icon).size(20.0))
-                                .sense(Sense::click()),
-                        )
+                        .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
+                        .on_hover_text("Quote")
                         .clicked()
                     {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                        if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                            app.draft.push(' ');
+                        }
+                        app.draft
+                            .push_str(&event.id.try_as_bech32_string().unwrap());
                     }
-                    for (ch, count) in reactions.iter() {
-                        if *ch == '+' {
-                            ui.label(format!("{}", count));
+
+                    ui.add_space(24.0);
+
+                    // Button to reply
+                    if event.kind != EventKind::EncryptedDirectMessage {
+                        if ui
+                            .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
+                            .on_hover_text("Reply")
+                            .clicked()
+                        {
+                            app.replying_to = Some(event.id);
+                        }
+
+                        ui.add_space(24.0);
+                    }
+
+                    // Button to render raw
+                    if ui
+                        .add(Label::new(RichText::new("🥩").size(13.0)).sense(Sense::click()))
+                        .on_hover_text("Raw")
+                        .clicked()
+                    {
+                        if app.render_raw != Some(event.id) {
+                            app.render_raw = Some(event.id);
+                        } else {
+                            app.render_raw = None;
                         }
                     }
-                    ui.add_space(12.0);
-                    for (ch, count) in reactions.iter() {
-                        if *ch != '+' {
-                            ui.label(RichText::new(format!("{} {}", ch, count)).strong());
+
+                    ui.add_space(24.0);
+
+                    // Button to render QR code
+                    if ui
+                        .add(Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()))
+                        .on_hover_text("QR Code")
+                        .clicked()
+                    {
+                        if app.render_qr != Some(event.id) {
+                            app.render_qr = Some(event.id);
+                            app.qr_codes.remove("feedqr");
+                        } else {
+                            app.render_qr = None;
+                            app.qr_codes.remove("feedqr");
                         }
                     }
-                }
-            });
+
+                    ui.add_space(24.0);
+
+                    // Buttons to react and reaction counts
+                    if app.settings.reactions {
+                        let default_reaction_icon = match self_already_reacted {
+                            true => "♥",
+                            false => "♡",
+                        };
+                        if ui
+                            .add(
+                                Label::new(RichText::new(default_reaction_icon).size(20.0))
+                                    .sense(Sense::click()),
+                            )
+                            .clicked()
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                        }
+                        for (ch, count) in reactions.iter() {
+                            if *ch == '+' {
+                                ui.label(format!("{}", count));
+                            }
+                        }
+                        ui.add_space(12.0);
+                        for (ch, count) in reactions.iter() {
+                            if *ch != '+' {
+                                ui.label(RichText::new(format!("{} {}", ch, count)).strong());
+                            }
+                        }
+                    }
+                });
+            }
         }
     });
 }
