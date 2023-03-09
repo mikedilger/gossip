@@ -14,8 +14,7 @@ impl DbEventHashtag {
         let hashtag = self.hashtag.clone();
         let sql = "INSERT OR IGNORE INTO event_hashtag (event, hashtag) VALUES (?, ?)";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
         let mut stmt = db.prepare(sql)?;
         stmt.execute((&event, &hashtag))?;
         Ok(())

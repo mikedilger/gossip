@@ -18,8 +18,7 @@ impl DbEventRelationship {
         let content = self.content.clone();
         let sql = "INSERT OR IGNORE INTO event_relationship (original, refers_to, relationship, content) VALUES (?, ?, ?, ?)";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
         let mut stmt = db.prepare(sql)?;
         stmt.execute((&original, &refers_to, &relationship, &content))?;
         Ok(())

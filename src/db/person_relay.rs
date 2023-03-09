@@ -25,8 +25,7 @@ impl DbPersonRelay {
                    manually_paired_read, manually_paired_write) \
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((
@@ -54,8 +53,7 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_fetched=?";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((&person, &relay.0, &last_fetched, &last_fetched))?;
@@ -72,8 +70,7 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_kind3=?";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((
@@ -95,8 +92,7 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_bytag=?";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((
@@ -118,8 +114,7 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_nip05=?";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((
@@ -166,8 +161,7 @@ impl DbPersonRelay {
             }
         }
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let inner = || -> Result<(), Error> {
             let mut stmt = db.prepare("BEGIN TRANSACTION")?;
@@ -236,8 +230,7 @@ impl DbPersonRelay {
             }
         }
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let inner = || -> Result<(), Error> {
             let mut stmt = db.prepare("BEGIN TRANSACTION")?;
@@ -281,8 +274,7 @@ impl DbPersonRelay {
                    manually_paired_read, manually_paired_write \
                    FROM person_relay WHERE person=?";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
         let mut stmt = db.prepare(sql)?;
         stmt.raw_bind_parameter(1, pubkey.as_str())?;
         let mut rows = stmt.raw_query();

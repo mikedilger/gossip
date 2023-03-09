@@ -22,8 +22,7 @@ impl DbEvent {
             Some(crit) => format!("{} WHERE {}", sql, crit),
         };
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(&sql)?;
         let mut rows = stmt.query([])?;
@@ -50,8 +49,7 @@ impl DbEvent {
     ) -> Result<Option<Event>, Error> {
         let sql = "SELECT raw FROM event WHERE event.kind=3 AND event.pubkey=? ORDER BY created_at DESC LIMIT 1";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.raw_bind_parameter(1, pubkeyhex.as_str())?;
@@ -71,8 +69,7 @@ impl DbEvent {
         // FIXME, only get the last per pubkey
         let sql = "SELECT raw FROM event WHERE event.kind=10002";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         let mut rows = stmt.raw_query();
@@ -120,8 +117,7 @@ impl DbEvent {
             kinds
         );
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(&sql)?;
         stmt.raw_bind_parameter(1, public_key.as_str())?;
@@ -149,8 +145,7 @@ impl DbEvent {
         let sql = "INSERT OR IGNORE INTO event (id, raw, pubkey, created_at, kind, content, ots) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
         let mut stmt = db.prepare(sql)?;
         stmt.execute((
             event.id.as_str(),

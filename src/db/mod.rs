@@ -62,8 +62,7 @@ pub fn init_database() -> Result<Pool<SqliteConnectionManager>, Error> {
 
 /// Check and upgrade our data schema
 pub fn check_and_upgrade() -> Result<(), Error> {
-    let pool = GLOBALS.db.clone();
-    let db = pool.get()?;
+    let db = GLOBALS.db.get()?;
 
     match db.query_row(
         "SELECT schema_version FROM local_settings LIMIT 1",
@@ -140,8 +139,7 @@ fn upgrade(db: PooledConnection<SqliteConnectionManager>, mut version: usize) ->
 }
 
 pub async fn prune() -> Result<(), Error> {
-    let pool = GLOBALS.db.clone();
-    let db = pool.get()?;
+    let db = GLOBALS.db.get()?;
     db.execute_batch(include_str!("sql/prune.sql"))?;
 
     *GLOBALS.status_message.write().await = "Database prune has completed.".to_owned();
@@ -154,8 +152,7 @@ pub fn normalize_urls() -> Result<(), Error> {
 
     tracing::info!("Normalizing Database URLs (this will take some time)");
 
-    let pool = GLOBALS.db.clone();
-    let db = pool.get()?;
+    let db = GLOBALS.db.get()?;
 
     let urls_are_normalized: bool = db.query_row(
         "SELECT urls_are_normalized FROM local_settings LIMIT 1",

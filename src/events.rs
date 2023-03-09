@@ -36,8 +36,7 @@ impl Events {
             return Ok(Some(e));
         }
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
         let opt_event: Option<Event> = {
             let mut stmt = db.prepare("SELECT raw FROM event WHERE id=?")?;
             stmt.raw_bind_parameter(1, id.as_hex_string())?;
@@ -122,8 +121,7 @@ impl Events {
 
         tracing::trace!("get_local_events_by_filter SQL={}", &sql);
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
         let mut stmt = db.prepare(&sql)?;
         let mut rows = stmt.raw_query();
         let mut events: Vec<Event> = Vec::new();

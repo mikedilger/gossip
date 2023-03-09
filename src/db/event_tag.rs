@@ -19,8 +19,7 @@ impl DbEventTag {
             "INSERT OR IGNORE INTO event_tag (event, seq, label, field0, field1, field2, field3) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((

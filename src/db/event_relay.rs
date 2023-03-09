@@ -14,8 +14,7 @@ impl DbEventRelay {
     pub async fn get_relays_for_event(id: Id) -> Result<Vec<RelayUrl>, Error> {
         let sql = "SELECT relay FROM event_relay WHERE event=?";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
         let mut stmt = db.prepare(sql)?;
         stmt.raw_bind_parameter(1, id.as_hex_string())?;
         let mut rows = stmt.raw_query();
@@ -34,8 +33,7 @@ impl DbEventRelay {
         let sql = "REPLACE INTO event_relay (event, relay, when_seen) \
              VALUES (?1, ?2, ?3)";
 
-        let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
+        let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((&event_relay.event, &event_relay.relay, &event_relay.when_seen))?;
