@@ -1058,7 +1058,7 @@ dependencies = [
 [[package]]
 name = "ecolor"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#1e15343ecf3bd2ea14ab7691f27a504e7bfc1605"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#4687a41b1af79be89181a45d35163090b5556e53"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1067,7 +1067,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.21.3"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#1e15343ecf3bd2ea14ab7691f27a504e7bfc1605"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#4687a41b1af79be89181a45d35163090b5556e53"
 dependencies = [
  "bytemuck",
  "dark-light",
@@ -1094,7 +1094,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#1e15343ecf3bd2ea14ab7691f27a504e7bfc1605"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#4687a41b1af79be89181a45d35163090b5556e53"
 dependencies = [
  "accesskit",
  "ahash 0.8.3",
@@ -1108,7 +1108,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.21.1"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#1e15343ecf3bd2ea14ab7691f27a504e7bfc1605"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#4687a41b1af79be89181a45d35163090b5556e53"
 dependencies = [
  "accesskit_winit",
  "android-activity",
@@ -1125,7 +1125,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#1e15343ecf3bd2ea14ab7691f27a504e7bfc1605"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#4687a41b1af79be89181a45d35163090b5556e53"
 dependencies = [
  "egui",
  "image",
@@ -1139,7 +1139,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#1e15343ecf3bd2ea14ab7691f27a504e7bfc1605"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#4687a41b1af79be89181a45d35163090b5556e53"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1180,7 +1180,7 @@ dependencies = [
 [[package]]
 name = "emath"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#1e15343ecf3bd2ea14ab7691f27a504e7bfc1605"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#4687a41b1af79be89181a45d35163090b5556e53"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1230,7 +1230,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#1e15343ecf3bd2ea14ab7691f27a504e7bfc1605"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#4687a41b1af79be89181a45d35163090b5556e53"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.3",
