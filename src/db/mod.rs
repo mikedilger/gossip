@@ -19,25 +19,21 @@ pub use event_relationship::DbEventRelationship;
 mod relay;
 pub use relay::DbRelay;
 
-mod contact;
-pub use contact::DbContact;
-
 mod person_relay;
 pub use person_relay::DbPersonRelay;
 
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use fallible_iterator::FallibleIterator;
-use rusqlite::Connection;
+use r2d2::{Pool, PooledConnection};
+use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::OpenFlags;
 use std::fs;
 use std::sync::atomic::Ordering;
-use tokio::task;
 
-// This sets up the database
-#[allow(clippy::or_fun_call)]
-pub fn setup_database() -> Result<(), Error> {
-    let mut data_dir = dirs::data_dir()
-        .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
+pub fn init_database() -> Result<Pool<SqliteConnectionManager>, Error> {
+    let mut data_dir =
+        dirs::data_dir().ok_or("Cannot find a directory to store application data.")?;
     data_dir.push("gossip");
 
     // Create our data directory only if it doesn't exist
@@ -46,61 +42,53 @@ pub fn setup_database() -> Result<(), Error> {
     // Connect to (or create) our database
     let mut db_path = data_dir.clone();
     db_path.push("gossip.sqlite");
-    let connection = Connection::open_with_flags(
-        &db_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
-            | rusqlite::OpenFlags::SQLITE_OPEN_CREATE
-            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
-            | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW,
-    )?;
+
+    let sqlite_connection_manager = SqliteConnectionManager::file(db_path).with_flags(
+        OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_CREATE
+            | OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | OpenFlags::SQLITE_OPEN_NOFOLLOW,
+    );
+
+    let pool = Pool::new(sqlite_connection_manager)
+        .map_err(|_| Error::from("Failed to create r2d2 SQLite connection pool"))?;
 
     // Turn on foreign keys
+    let connection = pool.get()?;
     connection.execute("PRAGMA foreign_keys = ON", ())?;
 
-    // Save the connection globally
-    {
-        let mut db = GLOBALS.db.blocking_lock();
-        *db = Some(connection);
-    }
-
-    // Check and upgrade our data schema
-    check_and_upgrade()?;
-
-    // Normalize URLs
-    normalize_urls()?;
-
-    // Enforce foreign key relationships
-    {
-        let maybe_db = GLOBALS.db.blocking_lock();
-        let db = maybe_db.as_ref().unwrap();
-        db.pragma_update(None, "foreign_keys", "ON")?;
-    }
-
-    Ok(())
+    Ok(pool)
 }
 
-fn check_and_upgrade() -> Result<(), Error> {
-    let maybe_db = GLOBALS.db.blocking_lock();
-    let db = maybe_db.as_ref().unwrap();
+/// Check and upgrade our data schema
+pub fn check_and_upgrade() -> Result<(), Error> {
+    let db = GLOBALS.db.get()?;
 
     match db.query_row(
         "SELECT schema_version FROM local_settings LIMIT 1",
         [],
         |row| row.get::<usize, usize>(0),
     ) {
-        Ok(version) => upgrade(db, version),
+        Ok(version) => {
+            upgrade(db, version)?;
+        }
         Err(e) => {
             if let rusqlite::Error::SqliteFailure(_, Some(ref s)) = e {
                 if s.contains("no such table") {
-                    return old_check_and_upgrade(db);
+                    old_check_and_upgrade(db)?;
+                    // falls through
                 }
+            } else {
+                return Err(e.into());
             }
-            Err(e.into())
         }
     }
+
+    // This only happens once
+    normalize_urls()
 }
 
-fn old_check_and_upgrade(db: &Connection) -> Result<(), Error> {
+fn old_check_and_upgrade(db: PooledConnection<SqliteConnectionManager>) -> Result<(), Error> {
     match db.query_row(
         "SELECT value FROM settings WHERE key='version'",
         [],
@@ -121,7 +109,7 @@ fn old_check_and_upgrade(db: &Connection) -> Result<(), Error> {
     }
 }
 
-fn upgrade(db: &Connection, mut version: usize) -> Result<(), Error> {
+fn upgrade(db: PooledConnection<SqliteConnectionManager>, mut version: usize) -> Result<(), Error> {
     if version > UPGRADE_SQL.len() {
         panic!(
             "Database version {} is newer than this binary which expects version {}.",
@@ -151,26 +139,20 @@ fn upgrade(db: &Connection, mut version: usize) -> Result<(), Error> {
 }
 
 pub async fn prune() -> Result<(), Error> {
-    task::spawn_blocking(move || {
-        let maybe_db = GLOBALS.db.blocking_lock();
-        let db = maybe_db.as_ref().unwrap();
-        db.execute_batch(include_str!("sql/prune.sql"))?;
-        Ok::<(), Error>(())
-    })
-    .await??;
+    let db = GLOBALS.db.get()?;
+    db.execute_batch(include_str!("sql/prune.sql"))?;
 
     *GLOBALS.status_message.write().await = "Database prune has completed.".to_owned();
 
     Ok(())
 }
 
-fn normalize_urls() -> Result<(), Error> {
+pub fn normalize_urls() -> Result<(), Error> {
     // FIXME make a database backup first (I got a "database disk image is malformed" from this process once)
 
     tracing::info!("Normalizing Database URLs (this will take some time)");
 
-    let maybe_db = GLOBALS.db.blocking_lock();
-    let db = maybe_db.as_ref().unwrap();
+    let db = GLOBALS.db.get()?;
 
     let urls_are_normalized: bool = db.query_row(
         "SELECT urls_are_normalized FROM local_settings LIMIT 1",

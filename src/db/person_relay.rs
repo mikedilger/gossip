@@ -2,7 +2,6 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use gossip_relay_picker::Direction;
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
-use tokio::task::spawn_blocking;
 
 #[derive(Debug)]
 pub struct DbPersonRelay {
@@ -26,26 +25,21 @@ impl DbPersonRelay {
                    manually_paired_read, manually_paired_write) \
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                &person_relay.person,
-                &person_relay.relay.0,
-                &person_relay.last_fetched,
-                &person_relay.last_suggested_kind3,
-                &person_relay.last_suggested_nip05,
-                &person_relay.last_suggested_bytag,
-                &person_relay.read,
-                &person_relay.write,
-                &person_relay.manually_paired_read,
-                &person_relay.manually_paired_write,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((
+            &person_relay.person,
+            &person_relay.relay.0,
+            &person_relay.last_fetched,
+            &person_relay.last_suggested_kind3,
+            &person_relay.last_suggested_nip05,
+            &person_relay.last_suggested_bytag,
+            &person_relay.read,
+            &person_relay.write,
+            &person_relay.manually_paired_read,
+            &person_relay.manually_paired_write,
+        ))?;
 
         Ok(())
     }
@@ -59,15 +53,10 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_fetched=?";
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((&person, &relay.0, &last_fetched, &last_fetched))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((&person, &relay.0, &last_fetched, &last_fetched))?;
 
         Ok(())
     }
@@ -81,20 +70,15 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_kind3=?";
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                &person,
-                &relay.0,
-                &last_suggested_kind3,
-                &last_suggested_kind3,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((
+            &person,
+            &relay.0,
+            &last_suggested_kind3,
+            &last_suggested_kind3,
+        ))?;
 
         Ok(())
     }
@@ -108,20 +92,15 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_bytag=?";
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                &person,
-                &relay.0,
-                &last_suggested_bytag,
-                &last_suggested_bytag,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((
+            &person,
+            &relay.0,
+            &last_suggested_bytag,
+            &last_suggested_bytag,
+        ))?;
 
         Ok(())
     }
@@ -135,20 +114,15 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_nip05=?";
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                person.as_str(),
-                &relay.0,
-                &last_suggested_nip05,
-                &last_suggested_nip05,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((
+            person.as_str(),
+            &relay.0,
+            &last_suggested_nip05,
+            &last_suggested_nip05,
+        ))?;
 
         Ok(())
     }
@@ -187,42 +161,36 @@ impl DbPersonRelay {
             }
         }
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let inner = || -> Result<(), Error> {
-                let mut stmt = db.prepare("BEGIN TRANSACTION")?;
-                stmt.execute(())?;
+        let inner = || -> Result<(), Error> {
+            let mut stmt = db.prepare("BEGIN TRANSACTION")?;
+            stmt.execute(())?;
 
-                let mut stmt = db.prepare(sql1)?;
-                stmt.execute((person.as_str(),))?;
+            let mut stmt = db.prepare(sql1)?;
+            stmt.execute((person.as_str(),))?;
 
-                if !read_relays.is_empty() {
-                    let mut stmt = db.prepare(&sql2)?;
-                    stmt.execute(rusqlite::params_from_iter(params2))?;
-                }
-
-                if !write_relays.is_empty() {
-                    let mut stmt = db.prepare(&sql3)?;
-                    stmt.execute(rusqlite::params_from_iter(params3))?;
-                }
-
-                let mut stmt = db.prepare("COMMIT TRANSACTION")?;
-                stmt.execute(())?;
-
-                Ok(())
-            };
-
-            if let Err(e) = inner() {
-                tracing::error!("{}", e);
-                let mut stmt = db.prepare("ROLLBACK TRANSACTION")?;
-                stmt.execute(())?;
+            if !read_relays.is_empty() {
+                let mut stmt = db.prepare(&sql2)?;
+                stmt.execute(rusqlite::params_from_iter(params2))?;
             }
 
-            Ok::<(), Error>(())
-        })
-        .await??;
+            if !write_relays.is_empty() {
+                let mut stmt = db.prepare(&sql3)?;
+                stmt.execute(rusqlite::params_from_iter(params3))?;
+            }
+
+            let mut stmt = db.prepare("COMMIT TRANSACTION")?;
+            stmt.execute(())?;
+
+            Ok(())
+        };
+
+        if let Err(e) = inner() {
+            tracing::error!("{}", e);
+            let mut stmt = db.prepare("ROLLBACK TRANSACTION")?;
+            stmt.execute(())?;
+        }
 
         Ok(())
     }
@@ -262,42 +230,36 @@ impl DbPersonRelay {
             }
         }
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let inner = || -> Result<(), Error> {
-                let mut stmt = db.prepare("BEGIN TRANSACTION")?;
-                stmt.execute(())?;
+        let inner = || -> Result<(), Error> {
+            let mut stmt = db.prepare("BEGIN TRANSACTION")?;
+            stmt.execute(())?;
 
-                let mut stmt = db.prepare(sql1)?;
-                stmt.execute((person.as_str(),))?;
+            let mut stmt = db.prepare(sql1)?;
+            stmt.execute((person.as_str(),))?;
 
-                if !read_relays.is_empty() {
-                    let mut stmt = db.prepare(&sql2)?;
-                    stmt.execute(rusqlite::params_from_iter(params2))?;
-                }
-
-                if !write_relays.is_empty() {
-                    let mut stmt = db.prepare(&sql3)?;
-                    stmt.execute(rusqlite::params_from_iter(params3))?;
-                }
-
-                let mut stmt = db.prepare("COMMIT TRANSACTION")?;
-                stmt.execute(())?;
-
-                Ok(())
-            };
-
-            if let Err(e) = inner() {
-                tracing::error!("{}", e);
-                let mut stmt = db.prepare("ROLLBACK TRANSACTION")?;
-                stmt.execute(())?;
+            if !read_relays.is_empty() {
+                let mut stmt = db.prepare(&sql2)?;
+                stmt.execute(rusqlite::params_from_iter(params2))?;
             }
 
-            Ok::<(), Error>(())
-        })
-        .await??;
+            if !write_relays.is_empty() {
+                let mut stmt = db.prepare(&sql3)?;
+                stmt.execute(rusqlite::params_from_iter(params3))?;
+            }
+
+            let mut stmt = db.prepare("COMMIT TRANSACTION")?;
+            stmt.execute(())?;
+
+            Ok(())
+        };
+
+        if let Err(e) = inner() {
+            tracing::error!("{}", e);
+            let mut stmt = db.prepare("ROLLBACK TRANSACTION")?;
+            stmt.execute(())?;
+        }
 
         Ok(())
     }
@@ -312,42 +274,36 @@ impl DbPersonRelay {
                    manually_paired_read, manually_paired_write \
                    FROM person_relay WHERE person=?";
 
-        let ranked_relays: Result<Vec<(RelayUrl, u64)>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            let mut stmt = db.prepare(sql)?;
-            stmt.raw_bind_parameter(1, pubkey.as_str())?;
-            let mut rows = stmt.raw_query();
+        let db = GLOBALS.db.get()?;
+        let mut stmt = db.prepare(sql)?;
+        stmt.raw_bind_parameter(1, pubkey.as_str())?;
+        let mut rows = stmt.raw_query();
 
-            let mut dbprs: Vec<DbPersonRelay> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let s: String = row.get(1)?;
-                // Just skip over bad relay URLs
-                if let Ok(url) = RelayUrl::try_from_str(&s) {
-                    let dbpr = DbPersonRelay {
-                        person: row.get(0)?,
-                        relay: url,
-                        last_fetched: row.get(2)?,
-                        last_suggested_kind3: row.get(3)?,
-                        last_suggested_nip05: row.get(4)?,
-                        last_suggested_bytag: row.get(5)?,
-                        read: row.get(6)?,
-                        write: row.get(7)?,
-                        manually_paired_read: row.get(8)?,
-                        manually_paired_write: row.get(9)?,
-                    };
-                    dbprs.push(dbpr);
-                }
+        let mut dbprs: Vec<DbPersonRelay> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let s: String = row.get(1)?;
+            // Just skip over bad relay URLs
+            if let Ok(url) = RelayUrl::try_from_str(&s) {
+                let dbpr = DbPersonRelay {
+                    person: row.get(0)?,
+                    relay: url,
+                    last_fetched: row.get(2)?,
+                    last_suggested_kind3: row.get(3)?,
+                    last_suggested_nip05: row.get(4)?,
+                    last_suggested_bytag: row.get(5)?,
+                    read: row.get(6)?,
+                    write: row.get(7)?,
+                    manually_paired_read: row.get(8)?,
+                    manually_paired_write: row.get(9)?,
+                };
+                dbprs.push(dbpr);
             }
+        }
 
-            match dir {
-                Direction::Write => Ok(DbPersonRelay::write_rank(dbprs)),
-                Direction::Read => Ok(DbPersonRelay::read_rank(dbprs)),
-            }
-        })
-        .await?;
-
-        let mut ranked_relays = ranked_relays?;
+        let mut ranked_relays = match dir {
+            Direction::Write => DbPersonRelay::write_rank(dbprs),
+            Direction::Read => DbPersonRelay::read_rank(dbprs),
+        };
 
         let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person as usize;
 

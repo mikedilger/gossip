@@ -58,8 +58,8 @@ fn main() -> Result<(), Error> {
         .with_env_filter(env_filter)
         .init();
 
-    // Setup the database (possibly create, possibly upgrade)
-    crate::db::setup_database()?;
+    // Setup the database (possibly upgrade)
+    db::check_and_upgrade()?;
 
     // Load settings
     let settings = crate::settings::Settings::blocking_load()?;

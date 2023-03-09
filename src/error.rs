@@ -69,6 +69,9 @@ pub enum Error {
     #[error("SerdeJson Error: {0}")]
     SerdeJson(#[from] serde_json::Error),
 
+    #[error("SQL Pool: {0}")]
+    R2d2(#[from] r2d2::Error),
+
     #[error("SQL: {0}")]
     Sql(#[from] rusqlite::Error),
 

@@ -2,7 +2,6 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{Event, EventKind, IdHex, PublicKeyHex};
 use serde::{Deserialize, Serialize};
-use tokio::task::spawn_blocking;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DbEvent {
@@ -23,31 +22,26 @@ impl DbEvent {
             Some(crit) => format!("{} WHERE {}", sql, crit),
         };
 
-        let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(&sql)?;
-            let mut rows = stmt.query([])?;
-            let mut output: Vec<DbEvent> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let id: String = row.get(0)?;
-                let pk: String = row.get(2)?;
-                output.push(DbEvent {
-                    id: IdHex::try_from_string(id)?,
-                    raw: row.get(1)?,
-                    pubkey: PublicKeyHex::try_from_string(pk)?,
-                    created_at: row.get(3)?,
-                    kind: row.get(4)?,
-                    content: row.get(5)?,
-                    ots: row.get(6)?,
-                })
-            }
-            Ok(output)
-        })
-        .await?;
+        let mut stmt = db.prepare(&sql)?;
+        let mut rows = stmt.query([])?;
+        let mut output: Vec<DbEvent> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let id: String = row.get(0)?;
+            let pk: String = row.get(2)?;
+            output.push(DbEvent {
+                id: IdHex::try_from_string(id)?,
+                raw: row.get(1)?,
+                pubkey: PublicKeyHex::try_from_string(pk)?,
+                created_at: row.get(3)?,
+                kind: row.get(4)?,
+                content: row.get(5)?,
+                ots: row.get(6)?,
+            })
+        }
 
-        output
+        Ok(output)
     }
 
     pub async fn fetch_latest_contact_list(
@@ -55,47 +49,38 @@ impl DbEvent {
     ) -> Result<Option<Event>, Error> {
         let sql = "SELECT raw FROM event WHERE event.kind=3 AND event.pubkey=? ORDER BY created_at DESC LIMIT 1";
 
-        let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(sql)?;
-            stmt.raw_bind_parameter(1, pubkeyhex.as_str())?;
-            let mut rows = stmt.raw_query();
-            let mut events: Vec<Event> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let raw: String = row.get(0)?;
-                let event: Event = serde_json::from_str(&raw)?;
-                events.push(event);
-            }
-            Ok(events)
-        })
-        .await?;
+        let mut stmt = db.prepare(sql)?;
+        stmt.raw_bind_parameter(1, pubkeyhex.as_str())?;
+        let mut rows = stmt.raw_query();
+        let mut events: Vec<Event> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let raw: String = row.get(0)?;
+            let event: Event = serde_json::from_str(&raw)?;
+            events.push(event);
+        }
 
-        Ok(output?.drain(..).next())
+        let mut temp = events.drain(..);
+        Ok(temp.next())
     }
 
     pub async fn fetch_relay_lists() -> Result<Vec<Event>, Error> {
         // FIXME, only get the last per pubkey
         let sql = "SELECT raw FROM event WHERE event.kind=10002";
 
-        let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(sql)?;
-            let mut rows = stmt.raw_query();
-            let mut events: Vec<Event> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let raw: String = row.get(0)?;
-                let event: Event = serde_json::from_str(&raw)?;
-                events.push(event);
-            }
-            Ok(events)
-        })
-        .await?;
+        let mut stmt = db.prepare(sql)?;
+        let mut rows = stmt.raw_query();
+        let mut events: Vec<Event> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let raw: String = row.get(0)?;
+            let event: Event = serde_json::from_str(&raw)?;
+            events.push(event);
+        }
 
-        output
+        Ok(events)
     }
 
     pub async fn fetch_reply_related(since: i64) -> Result<Vec<DbEvent>, Error> {
@@ -132,143 +117,47 @@ impl DbEvent {
             kinds
         );
 
-        let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.get()?;
 
-            let mut stmt = db.prepare(&sql)?;
-            stmt.raw_bind_parameter(1, public_key.as_str())?;
-            stmt.raw_bind_parameter(2, since)?;
-            let mut rows = stmt.raw_query();
-            let mut events: Vec<DbEvent> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let id: String = row.get(0)?;
-                let pk: String = row.get(2)?;
-                let event = DbEvent {
-                    id: IdHex::try_from_str(&id)?,
-                    raw: row.get(1)?,
-                    pubkey: PublicKeyHex::try_from_str(&pk)?,
-                    created_at: row.get(3)?,
-                    kind: row.get(4)?,
-                    content: row.get(5)?,
-                    ots: row.get(6)?,
-                };
-                events.push(event);
-            }
-            Ok(events)
-        })
-        .await?;
-
-        output
-    }
-
-    /*
-    pub async fn fetch_by_ids(ids: Vec<IdHex>) -> Result<Vec<DbEvent>, Error> {
-        if ids.is_empty() {
-            return Ok(vec![]);
+        let mut stmt = db.prepare(&sql)?;
+        stmt.raw_bind_parameter(1, public_key.as_str())?;
+        stmt.raw_bind_parameter(2, since)?;
+        let mut rows = stmt.raw_query();
+        let mut events: Vec<DbEvent> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let id: String = row.get(0)?;
+            let pk: String = row.get(2)?;
+            let event = DbEvent {
+                id: IdHex::try_from_str(&id)?,
+                raw: row.get(1)?,
+                pubkey: PublicKeyHex::try_from_str(&pk)?,
+                created_at: row.get(3)?,
+                kind: row.get(4)?,
+                content: row.get(5)?,
+                ots: row.get(6)?,
+            };
+            events.push(event);
         }
-
-        let sql = format!(
-            "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event WHERE id IN ({})",
-            repeat_vars(ids.len())
-        );
-
-        let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let id_strings: Vec<String> = ids.iter().map(|p| p.0.clone()).collect();
-
-            let mut stmt = db.prepare(&sql)?;
-            let rows = stmt.query_map(rusqlite::params_from_iter(id_strings), |row| {
-                Ok(DbEvent {
-                    id: IdHex(row.get(0)?),
-                    raw: row.get(1)?,
-                    pubkey: PublicKeyHex(row.get(2)?),
-                    created_at: row.get(3)?,
-                    kind: row.get(4)?,
-                    content: row.get(5)?,
-                    ots: row.get(6)?,
-                })
-            })?;
-
-            let mut output: Vec<DbEvent> = Vec::new();
-            for row in rows {
-                output.push(row?);
-            }
-            Ok(output)
-        })
-        .await?;
-
-        output
+        Ok(events)
     }
-     */
 
     pub async fn insert(event: DbEvent) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO event (id, raw, pubkey, created_at, kind, content, ots) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
 
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                event.id.as_str(),
-                &event.raw,
-                event.pubkey.as_str(),
-                &event.created_at,
-                &event.kind,
-                &event.content,
-                &event.ots,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
+        let db = GLOBALS.db.get()?;
+        let mut stmt = db.prepare(sql)?;
+        stmt.execute((
+            event.id.as_str(),
+            &event.raw,
+            event.pubkey.as_str(),
+            &event.created_at,
+            &event.kind,
+            &event.content,
+            &event.ots,
+        ))?;
 
         Ok(())
     }
 
-    /*
-    pub async fn delete(criteria: &str) -> Result<(), Error> {
-        let sql = format!("DELETE FROM event WHERE {}", criteria);
-
-        spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            db.execute(&sql, [])?;
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-     */
-
-    /*
-        pub async fn get_author(id: IdHex) -> Result<Option<PublicKeyHex>, Error> {
-            let sql = "SELECT pubkey FROM event WHERE id=?";
-
-            spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
-                let mut stmt = db.prepare(sql)?;
-                let mut rows = stmt.query_map([id.0], |row| row.get(0))?;
-                if let Some(row) = rows.next() {
-                    return Ok(Some(PublicKeyHex(row?)));
-                }
-                Ok(None)
-            })
-            .await?
-    }
-        */
 }
-
-/*
-fn repeat_vars(count: usize) -> String {
-    assert_ne!(count, 0);
-    let mut s = "?,".repeat(count);
-    // Remove trailing comma
-    s.pop();
-    s
-}
-*/

@@ -2,7 +2,6 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::Id;
 use serde::{Deserialize, Serialize};
-use tokio::task::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEventFlags {
@@ -13,39 +12,28 @@ pub struct DbEventFlags {
 impl DbEventFlags {
     pub async fn load_all_viewed() -> Result<Vec<Id>, Error> {
         let sql = "SELECT event FROM event_flags WHERE viewed=1".to_owned();
-        let output: Result<Vec<Id>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            let mut stmt = db.prepare(&sql)?;
-            let mut output: Vec<Id> = Vec::new();
-            let mut rows = stmt.raw_query();
-            while let Some(row) = rows.next()? {
-                let s: String = row.get(0)?;
-                if let Ok(id) = Id::try_from_hex_string(&s) {
-                    output.push(id);
-                }
+        let db = GLOBALS.db.get()?;
+        let mut stmt = db.prepare(&sql)?;
+        let mut output: Vec<Id> = Vec::new();
+        let mut rows = stmt.raw_query();
+        while let Some(row) = rows.next()? {
+            let s: String = row.get(0)?;
+            if let Ok(id) = Id::try_from_hex_string(&s) {
+                output.push(id);
             }
-            Ok(output)
-        })
-        .await?;
-
-        output
+        }
+        Ok(output)
     }
 
     pub async fn mark_all_as_viewed(ids: Vec<Id>) -> Result<(), Error> {
         let sql = "INSERT INTO event_flags (event, viewed) VALUES (?, 1) \
                    ON CONFLICT(event) DO UPDATE SET viewed=1";
-        let _ = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-            let mut stmt = db.prepare(sql)?;
-            for id in ids {
-                stmt.raw_bind_parameter(1, id.as_hex_string())?;
-                stmt.raw_execute()?;
-            }
-            Ok::<(), Error>(())
-        })
-        .await?;
+        let db = GLOBALS.db.get()?;
+        let mut stmt = db.prepare(sql)?;
+        for id in ids {
+            stmt.raw_bind_parameter(1, id.as_hex_string())?;
+            stmt.raw_execute()?;
+        }
 
         Ok(())
     }
