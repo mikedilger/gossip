@@ -24,31 +24,4 @@ impl DbEventRelationship {
         stmt.execute((&original, &refers_to, &relationship, &content))?;
         Ok(())
     }
-
-    /*
-        pub async fn get_events_refers_to(id: Id) -> Result<Vec<DbEventRelationship>, Error> {
-            let sql =
-                "SELECT refers_to, relationship, content FROM event_relationship WHERE original=?";
-            let output: Result<Vec<DbEventRelationship>, Error> = spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
-                let mut stmt = db.prepare(sql)?;
-                let rows = stmt.query_map([id.as_hex_string()], |row| {
-                    Ok(DbEventRelationship {
-                        original: id.as_hex_string(),
-                        refers_to: row.get(0)?,
-                        relationship: row.get(1)?,
-                        content: row.get(2)?,
-                    })
-                })?;
-                let mut output: Vec<DbEventRelationship> = Vec::new();
-                for row in rows {
-                    output.push(row?);
-                }
-                Ok(output)
-            })
-            .await?;
-            output
-    }
-        */
 }

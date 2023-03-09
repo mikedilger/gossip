@@ -1208,57 +1208,6 @@ impl People {
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
         self.active_persons_write_relays.blocking_read().clone()
     }
-
-    /*
-    async fn insert(person: DbPerson) -> Result<(), Error> {
-        let sql = "INSERT OR IGNORE INTO person (pubkey, metadata, metadata_at, \
-             nip05_valid, nip05_last_checked, followed, followed_last_updated, muted) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
-
-        task::spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let metadata_json: Option<String> = if let Some(md) = &person.metadata {
-                Some(serde_json::to_string(md)?)
-            } else {
-                None
-            };
-
-            let mut stmt = db.prepare(sql)?;
-            stmt.execute((
-                &person.pubkey.0,
-                &metadata_json,
-                &person.metadata_at,
-                &person.nip05_valid,
-                &person.nip05_last_checked,
-                &person.followed,
-                &person.followed_last_updated,
-                &person.muted,
-            ))?;
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-     */
-
-    /*
-       pub async fn delete(criteria: &str) -> Result<(), Error> {
-           let sql = format!("DELETE FROM person WHERE {}", criteria);
-
-           task::spawn_blocking(move || {
-               let maybe_db = GLOBALS.db.blocking_lock();
-               let db = maybe_db.as_ref().unwrap();
-               db.execute(&sql, [])?;
-               Ok::<(), Error>(())
-           })
-           .await??;
-
-           Ok(())
-       }
-    */
 }
 
 fn repeat_vars(count: usize) -> String {

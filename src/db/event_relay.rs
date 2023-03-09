@@ -11,39 +11,6 @@ pub struct DbEventRelay {
 }
 
 impl DbEventRelay {
-    /*
-    pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbEventRelay>, Error> {
-        let sql = "SELECT event, relay, when_seen FROM event_relay".to_owned();
-        let sql = match criteria {
-            None => sql,
-            Some(crit) => format!("{} WHERE {}", sql, crit),
-        };
-
-        let output: Result<Vec<DbEventRelay>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
-            let mut stmt = db.prepare(&sql)?;
-            let rows = stmt.query_map([], |row| {
-                Ok(DbEventRelay {
-                    event: row.get(0)?,
-                    relay: row.get(1)?,
-                    when_seen: row.get(2)?,
-                })
-            })?;
-
-            let mut output: Vec<DbEventRelay> = Vec::new();
-            for row in rows {
-                output.push(row?);
-            }
-            Ok(output)
-        })
-        .await?;
-
-        output
-    }
-     */
-
     pub async fn get_relays_for_event(id: Id) -> Result<Vec<RelayUrl>, Error> {
         let sql = "SELECT relay FROM event_relay WHERE event=?";
 
@@ -75,20 +42,4 @@ impl DbEventRelay {
 
         Ok(())
     }
-
-    /*
-        pub async fn delete(criteria: &str) -> Result<(), Error> {
-            let sql = format!("DELETE FROM event_relay WHERE {}", criteria);
-
-            spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
-                db.execute(&sql, [])?;
-                Ok::<(), Error>(())
-            })
-            .await??;
-
-            Ok(())
-    }
-        */
 }
