@@ -308,6 +308,9 @@ fn render_note_inner(
                     if ui.button("Copy ID as hex").clicked() {
                         ui.output_mut(|o| o.copied_text = event.id.as_hex_string());
                     }
+                    if ui.button("Copy Raw data").clicked() {
+                        ui.output_mut(|o| o.copied_text = serde_json::to_string_pretty(&event).unwrap() );
+                    }
                     if ui.button("Dismiss").clicked() {
                         GLOBALS.dismissed.blocking_write().push(event.id);
                     }
