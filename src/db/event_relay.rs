@@ -36,7 +36,11 @@ impl DbEventRelay {
         let db = GLOBALS.db.get()?;
 
         let mut stmt = db.prepare(sql)?;
-        stmt.execute((&event_relay.event, &event_relay.relay, &event_relay.when_seen))?;
+        stmt.execute((
+            &event_relay.event,
+            &event_relay.relay,
+            &event_relay.when_seen,
+        ))?;
 
         Ok(())
     }

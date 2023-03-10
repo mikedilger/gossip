@@ -159,5 +159,4 @@ impl DbEvent {
 
         Ok(())
     }
-
 }

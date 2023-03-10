@@ -316,10 +316,7 @@ fn render_note_inner(
 
                 let is_thread_view: bool = {
                     let feed_kind = GLOBALS.feed.get_feed_kind();
-                    match feed_kind {
-                        FeedKind::Thread { .. } => true,
-                        _ => false,
-                    }
+                    matches!(feed_kind, FeedKind::Thread { .. })
                 };
 
                 if is_thread_view && is_a_reply {
@@ -427,7 +424,14 @@ fn render_note_inner(
                         }
                     } else {
                         // render like a kind-1 event with a mention
-                        content::render_content(app, ui, &tag_re, &event, deletion.is_some(), &content);
+                        content::render_content(
+                            app,
+                            ui,
+                            &tag_re,
+                            &event,
+                            deletion.is_some(),
+                            &content,
+                        );
                     }
                 } else {
                     content::render_content(app, ui, &tag_re, &event, deletion.is_some(), &content);
@@ -451,7 +455,9 @@ fn render_note_inner(
                         .clicked()
                     {
                         if app.render_raw == Some(event.id) {
-                            ui.output_mut(|o| o.copied_text = serde_json::to_string(&event).unwrap());
+                            ui.output_mut(|o| {
+                                o.copied_text = serde_json::to_string(&event).unwrap()
+                            });
                         } else {
                             ui.output_mut(|o| o.copied_text = content.clone());
                         }
