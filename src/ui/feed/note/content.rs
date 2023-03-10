@@ -14,6 +14,8 @@ pub(super) fn render_content(
     as_deleted: bool,
     content: &str,
 ) {
+    ui.style_mut().spacing.item_spacing.x = 0.0;
+
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
             ui.hyperlink_to(span.as_str(), span.as_str());
@@ -70,4 +72,6 @@ pub(super) fn render_content(
             }
         }
     }
+
+    ui.reset_style();
 }
