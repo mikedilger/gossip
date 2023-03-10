@@ -3,19 +3,18 @@ use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
-use egui::{Context, Frame, RichText, ScrollArea, SelectableLabel, Ui, Vec2};
+use egui::{Align, Context, Frame, Layout, RichText, ScrollArea, SelectableLabel, Ui, Vec2};
 use nostr_types::Id;
 
-mod note;
-mod post;
+pub(in crate::ui) mod note;
 
-struct FeedNoteParams {
-    id: Id,
-    indent: usize,
-    as_reply_to: bool,
-    threaded: bool,
-    is_first: bool,
-    is_last: bool,
+pub(in crate::ui) struct FeedNoteParams {
+    pub id: Id,
+    pub indent: usize,
+    pub as_reply_to: bool,
+    pub threaded: bool,
+    pub is_first: bool,
+    pub is_last: bool,
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -80,10 +79,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     ui.add_space(10.0);
 
-    post::posting_area(app, ctx, frame, ui);
-
-    ui.add_space(10.0);
-
     match feed_kind {
         FeedKind::Followed(with_replies) => {
             let feed = GLOBALS.feed.get_followed();
@@ -96,7 +91,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
                 ui.label(RichText::new("Any Post").size(11.0));
                 ui.separator();
+
+                post_button(app, ui);
             });
+
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
@@ -120,7 +118,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
                 ui.label(RichText::new("Everything you are Tagged On").size(11.0));
                 ui.separator();
+
+                post_button(app, ui);
             });
+
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
@@ -134,6 +135,28 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
         }
     }
+}
+
+fn post_button(app: &mut GossipUi, ui: &mut Ui) {
+    ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+        if !GLOBALS.signer.is_ready() {
+            ui.label(" to post.");
+            if ui.link("setup your identity").clicked() {
+                app.set_page(Page::YourKeys);
+            }
+            ui.label("You need to ");
+        } else if !GLOBALS.all_relays.iter().any(|r| r.value().write) {
+            ui.label(" to post.");
+            if ui.link("choose write relays").clicked() {
+                app.set_page(Page::RelaysAll);
+            }
+            ui.label("You need to ");
+        } else {
+            if ui.button("Post").clicked() {
+                app.set_page(Page::Post);
+            }
+        }
+    });
 }
 
 fn render_a_feed(

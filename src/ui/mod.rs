@@ -16,6 +16,7 @@ mod components;
 mod feed;
 mod help;
 mod people;
+mod post;
 mod relays;
 mod search;
 mod settings;
@@ -78,6 +79,7 @@ pub fn run() -> Result<(), Error> {
 #[derive(Debug, Clone, PartialEq)]
 enum Page {
     Feed(FeedKind),
+    Post,
     PeopleList,
     PeopleFollow,
     PeopleMuted,
@@ -426,6 +428,13 @@ impl eframe::App for GossipUi {
                 }
                 ui.separator();
                 if ui
+                    .add(SelectableLabel::new(self.page == Page::Post, "Post"))
+                    .clicked()
+                {
+                    self.set_page(Page::Post);
+                }
+                ui.separator();
+                if ui
                     .add(SelectableLabel::new(
                         self.page == Page::PeopleList
                             || self.page == Page::PeopleFollow
@@ -509,6 +518,7 @@ impl eframe::App for GossipUi {
 
         egui::CentralPanel::default().show(ctx, |ui| match self.page {
             Page::Feed(_) => feed::update(self, ctx, frame, ui),
+            Page::Post => post::update(self, ctx, frame, ui),
             Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
                 people::update(self, ctx, frame, ui)
             }
