@@ -2,7 +2,7 @@ use super::{FeedProperties, PostProperties, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{FontDefinitions, Margin, Style, TextFormat, TextStyle, Visuals};
-use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke, Vec2};
+use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -26,7 +26,6 @@ impl ThemeDef for RoundyTheme {
 
         // /// Button size is text size plus this on each side
         // pub button_padding: Vec2,
-        style.spacing.button_padding = Vec2::new(7.0, 3.0);
 
         // /// Horizontal and vertical margins within a menu frame.
         // pub menu_margin: Margin,
@@ -71,10 +70,10 @@ impl ThemeDef for RoundyTheme {
         // pub combo_height: f32,
 
         // pub scroll_bar_width: f32,
-        style.spacing.scroll_bar_width = 15.0;
+        //style.spacing.scroll_bar_width = 15.0;
 
         // /// Make sure the scroll handle is at least this big
-        style.spacing.scroll_handle_min_length = 40.0;
+        //style.spacing.scroll_handle_min_length = 40.0;
 
         // /// Margin between contents and scroll bar.
         // pub scroll_bar_inner_margin: f32,
