@@ -52,7 +52,10 @@ pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
     if ui.is_rect_visible(rect) {
         let how_on = ui.ctx().animate_bool(response.id, *on);
         let visuals = ui.style().interact_selectable(&response, *on);
-        let rect = rect.expand(visuals.expansion);
+
+        // skip expansion, keep tight
+        //let rect = rect.expand(visuals.expansion);
+
         let radius = 0.5 * rect.height();
         // bg_fill, bg_stroke, fg_stroke, expansion
         ui.painter()
@@ -60,7 +63,7 @@ pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
         let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
         let center = egui::pos2(circle_x, rect.center().y);
         ui.painter()
-            .circle(center, 0.875 * radius, visuals.bg_fill, visuals.fg_stroke);
+            .circle(center, 0.875 * radius, visuals.fg_stroke.color, visuals.fg_stroke);
     }
 
     response
