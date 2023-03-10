@@ -32,7 +32,7 @@ impl DbEventFlags {
         let mut stmt = db.prepare(sql)?;
         for id in ids {
             stmt.raw_bind_parameter(1, id.as_hex_string())?;
-            stmt.raw_execute()?;
+            let _ = stmt.raw_execute(); // IGNORE errors, this is not critical.
         }
 
         Ok(())
