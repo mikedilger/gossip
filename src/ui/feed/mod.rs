@@ -3,7 +3,7 @@ use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
-use egui::{Context, Frame, ScrollArea, SelectableLabel, Ui, Vec2};
+use egui::{Context, Frame, RichText, ScrollArea, SelectableLabel, Ui, Vec2};
 use nostr_types::Id;
 
 mod note;
@@ -90,26 +90,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let id = if with_replies { "main" } else { "general" };
 
             ui.horizontal(|ui| {
-                if ui
-                    .add(SelectableLabel::new(
-                        app.page == Page::Feed(FeedKind::Followed(false)),
-                        "Root Posts Only",
-                    ))
-                    .clicked()
-                {
-                    app.mainfeed_include_nonroot = false;
-                    app.set_page(Page::Feed(FeedKind::Followed(false)));
+                ui.label(RichText::new("Root Posts Only").size(11.0));
+                if crate::ui::components::switch(ui, &mut app.mainfeed_include_nonroot).clicked() {
+                    app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
                 }
-                if ui
-                    .add(SelectableLabel::new(
-                        app.page == Page::Feed(FeedKind::Followed(true)),
-                        "Any Post",
-                    ))
-                    .clicked()
-                {
-                    app.mainfeed_include_nonroot = true;
-                    app.set_page(Page::Feed(FeedKind::Followed(true)));
-                }
+                ui.label(RichText::new("Any Post").size(11.0));
                 ui.separator();
             });
             ui.add_space(4.0);
@@ -129,26 +114,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let id = if indirect { "activity" } else { "inbox" };
 
             ui.horizontal(|ui| {
-                if ui
-                    .add(SelectableLabel::new(
-                        app.page == Page::Feed(FeedKind::Inbox(false)),
-                        "Direct Replies Only",
-                    ))
-                    .clicked()
-                {
-                    app.inbox_include_indirect = false;
-                    app.set_page(Page::Feed(FeedKind::Inbox(false)));
+                ui.label(RichText::new("Direct Replies Only").size(11.0));
+                if crate::ui::components::switch(ui, &mut app.inbox_include_indirect).clicked() {
+                    app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
                 }
-                if ui
-                    .add(SelectableLabel::new(
-                        app.page == Page::Feed(FeedKind::Inbox(true)),
-                        "Everything you are Tagged On",
-                    ))
-                    .clicked()
-                {
-                    app.inbox_include_indirect = true;
-                    app.set_page(Page::Feed(FeedKind::Inbox(true)));
-                }
+                ui.label(RichText::new("Everything you are Tagged On").size(11.0));
                 ui.separator();
             });
             ui.add_space(4.0);
