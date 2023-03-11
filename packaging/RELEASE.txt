@@ -2,33 +2,47 @@ This is a draft of the steps taken to make a release.
 I intend to flesh this out as I actually make releases.
 
 Try to push our dependency changes upstream:
-  https://github.com/mikedilger/qrcode-rust
+  https://github.com/mikedilger/qrcode-rust  (unlikely, stale for >3 years)
   https://github.com/mikedilger/egui
 
-nostr-types/master -- stabilize
-nostr-types/master -- cargo clippy; cargo fmt
-nostr-types/master -- cargo update, and check for new versions, maybe update dependencies
+nostr-types
+   -- cargo update, and check for new versions, maybe update dependencies
+   -- cargo test
+   -- cargo clippy; cargo fmt
+   -- FORK 0.N:
+      -- all deps switch to released versions
+      -- version 0.N
+      -- package/publish
+      -- version to 0.N.1-unstable
+   -- master:
+      -- version to 0.N+1.0-unstable
 
-gossip-relay-picker/master -- stabilize
-gossip-relay-picker/master -- cargo clippy; cargo fmt
-gossip-relay-picker/master -- cargo update, and check for new versions, maybe update dependencies
+gossip-relay-picker
+   -- cargo update, and check for new versions, maybe update dependencies
+   -- cargo test
+   -- cargo clippy; cargo fmt
+   -- FORK 0.N:
+      -- all deps switch to released versions
+      -- version 0.N
+      -- package/publish
+      -- version to 0.N.1-unstable
+   -- master:
+      -- version to 0.N+1.0-unstable
 
-gossip/master -- stabilize
-gossip/master -- cargo clippy; cargo fmt
-gossip/master -- cargo update, and check for new versions, maybe update dependencies
+gossip
+   -- cargo update, and check for new versions, maybe update dependencies
+   -- cargo test
+   -- cargo clippy; cargo fmt
+   -- FORK 0.N:
+      -- all deps switch to released versions
+      -- verison 0.N
+      -- package/publish (see below)
+      -- version 0.N.1-unstable
+   -- master
+      -- version 0.N+1.0-unstable
 
-nostr-types:  Create a release branch (e.g. 0.N)
-nostr-types/master:  bump the version to the next unstable (e.g. to 0.(N+1)-unstable)
-nostr-types/0.N: package and publish
-
-gossip-relay-picker:  Create a release branch (e.g. 0.N)
-gossip-relay-picker/master:  bump the version to the next unstable (e.g. to 0.(N+1)-unstable)
-gossip-relay-picker/0.N: package and publish
-
-gossip:  Create a release branch (e.g. 0.N)
-gossip/master: bump the version to the next unstable (e.g. to 0.(N+1)-unstable)
-gossip/0.N: update Cargo.toml to use the release of nostr-types (not the github)
-gossip/0.N: update Cargo.toml to use the release of gossip-relay-picker (not the github)
+-----------------------------
+Package & Publish of gossip:
 
 Package for windows:
  * main version, as .msi
