@@ -57,7 +57,7 @@ impl NoteData {
     }
 }
 
-pub(in crate::ui) fn render_note(
+pub(super) fn render_note(
     app: &mut GossipUi,
     ctx: &Context,
     _frame: &mut eframe::Frame,
@@ -309,9 +309,7 @@ fn render_note_inner(
                         ui.output_mut(|o| o.copied_text = event.id.as_hex_string());
                     }
                     if ui.button("Copy Raw data").clicked() {
-                        ui.output_mut(|o| {
-                            o.copied_text = serde_json::to_string_pretty(&event).unwrap()
-                        });
+                        ui.output_mut(|o| o.copied_text = serde_json::to_string_pretty(&event).unwrap() );
                     }
                     if ui.button("Dismiss").clicked() {
                         GLOBALS.dismissed.blocking_write().push(event.id);
@@ -471,33 +469,28 @@ fn render_note_inner(
                     ui.add_space(24.0);
 
                     // Button to quote note
-                    if GLOBALS.signer.is_ready() {
-                        if ui
-                            .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
-                            .on_hover_text("Quote")
-                            .clicked()
-                        {
-                            if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                app.draft.push(' ');
-                            }
-                            app.draft
-                                .push_str(&event.id.try_as_bech32_string().unwrap());
-                            app.page = Page::Post;
+                    if ui
+                        .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
+                        .on_hover_text("Quote")
+                        .clicked()
+                    {
+                        if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                            app.draft.push(' ');
                         }
-
-                        ui.add_space(24.0);
+                        app.draft
+                            .push_str(&event.id.try_as_bech32_string().unwrap());
                     }
 
+                    ui.add_space(24.0);
+
                     // Button to reply
-                    if GLOBALS.signer.is_ready() && event.kind != EventKind::EncryptedDirectMessage
-                    {
+                    if event.kind != EventKind::EncryptedDirectMessage {
                         if ui
                             .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
                             .on_hover_text("Reply")
                             .clicked()
                         {
                             app.replying_to = Some(event.id);
-                            app.page = Page::Post;
                         }
 
                         ui.add_space(24.0);

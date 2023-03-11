@@ -1,21 +1,13 @@
+use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::tags::{keys_from_text, notes_from_text};
-use crate::ui::feed::FeedNoteParams;
 use crate::ui::{GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::{Align, Context, Layout, RichText, ScrollArea, Ui, Vec2};
 use memoize::memoize;
 use nostr_types::Tag;
-
-pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.heading("Write and Publish a Note");
-
-    ui.add_space(10.0);
-
-    posting_area(app, ctx, frame, ui);
-}
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
@@ -99,7 +91,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 y: app.current_scroll_offset,
             })
             .show(ui, |ui| {
-                crate::ui::feed::note::render_note(
+                super::note::render_note(
                     app,
                     ctx,
                     frame,
@@ -149,7 +141,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.add(
         text_edit_multiline!(app, app.draft)
             .hint_text("Type your message here")
-            .desired_rows(10)
             .desired_width(f32::INFINITY)
             .lock_focus(true)
             .layouter(&mut layouter),
@@ -167,7 +158,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             vec![],
                             Some(replying_to_id),
                         ));
-                        app.back();
                     }
                     None => {
                         let mut tags: Vec<Tag> = Vec::new();
@@ -185,7 +175,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             tags,
                             None,
                         ));
-                        app.back();
                     }
                 }
                 app.clear_post();

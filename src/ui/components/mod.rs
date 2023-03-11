@@ -62,12 +62,8 @@ pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
             .rect(rect, radius, visuals.bg_fill, visuals.bg_stroke);
         let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
         let center = egui::pos2(circle_x, rect.center().y);
-        ui.painter().circle(
-            center,
-            0.875 * radius,
-            visuals.fg_stroke.color,
-            visuals.fg_stroke,
-        );
+        ui.painter()
+            .circle(center, 0.875 * radius, visuals.fg_stroke.color, visuals.fg_stroke);
     }
 
     response
