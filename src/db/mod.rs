@@ -30,6 +30,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::OpenFlags;
 use std::fs;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 pub fn init_database() -> Result<Pool<SqliteConnectionManager>, Error> {
     let mut data_dir =
@@ -50,12 +51,21 @@ pub fn init_database() -> Result<Pool<SqliteConnectionManager>, Error> {
             | OpenFlags::SQLITE_OPEN_NOFOLLOW,
     );
 
-    let pool = Pool::new(sqlite_connection_manager)
+    let pool = Pool::builder()
+        .max_size(16)
+        .test_on_check_out(true)
+        .build(sqlite_connection_manager)
         .map_err(|_| Error::from("Failed to create r2d2 SQLite connection pool"))?;
 
-    // Turn on foreign keys
+    // Turn on multiple options
     let connection = pool.get()?;
-    connection.execute("PRAGMA foreign_keys = ON", ())?;
+    connection.execute_batch(
+        format!(
+            "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = {};",
+            Duration::from_secs(30).as_millis()
+        )
+        .as_str(),
+    )?;
 
     Ok(pool)
 }
