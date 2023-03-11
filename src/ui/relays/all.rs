@@ -108,7 +108,7 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                 body.rows(24.0, relays.len(), |row_index, mut row| {
                     let relay = relays.get_mut(row_index).unwrap();
                     row.col(|ui| {
-                        ui.label(&relay.url.0);
+                        crate::ui::widgets::break_anywhere_label(ui,&relay.url.0);
                     });
                     row.col(|ui| {
                         ui.label(&format!("{}", relay.attempts()));

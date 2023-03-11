@@ -18,7 +18,7 @@ pub(super) fn render_content(
 
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
-            ui.hyperlink_to(span.as_str(), span.as_str());
+            crate::ui::widgets::break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
         } else {
             let s = span.as_str();
             let mut pos = 0;
