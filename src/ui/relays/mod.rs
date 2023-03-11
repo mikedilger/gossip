@@ -68,7 +68,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             body.rows(24.0, connected_relays.len(), |row_index, mut row| {
                                 let relay_url = &connected_relays[row_index];
                                 row.col(|ui| {
-                                    ui.label(&relay_url.0);
+                                    crate::ui::widgets::break_anywhere_label(ui, &relay_url.0);
                                 });
                                 row.col(|ui| {
                                     if let Some(ref assignment) =
