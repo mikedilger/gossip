@@ -1,13 +1,14 @@
 use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
-use eframe::egui;
+use eframe::egui::{self, Context};
 use egui::{RichText, Ui};
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{Event, IdHex, Tag};
 
 pub(super) fn render_content(
     app: &mut GossipUi,
+    ctx: &Context,
     ui: &mut Ui,
     tag_re: &regex::Regex,
     event: &Event,
@@ -40,14 +41,27 @@ pub(super) fn render_content(
                             };
                         }
                         Tag::Event { id, .. } => {
-                            let idhex: IdHex = (*id).into();
-                            let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
-                            if ui.link(&nam).clicked() {
-                                app.set_page(Page::Feed(FeedKind::Thread {
-                                    id: *id,
-                                    referenced_by: event.id,
-                                }));
-                            };
+                            let mut render_as_link = true;
+                            if app.settings.show_first_mention && pos == 0 {
+                                // try to find the mentioned note in our cache
+                                let maybe_event = GLOBALS.events.get(id);
+                                if let Some(event) = maybe_event {
+                                    if let Some(note_data) = super::NoteData::new(event) {
+                                        super::render_repost(app, ui, ctx, note_data);
+                                        render_as_link = false;
+                                    }
+                                }
+                            }
+                            if render_as_link {
+                                let idhex: IdHex = (*id).into();
+                                let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
+                                if ui.link(&nam).clicked() {
+                                    app.set_page(Page::Feed(FeedKind::Thread {
+                                        id: *id,
+                                        referenced_by: event.id,
+                                    }));
+                                };
+                            }
                         }
                         Tag::Hashtag(s) => {
                             if ui.link(format!("#{}", s)).clicked() {
