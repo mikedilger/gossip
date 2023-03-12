@@ -41,6 +41,9 @@ pub(super) fn render_content(
                             };
                         }
                         Tag::Event { id, .. } => {
+                            if ui.cursor().min == ui.max_rect().min {
+                                ui.end_row();
+                            }
                             let mut render_as_link = true;
                             if app.settings.show_first_mention && pos == 0 {
                                 // try to find the mentioned note in our cache
