@@ -100,6 +100,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     );
 
                     ui.checkbox(
+                        &mut app.settings.show_first_mention,
+                        "Enable first mention (show)",
+                    );
+
+                    ui.checkbox(
                         &mut app.settings.direct_messages,
                         "Show Direct Messages",
                     )

@@ -17,7 +17,7 @@ use std::sync::atomic::Ordering;
 
 mod content;
 
-struct NoteData {
+pub(super) struct NoteData {
     event: Event,
     delegation: EventDelegation,
     author: DbPerson,
@@ -416,14 +416,7 @@ fn render_note_inner(
                 } else if event.kind == EventKind::Repost {
                     if let Ok(inner_event) = serde_json::from_str::<Event>(&content) {
                         if let Some(inner_note_data) = NoteData::new(inner_event) {
-                            ui.vertical(|ui| {
-                                thin_repost_separator(ui);
-                                ui.add_space(4.0);
-                                ui.horizontal_wrapped(|ui| {
-                                    render_note_inner(app, ctx, ui, inner_note_data, false, false);
-                                });
-                                thin_repost_separator(ui);
-                            });
+                            render_repost(app, ui, ctx, inner_note_data);
                         } else {
                             ui.label("REPOSTED EVENT IS NOT RELEVANT");
                         }
@@ -431,6 +424,7 @@ fn render_note_inner(
                         // render like a kind-1 event with a mention
                         content::render_content(
                             app,
+                            ctx,
                             ui,
                             &tag_re,
                             &event,
@@ -439,7 +433,15 @@ fn render_note_inner(
                         );
                     }
                 } else {
-                    content::render_content(app, ui, &tag_re, &event, deletion.is_some(), &content);
+                    content::render_content(
+                        app,
+                        ctx,
+                        ui,
+                        &tag_re,
+                        &event,
+                        deletion.is_some(),
+                        &content,
+                    );
                 }
             });
 
@@ -575,4 +577,16 @@ fn thin_separator(ui: &mut Ui, stroke: Stroke) {
     style.visuals.widgets.noninteractive.bg_stroke = stroke;
     ui.add(Separator::default().spacing(0.0));
     ui.reset_style();
+}
+
+pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, repost_data: NoteData) {
+    ui.vertical(|ui| {
+        thin_repost_separator(ui);
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            // FIXME: don't do this recursively
+            render_note_inner(app, ctx, ui, repost_data, false, false);
+        });
+        thin_repost_separator(ui);
+    });
 }
