@@ -2,12 +2,6 @@
 Prerequisite for packaging:
 
 * You need Wix 4 tools installed, probably with DOTNET installed first.
-* Copy the gossip.exe here (release build)
-* Copy the gossip.png here
-* For new versions of gossup, update gossip.wxs
-	* UPDATE the Package ProductCode GUID to a new one
-    * KEEP the UpgradeCode GUID (it should never change, it ties different versions together)
-    * Change a component GUID ONLY IF the absolute path changes.
 
 Compile:
 
@@ -15,7 +9,17 @@ Compile:
 
 Copy the binary to the packaging diretory
 
-  $ cp ..\..\target\release\gossip.exec .
+  $ cp ..\..\target\release\gossip.exe .
+
+Copy the gossip.png here
+
+  $ cp ..\..\gossip.png .
+
+For new versions of gossip, update gossip.wxs
+    * UPDATE the Package.Version
+	* UPDATE the Package.ProductCode GUID to a new one
+    * KEEP the UpgradeCode GUID (it should never change, it ties different versions together)
+    * Change a component GUID ONLY IF the absolute path changes.
 
 Packaging:
 
