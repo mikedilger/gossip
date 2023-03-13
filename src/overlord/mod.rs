@@ -135,6 +135,26 @@ impl Overlord {
             tracing::info!("Loaded {} reply related events from the database", count);
         }
 
+        // Load your local contact list(s)
+        if let Some(public_key) = GLOBALS.signer.public_key() {
+            let db_events = DbEvent::fetch(Some(&format!(
+                "kind=3 AND pubkey={}",
+                public_key.as_hex_string()
+            )))
+            .await?;
+
+            // Map db events into Events
+            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
+            for dbevent in db_events.iter() {
+                let e = serde_json::from_str(&dbevent.raw)?;
+                events.push(e);
+            }
+
+            for event in events.iter() {
+                crate::process::process_new_event(event, false, None, None).await?;
+            }
+        }
+
         // Load feed-related events from database and process
         {
             let feed_chunk = GLOBALS.settings.read().feed_chunk;
