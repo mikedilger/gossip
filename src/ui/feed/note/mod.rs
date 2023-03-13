@@ -6,13 +6,13 @@ use crate::people::DbPerson;
 use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
+pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
 use eframe::egui;
 use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
 use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex};
-use std::sync::atomic::Ordering;
 
 mod content;
 
@@ -57,11 +57,14 @@ impl NoteData {
 }
 
 pub struct NoteRenderData {
+    /// Available height for post
     pub height: f32,
-    /// Post height
+    /// Has this post been seen yet?
     pub is_new: bool,
     /// This message is the focus of the view (formerly called is_focused)
     pub is_main_event: bool,
+    /// This message is a repost of another message
+    pub has_repost: bool,
     /// This message is part of a thread
     pub is_thread: bool,
     /// Is this the first post in the display?
@@ -118,8 +121,12 @@ pub(super) fn render_note(
         &0.0
     };
 
+    // FIXME: determine all repost scenarios here
+    let has_repost = note_data.event.kind == EventKind::Repost;
+
     let render_data = NoteRenderData {
         height: *height,
+        has_repost,
         is_new,
         is_thread: threaded,
         is_first,
@@ -224,20 +231,13 @@ fn render_note_inner(
         app.placeholder_avatar.clone()
     };
 
-    // If it is a repost without any comment, resize the avatar to highlight the original poster's one
-    let resize_factor = if event.kind == EventKind::Repost
-        && (event.content.is_empty() || serde_json::from_str::<Event>(&event.content).is_ok())
-    {
-        180.0
-    } else {
-        100.0
+    let avatar_size = match render_data.has_repost {
+        true => AVATAR_SIZE_REPOST_F32,
+        false => AVATAR_SIZE_F32,
     };
 
-    let size = AVATAR_SIZE_F32 * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
-        / resize_factor;
-
     if ui
-        .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
+        .add(Image::new(&avatar, Vec2 { x: avatar_size, y: avatar_size }).sense(Sense::click()))
         .clicked()
     {
         app.set_page(Page::Person(author.pubkey.clone()));
@@ -598,6 +598,7 @@ pub(super) fn render_repost(
 ) {
     let render_data = NoteRenderData {
         height: 0.0,
+        has_repost: false, // FIXME should we consider allowing some recursion?
         is_new: false,
         is_main_event: false,
         is_thread: false,

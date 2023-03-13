@@ -195,7 +195,7 @@ fn render_note_maybe_fake(
     let FeedNoteParams {
         id,
         indent,
-        hide_footer: as_reply_to,
+        hide_footer,
         threaded,
         is_first,
         is_last,
@@ -234,7 +234,7 @@ fn render_note_maybe_fake(
                 FeedNoteParams {
                     id,
                     indent,
-                    hide_footer: as_reply_to,
+                    hide_footer,
                     threaded,
                     is_first,
                     is_last,
@@ -251,7 +251,7 @@ fn render_note_maybe_fake(
         ui.add_space(height);
 
         // Yes, and we need to fake render threads to get their approx height too.
-        if threaded && !as_reply_to {
+        if threaded && !hide_footer {
             let replies = Globals::get_replies_sync(event.id);
             let iter = replies.iter();
             let first = replies.first();
@@ -265,7 +265,7 @@ fn render_note_maybe_fake(
                     FeedNoteParams {
                         id: *reply_id,
                         indent: indent + 1,
-                        hide_footer: as_reply_to,
+                        hide_footer,
                         threaded,
                         is_first: Some(reply_id) == first,
                         is_last: Some(reply_id) == last,
@@ -282,7 +282,7 @@ fn render_note_maybe_fake(
             FeedNoteParams {
                 id,
                 indent,
-                hide_footer: as_reply_to,
+                hide_footer,
                 threaded,
                 is_first,
                 is_last,
