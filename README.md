@@ -133,6 +133,11 @@ If you want a binary optimized for your exact processor with the newest features
 $ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
 ````
 
+If you want to compile gossip with additional languages display
+````bash
+$ cargo build --release --features lang-cjk
+````
+
 Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
 
 To make the binary smaller,
