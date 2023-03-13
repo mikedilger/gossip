@@ -298,14 +298,14 @@ impl Feed {
                                     .iter()
                                     .any(|(p, _, _)| *p == my_pubkey.into())
                             } else {
-                                if e.value().kind != EventKind::EncryptedDirectMessage {
+                                if e.value().kind == EventKind::EncryptedDirectMessage {
+                                    true
+                                } else {
                                     // Include if it directly references me in the content
                                     e.value()
                                         .referenced_people()
                                         .iter()
                                         .any(|(p, _, _)| *p == my_pubkey.into())
-                                } else {
-                                    false
                                 }
                             }
                         })
