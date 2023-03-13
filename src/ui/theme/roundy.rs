@@ -1,4 +1,4 @@
-use super::{FeedProperties, PostProperties, ThemeDef};
+use super::{FeedProperties, NoteRenderData, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{FontDefinitions, Margin, Style, TextFormat, TextStyle, Visuals};
@@ -380,17 +380,17 @@ impl ThemeDef for RoundyTheme {
     fn feed_scroll_stroke(_dark_mode: bool, _feed: &FeedProperties) -> Stroke {
         Stroke::NONE
     }
-    fn feed_post_separator_stroke(_dark_mode: bool, _post: &PostProperties) -> Stroke {
+    fn feed_post_separator_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
         Stroke::new(1.0, Color32::TRANSPARENT)
     }
-    fn feed_post_outer_indent(ui: &mut eframe::egui::Ui, post: &PostProperties) {
+    fn feed_post_outer_indent(ui: &mut eframe::egui::Ui, post: &NoteRenderData) {
         if post.is_thread {
             let space = 100.0 * (10.0 - (1000.0 / (post.thread_position as f32 + 100.0)));
             ui.add_space(space);
         }
     }
-    fn feed_post_inner_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
-    fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
+    fn feed_post_inner_indent(_ui: &mut eframe::egui::Ui, _post: &NoteRenderData) {}
+    fn feed_frame_inner_margin(_post: &NoteRenderData) -> Margin {
         Margin {
             left: 10.0,
             right: 10.0,
@@ -398,10 +398,10 @@ impl ThemeDef for RoundyTheme {
             bottom: 5.0,
         }
     }
-    fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
+    fn feed_frame_outer_margin(_post: &NoteRenderData) -> Margin {
         Margin::default()
     }
-    fn feed_frame_rounding(post: &PostProperties) -> Rounding {
+    fn feed_frame_rounding(post: &NoteRenderData) -> Rounding {
         if post.is_thread {
             let mut rounding = Rounding::none();
             if post.is_first && post.thread_position == 0 {
@@ -413,10 +413,10 @@ impl ThemeDef for RoundyTheme {
             Rounding::same(7.0)
         }
     }
-    fn feed_frame_shadow(_dark_mode: bool, _post: &PostProperties) -> Shadow {
+    fn feed_frame_shadow(_dark_mode: bool, _post: &NoteRenderData) -> Shadow {
         Shadow::NONE
     }
-    fn feed_frame_fill(dark_mode: bool, post: &PostProperties) -> Color32 {
+    fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
         if post.is_new {
             if dark_mode {
                 Color32::from_rgb(45, 45, 46)
@@ -431,7 +431,7 @@ impl ThemeDef for RoundyTheme {
             }
         }
     }
-    fn feed_frame_stroke(dark_mode: bool, post: &PostProperties) -> Stroke {
+    fn feed_frame_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke {
         if post.is_focused {
             if dark_mode {
                 Stroke::new(1.0, Color32::from_rgb(64, 96, 64))

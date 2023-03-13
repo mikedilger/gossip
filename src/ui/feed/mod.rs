@@ -7,6 +7,7 @@ use egui::{Context, Frame, RichText, ScrollArea, SelectableLabel, Ui, Vec2};
 use nostr_types::Id;
 
 mod note;
+pub use note::NoteRenderData;
 mod post;
 
 struct FeedNoteParams {

@@ -3,7 +3,6 @@ use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::people::DbPerson;
-use crate::ui::theme::PostProperties;
 use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
@@ -57,6 +56,22 @@ impl NoteData {
     }
 }
 
+pub struct NoteRenderData {
+    pub height: f32,
+    /// Post height
+    pub is_new: bool,
+    /// This message is the focus of the view (formerly called is_main_event)
+    pub is_focused: bool,
+    /// This message is part of a thread
+    pub is_thread: bool,
+    /// Is this the first post in the display?
+    pub is_first: bool,
+    /// Is this the last post in the display
+    pub is_last: bool,
+    /// Position in the thread, focused message = 0
+    pub thread_position: i32,
+}
+
 pub(super) fn render_note(
     app: &mut GossipUi,
     ctx: &Context,
@@ -102,7 +117,7 @@ pub(super) fn render_note(
     } else {
         &0.0
     };
-    let post_properties = PostProperties {
+    let post_properties = NoteRenderData {
         height: *height,
         is_new,
         is_thread: threaded,
