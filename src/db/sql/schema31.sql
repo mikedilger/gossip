@@ -16,7 +16,7 @@ CREATE TABLE person_relay (
     CONSTRAINT person_relay_fk_person FOREIGN KEY (person) REFERENCES person (pubkey) ON DELETE CASCADE,
     CONSTRAINT person_relay_fk_relay FOREIGN KEY (relay) REFERENCES relay (url) ON DELETE CASCADE
 );
-INSERT INTO person_relay (person, relay, last_fetched, last_suggested_kind3, last_suggested_nip05,
+INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, last_suggested_kind3, last_suggested_nip05,
                           last_suggested_bytag, read, write, manually_paired_read, manually_paired_write)
   SELECT person, relay, last_fetched, last_suggested_kind3, last_suggested_nip05,
                           last_suggested_bytag, read, write, manually_paired_read, manually_paired_write
@@ -34,6 +34,6 @@ CREATE TABLE event_relay (
     CONSTRAINT event_relay_fk_event FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE,
     CONSTRAINT event_relay_fk_relay FOREIGN KEY (relay) REFERENCES relay (url) ON DELETE CASCADE
 );
-INSERT INTO event_relay (event, relay, when_seen)
+INSERT OR IGNORE INTO event_relay (event, relay, when_seen)
   SELECT event, relay, when_seen FROM old_event_relay;
 DROP TABLE old_event_relay;
