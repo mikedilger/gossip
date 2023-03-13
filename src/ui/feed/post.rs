@@ -99,7 +99,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     FeedNoteParams {
                         id,
                         indent: 0,
-                        as_reply_to: true,
+                        hide_footer: true,
                         threaded: false,
                         is_first: true,
                         is_last: true,

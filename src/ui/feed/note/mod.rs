@@ -60,8 +60,8 @@ pub struct NoteRenderData {
     pub height: f32,
     /// Post height
     pub is_new: bool,
-    /// This message is the focus of the view (formerly called is_main_event)
-    pub is_focused: bool,
+    /// This message is the focus of the view (formerly called is_focused)
+    pub is_main_event: bool,
     /// This message is part of a thread
     pub is_thread: bool,
     /// Is this the first post in the display?
@@ -82,7 +82,7 @@ pub(super) fn render_note(
     let FeedNoteParams {
         id,
         indent,
-        as_reply_to,
+        hide_footer,
         threaded,
         is_first,
         is_last,
@@ -117,13 +117,14 @@ pub(super) fn render_note(
     } else {
         &0.0
     };
-    let post_properties = NoteRenderData {
+
+    let render_data = NoteRenderData {
         height: *height,
         is_new,
         is_thread: threaded,
         is_first,
         is_last,
-        is_focused: is_main_event,
+        is_main_event,
         thread_position: indent as i32,
     };
 
@@ -131,28 +132,24 @@ pub(super) fn render_note(
 
     ui.horizontal(|ui| {
         // Outer indents first
-        app.settings
-            .theme
-            .feed_post_outer_indent(ui, &post_properties);
+        app.settings.theme.feed_post_outer_indent(ui, &render_data);
 
         let inner_response = Frame::none()
-            .inner_margin(app.settings.theme.feed_frame_inner_margin(&post_properties))
-            .outer_margin(app.settings.theme.feed_frame_outer_margin(&post_properties))
-            .rounding(app.settings.theme.feed_frame_rounding(&post_properties))
-            .shadow(app.settings.theme.feed_frame_shadow(&post_properties))
-            .fill(app.settings.theme.feed_frame_fill(&post_properties))
-            .stroke(app.settings.theme.feed_frame_stroke(&post_properties))
+            .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
+            .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
+            .rounding(app.settings.theme.feed_frame_rounding(&render_data))
+            .shadow(app.settings.theme.feed_frame_shadow(&render_data))
+            .fill(app.settings.theme.feed_frame_fill(&render_data))
+            .stroke(app.settings.theme.feed_frame_stroke(&render_data))
             .show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
-                    // Innter indents first
-                    app.settings
-                        .theme
-                        .feed_post_inner_indent(ui, &post_properties);
+                    // Inner indents first
+                    app.settings.theme.feed_post_inner_indent(ui, &render_data);
 
                     if note_data.author.muted > 0 {
                         ui.label(RichText::new("MUTED POST").monospace().italics());
                     } else {
-                        render_note_inner(app, ctx, ui, note_data, is_main_event, as_reply_to);
+                        render_note_inner(app, ctx, ui, note_data, &render_data, hide_footer);
                     }
                 });
             });
@@ -170,12 +167,10 @@ pub(super) fn render_note(
 
     thin_separator(
         ui,
-        app.settings
-            .theme
-            .feed_post_separator_stroke(&post_properties),
+        app.settings.theme.feed_post_separator_stroke(&render_data),
     );
 
-    if threaded && !as_reply_to {
+    if threaded && !hide_footer {
         let replies = Globals::get_replies_sync(id);
         let iter = replies.iter();
         let first = replies.first();
@@ -189,7 +184,7 @@ pub(super) fn render_note(
                 FeedNoteParams {
                     id: *reply_id,
                     indent: indent + 1,
-                    as_reply_to,
+                    hide_footer,
                     threaded,
                     is_first: Some(reply_id) == first,
                     is_last: Some(reply_id) == last,
@@ -205,8 +200,8 @@ fn render_note_inner(
     ctx: &Context,
     ui: &mut Ui,
     note_data: NoteData,
-    is_main_event: bool,
-    as_reply_to: bool,
+    render_data: &NoteRenderData,
+    hide_footer: bool,
 ) {
     let NoteData {
         event,
@@ -309,7 +304,8 @@ fn render_note_inner(
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.menu_button(RichText::new("=").size(13.0), |ui| {
-                    if !is_main_event && event.kind != EventKind::EncryptedDirectMessage {
+                    if !render_data.is_main_event && event.kind != EventKind::EncryptedDirectMessage
+                    {
                         if ui.button("View Thread").clicked() {
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: event.id,
@@ -361,7 +357,7 @@ fn render_note_inner(
                     ui.add_space(4.0);
                 }
 
-                if !is_main_event && event.kind != EventKind::EncryptedDirectMessage {
+                if !render_data.is_main_event && event.kind != EventKind::EncryptedDirectMessage {
                     if ui
                         .button(RichText::new("◉").size(13.0))
                         .on_hover_text("View Thread")
@@ -469,7 +465,7 @@ fn render_note_inner(
             }
 
             // Under row
-            if !as_reply_to {
+            if !hide_footer {
                 ui.horizontal_wrapped(|ui| {
                     if ui
                         .add(CopyButton {})
@@ -594,13 +590,28 @@ fn thin_separator(ui: &mut Ui, stroke: Stroke) {
     ui.reset_style();
 }
 
-pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, repost_data: NoteData) {
+pub(super) fn render_repost(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    ctx: &Context,
+    repost_data: NoteData,
+) {
+    let render_data = NoteRenderData {
+        height: 0.0,
+        is_new: false,
+        is_main_event: false,
+        is_thread: false,
+        is_first: false,
+        is_last: false,
+        thread_position: 0,
+    };
+
     ui.vertical(|ui| {
         thin_repost_separator(ui);
         ui.add_space(4.0);
         ui.horizontal_wrapped(|ui| {
             // FIXME: don't do this recursively
-            render_note_inner(app, ctx, ui, repost_data, false, false);
+            render_note_inner(app, ctx, ui, repost_data, &render_data, false);
         });
         thin_repost_separator(ui);
     });

@@ -13,7 +13,7 @@ mod post;
 struct FeedNoteParams {
     id: Id,
     indent: usize,
-    as_reply_to: bool,
+    hide_footer: bool,
     threaded: bool,
     is_first: bool,
     is_last: bool,
@@ -174,7 +174,7 @@ fn render_a_feed(
                             FeedNoteParams {
                                 id: *id,
                                 indent: 0,
-                                as_reply_to: false,
+                                hide_footer: false,
                                 threaded,
                                 is_first: Some(id) == first,
                                 is_last: Some(id) == last,
@@ -195,7 +195,7 @@ fn render_note_maybe_fake(
     let FeedNoteParams {
         id,
         indent,
-        as_reply_to,
+        hide_footer: as_reply_to,
         threaded,
         is_first,
         is_last,
@@ -234,7 +234,7 @@ fn render_note_maybe_fake(
                 FeedNoteParams {
                     id,
                     indent,
-                    as_reply_to,
+                    hide_footer: as_reply_to,
                     threaded,
                     is_first,
                     is_last,
@@ -265,7 +265,7 @@ fn render_note_maybe_fake(
                     FeedNoteParams {
                         id: *reply_id,
                         indent: indent + 1,
-                        as_reply_to,
+                        hide_footer: as_reply_to,
                         threaded,
                         is_first: Some(reply_id) == first,
                         is_last: Some(reply_id) == last,
@@ -282,7 +282,7 @@ fn render_note_maybe_fake(
             FeedNoteParams {
                 id,
                 indent,
-                as_reply_to,
+                hide_footer: as_reply_to,
                 threaded,
                 is_first,
                 is_last,

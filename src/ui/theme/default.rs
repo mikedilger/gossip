@@ -439,7 +439,7 @@ impl ThemeDef for DefaultTheme {
         Shadow::default()
     }
     fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
-        if post.is_focused {
+        if post.is_main_event {
             if dark_mode {
                 Color32::from_rgb(16, 23, 33)
             } else {

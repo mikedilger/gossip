@@ -432,7 +432,7 @@ impl ThemeDef for RoundyTheme {
         }
     }
     fn feed_frame_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke {
-        if post.is_focused {
+        if post.is_main_event {
             if dark_mode {
                 Stroke::new(1.0, Color32::from_rgb(64, 96, 64))
             } else {
