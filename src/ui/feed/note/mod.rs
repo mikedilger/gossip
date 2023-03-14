@@ -12,19 +12,32 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use gossip_relay_picker::RelayUrl;
-use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Id};
+use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex};
 
 mod content;
 
+enum RepostType {
+    Kind6,
+    Mention
+}
+
 pub(super) struct NoteData {
+    /// Original Event object, as received from nostr
     event: Event,
+    /// Delegation status of this event
     delegation: EventDelegation,
+    /// Author of this note (considers delegation)
     author: DbPerson,
+    /// Deletion reason if any
     deletion: Option<String>,
-    replies: Option<(Id, Option<RelayUrl>)>,
+    /// Do we consider this note as being a repost of another?
+    repost: Option<RepostType>,
+    /// Known reactions to this post
     reactions: Vec<(char, usize)>,
+    /// Has the current user reacted to this post?
     self_already_reacted: bool,
+    /// The content modified to our display needs
+    display_content: String,
 }
 
 impl NoteData {
@@ -45,7 +58,14 @@ impl NoteData {
 
         let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
 
-        let replies = event.replies_to();
+        // FIXME: determine all desired repost scenarios here
+        let repost = {
+            if event.kind == EventKind::Repost && (event.content.is_empty() || serde_json::from_str::<Event>(&event.content).is_ok()) {
+                Some(RepostType::Kind6)
+            } else {
+                None
+            }
+        };
 
         // If delegated, use the delegated person
         let author_pubkey: PublicKeyHex = if let EventDelegation::DelegatedBy(pubkey) = delegation {
@@ -59,14 +79,32 @@ impl NoteData {
             None => DbPerson::new(author_pubkey),
         };
 
+        // Compute the content to our needs
+        let display_content = match event.kind {
+            EventKind::TextNote => event.content.clone(),
+            EventKind::Repost => {
+                if event.content.is_empty() {
+                    "#[0]".to_owned() // a bit of a hack
+                } else {
+                    event.content.clone()
+                }
+            }
+            EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
+                Ok(m) => m,
+                Err(_) => "DECRYPTION FAILED".to_owned(),
+            },
+            _ => "NON FEED RELATED EVENT".to_owned(),
+        };
+
         Some(NoteData {
             event,
             delegation,
             author,
             deletion,
-            replies,
+            repost,
             reactions,
             self_already_reacted,
+            display_content,
         })
     }
 }
@@ -136,12 +174,9 @@ pub(super) fn render_note(
         &0.0
     };
 
-    // FIXME: determine all repost scenarios here
-    let has_repost = note_data.event.kind == EventKind::Repost;
-
     let render_data = NoteRenderData {
         height: *height,
-        has_repost,
+        has_repost: note_data.repost.is_some(),
         is_new,
         is_thread: threaded,
         is_first,
@@ -230,9 +265,10 @@ fn render_note_inner(
         delegation,
         author,
         deletion,
-        replies,
+        repost,
         reactions,
-        self_already_reacted
+        self_already_reacted,
+        display_content,
     } = note_data;
 
     let collapsed = app.collapsed.contains(&event.id);
@@ -244,7 +280,7 @@ fn render_note_inner(
         app.placeholder_avatar.clone()
     };
 
-    let avatar_size = match render_data.has_repost {
+    let avatar_size = match repost.is_some() {
         true => AVATAR_SIZE_REPOST_F32,
         false => AVATAR_SIZE_F32,
     };
@@ -263,7 +299,7 @@ fn render_note_inner(
         ui.horizontal_wrapped(|ui| {
             GossipUi::render_person_name_line(app, ui, &author);
 
-            if let Some((irt, _)) = replies {
+            if let Some((irt, _)) = event.replies_to() {
                 ui.add_space(8.0);
 
                 ui.style_mut().override_text_style = Some(TextStyle::Small);
@@ -345,7 +381,7 @@ fn render_note_inner(
                     matches!(feed_kind, FeedKind::Thread { .. })
                 };
 
-                if is_thread_view && replies.is_some() {
+                if is_thread_view && event.replies_to().is_some() {
                     if collapsed {
                         let color = app.settings.theme.warning_marker_text_color();
                         if ui
@@ -397,30 +433,13 @@ fn render_note_inner(
 
         ui.add_space(2.0);
 
-        // Compute the content
-        let content = match event.kind {
-            EventKind::TextNote => event.content.clone(),
-            EventKind::Repost => {
-                if event.content.is_empty() {
-                    "#[0]".to_owned() // a bit of a hack
-                } else {
-                    event.content.clone()
-                }
-            }
-            EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
-                Ok(m) => m,
-                Err(_) => "DECRYPTION FAILED".to_owned(),
-            },
-            _ => "NON FEED RELATED EVENT".to_owned(),
-        };
-
         // MAIN CONTENT
         if !collapsed {
             ui.horizontal_wrapped(|ui| {
                 if app.render_raw == Some(event.id) {
                     ui.label(serde_json::to_string_pretty(&event).unwrap());
                 } else if app.render_qr == Some(event.id) {
-                    app.render_qr(ui, ctx, "feedqr", content.trim());
+                    app.render_qr(ui, ctx, "feedqr", display_content.trim()); // FIXME should this be the unmodified content (event.content)?
                 } else if event.content_warning().is_some() && !app.approved.contains(&event.id) {
                     ui.label(
                         RichText::new(format!(
@@ -435,7 +454,7 @@ fn render_note_inner(
                         app.height.remove(&event.id); // will need to be recalculated.
                     }
                 } else if event.kind == EventKind::Repost {
-                    if let Ok(inner_event) = serde_json::from_str::<Event>(&content) {
+                    if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
                         if let Some(inner_note_data) = NoteData::new(inner_event) {
                             render_repost(app, ui, ctx, inner_note_data);
                         } else {
@@ -449,7 +468,7 @@ fn render_note_inner(
                             ui,
                             &event,
                             deletion.is_some(),
-                            &content,
+                            &display_content,
                         );
                     }
                 } else {
@@ -459,7 +478,7 @@ fn render_note_inner(
                         ui,
                         &event,
                         deletion.is_some(),
-                        &content,
+                        &display_content,
                     );
                 }
             });
@@ -485,7 +504,7 @@ fn render_note_inner(
                                 o.copied_text = serde_json::to_string(&event).unwrap()
                             });
                         } else {
-                            ui.output_mut(|o| o.copied_text = content.clone());
+                            ui.output_mut(|o| o.copied_text = display_content.clone());
                         }
                     }
 
