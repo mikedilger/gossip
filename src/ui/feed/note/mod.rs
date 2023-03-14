@@ -12,7 +12,8 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex};
+use gossip_relay_picker::RelayUrl;
+use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Id};
 
 mod content;
 
@@ -20,6 +21,10 @@ pub(super) struct NoteData {
     event: Event,
     delegation: EventDelegation,
     author: DbPerson,
+    deletion: Option<String>,
+    replies: Option<(Id, Option<RelayUrl>)>,
+    reactions: Vec<(char, usize)>,
+    self_already_reacted: bool,
 }
 
 impl NoteData {
@@ -35,6 +40,12 @@ impl NoteData {
         }
 
         let delegation = event.delegation();
+
+        let deletion = Globals::get_deletion_sync(event.id);
+
+        let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
+
+        let replies = event.replies_to();
 
         // If delegated, use the delegated person
         let author_pubkey: PublicKeyHex = if let EventDelegation::DelegatedBy(pubkey) = delegation {
@@ -52,6 +63,10 @@ impl NoteData {
             event,
             delegation,
             author,
+            deletion,
+            replies,
+            reactions,
+            self_already_reacted,
         })
     }
 }
@@ -214,13 +229,11 @@ fn render_note_inner(
         event,
         delegation,
         author,
+        deletion,
+        replies,
+        reactions,
+        self_already_reacted
     } = note_data;
-
-    let deletion = Globals::get_deletion_sync(event.id);
-
-    let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
-
-    let tag_re = app.tag_re.clone();
 
     let collapsed = app.collapsed.contains(&event.id);
 
@@ -243,8 +256,6 @@ fn render_note_inner(
         app.set_page(Page::Person(author.pubkey.clone()));
     };
 
-    let mut is_a_reply = false;
-
     // Everything else next
     ui.add_space(6.0);
     ui.vertical(|ui| {
@@ -252,8 +263,7 @@ fn render_note_inner(
         ui.horizontal_wrapped(|ui| {
             GossipUi::render_person_name_line(app, ui, &author);
 
-            if let Some((irt, _)) = event.replies_to() {
-                is_a_reply = true;
+            if let Some((irt, _)) = replies {
                 ui.add_space(8.0);
 
                 ui.style_mut().override_text_style = Some(TextStyle::Small);
@@ -335,7 +345,7 @@ fn render_note_inner(
                     matches!(feed_kind, FeedKind::Thread { .. })
                 };
 
-                if is_thread_view && is_a_reply {
+                if is_thread_view && replies.is_some() {
                     if collapsed {
                         let color = app.settings.theme.warning_marker_text_color();
                         if ui
@@ -437,7 +447,6 @@ fn render_note_inner(
                             app,
                             ctx,
                             ui,
-                            &tag_re,
                             &event,
                             deletion.is_some(),
                             &content,
@@ -448,7 +457,6 @@ fn render_note_inner(
                         app,
                         ctx,
                         ui,
-                        &tag_re,
                         &event,
                         deletion.is_some(),
                         &content,

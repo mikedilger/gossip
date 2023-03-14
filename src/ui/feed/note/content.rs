@@ -10,11 +10,11 @@ pub(super) fn render_content(
     app: &mut GossipUi,
     ctx: &Context,
     ui: &mut Ui,
-    tag_re: &regex::Regex,
     event: &Event,
     as_deleted: bool,
     content: &str,
 ) {
+    let tag_re = app.tag_re.clone();
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
