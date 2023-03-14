@@ -76,7 +76,7 @@ impl NoteData {
             if event.kind == EventKind::Repost && serde_json::from_str::<Event>(&event.content).is_ok()
             {
                 Some(RepostType::Kind6Embedded)
-            } else if event.content.trim().contains("#[0]") || event.content.trim().is_empty() {
+            } else if event.content.trim() == "#[0]" || event.content.trim().is_empty() {
                 if first_mention.is_some() {
                     if event.kind == EventKind::Repost {
                         Some(RepostType::Kind6Mention)
