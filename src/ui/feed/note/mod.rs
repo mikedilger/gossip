@@ -86,6 +86,10 @@ impl NoteData {
                 } else {
                     None
                 }
+            } else if event.content.contains("#[0]") && first_mention.is_some() {
+                // Some(RepostType::CommentMention)
+                tracing::warn!("FIXME: Repost for comment + mention not yet implemented, Id: {}", event.id.as_hex_string() );
+                None
             } else {
                 None
             }
@@ -568,7 +572,7 @@ fn render_note_inner(
             }
 
             // Under row
-            if !hide_footer {
+            if !hide_footer && !note_data.repost.is_some() {
                 Frame::none()
                     .inner_margin(Margin {
                         left: footer_margin_left,
@@ -735,7 +739,7 @@ pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, repo
         ui.add_space(margin.top);
         ui.horizontal_wrapped(|ui| {
             // FIXME: don't do this recursively
-            render_note_inner(app, ctx, ui, repost_data, &render_data, true);
+            render_note_inner(app, ctx, ui, repost_data, &render_data, false);
         });
     });
 }
