@@ -62,6 +62,8 @@ impl NoteData {
         let repost = {
             if event.kind == EventKind::Repost && (event.content.is_empty() || serde_json::from_str::<Event>(&event.content).is_ok()) {
                 Some(RepostType::Kind6)
+            } else if !event.mentions().is_empty() {
+                Some(RepostType::Mention)
             } else {
                 None
             }
@@ -625,7 +627,7 @@ pub(super) fn render_repost(
 ) {
     let render_data = NoteRenderData {
         height: 0.0,
-        has_repost: false, // FIXME should we consider allowing some recursion?
+        has_repost: repost_data.repost.is_some(),
         is_new: false,
         is_main_event: false,
         is_thread: false,
