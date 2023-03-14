@@ -113,6 +113,8 @@ impl NoteData {
             EventKind::Repost => {
                 if event.content.is_empty() {
                     "#[0]".to_owned() // a bit of a hack
+                } else if event.content.trim() == "#[0]" {
+                    event.content.trim().to_string()
                 } else {
                     event.content.clone()
                 }
