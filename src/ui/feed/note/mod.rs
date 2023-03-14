@@ -12,7 +12,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex};
+use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Tag};
 
 mod content;
 
@@ -39,6 +39,8 @@ pub(super) struct NoteData {
     deletion: Option<String>,
     /// Do we consider this note as being a repost of another?
     repost: Option<RepostType>,
+    /// A list of CACHED mentioned events and their index: (index, event)
+    cached_mentions: Vec<(usize, Event)>,
     /// Known reactions to this post
     reactions: Vec<(char, usize)>,
     /// Has the current user reacted to this post?
@@ -48,7 +50,7 @@ pub(super) struct NoteData {
 }
 
 impl NoteData {
-    pub fn new(event: Event) -> Option<NoteData> {
+    pub fn new(event: Event, with_inline_mentions: bool) -> Option<NoteData> {
         // Only render known relevent events
         let enable_reposts = GLOBALS.settings.read().reposts;
         let direct_messages = GLOBALS.settings.read().direct_messages;
@@ -65,19 +67,30 @@ impl NoteData {
 
         let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
 
-        // FIXME: determine all desired repost scenarios here
-        // FIXME: in the unlikely event that the first mentions in the text isn't index 0,
-        //        we would be checking for the wrong mention here
-        let first_mention = match event.mentions().first() {
-            Some(mention) => GLOBALS.events.get(&mention.0),
-            None => None,
+        let cached_mentions = {
+            let mut cached_mentions= Vec::<(usize, Event)>::new();
+            for (i, tag) in event.tags.iter().enumerate() {
+                match tag {
+                    Tag::Event { id, .. } => {
+                        if let Some(event) = GLOBALS.events.get(id) {
+                            cached_mentions.push((i, event));
+                        }
+                    },
+                    _ => (),
+                }
+            }
+            cached_mentions
         };
+
         let repost = {
-            if event.kind == EventKind::Repost && serde_json::from_str::<Event>(&event.content).is_ok()
+            let content_trim = event.content.trim();
+            let content_trim_len = content_trim.chars().count();
+            if event.kind == EventKind::Repost
+                && serde_json::from_str::<Event>(&event.content).is_ok()
             {
                 Some(RepostType::Kind6Embedded)
-            } else if event.content.trim() == "#[0]" || event.content.trim().is_empty() {
-                if first_mention.is_some() {
+            } else if content_trim == "#[0]" || content_trim.is_empty() {
+                if !cached_mentions.is_empty() {
                     if event.kind == EventKind::Repost {
                         Some(RepostType::Kind6Mention)
                     } else {
@@ -86,10 +99,14 @@ impl NoteData {
                 } else {
                     None
                 }
-            } else if event.content.contains("#[0]") && first_mention.is_some() {
-                // Some(RepostType::CommentMention)
-                tracing::warn!("FIXME: Repost for comment + mention not yet implemented, Id: {}", event.id.as_hex_string() );
-                None
+            } else if with_inline_mentions
+                 && content_trim_len > 4
+                 && content_trim.chars().nth(content_trim_len - 1).unwrap() == ']'
+                 && content_trim.chars().nth(content_trim_len - 3).unwrap() == '['
+                 && content_trim.chars().nth(content_trim_len - 4).unwrap() == '#'
+                 && !cached_mentions.is_empty() {
+                // matches content that ends with a mention, avoiding use of a regex match
+                Some(RepostType::CommentMention)
             } else {
                 None
             }
@@ -132,6 +149,7 @@ impl NoteData {
             author,
             deletion,
             repost,
+            cached_mentions,
             reactions,
             self_already_reacted,
             display_content,
@@ -181,7 +199,7 @@ pub(super) fn render_note(
         }
         let event = maybe_event.unwrap();
 
-        match NoteData::new(event) {
+        match NoteData::new(event, app.settings.show_first_mention) {
             Some(nd) => nd,
             None => return,
         }
@@ -296,6 +314,7 @@ fn render_note_inner(
         author,
         deletion,
         repost,
+        cached_mentions: _,
         reactions,
         self_already_reacted,
         display_content,
@@ -536,7 +555,7 @@ fn render_note_inner(
                             }
                         } else if event.kind == EventKind::Repost {
                             if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                                if let Some(inner_note_data) = NoteData::new(inner_event) {
+                                if let Some(inner_note_data) = NoteData::new(inner_event, false) {
                                     render_repost(app, ui, ctx, inner_note_data);
                                 } else {
                                     ui.label("REPOSTED EVENT IS NOT RELEVANT");

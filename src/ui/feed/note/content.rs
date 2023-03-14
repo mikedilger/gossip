@@ -55,28 +55,31 @@ pub(super) fn render_content(
                             if ui.cursor().min.x > ui.max_rect().min.y {
                                 ui.end_row();
                             }
+                            let mut render_link = true;
                             match note.repost {
-                                Some(RepostType::MentionOnly) => {
-                                    if app.settings.show_first_mention && pos == 0 {
-                                        // try to find the mentioned note in our cache
-                                        let maybe_event = GLOBALS.events.get(id);
-                                        if let Some(event) = maybe_event {
-                                            if let Some(note_data) = super::NoteData::new(event) {
+                                Some(RepostType::MentionOnly) | Some(RepostType::CommentMention) => {
+                                    for (i, event) in note.cached_mentions.iter() {
+                                        if *i == num {
+                                            // FIXME is there a way to consume just this entry in cached_mentions so
+                                            //       we can avoid the clone?
+                                            if let Some(note_data) = super::NoteData::new(event.clone(), true) {
                                                 super::render_repost(app, ui, ctx, note_data);
+                                                render_link = false;
                                             }
                                         }
                                     }
                                 }
-                                _ => {
-                                    let idhex: IdHex = (*id).into();
-                                    let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
-                                    if ui.link(&nam).clicked() {
-                                        app.set_page(Page::Feed(FeedKind::Thread {
-                                            id: *id,
-                                            referenced_by: note.event.id,
-                                        }));
-                                    };
-                                }
+                                _ => (),
+                            }
+                            if render_link {
+                                let idhex: IdHex = (*id).into();
+                                let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
+                                if ui.link(&nam).clicked() {
+                                    app.set_page(Page::Feed(FeedKind::Thread {
+                                        id: *id,
+                                        referenced_by: note.event.id,
+                                    }));
+                                };
                             }
                         }
                         Tag::Hashtag(s) => {
