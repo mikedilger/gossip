@@ -24,11 +24,11 @@ pub(super) fn render_content(
                 || span.as_str().ends_with(".jpeg")
                 || span.as_str().ends_with(".png")
                 || span.as_str().ends_with(".gif")
-            {   
+            {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
             } else if span.as_str().ends_with(".mov")
                 || span.as_str().ends_with(".mp4")
-            {   
+            {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", span.as_str());
             } else {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
@@ -55,7 +55,8 @@ pub(super) fn render_content(
                             };
                         }
                         Tag::Event { id, .. } => {
-                            if ui.cursor().min == ui.max_rect().min {
+                            // insert a newline if the current line has text
+                            if ui.cursor().min.x > ui.max_rect().min.y {
                                 ui.end_row();
                             }
                             let mut render_as_link = true;
