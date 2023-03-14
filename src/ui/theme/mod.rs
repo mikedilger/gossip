@@ -1,5 +1,5 @@
-use super::HighlightType;
 use super::feed::NoteRenderData;
+use super::HighlightType;
 use eframe::egui::{
     Color32, Context, FontData, FontDefinitions, FontTweak, Margin, Rounding, Stroke, Style,
     TextFormat, TextStyle, Ui,

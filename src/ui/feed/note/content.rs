@@ -57,12 +57,16 @@ pub(super) fn render_content(
                             }
                             let mut render_link = true;
                             match note.repost {
-                                Some(RepostType::MentionOnly) | Some(RepostType::CommentMention) => {
+                                Some(RepostType::MentionOnly)
+                                | Some(RepostType::CommentMention)
+                                | Some(RepostType::Kind6Mention) => {
                                     for (i, event) in note.cached_mentions.iter() {
                                         if *i == num {
                                             // FIXME is there a way to consume just this entry in cached_mentions so
                                             //       we can avoid the clone?
-                                            if let Some(note_data) = super::NoteData::new(event.clone(), true) {
+                                            if let Some(note_data) =
+                                                super::NoteData::new(event.clone(), true)
+                                            {
                                                 super::render_repost(app, ui, ctx, note_data);
                                                 render_link = false;
                                             }

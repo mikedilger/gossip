@@ -68,14 +68,14 @@ impl NoteData {
         let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
 
         let cached_mentions = {
-            let mut cached_mentions= Vec::<(usize, Event)>::new();
+            let mut cached_mentions = Vec::<(usize, Event)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
                 match tag {
                     Tag::Event { id, .. } => {
                         if let Some(event) = GLOBALS.events.get(id) {
                             cached_mentions.push((i, event));
                         }
-                    },
+                    }
                     _ => (),
                 }
             }
@@ -100,11 +100,12 @@ impl NoteData {
                     None
                 }
             } else if with_inline_mentions
-                 && content_trim_len > 4
-                 && content_trim.chars().nth(content_trim_len - 1).unwrap() == ']'
-                 && content_trim.chars().nth(content_trim_len - 3).unwrap() == '['
-                 && content_trim.chars().nth(content_trim_len - 4).unwrap() == '#'
-                 && !cached_mentions.is_empty() {
+                && content_trim_len > 4
+                && content_trim.chars().nth(content_trim_len - 1).unwrap() == ']'
+                && content_trim.chars().nth(content_trim_len - 3).unwrap() == '['
+                && content_trim.chars().nth(content_trim_len - 4).unwrap() == '#'
+                && !cached_mentions.is_empty()
+            {
                 // matches content that ends with a mention, avoiding use of a regex match
                 Some(RepostType::CommentMention)
             } else {
