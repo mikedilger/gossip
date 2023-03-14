@@ -1,16 +1,16 @@
-use super::{GossipUi, Page};
+use super::{GossipUi, NoteData, Page, RepostType};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui::{self, Context};
 use egui::{RichText, Ui};
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{Event, IdHex, Tag};
+use nostr_types::{IdHex, Tag};
 
 pub(super) fn render_content(
     app: &mut GossipUi,
     ctx: &Context,
     ui: &mut Ui,
-    event: &Event,
+    note: &NoteData,
     as_deleted: bool,
     content: &str,
 ) {
@@ -19,28 +19,24 @@ pub(super) fn render_content(
 
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
-
             if span.as_str().ends_with(".jpg")
                 || span.as_str().ends_with(".jpeg")
                 || span.as_str().ends_with(".png")
                 || span.as_str().ends_with(".gif")
             {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
-            } else if span.as_str().ends_with(".mov")
-                || span.as_str().ends_with(".mp4")
-            {
+            } else if span.as_str().ends_with(".mov") || span.as_str().ends_with(".mp4") {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", span.as_str());
             } else {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
             }
-
         } else {
             let s = span.as_str();
             let mut pos = 0;
             for mat in tag_re.find_iter(s) {
                 ui.label(&s[pos..mat.start()]);
                 let num: usize = s[mat.start() + 2..mat.end() - 1].parse::<usize>().unwrap();
-                if let Some(tag) = event.tags.get(num) {
+                if let Some(tag) = note.event.tags.get(num) {
                     match tag {
                         Tag::Pubkey { pubkey, .. } => {
                             let nam = match GLOBALS.people.get(pubkey) {
@@ -59,26 +55,28 @@ pub(super) fn render_content(
                             if ui.cursor().min.x > ui.max_rect().min.y {
                                 ui.end_row();
                             }
-                            let mut render_as_link = true;
-                            if app.settings.show_first_mention && pos == 0 {
-                                // try to find the mentioned note in our cache
-                                let maybe_event = GLOBALS.events.get(id);
-                                if let Some(event) = maybe_event {
-                                    if let Some(note_data) = super::NoteData::new(event) {
-                                        super::render_repost(app, ui, ctx, note_data);
-                                        render_as_link = false;
+                            match note.repost {
+                                Some(RepostType::Mention) => {
+                                    if app.settings.show_first_mention && pos == 0 {
+                                        // try to find the mentioned note in our cache
+                                        let maybe_event = GLOBALS.events.get(id);
+                                        if let Some(event) = maybe_event {
+                                            if let Some(note_data) = super::NoteData::new(event) {
+                                                super::render_repost(app, ui, ctx, note_data);
+                                            }
+                                        }
                                     }
                                 }
-                            }
-                            if render_as_link {
-                                let idhex: IdHex = (*id).into();
-                                let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
-                                if ui.link(&nam).clicked() {
-                                    app.set_page(Page::Feed(FeedKind::Thread {
-                                        id: *id,
-                                        referenced_by: event.id,
-                                    }));
-                                };
+                                _ => {
+                                    let idhex: IdHex = (*id).into();
+                                    let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
+                                    if ui.link(&nam).clicked() {
+                                        app.set_page(Page::Feed(FeedKind::Thread {
+                                            id: *id,
+                                            referenced_by: note.event.id,
+                                        }));
+                                    };
+                                }
                             }
                         }
                         Tag::Hashtag(s) => {

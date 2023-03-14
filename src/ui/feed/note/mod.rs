@@ -7,7 +7,7 @@ use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
 pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
-use eframe::egui;
+use eframe::egui::{self, Margin};
 use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
@@ -18,7 +18,7 @@ mod content;
 
 enum RepostType {
     Kind6,
-    Mention
+    Mention,
 }
 
 pub(super) struct NoteData {
@@ -59,10 +59,19 @@ impl NoteData {
         let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
 
         // FIXME: determine all desired repost scenarios here
+        // FIXME: in the unlikely event that the order of mentions in the text isn't the same
+        //        as in the tags, we would be checking for the wrong mention here
+        let first_mention = match event.mentions().first() {
+            Some(mention) => GLOBALS.events.get(&mention.0),
+            None => None,
+        };
         let repost = {
-            if event.kind == EventKind::Repost && (event.content.is_empty() || serde_json::from_str::<Event>(&event.content).is_ok()) {
+            if event.kind == EventKind::Repost
+                && (event.content.is_empty()
+                    || serde_json::from_str::<Event>(&event.content).is_ok())
+            {
                 Some(RepostType::Kind6)
-            } else if !event.mentions().is_empty() {
+            } else if first_mention.is_some() {
                 Some(RepostType::Mention)
             } else {
                 None
@@ -271,35 +280,70 @@ fn render_note_inner(
         reactions,
         self_already_reacted,
         display_content,
-    } = note_data;
+    } = &note_data;
 
     let collapsed = app.collapsed.contains(&event.id);
 
-    // Avatar first
+    // Load avatar texture
     let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &author.pubkey) {
         avatar
     } else {
         app.placeholder_avatar.clone()
     };
 
-    let avatar_size = match repost.is_some() {
-        true => AVATAR_SIZE_REPOST_F32,
-        false => AVATAR_SIZE_F32,
+    // Determine avatar size
+    let avatar_size = match repost {
+        None => AVATAR_SIZE_F32,
+        Some(_) => AVATAR_SIZE_REPOST_F32,
     };
 
-    if ui
-        .add(Image::new(&avatar, Vec2 { x: avatar_size, y: avatar_size }).sense(Sense::click()))
-        .clicked()
-    {
-        app.set_page(Page::Person(author.pubkey.clone()));
+    let inner_margin = app.settings.theme.feed_frame_inner_margin(render_data);
+
+    let avatar_margin_left = match repost {
+        None => 0.0,
+        Some(_) => (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
     };
 
-    // Everything else next
-    ui.add_space(6.0);
+    let content_margin_top = match repost {
+        None => inner_margin.top + ui.style().spacing.item_spacing.y * 2.0 - avatar_size,
+        Some(_) => 0.0,
+    };
+
+    let footer_margin_left = AVATAR_SIZE_F32 + inner_margin.left;
+
+    let content_margin_left = match repost {
+        None => avatar_size + inner_margin.left,
+        Some(_) => 0.0,
+    };
+
     ui.vertical(|ui| {
         // First row
-        ui.horizontal_wrapped(|ui| {
-            GossipUi::render_person_name_line(app, ui, &author);
+
+        ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
+            ui.add_space(avatar_margin_left);
+
+            // render avatar
+            if ui
+                .add(
+                    Image::new(
+                        &avatar,
+                        Vec2 {
+                            x: avatar_size,
+                            y: avatar_size,
+                        },
+                    )
+                    .sense(Sense::click()),
+                )
+                .clicked()
+            {
+                app.set_page(Page::Person(author.pubkey.clone()));
+            };
+
+            ui.add_space(avatar_margin_left);
+
+            ui.add_space(3.0);
+
+            GossipUi::render_person_name_line(app, ui, author);
 
             if let Some((irt, _)) = event.replies_to() {
                 ui.add_space(8.0);
@@ -426,10 +470,9 @@ fn render_note_inner(
             });
         });
 
-        ui.add_space(4.0);
-
         // Possible subject line
         if let Some(subject) = event.subject() {
+            ui.add_space(4.0);
             ui.label(RichText::new(subject).strong().underline());
         }
 
@@ -437,53 +480,71 @@ fn render_note_inner(
 
         // MAIN CONTENT
         if !collapsed {
-            ui.horizontal_wrapped(|ui| {
-                if app.render_raw == Some(event.id) {
-                    ui.label(serde_json::to_string_pretty(&event).unwrap());
-                } else if app.render_qr == Some(event.id) {
-                    app.render_qr(ui, ctx, "feedqr", display_content.trim()); // FIXME should this be the unmodified content (event.content)?
-                } else if event.content_warning().is_some() && !app.approved.contains(&event.id) {
-                    ui.label(
-                        RichText::new(format!(
-                            "Content-Warning: {}",
-                            event.content_warning().unwrap()
-                        ))
-                        .monospace()
-                        .italics(),
-                    );
-                    if ui.button("Show Post").clicked() {
-                        app.approved.insert(event.id);
-                        app.height.remove(&event.id); // will need to be recalculated.
-                    }
-                } else if event.kind == EventKind::Repost {
-                    if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                        if let Some(inner_note_data) = NoteData::new(inner_event) {
-                            render_repost(app, ui, ctx, inner_note_data);
+            Frame::none()
+                .inner_margin(Margin {
+                    left: content_margin_left,
+                    bottom: 0.0,
+                    right: 0.0,
+                    top: 0.0,
+                })
+                .outer_margin(Margin {
+                    left: 0.0,
+                    bottom: 0.0,
+                    right: 0.0,
+                    top: content_margin_top,
+                })
+                .show(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        if app.render_raw == Some(event.id) {
+                            ui.label(serde_json::to_string_pretty(&event).unwrap());
+                        } else if app.render_qr == Some(event.id) {
+                            app.render_qr(ui, ctx, "feedqr", display_content.trim());
+                        // FIXME should this be the unmodified content (event.content)?
+                        } else if event.content_warning().is_some()
+                            && !app.approved.contains(&event.id)
+                        {
+                            ui.label(
+                                RichText::new(format!(
+                                    "Content-Warning: {}",
+                                    event.content_warning().unwrap()
+                                ))
+                                .monospace()
+                                .italics(),
+                            );
+                            if ui.button("Show Post").clicked() {
+                                app.approved.insert(event.id);
+                                app.height.remove(&event.id); // will need to be recalculated.
+                            }
+                        } else if event.kind == EventKind::Repost {
+                            if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+                                if let Some(inner_note_data) = NoteData::new(inner_event) {
+                                    render_repost(app, ui, ctx, inner_note_data);
+                                } else {
+                                    ui.label("REPOSTED EVENT IS NOT RELEVANT");
+                                }
+                            } else {
+                                // render like a kind-1 event with a mention
+                                content::render_content(
+                                    app,
+                                    ctx,
+                                    ui,
+                                    &note_data,
+                                    deletion.is_some(),
+                                    display_content,
+                                );
+                            }
                         } else {
-                            ui.label("REPOSTED EVENT IS NOT RELEVANT");
+                            content::render_content(
+                                app,
+                                ctx,
+                                ui,
+                                &note_data,
+                                deletion.is_some(),
+                                display_content,
+                            );
                         }
-                    } else {
-                        // render like a kind-1 event with a mention
-                        content::render_content(
-                            app,
-                            ctx,
-                            ui,
-                            &event,
-                            deletion.is_some(),
-                            &display_content,
-                        );
-                    }
-                } else {
-                    content::render_content(
-                        app,
-                        ctx,
-                        ui,
-                        &event,
-                        deletion.is_some(),
-                        &display_content,
-                    );
-                }
-            });
+                    });
+                });
 
             ui.add_space(8.0);
 
@@ -495,113 +556,135 @@ fn render_note_inner(
 
             // Under row
             if !hide_footer {
-                ui.horizontal_wrapped(|ui| {
-                    if ui
-                        .add(CopyButton {})
-                        .on_hover_text("Copy Contents")
-                        .clicked()
-                    {
-                        if app.render_raw == Some(event.id) {
-                            ui.output_mut(|o| {
-                                o.copied_text = serde_json::to_string(&event).unwrap()
-                            });
-                        } else {
-                            ui.output_mut(|o| o.copied_text = display_content.clone());
-                        }
-                    }
-
-                    ui.add_space(24.0);
-
-                    // Button to quote note
-                    if ui
-                        .add(Label::new(RichText::new("»").size(18.0)).sense(Sense::click()))
-                        .on_hover_text("Quote")
-                        .clicked()
-                    {
-                        if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                            app.draft.push(' ');
-                        }
-                        app.draft
-                            .push_str(&event.id.try_as_bech32_string().unwrap());
-                    }
-
-                    ui.add_space(24.0);
-
-                    // Button to reply
-                    if event.kind != EventKind::EncryptedDirectMessage {
-                        if ui
-                            .add(Label::new(RichText::new("💬").size(18.0)).sense(Sense::click()))
-                            .on_hover_text("Reply")
-                            .clicked()
-                        {
-                            app.replying_to = Some(event.id);
-                        }
-
-                        ui.add_space(24.0);
-                    }
-
-                    // Button to render raw
-                    if ui
-                        .add(Label::new(RichText::new("🥩").size(13.0)).sense(Sense::click()))
-                        .on_hover_text("Raw")
-                        .clicked()
-                    {
-                        if app.render_raw != Some(event.id) {
-                            app.render_raw = Some(event.id);
-                        } else {
-                            app.render_raw = None;
-                        }
-                    }
-
-                    ui.add_space(24.0);
-
-                    // Button to render QR code
-                    if ui
-                        .add(Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()))
-                        .on_hover_text("QR Code")
-                        .clicked()
-                    {
-                        if app.render_qr != Some(event.id) {
-                            app.render_qr = Some(event.id);
-                            app.qr_codes.remove("feedqr");
-                        } else {
-                            app.render_qr = None;
-                            app.qr_codes.remove("feedqr");
-                        }
-                    }
-
-                    ui.add_space(24.0);
-
-                    // Buttons to react and reaction counts
-                    if app.settings.reactions {
-                        let default_reaction_icon = match self_already_reacted {
-                            true => "♥",
-                            false => "♡",
-                        };
-                        if ui
-                            .add(
-                                Label::new(RichText::new(default_reaction_icon).size(20.0))
-                                    .sense(Sense::click()),
-                            )
-                            .clicked()
-                        {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::Like(event.id, event.pubkey));
-                        }
-                        for (ch, count) in reactions.iter() {
-                            if *ch == '+' {
-                                ui.label(format!("{}", count));
+                Frame::none()
+                    .inner_margin(Margin {
+                        left: footer_margin_left,
+                        bottom: 0.0,
+                        right: 0.0,
+                        top: 0.0,
+                    })
+                    .outer_margin(Margin::same(0.0))
+                    .show(ui, |ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            if ui
+                                .add(CopyButton {})
+                                .on_hover_text("Copy Contents")
+                                .clicked()
+                            {
+                                if app.render_raw == Some(event.id) {
+                                    ui.output_mut(|o| {
+                                        o.copied_text = serde_json::to_string(&event).unwrap()
+                                    });
+                                } else {
+                                    ui.output_mut(|o| o.copied_text = display_content.clone());
+                                }
                             }
-                        }
-                        ui.add_space(12.0);
-                        for (ch, count) in reactions.iter() {
-                            if *ch != '+' {
-                                ui.label(RichText::new(format!("{} {}", ch, count)).strong());
+
+                            ui.add_space(24.0);
+
+                            // Button to quote note
+                            if ui
+                                .add(
+                                    Label::new(RichText::new("»").size(18.0)).sense(Sense::click()),
+                                )
+                                .on_hover_text("Quote")
+                                .clicked()
+                            {
+                                if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                                    app.draft.push(' ');
+                                }
+                                app.draft
+                                    .push_str(&event.id.try_as_bech32_string().unwrap());
                             }
-                        }
-                    }
-                });
+
+                            ui.add_space(24.0);
+
+                            // Button to reply
+                            if event.kind != EventKind::EncryptedDirectMessage {
+                                if ui
+                                    .add(
+                                        Label::new(RichText::new("💬").size(18.0))
+                                            .sense(Sense::click()),
+                                    )
+                                    .on_hover_text("Reply")
+                                    .clicked()
+                                {
+                                    app.replying_to = Some(event.id);
+                                }
+
+                                ui.add_space(24.0);
+                            }
+
+                            // Button to render raw
+                            if ui
+                                .add(
+                                    Label::new(RichText::new("🥩").size(13.0))
+                                        .sense(Sense::click()),
+                                )
+                                .on_hover_text("Raw")
+                                .clicked()
+                            {
+                                if app.render_raw != Some(event.id) {
+                                    app.render_raw = Some(event.id);
+                                } else {
+                                    app.render_raw = None;
+                                }
+                            }
+
+                            ui.add_space(24.0);
+
+                            // Button to render QR code
+                            if ui
+                                .add(
+                                    Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()),
+                                )
+                                .on_hover_text("QR Code")
+                                .clicked()
+                            {
+                                if app.render_qr != Some(event.id) {
+                                    app.render_qr = Some(event.id);
+                                    app.qr_codes.remove("feedqr");
+                                } else {
+                                    app.render_qr = None;
+                                    app.qr_codes.remove("feedqr");
+                                }
+                            }
+
+                            ui.add_space(24.0);
+
+                            // Buttons to react and reaction counts
+                            if app.settings.reactions {
+                                let default_reaction_icon = match self_already_reacted {
+                                    true => "♥",
+                                    false => "♡",
+                                };
+                                if ui
+                                    .add(
+                                        Label::new(RichText::new(default_reaction_icon).size(20.0))
+                                            .sense(Sense::click()),
+                                    )
+                                    .clicked()
+                                {
+                                    let _ = GLOBALS
+                                        .to_overlord
+                                        .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                                }
+                                for (ch, count) in reactions.iter() {
+                                    if *ch == '+' {
+                                        ui.label(format!("{}", count));
+                                    }
+                                }
+                                ui.add_space(12.0);
+                                for (ch, count) in reactions.iter() {
+                                    if *ch != '+' {
+                                        ui.label(
+                                            RichText::new(format!("{} {}", ch, count)).strong(),
+                                        );
+                                    }
+                                }
+                            }
+                        });
+                    });
             }
         }
     });
@@ -619,12 +702,7 @@ fn thin_separator(ui: &mut Ui, stroke: Stroke) {
     ui.reset_style();
 }
 
-pub(super) fn render_repost(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    ctx: &Context,
-    repost_data: NoteData,
-) {
+pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, repost_data: NoteData) {
     let render_data = NoteRenderData {
         height: 0.0,
         has_repost: repost_data.repost.is_some(),
@@ -636,13 +714,15 @@ pub(super) fn render_repost(
         thread_position: 0,
     };
 
+    let margin = app.settings.theme.feed_frame_inner_margin(&render_data);
+
     ui.vertical(|ui| {
+        ui.add_space(margin.bottom);
         thin_repost_separator(ui);
-        ui.add_space(4.0);
+        ui.add_space(margin.top);
         ui.horizontal_wrapped(|ui| {
             // FIXME: don't do this recursively
-            render_note_inner(app, ctx, ui, repost_data, &render_data, false);
+            render_note_inner(app, ctx, ui, repost_data, &render_data, true);
         });
-        thin_repost_separator(ui);
     });
 }
