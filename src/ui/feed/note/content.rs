@@ -56,7 +56,7 @@ pub(super) fn render_content(
                                 ui.end_row();
                             }
                             match note.repost {
-                                Some(RepostType::Mention) => {
+                                Some(RepostType::MentionOnly) => {
                                     if app.settings.show_first_mention && pos == 0 {
                                         // try to find the mentioned note in our cache
                                         let maybe_event = GLOBALS.events.get(id);

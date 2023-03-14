@@ -17,8 +17,15 @@ use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex};
 mod content;
 
 enum RepostType {
-    Kind6,
-    Mention,
+    /// Damus style, kind 6 repost where the reposted note's JSON
+    /// is included in the content
+    Kind6Embedded,
+    /// kind 6 repost without reposted note, but has a mention tag
+    Kind6Mention,
+    /// Post only has whitespace and a single mention tag
+    MentionOnly,
+    /// Post has a comment and at least one mention tag
+    CommentMention,
 }
 
 pub(super) struct NoteData {
@@ -59,20 +66,26 @@ impl NoteData {
         let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
 
         // FIXME: determine all desired repost scenarios here
-        // FIXME: in the unlikely event that the order of mentions in the text isn't the same
-        //        as in the tags, we would be checking for the wrong mention here
+        // FIXME: in the unlikely event that the first mentions in the text isn't index 0,
+        //        we would be checking for the wrong mention here
         let first_mention = match event.mentions().first() {
             Some(mention) => GLOBALS.events.get(&mention.0),
             None => None,
         };
         let repost = {
-            if event.kind == EventKind::Repost
-                && (event.content.is_empty()
-                    || serde_json::from_str::<Event>(&event.content).is_ok())
+            if event.kind == EventKind::Repost && serde_json::from_str::<Event>(&event.content).is_ok()
             {
-                Some(RepostType::Kind6)
-            } else if first_mention.is_some() {
-                Some(RepostType::Mention)
+                Some(RepostType::Kind6Embedded)
+            } else if event.content.trim().contains("#[0]") || event.content.trim().is_empty() {
+                if first_mention.is_some() {
+                    if event.kind == EventKind::Repost {
+                        Some(RepostType::Kind6Mention)
+                    } else {
+                        Some(RepostType::MentionOnly)
+                    }
+                } else {
+                    None
+                }
             } else {
                 None
             }
