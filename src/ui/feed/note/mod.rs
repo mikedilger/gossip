@@ -70,13 +70,10 @@ impl NoteData {
         let cached_mentions = {
             let mut cached_mentions = Vec::<(usize, Event)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
-                match tag {
-                    Tag::Event { id, .. } => {
-                        if let Some(event) = GLOBALS.events.get(id) {
-                            cached_mentions.push((i, event));
-                        }
+                if let Tag::Event { id, .. } = tag {
+                    if let Some(event) = GLOBALS.events.get(id) {
+                        cached_mentions.push((i, event));
                     }
-                    _ => (),
                 }
             }
             cached_mentions
@@ -343,17 +340,10 @@ fn render_note_inner(
         Some(_) => (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
     };
 
-    let content_margin_top = match repost {
-        None => inner_margin.top + ui.style().spacing.item_spacing.y * 2.0 - avatar_size,
-        Some(_) => 0.0,
-    };
+    let content_margin_top = inner_margin.top + ui.style().spacing.item_spacing.y * 2.0 - avatar_size;
 
-    let footer_margin_left = AVATAR_SIZE_F32 + inner_margin.left;
-
-    let content_margin_left = match repost {
-        None => avatar_size + inner_margin.left,
-        Some(_) => 0.0,
-    };
+    let content_margin_left= AVATAR_SIZE_F32 + inner_margin.left;
+    let footer_margin_left = content_margin_left;
 
     ui.vertical(|ui| {
         // First row
@@ -519,91 +509,94 @@ fn render_note_inner(
 
         // MAIN CONTENT
         if !collapsed {
+            let mut append_repost: Option<NoteData> = None;
             Frame::none()
-                .inner_margin(Margin {
-                    left: content_margin_left,
-                    bottom: 0.0,
-                    right: 0.0,
-                    top: 0.0,
-                })
-                .outer_margin(Margin {
-                    left: 0.0,
-                    bottom: 0.0,
-                    right: 0.0,
-                    top: content_margin_top,
-                })
-                .show(ui, |ui| {
-                    ui.horizontal_wrapped(|ui| {
-                        if app.render_raw == Some(event.id) {
-                            ui.label(serde_json::to_string_pretty(&event).unwrap());
-                        } else if app.render_qr == Some(event.id) {
-                            app.render_qr(ui, ctx, "feedqr", display_content.trim());
-                        // FIXME should this be the unmodified content (event.content)?
-                        } else if event.content_warning().is_some()
-                            && !app.approved.contains(&event.id)
-                        {
-                            ui.label(
-                                RichText::new(format!(
-                                    "Content-Warning: {}",
-                                    event.content_warning().unwrap()
-                                ))
-                                .monospace()
-                                .italics(),
-                            );
-                            if ui.button("Show Post").clicked() {
-                                app.approved.insert(event.id);
-                                app.height.remove(&event.id); // will need to be recalculated.
-                            }
-                        } else if event.kind == EventKind::Repost {
-                            if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                                if let Some(inner_note_data) = NoteData::new(inner_event, false) {
-                                    render_repost(app, ui, ctx, inner_note_data);
-                                } else {
-                                    ui.label("REPOSTED EVENT IS NOT RELEVANT");
-                                }
+            .inner_margin(Margin {
+                left: content_margin_left,
+                bottom: 0.0,
+                right: 0.0,
+                top: 0.0,
+            })
+            .outer_margin(Margin {
+                left: 0.0,
+                bottom: 0.0,
+                right: 0.0,
+                top: content_margin_top,
+            })
+            .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    if app.render_raw == Some(event.id) {
+                        ui.label(serde_json::to_string_pretty(&event).unwrap());
+                    } else if app.render_qr == Some(event.id) {
+                        app.render_qr(ui, ctx, "feedqr", display_content.trim());
+                    // FIXME should this be the unmodified content (event.content)?
+                    } else if event.content_warning().is_some()
+                        && !app.approved.contains(&event.id)
+                    {
+                        ui.label(
+                            RichText::new(format!(
+                                "Content-Warning: {}",
+                                event.content_warning().unwrap()
+                            ))
+                            .monospace()
+                            .italics(),
+                        );
+                        if ui.button("Show Post").clicked() {
+                            app.approved.insert(event.id);
+                            app.height.remove(&event.id); // will need to be recalculated.
+                        }
+                    } else if event.kind == EventKind::Repost {
+                        if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+                            if let Some(inner_note_data) = NoteData::new(inner_event, false) {
+                                append_repost = Some(inner_note_data);
                             } else {
-                                // render like a kind-1 event with a mention
-                                content::render_content(
-                                    app,
-                                    ctx,
-                                    ui,
-                                    &note_data,
-                                    deletion.is_some(),
-                                    display_content,
-                                );
+                                ui.label("REPOSTED EVENT IS NOT RELEVANT");
                             }
                         } else {
-                            content::render_content(
+                            // render like a kind-1 event with a mention
+                            append_repost = content::render_content(
                                 app,
-                                ctx,
                                 ui,
                                 &note_data,
                                 deletion.is_some(),
                                 display_content,
                             );
                         }
-                    });
+                    } else {
+                        append_repost = content::render_content(
+                            app,
+                            ui,
+                            &note_data,
+                            deletion.is_some(),
+                            display_content,
+                        );
+                    }
                 });
+            });
 
-            ui.add_space(8.0);
-
-            // deleted?
-            if let Some(delete_reason) = &deletion {
-                ui.label(RichText::new(format!("Deletion Reason: {}", delete_reason)).italics());
-                ui.add_space(8.0);
+            // render any repost without frame or indent
+            if let Some(repost) = append_repost {
+                render_repost(app, ui, ctx, repost)
             }
 
             // Under row
-            if !hide_footer && !note_data.repost.is_some() {
-                Frame::none()
-                    .inner_margin(Margin {
-                        left: footer_margin_left,
-                        bottom: 0.0,
-                        right: 0.0,
-                        top: 0.0,
-                    })
-                    .outer_margin(Margin::same(0.0))
-                    .show(ui, |ui| {
+            Frame::none()
+                .inner_margin(Margin {
+                    left: footer_margin_left,
+                    bottom: 0.0,
+                    right: 0.0,
+                    top: 8.0,
+                })
+                .outer_margin(Margin::same(0.0))
+                .show(ui, |ui| {
+
+                    // deleted?
+                    if let Some(delete_reason) = &deletion {
+                        ui.add_space(8.0);
+                        ui.label(RichText::new(format!("Deletion Reason: {}", delete_reason)).italics());
+                    }
+
+                    if !hide_footer && note_data.repost.is_none() {
                         ui.horizontal_wrapped(|ui| {
                             if ui
                                 .add(CopyButton {})
@@ -723,8 +716,8 @@ fn render_note_inner(
                                 }
                             }
                         });
-                    });
-            }
+                    }
+                });
         }
     });
 }

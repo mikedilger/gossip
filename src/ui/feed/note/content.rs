@@ -1,21 +1,24 @@
 use super::{GossipUi, NoteData, Page, RepostType};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
-use eframe::egui::{self, Context};
+use eframe::egui;
 use egui::{RichText, Ui};
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{IdHex, Tag};
 
+/// returns None or a repost
 pub(super) fn render_content(
     app: &mut GossipUi,
-    ctx: &Context,
     ui: &mut Ui,
     note: &NoteData,
     as_deleted: bool,
     content: &str,
-) {
+) -> Option<NoteData> {
     let tag_re = app.tag_re.clone();
     ui.style_mut().spacing.item_spacing.x = 0.0;
+
+    // Optional repost return
+    let mut append_repost: Option<NoteData> = None;
 
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
@@ -67,7 +70,7 @@ pub(super) fn render_content(
                                             if let Some(note_data) =
                                                 super::NoteData::new(event.clone(), true)
                                             {
-                                                super::render_repost(app, ui, ctx, note_data);
+                                                append_repost = Some(note_data);
                                                 render_link = false;
                                             }
                                         }
@@ -111,4 +114,6 @@ pub(super) fn render_content(
     }
 
     ui.reset_style();
+
+    append_repost
 }
