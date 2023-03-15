@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{Id, RelayUrl};
 use serde::{Deserialize, Serialize};
+use tokio::task::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEventRelay {
@@ -48,19 +49,24 @@ impl DbEventRelay {
         let sql = "SELECT relay FROM event_relay WHERE event=?";
 
         let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
-        let mut stmt = db.prepare(sql)?;
-        stmt.raw_bind_parameter(1, id.as_hex_string())?;
-        let mut rows = stmt.raw_query();
-        let mut relays: Vec<RelayUrl> = Vec::new();
-        while let Some(row) = rows.next()? {
-            let s: String = row.get(0)?;
-            // Just skip over bad relay URLs
-            if let Ok(url) = RelayUrl::try_from_str(&s) {
-                relays.push(url);
+        let relays: Result<Vec<RelayUrl>, Error> = spawn_blocking(move || {
+            let db = pool.get()?;
+            let mut stmt = db.prepare(sql)?;
+            stmt.raw_bind_parameter(1, id.as_hex_string())?;
+            let mut rows = stmt.raw_query();
+            let mut relays: Vec<RelayUrl> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let s: String = row.get(0)?;
+                // Just skip over bad relay URLs
+                if let Ok(url) = RelayUrl::try_from_str(&s) {
+                    relays.push(url);
+                }
             }
-        }
-        Ok(relays)
+            Ok(relays)
+        })
+        .await?;
+
+        relays
     }
 
     pub async fn replace(event_relay: DbEventRelay) -> Result<(), Error> {
@@ -68,14 +74,17 @@ impl DbEventRelay {
              VALUES (?1, ?2, ?3)";
 
         let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
-
-        let mut stmt = db.prepare(sql)?;
-        stmt.execute((
-            &event_relay.event,
-            &event_relay.relay,
-            &event_relay.when_seen,
-        ))?;
+        spawn_blocking(move || {
+            let db = pool.get()?;
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((
+                &event_relay.event,
+                &event_relay.relay,
+                &event_relay.when_seen,
+            ))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
 
         Ok(())
     }
