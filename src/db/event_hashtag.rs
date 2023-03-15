@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use serde::{Deserialize, Serialize};
+use tokio::task::spawn_blocking;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbEventHashtag {
@@ -15,9 +16,13 @@ impl DbEventHashtag {
         let sql = "INSERT OR IGNORE INTO event_hashtag (event, hashtag) VALUES (?, ?)";
 
         let pool = GLOBALS.db.clone();
-        let db = pool.get()?;
-        let mut stmt = db.prepare(sql)?;
-        stmt.execute((&event, &hashtag))?;
+        spawn_blocking(move || {
+            let db = pool.get()?;
+            let mut stmt = db.prepare(sql)?;
+            stmt.execute((&event, &hashtag))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
         Ok(())
     }
 

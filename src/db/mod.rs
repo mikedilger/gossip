@@ -33,6 +33,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::OpenFlags;
 use std::fs;
 use std::sync::atomic::Ordering;
+use tokio::task;
 
 pub fn init_database() -> Result<Pool<SqliteConnectionManager>, Error> {
     let mut data_dir =
@@ -144,8 +145,12 @@ fn upgrade(db: PooledConnection<SqliteConnectionManager>, mut version: usize) ->
 
 pub async fn prune() -> Result<(), Error> {
     let pool = GLOBALS.db.clone();
-    let db = pool.get()?;
-    db.execute_batch(include_str!("sql/prune.sql"))?;
+    task::spawn_blocking(move || {
+        let db = pool.get()?;
+        db.execute_batch(include_str!("sql/prune.sql"))?;
+        Ok::<(), Error>(())
+    })
+    .await??;
 
     *GLOBALS.status_message.write().await = "Database prune has completed.".to_owned();
 
