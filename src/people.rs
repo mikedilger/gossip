@@ -220,7 +220,8 @@ impl People {
         {
             let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
-            let db = GLOBALS.db.get()?;
+            let pool = GLOBALS.db.clone();
+            let db = pool.get()?;
             let mut stmt = db.prepare(&sql)?;
             let mut pos = 1;
             for pk in pubkey_strings.iter() {
@@ -377,7 +378,8 @@ impl People {
             let pubkeyhex2 = pubkeyhex.to_owned();
             let person_inner = person.clone();
 
-            let db = GLOBALS.db.get()?;
+            let pool = GLOBALS.db.clone();
+            let db = pool.get()?;
 
             let metadata_json: Option<String> = if let Some(md) = &person_inner.metadata {
                 Some(serde_json::to_string(md)?)
@@ -458,7 +460,8 @@ impl People {
                    FROM person WHERE followed=1 OR muted=1"
             .to_owned();
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut stmt = db.prepare(&sql)?;
         let mut rows = stmt.query([])?;
@@ -748,7 +751,8 @@ impl People {
     pub async fn populate_new_people() -> Result<(), Error> {
         let sql = "INSERT or IGNORE INTO person (pubkey) SELECT DISTINCT pubkey FROM EVENT";
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         db.execute(sql, [])?;
 
         Ok(())
@@ -822,7 +826,8 @@ impl People {
                    ON CONFLICT(pubkey) DO UPDATE SET followed=?";
             let pubkeyhex2 = pubkeyhex.to_owned();
 
-            let db = GLOBALS.db.get()?;
+            let pool = GLOBALS.db.clone();
+            let db = pool.get()?;
             let mut stmt = db.prepare(sql)?;
             stmt.execute((pubkeyhex2.as_str(), &follow, &follow))?;
         }
@@ -887,7 +892,8 @@ impl People {
 
         let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(&sql)?;
         stmt.raw_bind_parameter(1, asof.0)?;
         let mut pos = 2;
@@ -908,7 +914,8 @@ impl People {
 
             let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
-            let db = GLOBALS.db.get()?;
+            let pool = GLOBALS.db.clone();
+            let db = pool.get()?;
             let mut stmt = db.prepare(&sql)?;
             stmt.raw_bind_parameter(1, asof.0)?;
             let mut pos = 2;
@@ -960,7 +967,8 @@ impl People {
                    ON CONFLICT(pubkey) DO UPDATE SET muted=?";
             let pubkeyhex2 = pubkeyhex.to_owned();
 
-            let db = GLOBALS.db.get()?;
+            let pool = GLOBALS.db.clone();
+            let db = pool.get()?;
             let mut stmt = db.prepare(sql)?;
             stmt.execute((pubkeyhex2.as_str(), &mute, &mute))?;
         }
@@ -1001,7 +1009,8 @@ impl People {
             return Ok(false);
         }
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(
             "UPDATE person SET relay_list_last_received=?, \
                             relay_list_created_at=? WHERE pubkey=?",
@@ -1018,7 +1027,8 @@ impl People {
             person.nip05_last_checked = Some(now as u64);
         }
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare("UPDATE person SET nip05_last_checked=? WHERE pubkey=?")?;
         stmt.execute((&now, pubkeyhex.as_str()))?;
         Ok(())
@@ -1051,7 +1061,8 @@ impl People {
                    UPDATE SET metadata=json_patch(metadata, ?), nip05_valid=?, nip05_last_checked=?";
 
         let pubkeyhex2 = pubkeyhex.to_owned();
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut metadata = Metadata::new();
         metadata.nip05 = nip05.clone();
@@ -1084,7 +1095,8 @@ impl People {
             None => sql,
             Some(crit) => format!("{} WHERE {}", sql, crit),
         };
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut stmt = db.prepare(&sql)?;
         let mut rows = stmt.query([])?;
@@ -1133,7 +1145,8 @@ impl People {
 
         let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut stmt = db.prepare(&sql)?;
 
