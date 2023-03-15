@@ -217,10 +217,10 @@ impl People {
         sql.push_str(&"(?),".repeat(pubkeys.len()));
         sql.pop(); // remove trailing comma
 
-        {
-            let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
-            let pool = GLOBALS.db.clone();
+        let pool = GLOBALS.db.clone();
+        task::spawn_blocking(move || {
             let db = pool.get()?;
             let mut stmt = db.prepare(&sql)?;
             let mut pos = 1;
@@ -229,7 +229,9 @@ impl People {
                 pos += 1;
             }
             stmt.raw_execute()?;
-        }
+            Ok::<(), Error>(())
+        })
+        .await??;
 
         // Now load them from the database (some of them may have had records already)
         let mut loaded_people = Self::fetch_many(&pubkeys).await?;
@@ -820,17 +822,19 @@ impl People {
 
         let follow: u8 = u8::from(follow);
 
-        {
-            // Follow in database
-            let sql = "INSERT INTO PERSON (pubkey, followed) values (?, ?) \
+        // Follow in database
+        let sql = "INSERT INTO PERSON (pubkey, followed) values (?, ?) \
                    ON CONFLICT(pubkey) DO UPDATE SET followed=?";
-            let pubkeyhex2 = pubkeyhex.to_owned();
+        let pubkeyhex2 = pubkeyhex.to_owned();
 
-            let pool = GLOBALS.db.clone();
+        let pool = GLOBALS.db.clone();
+        task::spawn_blocking(move || {
             let db = pool.get()?;
             let mut stmt = db.prepare(sql)?;
             stmt.execute((pubkeyhex2.as_str(), &follow, &follow))?;
-        }
+            Ok::<(), Error>(())
+        })
+        .await??;
 
         // Make sure memory matches
         if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
@@ -961,17 +965,19 @@ impl People {
     pub async fn async_mute(&self, pubkeyhex: &PublicKeyHex, mute: bool) -> Result<(), Error> {
         let mute: u8 = u8::from(mute);
 
-        {
-            // Mute in database
-            let sql = "INSERT INTO PERSON (pubkey, muted) values (?, ?) \
+        // Mute in database
+        let sql = "INSERT INTO PERSON (pubkey, muted) values (?, ?) \
                    ON CONFLICT(pubkey) DO UPDATE SET muted=?";
-            let pubkeyhex2 = pubkeyhex.to_owned();
+        let pubkeyhex2 = pubkeyhex.to_owned();
 
-            let pool = GLOBALS.db.clone();
+        let pool = GLOBALS.db.clone();
+        task::spawn_blocking(move || {
             let db = pool.get()?;
             let mut stmt = db.prepare(sql)?;
             stmt.execute((pubkeyhex2.as_str(), &mute, &mute))?;
-        }
+            Ok::<(), Error>(())
+        })
+        .await??;
 
         // Make sure memory matches
         if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
