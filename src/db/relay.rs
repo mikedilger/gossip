@@ -189,6 +189,22 @@ impl DbRelay {
         Ok(())
     }
 
+    /*
+    pub async fn delete(criteria: &str) -> Result<(), Error> {
+        let sql = format!("DELETE FROM relay WHERE {}", criteria);
+
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            db.execute(&sql, [])?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+     */
+
     pub async fn populate_new_relays() -> Result<(), Error> {
         // Get relays from person_relay list
         let sql =
@@ -257,6 +273,23 @@ impl DbRelay {
             Ok::<Option<RelayUrl>, Error>(None)
         }
     }
+
+    /*
+    pub async fn delete_relay(url: RelayUrl) -> Result<(), Error> {
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+
+            let _ = db.execute("DELETE FROM event seen WHERE relay=?", (&url.0,));
+            let _ = db.execute("UPDATE contact SET relay=null WHERE relay=?", (&url.0,));
+            let _ = db.execute("DELETE FROM person_relay WHERE relay=?", (&url.0,));
+            let _ = db.execute("DELETE FROM relay WHERE url=?", (&url.0,));
+        })
+            .await?;
+
+        Ok(())
+    }
+     */
 
     pub async fn set_rank(url: RelayUrl, rank: u8) -> Result<(), Error> {
         let pool = GLOBALS.db.clone();
