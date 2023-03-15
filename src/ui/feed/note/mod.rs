@@ -340,7 +340,7 @@ fn render_note_inner(
         Some(_) => (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
     };
 
-    let content_margin_top = inner_margin.top + ui.style().spacing.item_spacing.y * 2.0 - avatar_size;
+    let content_pull_top = inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size;
 
     let content_margin_left= AVATAR_SIZE_F32 + inner_margin.left;
     let footer_margin_left = content_margin_left;
@@ -521,7 +521,7 @@ fn render_note_inner(
                 left: 0.0,
                 bottom: 0.0,
                 right: 0.0,
-                top: content_margin_top,
+                top: content_pull_top,
             })
             .show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
@@ -579,7 +579,19 @@ fn render_note_inner(
                 render_repost(app, ui, ctx, repost)
             }
 
-            // Under row
+            // deleted?
+            if let Some(delete_reason) = &deletion {
+                Frame::none().inner_margin(Margin{left: footer_margin_left,
+                    bottom: 0.0,
+                    right: 0.0,
+                    top: 8.0,})
+                    .show(ui, |ui| {
+                        ui.label(RichText::new(format!("Deletion Reason: {}", delete_reason)).italics());
+                    });
+            }
+
+            // Footer
+            if !hide_footer && note_data.repost.is_none() {
             Frame::none()
                 .inner_margin(Margin {
                     left: footer_margin_left,
@@ -587,137 +599,134 @@ fn render_note_inner(
                     right: 0.0,
                     top: 8.0,
                 })
-                .outer_margin(Margin::same(0.0))
+                .outer_margin(Margin {
+                    left: 0.0,
+                    bottom: 0.0,
+                    right: 0.0,
+                    top: 0.0,
+                })
                 .show(ui, |ui| {
-
-                    // deleted?
-                    if let Some(delete_reason) = &deletion {
-                        ui.add_space(8.0);
-                        ui.label(RichText::new(format!("Deletion Reason: {}", delete_reason)).italics());
-                    }
-
-                    if !hide_footer && note_data.repost.is_none() {
-                        ui.horizontal_wrapped(|ui| {
-                            if ui
-                                .add(CopyButton {})
-                                .on_hover_text("Copy Contents")
-                                .clicked()
-                            {
-                                if app.render_raw == Some(event.id) {
-                                    ui.output_mut(|o| {
-                                        o.copied_text = serde_json::to_string(&event).unwrap()
-                                    });
-                                } else {
-                                    ui.output_mut(|o| o.copied_text = display_content.clone());
-                                }
+                    ui.horizontal_wrapped(|ui| {
+                        if ui
+                            .add(CopyButton {})
+                            .on_hover_text("Copy Contents")
+                            .clicked()
+                        {
+                            if app.render_raw == Some(event.id) {
+                                ui.output_mut(|o| {
+                                    o.copied_text = serde_json::to_string(&event).unwrap()
+                                });
+                            } else {
+                                ui.output_mut(|o| o.copied_text = display_content.clone());
                             }
+                        }
 
-                            ui.add_space(24.0);
+                        ui.add_space(24.0);
 
-                            // Button to quote note
-                            if ui
-                                .add(
-                                    Label::new(RichText::new("»").size(18.0)).sense(Sense::click()),
-                                )
-                                .on_hover_text("Quote")
-                                .clicked()
-                            {
-                                if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                    app.draft.push(' ');
-                                }
-                                app.draft
-                                    .push_str(&event.id.try_as_bech32_string().unwrap());
+                        // Button to quote note
+                        if ui
+                            .add(
+                                Label::new(RichText::new("»").size(18.0)).sense(Sense::click()),
+                            )
+                            .on_hover_text("Quote")
+                            .clicked()
+                        {
+                            if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                                app.draft.push(' ');
                             }
+                            app.draft
+                                .push_str(&event.id.try_as_bech32_string().unwrap());
+                        }
 
-                            ui.add_space(24.0);
+                        ui.add_space(24.0);
 
-                            // Button to reply
-                            if event.kind != EventKind::EncryptedDirectMessage {
-                                if ui
-                                    .add(
-                                        Label::new(RichText::new("💬").size(18.0))
-                                            .sense(Sense::click()),
-                                    )
-                                    .on_hover_text("Reply")
-                                    .clicked()
-                                {
-                                    app.replying_to = Some(event.id);
-                                }
-
-                                ui.add_space(24.0);
-                            }
-
-                            // Button to render raw
+                        // Button to reply
+                        if event.kind != EventKind::EncryptedDirectMessage {
                             if ui
                                 .add(
-                                    Label::new(RichText::new("🥩").size(13.0))
+                                    Label::new(RichText::new("💬").size(18.0))
                                         .sense(Sense::click()),
                                 )
-                                .on_hover_text("Raw")
+                                .on_hover_text("Reply")
                                 .clicked()
                             {
-                                if app.render_raw != Some(event.id) {
-                                    app.render_raw = Some(event.id);
-                                } else {
-                                    app.render_raw = None;
-                                }
+                                app.replying_to = Some(event.id);
                             }
 
                             ui.add_space(24.0);
+                        }
 
-                            // Button to render QR code
+                        // Button to render raw
+                        if ui
+                            .add(
+                                Label::new(RichText::new("🥩").size(13.0))
+                                    .sense(Sense::click()),
+                            )
+                            .on_hover_text("Raw")
+                            .clicked()
+                        {
+                            if app.render_raw != Some(event.id) {
+                                app.render_raw = Some(event.id);
+                            } else {
+                                app.render_raw = None;
+                            }
+                        }
+
+                        ui.add_space(24.0);
+
+                        // Button to render QR code
+                        if ui
+                            .add(
+                                Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()),
+                            )
+                            .on_hover_text("QR Code")
+                            .clicked()
+                        {
+                            if app.render_qr != Some(event.id) {
+                                app.render_qr = Some(event.id);
+                                app.qr_codes.remove("feedqr");
+                            } else {
+                                app.render_qr = None;
+                                app.qr_codes.remove("feedqr");
+                            }
+                        }
+
+                        ui.add_space(24.0);
+
+                        // Buttons to react and reaction counts
+                        if app.settings.reactions {
+                            let default_reaction_icon = match self_already_reacted {
+                                true => "♥",
+                                false => "♡",
+                            };
                             if ui
                                 .add(
-                                    Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()),
+                                    Label::new(RichText::new(default_reaction_icon).size(20.0))
+                                        .sense(Sense::click()),
                                 )
-                                .on_hover_text("QR Code")
                                 .clicked()
                             {
-                                if app.render_qr != Some(event.id) {
-                                    app.render_qr = Some(event.id);
-                                    app.qr_codes.remove("feedqr");
-                                } else {
-                                    app.render_qr = None;
-                                    app.qr_codes.remove("feedqr");
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                            }
+                            for (ch, count) in reactions.iter() {
+                                if *ch == '+' {
+                                    ui.label(format!("{}", count));
                                 }
                             }
-
-                            ui.add_space(24.0);
-
-                            // Buttons to react and reaction counts
-                            if app.settings.reactions {
-                                let default_reaction_icon = match self_already_reacted {
-                                    true => "♥",
-                                    false => "♡",
-                                };
-                                if ui
-                                    .add(
-                                        Label::new(RichText::new(default_reaction_icon).size(20.0))
-                                            .sense(Sense::click()),
-                                    )
-                                    .clicked()
-                                {
-                                    let _ = GLOBALS
-                                        .to_overlord
-                                        .send(ToOverlordMessage::Like(event.id, event.pubkey));
-                                }
-                                for (ch, count) in reactions.iter() {
-                                    if *ch == '+' {
-                                        ui.label(format!("{}", count));
-                                    }
-                                }
-                                ui.add_space(12.0);
-                                for (ch, count) in reactions.iter() {
-                                    if *ch != '+' {
-                                        ui.label(
-                                            RichText::new(format!("{} {}", ch, count)).strong(),
-                                        );
-                                    }
+                            ui.add_space(12.0);
+                            for (ch, count) in reactions.iter() {
+                                if *ch != '+' {
+                                    ui.label(
+                                        RichText::new(format!("{} {}", ch, count)).strong(),
+                                    );
                                 }
                             }
-                        });
-                    }
+                        }
+                    });
                 });
+            }
         }
     });
 }

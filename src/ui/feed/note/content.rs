@@ -54,10 +54,6 @@ pub(super) fn render_content(
                             };
                         }
                         Tag::Event { id, .. } => {
-                            // insert a newline if the current line has text
-                            if ui.cursor().min.x > ui.max_rect().min.y {
-                                ui.end_row();
-                            }
                             let mut render_link = true;
                             match note.repost {
                                 Some(RepostType::MentionOnly)
@@ -79,6 +75,11 @@ pub(super) fn render_content(
                                 _ => (),
                             }
                             if render_link {
+                                // insert a newline if the current line has text
+                                if ui.cursor().min.x > ui.max_rect().min.y {
+                                    ui.end_row();
+                                }
+
                                 let idhex: IdHex = (*id).into();
                                 let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
                                 if ui.link(&nam).clicked() {
