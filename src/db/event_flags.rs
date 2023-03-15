@@ -12,7 +12,8 @@ pub struct DbEventFlags {
 impl DbEventFlags {
     pub async fn load_all_viewed() -> Result<Vec<Id>, Error> {
         let sql = "SELECT event FROM event_flags WHERE viewed=1".to_owned();
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(&sql)?;
         let mut output: Vec<Id> = Vec::new();
         let mut rows = stmt.raw_query();
@@ -28,7 +29,8 @@ impl DbEventFlags {
     pub async fn mark_all_as_viewed(ids: Vec<Id>) -> Result<(), Error> {
         let sql = "INSERT INTO event_flags (event, viewed) VALUES (?, 1) \
                    ON CONFLICT(event) DO UPDATE SET viewed=1";
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(sql)?;
         for id in ids {
             stmt.raw_bind_parameter(1, id.as_hex_string())?;

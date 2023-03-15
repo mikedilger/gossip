@@ -91,7 +91,8 @@ impl Settings {
     pub fn blocking_load() -> Result<Settings, Error> {
         let mut settings = Settings::default();
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut stmt = db.prepare("SELECT key, value FROM settings")?;
 
@@ -176,7 +177,8 @@ impl Settings {
     }
 
     pub async fn save(&self) -> Result<(), Error> {
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let bool_to_numstr = |b: bool| -> &str {
             if b {

@@ -51,7 +51,8 @@ impl DbRelay {
             Some(crit) => format!("{} WHERE {}", sql, crit),
         };
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut stmt = db.prepare(&sql)?;
         let mut rows = stmt.query([])?;
@@ -92,7 +93,8 @@ impl DbRelay {
                    last_connected_at, last_general_eose_at, read, write, advertise) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((
@@ -114,7 +116,8 @@ impl DbRelay {
         let sql = "UPDATE relay SET success_count=?, failure_count=?, rank=?, \
                    last_connected_at=?, last_general_eose_at=?, read=?, write=?, advertise=? WHERE url=?";
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((
@@ -140,7 +143,8 @@ impl DbRelay {
         let sql =
             "UPDATE relay SET last_general_eose_at = max(?, ifnull(last_general_eose_at,0)) WHERE url = ?";
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
 
         let mut stmt = db.prepare(sql)?;
         stmt.execute((&last_general_eose_at, &url.0))?;
@@ -151,7 +155,8 @@ impl DbRelay {
     pub async fn clear_read_and_write() -> Result<(), Error> {
         let sql = "UPDATE relay SET read = false, write = false";
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(sql)?;
         stmt.execute(())?;
 
@@ -165,7 +170,8 @@ impl DbRelay {
     ) -> Result<(), Error> {
         let sql = "UPDATE relay SET read = ?, write = ?  WHERE url = ?";
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(sql)?;
         stmt.execute((&read, &write, &url.0))?;
 
@@ -175,7 +181,8 @@ impl DbRelay {
     pub async fn update_advertise(url: RelayUrl, advertise: bool) -> Result<(), Error> {
         let sql = "UPDATE relay SET advertise = ?  WHERE url = ?";
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(sql)?;
         stmt.execute((&advertise, &url.0))?;
 
@@ -187,7 +194,8 @@ impl DbRelay {
         let sql =
             "INSERT OR IGNORE INTO relay (url, rank) SELECT DISTINCT relay, 3 FROM person_relay";
 
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         db.execute(sql, [])?;
 
         // Select relays from 'e' and 'p' event tags
@@ -207,7 +215,7 @@ impl DbRelay {
         // FIXME this is a lot of separate sql calls
         let sql = "INSERT OR IGNORE INTO RELAY (url, rank) VALUES (?, 3)";
         for url in urls {
-            let db = GLOBALS.db.get()?;
+            let db = pool.get()?;
             db.execute(sql, [&url.0])?;
         }
 
@@ -219,7 +227,8 @@ impl DbRelay {
         // has a rank>1
         let sql = "SELECT url FROM relay INNER JOIN event_relay ON relay.url=event_relay.relay \
                    WHERE event_relay.event=? AND relay.write=1 AND relay.rank>1";
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(sql)?;
         let mut query_result = stmt.query([reply_to.as_hex_string()])?;
         let output: Option<RelayUrl> = if let Some(row) = query_result.next()? {
@@ -236,7 +245,8 @@ impl DbRelay {
 
         // Fallback to finding any relay where the event was seen
         let sql = "SELECT relay FROM event_relay WHERE event=?";
-        let db = GLOBALS.db.get()?;
+        let pool = GLOBALS.db.clone();
+        let db = pool.get()?;
         let mut stmt = db.prepare(sql)?;
         let mut query_result = stmt.query([reply_to.as_hex_string()])?;
         if let Some(row) = query_result.next()? {
@@ -249,7 +259,8 @@ impl DbRelay {
     }
 
     pub async fn set_rank(url: RelayUrl, rank: u8) -> Result<(), Error> {
-        let db = GLOBALS.db.get().expect("Failed to get DB pool");
+        let pool = GLOBALS.db.clone();
+        let db = pool.get().expect("Failed to get DB pool");
 
         let _ = db.execute("UPDATE relay SET rank=? WHERE url=?", (&rank, &url.0));
 
