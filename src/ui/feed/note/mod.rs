@@ -753,12 +753,10 @@ pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, repo
         thread_position: 0,
     };
 
-    let margin = app.settings.theme.feed_frame_inner_margin(&render_data);
-
     ui.vertical(|ui| {
-        ui.add_space(margin.bottom);
+        ui.add_space(app.settings.theme.repost_space_above_separator(&render_data));
         thin_repost_separator(ui);
-        ui.add_space(margin.top);
+        ui.add_space(app.settings.theme.repost_space_below_separator(&render_data));
         ui.horizontal_wrapped(|ui| {
             // FIXME: don't do this recursively
             render_note_inner(app, ctx, ui, repost_data, &render_data, false);

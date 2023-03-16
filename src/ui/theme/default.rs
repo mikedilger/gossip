@@ -463,6 +463,13 @@ impl ThemeDef for DefaultTheme {
         Stroke::NONE
     }
 
+    fn repost_space_above_separator(_post: &NoteRenderData) -> f32 {
+        0.0
+    }
+    fn repost_space_below_separator(_post: &NoteRenderData) -> f32 {
+        10.0
+    }
+
     fn round_image() -> bool {
         true
     }

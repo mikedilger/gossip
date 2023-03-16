@@ -435,6 +435,13 @@ impl ThemeDef for ClassicTheme {
         Stroke::NONE
     }
 
+    fn repost_space_above_separator(_post: &NoteRenderData) -> f32 {
+        4.0
+    }
+    fn repost_space_below_separator(_post: &NoteRenderData) -> f32 {
+        8.0
+    }
+
     fn round_image() -> bool {
         false
     }
