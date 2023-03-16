@@ -1195,7 +1195,7 @@ impl Overlord {
             // fiatjaf's suggestion from issue #187, use 'p' tag url mentions too, since
             // those people probably wrote the ancestor events so probably on those
             // relays
-            for (_pk, opturl) in highest_parent.mentions() {
+            for (_pk, opturl, _nick) in highest_parent.people() {
                 if let Some(url) = opturl {
                     relays.push(url);
                 }
