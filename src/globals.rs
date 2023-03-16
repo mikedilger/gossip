@@ -176,7 +176,7 @@ impl Globals {
         let mut output: Vec<Id> = Vec::new();
         if let Some(vec) = GLOBALS.relationships.blocking_read().get(&id) {
             for (id, relationship) in vec.iter() {
-                if *relationship == Relationship::Reply || *relationship == Relationship::Root {
+                if *relationship == Relationship::Reply {
                     output.push(*id);
                 }
             }
