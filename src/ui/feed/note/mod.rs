@@ -124,14 +124,12 @@ impl NoteData {
 
         // Compute the content to our needs
         let display_content = match event.kind {
-            EventKind::TextNote => event.content.clone(),
+            EventKind::TextNote => event.content.trim().to_string(),
             EventKind::Repost => {
                 if event.content.is_empty() {
                     "#[0]".to_owned() // a bit of a hack
-                } else if event.content.trim() == "#[0]" {
-                    event.content.trim().to_string()
                 } else {
-                    event.content.clone()
+                    event.content.trim().to_string()
                 }
             }
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
