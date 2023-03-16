@@ -1185,7 +1185,7 @@ impl Overlord {
         // Collect missing ancestors and potential relays further up the chain
         if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
             // Use relays in 'e' tags
-            for (id, opturl) in highest_parent.replies_to_ancestors() {
+            for (id, opturl) in highest_parent.referred_events() {
                 missing_ancestors.push(id);
                 if let Some(url) = opturl {
                     relays.push(url);
