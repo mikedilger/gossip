@@ -372,54 +372,56 @@ fn render_note_inner(
 
             GossipUi::render_person_name_line(app, ui, author);
 
-            if let Some((irt, _)) = event.replies_to() {
+            ui.horizontal_wrapped(|ui| {
+                if let Some((irt, _)) = event.replies_to() {
+                    ui.add_space(8.0);
+
+                    ui.style_mut().override_text_style = Some(TextStyle::Small);
+                    let idhex: IdHex = irt.into();
+                    let nam = format!("▲ #{}", GossipUi::hex_id_short(&idhex));
+                    if ui.link(&nam).clicked() {
+                        app.set_page(Page::Feed(FeedKind::Thread {
+                            id: irt,
+                            referenced_by: event.id,
+                        }));
+                    };
+                    ui.reset_style();
+                }
+
                 ui.add_space(8.0);
 
-                ui.style_mut().override_text_style = Some(TextStyle::Small);
-                let idhex: IdHex = irt.into();
-                let nam = format!("▲ #{}", GossipUi::hex_id_short(&idhex));
-                if ui.link(&nam).clicked() {
-                    app.set_page(Page::Feed(FeedKind::Thread {
-                        id: irt,
-                        referenced_by: event.id,
-                    }));
-                };
-                ui.reset_style();
-            }
+                if event.pow() > 0 {
+                    ui.label(format!("POW={}", event.pow()));
+                }
 
-            ui.add_space(8.0);
+                match delegation {
+                    EventDelegation::InvalidDelegation(why) => {
+                        let color = app.settings.theme.warning_marker_text_color();
+                        ui.add(Label::new(RichText::new("INVALID DELEGATION").color(color)))
+                            .on_hover_text(why);
+                    }
+                    EventDelegation::DelegatedBy(_) => {
+                        let color = app.settings.theme.notice_marker_text_color();
+                        ui.label(RichText::new("DELEGATED").color(color));
+                    }
+                    _ => {}
+                }
 
-            if event.pow() > 0 {
-                ui.label(format!("POW={}", event.pow()));
-            }
-
-            match delegation {
-                EventDelegation::InvalidDelegation(why) => {
+                if deletion.is_some() {
                     let color = app.settings.theme.warning_marker_text_color();
-                    ui.add(Label::new(RichText::new("INVALID DELEGATION").color(color)))
-                        .on_hover_text(why);
+                    ui.label(RichText::new("DELETED").color(color));
                 }
-                EventDelegation::DelegatedBy(_) => {
+
+                if event.kind == EventKind::Repost {
                     let color = app.settings.theme.notice_marker_text_color();
-                    ui.label(RichText::new("DELEGATED").color(color));
+                    ui.label(RichText::new("REPOSTED").color(color));
                 }
-                _ => {}
-            }
 
-            if deletion.is_some() {
-                let color = app.settings.theme.warning_marker_text_color();
-                ui.label(RichText::new("DELETED").color(color));
-            }
-
-            if event.kind == EventKind::Repost {
-                let color = app.settings.theme.notice_marker_text_color();
-                ui.label(RichText::new("REPOSTED").color(color));
-            }
-
-            if event.kind == EventKind::EncryptedDirectMessage {
-                let color = app.settings.theme.notice_marker_text_color();
-                ui.label(RichText::new("ENCRYPTED DM").color(color));
-            }
+                if event.kind == EventKind::EncryptedDirectMessage {
+                    let color = app.settings.theme.notice_marker_text_color();
+                    ui.label(RichText::new("ENCRYPTED DM").color(color));
+                }
+            });
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.menu_button(RichText::new("=").size(13.0), |ui| {
