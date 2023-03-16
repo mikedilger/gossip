@@ -165,10 +165,6 @@ pub async fn prune() -> Result<(), Error> {
 }
 
 fn normalize_urls() -> Result<(), Error> {
-    // FIXME make a database backup first (I got a "database disk image is malformed" from this process once)
-
-    tracing::info!("Normalizing Database URLs (this will take some time)");
-
     let maybe_db = GLOBALS.db.blocking_lock();
     let db = maybe_db.as_ref().unwrap();
 
@@ -181,6 +177,8 @@ fn normalize_urls() -> Result<(), Error> {
     if urls_are_normalized {
         return Ok(());
     }
+
+    tracing::info!("Normalizing Database URLs (this will take some time)");
 
     db.pragma_update(None, "foreign_keys", "OFF")?;
 
