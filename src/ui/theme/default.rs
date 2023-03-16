@@ -463,6 +463,14 @@ impl ThemeDef for DefaultTheme {
         Stroke::NONE
     }
 
+    fn repost_separator_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+        if dark_mode {
+            Stroke::new(1.0, Color32::from_gray(60))
+        } else {
+            Stroke::new(1.0, Color32::from_gray(230))
+        }
+    }
+
     fn repost_space_above_separator(_post: &NoteRenderData) -> f32 {
         0.0
     }

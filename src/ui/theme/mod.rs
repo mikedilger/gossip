@@ -182,6 +182,12 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn repost_separator_stroke(&self, post: &NoteRenderData) -> Stroke {
+                match self.variant {
+                    $( $variant => $class::repost_separator_stroke(self.dark_mode, post), )+
+                }
+            }
+
             pub fn repost_space_above_separator(&self, post: &NoteRenderData) -> f32 {
                 match self.variant {
                     $( $variant => $class::repost_space_above_separator(post), )+
@@ -247,6 +253,7 @@ pub trait ThemeDef: Send + Sync {
     fn feed_frame_shadow(dark_mode: bool, post: &NoteRenderData) -> Shadow;
     fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32;
     fn feed_frame_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
+    fn repost_separator_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
     fn repost_space_above_separator(post: &NoteRenderData) -> f32;
     fn repost_space_below_separator(post: &NoteRenderData) -> f32;
 

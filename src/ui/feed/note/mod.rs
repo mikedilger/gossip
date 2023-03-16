@@ -731,11 +731,6 @@ fn render_note_inner(
     });
 }
 
-fn thin_repost_separator(ui: &mut Ui) {
-    let stroke = ui.style().visuals.widgets.noninteractive.bg_stroke;
-    thin_separator(ui, stroke);
-}
-
 fn thin_separator(ui: &mut Ui, stroke: Stroke) {
     let mut style = ui.style_mut();
     style.visuals.widgets.noninteractive.bg_stroke = stroke;
@@ -757,7 +752,7 @@ pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, repo
 
     ui.vertical(|ui| {
         ui.add_space(app.settings.theme.repost_space_above_separator(&render_data));
-        thin_repost_separator(ui);
+        thin_separator(ui, app.settings.theme.repost_separator_stroke(&render_data));
         ui.add_space(app.settings.theme.repost_space_below_separator(&render_data));
         ui.horizontal_wrapped(|ui| {
             // FIXME: don't do this recursively
