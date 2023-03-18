@@ -57,15 +57,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
         if ui.button("Remove").clicked() {
             app.delegatee_tag_str = String::new();
-            if GLOBALS.delegation.reset() {
-                // save and statusmsg
-                task::spawn(async move {
-                    if let Err(e) = GLOBALS.delegation.save_through_settings().await {
-                        tracing::error!("{}", e);
-                    }
-                    *GLOBALS.status_message.write().await = "Delegation tag removed".to_string();
-                });
-            }
+            let _ = GLOBALS
+                .to_overlord
+                .send(crate::comms::ToOverlordMessage::DelegationReset);
         }
     });
     ui.separator();

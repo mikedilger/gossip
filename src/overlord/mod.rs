@@ -456,12 +456,23 @@ impl Overlord {
                 old.zeroize();
                 new.zeroize();
             }
+            ToOverlordMessage::DelegationReset => {
+                if GLOBALS.delegation.reset() {
+                    // save and statusmsg
+                    if let Err(e) = GLOBALS.delegation.save_through_settings().await {
+                        tracing::error!("{}", e);
+                    }
+                    *GLOBALS.status_message.write().await = "Delegation tag removed".to_string();
+                }
+            }
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::DelegationReset);
                 GLOBALS.signer.save_through_settings().await?;
             }
             ToOverlordMessage::DeletePriv => {
                 GLOBALS.signer.delete_identity();
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::DelegationReset);
                 *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
             }
             ToOverlordMessage::DropRelay(relay_url) => {
