@@ -167,13 +167,20 @@ If you wish to switch to your native TLS provider, use the following compile opt
   --no-default-features --features=native-tls
 ````
 
-### Chinese, Japanese and Korean character sets
+### Language Support
+
+
+#### Chinese, Japanese and Korean character sets
 
 Gossip by default does not include the CJK font because it is larger than all other languages put together, and most gossip users don't recognize those characters. If you do recognize such characters, you can compile in that font with:
 
 ````
   --features=lang-cjk
 ````
+
+#### Other Non-Latin languages
+
+There are so many of these (172) that it becomes a real pain to add them all. But if you need one, please ask (open an issue) and I'll add it for you.
 
 ## Technology Involved
 
