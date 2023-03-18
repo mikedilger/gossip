@@ -289,7 +289,7 @@ impl GossipUi {
             replying_to: None,
             editing_metadata: false,
             metadata: Metadata::new(),
-            delegatee_tag_str: GLOBALS.delegation.get_delegatee_tag_as_str(),
+            delegatee_tag_str: "".to_owned(),
             nprofile_follow: "".to_owned(),
             nip05follow: "".to_owned(),
             follow_pubkey: "".to_owned(),
