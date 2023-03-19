@@ -67,12 +67,16 @@ impl NoteData {
 
         let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
 
+        // build a list of all cached mentions and their index
+        // only notes that are in the cache will be rendered as reposts
         let cached_mentions = {
             let mut cached_mentions = Vec::<(usize, Event)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
-                if let Tag::Event { id, .. } = tag {
-                    if let Some(event) = GLOBALS.events.get(id) {
-                        cached_mentions.push((i, event));
+                if let Tag::Event { id, recommended_relay_url:_, marker  } = tag {
+                    if marker.is_some() && marker.as_deref().unwrap() == "mention" {
+                        if let Some(event) = GLOBALS.events.get(id) {
+                            cached_mentions.push((i, event));
+                        }
                     }
                 }
             }
