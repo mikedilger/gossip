@@ -4,7 +4,7 @@ use crate::GLOBALS;
 use eframe::{egui, Frame};
 use egui::widgets::Button;
 use egui::{Context, Ui};
-use nostr_types::{Id, PublicKey};
+use nostr_types::{EventPointer, Id, PublicKey, RelayUrl};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
     ui.heading("Search notes and users");
@@ -16,7 +16,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
     ui.horizontal(|ui| {
         let response = ui.add(
             text_edit_line!(app, app.search)
-                .hint_text("npub1 or note1, other kinds of searches not yet implemented")
+                .hint_text("npub1 / note1 / nevent1.  Other kinds of searches not yet implemented")
                 .desired_width(600.0),
         );
 
@@ -59,6 +59,28 @@ fn search_result(app: &mut GossipUi, _ctx: &Context, _ui: &mut Ui) {
             return;
         } else {
             app.search_result = "Looks like an event Id, but it isn't.".to_owned();
+            return;
+        }
+    }
+
+    // Maybe nevent
+    if app.search.starts_with("nevent1") {
+        if let Ok(ep) = EventPointer::try_from_bech32_string(&app.search) {
+            app.search = "".to_owned();
+            app.search_result = "".to_owned();
+            app.set_page_thread_with_relays(
+                Page::Feed(FeedKind::Thread {
+                    id: ep.id,
+                    referenced_by: ep.id,
+                }),
+                ep.relays
+                    .iter()
+                    .filter_map(|u| RelayUrl::try_from_unchecked_url(u).ok())
+                    .collect(),
+            );
+            return;
+        } else {
+            app.search_result = "Looks like an event pointer, but it isn't.".to_owned();
             return;
         }
     }
