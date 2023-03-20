@@ -2,7 +2,7 @@ use super::{FeedProperties, NoteRenderData, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{FontDefinitions, Margin, Style, TextFormat, TextStyle, Visuals};
-use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
+use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke, ecolor};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -447,19 +447,65 @@ impl ThemeDef for RoundyTheme {
         }
     }
 
-    fn repost_separator_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
-        if dark_mode {
-            Stroke::new(1.0, Color32::from_gray(72))
-        } else {
-            Stroke::new(1.0, Color32::from_gray(192))
-        }
+    fn repost_separator_before_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+        // if dark_mode {
+        //     Stroke::new(1.0, Color32::from_gray(72))
+        // } else {
+        //     Stroke::new(1.0, Color32::from_gray(192))
+        // }
+        Stroke::NONE
     }
-
-    fn repost_space_above_separator(_post: &NoteRenderData) -> f32 {
+    fn repost_space_above_separator_before(_post: &NoteRenderData) -> f32 {
         0.0
     }
-    fn repost_space_below_separator(_post: &NoteRenderData) -> f32 {
+    fn repost_space_below_separator_before(_post: &NoteRenderData) -> f32 {
         8.0
+    }
+
+    fn repost_separator_after_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+        Stroke::NONE
+    }
+    fn repost_space_above_separator_after(_post: &NoteRenderData) -> f32 {
+        0.0
+    }
+    fn repost_space_below_separator_after(_post: &NoteRenderData) -> f32 {
+        8.0
+    }
+
+    fn repost_inner_margin(_post: &NoteRenderData) -> Margin {
+        Margin {
+            left: 10.0,
+            right: 10.0,
+            top: 10.0,
+            bottom: 10.0,
+        }
+    }
+    fn repost_outer_margin(_post: &NoteRenderData) -> Margin {
+        Margin {
+            left: -10.0,
+            right: -10.0,
+            top: -10.0,
+            bottom: -6.0,
+        }
+    }
+    fn repost_rounding(post: &NoteRenderData) -> Rounding {
+        Self::feed_frame_rounding(post)
+    }
+    fn repost_shadow(_dark_mode: bool, _post: &NoteRenderData) -> Shadow {
+        Shadow::NONE
+    }
+    fn repost_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
+        let mut hsva: ecolor::HsvaGamma = Self::feed_frame_fill(dark_mode, post).into();
+        if dark_mode {
+            hsva.v = (hsva.v + 0.05).min(1.0); // lighten
+        } else {
+            hsva.v = (hsva.v - 0.05).max(0.0); // darken
+        }
+        let color: Color32 = hsva.into();
+        color
+    }
+    fn repost_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke {
+        Self::feed_frame_stroke(dark_mode, post)
     }
 
     fn round_image() -> bool {

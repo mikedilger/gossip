@@ -463,19 +463,64 @@ impl ThemeDef for DefaultTheme {
         Stroke::NONE
     }
 
-    fn repost_separator_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+    fn repost_separator_before_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
         if dark_mode {
             Stroke::new(1.0, Color32::from_gray(60))
         } else {
             Stroke::new(1.0, Color32::from_gray(230))
         }
     }
-
-    fn repost_space_above_separator(_post: &NoteRenderData) -> f32 {
+    fn repost_space_above_separator_before(_post: &NoteRenderData) -> f32 {
         0.0
     }
-    fn repost_space_below_separator(_post: &NoteRenderData) -> f32 {
+    fn repost_space_below_separator_before(_post: &NoteRenderData) -> f32 {
         10.0
+    }
+
+    fn repost_separator_after_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+        Stroke::NONE
+    }
+    fn repost_space_above_separator_after(_post: &NoteRenderData) -> f32 {
+        0.0
+    }
+    fn repost_space_below_separator_after(_post: &NoteRenderData) -> f32 {
+        0.0
+    }
+
+    fn repost_inner_margin(_post: &NoteRenderData) -> Margin {
+        Margin {
+            left: 5.0,
+            top: 14.0,
+            right: 6.0,
+            bottom: 6.0,
+        }
+    }
+    fn repost_outer_margin(_post: &NoteRenderData) -> Margin {
+        Margin {
+            left: -5.0,
+            top: -14.0,
+            right: -6.0,
+            bottom: -3.0,
+        }
+    }
+    fn repost_rounding(post: &NoteRenderData) -> Rounding {
+        Self::feed_frame_rounding(post)
+    }
+    fn repost_shadow(_dark_mode: bool, _post: &NoteRenderData) -> Shadow {
+        Shadow::NONE
+    }
+    fn repost_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
+        let mut hsva: ecolor::HsvaGamma = Self::feed_frame_fill(dark_mode, post).into();
+        if dark_mode {
+            hsva.v = (hsva.v + 0.05).min(1.0); // lighten
+        } else {
+            hsva.v = (hsva.v - 0.05).max(0.0); // darken
+        }
+        let color: Color32 = hsva.into();
+        color
+    }
+    fn repost_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke {
+        Self::feed_frame_stroke(dark_mode, post)
     }
 
     fn round_image() -> bool {

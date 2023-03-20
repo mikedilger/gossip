@@ -254,7 +254,7 @@ pub(super) fn render_note(
                     if note_data.author.muted > 0 {
                         ui.label(RichText::new("MUTED POST").monospace().italics());
                     } else {
-                        render_note_inner(app, ctx, ui, note_data, &render_data, hide_footer);
+                        render_note_inner(app, ctx, ui, note_data, &render_data, hide_footer, &None);
                     }
                 });
             });
@@ -307,6 +307,7 @@ fn render_note_inner(
     note_data: NoteData,
     render_data: &NoteRenderData,
     hide_footer: bool,
+    parent_repost: &Option<RepostType>,
 ) {
     let NoteData {
         event,
@@ -330,16 +331,44 @@ fn render_note_inner(
     };
 
     // Determine avatar size
-    let avatar_size = match repost {
-        None => AVATAR_SIZE_F32,
-        Some(_) => AVATAR_SIZE_REPOST_F32,
+    let avatar_size = if parent_repost.is_none() {
+        match repost {
+            None | Some(RepostType::CommentMention) => AVATAR_SIZE_F32,
+            Some(_) => AVATAR_SIZE_REPOST_F32,
+        }
+    } else {
+        match parent_repost {
+            None | Some(RepostType::CommentMention) => AVATAR_SIZE_REPOST_F32,
+            Some(_) => AVATAR_SIZE_F32,
+        }
     };
 
     let inner_margin = app.settings.theme.feed_frame_inner_margin(render_data);
 
-    let avatar_margin_left = match repost {
-        None => 0.0,
-        Some(_) => (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
+    let avatar_margin_left = if parent_repost.is_none() {
+        match repost {
+            None | Some(RepostType::CommentMention) => 0.0,
+            Some(_) => (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
+        }
+    } else {
+        match parent_repost {
+            None | Some(RepostType::CommentMention) => (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
+            Some(_) => 0.0,
+        }
+    };
+
+    let hide_footer = if hide_footer {
+        true
+    } else if parent_repost.is_none() {
+        match repost {
+            None | Some(RepostType::CommentMention) => false,
+            Some(_) => true,
+        }
+    } else {
+        match parent_repost {
+            None | Some(RepostType::CommentMention) => true,
+            Some(_) => false,
+        }
     };
 
     let content_pull_top = inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size;
@@ -580,7 +609,7 @@ fn render_note_inner(
 
             // render any repost without frame or indent
             if let Some(repost) = append_repost {
-                render_repost(app, ui, ctx, repost)
+                render_repost(app, ui, ctx, &note_data, repost)
             }
 
             // deleted?
@@ -595,7 +624,7 @@ fn render_note_inner(
             }
 
             // Footer
-            if !hide_footer && note_data.repost.is_none() {
+            if !hide_footer {
             Frame::none()
                 .inner_margin(Margin {
                     left: footer_margin_left,
@@ -742,7 +771,7 @@ fn thin_separator(ui: &mut Ui, stroke: Stroke) {
     ui.reset_style();
 }
 
-pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, repost_data: NoteData) {
+pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, parent_data: &NoteData, repost_data: NoteData) {
     let render_data = NoteRenderData {
         height: 0.0,
         has_repost: repost_data.repost.is_some(),
@@ -755,12 +784,24 @@ pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, repo
     };
 
     ui.vertical(|ui| {
-        ui.add_space(app.settings.theme.repost_space_above_separator(&render_data));
-        thin_separator(ui, app.settings.theme.repost_separator_stroke(&render_data));
-        ui.add_space(app.settings.theme.repost_space_below_separator(&render_data));
-        ui.horizontal_wrapped(|ui| {
-            // FIXME: don't do this recursively
-            render_note_inner(app, ctx, ui, repost_data, &render_data, false);
-        });
+        ui.add_space(app.settings.theme.repost_space_above_separator_before(&render_data));
+        thin_separator(ui, app.settings.theme.repost_separator_before_stroke(&render_data));
+        ui.add_space(app.settings.theme.repost_space_below_separator_before(&render_data));
+        Frame::none()
+            .inner_margin(app.settings.theme.repost_inner_margin(&render_data))
+            .outer_margin(app.settings.theme.repost_outer_margin(&render_data))
+            .rounding(app.settings.theme.repost_rounding(&render_data))
+            .shadow(app.settings.theme.repost_shadow(&render_data))
+            .fill(app.settings.theme.repost_fill(&render_data))
+            .stroke(app.settings.theme.repost_stroke(&render_data))
+            .show(ui, |ui|{
+                ui.horizontal_wrapped(|ui| {
+                    // FIXME: don't do this recursively
+                    render_note_inner(app, ctx, ui, repost_data, &render_data, false,&parent_data.repost);
+                });
+            });
+        ui.add_space(app.settings.theme.repost_space_above_separator_after(&render_data));
+        thin_separator(ui, app.settings.theme.repost_separator_after_stroke(&render_data));
+        ui.add_space(app.settings.theme.repost_space_below_separator_after(&render_data));
     });
 }

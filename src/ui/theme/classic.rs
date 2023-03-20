@@ -435,7 +435,7 @@ impl ThemeDef for ClassicTheme {
         Stroke::NONE
     }
 
-    fn repost_separator_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+    fn repost_separator_before_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
         if dark_mode {
             Stroke::new(1.0, Color32::from_gray(72))
         } else {
@@ -443,11 +443,52 @@ impl ThemeDef for ClassicTheme {
         }
     }
 
-    fn repost_space_above_separator(_post: &NoteRenderData) -> f32 {
+    fn repost_space_above_separator_before(_post: &NoteRenderData) -> f32 {
         4.0
     }
-    fn repost_space_below_separator(_post: &NoteRenderData) -> f32 {
+    fn repost_space_below_separator_before(_post: &NoteRenderData) -> f32 {
         8.0
+    }
+
+    fn repost_separator_after_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke {
+        Self::repost_separator_before_stroke(dark_mode, post)
+    }
+    fn repost_space_above_separator_after(_post: &NoteRenderData) -> f32 {
+        4.0
+    }
+    fn repost_space_below_separator_after(_post: &NoteRenderData) -> f32 {
+        0.0
+    }
+
+    fn repost_inner_margin(_post: &NoteRenderData) -> Margin {
+        // Margin {
+        //     left: 10.0,
+        //     top: 4.0,
+        //     right: 10.0,
+        //     bottom: 4.0,
+        // }
+        Margin::same(0.0)
+    }
+    fn repost_outer_margin(_post: &NoteRenderData) -> Margin {
+        // Margin {
+        //     left: -10.0,
+        //     top: -4.0,
+        //     right: -10.0,
+        //     bottom: -4.0,
+        // }
+        Margin::same(0.0)
+    }
+    fn repost_rounding(post: &NoteRenderData) -> Rounding {
+        Self::feed_frame_rounding(post)
+    }
+    fn repost_shadow(_dark_mode: bool, _post: &NoteRenderData) -> Shadow {
+        Shadow::NONE
+    }
+    fn repost_fill(_dark_mode: bool, _post: &NoteRenderData) -> Color32 {
+        Color32::TRANSPARENT
+    }
+    fn repost_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+        Stroke::NONE
     }
 
     fn round_image() -> bool {
