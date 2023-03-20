@@ -37,7 +37,7 @@ use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex};
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -308,6 +308,7 @@ impl GossipUi {
         }
     }
 
+    // maybe_relays is only used for Page::Feed(FeedKind::Thread...)
     fn set_page(&mut self, page: Page) {
         if self.page != page {
             tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
@@ -318,6 +319,27 @@ impl GossipUi {
             self.qr_codes.clear();
             self.render_qr = None;
             self.person_qr = None;
+        }
+    }
+
+    fn set_page_thread_with_relays(&mut self, page: Page, relays: Vec<RelayUrl>) {
+        tracing::debug!("RELAYS: {:?}", relays);
+        if let Page::Feed(FeedKind::Thread { id, referenced_by }) = page {
+            if self.page != page {
+                tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
+                self.history.push(self.page.clone());
+
+                GLOBALS.feed.set_feed_to_thread(id, referenced_by, relays);
+
+                // Clear QR codes on page switches
+                self.qr_codes.clear();
+                self.render_qr = None;
+                self.person_qr = None;
+
+                self.page = page;
+            }
+        } else {
+            self.set_page(page);
         }
     }
 
@@ -340,7 +362,7 @@ impl GossipUi {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
             }
             Page::Feed(FeedKind::Thread { id, referenced_by }) => {
-                GLOBALS.feed.set_feed_to_thread(*id, *referenced_by);
+                GLOBALS.feed.set_feed_to_thread(*id, *referenced_by, vec![]);
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());

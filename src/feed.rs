@@ -1,7 +1,7 @@
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, EventKind, Id, PublicKeyHex, Unixtime};
+use nostr_types::{Event, EventKind, Id, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -107,7 +107,7 @@ impl Feed {
         });
     }
 
-    pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id) {
+    pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id, relays: Vec<RelayUrl>) {
         *self.current_feed_kind.write() = FeedKind::Thread { id, referenced_by };
 
         // Parent starts with the post itself
@@ -118,9 +118,10 @@ impl Feed {
             target: "all".to_string(),
             payload: ToMinionPayload::UnsubscribePersonFeed,
         });
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::SetThreadFeed(id, referenced_by));
+        let _ =
+            GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::SetThreadFeed(id, referenced_by, relays));
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {

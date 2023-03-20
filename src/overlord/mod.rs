@@ -599,8 +599,8 @@ impl Overlord {
                 }
                 DbRelay::update_advertise(relay_url, advertise).await?;
             }
-            ToOverlordMessage::SetThreadFeed(id, referenced_by) => {
-                self.set_thread_feed(id, referenced_by).await?;
+            ToOverlordMessage::SetThreadFeed(id, referenced_by, relays) => {
+                self.set_thread_feed(id, referenced_by, relays).await?;
             }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
@@ -1146,7 +1146,12 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_thread_feed(&mut self, id: Id, referenced_by: Id) -> Result<(), Error> {
+    async fn set_thread_feed(
+        &mut self,
+        id: Id,
+        referenced_by: Id,
+        mut relays: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
         // We are responsible for loading all the ancestors and all the replies, and
         // process.rs is responsible for building the relationships.
         // The UI can only show events if they are loaded into memory and the relationships
@@ -1161,7 +1166,6 @@ impl Overlord {
         // more than strictly necessary, but not too expensive.
 
         let mut missing_ancestors: Vec<Id> = Vec::new();
-        let mut relays: Vec<RelayUrl> = Vec::new();
 
         // Include the relays where the referenced_by event was seen
         relays.extend(DbEventRelay::get_relays_for_event(referenced_by).await?);
@@ -1185,7 +1189,7 @@ impl Overlord {
         // Collect missing ancestors and potential relays further up the chain
         if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
             // Use relays in 'e' tags
-            for (id, opturl) in highest_parent.replies_to_ancestors() {
+            for (id, opturl) in highest_parent.referred_events() {
                 missing_ancestors.push(id);
                 if let Some(url) = opturl {
                     relays.push(url);
@@ -1195,7 +1199,7 @@ impl Overlord {
             // fiatjaf's suggestion from issue #187, use 'p' tag url mentions too, since
             // those people probably wrote the ancestor events so probably on those
             // relays
-            for (_pk, opturl) in highest_parent.mentions() {
+            for (_pk, opturl, _nick) in highest_parent.people() {
                 if let Some(url) = opturl {
                     relays.push(url);
                 }

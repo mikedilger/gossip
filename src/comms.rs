@@ -31,7 +31,7 @@ pub enum ToOverlordMessage {
     SetActivePerson(PublicKeyHex),
     SetRelayReadWrite(RelayUrl, bool, bool),
     SetRelayAdvertise(RelayUrl, bool),
-    SetThreadFeed(Id, Id),
+    SetThreadFeed(Id, Id, Vec<RelayUrl>),
     Shutdown,
     UnlockKey(String),
     UpdateMetadata(PublicKeyHex),

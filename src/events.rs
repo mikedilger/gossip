@@ -4,6 +4,7 @@ use async_recursion::async_recursion;
 use dashmap::DashMap;
 use nostr_types::{Event, Filter, Id};
 use std::fmt::Display;
+use tokio::task;
 
 pub struct Events {
     events: DashMap<Id, Event>,
@@ -36,29 +37,28 @@ impl Events {
             return Ok(Some(e));
         }
 
-        let db = GLOBALS.db.get()?;
-        let opt_event: Option<Event> = {
+        if let Some(event) = task::spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare("SELECT raw FROM event WHERE id=?")?;
             stmt.raw_bind_parameter(1, id.as_hex_string())?;
             let mut rows = stmt.raw_query();
-            match rows.next()? {
-                None => None,
-                Some(row) => {
-                    let s: String = row.get(0)?;
-                    Some(serde_json::from_str(&s)?)
-                }
+            if let Some(row) = rows.next()? {
+                let s: String = row.get(0)?;
+                Ok(Some(serde_json::from_str(&s)?))
+            } else {
+                Ok::<Option<Event>, Error>(None)
             }
-        };
+        })
+        .await??
+        {
+            // Process that event
+            crate::process::process_new_event(&event, false, None, None).await?;
 
-        match opt_event {
-            None => Ok(None),
-            Some(event) => {
-                // Process that event
-                crate::process::process_new_event(&event, false, None, None).await?;
-
-                self.insert(event.clone());
-                Ok(Some(event))
-            }
+            self.insert(event.clone());
+            Ok(Some(event))
+        } else {
+            Ok(None)
         }
     }
 
@@ -121,14 +121,20 @@ impl Events {
 
         tracing::trace!("get_local_events_by_filter SQL={}", &sql);
 
-        let db = GLOBALS.db.get()?;
-        let mut stmt = db.prepare(&sql)?;
-        let mut rows = stmt.raw_query();
-        let mut events: Vec<Event> = Vec::new();
-        while let Some(row) = rows.next()? {
-            let s: String = row.get(0)?;
-            events.push(serde_json::from_str(&s)?);
-        }
+        let events_result = task::spawn_blocking(move || -> Result<Vec<Event>, Error> {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(&sql)?;
+            let mut rows = stmt.raw_query();
+            let mut events: Vec<Event> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let s: String = row.get(0)?;
+                events.push(serde_json::from_str(&s)?);
+            }
+            Ok(events)
+        })
+        .await?;
+        let events = events_result?;
 
         for event in events.iter() {
             // Process that event
