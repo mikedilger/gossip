@@ -495,6 +495,10 @@ impl ThemeDef for RoundyTheme {
         Shadow::NONE
     }
     fn repost_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
+        if !post.is_comment_mention {
+            return Color32::TRANSPARENT
+        }
+
         let mut hsva: ecolor::HsvaGamma = Self::feed_frame_fill(dark_mode, post).into();
         if dark_mode {
             hsva.v = (hsva.v + 0.05).min(1.0); // lighten

@@ -16,6 +16,7 @@ use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Tag};
 
 mod content;
 
+#[derive(PartialEq)]
 enum RepostType {
     /// Damus style, kind 6 repost where the reposted note's JSON
     /// is included in the content
@@ -166,6 +167,8 @@ pub struct NoteRenderData {
     pub is_main_event: bool,
     /// This message is a repost of another message
     pub has_repost: bool,
+    /// Is this post being mentioned within a comment
+    pub is_comment_mention: bool,
     /// This message is part of a thread
     pub is_thread: bool,
     /// Is this the first post in the display?
@@ -225,6 +228,7 @@ pub(super) fn render_note(
     let render_data = NoteRenderData {
         height: *height,
         has_repost: note_data.repost.is_some(),
+        is_comment_mention: false,
         is_new,
         is_thread: threaded,
         is_first,
@@ -775,6 +779,7 @@ pub(super) fn render_repost(app: &mut GossipUi, ui: &mut Ui, ctx: &Context, pare
     let render_data = NoteRenderData {
         height: 0.0,
         has_repost: repost_data.repost.is_some(),
+        is_comment_mention: parent_data.repost == Some(RepostType::CommentMention),
         is_new: false,
         is_main_event: false,
         is_thread: false,
