@@ -86,6 +86,10 @@ pub(super) fn render_note(
         }
     };
 
+    if note_data.author.muted > 0 {
+        return;
+    }
+
     let is_new = app.settings.highlight_unread_events
         && !GLOBALS.viewed_events.contains(&note_data.event.id);
 
@@ -134,11 +138,7 @@ pub(super) fn render_note(
                         .theme
                         .feed_post_inner_indent(ui, &post_properties);
 
-                    if note_data.author.muted > 0 {
-                        ui.label(RichText::new("MUTED POST").monospace().italics());
-                    } else {
-                        render_note_inner(app, ctx, ui, note_data, is_main_event, as_reply_to);
-                    }
+                    render_note_inner(app, ctx, ui, note_data, is_main_event, as_reply_to);
                 });
             });
 
