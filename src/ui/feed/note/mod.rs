@@ -189,7 +189,7 @@ pub(super) fn render_note(
     let FeedNoteParams {
         id,
         indent,
-        hide_footer,
+        as_reply_to,
         threaded,
         is_first,
         is_last,
@@ -258,7 +258,7 @@ pub(super) fn render_note(
                     if note_data.author.muted > 0 {
                         ui.label(RichText::new("MUTED POST").monospace().italics());
                     } else {
-                        render_note_inner(app, ctx, ui, note_data, &render_data, hide_footer, &None);
+                        render_note_inner(app, ctx, ui, note_data, &render_data, as_reply_to, &None);
                     }
                 });
             });
@@ -279,7 +279,7 @@ pub(super) fn render_note(
         app.settings.theme.feed_post_separator_stroke(&render_data),
     );
 
-    if threaded && !hide_footer {
+    if threaded && !as_reply_to {
         let replies = Globals::get_replies_sync(id);
         let iter = replies.iter();
         let first = replies.first();
@@ -293,7 +293,7 @@ pub(super) fn render_note(
                 FeedNoteParams {
                     id: *reply_id,
                     indent: indent + 1,
-                    hide_footer,
+                    as_reply_to,
                     threaded,
                     is_first: Some(reply_id) == first,
                     is_last: Some(reply_id) == last,

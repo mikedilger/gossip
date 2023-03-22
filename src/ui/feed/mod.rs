@@ -13,7 +13,7 @@ mod post;
 struct FeedNoteParams {
     id: Id,
     indent: usize,
-    hide_footer: bool,
+    as_reply_to: bool,
     threaded: bool,
     is_first: bool,
     is_last: bool,
@@ -174,7 +174,7 @@ fn render_a_feed(
                             FeedNoteParams {
                                 id: *id,
                                 indent: 0,
-                                hide_footer: false,
+                                as_reply_to: false,
                                 threaded,
                                 is_first: Some(id) == first,
                                 is_last: Some(id) == last,
@@ -195,7 +195,7 @@ fn render_note_maybe_fake(
     let FeedNoteParams {
         id,
         indent,
-        hide_footer,
+        as_reply_to,
         threaded,
         is_first,
         is_last,
@@ -234,7 +234,7 @@ fn render_note_maybe_fake(
                 FeedNoteParams {
                     id,
                     indent,
-                    hide_footer,
+                    as_reply_to,
                     threaded,
                     is_first,
                     is_last,
@@ -251,7 +251,7 @@ fn render_note_maybe_fake(
         ui.add_space(height);
 
         // Yes, and we need to fake render threads to get their approx height too.
-        if threaded && !hide_footer {
+        if threaded && !as_reply_to {
             let replies = Globals::get_replies_sync(event.id);
             let iter = replies.iter();
             let first = replies.first();
@@ -265,7 +265,7 @@ fn render_note_maybe_fake(
                     FeedNoteParams {
                         id: *reply_id,
                         indent: indent + 1,
-                        hide_footer,
+                        as_reply_to,
                         threaded,
                         is_first: Some(reply_id) == first,
                         is_last: Some(reply_id) == last,
@@ -282,7 +282,7 @@ fn render_note_maybe_fake(
             FeedNoteParams {
                 id,
                 indent,
-                hide_footer,
+                as_reply_to,
                 threaded,
                 is_first,
                 is_last,
