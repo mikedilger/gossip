@@ -2,7 +2,7 @@ use super::{FeedProperties, NoteRenderData, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{FontDefinitions, Margin, Style, TextFormat, TextStyle, Visuals};
-use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke, ecolor};
+use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -496,7 +496,7 @@ impl ThemeDef for RoundyTheme {
     }
     fn repost_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
         if !post.is_comment_mention {
-            return Color32::TRANSPARENT
+            return Color32::TRANSPARENT;
         }
 
         let mut hsva: ecolor::HsvaGamma = Self::feed_frame_fill(dark_mode, post).into();

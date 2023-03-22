@@ -511,7 +511,7 @@ impl ThemeDef for DefaultTheme {
     }
     fn repost_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
         if !post.is_comment_mention {
-            return Color32::TRANSPARENT
+            return Color32::TRANSPARENT;
         }
 
         let mut hsva: ecolor::HsvaGamma = Self::feed_frame_fill(dark_mode, post).into();
