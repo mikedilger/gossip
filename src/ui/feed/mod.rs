@@ -137,7 +137,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
         }
         FeedKind::Person(pubkeyhex) => {
-            let feed = GLOBALS.feed.get_person_feed(pubkeyhex.clone());
+            let feed = GLOBALS.feed.get_person_feed();
             render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
         }
     }
