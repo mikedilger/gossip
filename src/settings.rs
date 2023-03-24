@@ -11,6 +11,7 @@ pub const DEFAULT_OVERLAP: u64 = 300; // 5 minutes
 pub const DEFAULT_NUM_RELAYS_PER_PERSON: u8 = 3;
 pub const DEFAULT_MAX_RELAYS: u8 = 15;
 pub const DEFAULT_MAX_FPS: u32 = 15;
+pub const DEFAULT_RECOMPUTE_FEED_PERIODICALLY: bool = true;
 pub const DEFAULT_FEED_RECOMPUTE_INTERVAL_MS: u32 = 3500;
 pub const DEFAULT_POW: u8 = 0;
 pub const DEFAULT_OFFLINE: bool = false;
@@ -39,6 +40,7 @@ pub struct Settings {
     pub max_relays: u8,
     pub public_key: Option<PublicKey>,
     pub max_fps: u32,
+    pub recompute_feed_periodically: bool,
     pub feed_recompute_interval_ms: u32,
     pub pow: u8,
     pub offline: bool,
@@ -67,6 +69,7 @@ impl Default for Settings {
             max_relays: DEFAULT_MAX_RELAYS,
             public_key: None,
             max_fps: DEFAULT_MAX_FPS,
+            recompute_feed_periodically: DEFAULT_RECOMPUTE_FEED_PERIODICALLY,
             feed_recompute_interval_ms: DEFAULT_FEED_RECOMPUTE_INTERVAL_MS,
             pow: DEFAULT_POW,
             offline: DEFAULT_OFFLINE,
@@ -127,6 +130,9 @@ impl Settings {
                     }
                 }
                 "max_fps" => settings.max_fps = row.1.parse::<u32>().unwrap_or(DEFAULT_MAX_FPS),
+                "recompute_feed_periodically" => {
+                    settings.recompute_feed_periodically = numstr_to_bool(row.1)
+                }
                 "feed_recompute_interval_ms" => {
                     settings.feed_recompute_interval_ms = row
                         .1
@@ -196,6 +202,7 @@ impl Settings {
              ('num_relays_per_person', ?),\
              ('max_relays', ?),\
              ('max_fps', ?),\
+             ('recompute_feed_periodically', ?),\
              ('feed_recompute_interval_ms', ?),\
              ('pow', ?),\
              ('offline', ?),\
@@ -220,6 +227,7 @@ impl Settings {
             self.num_relays_per_person,
             self.max_relays,
             self.max_fps,
+            self.recompute_feed_periodically,
             self.feed_recompute_interval_ms,
             self.pow,
             bool_to_numstr(self.offline),

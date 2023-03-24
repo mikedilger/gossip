@@ -24,6 +24,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     // Feed Page Selection
     ui.horizontal(|ui| {
+        if !app.settings.recompute_feed_periodically {
+            if ui.button("↻").clicked() {
+                GLOBALS.feed.sync_recompute();
+            }
+        }
+        ui.separator();
         if ui
             .add(SelectableLabel::new(
                 matches!(app.page, Page::Feed(FeedKind::Followed(_))),

@@ -20,7 +20,7 @@ pub struct Feed {
     /// Indicates that feed events have been loaded from the DB into [GLOBALS.events], and therefore
     /// [Feed] rendering methods have data on which they can work.
     ///
-    /// Calling [Feed::maybe_recompute] when this is false will simply return.
+    /// Calling [Feed::sync_maybe_periodic_recompute] when this is false will simply return.
     ///
     /// Calling [Feed::recompute] when this is false with throw an error.
     pub ready: AtomicBool,
@@ -127,19 +127,19 @@ impl Feed {
     }
 
     pub fn get_followed(&self) -> Vec<Id> {
-        self.maybe_recompute(); // FIXME only do so on a button press.
+        self.sync_maybe_periodic_recompute();
         self.followed_feed.read().clone()
     }
 
     pub fn get_inbox(&self) -> Vec<Id> {
-        self.maybe_recompute(); // FIXME only do so on a button press.
+        self.sync_maybe_periodic_recompute();
         self.inbox_feed.read().clone()
     }
 
     pub fn get_person_feed(&self, person: PublicKeyHex) -> Vec<Id> {
         let enable_reposts = GLOBALS.settings.read().reposts;
 
-        self.maybe_recompute();
+        self.sync_maybe_periodic_recompute();
         let mut events: Vec<Event> = GLOBALS
             .events
             .iter()
@@ -159,7 +159,7 @@ impl Feed {
     }
 
     pub fn get_thread_parent(&self) -> Option<Id> {
-        self.maybe_recompute();
+        self.sync_maybe_periodic_recompute();
         *self.thread_parent.read()
     }
 
@@ -168,7 +168,14 @@ impl Feed {
         *self.thread_parent.write() = Some(id);
     }
 
-    pub fn maybe_recompute(&self) {
+    // This recomputes only if periodic recomputation is enabled, and it has been
+    // at least one period since the last (for any reason) recomputation.
+    pub fn sync_maybe_periodic_recompute(&self) {
+        // Only if we recompute periodically
+        if !GLOBALS.settings.read().recompute_feed_periodically {
+            return;
+        }
+
         if !self.ready.load(Ordering::Relaxed) {
             return;
         }
