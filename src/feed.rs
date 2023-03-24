@@ -24,7 +24,8 @@ pub struct Feed {
     ///
     /// Calling [Feed::recompute] when this is false with throw an error.
     pub ready: AtomicBool,
-    pub switched_and_recomputing: AtomicBool,
+
+    pub recompute_lock: AtomicBool,
 
     current_feed_kind: RwLock<FeedKind>,
 
@@ -42,7 +43,7 @@ impl Feed {
     pub fn new() -> Feed {
         Feed {
             ready: AtomicBool::new(false),
-            switched_and_recomputing: AtomicBool::new(false),
+            recompute_lock: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::Followed(false)),
             followed_feed: RwLock::new(Vec::new()),
             inbox_feed: RwLock::new(Vec::new()),
@@ -60,10 +61,6 @@ impl Feed {
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
-        GLOBALS
-            .feed
-            .switched_and_recomputing
-            .store(true, Ordering::Relaxed);
         task::spawn(async move {
             if let Err(e) = GLOBALS.feed.recompute().await {
                 tracing::error!("{}", e);
@@ -86,10 +83,6 @@ impl Feed {
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
-        GLOBALS
-            .feed
-            .switched_and_recomputing
-            .store(true, Ordering::Relaxed);
         task::spawn(async move {
             if let Err(e) = GLOBALS.feed.recompute().await {
                 tracing::error!("{}", e);
@@ -208,6 +201,12 @@ impl Feed {
     pub async fn recompute(&self) -> Result<(), Error> {
         if !self.ready.load(Ordering::Relaxed) {
             return Err("Feed is not yet ready")?;
+        }
+
+        // If some other process is already recomputing, just return as if
+        // the recompute was successful.  Otherwise set to true.
+        if self.recompute_lock.fetch_or(true, Ordering::Relaxed) {
+            return Ok(());
         }
 
         *self.last_computed.write() = Some(Instant::now());
@@ -333,8 +332,7 @@ impl Feed {
             _ => {}
         }
 
-        self.switched_and_recomputing
-            .store(false, Ordering::Relaxed);
+        self.recompute_lock.store(false, Ordering::Relaxed);
 
         Ok(())
     }

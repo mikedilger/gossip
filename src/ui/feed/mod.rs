@@ -71,7 +71,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         if GLOBALS
             .feed
-            .switched_and_recomputing
+            .recompute_lock
             .load(std::sync::atomic::Ordering::Relaxed)
         {
             ui.separator();
