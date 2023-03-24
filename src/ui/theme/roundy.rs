@@ -447,13 +447,16 @@ impl ThemeDef for RoundyTheme {
         }
     }
 
-    fn repost_separator_before_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
-        // if dark_mode {
-        //     Stroke::new(1.0, Color32::from_gray(72))
-        // } else {
-        //     Stroke::new(1.0, Color32::from_gray(192))
-        // }
-        Stroke::NONE
+    fn repost_separator_before_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke {
+        if post.is_comment_mention {
+            return Stroke::NONE;
+        }
+
+        if dark_mode {
+            Stroke::new(1.0, Color32::from_gray(72))
+        } else {
+            Stroke::new(1.0, Color32::from_gray(192))
+        }
     }
     fn repost_space_above_separator_before(_post: &NoteRenderData) -> f32 {
         0.0
@@ -469,21 +472,21 @@ impl ThemeDef for RoundyTheme {
         0.0
     }
     fn repost_space_below_separator_after(_post: &NoteRenderData) -> f32 {
-        8.0
+        0.0
     }
 
     fn repost_inner_margin(_post: &NoteRenderData) -> Margin {
         Margin {
-            left: 10.0,
-            right: 10.0,
+            left: 5.0,
+            right: 6.0,
             top: 10.0,
             bottom: 10.0,
         }
     }
     fn repost_outer_margin(_post: &NoteRenderData) -> Margin {
         Margin {
-            left: -10.0,
-            right: -10.0,
+            left: -5.0,
+            right: -6.0,
             top: -10.0,
             bottom: -6.0,
         }
@@ -508,8 +511,8 @@ impl ThemeDef for RoundyTheme {
         let color: Color32 = hsva.into();
         color
     }
-    fn repost_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke {
-        Self::feed_frame_stroke(dark_mode, post)
+    fn repost_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+        Stroke::NONE
     }
 
     fn round_image() -> bool {
