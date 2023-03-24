@@ -1,21 +1,24 @@
-use super::{GossipUi, Page};
+use super::{GossipUi, NoteData, Page, RepostType};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
-use eframe::egui::{self, Context};
+use eframe::egui;
 use egui::{RichText, Ui};
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{Event, IdHex, Tag};
+use nostr_types::{IdHex, Tag};
 
+/// returns None or a repost
 pub(super) fn render_content(
     app: &mut GossipUi,
-    ctx: &Context,
     ui: &mut Ui,
-    tag_re: &regex::Regex,
-    event: &Event,
+    note: &NoteData,
     as_deleted: bool,
     content: &str,
-) {
+) -> Option<NoteData> {
+    let tag_re = app.tag_re.clone();
     ui.style_mut().spacing.item_spacing.x = 0.0;
+
+    // Optional repost return
+    let mut append_repost: Option<NoteData> = None;
 
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
@@ -36,7 +39,7 @@ pub(super) fn render_content(
             for mat in tag_re.find_iter(s) {
                 ui.label(&s[pos..mat.start()]);
                 let num: usize = s[mat.start() + 2..mat.end() - 1].parse::<usize>().unwrap();
-                if let Some(tag) = event.tags.get(num) {
+                if let Some(tag) = note.event.tags.get(num) {
                     match tag {
                         Tag::Pubkey { pubkey, .. } => {
                             let nam = match GLOBALS.people.get(pubkey) {
@@ -51,27 +54,38 @@ pub(super) fn render_content(
                             };
                         }
                         Tag::Event { id, .. } => {
-                            if ui.cursor().min == ui.max_rect().min {
-                                ui.end_row();
-                            }
-                            let mut render_as_link = true;
-                            if app.settings.show_first_mention && pos == 0 {
-                                // try to find the mentioned note in our cache
-                                let maybe_event = GLOBALS.events.get(id);
-                                if let Some(event) = maybe_event {
-                                    if let Some(note_data) = super::NoteData::new(event) {
-                                        super::render_repost(app, ui, ctx, note_data);
-                                        render_as_link = false;
+                            let mut render_link = true;
+                            match note.repost {
+                                Some(RepostType::MentionOnly)
+                                | Some(RepostType::CommentMention)
+                                | Some(RepostType::Kind6Mention) => {
+                                    for (i, event) in note.cached_mentions.iter() {
+                                        if *i == num {
+                                            // FIXME is there a way to consume just this entry in cached_mentions so
+                                            //       we can avoid the clone?
+                                            if let Some(note_data) =
+                                                super::NoteData::new(event.clone(), true)
+                                            {
+                                                append_repost = Some(note_data);
+                                                render_link = false;
+                                            }
+                                        }
                                     }
                                 }
+                                _ => (),
                             }
-                            if render_as_link {
+                            if render_link {
+                                // insert a newline if the current line has text
+                                if ui.cursor().min.x > ui.max_rect().min.y {
+                                    ui.end_row();
+                                }
+
                                 let idhex: IdHex = (*id).into();
                                 let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
                                 if ui.link(&nam).clicked() {
                                     app.set_page(Page::Feed(FeedKind::Thread {
                                         id: *id,
-                                        referenced_by: event.id,
+                                        referenced_by: note.event.id,
                                     }));
                                 };
                             }
@@ -101,4 +115,6 @@ pub(super) fn render_content(
     }
 
     ui.reset_style();
+
+    append_repost
 }

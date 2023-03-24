@@ -1,4 +1,4 @@
-use super::{FeedProperties, PostProperties, ThemeDef};
+use super::{FeedProperties, NoteRenderData, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{
@@ -381,11 +381,11 @@ impl ThemeDef for DefaultTheme {
     fn feed_scroll_stroke(_dark_mode: bool, _feed: &FeedProperties) -> Stroke {
         Stroke::NONE
     }
-    fn feed_post_separator_stroke(_dark_mode: bool, _post: &PostProperties) -> Stroke {
+    fn feed_post_separator_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
         Stroke::NONE
     }
-    fn feed_post_outer_indent(_ui: &mut eframe::egui::Ui, _post: &PostProperties) {}
-    fn feed_post_inner_indent(ui: &mut eframe::egui::Ui, post: &PostProperties) {
+    fn feed_post_outer_indent(_ui: &mut eframe::egui::Ui, _post: &NoteRenderData) {}
+    fn feed_post_inner_indent(ui: &mut eframe::egui::Ui, post: &NoteRenderData) {
         if post.is_thread {
             if post.thread_position > 0 {
                 let space = 150.0 * (10.0 - (1000.0 / (post.thread_position as f32 + 100.0)));
@@ -421,7 +421,7 @@ impl ThemeDef for DefaultTheme {
             }
         }
     }
-    fn feed_frame_inner_margin(_post: &PostProperties) -> Margin {
+    fn feed_frame_inner_margin(_post: &NoteRenderData) -> Margin {
         Margin {
             left: 10.0,
             top: 14.0,
@@ -429,17 +429,17 @@ impl ThemeDef for DefaultTheme {
             bottom: 6.0,
         }
     }
-    fn feed_frame_outer_margin(_post: &PostProperties) -> Margin {
+    fn feed_frame_outer_margin(_post: &NoteRenderData) -> Margin {
         Margin::symmetric(0.0, 0.0)
     }
-    fn feed_frame_rounding(_post: &PostProperties) -> Rounding {
+    fn feed_frame_rounding(_post: &NoteRenderData) -> Rounding {
         Rounding::same(4.0)
     }
-    fn feed_frame_shadow(_dark_mode: bool, _post: &PostProperties) -> Shadow {
+    fn feed_frame_shadow(_dark_mode: bool, _post: &NoteRenderData) -> Shadow {
         Shadow::default()
     }
-    fn feed_frame_fill(dark_mode: bool, post: &PostProperties) -> Color32 {
-        if post.is_focused {
+    fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
+        if post.is_main_event {
             if dark_mode {
                 Color32::from_rgb(16, 23, 33)
             } else {
@@ -459,8 +459,72 @@ impl ThemeDef for DefaultTheme {
             }
         }
     }
-    fn feed_frame_stroke(_dark_mode: bool, _post: &PostProperties) -> Stroke {
+    fn feed_frame_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
         Stroke::NONE
+    }
+
+    fn repost_separator_before_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+        if dark_mode {
+            Stroke::new(1.0, Color32::from_gray(60))
+        } else {
+            Stroke::new(1.0, Color32::from_gray(230))
+        }
+    }
+    fn repost_space_above_separator_before(_post: &NoteRenderData) -> f32 {
+        0.0
+    }
+    fn repost_space_below_separator_before(_post: &NoteRenderData) -> f32 {
+        10.0
+    }
+
+    fn repost_separator_after_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
+        Stroke::NONE
+    }
+    fn repost_space_above_separator_after(_post: &NoteRenderData) -> f32 {
+        0.0
+    }
+    fn repost_space_below_separator_after(_post: &NoteRenderData) -> f32 {
+        0.0
+    }
+
+    fn repost_inner_margin(_post: &NoteRenderData) -> Margin {
+        Margin {
+            left: 5.0,
+            top: 14.0,
+            right: 6.0,
+            bottom: 6.0,
+        }
+    }
+    fn repost_outer_margin(_post: &NoteRenderData) -> Margin {
+        Margin {
+            left: -5.0,
+            top: -14.0,
+            right: -6.0,
+            bottom: -3.0,
+        }
+    }
+    fn repost_rounding(post: &NoteRenderData) -> Rounding {
+        Self::feed_frame_rounding(post)
+    }
+    fn repost_shadow(_dark_mode: bool, _post: &NoteRenderData) -> Shadow {
+        Shadow::NONE
+    }
+    fn repost_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
+        if !post.is_comment_mention {
+            return Color32::TRANSPARENT;
+        }
+
+        let mut hsva: ecolor::HsvaGamma = Self::feed_frame_fill(dark_mode, post).into();
+        if dark_mode {
+            hsva.v = (hsva.v + 0.05).min(1.0); // lighten
+        } else {
+            hsva.v = (hsva.v - 0.05).max(0.0); // darken
+        }
+        let color: Color32 = hsva.into();
+        color
+    }
+    fn repost_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke {
+        Self::feed_frame_stroke(dark_mode, post)
     }
 
     fn round_image() -> bool {

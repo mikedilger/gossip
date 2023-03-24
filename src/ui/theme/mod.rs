@@ -1,3 +1,4 @@
+use super::feed::NoteRenderData;
 use super::HighlightType;
 use eframe::egui::{
     Color32, Context, FontData, FontDefinitions, FontTweak, Margin, Rounding, Stroke, Style,
@@ -40,22 +41,6 @@ pub struct Theme {
 pub struct FeedProperties {
     /// This is a thread
     pub is_thread: bool,
-}
-
-pub struct PostProperties {
-    pub height: f32,
-    /// Post height
-    pub is_new: bool,
-    /// This message is the focus of the view (formerly called is_main_event)
-    pub is_focused: bool,
-    /// This message is part of a thread
-    pub is_thread: bool,
-    /// Is this the first post in the display?
-    pub is_first: bool,
-    /// Is this the last post in the display
-    pub is_last: bool,
-    /// Position in the thread, focused message = 0
-    pub thread_position: i32,
 }
 
 macro_rules! theme_dispatch {
@@ -143,57 +128,129 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn feed_post_separator_stroke(&self, post: &PostProperties) -> Stroke {
+            pub fn feed_post_separator_stroke(&self, post: &NoteRenderData) -> Stroke {
                 match self.variant {
                     $( $variant => $class::feed_post_separator_stroke(self.dark_mode, post), )+
                 }
             }
 
-            pub fn feed_post_outer_indent(&self, ui: &mut Ui, post: &PostProperties) {
+            pub fn feed_post_outer_indent(&self, ui: &mut Ui, post: &NoteRenderData) {
                 match self.variant {
                     $( $variant => $class::feed_post_outer_indent(ui, post), )+
                 }
             }
 
-            pub fn feed_post_inner_indent(&self, ui: &mut Ui, post: &PostProperties) {
+            pub fn feed_post_inner_indent(&self, ui: &mut Ui, post: &NoteRenderData) {
                 match self.variant {
                     $( $variant => $class::feed_post_inner_indent(ui, post), )+
                 }
             }
 
-            pub fn feed_frame_inner_margin(&self, post: &PostProperties) -> Margin {
+            pub fn feed_frame_inner_margin(&self, post: &NoteRenderData) -> Margin {
                 match self.variant {
                     $( $variant => $class::feed_frame_inner_margin(post), )+
                 }
             }
 
-            pub fn feed_frame_outer_margin(&self, post: &PostProperties) -> Margin {
+            pub fn feed_frame_outer_margin(&self, post: &NoteRenderData) -> Margin {
                 match self.variant {
                     $( $variant => $class::feed_frame_outer_margin(post), )+
                 }
             }
 
-            pub fn feed_frame_rounding(&self, post: &PostProperties) -> Rounding {
+            pub fn feed_frame_rounding(&self, post: &NoteRenderData) -> Rounding {
                 match self.variant {
                     $( $variant => $class::feed_frame_rounding(post), )+
                 }
             }
 
-            pub fn feed_frame_shadow(&self, post: &PostProperties) -> Shadow {
+            pub fn feed_frame_shadow(&self, post: &NoteRenderData) -> Shadow {
                 match self.variant {
                     $( $variant => $class::feed_frame_shadow(self.dark_mode, post), )+
                 }
             }
 
-            pub fn feed_frame_fill(&self, post: &PostProperties) -> Color32 {
+            pub fn feed_frame_fill(&self, post: &NoteRenderData) -> Color32 {
                 match self.variant {
                     $( $variant => $class::feed_frame_fill(self.dark_mode, post), )+
                 }
             }
 
-            pub fn feed_frame_stroke(&self, post: &PostProperties) -> Stroke {
+            pub fn feed_frame_stroke(&self, post: &NoteRenderData) -> Stroke {
                 match self.variant {
                     $( $variant => $class::feed_frame_stroke(self.dark_mode, post), )+
+                }
+            }
+
+            pub fn repost_separator_before_stroke(&self, post: &NoteRenderData) -> Stroke {
+                match self.variant {
+                    $( $variant => $class::repost_separator_before_stroke(self.dark_mode, post), )+
+                }
+            }
+
+            pub fn repost_space_above_separator_before(&self, post: &NoteRenderData) -> f32 {
+                match self.variant {
+                    $( $variant => $class::repost_space_above_separator_before(post), )+
+                }
+            }
+
+            pub fn repost_space_below_separator_before(&self, post: &NoteRenderData) -> f32 {
+                match self.variant {
+                    $( $variant => $class::repost_space_below_separator_before(post), )+
+                }
+            }
+
+            pub fn repost_separator_after_stroke(&self, post: &NoteRenderData) -> Stroke {
+                match self.variant {
+                    $( $variant => $class::repost_separator_after_stroke(self.dark_mode, post), )+
+                }
+            }
+
+            pub fn repost_space_above_separator_after(&self, post: &NoteRenderData) -> f32 {
+                match self.variant {
+                    $( $variant => $class::repost_space_above_separator_after(post), )+
+                }
+            }
+
+            pub fn repost_space_below_separator_after(&self, post: &NoteRenderData) -> f32 {
+                match self.variant {
+                    $( $variant => $class::repost_space_below_separator_after(post), )+
+                }
+            }
+
+            pub fn repost_inner_margin(&self, post: &NoteRenderData) -> Margin {
+                match self.variant {
+                    $( $variant => $class::repost_inner_margin(post), )+
+                }
+            }
+
+            pub fn repost_outer_margin(&self, post: &NoteRenderData) -> Margin {
+                match self.variant {
+                    $( $variant => $class::repost_outer_margin(post), )+
+                }
+            }
+
+            pub fn repost_rounding(&self, post: &NoteRenderData) -> Rounding {
+                match self.variant {
+                    $( $variant => $class::repost_rounding(post), )+
+                }
+            }
+
+            pub fn repost_shadow(&self, post: &NoteRenderData) -> Shadow {
+                match self.variant {
+                    $( $variant => $class::repost_shadow(self.dark_mode, post), )+
+                }
+            }
+
+            pub fn repost_fill(&self, post: &NoteRenderData) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::repost_fill(self.dark_mode, post), )+
+                }
+            }
+
+            pub fn repost_stroke(&self, post: &NoteRenderData) -> Stroke {
+                match self.variant {
+                    $( $variant => $class::repost_stroke(self.dark_mode, post), )+
                 }
             }
 
@@ -241,15 +298,27 @@ pub trait ThemeDef: Send + Sync {
     fn feed_scroll_rounding(feed: &FeedProperties) -> Rounding;
     fn feed_scroll_fill(dark_mode: bool, feed: &FeedProperties) -> Color32;
     fn feed_scroll_stroke(dark_mode: bool, feed: &FeedProperties) -> Stroke;
-    fn feed_post_separator_stroke(dark_mode: bool, post: &PostProperties) -> Stroke;
-    fn feed_post_outer_indent(ui: &mut Ui, post: &PostProperties);
-    fn feed_post_inner_indent(ui: &mut Ui, post: &PostProperties);
-    fn feed_frame_inner_margin(post: &PostProperties) -> Margin;
-    fn feed_frame_outer_margin(post: &PostProperties) -> Margin;
-    fn feed_frame_rounding(post: &PostProperties) -> Rounding;
-    fn feed_frame_shadow(dark_mode: bool, post: &PostProperties) -> Shadow;
-    fn feed_frame_fill(dark_mode: bool, post: &PostProperties) -> Color32;
-    fn feed_frame_stroke(dark_mode: bool, post: &PostProperties) -> Stroke;
+    fn feed_post_separator_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
+    fn feed_post_outer_indent(ui: &mut Ui, post: &NoteRenderData);
+    fn feed_post_inner_indent(ui: &mut Ui, post: &NoteRenderData);
+    fn feed_frame_inner_margin(post: &NoteRenderData) -> Margin;
+    fn feed_frame_outer_margin(post: &NoteRenderData) -> Margin;
+    fn feed_frame_rounding(post: &NoteRenderData) -> Rounding;
+    fn feed_frame_shadow(dark_mode: bool, post: &NoteRenderData) -> Shadow;
+    fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32;
+    fn feed_frame_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
+    fn repost_separator_before_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
+    fn repost_space_above_separator_before(post: &NoteRenderData) -> f32;
+    fn repost_space_below_separator_before(post: &NoteRenderData) -> f32;
+    fn repost_separator_after_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
+    fn repost_space_above_separator_after(post: &NoteRenderData) -> f32;
+    fn repost_space_below_separator_after(post: &NoteRenderData) -> f32;
+    fn repost_inner_margin(post: &NoteRenderData) -> Margin;
+    fn repost_outer_margin(post: &NoteRenderData) -> Margin;
+    fn repost_rounding(post: &NoteRenderData) -> Rounding;
+    fn repost_shadow(dark_mode: bool, post: &NoteRenderData) -> Shadow;
+    fn repost_fill(dark_mode: bool, post: &NoteRenderData) -> Color32;
+    fn repost_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
 
     // image rounding
     fn round_image() -> bool;
