@@ -110,12 +110,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     )
                         .on_hover_text("Takes effect when the feed refreshes.");
 
-                    ui.checkbox(
-                        &mut app.settings.block_mostr,
-                        "Block Mostr",
-                    )
-                        .on_hover_text("Mostr is a gateway to the fediverse through which lots of Nazis flow");
-
                     ui.add_space(12.0);
                     ui.separator();
                     ui.add_space(12.0);

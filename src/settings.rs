@@ -55,7 +55,6 @@ pub struct Settings {
     pub automatically_fetch_metadata: bool,
     pub delegatee_tag: String,
     pub highlight_unread_events: bool,
-    pub block_mostr: bool,
 }
 
 impl Default for Settings {
@@ -84,7 +83,6 @@ impl Default for Settings {
             automatically_fetch_metadata: DEFAULT_AUTOMATICALLY_FETCH_METADATA,
             delegatee_tag: String::new(),
             highlight_unread_events: DEFAULT_HIGHLIGHT_UNREAD_EVENTS,
-            block_mostr: false,
         }
     }
 }
@@ -171,7 +169,6 @@ impl Settings {
                 "highlight_unread_events" => {
                     settings.highlight_unread_events = numstr_to_bool(row.1)
                 }
-                "block_mostr" => settings.block_mostr = numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -214,8 +211,7 @@ impl Settings {
              ('direct_messages', ?),\
              ('automatically_fetch_metadata', ?),\
              ('delegatee_tag', ?),\
-             ('highlight_unread_events', ?),\
-             ('block_mostr', ?)",
+             ('highlight_unread_events', ?)",
         )?;
         stmt.execute(params![
             self.feed_chunk,
@@ -240,7 +236,6 @@ impl Settings {
             bool_to_numstr(self.automatically_fetch_metadata),
             self.delegatee_tag,
             bool_to_numstr(self.highlight_unread_events),
-            bool_to_numstr(self.block_mostr)
         ])?;
 
         // Settings which are Options should not even exist when None.  We don't accept null valued

@@ -38,17 +38,6 @@ pub async fn process_new_event(
         );
     }
 
-    // If the event is from mostr, ignore it
-    if GLOBALS.settings.read().block_mostr {
-        for etag in event.tags.iter() {
-            if let Tag::Other { tag, .. } = etag {
-                if tag == "mostr" {
-                    return Ok(());
-                }
-            }
-        }
-    }
-
     // Save the event into the database
     if from_relay {
         // Convert a nostr Event into a DbEvent
