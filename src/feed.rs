@@ -61,11 +61,7 @@ impl Feed {
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
-        task::spawn(async move {
-            if let Err(e) = GLOBALS.feed.recompute().await {
-                tracing::error!("{}", e);
-            }
-        });
+        self.sync_recompute();
 
         // When going to Followed or Inbox, we stop listening for Thread/Person events
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
@@ -83,11 +79,7 @@ impl Feed {
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
-        task::spawn(async move {
-            if let Err(e) = GLOBALS.feed.recompute().await {
-                tracing::error!("{}", e);
-            }
-        });
+        self.sync_recompute();
 
         // When going to Followed or Inbox, we stop listening for Thread/Person events
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
@@ -190,12 +182,16 @@ impl Feed {
             })
             .unwrap_or(true);
         if recompute {
-            task::spawn(async move {
-                if let Err(e) = GLOBALS.feed.recompute().await {
-                    tracing::error!("{}", e);
-                }
-            });
+            self.sync_recompute();
         }
+    }
+
+    pub fn sync_recompute(&self) {
+        task::spawn(async move {
+            if let Err(e) = GLOBALS.feed.recompute().await {
+                tracing::error!("{}", e);
+            }
+        });
     }
 
     pub async fn recompute(&self) -> Result<(), Error> {
