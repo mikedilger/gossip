@@ -24,6 +24,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     // Feed Page Selection
     ui.horizontal(|ui| {
+        if !app.settings.recompute_feed_periodically {
+            if ui.button("↻").clicked() {
+                GLOBALS.feed.sync_recompute();
+            }
+        }
+        ui.separator();
         if ui
             .add(SelectableLabel::new(
                 matches!(app.page, Page::Feed(FeedKind::Followed(_))),
@@ -71,7 +77,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         if GLOBALS
             .feed
-            .switched_and_recomputing
+            .recompute_lock
             .load(std::sync::atomic::Ordering::Relaxed)
         {
             ui.separator();
@@ -131,7 +137,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
         }
         FeedKind::Person(pubkeyhex) => {
-            let feed = GLOBALS.feed.get_person_feed(pubkeyhex.clone());
+            let feed = GLOBALS.feed.get_person_feed();
             render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
         }
     }
