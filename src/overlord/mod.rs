@@ -1165,6 +1165,15 @@ impl Overlord {
         // connected to, as well as any relays we discover might know.  This is
         // more than strictly necessary, but not too expensive.
 
+        let (enable_reposts, enable_reactions, show_long_form) = {
+            let settings = GLOBALS.settings.read();
+            (
+                settings.reposts,
+                settings.reactions,
+                settings.show_long_form,
+            )
+        };
+
         let mut missing_ancestors: Vec<Id> = Vec::new();
 
         // Include the relays where the referenced_by event was seen
@@ -1214,8 +1223,6 @@ impl Overlord {
         //        instead build the filters, then both send them to the minion and
         //        also query them locally.
         {
-            let enable_reactions = GLOBALS.settings.read().reactions;
-
             if !missing_ancestors_hex.is_empty() {
                 let idhp: Vec<IdHexPrefix> = missing_ancestors_hex
                     .iter()
@@ -1247,13 +1254,15 @@ impl Overlord {
                 }
             }
 
-            let mut kinds = vec![
-                EventKind::TextNote,
-                EventKind::Repost,
-                EventKind::EventDeletion,
-            ];
+            let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
+            if enable_reposts {
+                kinds.push(EventKind::Repost);
+            }
             if enable_reactions {
                 kinds.push(EventKind::Reaction);
+            }
+            if show_long_form {
+                kinds.push(EventKind::LongFormContent);
             }
 
             let e = GLOBALS

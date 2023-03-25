@@ -52,15 +52,8 @@ pub(super) struct NoteData {
 
 impl NoteData {
     pub fn new(event: Event, with_inline_mentions: bool) -> Option<NoteData> {
-        // Only render known relevent events
-        let enable_reposts = GLOBALS.settings.read().reposts;
-        let direct_messages = GLOBALS.settings.read().direct_messages;
-        if event.kind != EventKind::TextNote
-            && !(enable_reposts && (event.kind == EventKind::Repost))
-            && !(direct_messages && (event.kind == EventKind::EncryptedDirectMessage))
-        {
-            return None;
-        }
+        // We do not filter event kinds here anymore. The feed already does that.
+        // There is no sense in duplicating that work.
 
         let delegation = event.delegation();
 
@@ -146,6 +139,7 @@ impl NoteData {
                 Ok(m) => m,
                 Err(_) => "DECRYPTION FAILED".to_owned(),
             },
+            EventKind::LongFormContent => event.content.clone(),
             _ => "NON FEED RELATED EVENT".to_owned(),
         };
 

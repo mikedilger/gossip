@@ -405,38 +405,23 @@ impl Minion {
             }
         };
 
-        let enable_reactions = GLOBALS.settings.read().reactions;
-        let enable_reposts = GLOBALS.settings.read().reposts;
+        // Exclude DMs in general feed.
+        // Allow textnote, deletion, reaction, repost, and long form (if set in settings)
+        let event_kinds = Self::event_kinds(&[EventKind::EncryptedDirectMessage]);
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
-            let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
-            if enable_reactions {
-                kinds.push(EventKind::Reaction);
-            }
-            if enable_reposts {
-                kinds.push(EventKind::Repost);
-            }
-
             // feed related by me
             // FIXME copy this to listening to my write relays
             let pkh: PublicKeyHex = pubkey.into();
             filters.push(Filter {
                 authors: vec![pkh.into()],
-                kinds,
+                kinds: event_kinds.clone(),
                 since: Some(feed_since),
                 ..Default::default()
             });
         }
 
         if !followed_pubkeys.is_empty() {
-            let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
-            if enable_reactions {
-                kinds.push(EventKind::Reaction);
-            }
-            if enable_reposts {
-                kinds.push(EventKind::Repost);
-            }
-
             let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
                 .iter()
                 .map(|pk| pk.to_owned().into())
@@ -445,7 +430,7 @@ impl Minion {
             // feed related by people followed
             filters.push(Filter {
                 authors: pkp,
-                kinds,
+                kinds: event_kinds.clone(),
                 since: Some(feed_since),
                 ..Default::default()
             });
@@ -536,26 +521,17 @@ impl Minion {
             replies_since.max(one_replieschunk_ago)
         };
 
-        let enable_reactions = GLOBALS.settings.read().reactions;
-        let enable_reposts = GLOBALS.settings.read().reposts;
+        let event_kinds = Self::event_kinds(&[]);
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // Any mentions of me
             // (but not in peoples contact lists, for example)
 
-            let mut kinds = vec![EventKind::TextNote, EventKind::EncryptedDirectMessage];
-            if enable_reactions {
-                kinds.push(EventKind::Reaction);
-            }
-            if enable_reposts {
-                kinds.push(EventKind::Repost);
-            }
-
             let pkh: PublicKeyHex = pubkey.into();
 
             filters.push(Filter {
                 p: vec![pkh],
-                kinds,
+                kinds: event_kinds,
                 since: Some(replies_since),
                 ..Default::default()
             });
@@ -605,9 +581,13 @@ impl Minion {
     async fn subscribe_person_feed(&mut self, pubkey: PublicKeyHex) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
+        // Exclude DMs and reactions (we wouldn't see the post it reacted to) in person feed
+        let event_kinds =
+            Self::event_kinds(&[EventKind::EncryptedDirectMessage, EventKind::Reaction]);
+
         let filters: Vec<Filter> = vec![Filter {
             authors: vec![pubkey.clone().into()],
-            kinds: vec![EventKind::TextNote, EventKind::EventDeletion],
+            kinds: event_kinds,
             // No since, just a limit on quantity of posts
             limit: Some(25),
             ..Default::default()
@@ -685,18 +665,10 @@ impl Minion {
             });
         }
 
-        // Get replies to main event
-        let mut kinds = vec![
-            EventKind::TextNote,
-            EventKind::Repost,
-            EventKind::EventDeletion,
-        ];
-        if enable_reactions {
-            kinds.push(EventKind::Reaction);
-        }
+        let event_kinds = Self::event_kinds(&[EventKind::EncryptedDirectMessage]);
         filters.push(Filter {
             e: vec![main],
-            kinds,
+            kinds: event_kinds,
             ..Default::default()
         });
 
@@ -969,5 +941,33 @@ impl Minion {
             // are already valid utf8
             Ok(String::from_utf8_unchecked(full.to_vec()))
         }
+    }
+
+    fn event_kinds(exclude: &[EventKind]) -> Vec<EventKind> {
+        let (reactions, reposts, show_long_form, direct_messages) = {
+            let settings = GLOBALS.settings.read();
+            (
+                settings.reactions,
+                settings.reposts,
+                settings.show_long_form,
+                settings.direct_messages,
+            )
+        };
+
+        let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
+        if reactions && !exclude.contains(&EventKind::Reaction) {
+            kinds.push(EventKind::Reaction);
+        }
+        if reposts && !exclude.contains(&EventKind::Repost) {
+            kinds.push(EventKind::Repost);
+        }
+        if show_long_form && !exclude.contains(&EventKind::LongFormContent) {
+            kinds.push(EventKind::LongFormContent);
+        }
+        if direct_messages && !exclude.contains(&EventKind::EncryptedDirectMessage) {
+            kinds.push(EventKind::EncryptedDirectMessage);
+        }
+
+        kinds
     }
 }

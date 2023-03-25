@@ -207,9 +207,13 @@ impl Feed {
         *self.last_computed.write() = Some(Instant::now());
 
         // Copy some values from settings
-        let (feed_recompute_interval_ms, reposts) = {
+        let (feed_recompute_interval_ms, reposts, long_form) = {
             let settings = GLOBALS.settings.read();
-            (settings.feed_recompute_interval_ms, settings.reposts)
+            (
+                settings.feed_recompute_interval_ms,
+                settings.reposts,
+                settings.show_long_form,
+            )
         };
 
         // We only need to set this the first time, but has to be after
@@ -236,7 +240,9 @@ impl Feed {
                     .filter(|e| e.created_at <= now) // no future events
                     .filter(|e| {
                         // feed related
-                        e.kind == EventKind::TextNote || (reposts && (e.kind == EventKind::Repost))
+                        e.kind == EventKind::TextNote
+                            || (reposts && (e.kind == EventKind::Repost))
+                            || (long_form && (e.kind == EventKind::LongFormContent))
                     })
                     .filter(|e| !dismissed.contains(&e.id)) // not dismissed
                     .filter(|e| {
@@ -275,6 +281,7 @@ impl Feed {
                             e.value().kind == EventKind::TextNote
                                 || e.value().kind == EventKind::EncryptedDirectMessage
                                 || (reposts && (e.value().kind == EventKind::Repost))
+                                || (long_form && (e.value().kind == EventKind::LongFormContent))
                         })
                         .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
                         .filter(|e| e.value().pubkey != my_pubkey) // not self-authored
@@ -332,6 +339,7 @@ impl Feed {
                         e.value().kind == EventKind::TextNote
                             || e.value().kind == EventKind::EncryptedDirectMessage
                             || (reposts && (e.value().kind == EventKind::Repost))
+                            || (long_form && (e.value().kind == EventKind::LongFormContent))
                     })
                     .filter(|e| e.value().pubkey.as_hex_string() == person_pubkey.as_str())
                     .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed

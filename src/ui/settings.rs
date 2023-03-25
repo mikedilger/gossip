@@ -113,7 +113,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         &mut app.settings.direct_messages,
                         "Show Direct Messages",
                     )
-                        .on_hover_text("Takes effect when the feed refreshes.");
+                        .on_hover_text("Takes effect fully only on restart.");
+
+                    ui.checkbox(
+                        &mut app.settings.show_long_form,
+                        "Show Long-Form Posts",
+                    )
+                        .on_hover_text("Takes effect fully only on restart.");
 
                     ui.add_space(12.0);
                     ui.separator();
