@@ -67,9 +67,11 @@ pub(super) fn render_content(
                                             if *i == num {
                                                 // FIXME is there a way to consume just this entry in cached_mentions so
                                                 //       we can avoid the clone?
-                                                if let Some(note_data) =
-                                                    super::NoteData::new(event.clone(), true)
-                                                {
+                                                if let Some(note_data) = super::NoteData::new(
+                                                    event.clone(),
+                                                    true,
+                                                    app.settings.show_long_form,
+                                                ) {
                                                     append_repost = Some(note_data);
                                                     render_link = false;
                                                 }

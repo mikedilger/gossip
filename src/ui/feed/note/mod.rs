@@ -51,7 +51,7 @@ pub(super) struct NoteData {
 }
 
 impl NoteData {
-    pub fn new(event: Event, with_inline_mentions: bool) -> Option<NoteData> {
+    pub fn new(event: Event, with_inline_mentions: bool, show_long_form: bool) -> Option<NoteData> {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
 
@@ -88,6 +88,12 @@ impl NoteData {
             if event.kind == EventKind::Repost
                 && serde_json::from_str::<Event>(&event.content).is_ok()
             {
+                if !show_long_form {
+                    let inner = serde_json::from_str::<Event>(&event.content).unwrap();
+                    if inner.kind == EventKind::LongFormContent {
+                        return None;
+                    }
+                }
                 Some(RepostType::Kind6Embedded)
             } else if content_trim == "#[0]" || content_trim.is_empty() {
                 if !cached_mentions.is_empty() {
@@ -201,7 +207,11 @@ pub(super) fn render_note(
         }
         let event = maybe_event.unwrap();
 
-        match NoteData::new(event, app.settings.show_first_mention) {
+        match NoteData::new(
+            event,
+            app.settings.show_first_mention,
+            app.settings.show_long_form,
+        ) {
             Some(nd) => nd,
             None => return,
         }
@@ -585,7 +595,9 @@ fn render_note_inner(
                             }
                         } else if event.kind == EventKind::Repost {
                             if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                                if let Some(inner_note_data) = NoteData::new(inner_event, false) {
+                                if let Some(inner_note_data) =
+                                    NoteData::new(inner_event, false, app.settings.show_long_form)
+                                {
                                     append_repost = Some(inner_note_data);
                                 } else {
                                     ui.label("REPOSTED EVENT IS NOT RELEVANT");
