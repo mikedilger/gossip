@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Codepage="1252" Manufacturer="Gossip" ProductCode="{07EF7114-E0A7-475A-BC18-75E1875DBA8A}" Language="1033" Name="Gossip" Version="0.5.0" UpgradeCode="{F1794F78-CFB1-4056-A1F7-DA48B956456C}" InstallerVersion="200">
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="Gossip" Name="Gossip">
+        <Directory Id="INSTALLDIR" Name="Gossip">
+          <Component Id="MainExecutable" Guid="{1B8CD459-FB86-42B1-8A42-B4D9848179DD}" Bitness="always32">
+            <Shortcut Id="startmenuShortcut" Directory="ProgramMenuDir" Icon="gossip.ico" IconIndex="0" WorkingDirectory="INSTALLDIR" Name="Gossip" Advertise="yes" />
+            <Shortcut Id="desktopShortcut" Directory="DesktopFolder" Icon="gossip.ico" IconIndex="0" WorkingDirectory="INSTALLDIR" Name="Gossip" Advertise="yes" />
+            <File Id="GossipEXE" Name="gossip.exe" KeyPath="yes" Source="SourceDir\File\GossipEXE" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="Gossip">
+        <Component Id="ProgramMenuDir" Guid="{508C7945-FD8F-429D-AF84-6CDBA5AAC575}" Bitness="always32">
+          <RemoveFolder Id="ProgramMenuDir" On="uninstall" Directory="ProgramMenuDir" />
+          <RegistryValue Id="regfVKS7tdq5lPRijYcmmmk_.ClslQ" Key="Software\Gossip\gossip" Root="HKCU" Type="string" Value="" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <Icon Id="gossip.ico" SourceFile="FILE NOT EXPORTED" />
+    <Feature Id="Complete" Level="1">
+      <ComponentRef Id="ProgramMenuDir" />
+      <ComponentRef Id="MainExecutable" Primary="yes" />
+    </Feature>
+    <Media Id="1" EmbedCab="yes" Cabinet="cab1.cab" />
+    <SummaryInformation Description="Gossip 0.4.90-unstable Installer" />
+  </Package>
+</Wix>
