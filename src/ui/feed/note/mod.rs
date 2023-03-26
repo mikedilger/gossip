@@ -537,12 +537,6 @@ fn render_note_inner(
             });
         });
 
-        // Possible subject line
-        if let Some(subject) = event.subject() {
-            ui.add_space(4.0);
-            ui.label(RichText::new(subject).strong().underline());
-        }
-
         ui.add_space(2.0);
 
         // MAIN CONTENT
@@ -591,6 +585,9 @@ fn render_note_inner(
                                     ui.label("REPOSTED EVENT IS NOT RELEVANT");
                                 }
                             } else {
+                                // Possible subject line
+                                render_subject(ui, event);
+
                                 // render like a kind-1 event with a mention
                                 append_repost = content::render_content(
                                     app,
@@ -601,6 +598,9 @@ fn render_note_inner(
                                 );
                             }
                         } else {
+                            // Possible subject line
+                            render_subject(ui, event);
+
                             append_repost = content::render_content(
                                 app,
                                 ui,
@@ -779,6 +779,16 @@ fn thin_separator(ui: &mut Ui, stroke: Stroke) {
     style.visuals.widgets.noninteractive.bg_stroke = stroke;
     ui.add(Separator::default().spacing(0.0));
     ui.reset_style();
+}
+
+fn render_subject(ui: &mut Ui, event: &Event ) {
+    if let Some(subject) = event.subject() {
+        ui.style_mut().spacing.item_spacing.x = 0.0;
+        ui.label(RichText::new(subject).strong().underline());
+        ui.end_row();
+        ui.end_row();
+        ui.reset_style();
+    }
 }
 
 pub(super) fn render_repost(
