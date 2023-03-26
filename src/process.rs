@@ -19,14 +19,14 @@ pub async fn process_new_event(
     subscription: Option<String>,
 ) -> Result<(), Error> {
     if GLOBALS.events.get(&event.id).is_some() {
-        tracing::debug!(
+        tracing::trace!(
             "{}: Old Event: {} {:?} @{}",
             seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
             subscription.unwrap_or("_".to_string()),
             event.kind,
             event.created_at
         );
-        // We arleady had this event.
+        // We already had this event.
         return Ok(());
     } else {
         tracing::debug!(
@@ -52,7 +52,20 @@ pub async fn process_new_event(
         };
 
         // Save into event table
-        DbEvent::insert(db_event).await?;
+        if event.kind.is_replaceable() {
+            if !DbEvent::replace(db_event).await? {
+                return Ok(()); // This did not replace anything.
+            }
+        } else if event.kind.is_parameterized_replaceable() {
+            match event.parameter() {
+                Some(param) => if ! DbEvent::replace_parameterized(db_event, param).await? {
+                    return Ok(()); // This did not replace anything.
+                },
+                None => return Err(Error::General("Parameterized event must have a parameter. This is a code issue, not a data issue".to_owned())),
+            };
+        } else {
+            DbEvent::insert(db_event).await?;
+        }
     }
 
     if from_relay {

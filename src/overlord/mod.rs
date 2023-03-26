@@ -1231,7 +1231,10 @@ impl Overlord {
                     })
                     .await?;
 
-                let kinds = GLOBALS.settings.read().feed_related_event_kinds()
+                let kinds = GLOBALS
+                    .settings
+                    .read()
+                    .feed_related_event_kinds()
                     .drain(..)
                     .filter(|k| k.augments_feed_related())
                     .collect();
