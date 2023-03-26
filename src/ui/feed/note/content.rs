@@ -55,24 +55,30 @@ pub(super) fn render_content(
                         }
                         Tag::Event { id, .. } => {
                             let mut render_link = true;
-                            match note.repost {
-                                Some(RepostType::MentionOnly)
-                                | Some(RepostType::CommentMention)
-                                | Some(RepostType::Kind6Mention) => {
-                                    for (i, event) in note.cached_mentions.iter() {
-                                        if *i == num {
-                                            // FIXME is there a way to consume just this entry in cached_mentions so
-                                            //       we can avoid the clone?
-                                            if let Some(note_data) =
-                                                super::NoteData::new(event.clone(), true)
-                                            {
-                                                append_repost = Some(note_data);
-                                                render_link = false;
+
+                            // we only render the first mention, so if append_repost is_some then skip to render_link
+                            // we also respect the user setting "show first mention"
+                            if append_repost.is_none() &&
+                                app.settings.show_first_mention {
+                                match note.repost {
+                                    Some(RepostType::MentionOnly)
+                                    | Some(RepostType::CommentMention)
+                                    | Some(RepostType::Kind6Mention) => {
+                                        for (i, event) in note.cached_mentions.iter() {
+                                            if *i == num {
+                                                // FIXME is there a way to consume just this entry in cached_mentions so
+                                                //       we can avoid the clone?
+                                                if let Some(note_data) =
+                                                    super::NoteData::new(event.clone(), true)
+                                                {
+                                                    append_repost = Some(note_data);
+                                                    render_link = false;
+                                                }
                                             }
                                         }
                                     }
+                                    _ => (),
                                 }
-                                _ => (),
                             }
                             if render_link {
                                 // insert a newline if the current line has text
