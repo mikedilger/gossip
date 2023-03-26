@@ -456,12 +456,17 @@ impl Overlord {
                 old.zeroize();
                 new.zeroize();
             }
+            ToOverlordMessage::DelegationReset => {
+                Self::delegation_reset().await?;
+            }
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
+                Self::delegation_reset().await?;
                 GLOBALS.signer.save_through_settings().await?;
             }
             ToOverlordMessage::DeletePriv => {
                 GLOBALS.signer.delete_identity();
+                Self::delegation_reset().await?;
                 *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
             }
             ToOverlordMessage::DropRelay(relay_url) => {
@@ -1346,6 +1351,15 @@ impl Overlord {
         // Pick relays to start tracking them now
         self.pick_relays().await;
 
+        Ok(())
+    }
+
+    async fn delegation_reset() -> Result<(), Error> {
+        if GLOBALS.delegation.reset() {
+            // save and statusmsg
+            GLOBALS.delegation.save_through_settings().await?;
+            *GLOBALS.status_message.write().await = "Delegation tag removed".to_string();
+        }
         Ok(())
     }
 }

@@ -58,8 +58,7 @@ pub(super) fn render_content(
 
                             // we only render the first mention, so if append_repost is_some then skip to render_link
                             // we also respect the user setting "show first mention"
-                            if append_repost.is_none() &&
-                                app.settings.show_first_mention {
+                            if append_repost.is_none() && app.settings.show_first_mention {
                                 match note.repost {
                                     Some(RepostType::MentionOnly)
                                     | Some(RepostType::CommentMention)
