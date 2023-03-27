@@ -793,7 +793,7 @@ fn thin_separator(ui: &mut Ui, stroke: Stroke) {
     ui.reset_style();
 }
 
-fn render_subject(ui: &mut Ui, event: &Event ) {
+fn render_subject(ui: &mut Ui, event: &Event) {
     if let Some(subject) = event.subject() {
         ui.style_mut().spacing.item_spacing.x = 0.0;
         ui.style_mut().spacing.item_spacing.y = 4.0;
