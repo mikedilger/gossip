@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::ui::{Theme, ThemeVariant};
-use nostr_types::PublicKey;
+use nostr_types::{EventKind, PublicKey};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
@@ -278,5 +278,23 @@ impl Settings {
         }
 
         Ok(())
+    }
+
+    pub fn enabled_event_kinds(&self) -> Vec<EventKind> {
+        EventKind::iter()
+            .filter(|k| {
+                ((*k != EventKind::Reaction) || self.reactions)
+                    && ((*k != EventKind::Repost) || self.reposts)
+                    && ((*k != EventKind::LongFormContent) || self.show_long_form)
+                    && ((*k != EventKind::EncryptedDirectMessage) || self.direct_messages)
+            })
+            .collect()
+    }
+
+    pub fn feed_related_event_kinds(&self) -> Vec<EventKind> {
+        self.enabled_event_kinds()
+            .drain(..)
+            .filter(|k| k.is_feed_related())
+            .collect()
     }
 }

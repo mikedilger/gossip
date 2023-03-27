@@ -104,23 +104,15 @@ impl DbEvent {
             Some(pk) => pk.into(),
         };
 
-        let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
-        if GLOBALS.settings.read().direct_messages {
-            kinds.push(EventKind::EncryptedDirectMessage);
-        }
-        if GLOBALS.settings.read().reposts {
-            kinds.push(EventKind::Repost);
-        }
-        if GLOBALS.settings.read().reactions {
-            kinds.push(EventKind::Reaction);
-        }
-
-        let kinds: Vec<String> = kinds
+        let kinds: String = GLOBALS
+            .settings
+            .read()
+            .feed_related_event_kinds()
             .iter()
             .map(|e| <EventKind as Into<u64>>::into(*e))
             .map(|e| e.to_string())
-            .collect();
-        let kinds = kinds.join(",");
+            .collect::<Vec<String>>()
+            .join(",");
 
         let sql = format!(
             "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event \

@@ -66,21 +66,6 @@ impl Minion {
                         Some(handle),
                     )
                     .await?;
-
-                    /*
-                    if event.kind == EventKind::TextNote {
-                        // Just store text notes in incoming
-                        GLOBALS
-                            .incoming_events
-                            .write()
-                            .await
-                            .push((*event, self.url.clone(), handle));
-                    } else {
-                        // Process everything else immediately
-                        crate::process::process_new_event(&event, true, Some(self.url.clone()))
-                            .await?;
-                    }
-                     */
                 }
             }
             RelayMessage::Notice(msg) => {
