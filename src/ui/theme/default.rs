@@ -464,17 +464,25 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn repost_separator_before_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
-        if dark_mode {
-            Stroke::new(1.0, Color32::from_gray(60))
+        if !_post.is_comment_mention {
+            if dark_mode {
+                Stroke::new(1.0, Color32::from_gray(60))
+            } else {
+                Stroke::new(1.0, Color32::from_gray(230))
+            }
         } else {
-            Stroke::new(1.0, Color32::from_gray(230))
+            Stroke::NONE
         }
     }
     fn repost_space_above_separator_before(_post: &NoteRenderData) -> f32 {
         0.0
     }
     fn repost_space_below_separator_before(_post: &NoteRenderData) -> f32 {
-        10.0
+        if !_post.is_comment_mention {
+            20.0
+        } else {
+            0.0
+        }
     }
 
     fn repost_separator_after_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
@@ -489,17 +497,17 @@ impl ThemeDef for DefaultTheme {
 
     fn repost_inner_margin(_post: &NoteRenderData) -> Margin {
         Margin {
-            left: 5.0,
+            left: 0.0,
             top: 14.0,
-            right: 6.0,
-            bottom: 6.0,
+            right: 10.0,
+            bottom: 12.0,
         }
     }
     fn repost_outer_margin(_post: &NoteRenderData) -> Margin {
         Margin {
-            left: -5.0,
-            top: -14.0,
-            right: -6.0,
+            left: 0.0,
+            top: -20.0,
+            right: -10.0,
             bottom: -3.0,
         }
     }
@@ -516,9 +524,9 @@ impl ThemeDef for DefaultTheme {
 
         let mut hsva: ecolor::HsvaGamma = Self::feed_frame_fill(dark_mode, post).into();
         if dark_mode {
-            hsva.v = (hsva.v + 0.05).min(1.0); // lighten
+            hsva.v = (hsva.v + 0.03).min(1.0); // lighten
         } else {
-            hsva.v = (hsva.v - 0.05).max(0.0); // darken
+            hsva.v = (hsva.v - 0.03).max(0.0); // darken
         }
         let color: Color32 = hsva.into();
         color
