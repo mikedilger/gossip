@@ -294,6 +294,15 @@ impl ThemeDef for ClassicTheme {
             },
         );
 
+        // for subject lines in notes
+        text_styles.insert(
+            TextStyle::Name("subject".into()),
+            FontId {
+                size: 15.0,
+                family: FontFamily::Proportional,
+            },
+        );
+
         text_styles
     }
 
