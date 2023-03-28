@@ -3,8 +3,10 @@ use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{RichText, Ui};
+use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::{IdHex, Tag, EventPointer, Id, PublicKey};
+use regex::Regex;
 
 /// returns None or a repost
 pub(super) fn render_content(
@@ -14,8 +16,12 @@ pub(super) fn render_content(
     as_deleted: bool,
     content: &str,
 ) -> Option<NoteData> {
-    let tag_re = app.tag_re.clone();
-    let nip27_re = app.nip27_re.clone();
+
+    lazy_static! {
+        static ref TAG_RE: Regex = Regex::new(r"(\#\[\d+\])").unwrap();
+        static ref NIP27_RE: Regex = Regex::new(r"(?i:nostr:[[:alnum:]]+)").unwrap();
+    }
+
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     // Optional repost return
@@ -37,7 +43,7 @@ pub(super) fn render_content(
         } else {
             let s = span.as_str();
             let mut pos = 0;
-            for mat in tag_re.find_iter(s) {
+            for mat in TAG_RE.find_iter(s) {
                 ui.label(&s[pos..mat.start()]);
                 let num: usize = s[mat.start() + 2..mat.end() - 1].parse::<usize>().unwrap();
                 if let Some(tag) = note.event.tags.get(num) {
@@ -97,7 +103,7 @@ pub(super) fn render_content(
             // implement NIP-27 nostr: links that include NIP-19 bech32 references
             if rest.contains("nostr:") {
                 let mut nospos = 0;
-                for mat in nip27_re.find_iter(rest) {
+                for mat in NIP27_RE.find_iter(rest) {
                     ui.label(&s[nospos..mat.start()]); // print whatever comes before the match
                     let mut link_parsed = false;
                     let link = &s[mat.start() + 6..mat.end()];
