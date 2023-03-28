@@ -15,6 +15,7 @@ pub(super) fn render_content(
     content: &str,
 ) -> Option<NoteData> {
     let tag_re = app.tag_re.clone();
+    let nip27_re = app.nip27_re.clone();
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     // Optional repost return
@@ -95,9 +96,8 @@ pub(super) fn render_content(
             let rest = &s[pos..];
             // implement NIP-27 nostr: links that include NIP-19 bech32 references
             if rest.contains("nostr:") {
-                let regx = regex::Regex::new(r"(?i:nostr:[[:alnum:]]+)").unwrap();
                 let mut nospos = 0;
-                for mat in regx.find_iter(rest) {
+                for mat in nip27_re.find_iter(rest) {
                     ui.label(&s[nospos..mat.start()]); // print whatever comes before the match
                     let mut link_parsed = false;
                     let link = &s[mat.start() + 6..mat.end()];
