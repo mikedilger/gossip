@@ -100,6 +100,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     );
 
                     ui.checkbox(
+                        &mut app.settings.enable_zap_receipts,
+                        "Enable zap receipts",
+                    );
+
+                    ui.checkbox(
                         &mut app.settings.reposts,
                         "Enable reposts (show)",
                     );
