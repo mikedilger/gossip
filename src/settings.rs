@@ -31,6 +31,7 @@ pub const DEFAULT_CHECK_NIP05: bool = true;
 pub const DEFAULT_DIRECT_MESSAGES: bool = true;
 pub const DEFAULT_AUTOMATICALLY_FETCH_METADATA: bool = true;
 pub const DEFAULT_HIGHLIGHT_UNREAD_EVENTS: bool = true;
+pub const DEFAULT_ENABLE_ZAP_RECEIPTS: bool = false;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Settings {
@@ -59,6 +60,7 @@ pub struct Settings {
     pub automatically_fetch_metadata: bool,
     pub delegatee_tag: String,
     pub highlight_unread_events: bool,
+    pub enable_zap_receipts: bool,
 }
 
 impl Default for Settings {
@@ -89,6 +91,7 @@ impl Default for Settings {
             automatically_fetch_metadata: DEFAULT_AUTOMATICALLY_FETCH_METADATA,
             delegatee_tag: String::new(),
             highlight_unread_events: DEFAULT_HIGHLIGHT_UNREAD_EVENTS,
+            enable_zap_receipts: DEFAULT_ENABLE_ZAP_RECEIPTS,
         }
     }
 }
@@ -179,6 +182,7 @@ impl Settings {
                 "highlight_unread_events" => {
                     settings.highlight_unread_events = numstr_to_bool(row.1)
                 }
+                "enable_zap_receipts" => settings.enable_zap_receipts = numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -223,7 +227,8 @@ impl Settings {
              ('direct_messages', ?),\
              ('automatically_fetch_metadata', ?),\
              ('delegatee_tag', ?),\
-             ('highlight_unread_events', ?)",
+             ('highlight_unread_events', ?),\
+             ('enable_zap_receipts', ?)",
         )?;
         stmt.execute(params![
             self.feed_chunk,
@@ -250,6 +255,7 @@ impl Settings {
             bool_to_numstr(self.automatically_fetch_metadata),
             self.delegatee_tag,
             bool_to_numstr(self.highlight_unread_events),
+            bool_to_numstr(self.enable_zap_receipts),
         ])?;
 
         // Settings which are Options should not even exist when None.  We don't accept null valued
@@ -287,6 +293,7 @@ impl Settings {
                     && ((*k != EventKind::Repost) || self.reposts)
                     && ((*k != EventKind::LongFormContent) || self.show_long_form)
                     && ((*k != EventKind::EncryptedDirectMessage) || self.direct_messages)
+                    && ((*k != EventKind::Zap) || self.enable_zap_receipts)
             })
             .collect()
     }
