@@ -18,7 +18,13 @@ pub async fn process_new_event(
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
 ) -> Result<(), Error> {
-    if GLOBALS.events.get(&event.id).is_some() {
+    let old = GLOBALS.events.get(&event.id).is_some();
+
+    // Insert the event into globals map
+    // (even if it was already seen)
+    GLOBALS.events.insert(event.clone(), seen_on.clone());
+
+    if old {
         tracing::trace!(
             "{}: Old Event: {} {:?} @{}",
             seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
@@ -106,9 +112,6 @@ pub async fn process_new_event(
                 .await?;
         }
     }
-
-    // Insert the event into globals map
-    GLOBALS.events.insert(event.clone(), seen_on);
 
     // Save the tags into event_tag table
     if from_relay {
