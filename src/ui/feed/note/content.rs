@@ -5,7 +5,7 @@ use eframe::egui;
 use egui::{RichText, Ui};
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{IdHex, Tag, EventPointer, Id, PublicKey};
+use nostr_types::{EventPointer, Id, IdHex, PublicKey, Tag};
 use regex::Regex;
 
 /// returns None or a repost
@@ -16,7 +16,6 @@ pub(super) fn render_content(
     as_deleted: bool,
     content: &str,
 ) -> Option<NoteData> {
-
     lazy_static! {
         static ref TAG_RE: Regex = Regex::new(r"(\#\[\d+\])").unwrap();
         static ref NIP27_RE: Regex = Regex::new(r"(?i:nostr:[[:alnum:]]+)").unwrap();
@@ -123,8 +122,8 @@ pub(super) fn render_content(
                             link_parsed = true;
                         }
                     }
-                    if link_parsed == false {
-                        ui.label( format!("nostr:{}", link) );
+                    if !link_parsed {
+                        ui.label(format!("nostr:{}", link));
                     }
                     nospos = mat.end();
                 }
@@ -143,8 +142,11 @@ pub(super) fn render_content(
     append_repost
 }
 
-fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &gossip_relay_picker::PublicKeyHex)
-{
+fn render_profile_link(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    pubkey: &gossip_relay_picker::PublicKeyHex,
+) {
     let nam = match GLOBALS.people.get(pubkey) {
         Some(p) => match p.name() {
             Some(n) => format!("@{}", n),
