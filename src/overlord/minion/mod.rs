@@ -405,9 +405,10 @@ impl Minion {
             }
         };
 
-        // Exclude DMs in general feed.
-        // Allow textnote, deletion, reaction, repost, and long form (if set in settings)
-        let event_kinds = Self::event_kinds(&[EventKind::EncryptedDirectMessage]);
+        // Allow all feed related event kinds
+        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        // But exclude DMs in the general feed
+        event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // feed related by me
@@ -521,7 +522,8 @@ impl Minion {
             replies_since.max(one_replieschunk_ago)
         };
 
-        let event_kinds = Self::event_kinds(&[]);
+        // Allow all feed related event kinds
+        let event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // Any mentions of me
@@ -581,9 +583,11 @@ impl Minion {
     async fn subscribe_person_feed(&mut self, pubkey: PublicKeyHex) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
+        // Allow all feed related event kinds
+        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
         // Exclude DMs and reactions (we wouldn't see the post it reacted to) in person feed
-        let event_kinds =
-            Self::event_kinds(&[EventKind::EncryptedDirectMessage, EventKind::Reaction]);
+        event_kinds
+            .retain(|f| *f != EventKind::EncryptedDirectMessage && *f != EventKind::Reaction);
 
         let filters: Vec<Filter> = vec![Filter {
             authors: vec![pubkey.clone().into()],
@@ -665,7 +669,11 @@ impl Minion {
             });
         }
 
-        let event_kinds = Self::event_kinds(&[EventKind::EncryptedDirectMessage]);
+        // Allow all feed related event kinds
+        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        // But exclude DMs
+        event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
+
         filters.push(Filter {
             e: vec![main],
             kinds: event_kinds,
@@ -941,33 +949,5 @@ impl Minion {
             // are already valid utf8
             Ok(String::from_utf8_unchecked(full.to_vec()))
         }
-    }
-
-    fn event_kinds(exclude: &[EventKind]) -> Vec<EventKind> {
-        let (reactions, reposts, show_long_form, direct_messages) = {
-            let settings = GLOBALS.settings.read();
-            (
-                settings.reactions,
-                settings.reposts,
-                settings.show_long_form,
-                settings.direct_messages,
-            )
-        };
-
-        let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
-        if reactions && !exclude.contains(&EventKind::Reaction) {
-            kinds.push(EventKind::Reaction);
-        }
-        if reposts && !exclude.contains(&EventKind::Repost) {
-            kinds.push(EventKind::Repost);
-        }
-        if show_long_form && !exclude.contains(&EventKind::LongFormContent) {
-            kinds.push(EventKind::LongFormContent);
-        }
-        if direct_messages && !exclude.contains(&EventKind::EncryptedDirectMessage) {
-            kinds.push(EventKind::EncryptedDirectMessage);
-        }
-
-        kinds
     }
 }

@@ -207,14 +207,9 @@ impl Feed {
         *self.last_computed.write() = Some(Instant::now());
 
         // Copy some values from settings
-        let (feed_recompute_interval_ms, reposts, long_form) = {
-            let settings = GLOBALS.settings.read();
-            (
-                settings.feed_recompute_interval_ms,
-                settings.reposts,
-                settings.show_long_form,
-            )
-        };
+        let feed_recompute_interval_ms = GLOBALS.settings.read().feed_recompute_interval_ms;
+
+        let kinds = GLOBALS.settings.read().feed_related_event_kinds();
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
@@ -238,12 +233,9 @@ impl Feed {
                     .iter()
                     .map(|r| r.value().to_owned())
                     .filter(|e| e.created_at <= now) // no future events
-                    .filter(|e| {
-                        // feed related
-                        e.kind == EventKind::TextNote
-                            || (reposts && (e.kind == EventKind::Repost))
-                            || (long_form && (e.kind == EventKind::LongFormContent))
-                    })
+                    .filter(|e| kinds.contains(&e.kind)) // feed related
+                    .filter(|e| e.kind != EventKind::EncryptedDirectMessage) // except DMs
+                    .filter(|e| !e.kind.augments_feed_related()) // not augmenting another event
                     .filter(|e| !dismissed.contains(&e.id)) // not dismissed
                     .filter(|e| {
                         if !with_replies {
@@ -276,13 +268,8 @@ impl Feed {
                         .events
                         .iter()
                         .filter(|e| e.value().created_at <= now) // no future events
-                        .filter(|e| {
-                            // feed related
-                            e.value().kind == EventKind::TextNote
-                                || e.value().kind == EventKind::EncryptedDirectMessage
-                                || (reposts && (e.value().kind == EventKind::Repost))
-                                || (long_form && (e.value().kind == EventKind::LongFormContent))
-                        })
+                        .filter(|e| kinds.contains(&e.kind)) // feed related
+                        .filter(|e| !e.kind.augments_feed_related()) // not augmenting another event
                         .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
                         .filter(|e| e.value().pubkey != my_pubkey) // not self-authored
                         .filter(|e| {
@@ -335,12 +322,8 @@ impl Feed {
                 let mut events: Vec<(Unixtime, Id)> = GLOBALS
                     .events
                     .iter()
-                    .filter(|e| {
-                        e.value().kind == EventKind::TextNote
-                            || e.value().kind == EventKind::EncryptedDirectMessage
-                            || (reposts && (e.value().kind == EventKind::Repost))
-                            || (long_form && (e.value().kind == EventKind::LongFormContent))
-                    })
+                    .filter(|e| kinds.contains(&e.kind)) // feed related
+                    .filter(|e| !e.kind.augments_feed_related()) // not augmenting another event
                     .filter(|e| e.value().pubkey.as_hex_string() == person_pubkey.as_str())
                     .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
                     .map(|e| (e.value().created_at, e.value().id))

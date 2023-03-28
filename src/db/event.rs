@@ -104,23 +104,15 @@ impl DbEvent {
             Some(pk) => pk.into(),
         };
 
-        let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
-        if GLOBALS.settings.read().direct_messages {
-            kinds.push(EventKind::EncryptedDirectMessage);
-        }
-        if GLOBALS.settings.read().reposts {
-            kinds.push(EventKind::Repost);
-        }
-        if GLOBALS.settings.read().reactions {
-            kinds.push(EventKind::Reaction);
-        }
-
-        let kinds: Vec<String> = kinds
+        let kinds: String = GLOBALS
+            .settings
+            .read()
+            .feed_related_event_kinds()
             .iter()
             .map(|e| <EventKind as Into<u64>>::into(*e))
             .map(|e| e.to_string())
-            .collect();
-        let kinds = kinds.join(",");
+            .collect::<Vec<String>>()
+            .join(",");
 
         let sql = format!(
             "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event \
@@ -228,21 +220,96 @@ impl DbEvent {
         Ok(())
     }
 
-    /*
-    pub async fn delete(criteria: &str) -> Result<(), Error> {
-        let sql = format!("DELETE FROM event WHERE {}", criteria);
-
+    // This is for replaceable (not parameterized!) events only.
+    // Returns true if it inserted something, false if it didn't have to.
+    pub async fn replace(event: DbEvent) -> Result<bool, Error> {
+        // Delete anything older
+        let sql = "DELETE FROM event WHERE pubkey=? and kind=? and created_at<?".to_owned();
+        let pubkey: String = event.pubkey.as_str().to_owned();
+        let kind: u64 = event.kind;
+        let created_at: u64 = event.created_at as u64;
         spawn_blocking(move || {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
-            db.execute(&sql, [])?;
+            db.execute(&sql, (&pubkey, &kind, &created_at))?;
             Ok::<(), Error>(())
         })
         .await??;
 
-        Ok(())
+        // Check if anything remains (which must then be newer)
+        let sql = "SELECT count(*) FROM event WHERE pubkey=? and kind=?".to_owned();
+        let pubkey: String = event.pubkey.as_str().to_owned();
+        let kind: u64 = event.kind;
+        let count: usize = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(&sql)?;
+            stmt.raw_bind_parameter(1, &pubkey)?;
+            stmt.raw_bind_parameter(2, kind)?;
+            let mut rows = stmt.raw_query();
+            if let Some(row) = rows.next()? {
+                return Ok(row.get(0)?);
+            }
+            Ok::<usize, Error>(0)
+        })
+        .await??;
+
+        // If nothing is newer, save this event
+        if count == 0 {
+            Self::insert(event).await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
-     */
+
+    // Returns true if it inserted something, false if it didn't have to.
+    pub async fn replace_parameterized(event: DbEvent, parameter: String) -> Result<bool, Error> {
+        // Delete anything older
+        let sql = "DELETE FROM event WHERE pubkey=? and kind=? and created_at<? and id IN (SELECT event FROM event_tag WHERE event=? and label='d' AND field0=?)".to_owned();
+        let pubkey: String = event.pubkey.as_str().to_owned();
+        let kind: u64 = event.kind;
+        let created_at: u64 = event.created_at as u64;
+        let id: String = event.id.as_str().to_owned();
+        let param: String = parameter.clone();
+        spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            db.execute(&sql, (&pubkey, &kind, &created_at, &id, &param))?;
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        // Check if anything remains (which must then be newer)
+        let sql = "SELECT count(*) FROM event WHERE pubkey=? and kind=? AND id IN (SELECT event FROM event_tag WHERE event=? AND label='d' AND field0=?)".to_owned();
+        let pubkey: String = event.pubkey.as_str().to_owned();
+        let kind: u64 = event.kind;
+        let id: String = event.id.as_str().to_owned();
+        let param: String = parameter.clone();
+        let count: usize = spawn_blocking(move || {
+            let maybe_db = GLOBALS.db.blocking_lock();
+            let db = maybe_db.as_ref().unwrap();
+            let mut stmt = db.prepare(&sql)?;
+            stmt.raw_bind_parameter(1, &pubkey)?;
+            stmt.raw_bind_parameter(2, kind)?;
+            stmt.raw_bind_parameter(3, &id)?;
+            stmt.raw_bind_parameter(4, &param)?;
+            let mut rows = stmt.raw_query();
+            if let Some(row) = rows.next()? {
+                return Ok(row.get(0)?);
+            }
+            Ok::<usize, Error>(0)
+        })
+        .await??;
+
+        // If nothing is newer, save this event
+        if count == 0 {
+            Self::insert(event).await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 
     /*
         pub async fn get_author(id: IdHex) -> Result<Option<PublicKeyHex>, Error> {

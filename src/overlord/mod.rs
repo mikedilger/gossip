@@ -140,20 +140,19 @@ impl Overlord {
             let feed_chunk = GLOBALS.settings.read().feed_chunk;
             let then = now.0 - feed_chunk as i64;
 
-            let reactions = if GLOBALS.settings.read().reactions {
-                " OR kind=7"
-            } else {
-                ""
-            };
-            let reposts = if GLOBALS.settings.read().reactions {
-                " OR kind=6"
-            } else {
-                ""
-            };
+            let where_kind = GLOBALS
+                .settings
+                .read()
+                .feed_related_event_kinds()
+                .iter()
+                .map(|e| <EventKind as Into<u64>>::into(*e))
+                .map(|e| e.to_string())
+                .collect::<Vec<String>>()
+                .join(",");
 
             let cond = format!(
-                " (kind=1 OR kind=5{}{}) AND created_at > {} ORDER BY created_at ASC",
-                reactions, reposts, then
+                " kind in ({}) AND created_at > {} ORDER BY created_at ASC",
+                where_kind, then
             );
 
             let db_events = DbEvent::fetch(Some(&cond)).await?;
@@ -1170,15 +1169,6 @@ impl Overlord {
         // connected to, as well as any relays we discover might know.  This is
         // more than strictly necessary, but not too expensive.
 
-        let (enable_reposts, enable_reactions, show_long_form) = {
-            let settings = GLOBALS.settings.read();
-            (
-                settings.reposts,
-                settings.reactions,
-                settings.show_long_form,
-            )
-        };
-
         let mut missing_ancestors: Vec<Id> = Vec::new();
 
         // Include the relays where the referenced_by event was seen
@@ -1241,10 +1231,13 @@ impl Overlord {
                     })
                     .await?;
 
-                let mut kinds = vec![EventKind::EventDeletion];
-                if enable_reactions {
-                    kinds.push(EventKind::Reaction);
-                }
+                let kinds = GLOBALS
+                    .settings
+                    .read()
+                    .feed_related_event_kinds()
+                    .drain(..)
+                    .filter(|k| k.augments_feed_related())
+                    .collect();
 
                 let e = GLOBALS
                     .events
@@ -1259,16 +1252,8 @@ impl Overlord {
                 }
             }
 
-            let mut kinds = vec![EventKind::TextNote, EventKind::EventDeletion];
-            if enable_reposts {
-                kinds.push(EventKind::Repost);
-            }
-            if enable_reactions {
-                kinds.push(EventKind::Reaction);
-            }
-            if show_long_form {
-                kinds.push(EventKind::LongFormContent);
-            }
+            let mut kinds = GLOBALS.settings.read().feed_related_event_kinds();
+            kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
             let e = GLOBALS
                 .events
