@@ -182,6 +182,9 @@ impl Overlord {
             GLOBALS.viewed_events.insert(*id);
         }
 
+        // Load event-seen data into memory
+        GLOBALS.events.load_event_seen_data().await?;
+
         // Start a reaper that collects new_viewed_events and saves them to the database
         std::mem::drop(tokio::spawn(async move {
             loop {

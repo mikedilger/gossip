@@ -1,24 +1,55 @@
+use crate::db::DbEventRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_recursion::async_recursion;
+use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
-use nostr_types::{Event, Filter, Id};
+use nostr_types::{Event, Filter, Id, RelayUrl};
 use std::fmt::Display;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use tokio::task;
+use vecmap::VecSet;
 
 pub struct Events {
     events: DashMap<Id, Event>,
+
+    // Seen on data uses relay_map to compress it's data
+    seen_on: DashMap<Id, VecSet<usize>>,
+    relay_map: RelayMap,
 }
 
 impl Events {
     pub fn new() -> Events {
         Events {
             events: DashMap::new(),
+            seen_on: DashMap::new(),
+            relay_map: RelayMap::new(),
         }
     }
 
-    pub fn insert(&self, event: Event) {
+    pub fn insert(&self, event: Event, seen_on: Option<RelayUrl>) {
+        // Add seen on
+        if let Some(url) = seen_on {
+            self.add_seen_on(event.id, &url);
+        }
+
+        // this will just replace if already seen
         let _ = self.events.insert(event.id, event);
+    }
+
+    fn add_seen_on(&self, id: Id, url: &RelayUrl) {
+        let relay_index = self.relay_map.relay_to_index(url);
+        match self.seen_on.entry(id) {
+            Entry::Occupied(mut oentry) => {
+                oentry.get_mut().insert(relay_index);
+            }
+            Entry::Vacant(ventry) => {
+                let mut set = VecSet::new();
+                set.insert(relay_index);
+                ventry.insert(set);
+            }
+        }
     }
 
     /*
@@ -29,6 +60,14 @@ impl Events {
 
     pub fn get(&self, id: &Id) -> Option<Event> {
         self.events.get(id).map(|e| e.value().to_owned())
+    }
+
+    pub fn get_seen_on(&self, id: &Id) -> Option<Vec<RelayUrl>> {
+        self.seen_on.get(id).map(|set| {
+            set.iter()
+                .map(|index| self.relay_map.index_to_relay(*index).unwrap())
+                .collect()
+        })
     }
 
     /// Get the event from memory, and also try the database, by Id
@@ -55,7 +94,7 @@ impl Events {
             // Process that event
             crate::process::process_new_event(&event, false, None, None).await?;
 
-            self.insert(event.clone());
+            self.insert(event.clone(), None);
             Ok(Some(event))
         } else {
             Ok(None)
@@ -141,7 +180,7 @@ impl Events {
             crate::process::process_new_event(event, false, None, None).await?;
 
             // Add to memory
-            self.insert(event.clone());
+            self.insert(event.clone(), None);
         }
 
         Ok(events)
@@ -165,6 +204,18 @@ impl Events {
 
     pub fn iter(&self) -> dashmap::iter::Iter<Id, Event> {
         self.events.iter()
+    }
+
+    pub async fn load_event_seen_data(&self) -> Result<(), Error> {
+        tracing::info!("Loading event seen-on data...");
+        for dashref in self.events.iter() {
+            let id = dashref.key();
+            let vecurl = DbEventRelay::get_relays_for_event(*id).await?;
+            for url in vecurl.iter() {
+                self.add_seen_on(*id, url);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -198,4 +249,49 @@ fn build_tag_condition<T: Display>(tag: &str, values: &[T]) -> String {
     }
     c.push_str("))");
     c
+}
+
+// This maps a RelayURL to a usize, and the inverse as well.
+struct RelayMap {
+    relay_to_index: DashMap<RelayUrl, usize>,
+    index_to_relay: DashMap<usize, RelayUrl>,
+    next: AtomicUsize,
+}
+
+impl RelayMap {
+    pub fn new() -> RelayMap {
+        RelayMap {
+            relay_to_index: DashMap::new(),
+            index_to_relay: DashMap::new(),
+            next: AtomicUsize::new(0),
+        }
+    }
+
+    pub fn insert(&self, url: &RelayUrl) -> usize {
+        // If we already have it, return it
+        if let Some(u) = self.relay_to_index.get(url) {
+            return *u;
+        }
+
+        let index = self.next.fetch_add(1, Ordering::SeqCst);
+        let _ = self.index_to_relay.insert(index, url.to_owned());
+        let _ = self.relay_to_index.insert(url.to_owned(), index);
+        index
+    }
+
+    #[inline]
+    pub fn relay_to_index(&self, url: &RelayUrl) -> usize {
+        if let Some(index) = self.relay_to_index.get(url) {
+            return *index.value();
+        }
+
+        self.insert(url)
+    }
+
+    #[inline]
+    pub fn index_to_relay(&self, index: usize) -> Option<RelayUrl> {
+        self.index_to_relay
+            .get(&index)
+            .map(|r| r.value().to_owned())
+    }
 }
