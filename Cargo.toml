@@ -55,6 +55,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
 tokio-tungstenite = { version = "0.18", default-features = false, features = [ "connect", "handshake" ] }
 tungstenite = { version = "0.18", default-features = false }
+vecmap-rs = "0.1"
 zeroize = "1.5"
 
 # Force scrypt to build with release-like speed even in dev mode

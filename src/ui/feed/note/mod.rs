@@ -539,6 +539,17 @@ fn render_note_inner(
                     }
                 }
 
+                ui.add_space(4.0);
+                ui.menu_button(RichText::new("👁").size(12.0), |ui| {
+                    if let Some(urls) = GLOBALS.events.get_seen_on(&event.id) {
+                        for url in urls.iter() {
+                            ui.label(url.as_str());
+                        }
+                    } else {
+                        ui.label("unknown");
+                    }
+                });
+
                 ui.label(
                     RichText::new(crate::date_ago::date_ago(event.created_at))
                         .italics()
