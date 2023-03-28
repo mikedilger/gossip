@@ -22,13 +22,14 @@ pub(super) fn render_content(
 
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
-            if span.as_str().ends_with(".jpg")
-                || span.as_str().ends_with(".jpeg")
-                || span.as_str().ends_with(".png")
-                || span.as_str().ends_with(".gif")
+            let lower_span = span.as_str().to_lowercase();
+            if lower_span.ends_with(".jpg")
+                || lower_span.ends_with(".jpeg")
+                || lower_span.ends_with(".png")
+                || lower_span.ends_with(".gif")
             {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
-            } else if span.as_str().ends_with(".mov") || span.as_str().ends_with(".mp4") {
+            } else if lower_span.ends_with(".mov") || lower_span.ends_with(".mp4") {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", span.as_str());
             } else {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
