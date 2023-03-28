@@ -3,9 +3,10 @@ use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{RichText, Ui};
+use gossip_relay_picker::PublicKeyHex;
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{EventPointer, Id, IdHex, PublicKey, Tag};
+use nostr_types::{EventPointer, Id, IdHex, Profile, PublicKey, Tag};
 use regex::Regex;
 
 /// returns None or a repost
@@ -121,6 +122,11 @@ pub(super) fn render_content(
                             render_profile_link(app, ui, &pk.into());
                             link_parsed = true;
                         }
+                    } else if link.starts_with("nprofile") {
+                        if let Ok(profile) = Profile::try_from_bech32_string(link) {
+                            render_profile_link(app, ui, &profile.pubkey.into());
+                            link_parsed = true;
+                        }
                     }
                     if !link_parsed {
                         ui.label(format!("nostr:{}", link));
@@ -142,11 +148,7 @@ pub(super) fn render_content(
     append_repost
 }
 
-fn render_profile_link(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    pubkey: &gossip_relay_picker::PublicKeyHex,
-) {
+fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKeyHex) {
     let nam = match GLOBALS.people.get(pubkey) {
         Some(p) => match p.name() {
             Some(n) => format!("@{}", n),
