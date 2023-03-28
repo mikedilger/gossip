@@ -73,10 +73,6 @@ pub(super) fn render_content(
                                 }
                             }
                             if render_link {
-                                // insert a newline if the current line has text
-                                if ui.cursor().min.x > ui.max_rect().min.y {
-                                    ui.end_row();
-                                }
                                 render_event_link(app, ui, note, id);
                             }
                         }
