@@ -35,7 +35,10 @@ pub(super) fn render_content(
                 || lower_span.ends_with(".gif")
             {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
-            } else if lower_span.ends_with(".mov") || lower_span.ends_with(".mp4") {
+            } else if lower_span.ends_with(".mov")
+                || lower_span.ends_with(".mp4")
+                || lower_span.ends_with(".webp")
+            {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", span.as_str());
             } else {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
