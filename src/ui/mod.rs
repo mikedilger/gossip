@@ -134,7 +134,6 @@ struct GossipUi {
     placeholder_avatar: TextureHandle,
     settings: Settings,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
-    tag_re: regex::Regex,
 
     // Search result
     search_result: String,
@@ -278,7 +277,6 @@ impl GossipUi {
             placeholder_avatar: placeholder_avatar_texture_handle,
             settings,
             avatars: HashMap::new(),
-            tag_re: regex::Regex::new(r"(\#\[\d+\])").unwrap(),
             search_result: "".to_owned(),
             draft: "".to_owned(),
             tag_someone: "".to_owned(),
