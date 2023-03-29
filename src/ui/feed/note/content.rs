@@ -278,6 +278,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url_str: &str) -> bool {
             max_y
         };
 
+        let row_height = ui.cursor().height();
         let url = unchecked_url.to_string();
 
         // render the image with a nice frame around it
@@ -310,6 +311,12 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url_str: &str) -> bool {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
             });
+
+        // make other content continue on a new line
+        ui.end_row();
+
+        // workaround for egui bug where image enlarges the cursor height
+        ui.set_row_height(row_height);
 
         success = true;
     };
