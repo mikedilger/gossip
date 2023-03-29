@@ -17,6 +17,7 @@ mod events;
 mod feed;
 mod fetcher;
 mod globals;
+mod media;
 mod nip05;
 mod overlord;
 mod people;

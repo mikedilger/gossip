@@ -4,6 +4,7 @@ use crate::delegation::Delegation;
 use crate::events::Events;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
+use crate::media::Media;
 use crate::people::People;
 use crate::relationship::Relationship;
 use crate::relay_picker_hooks::Hooks;
@@ -104,6 +105,9 @@ pub struct Globals {
 
     /// Delegation handling
     pub delegation: Delegation,
+
+    /// Media loading
+    pub media: Media,
 }
 
 lazy_static! {
@@ -142,6 +146,7 @@ lazy_static! {
             pull_following_merge: AtomicBool::new(true),
             bytes_read: AtomicUsize::new(0),
             delegation: Delegation::default(),
+            media: Media::new(),
         }
     };
 }

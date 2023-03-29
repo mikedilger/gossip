@@ -541,21 +541,29 @@ fn render_note_inner(
 
                 ui.add_space(4.0);
 
-                let view_seen_response = ui.add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()));
-                let popup_id = ui.make_persistent_id(format!("event-seen-{}", event.id.as_hex_string()));
+                let view_seen_response =
+                    ui.add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()));
+                let popup_id =
+                    ui.make_persistent_id(format!("event-seen-{}", event.id.as_hex_string()));
                 if view_seen_response.hovered() {
                     ui.memory_mut(|mem| mem.open_popup(popup_id));
                 }
-                egui::popup::popup_above_or_below_widget(ui, popup_id, &view_seen_response, egui::AboveOrBelow::Below, |ui| {
-                    ui.set_min_width(200.0);
-                    if let Some(urls) = GLOBALS.events.get_seen_on(&event.id) {
-                        for url in urls.iter() {
-                            ui.label(url.as_str());
+                egui::popup::popup_above_or_below_widget(
+                    ui,
+                    popup_id,
+                    &view_seen_response,
+                    egui::AboveOrBelow::Below,
+                    |ui| {
+                        ui.set_min_width(200.0);
+                        if let Some(urls) = GLOBALS.events.get_seen_on(&event.id) {
+                            for url in urls.iter() {
+                                ui.label(url.as_str());
+                            }
+                        } else {
+                            ui.label("unknown");
                         }
-                    } else {
-                        ui.label("unknown");
-                    }
-                });
+                    },
+                );
 
                 ui.label(
                     RichText::new(crate::date_ago::date_ago(event.created_at))

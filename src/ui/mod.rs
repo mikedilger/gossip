@@ -37,7 +37,7 @@ use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl};
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -134,6 +134,7 @@ struct GossipUi {
     placeholder_avatar: TextureHandle,
     settings: Settings,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
+    media: HashMap<Url, TextureHandle>,
 
     // Search result
     search_result: String,
@@ -277,6 +278,7 @@ impl GossipUi {
             placeholder_avatar: placeholder_avatar_texture_handle,
             settings,
             avatars: HashMap::new(),
+            media: HashMap::new(),
             search_result: "".to_owned(),
             draft: "".to_owned(),
             tag_someone: "".to_owned(),
@@ -653,6 +655,38 @@ impl GossipUi {
             );
             self.avatars
                 .insert(pubkeyhex.to_owned(), texture_handle.clone());
+            Some(texture_handle)
+        } else {
+            None
+        }
+    }
+
+    pub fn try_get_media(
+        &mut self,
+        ctx: &Context,
+        unchecked_url: &UncheckedUrl,
+    ) -> Option<TextureHandle> {
+        // Do not keep retrying if failed
+        if GLOBALS.media.has_failed(unchecked_url) {
+            return None;
+        }
+
+        let url = match GLOBALS.media.check_url(unchecked_url.clone()) {
+            Some(url) => url,
+            None => {
+                return None;
+            }
+        };
+
+        // see if we already have a texturehandle for this media
+        if let Some(th) = self.media.get(&url) {
+            return Some(th.to_owned());
+        }
+
+        if let Some(color_image) = GLOBALS.media.get_media(&url) {
+            let texture_handle =
+                ctx.load_texture(url.0.clone(), color_image, TextureOptions::default());
+            self.media.insert(url, texture_handle.clone());
             Some(texture_handle)
         } else {
             None
