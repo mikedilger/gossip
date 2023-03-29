@@ -57,7 +57,7 @@ impl DbRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(&sql)?;
-            let mut rows = stmt.query([])?;
+            let mut rows = rtry!(stmt.query([]));
             let mut output: Vec<DbRelay> = Vec::new();
             while let Some(row) = rows.next()? {
                 let s: String = row.get(0)?;
@@ -103,7 +103,7 @@ impl DbRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((
+            rtry!(stmt.execute((
                 &relay.url.0,
                 &relay.success_count,
                 &relay.failure_count,
@@ -113,7 +113,7 @@ impl DbRelay {
                 &relay.read,
                 &relay.write,
                 &relay.advertise,
-            ))?;
+            )));
             Ok::<(), Error>(())
         })
         .await??;
@@ -130,7 +130,7 @@ impl DbRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((
+            rtry!(stmt.execute((
                 &relay.success_count,
                 &relay.failure_count,
                 &relay.rank,
@@ -140,7 +140,7 @@ impl DbRelay {
                 &relay.write,
                 &relay.advertise,
                 &relay.url.0,
-            ))?;
+            )));
             Ok::<(), Error>(())
         })
         .await??;
@@ -161,7 +161,7 @@ impl DbRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&last_general_eose_at, &url.0))?;
+            rtry!(stmt.execute((&last_general_eose_at, &url.0)));
             Ok::<(), Error>(())
         })
         .await??;
@@ -175,7 +175,7 @@ impl DbRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute(())?;
+            rtry!(stmt.execute(()));
             Ok::<(), Error>(())
         })
         .await??;
@@ -193,7 +193,7 @@ impl DbRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&read, &write, &url.0))?;
+            rtry!(stmt.execute((&read, &write, &url.0)));
             Ok::<(), Error>(())
         })
         .await??;
@@ -207,7 +207,7 @@ impl DbRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&advertise, &url.0))?;
+            rtry!(stmt.execute((&advertise, &url.0)));
             Ok::<(), Error>(())
         })
         .await??;
@@ -250,7 +250,7 @@ impl DbRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            let mut rows = stmt.query([])?;
+            let mut rows = rtry!(stmt.query([]));
             let mut maybe_urls: Vec<RelayUrl> = Vec::new();
             while let Some(row) = rows.next()? {
                 let maybe_string: Option<String> = row.get(0)?;
@@ -288,7 +288,7 @@ impl DbRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            let mut query_result = stmt.query([reply_to.as_hex_string()])?;
+            let mut query_result = rtry!(stmt.query([reply_to.as_hex_string()]));
             if let Some(row) = query_result.next()? {
                 let s: String = row.get(0)?;
                 let url = RelayUrl::try_from_str(&s)?;
@@ -309,7 +309,7 @@ impl DbRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            let mut query_result = stmt.query([reply_to.as_hex_string()])?;
+            let mut query_result = rtry!(stmt.query([reply_to.as_hex_string()]));
             if let Some(row) = query_result.next()? {
                 let s: String = row.get(0)?;
                 let url = RelayUrl::try_from_str(&s)?;

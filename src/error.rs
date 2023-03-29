@@ -1,98 +1,258 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("Error broadcasting: {0}")]
-    BroadcastSend(#[from] tokio::sync::broadcast::error::SendError<ToMinionMessage>),
-
-    #[error("Error receiving broadcast: {0}")]
-    BroadcastReceive(#[from] tokio::sync::broadcast::error::RecvError),
-
-    #[error("NIP-26 delegation general: {0}")]
+#[derive(Debug)]
+pub enum ErrorKind {
+    BroadcastSend(tokio::sync::broadcast::error::SendError<ToMinionMessage>),
+    BroadcastReceive(tokio::sync::broadcast::error::RecvError),
     Delegation(String),
-
-    #[error("Error: {0}")]
     General(String),
-
-    #[error("HTTP error: {0}")]
-    HttpError(#[from] http::Error),
-
-    #[error("Task join error: {0}")]
-    JoinError(#[from] tokio::task::JoinError),
-
-    #[error("Maximum relay connections reached, will not connect to another")]
+    HttpError(http::Error),
+    JoinError(tokio::task::JoinError),
     MaxRelaysReached,
-
-    #[error("Error sending mpsc: {0}")]
-    MpscSend(#[from] tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
-
-    #[error("NIP-05 public key not found")]
+    MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
     Nip05KeyNotFound,
-
-    #[error("Nostr: {0}")]
-    Nostr(#[from] nostr_types::Error),
-
-    #[error("No private key available.")]
+    Nostr(nostr_types::Error),
     NoPrivateKey,
-
-    #[error("Image: {0}")]
-    Image(#[from] image::error::ImageError),
-
-    #[error("I/O Error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("INTERNAL: {0}")]
+    Image(image::error::ImageError),
+    Io(std::io::Error),
     Internal(String),
-
-    #[error("Invalid URI parts: {0}")]
-    InvalidUriParts(#[from] http::uri::InvalidUriParts),
-
-    #[error("Invalid DNS ID (nip-05), should be user@domain")]
+    InvalidUriParts(http::uri::InvalidUriParts),
     InvalidDnsId,
-
-    #[error("Invalid URI: {0}")]
-    InvalidUri(#[from] http::uri::InvalidUri),
-
-    #[error("Invalid URL: {0}")]
+    InvalidUri(http::uri::InvalidUri),
     InvalidUrl(String),
-
-    #[error("Bad integer: {0}")]
-    ParseInt(#[from] std::num::ParseIntError),
-
-    #[error("Relay Picker error: {0}")]
-    RelayPickerError(#[from] gossip_relay_picker::Error),
-
-    #[error("HTTP (reqwest) error: {0}")]
-    ReqwestHttpError(#[from] reqwest::Error),
-
-    #[error("SerdeJson Error: {0}")]
-    SerdeJson(#[from] serde_json::Error),
-
-    #[error("SQL: {0}")]
-    Sql(#[from] rusqlite::Error),
-
-    #[error("Timeout: {0}")]
-    Timeout(#[from] tokio::time::error::Elapsed),
-
-    #[error("URL has empty hostname")]
+    ParseInt(std::num::ParseIntError),
+    RelayPickerError(gossip_relay_picker::Error),
+    ReqwestHttpError(reqwest::Error),
+    Sql(rusqlite::Error),
+    SerdeJson(serde_json::Error),
+    Timeout(tokio::time::error::Elapsed),
     UrlHasEmptyHostname,
-
-    #[error("URL has no hostname")]
     UrlHasNoHostname,
-
-    #[error("Websocket: {0}")]
-    Websocket(#[from] tungstenite::Error),
+    Websocket(tungstenite::Error),
 }
 
-impl From<String> for Error {
-    fn from(s: String) -> Error {
-        Error::General(s)
+#[derive(Debug)]
+pub struct Error {
+    pub kind: ErrorKind,
+    pub file: Option<&'static str>,
+    pub line: Option<u32>,
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use ErrorKind::*;
+        if let Some(file) = self.file {
+            write!(f, "{file}:")?;
+        }
+        if let Some(line) = self.line {
+            write!(f, "{line}:")?;
+        }
+        match &self.kind {
+            BroadcastSend(e) => write!(f, "Error broadcasting: {e}"),
+            BroadcastReceive(e) => write!(f, "Error receiving broadcast: {e}"),
+            Delegation(s) => write!(f, "NIP-26 Delegation Error: {s}"),
+            General(s) => write!(f, "{s}"),
+            HttpError(e) => write!(f, "HTTP error: {e}"),
+            JoinError(e) => write!(f, "Task join error: {e}"),
+            MaxRelaysReached => write!(
+                f,
+                "Maximum relay connections reached, will not connect to another"
+            ),
+            MpscSend(e) => write!(f, "Error sending mpsc: {e}"),
+            Nip05KeyNotFound => write!(f, "NIP-05 public key not found"),
+            Nostr(e) => write!(f, "Nostr: {e}"),
+            NoPrivateKey => write!(f, "No private key available."),
+            Image(e) => write!(f, "Image: {e}"),
+            Io(e) => write!(f, "I/O Error: {e}"),
+            Internal(s) => write!(f, "INTERNAL: {s}"),
+            InvalidUriParts(e) => write!(f, "Invalid URI parts: {e}"),
+            InvalidDnsId => write!(f, "Invalid DNS ID (nip-05), should be user@domain"),
+            InvalidUri(e) => write!(f, "Invalid URI: {e}"),
+            InvalidUrl(s) => write!(f, "Invalid URL: {s}"),
+            ParseInt(e) => write!(f, "Bad integer: {e}"),
+            RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
+            ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
+            Sql(e) => write!(f, "SQL: {e}"),
+            SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
+            Timeout(e) => write!(f, "Timeout: {e}"),
+            UrlHasEmptyHostname => write!(f, "URL has empty hostname"),
+            UrlHasNoHostname => write!(f, "URL has no hostname"),
+            Websocket(e) => write!(f, "Websocket: {e}"),
+        }
     }
 }
 
-impl From<&str> for Error {
-    fn from(s: &str) -> Error {
-        Error::General(s.to_string())
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        use ErrorKind::*;
+        match &self.kind {
+            BroadcastSend(e) => Some(e),
+            BroadcastReceive(e) => Some(e),
+            Delegation(_) => None,
+            General(_) => None,
+            HttpError(e) => Some(e),
+            JoinError(e) => Some(e),
+            MaxRelaysReached => None,
+            MpscSend(e) => Some(e),
+            Nip05KeyNotFound => None,
+            Nostr(e) => Some(e),
+            NoPrivateKey => None,
+            Image(e) => Some(e),
+            Io(e) => Some(e),
+            Internal(_) => None,
+            InvalidUriParts(e) => Some(e),
+            InvalidDnsId => None,
+            InvalidUri(e) => Some(e),
+            InvalidUrl(_) => None,
+            ParseInt(e) => Some(e),
+            RelayPickerError(e) => Some(e),
+            ReqwestHttpError(e) => Some(e),
+            Sql(e) => Some(e),
+            SerdeJson(e) => Some(e),
+            Timeout(e) => Some(e),
+            UrlHasEmptyHostname => None,
+            UrlHasNoHostname => None,
+            Websocket(e) => Some(e),
+        }
+    }
+}
+
+impl<E> From<(E, &'static str, u32)> for Error
+where
+    ErrorKind: From<E>,
+{
+    fn from(triplet: (E, &'static str, u32)) -> Error {
+        Error {
+            kind: triplet.0.into(),
+            file: Some(triplet.1),
+            line: Some(triplet.2),
+        }
+    }
+}
+
+impl<E> From<E> for Error
+where
+    ErrorKind: From<E>,
+{
+    fn from(intoek: E) -> Error {
+        Error {
+            kind: intoek.into(),
+            file: None,
+            line: None,
+        }
+    }
+}
+
+impl From<tokio::sync::broadcast::error::SendError<ToMinionMessage>> for ErrorKind {
+    fn from(e: tokio::sync::broadcast::error::SendError<ToMinionMessage>) -> ErrorKind {
+        ErrorKind::BroadcastSend(e)
+    }
+}
+
+impl From<tokio::sync::broadcast::error::RecvError> for ErrorKind {
+    fn from(e: tokio::sync::broadcast::error::RecvError) -> ErrorKind {
+        ErrorKind::BroadcastReceive(e)
+    }
+}
+
+impl From<String> for ErrorKind {
+    fn from(s: String) -> ErrorKind {
+        ErrorKind::General(s)
+    }
+}
+
+impl From<&str> for ErrorKind {
+    fn from(s: &str) -> ErrorKind {
+        ErrorKind::General(s.to_string())
+    }
+}
+
+impl From<http::Error> for ErrorKind {
+    fn from(e: http::Error) -> ErrorKind {
+        ErrorKind::HttpError(e)
+    }
+}
+
+impl From<tokio::task::JoinError> for ErrorKind {
+    fn from(e: tokio::task::JoinError) -> ErrorKind {
+        ErrorKind::JoinError(e)
+    }
+}
+
+impl From<tokio::sync::mpsc::error::SendError<ToOverlordMessage>> for ErrorKind {
+    fn from(e: tokio::sync::mpsc::error::SendError<ToOverlordMessage>) -> ErrorKind {
+        ErrorKind::MpscSend(e)
+    }
+}
+
+impl From<nostr_types::Error> for ErrorKind {
+    fn from(e: nostr_types::Error) -> ErrorKind {
+        ErrorKind::Nostr(e)
+    }
+}
+
+impl From<image::error::ImageError> for ErrorKind {
+    fn from(e: image::error::ImageError) -> ErrorKind {
+        ErrorKind::Image(e)
+    }
+}
+
+impl From<std::io::Error> for ErrorKind {
+    fn from(e: std::io::Error) -> ErrorKind {
+        ErrorKind::Io(e)
+    }
+}
+
+impl From<http::uri::InvalidUriParts> for ErrorKind {
+    fn from(e: http::uri::InvalidUriParts) -> ErrorKind {
+        ErrorKind::InvalidUriParts(e)
+    }
+}
+
+impl From<http::uri::InvalidUri> for ErrorKind {
+    fn from(e: http::uri::InvalidUri) -> ErrorKind {
+        ErrorKind::InvalidUri(e)
+    }
+}
+
+impl From<std::num::ParseIntError> for ErrorKind {
+    fn from(e: std::num::ParseIntError) -> ErrorKind {
+        ErrorKind::ParseInt(e)
+    }
+}
+
+impl From<gossip_relay_picker::Error> for ErrorKind {
+    fn from(e: gossip_relay_picker::Error) -> ErrorKind {
+        ErrorKind::RelayPickerError(e)
+    }
+}
+
+impl From<rusqlite::Error> for ErrorKind {
+    fn from(e: rusqlite::Error) -> ErrorKind {
+        ErrorKind::Sql(e)
+    }
+}
+
+impl From<reqwest::Error> for ErrorKind {
+    fn from(e: reqwest::Error) -> ErrorKind {
+        ErrorKind::ReqwestHttpError(e)
+    }
+}
+
+impl From<serde_json::Error> for ErrorKind {
+    fn from(e: serde_json::Error) -> ErrorKind {
+        ErrorKind::SerdeJson(e)
+    }
+}
+
+impl From<tokio::time::error::Elapsed> for ErrorKind {
+    fn from(e: tokio::time::error::Elapsed) -> ErrorKind {
+        ErrorKind::Timeout(e)
+    }
+}
+
+impl From<tungstenite::Error> for ErrorKind {
+    fn from(e: tungstenite::Error) -> ErrorKind {
+        ErrorKind::Websocket(e)
     }
 }

@@ -82,7 +82,7 @@ pub async fn process_new_event(
                 Some(param) => if ! DbEvent::replace_parameterized(db_event, param).await? {
                     return Ok(()); // This did not replace anything.
                 },
-                None => return Err(Error::General("Parameterized event must have a parameter. This is a code issue, not a data issue".to_owned())),
+                None => return Err("Parameterized event must have a parameter. This is a code issue, not a data issue".into()),
             };
         } else {
             DbEvent::insert(db_event).await?;

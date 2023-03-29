@@ -1,5 +1,5 @@
 use crate::db::{DbPersonRelay, DbRelay};
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use dashmap::mapref::entry::Entry;
@@ -86,7 +86,7 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
     // Get their pubkey
     let pubkey = match nip05file.names.get(&user) {
         Some(pk) => pk.to_owned(),
-        None => return Err(Error::Nip05KeyNotFound),
+        None => return Err((ErrorKind::Nip05KeyNotFound, file!(), line!()).into()),
     };
 
     // Save person
@@ -156,13 +156,13 @@ fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
 
     // Require two parts
     if parts.len() != 2 {
-        Err(Error::InvalidDnsId)
+        Err((ErrorKind::InvalidDnsId, file!(), line!()).into())
     } else {
         let domain = parts.pop().unwrap();
         let user = parts.pop().unwrap();
         if domain.len() < 4 {
             // smallest non-TLD domain is like 't.co'
-            return Err(Error::InvalidDnsId);
+            return Err((ErrorKind::InvalidDnsId, file!(), line!()).into());
         }
         Ok((user.to_string(), domain.to_string()))
     }
