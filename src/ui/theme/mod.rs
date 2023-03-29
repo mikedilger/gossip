@@ -357,7 +357,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
         "NotoEmoji-Regular".to_owned(),
         FontData::from_static(include_bytes!("../../../fonts/NotoEmoji-Regular.ttf")).tweak(
             FontTweak {
-                scale: 1.1,             // make them a touch larger
+                scale: 1.1, // make them a touch larger
                 y_offset_factor: 0.0,
                 y_offset: 0.0,
                 baseline_offset_factor: 0.0,
