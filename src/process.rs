@@ -45,7 +45,12 @@ pub async fn process_new_event(
                     when_seen: now,
                 };
                 if let Err(e) = DbEventRelay::replace(db_event_relay).await {
-                    tracing::error!("Error saving relay of old-event {} {}: {}", event.id.as_hex_string(), url.0, e);
+                    tracing::error!(
+                        "Error saving relay of old-event {} {}: {}",
+                        event.id.as_hex_string(),
+                        url.0,
+                        e
+                    );
                 }
             }
         }
@@ -102,7 +107,12 @@ pub async fn process_new_event(
                 when_seen: now,
             };
             if let Err(e) = DbEventRelay::replace(db_event_relay).await {
-                tracing::error!("Error saving relay of new event {} {}: {}", event.id.as_hex_string(), url.0, e);
+                tracing::error!(
+                    "Error saving relay of new event {} {}: {}",
+                    event.id.as_hex_string(),
+                    url.0,
+                    e
+                );
             }
 
             // Create the person if missing in the database

@@ -9,8 +9,8 @@ use crate::AVATAR_SIZE_F32;
 pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
 use eframe::egui::{self, Margin};
 use egui::{
-    Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke,
-    TextStyle, Ui, Vec2,
+    Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
+    Vec2,
 };
 use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Tag};
 
@@ -551,10 +551,10 @@ fn render_note_inner(
                     egui::Area::new(ui.next_auto_id())
                         .movable(false)
                         .interactable(false)
-                    // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised
+                        // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised
                         .fixed_pos(seen_on_popup_position)
-                    // FIXME IN EGUI: constrain is moving the box left for all of these boxes
-                    // even if they have different IDs and don't need it.
+                        // FIXME IN EGUI: constrain is moving the box left for all of these boxes
+                        // even if they have different IDs and don't need it.
                         .constrain(true)
                         .show(ctx, |ui| {
                             ui.set_min_width(200.0);
@@ -574,14 +574,17 @@ fn render_note_inner(
                     RichText::new(crate::date_ago::date_ago(event.created_at))
                         .italics()
                         .weak(),
-                ).on_hover_ui(|ui| {
-                    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(event.created_at.0) {
-                        if let Ok(formatted) = stamp.format(&time::format_description::well_known::Rfc2822) {
+                )
+                .on_hover_ui(|ui| {
+                    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(event.created_at.0)
+                    {
+                        if let Ok(formatted) =
+                            stamp.format(&time::format_description::well_known::Rfc2822)
+                        {
                             ui.label(formatted);
                         }
                     }
                 });
-
             });
         });
 
