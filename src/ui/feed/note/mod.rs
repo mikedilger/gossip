@@ -9,7 +9,7 @@ use crate::AVATAR_SIZE_F32;
 pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
 use eframe::egui::{self, Margin};
 use egui::{
-    Align, Align2, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke,
+    Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke,
     TextStyle, Ui, Vec2,
 };
 use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Tag};
@@ -541,6 +541,9 @@ fn render_note_inner(
 
                 ui.add_space(4.0);
 
+                let mut seen_on_popup_position = ui.next_widget_position();
+                seen_on_popup_position.y += 18.0; // drop below the icon itself
+
                 if ui
                     .add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()))
                     .hovered()
@@ -548,8 +551,10 @@ fn render_note_inner(
                     egui::Area::new(ui.next_auto_id())
                         .movable(false)
                         .interactable(false)
-                        .pivot(Align2::RIGHT_TOP)
-                        .fixed_pos(ctx.pointer_hover_pos().unwrap_or_default())
+                    // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised
+                        .fixed_pos(seen_on_popup_position)
+                    // FIXME IN EGUI: constrain is moving the box left for all of these boxes
+                    // even if they have different IDs and don't need it.
                         .constrain(true)
                         .show(ctx, |ui| {
                             ui.set_min_width(200.0);
