@@ -35,8 +35,7 @@ pub(super) fn render_content(
             let lower_span = span.as_str().to_lowercase();
             if is_image_url(&lower_span) {
                 // TODO replace this with a per author setting (persisted) and a per note setting (RAM only)
-                if !GLOBALS.settings.read().load_media || !try_render_media(app, ui, span.as_str())
-                {
+                if !GLOBALS.settings.read().load_media || !try_render_media(app, ui, span.as_str()) {
                     break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
                 }
             } else if is_video_url(&lower_span) {
@@ -230,6 +229,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url_str: &str) -> bool {
             max_y
         };
 
+        let row_height = ui.cursor().height();
         let url = unchecked_url.to_string();
 
         // render the image with a nice frame around it
@@ -262,6 +262,12 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url_str: &str) -> bool {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
             });
+
+        // make other content continue on a new line
+        ui.end_row();
+
+        // workaround for egui bug where image enlarges the cursor height
+        ui.set_row_height(row_height);
 
         success = true;
     };
