@@ -77,8 +77,7 @@ impl Events {
         }
 
         if let Some(event) = task::spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare("SELECT raw FROM event WHERE id=?")?;
             stmt.raw_bind_parameter(1, id.as_hex_string())?;
             let mut rows = stmt.raw_query();
@@ -161,8 +160,7 @@ impl Events {
         tracing::trace!("get_local_events_by_filter SQL={}", &sql);
 
         let events_result = task::spawn_blocking(move || -> Result<Vec<Event>, Error> {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let mut rows = stmt.raw_query();
             let mut events: Vec<Event> = Vec::new();

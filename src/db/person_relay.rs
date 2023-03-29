@@ -27,9 +27,7 @@ impl DbPersonRelay {
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
                 &person_relay.person,
@@ -60,9 +58,7 @@ impl DbPersonRelay {
                    ON CONFLICT(person, relay) DO UPDATE SET last_fetched=?";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((&person, &relay.0, &last_fetched, &last_fetched)));
             Ok::<(), Error>(())
@@ -82,9 +78,7 @@ impl DbPersonRelay {
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_kind3=?";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
                 &person,
@@ -109,9 +103,7 @@ impl DbPersonRelay {
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_bytag=?";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
                 &person,
@@ -136,9 +128,7 @@ impl DbPersonRelay {
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_nip05=?";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
                 person.as_str(),
@@ -188,9 +178,7 @@ impl DbPersonRelay {
         }
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let inner = || -> Result<(), Error> {
                 let mut stmt = db.prepare("BEGIN TRANSACTION")?;
                 rtry!(stmt.execute(()));
@@ -263,9 +251,7 @@ impl DbPersonRelay {
         }
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let inner = || -> Result<(), Error> {
                 let mut stmt = db.prepare("BEGIN TRANSACTION")?;
                 rtry!(stmt.execute(()));
@@ -313,8 +299,7 @@ impl DbPersonRelay {
                    FROM person_relay WHERE person=?";
 
         let ranked_relays: Result<Vec<(RelayUrl, u64)>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             stmt.raw_bind_parameter(1, pubkey.as_str())?;
             let mut rows = stmt.raw_query();

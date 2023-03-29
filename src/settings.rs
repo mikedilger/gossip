@@ -100,8 +100,7 @@ impl Settings {
     pub fn blocking_load() -> Result<Settings, Error> {
         let mut settings = Settings::default();
 
-        let maybe_db = GLOBALS.db.blocking_lock();
-        let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.blocking_lock();
 
         let mut stmt = db.prepare("SELECT key, value FROM settings")?;
 
@@ -191,8 +190,7 @@ impl Settings {
     }
 
     pub async fn save(&self) -> Result<(), Error> {
-        let maybe_db = GLOBALS.db.lock().await;
-        let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.lock().await;
 
         let bool_to_numstr = |b: bool| -> &str {
             if b {

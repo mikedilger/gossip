@@ -19,8 +19,7 @@ impl DbEventRelationship {
         let content = self.content.clone();
         let sql = "INSERT OR IGNORE INTO event_relationship (original, refers_to, relationship, content) VALUES (?, ?, ?, ?)";
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             stmt.execute((&original, &refers_to, &relationship, &content))?;
             Ok::<(), Error>(())
@@ -34,8 +33,7 @@ impl DbEventRelationship {
             let sql =
                 "SELECT refers_to, relationship, content FROM event_relationship WHERE original=?";
             let output: Result<Vec<DbEventRelationship>, Error> = spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
+                let db = GLOBALS.db.blocking_lock();
                 let mut stmt = db.prepare(sql)?;
                 let rows = stmt.query_map([id.as_hex_string()], |row| {
                     Ok(DbEventRelationship {

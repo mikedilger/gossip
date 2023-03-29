@@ -14,8 +14,7 @@ impl DbEventFlags {
     pub async fn load_all_viewed() -> Result<Vec<Id>, Error> {
         let sql = "SELECT event FROM event_flags WHERE viewed=1".to_owned();
         let output: Result<Vec<Id>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let mut output: Vec<Id> = Vec::new();
             let mut rows = stmt.raw_query();
@@ -36,8 +35,7 @@ impl DbEventFlags {
         let sql = "INSERT INTO event_flags (event, viewed) VALUES (?, 1) \
                    ON CONFLICT(event) DO UPDATE SET viewed=1";
         let _ = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             for id in ids {
                 stmt.raw_bind_parameter(1, id.as_hex_string())?;

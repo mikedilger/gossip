@@ -24,9 +24,7 @@ impl DbEvent {
         };
 
         let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let mut rows = stmt.query([])?;
             let mut output: Vec<DbEvent> = Vec::new();
@@ -56,9 +54,7 @@ impl DbEvent {
         let sql = "SELECT raw FROM event WHERE event.kind=3 AND event.pubkey=? ORDER BY created_at DESC LIMIT 1";
 
         let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             stmt.raw_bind_parameter(1, pubkeyhex.as_str())?;
             let mut rows = stmt.raw_query();
@@ -80,9 +76,7 @@ impl DbEvent {
         let sql = "SELECT raw FROM event WHERE event.kind=10002";
 
         let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             let mut rows = stmt.raw_query();
             let mut events: Vec<Event> = Vec::new();
@@ -125,9 +119,7 @@ impl DbEvent {
         );
 
         let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             stmt.raw_bind_parameter(1, public_key.as_str())?;
             stmt.raw_bind_parameter(2, since)?;
@@ -166,9 +158,7 @@ impl DbEvent {
         );
 
         let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let id_strings: Vec<String> = ids.iter().map(|p| p.0.clone()).collect();
 
             let mut stmt = db.prepare(&sql)?;
@@ -201,8 +191,7 @@ impl DbEvent {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
                 event.id.as_str(),
@@ -229,8 +218,7 @@ impl DbEvent {
         let kind: u64 = event.kind;
         let created_at: u64 = event.created_at as u64;
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             db.execute(&sql, (&pubkey, &kind, &created_at))?;
             Ok::<(), Error>(())
         })
@@ -241,8 +229,7 @@ impl DbEvent {
         let pubkey: String = event.pubkey.as_str().to_owned();
         let kind: u64 = event.kind;
         let count: usize = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             stmt.raw_bind_parameter(1, &pubkey)?;
             stmt.raw_bind_parameter(2, kind)?;
@@ -273,8 +260,7 @@ impl DbEvent {
         let id: String = event.id.as_str().to_owned();
         let param: String = parameter.clone();
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             db.execute(&sql, (&pubkey, &kind, &created_at, &id, &param))?;
             Ok::<(), Error>(())
         })
@@ -287,8 +273,7 @@ impl DbEvent {
         let id: String = event.id.as_str().to_owned();
         let param: String = parameter.clone();
         let count: usize = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             stmt.raw_bind_parameter(1, &pubkey)?;
             stmt.raw_bind_parameter(2, kind)?;
@@ -316,8 +301,7 @@ impl DbEvent {
             let sql = "SELECT pubkey FROM event WHERE id=?";
 
             spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
+                let db = GLOBALS.db.blocking_lock();
                 let mut stmt = db.prepare(sql)?;
                 let mut rows = stmt.query_map([id.0], |row| row.get(0))?;
                 if let Some(row) = rows.next() {

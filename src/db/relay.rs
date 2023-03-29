@@ -53,8 +53,7 @@ impl DbRelay {
         };
 
         let output: Result<Vec<DbRelay>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
 
             let mut stmt = db.prepare(&sql)?;
             let mut rows = rtry!(stmt.query([]));
@@ -99,8 +98,7 @@ impl DbRelay {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
 
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
@@ -126,8 +124,7 @@ impl DbRelay {
                    last_connected_at=?, last_general_eose_at=?, read=?, write=?, advertise=? WHERE url=?";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
 
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
@@ -157,9 +154,7 @@ impl DbRelay {
             "UPDATE relay SET last_general_eose_at = max(?, ifnull(last_general_eose_at,0)) WHERE url = ?";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((&last_general_eose_at, &url.0)));
             Ok::<(), Error>(())
@@ -172,8 +167,7 @@ impl DbRelay {
     pub async fn clear_read_and_write() -> Result<(), Error> {
         let sql = "UPDATE relay SET read = false, write = false";
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute(()));
             Ok::<(), Error>(())
@@ -190,8 +184,7 @@ impl DbRelay {
     ) -> Result<(), Error> {
         let sql = "UPDATE relay SET read = ?, write = ?  WHERE url = ?";
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((&read, &write, &url.0)));
             Ok::<(), Error>(())
@@ -204,8 +197,7 @@ impl DbRelay {
     pub async fn update_advertise(url: RelayUrl, advertise: bool) -> Result<(), Error> {
         let sql = "UPDATE relay SET advertise = ?  WHERE url = ?";
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((&advertise, &url.0)));
             Ok::<(), Error>(())
@@ -220,8 +212,7 @@ impl DbRelay {
         let sql = format!("DELETE FROM relay WHERE {}", criteria);
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             db.execute(&sql, [])?;
             Ok::<(), Error>(())
         })
@@ -237,8 +228,7 @@ impl DbRelay {
             "INSERT OR IGNORE INTO relay (url, rank) SELECT DISTINCT relay, 3 FROM person_relay";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             db.execute(sql, [])?;
             Ok::<(), Error>(())
         })
@@ -247,8 +237,7 @@ impl DbRelay {
         // Select relays from 'e' and 'p' event tags
         let sql = "SELECT DISTINCT field1 FROM event_tag where (label='e' OR label='p')";
         let urls: Vec<RelayUrl> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             let mut rows = rtry!(stmt.query([]));
             let mut maybe_urls: Vec<RelayUrl> = Vec::new();
@@ -268,8 +257,7 @@ impl DbRelay {
         spawn_blocking(move || {
             let sql = "INSERT OR IGNORE INTO RELAY (url, rank) VALUES (?, 3)";
             for url in urls {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
+                let db = GLOBALS.db.blocking_lock();
                 db.execute(sql, [&url.0])?;
             }
             Ok::<(), Error>(())
@@ -285,8 +273,7 @@ impl DbRelay {
         let sql = "SELECT url FROM relay INNER JOIN event_relay ON relay.url=event_relay.relay \
                    WHERE event_relay.event=? AND relay.write=1 AND relay.rank>1";
         let output: Option<RelayUrl> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             let mut query_result = rtry!(stmt.query([reply_to.as_hex_string()]));
             if let Some(row) = query_result.next()? {
@@ -306,8 +293,7 @@ impl DbRelay {
         // Fallback to finding any relay where the event was seen
         let sql = "SELECT relay FROM event_relay WHERE event=?";
         let output: Option<RelayUrl> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             let mut query_result = rtry!(stmt.query([reply_to.as_hex_string()]));
             if let Some(row) = query_result.next()? {
@@ -326,9 +312,7 @@ impl DbRelay {
     /*
     pub async fn delete_relay(url: RelayUrl) -> Result<(), Error> {
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let _ = db.execute("DELETE FROM event seen WHERE relay=?", (&url.0,));
             let _ = db.execute("UPDATE contact SET relay=null WHERE relay=?", (&url.0,));
             let _ = db.execute("DELETE FROM person_relay WHERE relay=?", (&url.0,));
@@ -342,9 +326,7 @@ impl DbRelay {
 
     pub async fn set_rank(url: RelayUrl, rank: u8) -> Result<(), Error> {
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let _ = db.execute("UPDATE relay SET rank=? WHERE url=?", (&rank, &url.0));
         })
         .await?;

@@ -25,9 +25,7 @@ impl DbEventTag {
         };
 
         let output: Result<Vec<DbEventTag>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
                 Ok(DbEventTag {
@@ -59,9 +57,7 @@ impl DbEventTag {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
                 &event_tag.event,
@@ -84,8 +80,7 @@ impl DbEventTag {
             let sql = format!("DELETE FROM event_tag WHERE {}", criteria);
 
             spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
+                let db = GLOBALS.db.blocking_lock();
                 db.execute(&sql, [])?;
                 Ok::<(), Error>(())
             })
