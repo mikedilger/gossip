@@ -82,41 +82,6 @@ impl std::fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        use ErrorKind::*;
-        match &self.kind {
-            BroadcastSend(e) => Some(e),
-            BroadcastReceive(e) => Some(e),
-            Delegation(_) => None,
-            General(_) => None,
-            HttpError(e) => Some(e),
-            JoinError(e) => Some(e),
-            MaxRelaysReached => None,
-            MpscSend(e) => Some(e),
-            Nip05KeyNotFound => None,
-            Nostr(e) => Some(e),
-            NoPrivateKey => None,
-            Image(e) => Some(e),
-            Io(e) => Some(e),
-            Internal(_) => None,
-            InvalidUriParts(e) => Some(e),
-            InvalidDnsId => None,
-            InvalidUri(e) => Some(e),
-            InvalidUrl(_) => None,
-            ParseInt(e) => Some(e),
-            RelayPickerError(e) => Some(e),
-            ReqwestHttpError(e) => Some(e),
-            Sql(e) => Some(e),
-            SerdeJson(e) => Some(e),
-            Timeout(e) => Some(e),
-            UrlHasEmptyHostname => None,
-            UrlHasNoHostname => None,
-            Websocket(e) => Some(e),
-        }
-    }
-}
-
 impl<E> From<(E, &'static str, u32)> for Error
 where
     ErrorKind: From<E>,
