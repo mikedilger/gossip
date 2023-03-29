@@ -1,12 +1,16 @@
 use super::{GossipUi, NoteData, Page, RepostType};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
-use eframe::egui;
+use crate::ui::widgets::break_anywhere_hyperlink_to;
+use eframe::{
+    egui::{self, Image},
+    epaint::Vec2,
+};
 use egui::{RichText, Ui};
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::find_nostr_bech32_pos;
-use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag};
+use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag, UncheckedUrl};
 use regex::Regex;
 
 /// A segment of content]
@@ -171,18 +175,9 @@ pub(super) fn render_content(
             }
             ContentSegment::Hyperlink(link) => {
                 let lowercase = link.to_lowercase();
-                if lowercase.ends_with(".jpg")
-                    || lowercase.ends_with(".jpeg")
-                    || lowercase.ends_with(".png")
-                    || lowercase.ends_with(".gif")
-                    || lowercase.ends_with(".webp")
-                {
+                if is_image_url(&lowercase) {
                     crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", link);
-                } else if lowercase.ends_with(".mov")
-                    || lowercase.ends_with(".mp4")
-                    || lowercase.ends_with(".mkv")
-                    || lowercase.ends_with(".webm")
-                {
+                } else if is_video_url(&lowercase) {
                     crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", link);
                 } else {
                     crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
@@ -225,6 +220,100 @@ fn render_event_link(app: &mut GossipUi, ui: &mut Ui, note: &NoteData, id: &Id) 
             referenced_by: note.event.id,
         }));
     };
+}
+
+fn is_image_url(url: &str) -> bool {
+    url.ends_with(".jpg")
+        || url.ends_with(".jpeg")
+        || url.ends_with(".png")
+        || url.ends_with(".gif")
+        || url.ends_with(".webp")
+}
+
+fn is_video_url(url: &str) -> bool {
+    url.ends_with(".mov")
+        || url.ends_with(".mp4")
+        || url.ends_with(".mkv")
+        || url.ends_with(".webm")
+}
+
+/// Try to fetch and render a piece of media
+///  - return: true if successfully rendered, false otherwise
+fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url_str: &str) -> bool {
+    let mut success = false;
+    let unchecked_url = UncheckedUrl(url_str.to_string());
+    if let Some(media) = app.try_get_media(ui.ctx(), &unchecked_url) {
+        // insert a newline if the current line has text
+        if ui.cursor().min.x > ui.max_rect().min.x {
+            ui.end_row();
+        }
+
+        let ui_max = Vec2::new(ui.available_width(), ui.ctx().screen_rect().height() / 4.0);
+        let msize = media.size_vec2();
+        let aspect = media.aspect_ratio();
+
+        // determine maximum x and y sizes
+        let max_x = if ui_max.x > msize.x {
+            msize.x
+        } else {
+            ui_max.x
+        };
+        let max_y = if ui_max.y > msize.y {
+            msize.y
+        } else {
+            ui_max.y
+        };
+
+        // now determine if we are constrained by x or by y and
+        // calculate the resulting size
+        let mut size = Vec2::new(0.0, 0.0);
+        size.x = if max_x > max_y * aspect {
+            max_y * aspect
+        } else {
+            max_x
+        };
+        size.y = if max_y > max_x / aspect {
+            max_x / aspect
+        } else {
+            max_y
+        };
+
+        let url = unchecked_url.to_string();
+
+        // render the image with a nice frame around it
+        egui::Frame::none()
+            .inner_margin(egui::Margin::same(0.0))
+            .outer_margin(egui::Margin {
+                top: ui.available_height(),
+                left: 0.0,
+                right: 0.0,
+                bottom: ui.available_height(),
+            })
+            .fill(egui::Color32::GRAY)
+            .rounding(ui.style().noninteractive().rounding)
+            .stroke(egui::Stroke {
+                width: 1.0,
+                color: egui::Color32::DARK_GRAY,
+            })
+            .show(ui, |ui| {
+                let response = ui.add(Image::new(&media, size).sense(egui::Sense::click()));
+                if response.clicked() {
+                    let modifiers = ui.ctx().input(|i| i.modifiers);
+                    ui.ctx().output_mut(|o| {
+                        o.open_url = Some(egui::output::OpenUrl {
+                            url: url.clone(),
+                            new_tab: modifiers.any(),
+                        });
+                    });
+                }
+                if response.hovered() {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
+            });
+
+        success = true;
+    };
+    success
 }
 
 #[cfg(test)]
