@@ -574,7 +574,14 @@ fn render_note_inner(
                     RichText::new(crate::date_ago::date_ago(event.created_at))
                         .italics()
                         .weak(),
-                );
+                ).on_hover_ui(|ui| {
+                    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(event.created_at.0) {
+                        if let Ok(formatted) = stamp.format(&time::format_description::well_known::Rfc2822) {
+                            ui.label(formatted);
+                        }
+                    }
+                });
+
             });
         });
 
