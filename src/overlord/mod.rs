@@ -2,7 +2,7 @@ mod minion;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::db::{DbEvent, DbEventFlags, DbEventRelay, DbPersonRelay, DbRelay};
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::People;
 use crate::tags::{
@@ -772,11 +772,7 @@ impl Overlord {
                 // Get the event we are replying to
                 let parent = match GLOBALS.events.get(&parent_id) {
                     Some(e) => e,
-                    None => {
-                        return Err(Error::General(
-                            "Cannot find event we are replying to.".to_owned(),
-                        ))
-                    }
+                    None => return Err("Cannot find event we are replying to.".into()),
                 };
 
                 // Add a 'p' tag for the author we are replying to (except if it is our own key)
@@ -1081,7 +1077,7 @@ impl Overlord {
     async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
         let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
-            None => return Err(Error::NoPrivateKey), // not even a public key
+            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
         };
 
         let pre_event = PreEvent {

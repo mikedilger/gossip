@@ -31,7 +31,7 @@ impl DbPersonRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((
+            rtry!(stmt.execute((
                 &person_relay.person,
                 &person_relay.relay.0,
                 &person_relay.last_fetched,
@@ -42,7 +42,7 @@ impl DbPersonRelay {
                 &person_relay.write,
                 &person_relay.manually_paired_read,
                 &person_relay.manually_paired_write,
-            ))?;
+            )));
             Ok::<(), Error>(())
         })
         .await??;
@@ -64,7 +64,7 @@ impl DbPersonRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((&person, &relay.0, &last_fetched, &last_fetched))?;
+            rtry!(stmt.execute((&person, &relay.0, &last_fetched, &last_fetched)));
             Ok::<(), Error>(())
         })
         .await??;
@@ -86,12 +86,12 @@ impl DbPersonRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((
+            rtry!(stmt.execute((
                 &person,
                 &relay.0,
                 &last_suggested_kind3,
                 &last_suggested_kind3,
-            ))?;
+            )));
             Ok::<(), Error>(())
         })
         .await??;
@@ -113,12 +113,12 @@ impl DbPersonRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((
+            rtry!(stmt.execute((
                 &person,
                 &relay.0,
                 &last_suggested_bytag,
                 &last_suggested_bytag,
-            ))?;
+            )));
             Ok::<(), Error>(())
         })
         .await??;
@@ -140,12 +140,12 @@ impl DbPersonRelay {
             let db = maybe_db.as_ref().unwrap();
 
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((
+            rtry!(stmt.execute((
                 person.as_str(),
                 &relay.0,
                 &last_suggested_nip05,
                 &last_suggested_nip05,
-            ))?;
+            )));
             Ok::<(), Error>(())
         })
         .await??;
@@ -193,23 +193,23 @@ impl DbPersonRelay {
 
             let inner = || -> Result<(), Error> {
                 let mut stmt = db.prepare("BEGIN TRANSACTION")?;
-                stmt.execute(())?;
+                rtry!(stmt.execute(()));
 
                 let mut stmt = db.prepare(sql1)?;
-                stmt.execute((person.as_str(),))?;
+                rtry!(stmt.execute((person.as_str(),)));
 
                 if !read_relays.is_empty() {
                     let mut stmt = db.prepare(&sql2)?;
-                    stmt.execute(rusqlite::params_from_iter(params2))?;
+                    rtry!(stmt.execute(rusqlite::params_from_iter(params2)));
                 }
 
                 if !write_relays.is_empty() {
                     let mut stmt = db.prepare(&sql3)?;
-                    stmt.execute(rusqlite::params_from_iter(params3))?;
+                    rtry!(stmt.execute(rusqlite::params_from_iter(params3)));
                 }
 
                 let mut stmt = db.prepare("COMMIT TRANSACTION")?;
-                stmt.execute(())?;
+                rtry!(stmt.execute(()));
 
                 Ok(())
             };
@@ -217,7 +217,7 @@ impl DbPersonRelay {
             if let Err(e) = inner() {
                 tracing::error!("{}", e);
                 let mut stmt = db.prepare("ROLLBACK TRANSACTION")?;
-                stmt.execute(())?;
+                rtry!(stmt.execute(()));
             }
 
             Ok::<(), Error>(())
@@ -268,23 +268,23 @@ impl DbPersonRelay {
 
             let inner = || -> Result<(), Error> {
                 let mut stmt = db.prepare("BEGIN TRANSACTION")?;
-                stmt.execute(())?;
+                rtry!(stmt.execute(()));
 
                 let mut stmt = db.prepare(sql1)?;
-                stmt.execute((person.as_str(),))?;
+                rtry!(stmt.execute((person.as_str(),)));
 
                 if !read_relays.is_empty() {
                     let mut stmt = db.prepare(&sql2)?;
-                    stmt.execute(rusqlite::params_from_iter(params2))?;
+                    rtry!(stmt.execute(rusqlite::params_from_iter(params2)));
                 }
 
                 if !write_relays.is_empty() {
                     let mut stmt = db.prepare(&sql3)?;
-                    stmt.execute(rusqlite::params_from_iter(params3))?;
+                    rtry!(stmt.execute(rusqlite::params_from_iter(params3)));
                 }
 
                 let mut stmt = db.prepare("COMMIT TRANSACTION")?;
-                stmt.execute(())?;
+                rtry!(stmt.execute(()));
 
                 Ok(())
             };
@@ -292,7 +292,7 @@ impl DbPersonRelay {
             if let Err(e) = inner() {
                 tracing::error!("{}", e);
                 let mut stmt = db.prepare("ROLLBACK TRANSACTION")?;
-                stmt.execute(())?;
+                rtry!(stmt.execute(()));
             }
 
             Ok::<(), Error>(())

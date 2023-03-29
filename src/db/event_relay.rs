@@ -77,11 +77,11 @@ impl DbEventRelay {
             let maybe_db = GLOBALS.db.blocking_lock();
             let db = maybe_db.as_ref().unwrap();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((
+            rtry!(stmt.execute((
                 &event_relay.event,
                 &event_relay.relay,
                 &event_relay.when_seen,
-            ))?;
+            )));
             Ok::<(), Error>(())
         })
         .await??;

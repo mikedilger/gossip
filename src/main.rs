@@ -4,6 +4,21 @@
 // TEMPORARILY
 #![allow(clippy::uninlined_format_args)]
 
+macro_rules! rtry {
+    ($expr:expr $(,)?) => {
+        match $expr {
+            core::result::Result::Ok(val) => val,
+            core::result::Result::Err(err) => {
+                return core::result::Result::Err(core::convert::From::from((
+                    err,
+                    file!(),
+                    line!(),
+                )));
+            }
+        }
+    };
+}
+
 #[macro_use]
 extern crate lazy_static;
 

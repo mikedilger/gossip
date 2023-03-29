@@ -88,12 +88,12 @@ impl Fetcher {
     pub fn try_get(&self, url: Url) -> Result<Option<Vec<u8>>, Error> {
         // Error if we are dead
         if let Some(reason) = &self.dead {
-            return Err(Error::General(format!("Fetcher is dead: {}", reason)));
+            return Err((format!("Fetcher is dead: {}", reason), file!(), line!()).into());
         }
 
         // Error if we couldn't fetch this item
         if let Some(error) = self.failed.read().unwrap().get(&url) {
-            return Err(Error::General(format!("{}", error)));
+            return Err((format!("{}", error), file!(), line!()).into());
         }
 
         // Pending if we are trying to fetch this item
@@ -147,7 +147,7 @@ impl Fetcher {
     pub async fn fetch(url: Url) -> Result<(), Error> {
         // Error if we are dead
         if let Some(reason) = &GLOBALS.fetcher.dead {
-            return Err(Error::General(format!("Fetcher is dead: {}", reason)));
+            return Err((format!("Fetcher is dead: {}", reason), file!(), line!()).into());
         }
 
         let timeout = std::time::Duration::new(60, 0);

@@ -735,7 +735,7 @@ impl GossipUi {
                 } else {
                     self.qr_codes.insert(
                         key.to_string(),
-                        Err(Error::General("Could not make a QR".to_string())),
+                        Err(("Could not make a QR", file!(), line!()).into()),
                     );
                 }
             }
