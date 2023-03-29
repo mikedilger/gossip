@@ -9,8 +9,8 @@ use crate::AVATAR_SIZE_F32;
 pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
 use eframe::egui::{self, Margin};
 use egui::{
-    Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
-    Vec2,
+    Align, Align2, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke,
+    TextStyle, Ui, Vec2,
 };
 use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Tag};
 
@@ -537,6 +537,32 @@ fn render_note_inner(
                             referenced_by: event.id,
                         }));
                     }
+                }
+
+                ui.add_space(4.0);
+
+                if ui
+                    .add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()))
+                    .hovered()
+                {
+                    egui::Area::new(ui.next_auto_id())
+                        .movable(false)
+                        .interactable(false)
+                        .pivot(Align2::RIGHT_TOP)
+                        .fixed_pos(ctx.pointer_hover_pos().unwrap_or_default())
+                        .constrain(true)
+                        .show(ctx, |ui| {
+                            ui.set_min_width(200.0);
+                            egui::Frame::popup(&app.settings.theme.get_style()).show(ui, |ui| {
+                                if let Some(urls) = GLOBALS.events.get_seen_on(&event.id) {
+                                    for url in urls.iter() {
+                                        ui.label(url.as_str());
+                                    }
+                                } else {
+                                    ui.label("unknown");
+                                }
+                            });
+                        });
                 }
 
                 ui.label(

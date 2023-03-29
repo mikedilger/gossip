@@ -1,6 +1,6 @@
 use crate::comms::ToOverlordMessage;
 use crate::db::{DbEvent, DbPersonRelay};
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
@@ -450,10 +450,15 @@ impl People {
 
     pub async fn load_all_followed(&self) -> Result<(), Error> {
         if !self.people.is_empty() {
-            return Err(Error::Internal(
-                "load_all_followed should only be called before people is otherwise used."
-                    .to_owned(),
-            ));
+            return Err((
+                ErrorKind::Internal(
+                    "load_all_followed should only be called before people is otherwise used."
+                        .to_owned(),
+                ),
+                file!(),
+                line!(),
+            )
+                .into());
         }
 
         // NOTE: We also load all muted people, so that we can render the list of people
@@ -788,7 +793,7 @@ impl People {
 
         let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
-            None => return Err(Error::NoPrivateKey), // not even a public key
+            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
         };
 
         // Get the content from our latest ContactList.

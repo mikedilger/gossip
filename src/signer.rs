@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{EncryptedPrivateKey, Event, KeySecurity, PreEvent, PrivateKey, PublicKey};
 use parking_lot::RwLock;
@@ -105,7 +105,7 @@ impl Signer {
 
             Ok(())
         } else {
-            Err(Error::NoPrivateKey)
+            Err((ErrorKind::NoPrivateKey, file!(), line!()).into())
         }
     }
 
@@ -125,7 +125,7 @@ impl Signer {
                 });
                 Ok(())
             }
-            _ => Err(Error::NoPrivateKey),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
 
@@ -163,7 +163,7 @@ impl Signer {
                 Some(pow) => Ok(Event::new_with_pow(preevent, pk, pow)?),
                 None => Ok(Event::new(preevent, pk)?),
             },
-            _ => Err(Error::NoPrivateKey),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
 
@@ -188,7 +188,7 @@ impl Signer {
                 });
                 Ok(output)
             }
-            _ => Err(Error::NoPrivateKey),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
 
@@ -213,7 +213,7 @@ impl Signer {
                 });
                 Ok(output)
             }
-            _ => Err(Error::NoPrivateKey),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
 
@@ -232,7 +232,7 @@ impl Signer {
     pub fn decrypt_message(&self, event: &Event) -> Result<String, Error> {
         match &*self.private.read() {
             Some(private) => Ok(event.decrypted_contents(private)?),
-            _ => Err(Error::NoPrivateKey),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
 }
