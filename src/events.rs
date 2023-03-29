@@ -38,7 +38,7 @@ impl Events {
         let _ = self.events.insert(event.id, event);
     }
 
-    fn add_seen_on(&self, id: Id, url: &RelayUrl) {
+    pub fn add_seen_on(&self, id: Id, url: &RelayUrl) {
         let relay_index = self.relay_map.relay_to_index(url);
         match self.seen_on.entry(id) {
             Entry::Occupied(mut oentry) => {

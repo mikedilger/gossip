@@ -51,11 +51,17 @@ pub async fn process_new_event(
         }
     }
 
-    // If we don't already have it, insert into map
-    // This also inserts the 'seen_on' relay information
     let old = GLOBALS.events.get(&event.id).is_some();
+    // If we don't already have it
     if !old {
+        // Insert into map
+        // This also inserts the 'seen_on' relay information
         GLOBALS.events.insert(event.clone(), seen_on.clone());
+    } else {
+        // Just insert the new seen_on information
+        if let Some(url) = &seen_on {
+            GLOBALS.events.add_seen_on(event.id, url);
+        }
     }
 
     if let Some(ref url) = seen_on {
@@ -86,6 +92,7 @@ pub async fn process_new_event(
             event.kind,
             event.created_at
         );
+        return Ok(()); // No more processing needed for existing event.
     } else {
         tracing::debug!(
             "{}: New Event: {} {:?} @{}",
