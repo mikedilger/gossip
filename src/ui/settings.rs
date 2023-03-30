@@ -110,11 +110,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     );
 
                     ui.checkbox(
-                        &mut app.settings.show_first_mention,
-                        "Enable first mention (show)",
-                    );
-
-                    ui.checkbox(
                         &mut app.settings.direct_messages,
                         "Show Direct Messages",
                     )
@@ -125,6 +120,27 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         "Show Long-Form Posts",
                     )
                         .on_hover_text("Takes effect fully only on restart.");
+
+                    ui.add_space(12.0);
+                    ui.separator();
+                    ui.add_space(12.0);
+
+                    ui.heading("Post look-and-feel");
+
+                    ui.checkbox(
+                        &mut app.settings.show_mentions,
+                        "Render mentions inline",
+                    )
+                        .on_disabled_hover_text("Enable to render a mentioned post where it appears in the text")
+                        .on_hover_text("Disable to just show a link to a mentioned post where it appears in the text");
+
+                    ui.checkbox(
+                        &mut app.settings.show_media,
+                        "Render media inline",
+                    )
+                        .on_disabled_hover_text("Enable to show media inline by default (click on media to hide it)")
+                        .on_hover_text("Disable to hide media by default (click on the media placeholder to show it)");
+
 
                     ui.add_space(12.0);
                     ui.separator();

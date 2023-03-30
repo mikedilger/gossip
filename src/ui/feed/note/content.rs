@@ -1,15 +1,15 @@
 use super::{GossipUi, NoteData, Page, RepostType};
-use crate::feed::FeedKind;
+use crate::{feed::FeedKind};
 use crate::globals::GLOBALS;
 use crate::ui::widgets::break_anywhere_hyperlink_to;
 use eframe::{
-    egui::{self, Image},
+    egui::{self, Image, Response},
     epaint::Vec2,
 };
 use egui::{RichText, Ui};
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{EventPointer, Id, IdHex, PublicKey, Tag, UncheckedUrl};
+use nostr_types::{EventPointer, Id, IdHex, PublicKey, Tag, Url};
 use regex::Regex;
 
 /// returns None or a repost
@@ -33,13 +33,11 @@ pub(super) fn render_content(
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
             let lower_span = span.as_str().to_lowercase();
-            if is_image_url(&lower_span) {
-                // TODO replace this with a per author setting (persisted) and a per note setting (RAM only)
-                if !GLOBALS.settings.read().load_media || !try_render_media(app, ui, span.as_str()) {
-                    break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
-                }
+            if let Some(image_url) = as_image_url(app,&lower_span) {
+                show_image_toggle(app, ui, image_url);
             } else if is_video_url(&lower_span) {
-                break_anywhere_hyperlink_to(ui, "[ Video ]", span.as_str());
+                // TODO
+                break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
             } else {
                 break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
             }
@@ -59,7 +57,7 @@ pub(super) fn render_content(
 
                             // we only render the first mention, so if append_repost is_some then skip to render_link
                             // we also respect the user setting "show first mention"
-                            if append_repost.is_none() && app.settings.show_first_mention {
+                            if append_repost.is_none() && app.settings.show_mentions {
                                 match note.repost {
                                     Some(RepostType::MentionOnly)
                                     | Some(RepostType::CommentMention)
@@ -181,27 +179,101 @@ fn is_image_url(url: &String) -> bool {
         || url.ends_with(".gif");
 }
 
+fn as_image_url(app: &mut GossipUi, url: &String) -> Option<Url> {
+    if is_image_url(url) {
+        app.try_check_url(url)
+    } else {
+        None
+    }
+}
+
 fn is_video_url(url: &String) -> bool {
     return url.ends_with(".mov") || url.ends_with(".mp4") || url.ends_with(".webp");
 }
 
+fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
+    let row_height = ui.cursor().height();
+    let url_string = url.to_string();
+    let mut show_link = true;
+    let mut hovr_response = None;
+
+    let show_image = (app.settings.show_media && !app.media_hide_list.contains(&url)) ||
+        (!app.settings.show_media && app.media_show_list.contains(&url));
+
+    if show_image {
+        if let Some(response) = try_render_media(app, ui, url.clone()) {
+            show_link = false;
+            if response.clicked() {
+                if app.settings.show_media {
+                    app.media_hide_list.insert(url.clone());
+                } else {
+                    app.media_show_list.remove(&url);
+                }
+            }
+            hovr_response = Some(response);
+        }
+    }
+
+    if show_link {
+        let response = ui.link("[ Image ]");
+        if !app.settings.load_media {
+            response.clone().on_hover_text("Setting 'Fetch media' is disabled");
+        }
+        if response.clicked() {
+            if app.settings.show_media {
+                app.media_hide_list.remove(&url);
+            } else {
+                app.media_show_list.insert(url.clone());
+            }
+        }
+        hovr_response = Some(response);
+    }
+
+    if let Some(response) = hovr_response {
+        response.clone().context_menu(|ui| {
+            if ui.button("open in browser").clicked() {
+                let modifiers = ui.ctx().input(|i| i.modifiers);
+                ui.ctx().output_mut(|o| {
+                    o.open_url = Some(egui::output::OpenUrl {
+                        url: url_string.clone(),
+                        new_tab: modifiers.any(),
+                    });
+                });
+            }
+            if ui.button("copy URL").clicked() {
+                ui.output_mut(|o| o.copied_text = url_string);
+            }
+            if ui.button("try reload").clicked() {
+                app.retry_media(&url);
+            }
+        });
+    }
+
+    ui.end_row();
+
+    // workaround for egui bug where image enlarges the cursor height
+    ui.set_row_height(row_height);
+
+    // now show a small hyperlink to the image
+    // break_anywhere_hyperlink_to(ui, RichText::new(url_string.clone()).small(), url_string);
+}
+
 /// Try to fetch and render a piece of media
 ///  - return: true if successfully rendered, false otherwise
-fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url_str: &str) -> bool {
-    let mut success = false;
-    let unchecked_url = UncheckedUrl(url_str.to_string());
-    if let Some(media) = app.try_get_media(ui.ctx(), &unchecked_url) {
-        // insert a newline if the current line has text
-        if ui.cursor().min.x > ui.max_rect().min.x {
-            ui.end_row();
-        }
-
+fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
+    let mut response_return = None;
+    if let Some(media) = app.try_get_media(ui.ctx(), url) {
         let ui_max = Vec2::new(
             ui.available_width(),
             ui.ctx().screen_rect().height() / 4.0,
         );
         let msize = media.size_vec2();
         let aspect = media.aspect_ratio();
+
+        // insert a newline if the current line has text
+        if ui.cursor().min.x > ui.max_rect().min.x {
+            ui.end_row();
+        }
 
         // determine maximum x and y sizes
         let max_x = if ui_max.x > msize.x {
@@ -229,17 +301,14 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url_str: &str) -> bool {
             max_y
         };
 
-        let row_height = ui.cursor().height();
-        let url = unchecked_url.to_string();
-
         // render the image with a nice frame around it
         egui::Frame::none()
             .inner_margin(egui::Margin::same(0.0))
             .outer_margin(egui::Margin {
-                top: ui.available_height(),
+                top: ui.available_height(), // line height
                 left: 0.0,
                 right: 0.0,
-                bottom: ui.available_height(),
+                bottom: ui.available_height(), // line height
             })
             .fill(egui::Color32::GRAY)
             .rounding(ui.style().noninteractive().rounding)
@@ -249,27 +318,11 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url_str: &str) -> bool {
             })
             .show(ui, |ui| {
                 let response = ui.add(Image::new(&media, size).sense(egui::Sense::click()));
-                if response.clicked() {
-                    let modifiers = ui.ctx().input(|i| i.modifiers);
-                    ui.ctx().output_mut(|o| {
-                        o.open_url = Some(egui::output::OpenUrl {
-                            url: url.clone(),
-                            new_tab: modifiers.any(),
-                        });
-                    });
-                }
                 if response.hovered() {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
+                response_return = Some(response);
             });
-
-        // make other content continue on a new line
-        ui.end_row();
-
-        // workaround for egui bug where image enlarges the cursor height
-        ui.set_row_height(row_height);
-
-        success = true;
     };
-    success
+    response_return
 }

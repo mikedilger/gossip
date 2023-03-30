@@ -44,6 +44,10 @@ impl Media {
         return self.failed_media.blocking_read().contains(unchecked_url);
     }
 
+    pub fn retry_failed(&self, unchecked_url: &UncheckedUrl) {
+        self.failed_media.blocking_write().remove(unchecked_url);
+    }
+
     pub fn get_media(&self, url: &Url) -> Option<ColorImage> {
         // If it failed before, error out now
         if self
