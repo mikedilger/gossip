@@ -483,7 +483,7 @@ fn render_note_inner(
                         }
                     }
                     if ui.button("Copy ID").clicked() {
-                        ui.output_mut(|o| o.copied_text = event.id.try_as_bech32_string().unwrap());
+                        ui.output_mut(|o| o.copied_text = event.id.as_bech32_string());
                     }
                     if ui.button("Copy ID as hex").clicked() {
                         ui.output_mut(|o| o.copied_text = event.id.as_hex_string());
@@ -731,7 +731,7 @@ fn render_note_inner(
                                     app.draft.push(' ');
                                 }
                                 app.draft
-                                    .push_str(&event.id.try_as_bech32_string().unwrap());
+                                    .push_str(&event.id.as_bech32_string());
                             }
 
                             ui.add_space(24.0);

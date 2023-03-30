@@ -198,7 +198,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                 if !app.draft.ends_with(' ') && !app.draft.is_empty() {
                                     app.draft.push(' ');
                                 }
-                                app.draft.push_str(&pair.1.try_as_bech32_string().unwrap());
+                                app.draft.push_str(&pair.1.as_bech32_string());
                                 app.tag_someone = "".to_owned();
                             }
                         }

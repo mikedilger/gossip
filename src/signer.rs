@@ -172,7 +172,7 @@ impl Signer {
                 // Test password
                 let mut pk = epk.decrypt(pass)?;
 
-                let output = pk.try_as_bech32_string()?;
+                let output = pk.as_bech32_string();
 
                 // We have to regenerate encrypted private key because it may have fallen from
                 // medium to weak security. And then we need to save that

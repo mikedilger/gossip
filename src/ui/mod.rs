@@ -559,10 +559,10 @@ impl GossipUi {
     pub fn pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
         match PublicKey::try_from_hex_string(pubkeyhex) {
             Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
-            Ok(pk) => match pk.try_as_bech32_string() {
-                Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
-                Ok(npub) => format!("{}…", &npub.get(0..20).unwrap_or("????????????????????")),
-            },
+            Ok(pk) => {
+                let npub = pk.as_bech32_string();
+                format!("{}…", &npub.get(0..20).unwrap_or("????????????????????"))
+            }
         }
     }
 
@@ -626,7 +626,7 @@ impl GossipUi {
                 .on_hover_text("Copy Public Key")
                 .clicked()
             {
-                ui.output_mut(|o| o.copied_text = person.pubkey.try_as_bech32_string().unwrap());
+                ui.output_mut(|o| o.copied_text = person.pubkey.as_bech32_string());
             }
         });
     }
