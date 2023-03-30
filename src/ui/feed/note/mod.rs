@@ -12,7 +12,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Tag};
+use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, PublicKeyHex, Tag};
 
 mod content;
 
@@ -482,10 +482,20 @@ fn render_note_inner(
                             }));
                         }
                     }
-                    if ui.button("Copy ID").clicked() {
+                    if ui.button("Copy nevent").clicked() {
+                        let event_pointer = EventPointer {
+                            id: event.id,
+                            relays: match GLOBALS.events.get_seen_on(&event.id) {
+                                None => vec![],
+                                Some(vec) => vec.iter().map(|url| url.to_unchecked_url()).collect(),
+                            },
+                        };
+                        ui.output_mut(|o| o.copied_text = event_pointer.as_bech32_string());
+                    }
+                    if ui.button("Copy note1 Id").clicked() {
                         ui.output_mut(|o| o.copied_text = event.id.as_bech32_string());
                     }
-                    if ui.button("Copy ID as hex").clicked() {
+                    if ui.button("Copy hex Id").clicked() {
                         ui.output_mut(|o| o.copied_text = event.id.as_hex_string());
                     }
                     if ui.button("Copy Raw data").clicked() {
@@ -730,8 +740,7 @@ fn render_note_inner(
                                 if !app.draft.ends_with(' ') && !app.draft.is_empty() {
                                     app.draft.push(' ');
                                 }
-                                app.draft
-                                    .push_str(&event.id.as_bech32_string());
+                                app.draft.push_str(&event.id.as_bech32_string());
                             }
 
                             ui.add_space(24.0);
