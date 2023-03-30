@@ -3,10 +3,9 @@ use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{RichText, Ui};
-use gossip_relay_picker::PublicKeyHex;
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{EventPointer, Id, IdHex, Profile, PublicKey, Tag};
+use nostr_types::{EventPointer, Id, IdHex, Profile, PublicKey, PublicKeyHex, Tag};
 use regex::Regex;
 
 /// returns None or a repost
