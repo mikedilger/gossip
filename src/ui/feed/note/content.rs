@@ -28,13 +28,19 @@ pub(super) fn render_content(
 
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
-            if span.as_str().ends_with(".jpg")
-                || span.as_str().ends_with(".jpeg")
-                || span.as_str().ends_with(".png")
-                || span.as_str().ends_with(".gif")
+            let lowercase = span.as_str().to_lowercase();
+            if lowercase.ends_with(".jpg")
+                || lowercase.ends_with(".jpeg")
+                || lowercase.ends_with(".png")
+                || lowercase.ends_with(".gif")
+                || lowercase.ends_with(".webp")
             {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
-            } else if span.as_str().ends_with(".mov") || span.as_str().ends_with(".mp4") {
+            } else if lowercase.ends_with(".mov")
+                || lowercase.ends_with(".mp4")
+                || lowercase.ends_with(".mkv")
+                || lowercase.ends_with(".webm")
+            {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", span.as_str());
             } else {
                 crate::ui::widgets::break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
