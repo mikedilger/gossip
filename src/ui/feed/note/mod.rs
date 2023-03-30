@@ -211,7 +211,7 @@ pub(super) fn render_note(
 
         match NoteData::new(
             event,
-            app.settings.show_first_mention,
+            app.settings.show_mentions,
             app.settings.show_long_form,
         ) {
             Some(nd) => nd,

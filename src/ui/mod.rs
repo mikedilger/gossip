@@ -135,6 +135,10 @@ struct GossipUi {
     settings: Settings,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     media: HashMap<Url, TextureHandle>,
+    /// used when settings.show_media=false to explicitly show
+    media_show_list: HashSet<Url>,
+    /// used when settings.show_media=false to explicitly hide
+    media_hide_list: HashSet<Url>,
 
     // Search result
     search_result: String,
@@ -280,6 +284,8 @@ impl GossipUi {
             settings,
             avatars: HashMap::new(),
             media: HashMap::new(),
+            media_show_list: HashSet::new(),
+            media_hide_list: HashSet::new(),
             search_result: "".to_owned(),
             draft: "".to_owned(),
             draft_needs_focus: false,
@@ -663,22 +669,25 @@ impl GossipUi {
         }
     }
 
+    pub fn try_check_url(&self, url_string: &str) -> Option<Url>
+    {
+        let unchecked_url = UncheckedUrl(url_string.to_owned());
+        GLOBALS.media.check_url(unchecked_url)
+    }
+
+    pub fn retry_media(&self, url: &Url) {
+        GLOBALS.media.retry_failed(&url.to_unchecked_url());
+    }
+
     pub fn try_get_media(
         &mut self,
         ctx: &Context,
-        unchecked_url: &UncheckedUrl,
+        url: Url,
     ) -> Option<TextureHandle> {
         // Do not keep retrying if failed
-        if GLOBALS.media.has_failed(unchecked_url) {
+        if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
             return None;
         }
-
-        let url = match GLOBALS.media.check_url(unchecked_url.clone()) {
-            Some(url) => url,
-            None => {
-                return None;
-            }
-        };
 
         // see if we already have a texturehandle for this media
         if let Some(th) = self.media.get(&url) {

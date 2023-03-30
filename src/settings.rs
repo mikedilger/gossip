@@ -25,7 +25,8 @@ pub const DEFAULT_OVERRIDE_DPI: Option<u32> = None;
 pub const DEFAULT_REACTIONS: bool = true;
 pub const DEFAULT_REPOSTS: bool = true;
 pub const DEFAULT_SHOW_LONG_FORM: bool = false;
-pub const DEFAULT_SHOW_FIRST_MENTION: bool = true;
+pub const DEFAULT_SHOW_MENTIONS: bool = true;
+pub const DEFAULT_SHOW_MEDIA: bool = false;
 pub const DEFAULT_LOAD_AVATARS: bool = true;
 pub const DEFAULT_LOAD_MEDIA: bool = false;
 pub const DEFAULT_CHECK_NIP05: bool = true;
@@ -54,7 +55,8 @@ pub struct Settings {
     pub reactions: bool,
     pub reposts: bool,
     pub show_long_form: bool,
-    pub show_first_mention: bool,
+    pub show_mentions: bool,
+    pub show_media: bool,
     pub load_avatars: bool,
     pub load_media: bool,
     pub check_nip05: bool,
@@ -86,7 +88,8 @@ impl Default for Settings {
             reactions: DEFAULT_REACTIONS,
             reposts: DEFAULT_REPOSTS,
             show_long_form: DEFAULT_SHOW_LONG_FORM,
-            show_first_mention: DEFAULT_SHOW_FIRST_MENTION,
+            show_mentions: DEFAULT_SHOW_MENTIONS,
+            show_media: DEFAULT_SHOW_MEDIA,
             load_avatars: DEFAULT_LOAD_AVATARS,
             load_media: DEFAULT_LOAD_MEDIA,
             check_nip05: DEFAULT_CHECK_NIP05,
@@ -173,7 +176,8 @@ impl Settings {
                 "reactions" => settings.reactions = numstr_to_bool(row.1),
                 "reposts" => settings.reposts = numstr_to_bool(row.1),
                 "show_long_form" => settings.show_long_form = numstr_to_bool(row.1),
-                "show_first_mention" => settings.show_first_mention = numstr_to_bool(row.1),
+                "show_mentions" => settings.show_mentions = numstr_to_bool(row.1),
+                "show_media" => settings.show_media = numstr_to_bool(row.1),
                 "load_avatars" => settings.load_avatars = numstr_to_bool(row.1),
                 "load_media" => settings.load_media = numstr_to_bool(row.1),
                 "check_nip05" => settings.check_nip05 = numstr_to_bool(row.1),
@@ -223,7 +227,8 @@ impl Settings {
              ('reactions', ?),\
              ('reposts', ?),\
              ('show_long_form', ?),\
-             ('show_first_mention', ?),\
+             ('show_mentions', ?),\
+             ('show_media', ?),\
              ('load_avatars', ?),\
              ('load_media', ?),\
              ('check_nip05', ?),\
@@ -251,7 +256,8 @@ impl Settings {
             bool_to_numstr(self.reactions),
             bool_to_numstr(self.reposts),
             bool_to_numstr(self.show_long_form),
-            bool_to_numstr(self.show_first_mention),
+            bool_to_numstr(self.show_mentions),
+            bool_to_numstr(self.show_media),
             bool_to_numstr(self.load_avatars),
             bool_to_numstr(self.load_media),
             bool_to_numstr(self.check_nip05),
