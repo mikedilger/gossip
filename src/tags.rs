@@ -59,7 +59,7 @@ pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKe
     }
 }
 
-pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) -> usize {
+pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: &PublicKey) -> usize {
     add_pubkey_hex_to_tags(existing_tags, &added.as_hex_string().into()).await
 }
 

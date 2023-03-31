@@ -7,14 +7,13 @@ use crate::globals::GLOBALS;
 use crate::people::People;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
-    keys_from_text, notes_from_text,
 };
 use dashmap::mapref::entry::Entry;
 use gossip_relay_picker::{Direction, RelayAssignment};
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, PreEvent,
-    PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, NostrBech32,
+    NostrUrl, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -755,18 +754,34 @@ impl Overlord {
                 });
             }
 
-            // Add tags for keys that are in the post body as npub1...
-            for (npub, pubkey) in keys_from_text(&content) {
-                let idx = add_pubkey_to_tags(&mut tags, pubkey).await;
-                content = content.replace(&npub, &format!("#[{}]", idx));
+            // Add Tags based on references in the content
+            //
+            // FIXME - this function takes a 'tags' variable. We may want to let
+            // the user determine which tags to keep and which to delete, so we
+            // should probably move this processing into the post editor instead.
+            // For now, I'm just trying to remove the old #[0] type substitutions
+            // and use the new NostrBech32 parsing.
+            for bech32 in NostrBech32::find_all_in_string(&content).iter() {
+                match bech32 {
+                    NostrBech32::Pubkey(pk) => {
+                        add_pubkey_to_tags(&mut tags, pk).await;
+                    }
+                    NostrBech32::Profile(prof) => {
+                        add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
+                    }
+                    NostrBech32::Id(id) => {
+                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                        add_event_to_tags(&mut tags, *id, "mention").await;
+                    }
+                    NostrBech32::EventPointer(ep) => {
+                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                        add_event_to_tags(&mut tags, ep.id, "mention").await;
+                    }
+                }
             }
 
-            // Do the same as above, but now with note1...
-            for (npub, pubkey) in notes_from_text(&content) {
-                // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                let idx = add_event_to_tags(&mut tags, pubkey, "mention").await;
-                content = content.replace(&npub, &format!("#[{}]", idx));
-            }
+            // Standardize nostr links (prepend 'nostr:' where missing)
+            content = NostrUrl::urlize(&content);
 
             if let Some(parent_id) = reply_to {
                 // Get the event we are replying to
@@ -777,7 +792,7 @@ impl Overlord {
 
                 // Add a 'p' tag for the author we are replying to (except if it is our own key)
                 if parent.pubkey != public_key {
-                    add_pubkey_to_tags(&mut tags, parent.pubkey).await;
+                    add_pubkey_to_tags(&mut tags, &parent.pubkey).await;
                 }
 
                 // Add all the 'p' tags from the note we are replying to (except our own)
