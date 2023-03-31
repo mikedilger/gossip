@@ -1,35 +1,42 @@
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
-use crate::tags::{keys_from_text, notes_from_text};
 use crate::ui::{GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, ScrollArea, Ui, Vec2};
 use memoize::memoize;
-use nostr_types::Tag;
+use nostr_types::{find_nostr_bech32_pos, NostrBech32, Tag};
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
     let mut job = LayoutJob::default();
 
-    let ids = notes_from_text(&text);
-    let pks = keys_from_text(&text);
-
     // we will gather indices such that we can split the text in chunks
     let mut indices: Vec<(usize, HighlightType)> = vec![];
-    for pk in pks {
-        for m in text.match_indices(&pk.0) {
-            indices.push((m.0, HighlightType::Nothing));
-            indices.push((m.0 + pk.0.len(), HighlightType::PublicKey));
+
+    let mut offset = 0;
+    while let Some((start, end)) = find_nostr_bech32_pos(&text[offset..]) {
+        if let Some(b32) = NostrBech32::try_from_string(&text[offset + start..offset + end]) {
+            // include "nostr:" prefix if found
+            let realstart = if start > 6 && &text[offset + start - 6..offset + start] == "nostr:" {
+                start - 6
+            } else {
+                start
+            };
+            indices.push((offset + realstart, HighlightType::Nothing));
+            match b32 {
+                NostrBech32::Pubkey(_) | NostrBech32::Profile(_) => {
+                    indices.push((offset + end, HighlightType::PublicKey))
+                }
+                NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
+                    indices.push((offset + end, HighlightType::Event))
+                }
+            }
         }
+        offset += end;
     }
-    for id in ids {
-        for m in text.match_indices(&id.0) {
-            indices.push((m.0, HighlightType::Nothing));
-            indices.push((m.0 + id.0.len(), HighlightType::Event));
-        }
-    }
+
     indices.sort_by_key(|x| x.0);
     indices.dedup_by_key(|x| x.0);
 
@@ -259,15 +266,25 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         app.clear_post();
     }
 
-    // List tags that will be applied (FIXME: list tags from parent event too in case of reply)
-    for (i, (npub, pubkey)) in keys_from_text(&app.draft).iter().enumerate() {
-        let rendered = if let Some(person) = GLOBALS.people.get(&pubkey.as_hex_string().into()) {
+    // List tags that will be applied
+    // FIXME: list tags from parent event too in case of reply
+    // FIXME: tag handling in overlord::post() needs to move back here so the user can control this
+    for (i, bech32) in NostrBech32::find_all_in_string(&app.draft)
+        .iter()
+        .enumerate()
+    {
+        let pk = match bech32 {
+            NostrBech32::Pubkey(pk) => pk,
+            NostrBech32::Profile(prof) => &prof.pubkey,
+            _ => continue,
+        };
+        let rendered = if let Some(person) = GLOBALS.people.get(&pk.as_hex_string().into()) {
             match person.name() {
                 Some(name) => name.to_owned(),
-                None => npub.to_owned(),
+                None => format!("{}", bech32),
             }
         } else {
-            npub.to_owned()
+            format!("{}", bech32)
         };
 
         ui.label(format!("{}: {}", i, rendered));

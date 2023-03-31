@@ -5,8 +5,89 @@ use eframe::egui;
 use egui::{RichText, Ui};
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{EventPointer, Id, IdHex, Profile, PublicKey, PublicKeyHex, Tag};
+use nostr_types::find_nostr_bech32_pos;
+use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag};
 use regex::Regex;
+
+/// A segment of content]
+#[derive(Debug)]
+pub enum ContentSegment<'a> {
+    NostrUrl(NostrUrl),
+    TagReference(usize),
+    Hyperlink(&'a str),
+    Plain(&'a str),
+}
+
+/// Break content into a linear sequence of `ContentSegment`s
+pub(super) fn shatter_content(mut content: &str) -> Vec<ContentSegment<'_>> {
+    let mut segments: Vec<ContentSegment> = Vec::new();
+
+    // Pass 1 - `NostrUrl`s
+    while let Some((start, end)) = find_nostr_bech32_pos(content) {
+        // The stuff before it
+        if start >= 6 && &content[start - 6..start] == "nostr:" {
+            segments.append(&mut shatter_content_2(&content[..start - 6]));
+        } else {
+            segments.append(&mut shatter_content_2(&content[..start]));
+        }
+
+        // The Nostr Bech32 itself
+        if let Some(nbech) = NostrBech32::try_from_string(&content[start..end]) {
+            segments.push(ContentSegment::NostrUrl(NostrUrl(nbech)));
+        } else {
+            tracing::error!(
+                "PROBLEM PARSING THIS BECH32 MATCHED STRING: {}",
+                &content[start..end]
+            );
+            // something is wrong with find_nostr_bech32_pos() or our code here.
+        }
+
+        content = &content[end..];
+    }
+
+    // The stuff after it
+    segments.append(&mut shatter_content_2(content));
+
+    segments
+}
+
+// Pass 2 - `TagReference`s
+fn shatter_content_2(content: &str) -> Vec<ContentSegment<'_>> {
+    lazy_static! {
+        static ref TAG_RE: Regex = Regex::new(r"(\#\[\d+\])").unwrap();
+    }
+
+    let mut segments: Vec<ContentSegment> = Vec::new();
+
+    let mut pos = 0;
+    for mat in TAG_RE.find_iter(content) {
+        segments.append(&mut shatter_content_3(&content[pos..mat.start()]));
+        // If panics on unwrap, something is wrong with Regex.
+        let u: usize = content[mat.start() + 2..mat.end() - 1].parse().unwrap();
+        segments.push(ContentSegment::TagReference(u));
+        pos = mat.end();
+    }
+
+    segments.append(&mut shatter_content_3(&content[pos..]));
+
+    segments
+}
+
+fn shatter_content_3(content: &str) -> Vec<ContentSegment<'_>> {
+    let mut segments: Vec<ContentSegment> = Vec::new();
+
+    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
+        if span.kind().is_some() {
+            segments.push(ContentSegment::Hyperlink(span.as_str()));
+        } else {
+            if !span.as_str().is_empty() {
+                segments.push(ContentSegment::Plain(span.as_str()));
+            }
+        }
+    }
+
+    segments
+}
 
 /// returns None or a repost
 pub(super) fn render_content(
@@ -16,41 +97,28 @@ pub(super) fn render_content(
     as_deleted: bool,
     content: &str,
 ) -> Option<NoteData> {
-    lazy_static! {
-        static ref TAG_RE: Regex = Regex::new(r"(\#\[\d+\])").unwrap();
-        static ref NIP27_RE: Regex = Regex::new(r"(?i:nostr:[[:alnum:]]+)").unwrap();
-    }
-
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     // Optional repost return
     let mut append_repost: Option<NoteData> = None;
 
-    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
-        if span.kind().is_some() {
-            let lowercase = span.as_str().to_lowercase();
-            if lowercase.ends_with(".jpg")
-                || lowercase.ends_with(".jpeg")
-                || lowercase.ends_with(".png")
-                || lowercase.ends_with(".gif")
-                || lowercase.ends_with(".webp")
-            {
-                crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
-            } else if lowercase.ends_with(".mov")
-                || lowercase.ends_with(".mp4")
-                || lowercase.ends_with(".mkv")
-                || lowercase.ends_with(".webm")
-            {
-                crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", span.as_str());
-            } else {
-                crate::ui::widgets::break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
-            }
-        } else {
-            let s = span.as_str();
-            let mut pos = 0;
-            for mat in TAG_RE.find_iter(s) {
-                ui.label(&s[pos..mat.start()]);
-                let num: usize = s[mat.start() + 2..mat.end() - 1].parse::<usize>().unwrap();
+    for segment in shatter_content(content) {
+        match segment {
+            ContentSegment::NostrUrl(nurl) => match nurl.0 {
+                NostrBech32::Pubkey(pk) => {
+                    render_profile_link(app, ui, &pk.into());
+                }
+                NostrBech32::Profile(prof) => {
+                    render_profile_link(app, ui, &prof.pubkey.into());
+                }
+                NostrBech32::Id(id) => {
+                    render_event_link(app, ui, note, &id);
+                }
+                NostrBech32::EventPointer(ep) => {
+                    render_event_link(app, ui, note, &ep.id);
+                }
+            },
+            ContentSegment::TagReference(num) => {
                 if let Some(tag) = note.event.tags.get(num) {
                     match tag {
                         Tag::Pubkey { pubkey, .. } => {
@@ -102,47 +170,31 @@ pub(super) fn render_content(
                         }
                     }
                 }
-                pos = mat.end();
             }
-            let rest = &s[pos..];
-            // implement NIP-27 nostr: links that include NIP-19 bech32 references
-            if rest.contains("nostr:") {
-                let mut nospos = 0;
-                for mat in NIP27_RE.find_iter(rest) {
-                    ui.label(&s[nospos..mat.start()]); // print whatever comes before the match
-                    let mut link_parsed = false;
-                    let link = &s[mat.start() + 6..mat.end()];
-                    if link.starts_with("note1") {
-                        if let Ok(id) = Id::try_from_bech32_string(link) {
-                            render_event_link(app, ui, note, &id);
-                            link_parsed = true;
-                        }
-                    } else if link.starts_with("nevent1") {
-                        if let Ok(ep) = EventPointer::try_from_bech32_string(link) {
-                            render_event_link(app, ui, note, &ep.id);
-                            link_parsed = true;
-                        }
-                    } else if link.starts_with("npub1") {
-                        if let Ok(pk) = PublicKey::try_from_bech32_string(link) {
-                            render_profile_link(app, ui, &pk.into());
-                            link_parsed = true;
-                        }
-                    } else if link.starts_with("nprofile") {
-                        if let Ok(profile) = Profile::try_from_bech32_string(link) {
-                            render_profile_link(app, ui, &profile.pubkey.into());
-                            link_parsed = true;
-                        }
-                    }
-                    if !link_parsed {
-                        ui.label(format!("nostr:{}", link));
-                    }
-                    nospos = mat.end();
-                }
-            } else {
-                if as_deleted {
-                    ui.label(RichText::new(rest).strikethrough());
+            ContentSegment::Hyperlink(link) => {
+                let lowercase = link.to_lowercase();
+                if lowercase.ends_with(".jpg")
+                    || lowercase.ends_with(".jpeg")
+                    || lowercase.ends_with(".png")
+                    || lowercase.ends_with(".gif")
+                    || lowercase.ends_with(".webp")
+                {
+                    crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", link);
+                } else if lowercase.ends_with(".mov")
+                    || lowercase.ends_with(".mp4")
+                    || lowercase.ends_with(".mkv")
+                    || lowercase.ends_with(".webm")
+                {
+                    crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", link);
                 } else {
-                    ui.label(rest);
+                    crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
+                }
+            }
+            ContentSegment::Plain(text) => {
+                if as_deleted {
+                    ui.label(RichText::new(text).strikethrough());
+                } else {
+                    ui.label(text);
                 }
             }
         }
@@ -175,4 +227,27 @@ fn render_event_link(app: &mut GossipUi, ui: &mut Ui, note: &NoteData, id: &Id) 
             referenced_by: note.event.id,
         }));
     };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_shatter_content() {
+        let content = "My friend #[0]  wrote me this note: nostr:note10ttnuuvcs29y3k23gwrcurw2ksvgd7c2rrqlfx7urmt5m963vhss8nja90 and it might have referred to https://github.com/Giszmo/nostr.info/blob/master/assets/js/main.js";
+        let pieces = shatter_content(content);
+        assert_eq!(pieces.len(), 6);
+        assert!(matches!(pieces[0], ContentSegment::Plain(..)));
+        assert!(matches!(pieces[1], ContentSegment::TagReference(..)));
+        assert!(matches!(pieces[2], ContentSegment::Plain(..)));
+        assert!(matches!(pieces[3], ContentSegment::NostrUrl(..)));
+        assert!(matches!(pieces[4], ContentSegment::Plain(..)));
+        assert!(matches!(pieces[5], ContentSegment::Hyperlink(..)));
+
+        let content = r#"This is a test of NIP-27 posting support referencing this note nostr:nevent1qqsqqqq9wh98g4u6e480vyp6p4w3ux2cd0mxn2rssq0w5cscsgzp2ksprpmhxue69uhkzapwdehhxarjwahhy6mn9e3k7mf0qyt8wumn8ghj7etyv4hzumn0wd68ytnvv9hxgtcpremhxue69uhkummnw3ez6ur4vgh8wetvd3hhyer9wghxuet59uq3kamnwvaz7tmwdaehgu3wd45kketyd9kxwetj9e3k7mf0qy2hwumn8ghj7mn0wd68ytn00p68ytnyv4mz7qgnwaehxw309ahkvenrdpskjm3wwp6kytcpz4mhxue69uhhyetvv9ujuerpd46hxtnfduhsz9mhwden5te0wfjkccte9ehx7um5wghxyctwvshszxthwden5te0wfjkccte9eekummjwsh8xmmrd9skctcnmzajy and again without the url data nostr:note1qqqq2aw2w3te4n2w7cgr5r2arcv4s6lkdx58pqq7af3p3qsyz4dqns2935
+And referencing this person nostr:npub1acg6thl5psv62405rljzkj8spesceyfz2c32udakc2ak0dmvfeyse9p35c and again as an nprofile nostr:nprofile1qqswuyd9ml6qcxd92h6pleptfrcqucvvjy39vg4wx7mv9wm8kakyujgprdmhxue69uhkummnw3ezumtfddjkg6tvvajhytnrdakj7qg7waehxw309ahx7um5wgkhqatz9emk2mrvdaexgetj9ehx2ap0qythwumn8ghj7un9d3shjtnwdaehgu3wd9hxvme0qyt8wumn8ghj7etyv4hzumn0wd68ytnvv9hxgtcpzdmhxue69uhk7enxvd5xz6tw9ec82c30qy2hwumn8ghj7mn0wd68ytn00p68ytnyv4mz7qgcwaehxw309ashgtnwdaehgunhdaexkuewvdhk6tczkvt9n all on the same damn line even (I think)."#;
+        let pieces = shatter_content(content);
+        assert_eq!(pieces.len(), 9);
+    }
 }
