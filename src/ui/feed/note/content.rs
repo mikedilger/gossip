@@ -5,8 +5,92 @@ use eframe::egui;
 use egui::{RichText, Ui};
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::{EventPointer, Id, IdHex, Profile, PublicKey, PublicKeyHex, Tag};
+use nostr_types::find_nostr_bech32_pos;
+use nostr_types::{
+    EventPointer, Id, IdHex, NostrBech32, NostrUrl, Profile, PublicKey, PublicKeyHex, Tag,
+};
 use regex::Regex;
+
+/// A segment of content]
+#[allow(dead_code)]
+pub enum ContentSegment<'a> {
+    NostrUrl(NostrUrl),
+    TagReference(usize),
+    Hyperlink(&'a str),
+    Plain(&'a str),
+}
+
+/// Break content into a linear sequence of `ContentSegment`s
+#[allow(dead_code)]
+pub(super) fn shatter_content(content: &str) -> Vec<ContentSegment<'_>> {
+    let mut segments: Vec<ContentSegment> = Vec::new();
+
+    // Pass 1 - `NostrUrl`s
+    let mut pos = 0;
+    while let Some((start, end)) = find_nostr_bech32_pos(&content[pos..]) {
+        // The stuff before it
+        if start >= 6 && &content[start - 6..start] == "nostr:" {
+            segments.append(&mut shatter_content_2(&content[..start - 6]));
+        } else {
+            segments.append(&mut shatter_content_2(&content[..start]));
+        }
+
+        // The Nostr Bech32 itself
+        if let Some(nbech) = NostrBech32::try_from_string(&content[start..end]) {
+            segments.push(ContentSegment::NostrUrl(NostrUrl(nbech)));
+        } else {
+            // something is wrong with find_nostr_bech32_pos() or our code here.
+            unreachable!();
+        }
+
+        pos = end;
+    }
+
+    // The stuff after it
+    segments.append(&mut shatter_content_2(&content[pos..]));
+
+    segments
+}
+
+// Pass 2 - `TagReference`s
+#[allow(dead_code)]
+fn shatter_content_2(content: &str) -> Vec<ContentSegment<'_>> {
+    lazy_static! {
+        static ref TAG_RE: Regex = Regex::new(r"(\#\[\d+\])").unwrap();
+    }
+
+    let mut segments: Vec<ContentSegment> = Vec::new();
+
+    let mut pos = 0;
+    for mat in TAG_RE.find_iter(content) {
+        segments.append(&mut shatter_content_3(&content[pos..mat.start()]));
+        // If panics on unwrap, something is wrong with Regex.
+        let u: usize = content[mat.start() + 2..mat.end() - 1].parse().unwrap();
+        segments.push(ContentSegment::TagReference(u));
+        pos = mat.end();
+    }
+
+    segments.append(&mut shatter_content_3(&content[pos..]));
+
+    segments
+}
+
+#[allow(dead_code)]
+fn shatter_content_3(content: &str) -> Vec<ContentSegment<'_>> {
+    let mut segments: Vec<ContentSegment> = Vec::new();
+
+    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
+        if span.kind().is_some() {
+            segments.push(ContentSegment::Hyperlink(span.as_str()));
+        } else {
+            if !span.as_str().is_empty() {
+                segments.push(ContentSegment::Plain(span.as_str()));
+            }
+        }
+    }
+
+    segments
+}
 
 /// returns None or a repost
 pub(super) fn render_content(
@@ -175,4 +259,22 @@ fn render_event_link(app: &mut GossipUi, ui: &mut Ui, note: &NoteData, id: &Id) 
             referenced_by: note.event.id,
         }));
     };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_shatter_content() {
+        let content = "My friend #[0]  wrote me this note: nostr:note10ttnuuvcs29y3k23gwrcurw2ksvgd7c2rrqlfx7urmt5m963vhss8nja90 and it might have referred to https://github.com/Giszmo/nostr.info/blob/master/assets/js/main.js";
+        let pieces = shatter_content(content);
+        assert_eq!(pieces.len(), 6);
+        assert!(matches!(pieces[0], ContentSegment::Plain(..)));
+        assert!(matches!(pieces[1], ContentSegment::TagReference(..)));
+        assert!(matches!(pieces[2], ContentSegment::Plain(..)));
+        assert!(matches!(pieces[3], ContentSegment::NostrUrl(..)));
+        assert!(matches!(pieces[4], ContentSegment::Plain(..)));
+        assert!(matches!(pieces[5], ContentSegment::Hyperlink(..)));
+    }
 }
