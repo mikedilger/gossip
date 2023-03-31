@@ -10,6 +10,7 @@ pub enum ToOverlordMessage {
     DeletePub,
     DeletePriv,
     DropRelay(RelayUrl),
+    FetchEvent(Id, Vec<RelayUrl>),
     FollowPubkeyAndRelay(String, RelayUrl),
     FollowNip05(String),
     FollowNprofile(String),
@@ -51,7 +52,7 @@ pub struct ToMinionMessage {
 
 #[derive(Debug, Clone)]
 pub enum ToMinionPayload {
-    FetchEvents(Vec<IdHex>),
+    FetchEvent(IdHex),
     PostEvent(Box<Event>),
     PullFollowing,
     Shutdown,

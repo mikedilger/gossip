@@ -476,6 +476,19 @@ impl Overlord {
                     payload: ToMinionPayload::Shutdown,
                 });
             }
+            ToOverlordMessage::FetchEvent(id, relay_urls) => {
+                // We presume the caller already checked GLOBALS.events.get() and it was not there
+                for url in relay_urls.iter() {
+                    // Start a minion for it, if there is none
+                    if !GLOBALS.relay_is_connected(&url) {
+                        self.start_minion(url.clone()).await?;
+                    }
+                    let _ = self.to_minions.send(ToMinionMessage {
+                        target: url.0.clone(),
+                        payload: ToMinionPayload::FetchEvent(id.into()),
+                    });
+                }
+            }
             ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
                 self.follow_pubkey_and_relay(pubkeystr, relay).await?;
             }

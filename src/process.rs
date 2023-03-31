@@ -6,7 +6,7 @@ use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
 use nostr_types::{
-    Event, EventKind, Metadata, PublicKeyHex, RelayUrl, SimpleRelayList, Tag, Unixtime,
+    Event, EventKind, Metadata, NostrBech32, PublicKeyHex, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -36,11 +36,25 @@ pub async fn process_new_event(
 
         if event.kind.is_replaceable() {
             if !DbEvent::replace(db_event).await? {
+                tracing::trace!(
+                    "{}: Old Event: {} {:?} @{}",
+                    seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                    subscription.unwrap_or("_".to_string()),
+                    event.kind,
+                    event.created_at
+                );
                 return Ok(()); // This did not replace anything.
             }
         } else if event.kind.is_parameterized_replaceable() {
             match event.parameter() {
                 Some(param) => if ! DbEvent::replace_parameterized(db_event, param).await? {
+                    tracing::trace!(
+                        "{}: Old Event: {} {:?} @{}",
+                        seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                        subscription.unwrap_or("_".to_string()),
+                        event.kind,
+                        event.created_at
+                    );
                     return Ok(()); // This did not replace anything.
                 },
                 None => return Err("Parameterized event must have a parameter. This is a code issue, not a data issue".into()),
@@ -54,18 +68,18 @@ pub async fn process_new_event(
     let old = GLOBALS.events.get(&event.id).is_some();
     // If we don't already have it
     if !old {
-        // Insert into map
+        // Insert into map (memory only)
         // This also inserts the 'seen_on' relay information
         GLOBALS.events.insert(event.clone(), seen_on.clone());
     } else {
-        // Just insert the new seen_on information
+        // Just insert the new seen_on information (memory only)
         if let Some(url) = &seen_on {
             GLOBALS.events.add_seen_on(event.id, url);
         }
     }
 
     if let Some(ref url) = seen_on {
-        // Insert into event_relay "seen" relationship
+        // Insert into event_relay "seen" relationship (database)
         if from_relay {
             let db_event_relay = DbEventRelay {
                 event: event.id.as_hex_string(),
@@ -172,7 +186,7 @@ pub async fn process_new_event(
         }
     }
 
-    // Save event relationships
+    // Save event relationships (whether from relay or not)
     {
         // replies to
         if let Some((id, _)) = event.replies_to() {
@@ -297,6 +311,27 @@ pub async fn process_new_event(
 
     if event.kind == EventKind::RelayList {
         process_relay_list(event).await?;
+    }
+
+    // If the content contains an nevent and we don't have it, fetch it from those relays
+    for bech32 in NostrBech32::find_all_in_string(&event.content) {
+        match bech32 {
+            NostrBech32::EventPointer(ep) => {
+                if GLOBALS.events.get(&ep.id).is_none() {
+                    let relay_urls: Vec<RelayUrl> = ep
+                        .relays
+                        .iter()
+                        .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
+                        .collect();
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
+                }
+            }
+            // TBD: If the content contains an nprofile, make sure the pubkey is associated
+            // with those relays
+            _ => {}
+        }
     }
 
     // TBD (have to parse runes language for this)
