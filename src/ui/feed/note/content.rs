@@ -6,13 +6,10 @@ use egui::{RichText, Ui};
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
 use nostr_types::find_nostr_bech32_pos;
-use nostr_types::{
-    EventPointer, Id, IdHex, NostrBech32, NostrUrl, Profile, PublicKey, PublicKeyHex, Tag,
-};
+use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag};
 use regex::Regex;
 
 /// A segment of content]
-#[allow(dead_code)]
 pub enum ContentSegment<'a> {
     NostrUrl(NostrUrl),
     TagReference(usize),
@@ -21,7 +18,6 @@ pub enum ContentSegment<'a> {
 }
 
 /// Break content into a linear sequence of `ContentSegment`s
-#[allow(dead_code)]
 pub(super) fn shatter_content(content: &str) -> Vec<ContentSegment<'_>> {
     let mut segments: Vec<ContentSegment> = Vec::new();
 
@@ -53,7 +49,6 @@ pub(super) fn shatter_content(content: &str) -> Vec<ContentSegment<'_>> {
 }
 
 // Pass 2 - `TagReference`s
-#[allow(dead_code)]
 fn shatter_content_2(content: &str) -> Vec<ContentSegment<'_>> {
     lazy_static! {
         static ref TAG_RE: Regex = Regex::new(r"(\#\[\d+\])").unwrap();
@@ -75,7 +70,6 @@ fn shatter_content_2(content: &str) -> Vec<ContentSegment<'_>> {
     segments
 }
 
-#[allow(dead_code)]
 fn shatter_content_3(content: &str) -> Vec<ContentSegment<'_>> {
     let mut segments: Vec<ContentSegment> = Vec::new();
 
@@ -100,41 +94,28 @@ pub(super) fn render_content(
     as_deleted: bool,
     content: &str,
 ) -> Option<NoteData> {
-    lazy_static! {
-        static ref TAG_RE: Regex = Regex::new(r"(\#\[\d+\])").unwrap();
-        static ref NIP27_RE: Regex = Regex::new(r"(?i:nostr:[[:alnum:]]+)").unwrap();
-    }
-
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     // Optional repost return
     let mut append_repost: Option<NoteData> = None;
 
-    for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
-        if span.kind().is_some() {
-            let lowercase = span.as_str().to_lowercase();
-            if lowercase.ends_with(".jpg")
-                || lowercase.ends_with(".jpeg")
-                || lowercase.ends_with(".png")
-                || lowercase.ends_with(".gif")
-                || lowercase.ends_with(".webp")
-            {
-                crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", span.as_str());
-            } else if lowercase.ends_with(".mov")
-                || lowercase.ends_with(".mp4")
-                || lowercase.ends_with(".mkv")
-                || lowercase.ends_with(".webm")
-            {
-                crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", span.as_str());
-            } else {
-                crate::ui::widgets::break_anywhere_hyperlink_to(ui, span.as_str(), span.as_str());
-            }
-        } else {
-            let s = span.as_str();
-            let mut pos = 0;
-            for mat in TAG_RE.find_iter(s) {
-                ui.label(&s[pos..mat.start()]);
-                let num: usize = s[mat.start() + 2..mat.end() - 1].parse::<usize>().unwrap();
+    for segment in shatter_content(content) {
+        match segment {
+            ContentSegment::NostrUrl(nurl) => match nurl.0 {
+                NostrBech32::Pubkey(pk) => {
+                    render_profile_link(app, ui, &pk.into());
+                }
+                NostrBech32::Profile(prof) => {
+                    render_profile_link(app, ui, &prof.pubkey.into());
+                }
+                NostrBech32::Id(id) => {
+                    render_event_link(app, ui, note, &id);
+                }
+                NostrBech32::EventPointer(ep) => {
+                    render_event_link(app, ui, note, &ep.id);
+                }
+            },
+            ContentSegment::TagReference(num) => {
                 if let Some(tag) = note.event.tags.get(num) {
                     match tag {
                         Tag::Pubkey { pubkey, .. } => {
@@ -186,47 +167,31 @@ pub(super) fn render_content(
                         }
                     }
                 }
-                pos = mat.end();
             }
-            let rest = &s[pos..];
-            // implement NIP-27 nostr: links that include NIP-19 bech32 references
-            if rest.contains("nostr:") {
-                let mut nospos = 0;
-                for mat in NIP27_RE.find_iter(rest) {
-                    ui.label(&s[nospos..mat.start()]); // print whatever comes before the match
-                    let mut link_parsed = false;
-                    let link = &s[mat.start() + 6..mat.end()];
-                    if link.starts_with("note1") {
-                        if let Ok(id) = Id::try_from_bech32_string(link) {
-                            render_event_link(app, ui, note, &id);
-                            link_parsed = true;
-                        }
-                    } else if link.starts_with("nevent1") {
-                        if let Ok(ep) = EventPointer::try_from_bech32_string(link) {
-                            render_event_link(app, ui, note, &ep.id);
-                            link_parsed = true;
-                        }
-                    } else if link.starts_with("npub1") {
-                        if let Ok(pk) = PublicKey::try_from_bech32_string(link) {
-                            render_profile_link(app, ui, &pk.into());
-                            link_parsed = true;
-                        }
-                    } else if link.starts_with("nprofile") {
-                        if let Ok(profile) = Profile::try_from_bech32_string(link) {
-                            render_profile_link(app, ui, &profile.pubkey.into());
-                            link_parsed = true;
-                        }
-                    }
-                    if !link_parsed {
-                        ui.label(format!("nostr:{}", link));
-                    }
-                    nospos = mat.end();
-                }
-            } else {
-                if as_deleted {
-                    ui.label(RichText::new(rest).strikethrough());
+            ContentSegment::Hyperlink(link) => {
+                let lowercase = link.to_lowercase();
+                if lowercase.ends_with(".jpg")
+                    || lowercase.ends_with(".jpeg")
+                    || lowercase.ends_with(".png")
+                    || lowercase.ends_with(".gif")
+                    || lowercase.ends_with(".webp")
+                {
+                    crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Image ]", link);
+                } else if lowercase.ends_with(".mov")
+                    || lowercase.ends_with(".mp4")
+                    || lowercase.ends_with(".mkv")
+                    || lowercase.ends_with(".webm")
+                {
+                    crate::ui::widgets::break_anywhere_hyperlink_to(ui, "[ Video ]", link);
                 } else {
-                    ui.label(rest);
+                    crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
+                }
+            }
+            ContentSegment::Plain(text) => {
+                if as_deleted {
+                    ui.label(RichText::new(text).strikethrough());
+                } else {
+                    ui.label(text);
                 }
             }
         }
