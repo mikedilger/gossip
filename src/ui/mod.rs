@@ -140,6 +140,7 @@ struct GossipUi {
 
     // User entry: posts
     draft: String,
+    draft_needs_focus: bool,
     tag_someone: String,
     include_subject: bool,
     subject: String,
@@ -279,6 +280,7 @@ impl GossipUi {
             avatars: HashMap::new(),
             search_result: "".to_owned(),
             draft: "".to_owned(),
+            draft_needs_focus: false,
             tag_someone: "".to_owned(),
             include_subject: false,
             subject: "".to_owned(),

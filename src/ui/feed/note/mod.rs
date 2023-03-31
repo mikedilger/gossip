@@ -741,6 +741,7 @@ fn render_note_inner(
                                     app.draft.push(' ');
                                 }
                                 app.draft.push_str(&event.id.as_bech32_string());
+                                app.draft_needs_focus = true;
                             }
 
                             ui.add_space(24.0);
@@ -756,6 +757,7 @@ fn render_note_inner(
                                     .clicked()
                                 {
                                     app.replying_to = Some(event.id);
+                                    app.draft_needs_focus = true;
                                 }
 
                                 ui.add_space(24.0);
