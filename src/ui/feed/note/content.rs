@@ -25,7 +25,7 @@ pub(super) fn shatter_content(mut content: &str) -> Vec<ContentSegment<'_>> {
     // Pass 1 - `NostrUrl`s
     while let Some((start, end)) = find_nostr_bech32_pos(content) {
         // The stuff before it
-        if start >= 6 && &content[start - 6..start] == "nostr:" {
+        if start >= 6 && content.get(start - 6..start) == Some("nostr:") {
             segments.append(&mut shatter_content_2(&content[..start - 6]));
         } else {
             segments.append(&mut shatter_content_2(&content[..start]));

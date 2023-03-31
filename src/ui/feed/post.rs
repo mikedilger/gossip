@@ -19,11 +19,12 @@ pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
     while let Some((start, end)) = find_nostr_bech32_pos(&text[offset..]) {
         if let Some(b32) = NostrBech32::try_from_string(&text[offset + start..offset + end]) {
             // include "nostr:" prefix if found
-            let realstart = if start > 6 && &text[offset + start - 6..offset + start] == "nostr:" {
-                start - 6
-            } else {
-                start
-            };
+            let realstart =
+                if start > 6 && text.get(offset + start - 6..offset + start) == Some("nostr:") {
+                    start - 6
+                } else {
+                    start
+                };
             indices.push((offset + realstart, HighlightType::Nothing));
             match b32 {
                 NostrBech32::Pubkey(_) | NostrBech32::Profile(_) => {
