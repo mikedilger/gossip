@@ -10,6 +10,7 @@ use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag};
 use regex::Regex;
 
 /// A segment of content]
+#[derive(Debug)]
 pub enum ContentSegment<'a> {
     NostrUrl(NostrUrl),
     TagReference(usize),
@@ -18,12 +19,11 @@ pub enum ContentSegment<'a> {
 }
 
 /// Break content into a linear sequence of `ContentSegment`s
-pub(super) fn shatter_content(content: &str) -> Vec<ContentSegment<'_>> {
+pub(super) fn shatter_content(mut content: &str) -> Vec<ContentSegment<'_>> {
     let mut segments: Vec<ContentSegment> = Vec::new();
 
     // Pass 1 - `NostrUrl`s
-    let mut pos = 0;
-    while let Some((start, end)) = find_nostr_bech32_pos(&content[pos..]) {
+    while let Some((start, end)) = find_nostr_bech32_pos(content) {
         // The stuff before it
         if start >= 6 && &content[start - 6..start] == "nostr:" {
             segments.append(&mut shatter_content_2(&content[..start - 6]));
@@ -35,15 +35,18 @@ pub(super) fn shatter_content(content: &str) -> Vec<ContentSegment<'_>> {
         if let Some(nbech) = NostrBech32::try_from_string(&content[start..end]) {
             segments.push(ContentSegment::NostrUrl(NostrUrl(nbech)));
         } else {
+            tracing::error!(
+                "PROBLEM PARSING THIS BECH32 MATCHED STRING: {}",
+                &content[start..end]
+            );
             // something is wrong with find_nostr_bech32_pos() or our code here.
-            unreachable!();
         }
 
-        pos = end;
+        content = &content[end..];
     }
 
     // The stuff after it
-    segments.append(&mut shatter_content_2(&content[pos..]));
+    segments.append(&mut shatter_content_2(content));
 
     segments
 }
@@ -241,5 +244,10 @@ mod test {
         assert!(matches!(pieces[3], ContentSegment::NostrUrl(..)));
         assert!(matches!(pieces[4], ContentSegment::Plain(..)));
         assert!(matches!(pieces[5], ContentSegment::Hyperlink(..)));
+
+        let content = r#"This is a test of NIP-27 posting support referencing this note nostr:nevent1qqsqqqq9wh98g4u6e480vyp6p4w3ux2cd0mxn2rssq0w5cscsgzp2ksprpmhxue69uhkzapwdehhxarjwahhy6mn9e3k7mf0qyt8wumn8ghj7etyv4hzumn0wd68ytnvv9hxgtcpremhxue69uhkummnw3ez6ur4vgh8wetvd3hhyer9wghxuet59uq3kamnwvaz7tmwdaehgu3wd45kketyd9kxwetj9e3k7mf0qy2hwumn8ghj7mn0wd68ytn00p68ytnyv4mz7qgnwaehxw309ahkvenrdpskjm3wwp6kytcpz4mhxue69uhhyetvv9ujuerpd46hxtnfduhsz9mhwden5te0wfjkccte9ehx7um5wghxyctwvshszxthwden5te0wfjkccte9eekummjwsh8xmmrd9skctcnmzajy and again without the url data nostr:note1qqqq2aw2w3te4n2w7cgr5r2arcv4s6lkdx58pqq7af3p3qsyz4dqns2935
+And referencing this person nostr:npub1acg6thl5psv62405rljzkj8spesceyfz2c32udakc2ak0dmvfeyse9p35c and again as an nprofile nostr:nprofile1qqswuyd9ml6qcxd92h6pleptfrcqucvvjy39vg4wx7mv9wm8kakyujgprdmhxue69uhkummnw3ezumtfddjkg6tvvajhytnrdakj7qg7waehxw309ahx7um5wgkhqatz9emk2mrvdaexgetj9ehx2ap0qythwumn8ghj7un9d3shjtnwdaehgu3wd9hxvme0qyt8wumn8ghj7etyv4hzumn0wd68ytnvv9hxgtcpzdmhxue69uhk7enxvd5xz6tw9ec82c30qy2hwumn8ghj7mn0wd68ytn00p68ytnyv4mz7qgcwaehxw309ashgtnwdaehgunhdaexkuewvdhk6tczkvt9n all on the same damn line even (I think)."#;
+        let pieces = shatter_content(content);
+        assert_eq!(pieces.len(), 9);
     }
 }
