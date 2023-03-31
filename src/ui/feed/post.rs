@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use crate::ui::{GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
-use egui::{Align, Context, Layout, RichText, ScrollArea, Ui, Vec2};
+use egui::{Align, Context, Key, Layout, Modifiers, RichText, ScrollArea, Ui, Vec2};
 use memoize::memoize;
 use nostr_types::{find_nostr_bech32_pos, NostrBech32, Tag};
 
@@ -145,46 +145,42 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         });
     }
 
-    ui.add(
+    let mut send_now: bool = false;
+
+    let draft_response = ui.add(
         text_edit_multiline!(app, app.draft)
+            .id_source("compose_area")
             .hint_text("Type your message here")
             .desired_width(f32::INFINITY)
             .lock_focus(true)
             .layouter(&mut layouter),
     );
+    if app.draft_needs_focus {
+        draft_response.request_focus();
+        app.draft_needs_focus = false;
+    }
+    if draft_response.has_focus()
+        && ui.input_mut(|i| {
+            i.consume_key(
+                Modifiers {
+                    ctrl: true,
+                    command: true,
+                    ..Default::default()
+                },
+                Key::Enter,
+            )
+        })
+        && !app.draft.is_empty()
+    {
+        send_now = true;
+    }
 
     ui.add_space(8.0);
     ui.horizontal(|ui| {
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(12.0);
             if ui.button("Send").clicked() && !app.draft.is_empty() {
-                match app.replying_to {
-                    Some(replying_to_id) => {
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-                            app.draft.clone(),
-                            vec![],
-                            Some(replying_to_id),
-                        ));
-                    }
-                    None => {
-                        let mut tags: Vec<Tag> = Vec::new();
-                        if app.include_subject {
-                            tags.push(Tag::Subject(app.subject.clone()));
-                        }
-                        if app.include_content_warning {
-                            tags.push(Tag::ContentWarning(app.content_warning.clone()));
-                        }
-                        if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
-                            tags.push(delegatee_tag);
-                        }
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-                            app.draft.clone(),
-                            tags,
-                            None,
-                        ));
-                    }
-                }
-                app.clear_post();
+                send_now = true;
             }
 
             if ui.button("Cancel").clicked() {
@@ -239,6 +235,36 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             })
         });
     });
+
+    if send_now {
+        match app.replying_to {
+            Some(replying_to_id) => {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
+                    app.draft.clone(),
+                    vec![],
+                    Some(replying_to_id),
+                ));
+            }
+            None => {
+                let mut tags: Vec<Tag> = Vec::new();
+                if app.include_subject {
+                    tags.push(Tag::Subject(app.subject.clone()));
+                }
+                if app.include_content_warning {
+                    tags.push(Tag::ContentWarning(app.content_warning.clone()));
+                }
+                if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
+                    tags.push(delegatee_tag);
+                }
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
+                    app.draft.clone(),
+                    tags,
+                    None,
+                ));
+            }
+        }
+        app.clear_post();
+    }
 
     // List tags that will be applied
     // FIXME: list tags from parent event too in case of reply
