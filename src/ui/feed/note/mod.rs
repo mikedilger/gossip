@@ -509,6 +509,15 @@ fn render_note_inner(
                     if ui.button("Dismiss").clicked() {
                         GLOBALS.dismissed.blocking_write().push(event.id);
                     }
+                    if Some(event.pubkey) == GLOBALS.signer.public_key()
+                        && note_data.deletion.is_none()
+                    {
+                        if ui.button("Delete").clicked() {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::DeletePost(event.id));
+                        }
+                    }
                 });
                 ui.add_space(4.0);
 

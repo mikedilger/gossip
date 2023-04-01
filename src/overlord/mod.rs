@@ -460,15 +460,18 @@ impl Overlord {
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
             }
-            ToOverlordMessage::DeletePub => {
-                GLOBALS.signer.clear_public_key();
-                Self::delegation_reset().await?;
-                GLOBALS.signer.save_through_settings().await?;
+            ToOverlordMessage::DeletePost(id) => {
+                self.delete(id).await?;
             }
             ToOverlordMessage::DeletePriv => {
                 GLOBALS.signer.delete_identity();
                 Self::delegation_reset().await?;
                 *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
+            }
+            ToOverlordMessage::DeletePub => {
+                GLOBALS.signer.clear_public_key();
+                Self::delegation_reset().await?;
+                GLOBALS.signer.save_through_settings().await?;
             }
             ToOverlordMessage::DropRelay(relay_url) => {
                 let _ = self.to_minions.send(ToMinionMessage {
@@ -1372,6 +1375,66 @@ impl Overlord {
             GLOBALS.delegation.save_through_settings().await?;
             *GLOBALS.status_message.write().await = "Delegation tag removed".to_string();
         }
+        Ok(())
+    }
+
+    async fn delete(&mut self, id: Id) -> Result<(), Error> {
+        let tags: Vec<Tag> = vec![Tag::Event {
+            id,
+            recommended_relay_url: None,
+            marker: None,
+        }];
+
+        let event = {
+            let public_key = match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => {
+                    tracing::warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::EventDeletion,
+                tags,
+                content: "".to_owned(), // FIXME, option to supply a delete reason
+                ots: None,
+            };
+
+            // Should we add a pow? Maybe the relay needs it.
+            GLOBALS.signer.sign_preevent(pre_event, None)?
+        };
+
+        // Process this event locally
+        crate::process::process_new_event(&event, false, None, None).await?;
+
+        // Determine which relays to post this to
+        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        {
+            // Get all of the relays that we write to
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+            relay_urls.extend(write_relay_urls);
+            relay_urls.sort();
+            relay_urls.dedup();
+        }
+
+        for url in relay_urls {
+            // Start a minion for it, if there is none
+            if !GLOBALS.relay_is_connected(&url) {
+                self.start_minion(url.clone()).await?;
+            }
+
+            // Send it the event to post
+            tracing::debug!("Asking {} to delete", &url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: url.0.clone(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
+            });
+        }
+
         Ok(())
     }
 }
