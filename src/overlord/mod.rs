@@ -1196,9 +1196,15 @@ impl Overlord {
         let mut tags: Vec<Tag> = vec![
             Tag::Event {
                 id,
-                recommended_relay_url: DbRelay::recommended_relay_for_reply(id)
-                    .await?
-                    .map(|rr| rr.to_unchecked_url()),
+                recommended_relay_url: match GLOBALS.events.get_seen_on(&reposted_event.id) {
+                    None => DbRelay::recommended_relay_for_reply(id)
+                        .await?
+                        .map(|rr| rr.to_unchecked_url()),
+                    Some(vec) => match vec.get(0) {
+                        None => None,
+                        Some(rurl) => Some(rurl.to_unchecked_url()),
+                    }
+                },
                 marker: None,
             },
             Tag::Pubkey {
