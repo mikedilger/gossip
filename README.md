@@ -59,8 +59,7 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 - [ ] NIP-06 - Basic key derivation from mnemonic seed phrase
 - [ ] NIP-07 - window.nostr capability for web browsers [NOT APPLICABLE]
 - [x] NIP-08 - Handling Mentions
-- [ ] NIP-09 - Event Deletion
-    - Marks and shows deletions; does not offer delete yet
+- [x] NIP-09 - Event Deletion
 - [x] NIP-10 - Conventions for clients' use of e and p tags in text events
 - [x] NIP-11 - Relay Information Document
 - [x] NIP-12 - Generic Tag Queries
