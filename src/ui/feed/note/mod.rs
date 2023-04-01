@@ -747,7 +747,7 @@ fn render_note_inner(
                                 // Button to Repost
                                 if ui
                                     .add(
-                                        Label::new(RichText::new("↟").size(16.0))
+                                        Label::new(RichText::new("↻").size(18.0))
                                             .sense(Sense::click()),
                                     )
                                     .on_hover_text("Repost")
