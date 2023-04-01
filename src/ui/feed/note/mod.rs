@@ -182,6 +182,8 @@ pub struct NoteRenderData {
     pub is_last: bool,
     /// Position in the thread, focused message = 0
     pub thread_position: i32,
+    /// User can post
+    pub can_post: bool,
 }
 
 pub(super) fn render_note(
@@ -248,6 +250,7 @@ pub(super) fn render_note(
         is_last,
         is_main_event,
         thread_position: indent as i32,
+        can_post: GLOBALS.signer.is_ready(),
     };
 
     let top = ui.next_widget_position();
@@ -730,37 +733,39 @@ fn render_note_inner(
                             ui.add_space(24.0);
 
                             // Button to quote note
-                            if ui
-                                .add(
-                                    Label::new(RichText::new("»").size(18.0)).sense(Sense::click()),
-                                )
-                                .on_hover_text("Quote")
-                                .clicked()
-                            {
-                                if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                    app.draft.push(' ');
-                                }
-                                app.draft.push_str(&event.id.as_bech32_string());
-                                app.draft_needs_focus = true;
-                            }
-
-                            ui.add_space(24.0);
-
-                            // Button to reply
-                            if event.kind != EventKind::EncryptedDirectMessage {
+                            if render_data.can_post {
                                 if ui
                                     .add(
-                                        Label::new(RichText::new("💬").size(18.0))
-                                            .sense(Sense::click()),
+                                        Label::new(RichText::new("»").size(18.0)).sense(Sense::click()),
                                     )
-                                    .on_hover_text("Reply")
+                                    .on_hover_text("Quote")
                                     .clicked()
                                 {
-                                    app.replying_to = Some(event.id);
+                                    if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                                        app.draft.push(' ');
+                                    }
+                                    app.draft.push_str(&event.id.as_bech32_string());
                                     app.draft_needs_focus = true;
                                 }
 
                                 ui.add_space(24.0);
+
+                                // Button to reply
+                                if event.kind != EventKind::EncryptedDirectMessage {
+                                    if ui
+                                        .add(
+                                            Label::new(RichText::new("💬").size(18.0))
+                                                .sense(Sense::click()),
+                                        )
+                                        .on_hover_text("Reply")
+                                        .clicked()
+                                    {
+                                        app.replying_to = Some(event.id);
+                                        app.draft_needs_focus = true;
+                                    }
+
+                                    ui.add_space(24.0);
+                                }
                             }
 
                             // Button to render raw
@@ -813,9 +818,13 @@ fn render_note_inner(
                                     )
                                     .clicked()
                                 {
-                                    let _ = GLOBALS
-                                        .to_overlord
-                                        .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                                    if ! render_data.can_post {
+                                        *GLOBALS.status_message.blocking_write() = "Your key is not setup.".to_string();
+                                    } else {
+                                        let _ = GLOBALS
+                                            .to_overlord
+                                            .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                                    }
                                 }
                                 for (ch, count) in reactions.iter() {
                                     if *ch == '+' {
@@ -872,6 +881,7 @@ pub(super) fn render_repost(
         is_first: false,
         is_last: false,
         thread_position: 0,
+        can_post: GLOBALS.signer.is_ready(),
     };
 
     ui.vertical(|ui| {
