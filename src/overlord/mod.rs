@@ -1180,15 +1180,12 @@ impl Overlord {
         Ok(())
     }
 
-    async fn repost(
-        &mut self,
-        id: Id
-    ) -> Result<(), Error> {
-
+    async fn repost(&mut self, id: Id) -> Result<(), Error> {
         let reposted_event = match GLOBALS.events.get(&id) {
             Some(event) => event,
             None => {
-                *GLOBALS.status_message.write().await = "Cannot repost - cannot find event.".to_owned();
+                *GLOBALS.status_message.write().await =
+                    "Cannot repost - cannot find event.".to_owned();
                 return Ok(());
             }
         };
@@ -1200,10 +1197,7 @@ impl Overlord {
                     None => DbRelay::recommended_relay_for_reply(id)
                         .await?
                         .map(|rr| rr.to_unchecked_url()),
-                    Some(vec) => match vec.get(0) {
-                        None => None,
-                        Some(rurl) => Some(rurl.to_unchecked_url()),
-                    }
+                    Some(vec) => vec.get(0).map(|rurl| rurl.to_unchecked_url()),
                 },
                 marker: None,
             },
