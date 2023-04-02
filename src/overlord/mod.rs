@@ -480,7 +480,7 @@ impl Overlord {
                 // We presume the caller already checked GLOBALS.events.get() and it was not there
                 for url in relay_urls.iter() {
                     // Start a minion for it, if there is none
-                    if !GLOBALS.relay_is_connected(&url) {
+                    if !GLOBALS.relay_is_connected(url) {
                         self.start_minion(url.clone()).await?;
                     }
                     let _ = self.to_minions.send(ToMinionMessage {

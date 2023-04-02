@@ -315,23 +315,20 @@ pub async fn process_new_event(
 
     // If the content contains an nevent and we don't have it, fetch it from those relays
     for bech32 in NostrBech32::find_all_in_string(&event.content) {
-        match bech32 {
-            NostrBech32::EventPointer(ep) => {
-                if GLOBALS.events.get(&ep.id).is_none() {
-                    let relay_urls: Vec<RelayUrl> = ep
-                        .relays
-                        .iter()
-                        .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
-                        .collect();
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
-                }
+        if let NostrBech32::EventPointer(ep) = bech32 {
+            if GLOBALS.events.get(&ep.id).is_none() {
+                let relay_urls: Vec<RelayUrl> = ep
+                    .relays
+                    .iter()
+                    .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
+                    .collect();
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
             }
-            // TBD: If the content contains an nprofile, make sure the pubkey is associated
-            // with those relays
-            _ => {}
         }
+        // TBD: If the content contains an nprofile, make sure the pubkey is associated
+        // with those relays
     }
 
     // TBD (have to parse runes language for this)

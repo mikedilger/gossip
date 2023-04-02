@@ -736,7 +736,8 @@ fn render_note_inner(
                             if render_data.can_post {
                                 if ui
                                     .add(
-                                        Label::new(RichText::new("»").size(18.0)).sense(Sense::click()),
+                                        Label::new(RichText::new("»").size(18.0))
+                                            .sense(Sense::click()),
                                     )
                                     .on_hover_text("Quote")
                                     .clicked()
@@ -818,8 +819,9 @@ fn render_note_inner(
                                     )
                                     .clicked()
                                 {
-                                    if ! render_data.can_post {
-                                        *GLOBALS.status_message.blocking_write() = "Your key is not setup.".to_string();
+                                    if !render_data.can_post {
+                                        *GLOBALS.status_message.blocking_write() =
+                                            "Your key is not setup.".to_string();
                                     } else {
                                         let _ = GLOBALS
                                             .to_overlord
