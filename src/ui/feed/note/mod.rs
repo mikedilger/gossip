@@ -1,3 +1,5 @@
+use self::content::shatter_content;
+
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
@@ -12,9 +14,10 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, PublicKeyHex, Tag};
+use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, PublicKeyHex, Tag, NostrBech32};
 
 mod content;
+use content::ContentSegment;
 
 #[derive(PartialEq)]
 enum RepostType {
@@ -46,8 +49,8 @@ pub(super) struct NoteData {
     reactions: Vec<(char, usize)>,
     /// Has the current user reacted to this post?
     self_already_reacted: bool,
-    /// The content modified to our display needs
-    display_content: String,
+    /// The content shattered into renderable elements
+    shattered_content: Vec<ContentSegment>,
 }
 
 impl NoteData {
@@ -82,8 +85,38 @@ impl NoteData {
             cached_mentions
         };
 
+        // Compute the content to our needs
+        let display_content = match event.kind {
+            EventKind::TextNote | EventKind::Repost => event.content.trim().to_string(),
+            EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
+                Ok(m) => m,
+                Err(_) => "DECRYPTION FAILED".to_owned(),
+            },
+            EventKind::LongFormContent => event.content.clone(),
+            _ => "NON FEED RELATED EVENT".to_owned(),
+        };
+
+        // shatter content here so we can use it in our content analysis
+        let mut shattered_content = shatter_content(&display_content);
+
+        let mut has_tag_reference = false;
+        let mut has_nostr_event_reference = false;
+        for shard in &shattered_content {
+            match shard {
+                ContentSegment::NostrUrl(nurl) => match nurl.0 {
+                    NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
+                        has_nostr_event_reference = true;
+                    },
+                    _ => (),
+                },
+                ContentSegment::TagReference(_) => { has_tag_reference = true; },
+                ContentSegment::Hyperlink(_) => (),
+                ContentSegment::Plain(_) => (),
+            }
+        }
+
         let repost = {
-            let content_trim = event.content.trim();
+            let content_trim = display_content.trim();
             let content_trim_len = content_trim.chars().count();
             if event.kind == EventKind::Repost
                 && serde_json::from_str::<Event>(&event.content).is_ok()
@@ -95,8 +128,12 @@ impl NoteData {
                     }
                 }
                 Some(RepostType::Kind6Embedded)
-            } else if content_trim == "#[0]" || content_trim.is_empty() {
+            } else if has_tag_reference || has_nostr_event_reference || content_trim.is_empty() {
                 if !cached_mentions.is_empty() {
+                    if content_trim.is_empty() {
+                        // handle NIP-18 conform kind:6 with 'e' tag but no content
+                        shattered_content.push(ContentSegment::TagReference(0));
+                    }
                     if event.kind == EventKind::Repost {
                         Some(RepostType::Kind6Mention)
                     } else {
@@ -131,24 +168,6 @@ impl NoteData {
             None => DbPerson::new(author_pubkey),
         };
 
-        // Compute the content to our needs
-        let display_content = match event.kind {
-            EventKind::TextNote => event.content.trim().to_string(),
-            EventKind::Repost => {
-                if event.content.is_empty() {
-                    "#[0]".to_owned() // a bit of a hack
-                } else {
-                    event.content.trim().to_string()
-                }
-            }
-            EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
-                Ok(m) => m,
-                Err(_) => "DECRYPTION FAILED".to_owned(),
-            },
-            EventKind::LongFormContent => event.content.clone(),
-            _ => "NON FEED RELATED EVENT".to_owned(),
-        };
-
         Some(NoteData {
             event,
             delegation,
@@ -158,7 +177,7 @@ impl NoteData {
             cached_mentions,
             reactions,
             self_already_reacted,
-            display_content,
+            shattered_content,
         })
     }
 }
@@ -334,7 +353,7 @@ fn render_note_inner(
         cached_mentions: _,
         reactions,
         self_already_reacted,
-        display_content,
+        shattered_content: _,
     } = &note_data;
 
     let collapsed = app.collapsed.contains(&event.id);
@@ -633,7 +652,7 @@ fn render_note_inner(
                         if app.render_raw == Some(event.id) {
                             ui.label(serde_json::to_string_pretty(&event).unwrap());
                         } else if app.render_qr == Some(event.id) {
-                            app.render_qr(ui, ctx, "feedqr", display_content.trim());
+                            app.render_qr(ui, ctx, "feedqr", &event.content.trim());
                         // FIXME should this be the unmodified content (event.content)?
                         } else if event.content_warning().is_some()
                             && !app.approved.contains(&event.id)
@@ -669,7 +688,6 @@ fn render_note_inner(
                                     ui,
                                     &note_data,
                                     deletion.is_some(),
-                                    display_content,
                                 );
                             }
                         } else {
@@ -681,7 +699,6 @@ fn render_note_inner(
                                 ui,
                                 &note_data,
                                 deletion.is_some(),
-                                display_content,
                             );
                         }
                     });
@@ -735,7 +752,7 @@ fn render_note_inner(
                                         o.copied_text = serde_json::to_string(&event).unwrap()
                                     });
                                 } else {
-                                    ui.output_mut(|o| o.copied_text = display_content.clone());
+                                    ui.output_mut(|o| o.copied_text = event.content.clone());
                                 }
                             }
 

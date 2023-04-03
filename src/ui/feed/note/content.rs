@@ -5,21 +5,21 @@ use eframe::egui;
 use egui::{RichText, Ui};
 use lazy_static::lazy_static;
 use linkify::{LinkFinder, LinkKind};
-use nostr_types::find_nostr_bech32_pos;
+use nostr_types::{find_nostr_bech32_pos, PublicKey};
 use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag};
 use regex::Regex;
 
 /// A segment of content]
 #[derive(Debug)]
-pub enum ContentSegment<'a> {
+pub enum ContentSegment {
     NostrUrl(NostrUrl),
     TagReference(usize),
-    Hyperlink(&'a str),
-    Plain(&'a str),
+    Hyperlink(String),
+    Plain(String),
 }
 
 /// Break content into a linear sequence of `ContentSegment`s
-pub(super) fn shatter_content(mut content: &str) -> Vec<ContentSegment<'_>> {
+pub(super) fn shatter_content(mut content: &str) -> Vec<ContentSegment> {
     let mut segments: Vec<ContentSegment> = Vec::new();
 
     // Pass 1 - `NostrUrl`s
@@ -52,7 +52,7 @@ pub(super) fn shatter_content(mut content: &str) -> Vec<ContentSegment<'_>> {
 }
 
 // Pass 2 - `TagReference`s
-fn shatter_content_2(content: &str) -> Vec<ContentSegment<'_>> {
+fn shatter_content_2(content: &str) -> Vec<ContentSegment> {
     lazy_static! {
         static ref TAG_RE: Regex = Regex::new(r"(\#\[\d+\])").unwrap();
     }
@@ -73,15 +73,15 @@ fn shatter_content_2(content: &str) -> Vec<ContentSegment<'_>> {
     segments
 }
 
-fn shatter_content_3(content: &str) -> Vec<ContentSegment<'_>> {
+fn shatter_content_3(content: &str) -> Vec<ContentSegment> {
     let mut segments: Vec<ContentSegment> = Vec::new();
 
     for span in LinkFinder::new().kinds(&[LinkKind::Url]).spans(content) {
         if span.kind().is_some() {
-            segments.push(ContentSegment::Hyperlink(span.as_str()));
+            segments.push(ContentSegment::Hyperlink(span.as_str().to_string()));
         } else {
             if !span.as_str().is_empty() {
-                segments.push(ContentSegment::Plain(span.as_str()));
+                segments.push(ContentSegment::Plain(span.as_str().to_string()));
             }
         }
     }
@@ -90,23 +90,22 @@ fn shatter_content_3(content: &str) -> Vec<ContentSegment<'_>> {
 }
 
 /// returns None or a repost
-pub(super) fn render_content(
+pub(super) fn render_content<'a>(
     app: &mut GossipUi,
     ui: &mut Ui,
     note: &NoteData,
     as_deleted: bool,
-    content: &str,
 ) -> Option<NoteData> {
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     // Optional repost return
     let mut append_repost: Option<NoteData> = None;
 
-    for segment in shatter_content(content) {
+    for segment in note.shattered_content.iter() {
         match segment {
-            ContentSegment::NostrUrl(nurl) => match nurl.0 {
+            ContentSegment::NostrUrl(nurl) => match &nurl.0 {
                 NostrBech32::Pubkey(pk) => {
-                    render_profile_link(app, ui, &pk.into());
+                    render_profile_link(app, ui, &<PublicKey as Into<PublicKeyHex>>::into(pk.clone()));
                 }
                 NostrBech32::Profile(prof) => {
                     render_profile_link(app, ui, &prof.pubkey.into());
@@ -119,7 +118,7 @@ pub(super) fn render_content(
                 }
             },
             ContentSegment::TagReference(num) => {
-                if let Some(tag) = note.event.tags.get(num) {
+                if let Some(tag) = note.event.tags.get(*num) {
                     match tag {
                         Tag::Pubkey { pubkey, .. } => {
                             render_profile_link(app, ui, pubkey);
@@ -135,7 +134,7 @@ pub(super) fn render_content(
                                     | Some(RepostType::CommentMention)
                                     | Some(RepostType::Kind6Mention) => {
                                         for (i, event) in note.cached_mentions.iter() {
-                                            if *i == num {
+                                            if *i == *num {
                                                 // FIXME is there a way to consume just this entry in cached_mentions so
                                                 //       we can avoid the clone?
                                                 if let Some(note_data) = super::NoteData::new(
