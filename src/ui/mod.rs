@@ -145,6 +145,7 @@ struct GossipUi {
 
     // User entry: posts
     draft: String,
+    draft_needs_focus: bool,
     tag_someone: String,
     include_subject: bool,
     subject: String,
@@ -287,6 +288,7 @@ impl GossipUi {
             media_hide_list: HashSet::new(),
             search_result: "".to_owned(),
             draft: "".to_owned(),
+            draft_needs_focus: false,
             tag_someone: "".to_owned(),
             include_subject: false,
             subject: "".to_owned(),
@@ -567,10 +569,10 @@ impl GossipUi {
     pub fn pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
         match PublicKey::try_from_hex_string(pubkeyhex) {
             Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
-            Ok(pk) => match pk.try_as_bech32_string() {
-                Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
-                Ok(npub) => format!("{}…", &npub.get(0..20).unwrap_or("????????????????????")),
-            },
+            Ok(pk) => {
+                let npub = pk.as_bech32_string();
+                format!("{}…", &npub.get(0..20).unwrap_or("????????????????????"))
+            }
         }
     }
 
@@ -634,7 +636,7 @@ impl GossipUi {
                 .on_hover_text("Copy Public Key")
                 .clicked()
             {
-                ui.output_mut(|o| o.copied_text = person.pubkey.try_as_bech32_string().unwrap());
+                ui.output_mut(|o| o.copied_text = person.pubkey.as_bech32_string());
             }
         });
     }
@@ -667,21 +669,16 @@ impl GossipUi {
         }
     }
 
-    pub fn try_check_url(&self, url_string: &String) -> Option<Url>
-    {
+    pub fn try_check_url(&self, url_string: &String) -> Option<Url> {
         let unchecked_url = UncheckedUrl(url_string.clone());
-        return GLOBALS.media.check_url(unchecked_url)
+        return GLOBALS.media.check_url(unchecked_url);
     }
 
     pub fn retry_media(&self, url: &Url) {
         GLOBALS.media.retry_failed(&url.to_unchecked_url());
     }
 
-    pub fn try_get_media(
-        &mut self,
-        ctx: &Context,
-        url: Url,
-    ) -> Option<TextureHandle> {
+    pub fn try_get_media(&mut self, ctx: &Context, url: Url) -> Option<TextureHandle> {
         // Do not keep retrying if failed
         if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
             return None;

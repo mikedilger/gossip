@@ -26,7 +26,7 @@ pub struct Globals {
     pub first_run: AtomicBool,
 
     /// This is our connection to SQLite. Only one thread at a time.
-    pub db: Mutex<Option<Connection>>,
+    pub db: Mutex<Connection>,
 
     /// This is a broadcast channel. All Minions should listen on it.
     /// To create a receiver, just run .subscribe() on it.
@@ -121,7 +121,7 @@ lazy_static! {
 
         Globals {
             first_run: AtomicBool::new(false),
-            db: Mutex::new(None),
+            db: Mutex::new(crate::db::init_database().expect("Failed to setup database connection")),
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),

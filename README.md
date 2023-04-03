@@ -18,7 +18,7 @@ or choose to [Build from Source](#building-from-source)
 
 The following features make gossip different than most other nostr clients so far:
 
-- Gossip follows people at they relays they profess to post to. That means it has to discover which relays those are (see [https://github.com/nostr-protocol/nips/blob/master/65.md](NIP-65)) and make smart relay selection choices based on things like which relays cover the most people you follow.
+- Gossip follows people at they relays they profess to post to. That means it has to discover which relays those are (see [https://github.com/nostr-protocol/nips/blob/master/65.md](NIP-65)). Gossip connects to all relays necessary to cover everybody you follow, while also trying to listen to the minimum number of relays necessary to do that (considering that there is overlap, and that people generally post to multiple relays). It also dynamically adjusts to relays being down or disconnecting.
 - Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory.
 - Gossip avoids web technologies (other than HTTP GET and WebSockets). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are complex and represent a security hazard due to such a large attack surface. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
 
@@ -53,12 +53,13 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 - [x] NIP-01 - Basic protocol flow description
 - [x] NIP-02 - Contact List and Petnames
 - [ ] NIP-03 - OpenTimestamps Attestations for Events [NOT PLANNED]
-- [ ] NIP-04 - Encrypted Direct Message [PARTIAL]
+- [ ] NIP-04 - Encrypted Direct Message
+    - Read Only is implemented
 - [x] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers
 - [ ] NIP-06 - Basic key derivation from mnemonic seed phrase
 - [ ] NIP-07 - window.nostr capability for web browsers [NOT APPLICABLE]
 - [x] NIP-08 - Handling Mentions
-- [ ] NIP-09 - Event Deletion [PARTIAL]
+- [x] NIP-09 - Event Deletion
 - [x] NIP-10 - Conventions for clients' use of e and p tags in text events
 - [x] NIP-11 - Relay Information Document
 - [x] NIP-12 - Generic Tag Queries
@@ -66,21 +67,27 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 - [x] NIP-14 - Subject tag in text events
 - [x] NIP-15 - End of Stored Events Notice
 - [x] NIP-16 - Event Treatment
+- [x] NIP-18 - Reposts
 - [x] NIP-19 - bech32-encoded entities
 - [x] NIP-20 - Command Results
-- [ ] NIP-21 - nostr: URL scheme
+- [x] NIP-21 - nostr: URL scheme
 - [x] NIP-22 - Event created_at Limits
 - [ ] NIP-23 - Long-form Content
+    - Optional viewing, but not creating
 - [x] NIP-25 - Reactions
 - [x] NIP-26 - Delegated Event Signing
+- [x] NIP-27 - Text Note References
 - [ ] NIP-28 - Public Chat
-- [ ] NIP-33 - Parameterized Replaceable Events
-- [ ] NIP-36 - Sensitive Content
+- [x] NIP-33 - Parameterized Replaceable Events
+- [x] NIP-36 - Sensitive Content
+- [ ] NIP-39 - External Identities in Profiles
 - [ ] NIP-40 - Expiration Timestamp
 - [x] NIP-42 - Authentication of clients to relays
 - [ ] NIP-46 - Nostr Connect
 - [ ] NIP-50 - Keywords filter
+- [ ] NIP-51 - Lists
 - [ ] NIP-56 - Reporting
+- [ ] NIP-57 - Lightning Zaps
 - [ ] NIP-58 - Badges
 - [x] NIP-65 - Relay List Metadata
 - [ ] NIP-78 - Application-specific data

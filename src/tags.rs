@@ -1,42 +1,6 @@
 use crate::db::DbRelay;
 use nostr_types::{Id, PublicKey, PublicKeyHex, Tag};
 
-pub fn keys_from_text(text: &str) -> Vec<(String, PublicKey)> {
-    let mut pubkeys: Vec<(String, PublicKey)> = text
-        .split(|c: char| !c.is_alphanumeric())
-        .filter_map(|npub| {
-            if !npub.starts_with("npub1") {
-                None
-            } else {
-                PublicKey::try_from_bech32_string(npub)
-                    .ok()
-                    .map(|pubkey| (npub.to_string(), pubkey))
-            }
-        })
-        .collect();
-    pubkeys.sort_unstable_by_key(|nk| nk.1.as_bytes());
-    pubkeys.dedup();
-    pubkeys
-}
-
-pub fn notes_from_text(text: &str) -> Vec<(String, Id)> {
-    let mut noteids: Vec<(String, Id)> = text
-        .split(|c: char| !c.is_alphanumeric())
-        .filter_map(|note| {
-            if !note.starts_with("note1") {
-                None
-            } else {
-                Id::try_from_bech32_string(note)
-                    .ok()
-                    .map(|id| (note.to_string(), id))
-            }
-        })
-        .collect();
-    noteids.sort_unstable_by_key(|ni| ni.1);
-    noteids.dedup();
-    noteids
-}
-
 pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKeyHex) -> usize {
     let newtag = Tag::Pubkey {
         pubkey: hex.to_owned(),
@@ -59,7 +23,7 @@ pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKe
     }
 }
 
-pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) -> usize {
+pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: &PublicKey) -> usize {
     add_pubkey_hex_to_tags(existing_tags, &added.as_hex_string().into()).await
 }
 

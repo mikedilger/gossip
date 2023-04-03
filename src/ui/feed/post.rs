@@ -1,35 +1,43 @@
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
-use crate::tags::{keys_from_text, notes_from_text};
 use crate::ui::{GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
-use egui::{Align, Context, Layout, RichText, ScrollArea, Ui, Vec2};
+use egui::{Align, Context, Key, Layout, Modifiers, RichText, ScrollArea, Ui, Vec2};
 use memoize::memoize;
-use nostr_types::Tag;
+use nostr_types::{find_nostr_bech32_pos, NostrBech32, Tag};
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
     let mut job = LayoutJob::default();
 
-    let ids = notes_from_text(&text);
-    let pks = keys_from_text(&text);
-
     // we will gather indices such that we can split the text in chunks
     let mut indices: Vec<(usize, HighlightType)> = vec![];
-    for pk in pks {
-        for m in text.match_indices(&pk.0) {
-            indices.push((m.0, HighlightType::Nothing));
-            indices.push((m.0 + pk.0.len(), HighlightType::PublicKey));
+
+    let mut offset = 0;
+    while let Some((start, end)) = find_nostr_bech32_pos(&text[offset..]) {
+        if let Some(b32) = NostrBech32::try_from_string(&text[offset + start..offset + end]) {
+            // include "nostr:" prefix if found
+            let realstart =
+                if start > 6 && text.get(offset + start - 6..offset + start) == Some("nostr:") {
+                    start - 6
+                } else {
+                    start
+                };
+            indices.push((offset + realstart, HighlightType::Nothing));
+            match b32 {
+                NostrBech32::Pubkey(_) | NostrBech32::Profile(_) => {
+                    indices.push((offset + end, HighlightType::PublicKey))
+                }
+                NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
+                    indices.push((offset + end, HighlightType::Event))
+                }
+            }
         }
+        offset += end;
     }
-    for id in ids {
-        for m in text.match_indices(&id.0) {
-            indices.push((m.0, HighlightType::Nothing));
-            indices.push((m.0 + id.0.len(), HighlightType::Event));
-        }
-    }
+
     indices.sort_by_key(|x| x.0);
     indices.dedup_by_key(|x| x.0);
 
@@ -138,46 +146,42 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         });
     }
 
-    ui.add(
+    let mut send_now: bool = false;
+
+    let draft_response = ui.add(
         text_edit_multiline!(app, app.draft)
+            .id_source("compose_area")
             .hint_text("Type your message here")
             .desired_width(f32::INFINITY)
             .lock_focus(true)
             .layouter(&mut layouter),
     );
+    if app.draft_needs_focus {
+        draft_response.request_focus();
+        app.draft_needs_focus = false;
+    }
+    if draft_response.has_focus()
+        && ui.input_mut(|i| {
+            i.consume_key(
+                Modifiers {
+                    ctrl: true,
+                    command: true,
+                    ..Default::default()
+                },
+                Key::Enter,
+            )
+        })
+        && !app.draft.is_empty()
+    {
+        send_now = true;
+    }
 
     ui.add_space(8.0);
     ui.horizontal(|ui| {
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(12.0);
             if ui.button("Send").clicked() && !app.draft.is_empty() {
-                match app.replying_to {
-                    Some(replying_to_id) => {
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-                            app.draft.clone(),
-                            vec![],
-                            Some(replying_to_id),
-                        ));
-                    }
-                    None => {
-                        let mut tags: Vec<Tag> = Vec::new();
-                        if app.include_subject {
-                            tags.push(Tag::Subject(app.subject.clone()));
-                        }
-                        if app.include_content_warning {
-                            tags.push(Tag::ContentWarning(app.content_warning.clone()));
-                        }
-                        if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
-                            tags.push(delegatee_tag);
-                        }
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-                            app.draft.clone(),
-                            tags,
-                            None,
-                        ));
-                    }
-                }
-                app.clear_post();
+                send_now = true;
             }
 
             if ui.button("Cancel").clicked() {
@@ -198,7 +202,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                 if !app.draft.ends_with(' ') && !app.draft.is_empty() {
                                     app.draft.push(' ');
                                 }
-                                app.draft.push_str(&pair.1.try_as_bech32_string().unwrap());
+                                app.draft.push_str(&pair.1.as_bech32_string());
                                 app.tag_someone = "".to_owned();
                             }
                         }
@@ -233,15 +237,55 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         });
     });
 
-    // List tags that will be applied (FIXME: list tags from parent event too in case of reply)
-    for (i, (npub, pubkey)) in keys_from_text(&app.draft).iter().enumerate() {
-        let rendered = if let Some(person) = GLOBALS.people.get(&pubkey.as_hex_string().into()) {
+    if send_now {
+        match app.replying_to {
+            Some(replying_to_id) => {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
+                    app.draft.clone(),
+                    vec![],
+                    Some(replying_to_id),
+                ));
+            }
+            None => {
+                let mut tags: Vec<Tag> = Vec::new();
+                if app.include_subject {
+                    tags.push(Tag::Subject(app.subject.clone()));
+                }
+                if app.include_content_warning {
+                    tags.push(Tag::ContentWarning(app.content_warning.clone()));
+                }
+                if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
+                    tags.push(delegatee_tag);
+                }
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
+                    app.draft.clone(),
+                    tags,
+                    None,
+                ));
+            }
+        }
+        app.clear_post();
+    }
+
+    // List tags that will be applied
+    // FIXME: list tags from parent event too in case of reply
+    // FIXME: tag handling in overlord::post() needs to move back here so the user can control this
+    for (i, bech32) in NostrBech32::find_all_in_string(&app.draft)
+        .iter()
+        .enumerate()
+    {
+        let pk = match bech32 {
+            NostrBech32::Pubkey(pk) => pk,
+            NostrBech32::Profile(prof) => &prof.pubkey,
+            _ => continue,
+        };
+        let rendered = if let Some(person) = GLOBALS.people.get(&pk.as_hex_string().into()) {
             match person.name() {
                 Some(name) => name.to_owned(),
-                None => npub.to_owned(),
+                None => format!("{}", bech32),
             }
         } else {
-            npub.to_owned()
+            format!("{}", bech32)
         };
 
         ui.label(format!("{}: {}", i, rendered));

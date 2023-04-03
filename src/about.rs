@@ -19,9 +19,15 @@ pub fn about() -> About {
         None => "Cannot find a directory to store application data.".to_owned(),
     };
 
+    let mut version = env!("CARGO_PKG_VERSION").to_string();
+    if version.contains("unstable") {
+        let git_hash_prefix: String = env!("GIT_HASH").chars().take(8).collect();
+        version = format!("{}-{}", version, git_hash_prefix);
+    }
+
     About {
         name: env!("CARGO_PKG_NAME").to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
+        version,
         description: env!("CARGO_PKG_DESCRIPTION").to_string(),
         authors: env!("CARGO_PKG_AUTHORS").to_string(),
         repository: env!("CARGO_PKG_REPOSITORY").to_string(),

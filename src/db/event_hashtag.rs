@@ -15,8 +15,7 @@ impl DbEventHashtag {
         let hashtag = self.hashtag.clone();
         let sql = "INSERT OR IGNORE INTO event_hashtag (event, hashtag) VALUES (?, ?)";
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             stmt.execute((&event, &hashtag))?;
             Ok::<(), Error>(())
@@ -29,8 +28,7 @@ impl DbEventHashtag {
         pub async fn get_events_with_hashtag(hashtag: String) -> Result<Vec<DbEventHashtag>, Error> {
             let sql = "SELECT event FROM event_hashtag WHERE hashtag=?";
             let output: Result<Vec<DbEventHashtag>, Error> = spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
+                let db = GLOBALS.db.blocking_lock();
                 let mut stmt = db.prepare(sql)?;
                 let rows = stmt.query_map([hashtag.clone()], |row| {
                     Ok(DbEventHashtag {

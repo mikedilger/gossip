@@ -7,14 +7,13 @@ use crate::globals::GLOBALS;
 use crate::people::People;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
-    keys_from_text, notes_from_text,
 };
 use dashmap::mapref::entry::Entry;
 use gossip_relay_picker::{Direction, RelayAssignment};
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, PreEvent,
-    PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, NostrBech32,
+    NostrUrl, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -461,21 +460,37 @@ impl Overlord {
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
             }
-            ToOverlordMessage::DeletePub => {
-                GLOBALS.signer.clear_public_key();
-                Self::delegation_reset().await?;
-                GLOBALS.signer.save_through_settings().await?;
+            ToOverlordMessage::DeletePost(id) => {
+                self.delete(id).await?;
             }
             ToOverlordMessage::DeletePriv => {
                 GLOBALS.signer.delete_identity();
                 Self::delegation_reset().await?;
                 *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
             }
+            ToOverlordMessage::DeletePub => {
+                GLOBALS.signer.clear_public_key();
+                Self::delegation_reset().await?;
+                GLOBALS.signer.save_through_settings().await?;
+            }
             ToOverlordMessage::DropRelay(relay_url) => {
                 let _ = self.to_minions.send(ToMinionMessage {
                     target: relay_url.0,
                     payload: ToMinionPayload::Shutdown,
                 });
+            }
+            ToOverlordMessage::FetchEvent(id, relay_urls) => {
+                // We presume the caller already checked GLOBALS.events.get() and it was not there
+                for url in relay_urls.iter() {
+                    // Start a minion for it, if there is none
+                    if !GLOBALS.relay_is_connected(url) {
+                        self.start_minion(url.clone()).await?;
+                    }
+                    let _ = self.to_minions.send(ToMinionMessage {
+                        target: url.0.clone(),
+                        payload: ToMinionPayload::FetchEvent(id.into()),
+                    });
+                }
             }
             ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
                 self.follow_pubkey_and_relay(pubkeystr, relay).await?;
@@ -584,6 +599,9 @@ impl Overlord {
             }
             ToOverlordMessage::RefreshFollowedMetadata => {
                 self.refresh_followed_metadata().await?;
+            }
+            ToOverlordMessage::Repost(id) => {
+                self.repost(id).await?;
             }
             ToOverlordMessage::SaveSettings => {
                 let settings = GLOBALS.settings.read().clone();
@@ -755,18 +773,34 @@ impl Overlord {
                 });
             }
 
-            // Add tags for keys that are in the post body as npub1...
-            for (npub, pubkey) in keys_from_text(&content) {
-                let idx = add_pubkey_to_tags(&mut tags, pubkey).await;
-                content = content.replace(&npub, &format!("#[{}]", idx));
+            // Add Tags based on references in the content
+            //
+            // FIXME - this function takes a 'tags' variable. We may want to let
+            // the user determine which tags to keep and which to delete, so we
+            // should probably move this processing into the post editor instead.
+            // For now, I'm just trying to remove the old #[0] type substitutions
+            // and use the new NostrBech32 parsing.
+            for bech32 in NostrBech32::find_all_in_string(&content).iter() {
+                match bech32 {
+                    NostrBech32::Pubkey(pk) => {
+                        add_pubkey_to_tags(&mut tags, pk).await;
+                    }
+                    NostrBech32::Profile(prof) => {
+                        add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
+                    }
+                    NostrBech32::Id(id) => {
+                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                        add_event_to_tags(&mut tags, *id, "mention").await;
+                    }
+                    NostrBech32::EventPointer(ep) => {
+                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                        add_event_to_tags(&mut tags, ep.id, "mention").await;
+                    }
+                }
             }
 
-            // Do the same as above, but now with note1...
-            for (npub, pubkey) in notes_from_text(&content) {
-                // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                let idx = add_event_to_tags(&mut tags, pubkey, "mention").await;
-                content = content.replace(&npub, &format!("#[{}]", idx));
-            }
+            // Standardize nostr links (prepend 'nostr:' where missing)
+            content = NostrUrl::urlize(&content);
 
             if let Some(parent_id) = reply_to {
                 // Get the event we are replying to
@@ -777,7 +811,7 @@ impl Overlord {
 
                 // Add a 'p' tag for the author we are replying to (except if it is our own key)
                 if parent.pubkey != public_key {
-                    add_pubkey_to_tags(&mut tags, parent.pubkey).await;
+                    add_pubkey_to_tags(&mut tags, &parent.pubkey).await;
                 }
 
                 // Add all the 'p' tags from the note we are replying to (except our own)
@@ -882,9 +916,6 @@ impl Overlord {
                 payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
             });
         }
-
-        // Process the message for ourself
-        crate::process::process_new_event(&event, false, None, None).await?;
 
         Ok(())
     }
@@ -1149,6 +1180,95 @@ impl Overlord {
         Ok(())
     }
 
+    async fn repost(&mut self, id: Id) -> Result<(), Error> {
+        let reposted_event = match GLOBALS.events.get(&id) {
+            Some(event) => event,
+            None => {
+                *GLOBALS.status_message.write().await =
+                    "Cannot repost - cannot find event.".to_owned();
+                return Ok(());
+            }
+        };
+
+        let mut tags: Vec<Tag> = vec![
+            Tag::Event {
+                id,
+                recommended_relay_url: match GLOBALS.events.get_seen_on(&reposted_event.id) {
+                    None => DbRelay::recommended_relay_for_reply(id)
+                        .await?
+                        .map(|rr| rr.to_unchecked_url()),
+                    Some(vec) => vec.get(0).map(|rurl| rurl.to_unchecked_url()),
+                },
+                marker: None,
+            },
+            Tag::Pubkey {
+                pubkey: reposted_event.pubkey.into(),
+                recommended_relay_url: None,
+                petname: None,
+            },
+        ];
+
+        let event = {
+            let public_key = match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => {
+                    tracing::warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            if GLOBALS.settings.read().set_client_tag {
+                tags.push(Tag::Other {
+                    tag: "client".to_owned(),
+                    data: vec!["gossip".to_owned()],
+                });
+            }
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::Repost,
+                tags,
+                content: serde_json::to_string(&reposted_event)?,
+                ots: None,
+            };
+
+            let powint = GLOBALS.settings.read().pow;
+            let pow = if powint > 0 { Some(powint) } else { None };
+            GLOBALS.signer.sign_preevent(pre_event, pow)?
+        };
+
+        // Process this event locally
+        crate::process::process_new_event(&event, false, None, None).await?;
+
+        // Determine which relays to post this to
+        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        {
+            // Get all of the relays that we write to
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+            relay_urls.extend(write_relay_urls);
+            relay_urls.sort();
+            relay_urls.dedup();
+        }
+
+        for url in relay_urls {
+            // Start a minion for it, if there is none
+            if !GLOBALS.relay_is_connected(&url) {
+                self.start_minion(url.clone()).await?;
+            }
+
+            // Send it the event to post
+            tracing::debug!("Asking {} to (re)post", &url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: url.0.clone(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
+            });
+        }
+
+        Ok(())
+    }
+
     async fn set_thread_feed(
         &mut self,
         id: Id,
@@ -1344,6 +1464,66 @@ impl Overlord {
             GLOBALS.delegation.save_through_settings().await?;
             *GLOBALS.status_message.write().await = "Delegation tag removed".to_string();
         }
+        Ok(())
+    }
+
+    async fn delete(&mut self, id: Id) -> Result<(), Error> {
+        let tags: Vec<Tag> = vec![Tag::Event {
+            id,
+            recommended_relay_url: None,
+            marker: None,
+        }];
+
+        let event = {
+            let public_key = match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => {
+                    tracing::warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::EventDeletion,
+                tags,
+                content: "".to_owned(), // FIXME, option to supply a delete reason
+                ots: None,
+            };
+
+            // Should we add a pow? Maybe the relay needs it.
+            GLOBALS.signer.sign_preevent(pre_event, None)?
+        };
+
+        // Process this event locally
+        crate::process::process_new_event(&event, false, None, None).await?;
+
+        // Determine which relays to post this to
+        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        {
+            // Get all of the relays that we write to
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+            relay_urls.extend(write_relay_urls);
+            relay_urls.sort();
+            relay_urls.dedup();
+        }
+
+        for url in relay_urls {
+            // Start a minion for it, if there is none
+            if !GLOBALS.relay_is_connected(&url) {
+                self.start_minion(url.clone()).await?;
+            }
+
+            // Send it the event to post
+            tracing::debug!("Asking {} to delete", &url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: url.0.clone(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
+            });
+        }
+
         Ok(())
     }
 }

@@ -181,16 +181,15 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             }
         });
 
-        if let Ok(bech32) = public_key.try_as_bech32_string() {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(&format!("Public Key (bech32): {}", bech32));
-                if ui.add(CopyButton {}).clicked() {
-                    ui.output_mut(|o| o.copied_text = bech32.clone());
-                }
-            });
-            ui.add_space(10.0);
-            app.render_qr(ui, ctx, "you_npub_qr", &bech32);
-        }
+        let bech32 = public_key.as_bech32_string();
+        ui.horizontal_wrapped(|ui| {
+            ui.label(&format!("Public Key (bech32): {}", bech32));
+            if ui.add(CopyButton {}).clicked() {
+                ui.output_mut(|o| o.copied_text = bech32.clone());
+            }
+        });
+        ui.add_space(10.0);
+        app.render_qr(ui, ctx, "you_npub_qr", &bech32);
 
         ui.add_space(10.0);
         ui.separator();
@@ -200,7 +199,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.heading("N-Profile");
             ui.add_space(10.0);
 
-            let nprofile = profile.try_as_bech32_string().unwrap();
+            let nprofile = profile.as_bech32_string();
             ui.horizontal_wrapped(|ui| {
                 ui.label(&format!("Your Profile: {}", &nprofile));
                 if ui.add(CopyButton {}).clicked() {
@@ -428,14 +427,13 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
             }
         });
 
-        if let Ok(bech32) = pk.try_as_bech32_string() {
-            ui.horizontal(|ui| {
-                ui.label(&format!("Public Key (bech32): {}", bech32));
-                if ui.add(CopyButton {}).clicked() {
-                    ui.output_mut(|o| o.copied_text = bech32);
-                }
-            });
-        }
+        let bech32 = pk.as_bech32_string();
+        ui.horizontal(|ui| {
+            ui.label(&format!("Public Key (bech32): {}", bech32));
+            if ui.add(CopyButton {}).clicked() {
+                ui.output_mut(|o| o.copied_text = bech32);
+            }
+        });
 
         if ui.button("Delete this public key").clicked() {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::DeletePub);

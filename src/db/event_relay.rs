@@ -21,9 +21,7 @@ impl DbEventRelay {
         };
 
         let output: Result<Vec<DbEventRelay>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
                 Ok(DbEventRelay {
@@ -49,8 +47,7 @@ impl DbEventRelay {
         let sql = "SELECT relay FROM event_relay WHERE event=?";
 
         let relays: Result<Vec<RelayUrl>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             stmt.raw_bind_parameter(1, id.as_hex_string())?;
             let mut rows = stmt.raw_query();
@@ -74,8 +71,7 @@ impl DbEventRelay {
              VALUES (?1, ?2, ?3)";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
                 &event_relay.event,
@@ -94,8 +90,7 @@ impl DbEventRelay {
             let sql = format!("DELETE FROM event_relay WHERE {}", criteria);
 
             spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
+                let db = GLOBALS.db.blocking_lock();
                 db.execute(&sql, [])?;
                 Ok::<(), Error>(())
             })

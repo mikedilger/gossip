@@ -18,8 +18,7 @@ impl Signer {
         *self.public.write() = GLOBALS.settings.read().public_key;
         *self.private.write() = None;
 
-        let maybe_db = GLOBALS.db.lock().await;
-        let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.lock().await;
         if let Ok(epk) = db.query_row(
             "SELECT encrypted_private_key FROM local_settings LIMIT 1",
             [],
@@ -35,8 +34,7 @@ impl Signer {
         settings.save().await?;
 
         let epk = self.encrypted.read().clone();
-        let maybe_db = GLOBALS.db.lock().await;
-        let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.lock().await;
         db.execute(
             "UPDATE local_settings SET encrypted_private_key=?",
             (epk.map(|e| e.0),),
@@ -174,7 +172,7 @@ impl Signer {
                 // Test password
                 let mut pk = epk.decrypt(pass)?;
 
-                let output = pk.try_as_bech32_string()?;
+                let output = pk.as_bech32_string();
 
                 // We have to regenerate encrypted private key because it may have fallen from
                 // medium to weak security. And then we need to save that

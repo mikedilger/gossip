@@ -33,9 +33,7 @@ use std::fs;
 use std::sync::atomic::Ordering;
 use tokio::task;
 
-// This sets up the database
-#[allow(clippy::or_fun_call)]
-pub fn setup_database() -> Result<(), Error> {
+pub fn init_database() -> Result<Connection, Error> {
     let mut data_dir = dirs::data_dir()
         .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
     data_dir.push("gossip");
@@ -57,12 +55,12 @@ pub fn setup_database() -> Result<(), Error> {
     // Turn on foreign keys
     connection.execute("PRAGMA foreign_keys = ON", ())?;
 
-    // Save the connection globally
-    {
-        let mut db = GLOBALS.db.blocking_lock();
-        *db = Some(connection);
-    }
+    Ok(connection)
+}
 
+// This sets up the database
+#[allow(clippy::or_fun_call)]
+pub fn setup_database() -> Result<(), Error> {
     // Check and upgrade our data schema
     check_and_upgrade()?;
 
@@ -71,8 +69,7 @@ pub fn setup_database() -> Result<(), Error> {
 
     // Enforce foreign key relationships
     {
-        let maybe_db = GLOBALS.db.blocking_lock();
-        let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.blocking_lock();
         db.pragma_update(None, "foreign_keys", "ON")?;
     }
 
@@ -80,19 +77,17 @@ pub fn setup_database() -> Result<(), Error> {
 }
 
 fn check_and_upgrade() -> Result<(), Error> {
-    let maybe_db = GLOBALS.db.blocking_lock();
-    let db = maybe_db.as_ref().unwrap();
-
+    let db = GLOBALS.db.blocking_lock();
     match db.query_row(
         "SELECT schema_version FROM local_settings LIMIT 1",
         [],
         |row| row.get::<usize, usize>(0),
     ) {
-        Ok(version) => upgrade(db, version),
+        Ok(version) => upgrade(&db, version),
         Err(e) => {
             if let rusqlite::Error::SqliteFailure(_, Some(ref s)) = e {
                 if s.contains("no such table") {
-                    return old_check_and_upgrade(db);
+                    return old_check_and_upgrade(&db);
                 }
             }
             Err(e.into())
@@ -152,8 +147,7 @@ fn upgrade(db: &Connection, mut version: usize) -> Result<(), Error> {
 
 pub async fn prune() -> Result<(), Error> {
     task::spawn_blocking(move || {
-        let maybe_db = GLOBALS.db.blocking_lock();
-        let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.blocking_lock();
         db.execute_batch(include_str!("sql/prune.sql"))?;
         Ok::<(), Error>(())
     })
@@ -165,9 +159,7 @@ pub async fn prune() -> Result<(), Error> {
 }
 
 fn normalize_urls() -> Result<(), Error> {
-    let maybe_db = GLOBALS.db.blocking_lock();
-    let db = maybe_db.as_ref().unwrap();
-
+    let db = GLOBALS.db.blocking_lock();
     let urls_are_normalized: bool = db.query_row(
         "SELECT urls_are_normalized FROM local_settings LIMIT 1",
         [],

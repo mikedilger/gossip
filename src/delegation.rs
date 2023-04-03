@@ -37,7 +37,7 @@ impl Delegation {
 
     pub fn get_delegator_pubkey_as_bech32_str(&self) -> Option<String> {
         self.get_delegator_pubkey()
-            .map(|pubkey| pubkey.try_as_bech32_string().unwrap_or_default())
+            .map(|pubkey| pubkey.as_bech32_string())
     }
 
     pub fn set(&self, tag_str: &str) -> Result<(), Error> {

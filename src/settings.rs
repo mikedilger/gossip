@@ -106,8 +106,7 @@ impl Settings {
     pub fn blocking_load() -> Result<Settings, Error> {
         let mut settings = Settings::default();
 
-        let maybe_db = GLOBALS.db.blocking_lock();
-        let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.blocking_lock();
 
         let mut stmt = db.prepare("SELECT key, value FROM settings")?;
 
@@ -190,7 +189,7 @@ impl Settings {
                 "highlight_unread_events" => {
                     settings.highlight_unread_events = numstr_to_bool(row.1)
                 }
-                "enable_zap_receipts" => settings.enable_zap_receipts = numstr_to_bool(row.1),
+                "enable_zap_receipts" => settings.enable_zap_receipts = false, //numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -199,8 +198,7 @@ impl Settings {
     }
 
     pub async fn save(&self) -> Result<(), Error> {
-        let maybe_db = GLOBALS.db.lock().await;
-        let db = maybe_db.as_ref().unwrap();
+        let db = GLOBALS.db.lock().await;
 
         let bool_to_numstr = |b: bool| -> &str {
             if b {
@@ -267,7 +265,7 @@ impl Settings {
             bool_to_numstr(self.automatically_fetch_metadata),
             self.delegatee_tag,
             bool_to_numstr(self.highlight_unread_events),
-            bool_to_numstr(self.enable_zap_receipts),
+            "0" // bool_to_numstr(self.enable_zap_receipts),
         ])?;
 
         // Settings which are Options should not even exist when None.  We don't accept null valued

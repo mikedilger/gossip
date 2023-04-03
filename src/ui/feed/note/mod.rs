@@ -12,7 +12,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, IdHex, PublicKeyHex, Tag};
+use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, PublicKeyHex, Tag};
 
 mod content;
 
@@ -182,6 +182,8 @@ pub struct NoteRenderData {
     pub is_last: bool,
     /// Position in the thread, focused message = 0
     pub thread_position: i32,
+    /// User can post
+    pub can_post: bool,
 }
 
 pub(super) fn render_note(
@@ -248,6 +250,7 @@ pub(super) fn render_note(
         is_last,
         is_main_event,
         thread_position: indent as i32,
+        can_post: GLOBALS.signer.is_ready(),
     };
 
     let top = ui.next_widget_position();
@@ -482,10 +485,20 @@ fn render_note_inner(
                             }));
                         }
                     }
-                    if ui.button("Copy ID").clicked() {
-                        ui.output_mut(|o| o.copied_text = event.id.try_as_bech32_string().unwrap());
+                    if ui.button("Copy nevent").clicked() {
+                        let event_pointer = EventPointer {
+                            id: event.id,
+                            relays: match GLOBALS.events.get_seen_on(&event.id) {
+                                None => vec![],
+                                Some(vec) => vec.iter().map(|url| url.to_unchecked_url()).collect(),
+                            },
+                        };
+                        ui.output_mut(|o| o.copied_text = event_pointer.as_bech32_string());
                     }
-                    if ui.button("Copy ID as hex").clicked() {
+                    if ui.button("Copy note1 Id").clicked() {
+                        ui.output_mut(|o| o.copied_text = event.id.as_bech32_string());
+                    }
+                    if ui.button("Copy hex Id").clicked() {
                         ui.output_mut(|o| o.copied_text = event.id.as_hex_string());
                     }
                     if ui.button("Copy Raw data").clicked() {
@@ -495,6 +508,15 @@ fn render_note_inner(
                     }
                     if ui.button("Dismiss").clicked() {
                         GLOBALS.dismissed.blocking_write().push(event.id);
+                    }
+                    if Some(event.pubkey) == GLOBALS.signer.public_key()
+                        && note_data.deletion.is_none()
+                    {
+                        if ui.button("Delete").clicked() {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::DeletePost(event.id));
+                        }
                     }
                 });
                 ui.add_space(4.0);
@@ -541,35 +563,50 @@ fn render_note_inner(
 
                 ui.add_space(4.0);
 
-                let view_seen_response =
-                    ui.add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()));
-                let popup_id =
-                    ui.make_persistent_id(format!("event-seen-{}", event.id.as_hex_string()));
-                if view_seen_response.hovered() {
-                    ui.memory_mut(|mem| mem.open_popup(popup_id));
+                let mut seen_on_popup_position = ui.next_widget_position();
+                seen_on_popup_position.y += 18.0; // drop below the icon itself
+
+                if ui
+                    .add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()))
+                    .hovered()
+                {
+                    egui::Area::new(ui.next_auto_id())
+                        .movable(false)
+                        .interactable(false)
+                        // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised
+                        .fixed_pos(seen_on_popup_position)
+                        // FIXME IN EGUI: constrain is moving the box left for all of these boxes
+                        // even if they have different IDs and don't need it.
+                        .constrain(true)
+                        .show(ctx, |ui| {
+                            ui.set_min_width(200.0);
+                            egui::Frame::popup(&app.settings.theme.get_style()).show(ui, |ui| {
+                                if let Some(urls) = GLOBALS.events.get_seen_on(&event.id) {
+                                    for url in urls.iter() {
+                                        ui.label(url.as_str());
+                                    }
+                                } else {
+                                    ui.label("unknown");
+                                }
+                            });
+                        });
                 }
-                egui::popup::popup_above_or_below_widget(
-                    ui,
-                    popup_id,
-                    &view_seen_response,
-                    egui::AboveOrBelow::Below,
-                    |ui| {
-                        ui.set_min_width(200.0);
-                        if let Some(urls) = GLOBALS.events.get_seen_on(&event.id) {
-                            for url in urls.iter() {
-                                ui.label(url.as_str());
-                            }
-                        } else {
-                            ui.label("unknown");
-                        }
-                    },
-                );
 
                 ui.label(
                     RichText::new(crate::date_ago::date_ago(event.created_at))
                         .italics()
                         .weak(),
-                );
+                )
+                .on_hover_ui(|ui| {
+                    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(event.created_at.0)
+                    {
+                        if let Ok(formatted) =
+                            stamp.format(&time::format_description::well_known::Rfc2822)
+                        {
+                            ui.label(formatted);
+                        }
+                    }
+                });
             });
         });
 
@@ -704,25 +741,54 @@ fn render_note_inner(
 
                             ui.add_space(24.0);
 
-                            // Button to quote note
-                            if ui
-                                .add(
-                                    Label::new(RichText::new("»").size(18.0)).sense(Sense::click()),
-                                )
-                                .on_hover_text("Quote")
-                                .clicked()
+                            if render_data.can_post
+                                && event.kind != EventKind::EncryptedDirectMessage
                             {
-                                if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                    app.draft.push(' ');
+                                // Button to Repost
+                                if ui
+                                    .add(
+                                        Label::new(RichText::new("↻").size(18.0))
+                                            .sense(Sense::click()),
+                                    )
+                                    .on_hover_text("Repost")
+                                    .clicked()
+                                {
+                                    let _ = GLOBALS
+                                        .to_overlord
+                                        .send(ToOverlordMessage::Repost(event.id));
                                 }
-                                app.draft
-                                    .push_str(&event.id.try_as_bech32_string().unwrap());
-                            }
 
-                            ui.add_space(24.0);
+                                ui.add_space(24.0);
 
-                            // Button to reply
-                            if event.kind != EventKind::EncryptedDirectMessage {
+                                // Button to quote note
+                                if ui
+                                    .add(
+                                        Label::new(RichText::new("“…”").size(18.0))
+                                            .sense(Sense::click()),
+                                    )
+                                    .on_hover_text("Quote")
+                                    .clicked()
+                                {
+                                    if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                                        app.draft.push(' ');
+                                    }
+                                    let event_pointer = EventPointer {
+                                        id: event.id,
+                                        relays: match GLOBALS.events.get_seen_on(&event.id) {
+                                            None => vec![],
+                                            Some(vec) => vec
+                                                .iter()
+                                                .map(|url| url.to_unchecked_url())
+                                                .collect(),
+                                        },
+                                    };
+                                    app.draft.push_str(&event_pointer.as_bech32_string());
+                                    app.draft_needs_focus = true;
+                                }
+
+                                ui.add_space(24.0);
+
+                                // Button to reply
                                 if ui
                                     .add(
                                         Label::new(RichText::new("💬").size(18.0))
@@ -732,6 +798,7 @@ fn render_note_inner(
                                     .clicked()
                                 {
                                     app.replying_to = Some(event.id);
+                                    app.draft_needs_focus = true;
                                 }
 
                                 ui.add_space(24.0);
@@ -787,9 +854,14 @@ fn render_note_inner(
                                     )
                                     .clicked()
                                 {
-                                    let _ = GLOBALS
-                                        .to_overlord
-                                        .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                                    if !render_data.can_post {
+                                        *GLOBALS.status_message.blocking_write() =
+                                            "Your key is not setup.".to_string();
+                                    } else {
+                                        let _ = GLOBALS
+                                            .to_overlord
+                                            .send(ToOverlordMessage::Like(event.id, event.pubkey));
+                                    }
                                 }
                                 for (ch, count) in reactions.iter() {
                                     if *ch == '+' {
@@ -846,6 +918,7 @@ pub(super) fn render_repost(
         is_first: false,
         is_last: false,
         thread_position: 0,
+        can_post: GLOBALS.signer.is_ready(),
     };
 
     ui.vertical(|ui| {

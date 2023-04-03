@@ -99,10 +99,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         "Enable reactions (show and react)",
                     );
 
+                    /*
                     ui.checkbox(
                         &mut app.settings.enable_zap_receipts,
                         "Enable zap receipts",
-                    );
+                );
+                    */
 
                     ui.checkbox(
                         &mut app.settings.reposts,

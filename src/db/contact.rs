@@ -18,9 +18,7 @@ impl DbContact {
         };
 
         let output: Result<Vec<DbContact>, Error> = spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let rows = stmt.query_map([], |row| {
                 Ok(DbContact {
@@ -49,9 +47,7 @@ impl DbContact {
              VALUES (?1, ?2, ?3, ?4)";
 
         spawn_blocking(move || {
-            let maybe_db = GLOBALS.db.blocking_lock();
-            let db = maybe_db.as_ref().unwrap();
-
+            let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
                 &contact.source,
@@ -72,8 +68,7 @@ impl DbContact {
             let sql = format!("DELETE FROM contact WHERE {}", criteria);
 
             spawn_blocking(move || {
-                let maybe_db = GLOBALS.db.blocking_lock();
-                let db = maybe_db.as_ref().unwrap();
+                let db = GLOBALS.db.blocking_lock();
                 db.execute(&sql, [])?;
                 Ok::<(), Error>(())
             })

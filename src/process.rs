@@ -6,7 +6,7 @@ use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
 use nostr_types::{
-    Event, EventKind, Metadata, PublicKeyHex, RelayUrl, SimpleRelayList, Tag, Unixtime,
+    Event, EventKind, Metadata, NostrBech32, PublicKeyHex, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -18,50 +18,10 @@ pub async fn process_new_event(
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
 ) -> Result<(), Error> {
-    let old = GLOBALS.events.get(&event.id).is_some();
+    let now = Unixtime::now()?.0 as u64;
 
-    // Insert the event into globals map
-    // (even if it was already seen)
-    GLOBALS.events.insert(event.clone(), seen_on.clone());
-
-    if old {
-        tracing::trace!(
-            "{}: Old Event: {} {:?} @{}",
-            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-            subscription.unwrap_or("_".to_string()),
-            event.kind,
-            event.created_at
-        );
-
-        // We already had this event. But we should still save it's "seen on " data
-        if from_relay {
-            if let Some(ref url) = seen_on {
-                let now = Unixtime::now()?.0 as u64;
-
-                // Save event_relay data
-                let db_event_relay = DbEventRelay {
-                    event: event.id.as_hex_string(),
-                    relay: url.0.to_owned(),
-                    when_seen: now,
-                };
-                if let Err(e) = DbEventRelay::replace(db_event_relay).await {
-                    tracing::error!("Error saving relay of old-event {} {}: {}", event.id.as_hex_string(), url.0, e);
-                }
-            }
-        }
-
-        return Ok(());
-    } else {
-        tracing::debug!(
-            "{}: New Event: {} {:?} @{}",
-            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-            subscription.unwrap_or("_".to_string()),
-            event.kind,
-            event.created_at
-        );
-    }
-
-    // Save the event into the database
+    // If it was from a relay,
+    // Insert into database; bail if event is an already-replaced replaceable event.
     if from_relay {
         // Convert a nostr Event into a DbEvent
         let db_event = DbEvent {
@@ -74,37 +34,91 @@ pub async fn process_new_event(
             ots: event.ots.clone(),
         };
 
-        // Save into event table
         if event.kind.is_replaceable() {
             if !DbEvent::replace(db_event).await? {
+                tracing::trace!(
+                    "{}: Old Event: {} {:?} @{}",
+                    seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                    subscription.unwrap_or("_".to_string()),
+                    event.kind,
+                    event.created_at
+                );
                 return Ok(()); // This did not replace anything.
             }
         } else if event.kind.is_parameterized_replaceable() {
             match event.parameter() {
                 Some(param) => if ! DbEvent::replace_parameterized(db_event, param).await? {
+                    tracing::trace!(
+                        "{}: Old Event: {} {:?} @{}",
+                        seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                        subscription.unwrap_or("_".to_string()),
+                        event.kind,
+                        event.created_at
+                    );
                     return Ok(()); // This did not replace anything.
                 },
                 None => return Err("Parameterized event must have a parameter. This is a code issue, not a data issue".into()),
-            };
+            }
         } else {
+            // This will ignore if it is already there
             DbEvent::insert(db_event).await?;
         }
     }
 
-    if from_relay {
-        if let Some(ref url) = seen_on {
-            let now = Unixtime::now()?.0 as u64;
+    let old = GLOBALS.events.get(&event.id).is_some();
+    // If we don't already have it
+    if !old {
+        // Insert into map (memory only)
+        // This also inserts the 'seen_on' relay information
+        GLOBALS.events.insert(event.clone(), seen_on.clone());
+    } else {
+        // Just insert the new seen_on information (memory only)
+        if let Some(url) = &seen_on {
+            GLOBALS.events.add_seen_on(event.id, url);
+        }
+    }
 
-            // Save event_relay data
+    if let Some(ref url) = seen_on {
+        // Insert into event_relay "seen" relationship (database)
+        if from_relay {
             let db_event_relay = DbEventRelay {
                 event: event.id.as_hex_string(),
                 relay: url.0.to_owned(),
                 when_seen: now,
             };
             if let Err(e) = DbEventRelay::replace(db_event_relay).await {
-                tracing::error!("Error saving relay of new event {} {}: {}", event.id.as_hex_string(), url.0, e);
+                tracing::error!(
+                    "Error saving relay of old-event {} {}: {}",
+                    event.id.as_hex_string(),
+                    url.0,
+                    e
+                );
             }
+        }
+    }
 
+    // Log
+    if old {
+        tracing::trace!(
+            "{}: Old Event: {} {:?} @{}",
+            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+            subscription.unwrap_or("_".to_string()),
+            event.kind,
+            event.created_at
+        );
+        return Ok(()); // No more processing needed for existing event.
+    } else {
+        tracing::debug!(
+            "{}: New Event: {} {:?} @{}",
+            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+            subscription.unwrap_or("_".to_string()),
+            event.kind,
+            event.created_at
+        );
+    }
+
+    if from_relay {
+        if let Some(ref url) = seen_on {
             // Create the person if missing in the database
             GLOBALS
                 .people
@@ -115,10 +129,8 @@ pub async fn process_new_event(
             DbPersonRelay::upsert_last_fetched(event.pubkey.as_hex_string(), url.to_owned(), now)
                 .await?;
         }
-    }
 
-    // Save the tags into event_tag table
-    if from_relay {
+        // Save the tags into event_tag table
         for (seq, tag) in event.tags.iter().enumerate() {
             // Save into database
             {
@@ -174,7 +186,7 @@ pub async fn process_new_event(
         }
     }
 
-    // Save event relationships
+    // Save event relationships (whether from relay or not)
     {
         // replies to
         if let Some((id, _)) = event.replies_to() {
@@ -299,6 +311,24 @@ pub async fn process_new_event(
 
     if event.kind == EventKind::RelayList {
         process_relay_list(event).await?;
+    }
+
+    // If the content contains an nevent and we don't have it, fetch it from those relays
+    for bech32 in NostrBech32::find_all_in_string(&event.content) {
+        if let NostrBech32::EventPointer(ep) = bech32 {
+            if GLOBALS.events.get(&ep.id).is_none() {
+                let relay_urls: Vec<RelayUrl> = ep
+                    .relays
+                    .iter()
+                    .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
+                    .collect();
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
+            }
+        }
+        // TBD: If the content contains an nprofile, make sure the pubkey is associated
+        // with those relays
     }
 
     // TBD (have to parse runes language for this)

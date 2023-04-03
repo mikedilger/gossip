@@ -71,17 +71,15 @@ fn content(
 
     let mut npub = "Unable to get npub".to_owned();
     if let Ok(pk) = PublicKey::try_from_hex_string(&pubkeyhex) {
-        if let Ok(npubref) = pk.try_as_bech32_string() {
-            npub = npubref.to_owned();
-            ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("Public Key: ").strong());
-                ui.label(npubref);
-                if ui.button("⚃").on_hover_text("Show as QR code").clicked() {
-                    app.qr_codes.remove("person_qr");
-                    app.person_qr = Some("npub");
-                }
-            });
-        }
+        npub = pk.as_bech32_string();
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new("Public Key: ").strong());
+            ui.label(&npub);
+            if ui.button("⚃").on_hover_text("Show as QR code").clicked() {
+                app.qr_codes.remove("person_qr");
+                app.person_qr = Some("npub");
+            }
+        });
     }
 
     if let Some(name) = person.name() {

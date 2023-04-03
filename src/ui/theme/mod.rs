@@ -347,6 +347,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
                 scale: 1.22,            // This font is smaller than DejaVuSans
                 y_offset_factor: -0.18, // and too low
                 y_offset: 0.0,
+                baseline_offset_factor: 0.0,
             },
         ),
     );
@@ -356,9 +357,10 @@ pub(super) fn font_definitions() -> FontDefinitions {
         "NotoEmoji-Regular".to_owned(),
         FontData::from_static(include_bytes!("../../../fonts/NotoEmoji-Regular.ttf")).tweak(
             FontTweak {
-                scale: 1.1,             // make them a touch larger
-                y_offset_factor: -0.26, // move them up
+                scale: 1.1, // make them a touch larger
+                y_offset_factor: 0.0,
                 y_offset: 0.0,
+                baseline_offset_factor: 0.0,
             },
         ),
     );

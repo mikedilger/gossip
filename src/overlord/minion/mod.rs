@@ -297,8 +297,8 @@ impl Minion {
 
     pub async fn handle_overlord_message(&mut self, message: ToMinionMessage) -> Result<(), Error> {
         match message.payload {
-            ToMinionPayload::FetchEvents(vec) => {
-                self.get_events(vec).await?;
+            ToMinionPayload::FetchEvent(id) => {
+                self.get_event(id).await?;
             }
             ToMinionPayload::PostEvent(event) => {
                 let msg = ClientMessage::Event(event);
@@ -799,14 +799,10 @@ impl Minion {
     }
      */
 
-    async fn get_events(&mut self, ids: Vec<IdHex>) -> Result<(), Error> {
-        if ids.is_empty() {
-            return Ok(());
-        }
-
+    async fn get_event(&mut self, id: IdHex) -> Result<(), Error> {
         // create the filter
         let mut filter = Filter::new();
-        filter.ids = ids.iter().map(|id| id.to_owned().into()).collect();
+        filter.ids = vec![id.into()];
 
         tracing::trace!("{}: Event Filter: {} events", &self.url, filter.ids.len());
 
