@@ -71,13 +71,13 @@ impl NoteData {
                 if let Tag::Event {
                     id,
                     recommended_relay_url: _,
-                    marker,
+                    marker: _,
                 } = tag
                 {
-                    if marker.is_some() && marker.as_deref().unwrap() == "mention" {
-                        if let Some(event) = GLOBALS.events.get(id) {
-                            cached_mentions.push((i, event));
-                        }
+                    // grab all cached 'e' tags, we will decide whether
+                    // to use them after parsing content
+                    if let Some(event) = GLOBALS.events.get(id) {
+                        cached_mentions.push((i, event));
                     }
                 }
             }
