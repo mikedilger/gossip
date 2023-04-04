@@ -4,7 +4,7 @@ use crate::{people::DbPerson, globals::{Globals, GLOBALS}};
 use super::shatter::{ShatteredContent, shatter_content, ContentSegment};
 
 #[derive(PartialEq)]
-pub(crate) enum RepostType {
+pub(super) enum RepostType {
     /// Damus style, kind 6 repost where the reposted note's JSON
     /// is included in the content
     Kind6Embedded,
@@ -16,29 +16,31 @@ pub(crate) enum RepostType {
     CommentMention,
 }
 
-pub(crate) struct NoteData {
+pub(super) struct NoteData {
     /// Original Event object, as received from nostr
-    pub(crate) event: Event,
+    pub(super) event: Event,
     /// Delegation status of this event
-    pub(crate) delegation: EventDelegation,
+    pub(super) delegation: EventDelegation,
     /// Author of this note (considers delegation)
-    pub(crate) author: DbPerson,
+    pub(super) author: DbPerson,
     /// Deletion reason if any
-    pub(crate) deletion: Option<String>,
+    pub(super) deletion: Option<String>,
     /// Do we consider this note as being a repost of another?
-    pub(crate) repost: Option<RepostType>,
+    pub(super) repost: Option<RepostType>,
+    /// Optional embedded event of kind:6 repost
+    pub(super) embedded_event: Option<Event>,
     /// A list of CACHED mentioned events and their index: (index, event)
-    pub(crate) cached_mentions: Vec<(usize, Event)>,
+    pub(super) cached_mentions: Vec<(usize, Id)>,
     /// Known reactions to this post
-    pub(crate) reactions: Vec<(char, usize)>,
+    pub(super) reactions: Vec<(char, usize)>,
     /// Has the current user reacted to this post?
-    pub(crate) self_already_reacted: bool,
+    pub(super) self_already_reacted: bool,
     /// The content shattered into renderable elements
-    pub(crate) shattered_content: ShatteredContent,
+    pub(super) shattered_content: ShatteredContent,
 }
 
 impl NoteData {
-    pub fn new(event: Event, with_inline_mentions: bool, show_long_form: bool) -> Option<NoteData> {
+    pub(super) fn new(event: Event) -> Option<NoteData> {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
 
@@ -51,7 +53,7 @@ impl NoteData {
         // build a list of all cached mentions and their index
         // only notes that are in the cache will be rendered as reposts
         let cached_mentions = {
-            let mut cached_mentions = Vec::<(usize, Event)>::new();
+            let mut cached_mentions = Vec::<(usize, Id)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
                 if let Tag::Event {
                     id,
@@ -61,17 +63,40 @@ impl NoteData {
                 {
                     // grab all cached 'e' tags, we will decide whether
                     // to use them after parsing content
-                    if let Some(event) = GLOBALS.events.get(id) {
-                        cached_mentions.push((i, event));
+                    if GLOBALS.events.contains_key(id) {
+                        cached_mentions.push((i, *id));
                     }
                 }
             }
             cached_mentions
         };
 
+        let embedded_event = {
+            if event.kind == EventKind::Repost {
+                if !event.content.trim().is_empty() {
+                    if let Ok(event) = serde_json::from_str::<Event>(&event.content) {
+                        Some(event)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
         // Compute the content to our needs
         let display_content = match event.kind {
-            EventKind::TextNote | EventKind::Repost => event.content.trim().to_string(),
+            EventKind::TextNote => event.content.trim().to_string(),
+            EventKind::Repost => {
+                if !event.content.trim().is_empty() && embedded_event.is_none() {
+                    "REPOSTED EVENT IS NOT RELEVANT".to_owned()
+                } else {
+                    "".to_owned()
+                }
+            },
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
                 Ok(m) => m,
                 Err(_) => "DECRYPTION FAILED".to_owned(),
@@ -103,16 +128,9 @@ impl NoteData {
 
         let repost = {
             let content_trim = event.content.trim();
-            let content_trim_len = content_trim.chars().count();
-            if event.kind == EventKind::Repost
-                && serde_json::from_str::<Event>(&event.content).is_ok()
+
+            if event.kind == EventKind::Repost && embedded_event.is_some()
             {
-                if !show_long_form {
-                    let inner = serde_json::from_str::<Event>(&event.content).unwrap();
-                    if inner.kind == EventKind::LongFormContent {
-                        return None;
-                    }
-                }
                 Some(RepostType::Kind6Embedded)
             } else if has_tag_reference || has_nostr_event_reference || content_trim.is_empty() {
                 if !cached_mentions.is_empty() {
@@ -121,24 +139,17 @@ impl NoteData {
                         shattered_content
                             .segments
                             .push(ContentSegment::TagReference(0));
-                    }
-                    if event.kind == EventKind::Repost {
-                        Some(RepostType::Kind6Mention)
+                        if event.kind == EventKind::Repost {
+                            Some(RepostType::Kind6Mention)
+                        } else {
+                            Some(RepostType::MentionOnly)
+                        }
                     } else {
-                        Some(RepostType::MentionOnly)
+                        Some(RepostType::CommentMention)
                     }
                 } else {
                     None
                 }
-            } else if with_inline_mentions
-                && content_trim_len > 4
-                && content_trim.chars().nth(content_trim_len - 1).unwrap() == ']'
-                && content_trim.chars().nth(content_trim_len - 3).unwrap() == '['
-                && content_trim.chars().nth(content_trim_len - 4).unwrap() == '#'
-                && !cached_mentions.is_empty()
-            {
-                // matches content that ends with a mention, avoiding use of a regex match
-                Some(RepostType::CommentMention)
             } else {
                 None
             }
@@ -162,11 +173,21 @@ impl NoteData {
             author,
             deletion,
             repost,
+            embedded_event,
             cached_mentions,
             reactions,
             self_already_reacted,
             shattered_content,
         })
+    }
+
+    pub(super) fn update_reactions(&mut self) {
+        let (mut reactions, self_already_reacted) = Globals::get_reactions_sync(self.event.id);
+
+        self.reactions.clear();
+        self.reactions.append(&mut reactions);
+
+        self.self_already_reacted = self_already_reacted;
     }
 }
 
@@ -180,5 +201,33 @@ impl Notes {
         Notes {
             notes: DashMap::new(),
         }
+    }
+
+    pub(super) fn get(&self, id: &Id) -> Option<NoteData> {
+        // if self.notes.contains_key(id) {
+        //     // return from cache
+        //     return self.notes.get(id).map(|e| e.value().to_owned())
+        // } else {
+        //     // otherwise try to create new and add to cache
+            if let Some(event) = GLOBALS.events.get(id) {
+                if let Some(note) = NoteData::new( event ) {
+                    // add to cache
+                    // self.notes.insert(*id, note);
+                    return Some(note)
+                }
+            } else {
+                // send a worker to try and load it from the database
+                // if it's in the db it will go into the cache and be
+                // available on the next UI update
+                let id_copy = id.to_owned();
+                tokio::spawn(async move {
+                    if let Err(e) = GLOBALS.events.get_local(id_copy).await {
+                        tracing::error!("{}", e);
+                    }
+                });
+            }
+        // }
+
+        None
     }
 }

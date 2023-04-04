@@ -417,7 +417,12 @@ impl ThemeDef for ClassicTheme {
         }
     }
     fn feed_frame_outer_margin(_post: &NoteRenderData) -> Margin {
-        Margin::default()
+        Margin {
+            left: 0.0,
+            top: 5.0,
+            right: 0.0,
+            bottom: 0.0,
+        }
     }
     fn feed_frame_rounding(_post: &NoteRenderData) -> Rounding {
         Rounding::default()
