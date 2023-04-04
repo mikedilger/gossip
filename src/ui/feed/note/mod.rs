@@ -61,22 +61,18 @@ pub(super) fn render_note(
         is_last,
     } = feed_note_params;
 
-    let note_data = {
-        let maybe_event = GLOBALS.events.get(&id);
-        if maybe_event.is_none() {
+    let maybe_note_data = app.notes.get(&id);
+
+    let mut note_data = {
+        if maybe_note_data.is_none() {
             return;
         }
-        let event = maybe_event.unwrap();
-
-        match NoteData::new(
-            event,
-            app.settings.show_first_mention,
-            app.settings.show_long_form,
-        ) {
-            Some(nd) => nd,
-            None => return,
-        }
+        maybe_note_data.unwrap()
     };
+
+    note_data.update_reactions();
+
+    // FIXME respect app.settings.show_long_form on reposts
 
     if note_data.author.muted > 0 {
         return;
@@ -130,7 +126,7 @@ pub(super) fn render_note(
                     // Inner indents first
                     app.settings.theme.feed_post_inner_indent(ui, &render_data);
 
-                    render_note_inner(app, ctx, ui, note_data, &render_data, as_reply_to, &None);
+                    render_note_inner(app, ctx, ui, &note_data, &render_data, as_reply_to, &None);
                 });
             });
 
@@ -179,7 +175,7 @@ fn render_note_inner(
     app: &mut GossipUi,
     ctx: &Context,
     ui: &mut Ui,
-    note_data: NoteData,
+    note: &NoteData,
     render_data: &NoteRenderData,
     hide_footer: bool,
     parent_repost: &Option<RepostType>,
@@ -190,11 +186,12 @@ fn render_note_inner(
         author,
         deletion,
         repost,
+        embedded_event: _,
         cached_mentions: _,
         reactions,
         self_already_reacted,
         shattered_content: _,
-    } = &note_data;
+    } = note;
 
     let collapsed = app.collapsed.contains(&event.id);
 
@@ -369,7 +366,7 @@ fn render_note_inner(
                         GLOBALS.dismissed.blocking_write().push(event.id);
                     }
                     if Some(event.pubkey) == GLOBALS.signer.public_key()
-                        && note_data.deletion.is_none()
+                        && note.deletion.is_none()
                     {
                         if ui.button("Delete").clicked() {
                             let _ = GLOBALS
@@ -473,81 +470,8 @@ fn render_note_inner(
 
         // MAIN CONTENT
         if !collapsed {
-            let mut append_repost: Option<NoteData> = None;
-            Frame::none()
-                .inner_margin(Margin {
-                    left: content_margin_left,
-                    bottom: 0.0,
-                    right: 0.0,
-                    top: 0.0,
-                })
-                .outer_margin(Margin {
-                    left: 0.0,
-                    bottom: 0.0,
-                    right: 0.0,
-                    top: content_pull_top,
-                })
-                .show(ui, |ui| {
-                    ui.horizontal_wrapped(|ui| {
-                        if app.render_raw == Some(event.id) {
-                            ui.label(serde_json::to_string_pretty(&event).unwrap());
-                        } else if app.render_qr == Some(event.id) {
-                            app.render_qr(ui, ctx, "feedqr", &event.content.trim());
-                        // FIXME should this be the unmodified content (event.content)?
-                        } else if event.content_warning().is_some()
-                            && !app.approved.contains(&event.id)
-                        {
-                            ui.label(
-                                RichText::new(format!(
-                                    "Content-Warning: {}",
-                                    event.content_warning().unwrap()
-                                ))
-                                .monospace()
-                                .italics(),
-                            );
-                            if ui.button("Show Post").clicked() {
-                                app.approved.insert(event.id);
-                                app.height.remove(&event.id); // will need to be recalculated.
-                            }
-                        } else if event.kind == EventKind::Repost {
-                            if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                                if let Some(inner_note_data) =
-                                    NoteData::new(inner_event, false, app.settings.show_long_form)
-                                {
-                                    append_repost = Some(inner_note_data);
-                                } else {
-                                    ui.label("REPOSTED EVENT IS NOT RELEVANT");
-                                }
-                            } else {
-                                // Possible subject line
-                                render_subject(ui, event);
 
-                                // render like a kind-1 event with a mention
-                                append_repost = content::render_content(
-                                    app,
-                                    ui,
-                                    &note_data,
-                                    deletion.is_some(),
-                                );
-                            }
-                        } else {
-                            // Possible subject line
-                            render_subject(ui, event);
-
-                            append_repost = content::render_content(
-                                app,
-                                ui,
-                                &note_data,
-                                deletion.is_some(),
-                            );
-                        }
-                    });
-                });
-
-            // render any repost without frame or indent
-            if let Some(repost) = append_repost {
-                render_repost(app, ui, ctx, &note_data, repost)
-            }
+            render_content(app, ui, ctx, note, deletion.is_some(), content_margin_left, content_pull_top);
 
             // deleted?
             if let Some(delete_reason) = &deletion {
@@ -758,12 +682,86 @@ fn render_subject(ui: &mut Ui, event: &Event) {
     }
 }
 
-pub(super) fn render_repost(
+fn render_content(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    ctx: &Context,
+    note: &NoteData,
+    as_deleted: bool,
+    content_margin_left: f32,
+    content_pull_top: f32,
+) {
+    let event = &note.event;
+
+    let bottom_of_avatar = ui.cursor().top();
+
+    Frame::none()
+    .inner_margin(Margin {
+        left: content_margin_left,
+        bottom: 0.0,
+        right: 0.0,
+        top: 0.0,
+    })
+    .outer_margin(Margin {
+        left: 0.0,
+        bottom: 0.0,
+        right: 0.0,
+        top: content_pull_top,
+    }).show(ui, |ui| {
+        ui.horizontal_wrapped(|ui| {
+            if app.render_raw == Some(event.id) {
+                ui.label(serde_json::to_string_pretty(&event).unwrap());
+            } else if app.render_qr == Some(event.id) {
+                app.render_qr(ui, ctx, "feedqr", &event.content.trim());
+            // FIXME should this be the unmodified content (event.content)?
+            } else if event.content_warning().is_some()
+                && !app.approved.contains(&event.id)
+            {
+                ui.label(
+                    RichText::new(format!(
+                        "Content-Warning: {}",
+                        event.content_warning().unwrap()
+                    ))
+                    .monospace()
+                    .italics(),
+                );
+                if ui.button("Show Post").clicked() {
+                    app.approved.insert(event.id);
+                    app.height.remove(&event.id); // will need to be recalculated.
+                }
+            } else if note.repost == Some(RepostType::Kind6Embedded) {
+                if note.embedded_event.is_some() {
+                    if let Some(inner_note_data) = NoteData::new(note.embedded_event.clone().unwrap())
+                    {
+                        render_repost(app, ui, ctx, note, &inner_note_data, content_margin_left, bottom_of_avatar);
+                    }
+                }
+            } else {
+                // Possible subject line
+                render_subject(ui, event);
+
+                content::render_content(
+                    app,
+                    ui,
+                    ctx,
+                    note,
+                    as_deleted,
+                    content_margin_left,
+                    bottom_of_avatar
+                );
+            }
+        });
+    });
+}
+
+fn render_repost(
     app: &mut GossipUi,
     ui: &mut Ui,
     ctx: &Context,
     parent_data: &NoteData,
-    repost_data: NoteData,
+    repost_data: &NoteData,
+    content_margin_left: f32,
+    bottom_of_avatar: f32,
 ) {
     let render_data = NoteRenderData {
         height: 0.0,
@@ -778,33 +776,50 @@ pub(super) fn render_repost(
         can_post: GLOBALS.signer.is_ready(),
     };
 
+    let push_top = {
+        let diff = bottom_of_avatar - ui.cursor().top();
+        if diff > 0.0 {
+            diff
+        } else {
+            0.0
+        }
+    };
+
+    // pull to newline start if current line has text
+    let content_margin_left = content_margin_left + (ui.cursor().min.x - ui.max_rect().min.x);
+
     ui.vertical(|ui| {
-        ui.add_space(
-            app.settings
-                .theme
-                .repost_space_above_separator_before(&render_data),
-        );
-        thin_separator(
-            ui,
-            app.settings
-                .theme
-                .repost_separator_before_stroke(&render_data),
-        );
-        ui.add_space(
-            app.settings
-                .theme
-                .repost_space_below_separator_before(&render_data),
-        );
         Frame::none()
             .inner_margin(app.settings.theme.repost_inner_margin(&render_data))
-            .outer_margin(app.settings.theme.repost_outer_margin(&render_data))
+            .outer_margin( {
+                let mut margin = app.settings.theme.repost_outer_margin(&render_data);
+                margin.left -= content_margin_left;
+                margin.top += push_top;
+                margin
+            })
             .rounding(app.settings.theme.repost_rounding(&render_data))
             .shadow(app.settings.theme.repost_shadow(&render_data))
             .fill(app.settings.theme.repost_fill(&render_data))
             .stroke(app.settings.theme.repost_stroke(&render_data))
             .show(ui, |ui| {
+                ui.add_space(
+                    app.settings
+                        .theme
+                        .repost_space_above_separator_before(&render_data),
+                );
+                thin_separator(
+                    ui,
+                    app.settings
+                        .theme
+                        .repost_separator_before_stroke(&render_data),
+                );
+                ui.add_space(
+                    app.settings
+                        .theme
+                        .repost_space_below_separator_before(&render_data),
+                );
                 ui.horizontal_wrapped(|ui| {
-                    // FIXME: don't do this recursively
+                    // FIXME: don't recurse forever
                     render_note_inner(
                         app,
                         ctx,
@@ -815,22 +830,22 @@ pub(super) fn render_repost(
                         &parent_data.repost,
                     );
                 });
+                ui.add_space(
+                    app.settings
+                        .theme
+                        .repost_space_above_separator_after(&render_data),
+                );
+                thin_separator(
+                    ui,
+                    app.settings
+                        .theme
+                        .repost_separator_after_stroke(&render_data),
+                );
+                ui.add_space(
+                    app.settings
+                        .theme
+                        .repost_space_below_separator_after(&render_data),
+                );
             });
-        ui.add_space(
-            app.settings
-                .theme
-                .repost_space_above_separator_after(&render_data),
-        );
-        thin_separator(
-            ui,
-            app.settings
-                .theme
-                .repost_separator_after_stroke(&render_data),
-        );
-        ui.add_space(
-            app.settings
-                .theme
-                .repost_space_below_separator_after(&render_data),
-        );
     });
 }

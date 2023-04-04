@@ -486,18 +486,18 @@ impl ThemeDef for RoundyTheme {
 
     fn repost_inner_margin(_post: &NoteRenderData) -> Margin {
         Margin {
-            left: 5.0,
-            right: 6.0,
-            top: 10.0,
-            bottom: 10.0,
+            left: 0.0,
+            top: 0.0,
+            right: 7.0,
+            bottom: 2.0,
         }
     }
     fn repost_outer_margin(_post: &NoteRenderData) -> Margin {
         Margin {
-            left: -5.0,
-            right: -6.0,
-            top: -10.0,
-            bottom: -6.0,
+            left: 0.0,
+            top: 5.0,
+            right: -7.0,
+            bottom: -3.0,
         }
     }
     fn repost_rounding(post: &NoteRenderData) -> Rounding {
