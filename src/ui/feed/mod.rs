@@ -6,6 +6,8 @@ use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, SelectableLabel, Ui, Vec2};
 use nostr_types::Id;
 
+pub use note::Notes;
+
 mod note;
 pub use note::NoteRenderData;
 mod post;

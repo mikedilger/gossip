@@ -43,6 +43,8 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
+use self::feed::Notes;
+
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
     let icon = image::load_from_memory(icon_bytes)?.to_rgba8();
@@ -111,6 +113,9 @@ struct GossipUi {
     // QR codes being rendered (in feed or elsewhere)
     // the f32's are the recommended image size
     qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
+
+    // Processed events caching
+    notes: Notes,
 
     // Post rendering
     render_raw: Option<Id>,
@@ -264,6 +269,7 @@ impl GossipUi {
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
+            notes: Notes::new(),
             render_raw: None,
             render_qr: None,
             approved: HashSet::new(),
