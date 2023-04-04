@@ -1,4 +1,7 @@
-use self::content::shatter_content;
+mod content;
+
+mod shatter;
+use shatter::{ContentSegment, ShatteredContent, shatter_content};
 
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
@@ -15,9 +18,6 @@ use egui::{
     Vec2,
 };
 use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, PublicKeyHex, Tag, NostrBech32};
-
-mod content;
-use content::ContentSegment;
 
 #[derive(PartialEq)]
 enum RepostType {
@@ -50,7 +50,7 @@ pub(super) struct NoteData {
     /// Has the current user reacted to this post?
     self_already_reacted: bool,
     /// The content shattered into renderable elements
-    shattered_content: Vec<ContentSegment>,
+    shattered_content: ShatteredContent,
 }
 
 impl NoteData {
@@ -97,11 +97,11 @@ impl NoteData {
         };
 
         // shatter content here so we can use it in our content analysis
-        let mut shattered_content = shatter_content(&display_content);
+        let mut shattered_content = shatter_content(display_content);
 
         let mut has_tag_reference = false;
         let mut has_nostr_event_reference = false;
-        for shard in &shattered_content {
+        for shard in &shattered_content.segments {
             match shard {
                 ContentSegment::NostrUrl(nurl) => match nurl.0 {
                     NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
@@ -116,7 +116,7 @@ impl NoteData {
         }
 
         let repost = {
-            let content_trim = display_content.trim();
+            let content_trim = event.content.trim();
             let content_trim_len = content_trim.chars().count();
             if event.kind == EventKind::Repost
                 && serde_json::from_str::<Event>(&event.content).is_ok()
@@ -132,7 +132,7 @@ impl NoteData {
                 if !cached_mentions.is_empty() {
                     if content_trim.is_empty() {
                         // handle NIP-18 conform kind:6 with 'e' tag but no content
-                        shattered_content.push(ContentSegment::TagReference(0));
+                        shattered_content.segments.push(ContentSegment::TagReference(0));
                     }
                     if event.kind == EventKind::Repost {
                         Some(RepostType::Kind6Mention)
