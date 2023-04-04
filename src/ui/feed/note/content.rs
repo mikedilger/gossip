@@ -21,7 +21,7 @@ pub(super) fn render_content<'a>(
         match segment {
             ContentSegment::NostrUrl(nurl) => match &nurl.0 {
                 NostrBech32::Pubkey(pk) => {
-                    render_profile_link(app, ui, &<PublicKey as Into<PublicKeyHex>>::into(pk.clone()));
+                    render_profile_link(app, ui, &<PublicKey as Into<PublicKeyHex>>::into(*pk));
                 }
                 NostrBech32::Profile(prof) => {
                     render_profile_link(app, ui, &prof.pubkey.into());
