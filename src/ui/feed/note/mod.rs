@@ -741,8 +741,8 @@ fn render_note_inner(
 
                             ui.add_space(24.0);
 
-                            // Button to quote note
                             if render_data.can_post {
+                                // Button to quote note
                                 if ui
                                     .add(
                                         Label::new(RichText::new("»").size(18.0))
@@ -754,7 +754,14 @@ fn render_note_inner(
                                     if !app.draft.ends_with(' ') && !app.draft.is_empty() {
                                         app.draft.push(' ');
                                     }
-                                    app.draft.push_str(&event.id.as_bech32_string());
+                                    let event_pointer = EventPointer {
+                                        id: event.id,
+                                        relays: match GLOBALS.events.get_seen_on(&event.id) {
+                                            None => vec![],
+                                            Some(vec) => vec.iter().map(|url| url.to_unchecked_url()).collect(),
+                                        },
+                                    };
+                                    app.draft.push_str(&event_pointer.as_bech32_string());
                                     app.draft_needs_focus = true;
                                 }
 
