@@ -741,11 +741,27 @@ fn render_note_inner(
 
                             ui.add_space(24.0);
 
-                            if render_data.can_post {
+                            if render_data.can_post
+                                && event.kind != EventKind::EncryptedDirectMessage
+                            {
+                                // Button to Repost
+                                if ui
+                                    .add(
+                                        Label::new(RichText::new("↻").size(18.0))
+                                            .sense(Sense::click()),
+                                    )
+                                    .on_hover_text("Repost")
+                                    .clicked()
+                                {
+                                    app.draft_repost = Some(event.id);
+                                }
+
+                                ui.add_space(24.0);
+
                                 // Button to quote note
                                 if ui
                                     .add(
-                                        Label::new(RichText::new("»").size(18.0))
+                                        Label::new(RichText::new("“…”").size(18.0))
                                             .sense(Sense::click()),
                                     )
                                     .on_hover_text("Quote")
@@ -771,21 +787,19 @@ fn render_note_inner(
                                 ui.add_space(24.0);
 
                                 // Button to reply
-                                if event.kind != EventKind::EncryptedDirectMessage {
-                                    if ui
-                                        .add(
-                                            Label::new(RichText::new("💬").size(18.0))
-                                                .sense(Sense::click()),
-                                        )
-                                        .on_hover_text("Reply")
-                                        .clicked()
-                                    {
-                                        app.replying_to = Some(event.id);
-                                        app.draft_needs_focus = true;
-                                    }
-
-                                    ui.add_space(24.0);
+                                if ui
+                                    .add(
+                                        Label::new(RichText::new("💬").size(18.0))
+                                            .sense(Sense::click()),
+                                    )
+                                    .on_hover_text("Reply")
+                                    .clicked()
+                                {
+                                    app.replying_to = Some(event.id);
+                                    app.draft_needs_focus = true;
                                 }
+
+                                ui.add_space(24.0);
                             }
 
                             // Button to render raw

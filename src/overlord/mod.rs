@@ -600,6 +600,9 @@ impl Overlord {
             ToOverlordMessage::RefreshFollowedMetadata => {
                 self.refresh_followed_metadata().await?;
             }
+            ToOverlordMessage::Repost(id) => {
+                self.repost(id).await?;
+            }
             ToOverlordMessage::SaveSettings => {
                 let settings = GLOBALS.settings.read().clone();
                 settings.save().await?;
@@ -914,9 +917,6 @@ impl Overlord {
             });
         }
 
-        // Process the message for ourself
-        crate::process::process_new_event(&event, false, None, None).await?;
-
         Ok(())
     }
 
@@ -1174,6 +1174,95 @@ impl Overlord {
             let _ = self.to_minions.send(ToMinionMessage {
                 target: url.0.to_string(),
                 payload: ToMinionPayload::TempSubscribeMetadata(pubkeys),
+            });
+        }
+
+        Ok(())
+    }
+
+    async fn repost(&mut self, id: Id) -> Result<(), Error> {
+        let reposted_event = match GLOBALS.events.get(&id) {
+            Some(event) => event,
+            None => {
+                *GLOBALS.status_message.write().await =
+                    "Cannot repost - cannot find event.".to_owned();
+                return Ok(());
+            }
+        };
+
+        let mut tags: Vec<Tag> = vec![
+            Tag::Event {
+                id,
+                recommended_relay_url: match GLOBALS.events.get_seen_on(&reposted_event.id) {
+                    None => DbRelay::recommended_relay_for_reply(id)
+                        .await?
+                        .map(|rr| rr.to_unchecked_url()),
+                    Some(vec) => vec.get(0).map(|rurl| rurl.to_unchecked_url()),
+                },
+                marker: None,
+            },
+            Tag::Pubkey {
+                pubkey: reposted_event.pubkey.into(),
+                recommended_relay_url: None,
+                petname: None,
+            },
+        ];
+
+        let event = {
+            let public_key = match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => {
+                    tracing::warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            if GLOBALS.settings.read().set_client_tag {
+                tags.push(Tag::Other {
+                    tag: "client".to_owned(),
+                    data: vec!["gossip".to_owned()],
+                });
+            }
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::Repost,
+                tags,
+                content: serde_json::to_string(&reposted_event)?,
+                ots: None,
+            };
+
+            let powint = GLOBALS.settings.read().pow;
+            let pow = if powint > 0 { Some(powint) } else { None };
+            GLOBALS.signer.sign_preevent(pre_event, pow)?
+        };
+
+        // Process this event locally
+        crate::process::process_new_event(&event, false, None, None).await?;
+
+        // Determine which relays to post this to
+        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        {
+            // Get all of the relays that we write to
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+            relay_urls.extend(write_relay_urls);
+            relay_urls.sort();
+            relay_urls.dedup();
+        }
+
+        for url in relay_urls {
+            // Start a minion for it, if there is none
+            if !GLOBALS.relay_is_connected(&url) {
+                self.start_minion(url.clone()).await?;
+            }
+
+            // Send it the event to post
+            tracing::debug!("Asking {} to (re)post", &url);
+
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: url.0.clone(),
+                payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
             });
         }
 

@@ -141,6 +141,7 @@ struct GossipUi {
     // User entry: posts
     draft: String,
     draft_needs_focus: bool,
+    draft_repost: Option<Id>,
     tag_someone: String,
     include_subject: bool,
     subject: String,
@@ -281,6 +282,7 @@ impl GossipUi {
             search_result: "".to_owned(),
             draft: "".to_owned(),
             draft_needs_focus: false,
+            draft_repost: None,
             tag_someone: "".to_owned(),
             include_subject: false,
             subject: "".to_owned(),
@@ -377,6 +379,7 @@ impl GossipUi {
 
     fn clear_post(&mut self) {
         self.draft = "".to_owned();
+        self.draft_repost = None;
         self.tag_someone = "".to_owned();
         self.include_subject = false;
         self.subject = "".to_owned();

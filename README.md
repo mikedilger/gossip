@@ -67,6 +67,7 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 - [x] NIP-14 - Subject tag in text events
 - [x] NIP-15 - End of Stored Events Notice
 - [x] NIP-16 - Event Treatment
+- [x] NIP-18 - Reposts
 - [x] NIP-19 - bech32-encoded entities
 - [x] NIP-20 - Command Results
 - [x] NIP-21 - nostr: URL scheme
