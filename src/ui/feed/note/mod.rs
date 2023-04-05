@@ -16,6 +16,8 @@ use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, Public
 
 mod content;
 
+mod shatter;
+
 #[derive(PartialEq)]
 enum RepostType {
     /// Damus style, kind 6 repost where the reposted note's JSON
