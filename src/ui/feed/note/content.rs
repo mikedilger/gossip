@@ -35,11 +35,9 @@ pub(super) fn shatter_content(mut content: &str) -> Vec<ContentSegment<'_>> {
         if let Some(nbech) = NostrBech32::try_from_string(&content[start..end]) {
             segments.push(ContentSegment::NostrUrl(NostrUrl(nbech)));
         } else {
-            tracing::error!(
-                "PROBLEM PARSING THIS BECH32 MATCHED STRING: {}",
-                &content[start..end]
-            );
-            // something is wrong with find_nostr_bech32_pos() or our code here.
+            // We have a sequence which matches the Regex for a Bech32, but
+            // when parsed more deeply is invalid. Treat it as plain text.
+            segments.push(ContentSegment::Plain(&content[start..end]));
         }
 
         content = &content[end..];
