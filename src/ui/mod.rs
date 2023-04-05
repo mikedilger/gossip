@@ -548,7 +548,14 @@ impl eframe::App for GossipUi {
 }
 
 impl GossipUi {
-    pub fn hex_pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
+    /// A short rendering of a `PublicKey`
+    pub fn pubkey_short(pk: &PublicKey) -> String {
+        let npub = pk.as_bech32_string();
+        format!("{}…", &npub.get(0..20).unwrap_or("????????????????????"))
+    }
+
+    /// A short rendering of a `PublicKeyHex`
+    pub fn pubkeyhex_short(pubkeyhex: &PublicKeyHex) -> String {
         format!(
             "{}_{}...{}_{}",
             &pubkeyhex.as_str()[0..4],
@@ -558,18 +565,32 @@ impl GossipUi {
         )
     }
 
-    pub fn pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
+    /// A short rendering of a `PublicKeyHex`, with attempt to convert to bech32
+    pub fn pubkeyhex_convert_short(pubkeyhex: &PublicKeyHex) -> String {
         match PublicKey::try_from_hex_string(pubkeyhex) {
-            Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
-            Ok(pk) => {
-                let npub = pk.as_bech32_string();
-                format!("{}…", &npub.get(0..20).unwrap_or("????????????????????"))
-            }
+            Ok(pk) => Self::pubkey_short(&pk),
+            Err(_) => GossipUi::pubkeyhex_short(pubkeyhex),
         }
     }
 
     pub fn hex_id_short(idhex: &IdHex) -> String {
         idhex.as_str()[0..8].to_string()
+    }
+
+    /// A display name for a `DbPerson`
+    pub fn display_name_from_dbperson(dbperson: &DbPerson) -> String {
+        match dbperson.display_name() {
+            Some(name) => name.to_owned(),
+            None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
+        }
+    }
+
+    /// A display name for a `PublicKeyHex`, via trying to lookup the person
+    pub fn display_name_from_pubkeyhex_lookup(pkh: &PublicKeyHex) -> String {
+        match GLOBALS.people.get(pkh) {
+            Some(dbperson) => Self::display_name_from_dbperson(&dbperson),
+            None => Self::pubkeyhex_convert_short(pkh),
+        }
     }
 
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
@@ -581,11 +602,7 @@ impl GossipUi {
         }
 
         ui.horizontal_wrapped(|ui| {
-            let name = if let Some(name) = person.display_name() {
-                name.to_owned()
-            } else {
-                GossipUi::pubkey_short(&person.pubkey)
-            };
+            let name = GossipUi::display_name_from_dbperson(person);
 
             ui.menu_button(&name, |ui| {
                 if ui.button("Mute").clicked() {

@@ -103,14 +103,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
                         let pk = elem.key();
                         let count = elem.value();
-                        let maybe_person = GLOBALS.people.get(pk);
-                        let name = match maybe_person {
-                            None => GossipUi::hex_pubkey_short(pk),
-                            Some(p) => match p.name() {
-                                None => GossipUi::hex_pubkey_short(pk),
-                                Some(n) => n.to_owned(),
-                            },
-                        };
+                        let name = GossipUi::display_name_from_pubkeyhex_lookup(pk);
                         ui.label(format!("{}: coverage short by {} relay(s)", name, count));
                     }
                 } else {

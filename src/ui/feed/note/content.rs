@@ -204,13 +204,7 @@ pub(super) fn render_content(
 }
 
 fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKeyHex) {
-    let nam = match GLOBALS.people.get(pubkey) {
-        Some(p) => match p.name() {
-            Some(n) => format!("@{}", n),
-            None => format!("@{}", GossipUi::pubkey_short(pubkey)),
-        },
-        None => format!("@{}", GossipUi::pubkey_short(pubkey)),
-    };
+    let nam = GossipUi::display_name_from_pubkeyhex_lookup(pubkey);
     if ui.link(&nam).clicked() {
         app.set_page(Page::Person(pubkey.to_owned()));
     };

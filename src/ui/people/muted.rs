@@ -48,7 +48,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     };
 
                     ui.vertical(|ui| {
-                        ui.label(RichText::new(GossipUi::pubkey_short(&person.pubkey)).weak());
+                        ui.label(
+                            RichText::new(GossipUi::pubkeyhex_convert_short(&person.pubkey)).weak(),
+                        );
                         GossipUi::render_person_name_line(app, ui, person);
 
                         if ui.button("UNMUTE").clicked() {

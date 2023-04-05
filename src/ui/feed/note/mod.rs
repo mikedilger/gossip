@@ -758,7 +758,10 @@ fn render_note_inner(
                                         id: event.id,
                                         relays: match GLOBALS.events.get_seen_on(&event.id) {
                                             None => vec![],
-                                            Some(vec) => vec.iter().map(|url| url.to_unchecked_url()).collect(),
+                                            Some(vec) => vec
+                                                .iter()
+                                                .map(|url| url.to_unchecked_url())
+                                                .collect(),
                                         },
                                     };
                                     app.draft.push_str(&event_pointer.as_bech32_string());
