@@ -55,7 +55,7 @@ pub(super) fn shatter_content(content: String) -> ShatteredContent {
 
     ShatteredContent {
         segments,
-        allocated: content
+        allocated: content,
     }
 }
 
@@ -154,7 +154,7 @@ fn apply_offset(segments: &mut Vec<ContentSegment>, offset: usize) {
         match segment {
             ContentSegment::Hyperlink(span) => span.offset(offset),
             ContentSegment::Plain(span) => span.offset(offset),
-            _ => { }
+            _ => {}
         }
     }
 }
@@ -170,7 +170,10 @@ mod test {
         let pieces = shatter_content(content);
         assert_eq!(pieces.segments.len(), 6);
         assert!(matches!(pieces.segments[0], ContentSegment::Plain(..)));
-        assert!(matches!(pieces.segments[1], ContentSegment::TagReference(..)));
+        assert!(matches!(
+            pieces.segments[1],
+            ContentSegment::TagReference(..)
+        ));
         assert!(matches!(pieces.segments[2], ContentSegment::Plain(..)));
         assert!(matches!(pieces.segments[3], ContentSegment::NostrUrl(..)));
         assert!(matches!(pieces.segments[4], ContentSegment::Plain(..)));

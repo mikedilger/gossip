@@ -1,4 +1,4 @@
-use std::{cell::{RefCell}, rc::Rc, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use super::shatter::{shatter_content, ContentSegment, ShatteredContent};
 use crate::{
@@ -216,10 +216,10 @@ impl Notes {
                 }
             }
             // return from cache
-            return self._try_get_and_borrow(id)
+            return self._try_get_and_borrow(id);
         } else {
             // otherwise try to create new and add to cache
-            if let Some(event) = GLOBALS.events.get(&id) {
+            if let Some(event) = GLOBALS.events.get(id) {
                 if let Some(note) = NoteData::new(event) {
                     // add to cache
                     let ref_note = Rc::new(RefCell::new(note));
@@ -239,13 +239,14 @@ impl Notes {
             }
         }
 
-        return None;
+        None
     }
 
+    /*
     pub(super) fn try_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
         if self.notes.contains_key(id) {
             // return from cache
-            return self._try_get_and_borrow(id)
+            return self._try_get_and_borrow(id);
         } else {
             // otherwise try to create new and add to cache
             if let Some(event) = GLOBALS.events.get(&id) {
@@ -269,11 +270,12 @@ impl Notes {
         }
         return None;
     }
+    */
 
     fn _try_get_and_borrow(&self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
         if let Some(value) = self.notes.get(id) {
-            return Some(value.clone())
+            return Some(value.clone());
         }
-        return None
+        None
     }
 }
