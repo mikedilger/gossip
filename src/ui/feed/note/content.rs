@@ -1,4 +1,4 @@
-use super::shatter::{shatter_content, ContentSegment};
+use super::shatter::ContentSegment;
 use super::{GossipUi, NoteData, Page, RepostType};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
@@ -12,15 +12,13 @@ pub(super) fn render_content(
     ui: &mut Ui,
     note: &NoteData,
     as_deleted: bool,
-    content: &str,
 ) -> Option<NoteData> {
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     // Optional repost return
     let mut append_repost: Option<NoteData> = None;
 
-    let shattered_content = shatter_content(content.to_owned());
-    for segment in shattered_content.segments.iter() {
+    for segment in note.shattered_content.segments.iter() {
         match segment {
             ContentSegment::NostrUrl(nurl) => match &nurl.0 {
                 NostrBech32::Pubkey(pk) => {
@@ -30,7 +28,7 @@ pub(super) fn render_content(
                     render_profile_link(app, ui, &prof.pubkey.into());
                 }
                 NostrBech32::Id(id) => {
-                    render_event_link(app, ui, note, &id);
+                    render_event_link(app, ui, note, id);
                 }
                 NostrBech32::EventPointer(ep) => {
                     render_event_link(app, ui, note, &ep.id);
@@ -90,7 +88,7 @@ pub(super) fn render_content(
                 }
             }
             ContentSegment::Hyperlink(linkspan) => {
-                let link = shattered_content.slice(linkspan).unwrap();
+                let link = note.shattered_content.slice(linkspan).unwrap();
                 let lowercase = link.to_lowercase();
                 if lowercase.ends_with(".jpg")
                     || lowercase.ends_with(".jpeg")
@@ -110,7 +108,7 @@ pub(super) fn render_content(
                 }
             }
             ContentSegment::Plain(textspan) => {
-                let text = shattered_content.slice(textspan).unwrap();
+                let text = note.shattered_content.slice(textspan).unwrap();
                 if as_deleted {
                     ui.label(RichText::new(text).strikethrough());
                 } else {
