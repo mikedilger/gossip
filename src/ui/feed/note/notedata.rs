@@ -1,7 +1,10 @@
-use dashmap::DashMap;
+use super::shatter::{ContentSegment, ShatteredContent, shatter_content};
+use crate::{
+    globals::{Globals, GLOBALS},
+    people::DbPerson,
+};
+use std::{cell::RefCell, rc::Rc, collections::HashMap};
 use nostr_types::{Event, EventDelegation, EventKind, Id, NostrBech32, PublicKeyHex, Tag};
-use crate::{people::DbPerson, globals::{Globals, GLOBALS}};
-use super::shatter::{ShatteredContent, shatter_content, ContentSegment};
 
 #[derive(PartialEq)]
 pub(super) enum RepostType {
@@ -96,7 +99,7 @@ impl NoteData {
                 } else {
                     "".to_owned()
                 }
-            },
+            }
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
                 Ok(m) => m,
                 Err(_) => "DECRYPTION FAILED".to_owned(),
@@ -115,12 +118,12 @@ impl NoteData {
                 ContentSegment::NostrUrl(nurl) => match nurl.0 {
                     NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
                         has_nostr_event_reference = true;
-                    },
+                    }
                     _ => (),
                 },
                 ContentSegment::TagReference(_) => {
                     has_tag_reference = true;
-                },
+                }
                 ContentSegment::Hyperlink(_) => (),
                 ContentSegment::Plain(_) => (),
             }
@@ -129,8 +132,7 @@ impl NoteData {
         let repost = {
             let content_trim = event.content.trim();
 
-            if event.kind == EventKind::Repost && embedded_event.is_some()
-            {
+            if event.kind == EventKind::Repost && embedded_event.is_some() {
                 Some(RepostType::Kind6Embedded)
             } else if has_tag_reference || has_nostr_event_reference || content_trim.is_empty() {
                 if !cached_mentions.is_empty() {
@@ -139,6 +141,7 @@ impl NoteData {
                         shattered_content
                             .segments
                             .push(ContentSegment::TagReference(0));
+
                         if event.kind == EventKind::Repost {
                             Some(RepostType::Kind6Mention)
                         } else {
@@ -193,27 +196,34 @@ impl NoteData {
 
 /// a 'note' is a processed event
 pub struct Notes {
-    notes: DashMap<Id, NoteData>,
+    notes: HashMap<Id, Rc<RefCell<NoteData>>>,
 }
 
 impl Notes {
     pub fn new() -> Notes {
         Notes {
-            notes: DashMap::new(),
+            notes: HashMap::new(),
         }
     }
 
-    pub(super) fn get(&self, id: &Id) -> Option<NoteData> {
-        // if self.notes.contains_key(id) {
-        //     // return from cache
-        //     return self.notes.get(id).map(|e| e.value().to_owned())
-        // } else {
-        //     // otherwise try to create new and add to cache
+    pub(super) fn try_update_and_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
+        if self.notes.contains_key(id) {
+            // get a mutable reference to update reactions, then give it back
+            if let Some(pair) = self.notes.get(id) {
+                if let Ok(mut mut_ref) = pair.try_borrow_mut() {
+                    mut_ref.update_reactions();
+                }
+            }
+            // return from cache
+            return self._try_get_and_borrow(id);
+        } else {
+            // otherwise try to create new and add to cache
             if let Some(event) = GLOBALS.events.get(id) {
-                if let Some(note) = NoteData::new( event ) {
+                if let Some(note) = NoteData::new(event) {
                     // add to cache
-                    // self.notes.insert(*id, note);
-                    return Some(note)
+                    let ref_note = Rc::new(RefCell::new(note));
+                    self.notes.insert(*id, ref_note);
+                    return self._try_get_and_borrow(id);
                 }
             } else {
                 // send a worker to try and load it from the database
@@ -226,8 +236,45 @@ impl Notes {
                     }
                 });
             }
-        // }
+        }
 
+        None
+    }
+
+    /*
+    pub(super) fn try_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
+        if self.notes.contains_key(id) {
+            // return from cache
+            return self._try_get_and_borrow(id)
+        } else {
+            // otherwise try to create new and add to cache
+            if let Some(event) = GLOBALS.events.get(id) {
+                if let Some(note) = NoteData::new(event) {
+                    // add to cache
+                    let ref_note = Rc::new(RefCell::new(note));
+                    self.notes.insert(*id, ref_note);
+                    return self._try_get_and_borrow(id);
+                }
+            } else {
+                // send a worker to try and load it from the database
+                // if it's in the db it will go into the cache and be
+                // available on the next UI update
+                let id_copy = id.to_owned();
+                tokio::spawn(async move {
+                    if let Err(e) = GLOBALS.events.get_local(id_copy).await {
+                        tracing::error!("{}", e);
+                    }
+                });
+            }
+        }
+        None
+    }
+     */
+
+    fn _try_get_and_borrow(&self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
+        if let Some(value) = self.notes.get(id) {
+            return Some(value.clone())
+        }
         None
     }
 }
