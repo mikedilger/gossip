@@ -38,7 +38,7 @@ pub(super) fn render_content(
                                         Some(RepostType::MentionOnly)
                                         | Some(RepostType::CommentMention)
                                         | Some(RepostType::Kind6Mention) => {
-                                            for (i, cached_id) in note.cached_mentions.iter() {
+                                            for (i, cached_id) in note.mentions.iter() {
                                                 if *i == *num {
                                                     if let Some(note_data) =
                                                         app.notes.try_update_and_get(cached_id)

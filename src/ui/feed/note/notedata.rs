@@ -32,8 +32,8 @@ pub(super) struct NoteData {
     pub(super) repost: Option<RepostType>,
     /// Optional embedded event of kind:6 repost
     pub(super) embedded_event: Option<Event>,
-    /// A list of CACHED mentioned events and their index: (index, event)
-    pub(super) cached_mentions: Vec<(usize, Id)>,
+    /// A list of mentioned events and their index: (index, event)
+    pub(super) mentions: Vec<(usize, Id)>,
     /// Known reactions to this post
     pub(super) reactions: Vec<(char, usize)>,
     /// Has the current user reacted to this post?
@@ -55,8 +55,8 @@ impl NoteData {
 
         // build a list of all cached mentions and their index
         // only notes that are in the cache will be rendered as reposts
-        let cached_mentions = {
-            let mut cached_mentions = Vec::<(usize, Id)>::new();
+        let mentions = {
+            let mut mentions = Vec::<(usize, Id)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
                 if let Tag::Event {
                     id,
@@ -64,14 +64,10 @@ impl NoteData {
                     marker: _,
                 } = tag
                 {
-                    // grab all cached 'e' tags, we will decide whether
-                    // to use them after parsing content
-                    if GLOBALS.events.contains_key(id) {
-                        cached_mentions.push((i, *id));
-                    }
+                    mentions.push((i, *id));
                 }
             }
-            cached_mentions
+            mentions
         };
 
         let embedded_event = {
@@ -135,7 +131,7 @@ impl NoteData {
             if event.kind == EventKind::Repost && embedded_event.is_some() {
                 Some(RepostType::Kind6Embedded)
             } else if has_tag_reference || has_nostr_event_reference || content_trim.is_empty() {
-                if !cached_mentions.is_empty() {
+                if !mentions.is_empty() {
                     if content_trim.is_empty() {
                         // handle NIP-18 conform kind:6 with 'e' tag but no content
                         shattered_content
@@ -177,7 +173,7 @@ impl NoteData {
             deletion,
             repost,
             embedded_event,
-            cached_mentions,
+            mentions,
             reactions,
             self_already_reacted,
             shattered_content,
