@@ -173,7 +173,7 @@ pub(super) fn render_content(
                 }
             }
             ContentSegment::Hyperlink(link) => {
-                if let Some(image_url) = as_image_url(app, &link) {
+                if let Some(image_url) = as_image_url(app, link) {
                     show_image_toggle(app, ui, image_url);
                 //} else if is_video_url(&lowercase) {
                 // TODO
@@ -298,7 +298,9 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
             if ui.button("Copy URL").clicked() {
                 ui.output_mut(|o| o.copied_text = url_string.clone());
             }
-            if app.has_media_loading_failed(url_string.as_str()) && ui.button("Retry loading ...").clicked() {
+            if app.has_media_loading_failed(url_string.as_str())
+                && ui.button("Retry loading ...").clicked()
+            {
                 app.retry_media(&url);
             }
         });
@@ -393,10 +395,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                             if ui
                                 .add_sized(
                                     BTN_SIZE,
-                                    egui::Button::new(
-                                        RichText::new("\u{274C}")
-                                            .size(TXT_SIZE),
-                                    ),
+                                    egui::Button::new(RichText::new("\u{274C}").size(TXT_SIZE)),
                                 )
                                 .clicked()
                             {
@@ -410,10 +409,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                             if ui
                                 .add_sized(
                                     BTN_SIZE,
-                                    egui::Button::new(
-                                        RichText::new("\u{1F310}")
-                                            .size(TXT_SIZE),
-                                    ),
+                                    egui::Button::new(RichText::new("\u{1F310}").size(TXT_SIZE)),
                                 )
                                 .clicked()
                             {
@@ -429,10 +425,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                             if ui
                                 .add_sized(
                                     BTN_SIZE,
-                                    egui::Button::new(
-                                        RichText::new("\u{1F4CB}")
-                                            .size(TXT_SIZE),
-                                    ),
+                                    egui::Button::new(RichText::new("\u{1F4CB}").size(TXT_SIZE)),
                                 )
                                 .clicked()
                             {
