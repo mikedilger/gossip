@@ -252,7 +252,6 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     let row_height = ui.cursor().height();
     let url_string = url.to_string();
     let mut show_link = true;
-    let mut hovr_response = None;
 
     // FIXME show/hide lists should persist app restarts
     let show_image = (app.settings.show_media && !app.media_hide_list.contains(&url))
@@ -270,19 +269,14 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                     app.media_full_width_list.insert(url.clone());
                 }
             }
-            hovr_response = Some(response);
         }
     }
 
     if show_link {
         let response = ui.link("[ Image ]");
-        if app.settings.load_media {
-            response.clone().on_hover_text(url_string.clone());
-        } else {
-            response
-                .clone()
-                .on_hover_text("Setting 'Fetch media' is disabled");
-        }
+        // show url on hover
+        response.clone().on_hover_text(url_string.clone());
+        // show media toggle
         if response.clicked() {
             if app.settings.show_media {
                 app.media_hide_list.remove(&url);
@@ -290,11 +284,7 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                 app.media_show_list.insert(url.clone());
             }
         }
-        hovr_response = Some(response);
-    }
-
-    // from here handle both responses the same, image or link
-    if let Some(response) = hovr_response {
+        // context menu
         response.context_menu(|ui| {
             if ui.button("Open in browser").clicked() {
                 let modifiers = ui.ctx().input(|i| i.modifiers);
@@ -306,9 +296,9 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                 });
             }
             if ui.button("Copy URL").clicked() {
-                ui.output_mut(|o| o.copied_text = url_string);
+                ui.output_mut(|o| o.copied_text = url_string.clone());
             }
-            if ui.button("Try reload ...").clicked() {
+            if app.has_media_loading_failed(url_string.as_str()) && ui.button("Retry loading ...").clicked() {
                 app.retry_media(&url);
             }
         });
@@ -389,15 +379,17 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                 // image button menu to the right of the image
                 static BTN_SIZE: Vec2 = Vec2 { x: 20.0, y: 20.0 };
                 static TXT_SIZE: f32 = 9.0;
+                static SPACE: f32 = 10.0;
                 let extend_area = egui::Rect {
                     min: response.rect.right_top(),
                     max: response.rect.right_bottom() + egui::Vec2::new(BTN_SIZE.x, 0.0),
                 };
-                let extend_area = extend_area.expand(10.0);
+                let extend_area = extend_area.expand(SPACE * 2.0);
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
                     if extend_area.contains(pointer_pos) {
-                        ui.add_space(3.0);
+                        ui.add_space(SPACE);
                         ui.vertical(|ui| {
+                            ui.add_space(SPACE);
                             if ui
                                 .add_sized(
                                     BTN_SIZE,
@@ -414,7 +406,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                                     app.media_show_list.remove(&url);
                                 }
                             }
-                            ui.add_space(3.0);
+                            ui.add_space(SPACE);
                             if ui
                                 .add_sized(
                                     BTN_SIZE,
@@ -433,7 +425,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                                     });
                                 });
                             }
-                            ui.add_space(3.0);
+                            ui.add_space(SPACE);
                             if ui
                                 .add_sized(
                                     BTN_SIZE,
