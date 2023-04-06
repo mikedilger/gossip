@@ -206,10 +206,24 @@ impl Notes {
         }
     }
 
+    /*
     /// Drop NoteData objects that do not have a
     /// correlated event in the event cache
-    pub(super) fn drop_uncached_events(&mut self) {
+    pub(super) fn cache_invalidate_missing_events(&mut self) {
         self.notes.retain(|id,_| GLOBALS.events.contains_key(id));
+    }
+     */
+
+    /*
+    /// Drop NoteData for a specific note
+    pub(super) fn cache_invalidate_note(&mut self, id: &Id) {
+        self.notes.remove(id);
+    }
+     */
+
+    /// Drop all NoteData for a given person
+    pub(in crate::ui) fn cache_invalidate_person(&mut self, pubkey: &PublicKeyHex) {
+        self.notes.retain(|_,note| note.borrow().author.pubkey != *pubkey);
     }
 
     pub(super) fn try_update_and_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {

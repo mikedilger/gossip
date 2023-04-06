@@ -623,6 +623,7 @@ impl GossipUi {
                 let mute_label = if person.muted == 1 { "Unmute" } else { "Mute" };
                 if ui.button(mute_label).clicked() {
                     GLOBALS.people.mute(&person.pubkey, person.muted == 0);
+                    app.notes.cache_invalidate_person(&person.pubkey);
                 }
                 if person.followed == 0 && ui.button("Follow").clicked() {
                     GLOBALS.people.follow(&person.pubkey, true);
