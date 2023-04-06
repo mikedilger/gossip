@@ -3,8 +3,9 @@ use crate::{
     globals::{Globals, GLOBALS},
     people::DbPerson,
 };
+use dashmap::DashMap;
 use nostr_types::{Event, EventDelegation, EventKind, Id, NostrBech32, PublicKeyHex, Tag};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(PartialEq)]
 pub(super) enum RepostType {
@@ -192,13 +193,24 @@ impl NoteData {
 
 /// a 'note' is a processed event
 pub struct Notes {
-    notes: HashMap<Id, Rc<RefCell<NoteData>>>,
+    notes: DashMap<Id, Rc<RefCell<NoteData>>>,
 }
 
 impl Notes {
     pub fn new() -> Notes {
         Notes {
-            notes: HashMap::new(),
+            notes: DashMap::new(),
+        }
+    }
+
+    /// Drop NoteData objects that do not have a
+    /// correlated event in the event cache
+    pub(super) fn drop_uncached_events(&mut self) {
+        for note in self.notes.iter_mut() {
+            if !GLOBALS.events.contains_key(&note.key()) {
+                // drop the NoteData
+                self.notes.remove(note.key());
+            }
         }
     }
 

@@ -52,11 +52,9 @@ impl Events {
         }
     }
 
-    /*
     pub fn contains_key(&self, id: &Id) -> bool {
         self.events.contains_key(id)
     }
-    */
 
     pub fn get(&self, id: &Id) -> Option<Event> {
         self.events.get(id).map(|e| e.value().to_owned())

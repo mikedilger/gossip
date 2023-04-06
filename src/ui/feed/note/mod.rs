@@ -64,6 +64,7 @@ pub(super) fn render_note(
 
     if let Some(note_ref) = app.notes.try_update_and_get(&id) {
         // FIXME respect app.settings.show_long_form on reposts
+        // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
             if note_data.author.muted > 0 {
