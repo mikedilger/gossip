@@ -817,8 +817,10 @@ fn render_repost(
             }
         };
 
-        // pull to newline start if current line has text
-        let content_margin_left = content_margin_left + (ui.cursor().min.x - ui.max_rect().min.x);
+        // insert a newline if the current line has text
+        if ui.cursor().min.x > ui.max_rect().min.x {
+            ui.end_row();
+        }
 
         ui.vertical(|ui| {
             Frame::none()
