@@ -133,7 +133,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Feed > Following").clicked() {
-                        app.set_page(Page::Feed(FeedKind::Followed(false)));
+                        app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
                     }
                     ui.label("page, enjoy the feed.");
                 });
@@ -229,7 +229,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Feed > Following").clicked() {
-                        app.set_page(Page::Feed(FeedKind::Followed(false)));
+                        app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
                     }
                     ui.label("page, enjoy the feed.");
                 });

@@ -453,7 +453,9 @@ impl eframe::App for GossipUi {
                     ))
                     .clicked()
                 {
-                    self.set_page(Page::Feed(FeedKind::Followed(false)));
+                    self.set_page(Page::Feed(FeedKind::Followed(
+                        self.mainfeed_include_nonroot,
+                    )));
                 }
                 ui.separator();
                 if ui
