@@ -590,9 +590,13 @@ impl GossipUi {
 
     /// A display name for a `DbPerson`
     pub fn display_name_from_dbperson(dbperson: &DbPerson) -> String {
-        match dbperson.display_name() {
-            Some(name) => name.to_owned(),
-            None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
+        if dbperson.muted == 1 {
+            "{MUTED PERSON}".to_owned()
+        } else {
+            match dbperson.display_name() {
+                Some(name) => name.to_owned(),
+                None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
+            }
         }
     }
 
@@ -616,8 +620,9 @@ impl GossipUi {
             let name = GossipUi::display_name_from_dbperson(person);
 
             ui.menu_button(&name, |ui| {
-                if ui.button("Mute").clicked() {
-                    GLOBALS.people.mute(&person.pubkey, true);
+                let mute_label = if person.muted == 1 { "Unmute" } else { "Mute" };
+                if ui.button(mute_label).clicked() {
+                    GLOBALS.people.mute(&person.pubkey, person.muted == 0);
                 }
                 if person.followed == 0 && ui.button("Follow").clicked() {
                     GLOBALS.people.follow(&person.pubkey, true);

@@ -67,7 +67,8 @@ pub(super) fn render_note(
         // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
-            if note_data.author.muted > 0 {
+            // Completely eliminate muted posts if not viewing a thread
+            if note_data.author.muted > 0 && !threaded {
                 return;
             }
 
@@ -187,10 +188,14 @@ fn render_note_inner(
         let collapsed = app.collapsed.contains(&note.event.id);
 
         // Load avatar texture
-        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
-            avatar
-        } else {
+        let avatar = if note.author.muted > 0 {
             app.placeholder_avatar.clone()
+        } else {
+            if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
+                avatar
+            } else {
+                app.placeholder_avatar.clone()
+            }
         };
 
         // Determine avatar size
@@ -223,6 +228,8 @@ fn render_note_inner(
         };
 
         let hide_footer = if hide_footer {
+            true
+        } else if note.author.muted > 0 {
             true
         } else if parent_repost.is_none() {
             match note.repost {
@@ -473,15 +480,20 @@ fn render_note_inner(
 
             // MAIN CONTENT
             if !collapsed {
-                render_content(
-                    app,
-                    ui,
-                    ctx,
-                    note_ref.clone(),
-                    note.deletion.is_some(),
-                    content_margin_left,
-                    content_pull_top,
-                );
+
+                if note.author.muted > 0 {
+                    ui.label(RichText::new("MUTED POST").monospace().italics());
+                } else {
+                    render_content(
+                        app,
+                        ui,
+                        ctx,
+                        note_ref.clone(),
+                        note.deletion.is_some(),
+                        content_margin_left,
+                        content_pull_top,
+                    );
+                }
 
                 // deleted?
                 if let Some(delete_reason) = &note.deletion {
