@@ -1,11 +1,14 @@
-use std::{cell::{Ref, RefCell}, rc::Rc};
-use super::{GossipUi, NoteData, Page, RepostType};
 use super::shatter::{ContentSegment, Span};
+use super::{GossipUi, NoteData, Page, RepostType};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui::{self, Context};
 use egui::{RichText, Ui};
 use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag};
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+};
 
 pub(super) fn render_content(
     app: &mut GossipUi,
@@ -37,7 +40,9 @@ pub(super) fn render_content(
                                         | Some(RepostType::Kind6Mention) => {
                                             for (i, cached_id) in note.cached_mentions.iter() {
                                                 if *i == *num {
-                                                    if let Some(note_data) = app.notes.try_update_and_get(cached_id) {
+                                                    if let Some(note_data) =
+                                                        app.notes.try_update_and_get(cached_id)
+                                                    {
                                                         // TODO block additional repost recursion
                                                         super::render_repost(
                                                             app,
@@ -78,7 +83,12 @@ pub(super) fn render_content(
     ui.reset_style();
 }
 
-pub(super) fn render_nostr_url(app: &mut GossipUi, ui: &mut Ui, note: &Ref<NoteData>, nurl: &NostrUrl) {
+pub(super) fn render_nostr_url(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    note: &Ref<NoteData>,
+    nurl: &NostrUrl,
+) {
     match &nurl.0 {
         NostrBech32::Pubkey(pk) => {
             render_profile_link(app, ui, &(*pk).into());
@@ -133,7 +143,12 @@ pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &Publ
     };
 }
 
-pub(super) fn render_event_link(app: &mut GossipUi, ui: &mut Ui, referenced_by_id: Id, link_to_id: Id) {
+pub(super) fn render_event_link(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    referenced_by_id: Id,
+    link_to_id: Id,
+) {
     let idhex: IdHex = link_to_id.into();
     let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
     if ui.link(&nam).clicked() {

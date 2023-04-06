@@ -1,10 +1,10 @@
-use super::shatter::{ContentSegment, ShatteredContent, shatter_content};
+use super::shatter::{shatter_content, ContentSegment, ShatteredContent};
 use crate::{
     globals::{Globals, GLOBALS},
     people::DbPerson,
 };
-use std::{cell::RefCell, rc::Rc, collections::HashMap};
 use nostr_types::{Event, EventDelegation, EventKind, Id, NostrBech32, PublicKeyHex, Tag};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(PartialEq)]
 pub(super) enum RepostType {
@@ -273,7 +273,7 @@ impl Notes {
 
     fn _try_get_and_borrow(&self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
         if let Some(value) = self.notes.get(id) {
-            return Some(value.clone())
+            return Some(value.clone());
         }
         None
     }

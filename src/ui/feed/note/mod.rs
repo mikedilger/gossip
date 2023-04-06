@@ -2,9 +2,9 @@ mod content;
 mod notedata;
 mod shatter;
 
-use std::cell::{RefCell};
-use std::rc::Rc;
 pub use notedata::Notes;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use notedata::{NoteData, RepostType};
 
@@ -63,7 +63,6 @@ pub(super) fn render_note(
     } = feed_note_params;
 
     if let Some(note_ref) = app.notes.try_update_and_get(&id) {
-
         // FIXME respect app.settings.show_long_form on reposts
 
         if let Ok(note_data) = note_ref.try_borrow() {
@@ -119,7 +118,15 @@ pub(super) fn render_note(
                             // Inner indents first
                             app.settings.theme.feed_post_inner_indent(ui, &render_data);
 
-                            render_note_inner(app, ctx, ui, note_ref.clone(), &render_data, as_reply_to, &None);
+                            render_note_inner(
+                                app,
+                                ctx,
+                                ui,
+                                note_ref.clone(),
+                                &render_data,
+                                as_reply_to,
+                                &None,
+                            );
                         });
                     });
 
@@ -228,7 +235,8 @@ fn render_note_inner(
             }
         };
 
-        let content_pull_top = inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size;
+        let content_pull_top =
+            inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size;
 
         let content_margin_left = AVATAR_SIZE_F32 + inner_margin.left;
         let footer_margin_left = content_margin_left;
@@ -315,7 +323,8 @@ fn render_note_inner(
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.menu_button(RichText::new("=").size(13.0), |ui| {
-                        if !render_data.is_main_event && note.event.kind != EventKind::EncryptedDirectMessage
+                        if !render_data.is_main_event
+                            && note.event.kind != EventKind::EncryptedDirectMessage
                         {
                             if ui.button("View Thread").clicked() {
                                 app.set_page(Page::Feed(FeedKind::Thread {
@@ -329,7 +338,9 @@ fn render_note_inner(
                                 id: note.event.id,
                                 relays: match GLOBALS.events.get_seen_on(&note.event.id) {
                                     None => vec![],
-                                    Some(vec) => vec.iter().map(|url| url.to_unchecked_url()).collect(),
+                                    Some(vec) => {
+                                        vec.iter().map(|url| url.to_unchecked_url()).collect()
+                                    }
                                 },
                             };
                             ui.output_mut(|o| o.copied_text = event_pointer.as_bech32_string());
@@ -348,7 +359,8 @@ fn render_note_inner(
                         if ui.button("Dismiss").clicked() {
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
                         }
-                        if Some(note.event.pubkey) == GLOBALS.signer.public_key() && note.deletion.is_none()
+                        if Some(note.event.pubkey) == GLOBALS.signer.public_key()
+                            && note.deletion.is_none()
                         {
                             if ui.button("Delete").clicked() {
                                 let _ = GLOBALS
@@ -386,7 +398,9 @@ fn render_note_inner(
                         ui.add_space(4.0);
                     }
 
-                    if !render_data.is_main_event && note.event.kind != EventKind::EncryptedDirectMessage {
+                    if !render_data.is_main_event
+                        && note.event.kind != EventKind::EncryptedDirectMessage
+                    {
                         if ui
                             .button(RichText::new("◉").size(13.0))
                             .on_hover_text("View Thread")
@@ -418,15 +432,20 @@ fn render_note_inner(
                             .constrain(true)
                             .show(ctx, |ui| {
                                 ui.set_min_width(200.0);
-                                egui::Frame::popup(&app.settings.theme.get_style()).show(ui, |ui| {
-                                    if let Some(urls) = GLOBALS.events.get_seen_on(&note.event.id) {
-                                        for url in urls.iter() {
-                                            ui.label(url.as_str());
+                                egui::Frame::popup(&app.settings.theme.get_style()).show(
+                                    ui,
+                                    |ui| {
+                                        if let Some(urls) =
+                                            GLOBALS.events.get_seen_on(&note.event.id)
+                                        {
+                                            for url in urls.iter() {
+                                                ui.label(url.as_str());
+                                            }
+                                        } else {
+                                            ui.label("unknown");
                                         }
-                                    } else {
-                                        ui.label("unknown");
-                                    }
-                                });
+                                    },
+                                );
                             });
                     }
 
@@ -436,7 +455,8 @@ fn render_note_inner(
                             .weak(),
                     )
                     .on_hover_ui(|ui| {
-                        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(note.event.created_at.0)
+                        if let Ok(stamp) =
+                            time::OffsetDateTime::from_unix_timestamp(note.event.created_at.0)
                         {
                             if let Ok(formatted) =
                                 stamp.format(&time::format_description::well_known::Rfc2822)
@@ -456,7 +476,7 @@ fn render_note_inner(
                     app,
                     ui,
                     ctx,
-                    &note.repost,
+                    note_ref.clone(),
                     note.deletion.is_some(),
                     content_margin_left,
                     content_pull_top,
@@ -473,7 +493,8 @@ fn render_note_inner(
                         })
                         .show(ui, |ui| {
                             ui.label(
-                                RichText::new(format!("Deletion Reason: {}", delete_reason)).italics(),
+                                RichText::new(format!("Deletion Reason: {}", delete_reason))
+                                    .italics(),
                             );
                         });
                 }
@@ -502,10 +523,13 @@ fn render_note_inner(
                                 {
                                     if app.render_raw == Some(note.event.id) {
                                         ui.output_mut(|o| {
-                                            o.copied_text = serde_json::to_string(&note.event).unwrap()
+                                            o.copied_text =
+                                                serde_json::to_string(&note.event).unwrap()
                                         });
                                     } else {
-                                        ui.output_mut(|o| o.copied_text = note.event.content.clone());
+                                        ui.output_mut(|o| {
+                                            o.copied_text = note.event.content.clone()
+                                        });
                                     }
                                 }
 
@@ -542,7 +566,8 @@ fn render_note_inner(
                                         }
                                         let event_pointer = EventPointer {
                                             id: note.event.id,
-                                            relays: match GLOBALS.events.get_seen_on(&note.event.id) {
+                                            relays: match GLOBALS.events.get_seen_on(&note.event.id)
+                                            {
                                                 None => vec![],
                                                 Some(vec) => vec
                                                     .iter()
@@ -593,7 +618,8 @@ fn render_note_inner(
                                 // Button to render QR code
                                 if ui
                                     .add(
-                                        Label::new(RichText::new("⚃").size(16.0)).sense(Sense::click()),
+                                        Label::new(RichText::new("⚃").size(16.0))
+                                            .sense(Sense::click()),
                                     )
                                     .on_hover_text("QR Code")
                                     .clicked()
@@ -617,8 +643,10 @@ fn render_note_inner(
                                     };
                                     if ui
                                         .add(
-                                            Label::new(RichText::new(default_reaction_icon).size(20.0))
-                                                .sense(Sense::click()),
+                                            Label::new(
+                                                RichText::new(default_reaction_icon).size(20.0),
+                                            )
+                                            .sense(Sense::click()),
                                         )
                                         .clicked()
                                     {
@@ -626,9 +654,11 @@ fn render_note_inner(
                                             *GLOBALS.status_message.blocking_write() =
                                                 "Your key is not setup.".to_string();
                                         } else {
-                                            let _ = GLOBALS
-                                                .to_overlord
-                                                .send(ToOverlordMessage::Like(note.event.id, note.event.pubkey));
+                                            let _ =
+                                                GLOBALS.to_overlord.send(ToOverlordMessage::Like(
+                                                    note.event.id,
+                                                    note.event.pubkey,
+                                                ));
                                         }
                                     }
                                     for (ch, count) in note.reactions.iter() {
@@ -704,7 +734,8 @@ fn render_content(
                     } else if app.render_qr == Some(event.id) {
                         app.render_qr(ui, ctx, "feedqr", event.content.trim());
                     // FIXME should this be the unmodified content (event.content)?
-                    } else if event.content_warning().is_some() && !app.approved.contains(&event.id) {
+                    } else if event.content_warning().is_some() && !app.approved.contains(&event.id)
+                    {
                         ui.label(
                             RichText::new(format!(
                                 "Content-Warning: {}",
@@ -727,7 +758,7 @@ fn render_content(
                                     app,
                                     ui,
                                     ctx,
-                                    note_ref.clone(),
+                                    &note.repost,
                                     inner_ref,
                                     content_margin_left,
                                     bottom_of_avatar,
@@ -757,7 +788,7 @@ fn render_repost(
     app: &mut GossipUi,
     ui: &mut Ui,
     ctx: &Context,
-    parent_ref: Rc<RefCell<NoteData>>,
+    parent_repost: &Option<RepostType>,
     repost_ref: Rc<RefCell<NoteData>>,
     content_margin_left: f32,
     bottom_of_avatar: f32,
