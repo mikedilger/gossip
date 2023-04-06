@@ -261,11 +261,13 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     if show_image {
         if let Some(response) = try_render_media(app, ui, url.clone()) {
             show_link = false;
+
+            // full-width toggle
             if response.clicked() {
-                if app.settings.show_media {
-                    app.media_hide_list.insert(url.clone());
+                if app.media_full_width_list.contains(&url) {
+                    app.media_full_width_list.remove(&url);
                 } else {
-                    app.media_show_list.remove(&url);
+                    app.media_full_width_list.insert(url.clone());
                 }
             }
             hovr_response = Some(response);
@@ -384,23 +386,67 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                 if response.hovered() {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
-                let extend_area = egui::Rect{ min: response.rect.right_top(), max: response.rect.right_bottom() + egui::Vec2::new(20.0,0.0) };
+                // image button menu to the right of the image
+                static BTN_SIZE: Vec2 = Vec2 { x: 20.0, y: 20.0 };
+                static TXT_SIZE: f32 = 9.0;
+                let extend_area = egui::Rect {
+                    min: response.rect.right_top(),
+                    max: response.rect.right_bottom() + egui::Vec2::new(BTN_SIZE.x, 0.0),
+                };
+                let extend_area = extend_area.expand(10.0);
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-                    if extend_area.contains( pointer_pos ) {
-                        if ui
-                                .add(
-                                    egui::Button::new( if app.media_full_width_list.contains(&url) { "<" } else { ">" })
-                                        .fill(egui::Color32::TRANSPARENT)
-                                        .min_size(Vec2::new(20.0, ui.available_height())),
+                    if extend_area.contains(pointer_pos) {
+                        ui.add_space(3.0);
+                        ui.vertical(|ui| {
+                            if ui
+                                .add_sized(
+                                    BTN_SIZE,
+                                    egui::Button::new(
+                                        RichText::new("\u{274C}")
+                                            .size(TXT_SIZE),
+                                    ),
                                 )
                                 .clicked()
-                        {
-                            if app.media_full_width_list.contains(&url) {
-                                app.media_full_width_list.remove(&url);
-                            } else {
-                                app.media_full_width_list.insert(url.clone());
+                            {
+                                if app.settings.show_media {
+                                    app.media_hide_list.insert(url.clone());
+                                } else {
+                                    app.media_show_list.remove(&url);
+                                }
                             }
-                        }
+                            ui.add_space(3.0);
+                            if ui
+                                .add_sized(
+                                    BTN_SIZE,
+                                    egui::Button::new(
+                                        RichText::new("\u{1F310}")
+                                            .size(TXT_SIZE),
+                                    ),
+                                )
+                                .clicked()
+                            {
+                                let modifiers = ui.ctx().input(|i| i.modifiers);
+                                ui.ctx().output_mut(|o| {
+                                    o.open_url = Some(egui::output::OpenUrl {
+                                        url: url.to_string(),
+                                        new_tab: modifiers.any(),
+                                    });
+                                });
+                            }
+                            ui.add_space(3.0);
+                            if ui
+                                .add_sized(
+                                    BTN_SIZE,
+                                    egui::Button::new(
+                                        RichText::new("\u{1F4CB}")
+                                            .size(TXT_SIZE),
+                                    ),
+                                )
+                                .clicked()
+                            {
+                                ui.output_mut(|o| o.copied_text = url.to_string());
+                            }
+                        });
                     }
                 }
                 response_return = Some(response);
