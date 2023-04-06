@@ -1,7 +1,6 @@
 use super::{GossipUi, NoteData, Page, RepostType};
-use crate::{feed::FeedKind};
+use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
-use crate::ui::widgets::break_anywhere_hyperlink_to;
 use eframe::{
     egui::{self, Image, Response},
     epaint::Vec2,
@@ -174,8 +173,7 @@ pub(super) fn render_content(
                 }
             }
             ContentSegment::Hyperlink(link) => {
-                let lowercase = link.to_lowercase();
-                if let Some(image_url) = as_image_url(app, &lowercase) {
+                if let Some(image_url) = as_image_url(app, &link) {
                     show_image_toggle(app, ui, image_url);
                 //} else if is_video_url(&lowercase) {
                 // TODO
@@ -224,11 +222,12 @@ fn render_event_link(app: &mut GossipUi, ui: &mut Ui, note: &NoteData, id: &Id) 
 }
 
 fn is_image_url(url: &str) -> bool {
-    url.ends_with(".jpg")
-        || url.ends_with(".jpeg")
-        || url.ends_with(".png")
-        || url.ends_with(".gif")
-        || url.ends_with(".webp")
+    let lower = url.to_lowercase();
+    lower.ends_with(".jpg")
+        || lower.ends_with(".jpeg")
+        || lower.ends_with(".png")
+        || lower.ends_with(".gif")
+        || lower.ends_with(".webp")
 }
 
 fn as_image_url(app: &mut GossipUi, url: &str) -> Option<Url> {
@@ -241,10 +240,11 @@ fn as_image_url(app: &mut GossipUi, url: &str) -> Option<Url> {
 
 /*
 fn is_video_url(url: &str) -> bool {
-    url.ends_with(".mov")
-        || url.ends_with(".mp4")
-        || url.ends_with(".mkv")
-        || url.ends_with(".webm")
+    let lower = url.to_lowercase();
+    lower.ends_with(".mov")
+        || lower.ends_with(".mp4")
+        || lower.ends_with(".mkv")
+        || lower.ends_with(".webm")
 }
  */
 
@@ -254,8 +254,9 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     let mut show_link = true;
     let mut hovr_response = None;
 
-    let show_image = (app.settings.show_media && !app.media_hide_list.contains(&url)) ||
-        (!app.settings.show_media && app.media_show_list.contains(&url));
+    // FIXME show/hide lists should persist app restarts
+    let show_image = (app.settings.show_media && !app.media_hide_list.contains(&url))
+        || (!app.settings.show_media && app.media_show_list.contains(&url));
 
     if show_image {
         if let Some(response) = try_render_media(app, ui, url.clone()) {
@@ -273,8 +274,12 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
 
     if show_link {
         let response = ui.link("[ Image ]");
-        if !app.settings.load_media {
-            response.clone().on_hover_text("Setting 'Fetch media' is disabled");
+        if app.settings.load_media {
+            response.clone().on_hover_text(url_string.clone());
+        } else {
+            response
+                .clone()
+                .on_hover_text("Setting 'Fetch media' is disabled");
         }
         if response.clicked() {
             if app.settings.show_media {
@@ -286,9 +291,10 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
         hovr_response = Some(response);
     }
 
+    // from here handle both responses the same, image or link
     if let Some(response) = hovr_response {
         response.context_menu(|ui| {
-            if ui.button("open in browser").clicked() {
+            if ui.button("Open in browser").clicked() {
                 let modifiers = ui.ctx().input(|i| i.modifiers);
                 ui.ctx().output_mut(|o| {
                     o.open_url = Some(egui::output::OpenUrl {
@@ -297,10 +303,10 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                     });
                 });
             }
-            if ui.button("copy URL").clicked() {
+            if ui.button("Copy URL").clicked() {
                 ui.output_mut(|o| o.copied_text = url_string);
             }
-            if ui.button("try reload").clicked() {
+            if ui.button("Try reload ...").clicked() {
                 app.retry_media(&url);
             }
         });
@@ -310,20 +316,24 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
 
     // workaround for egui bug where image enlarges the cursor height
     ui.set_row_height(row_height);
-
-    // now show a small hyperlink to the image
-    // break_anywhere_hyperlink_to(ui, RichText::new(url_string.clone()).small(), url_string);
 }
 
 /// Try to fetch and render a piece of media
 ///  - return: true if successfully rendered, false otherwise
 fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
     let mut response_return = None;
-    if let Some(media) = app.try_get_media(ui.ctx(), url) {
-        let ui_max = Vec2::new(
-            ui.available_width(),
-            ui.ctx().screen_rect().height() / 4.0,
-        );
+    if let Some(media) = app.try_get_media(ui.ctx(), url.clone()) {
+        let ui_max = if app.media_full_width_list.contains(&url) {
+            Vec2::new(
+                ui.available_width() * 0.9,
+                ui.ctx().screen_rect().height() * 0.9,
+            )
+        } else {
+            Vec2::new(
+                ui.available_width() / 2.0,
+                ui.ctx().screen_rect().height() / 3.0,
+            )
+        };
         let msize = media.size_vec2();
         let aspect = media.aspect_ratio();
 
@@ -362,21 +372,36 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
         egui::Frame::none()
             .inner_margin(egui::Margin::same(0.0))
             .outer_margin(egui::Margin {
-                top: ui.available_height(), // line height
+                top: 10.0,
                 left: 0.0,
                 right: 0.0,
-                bottom: ui.available_height(), // line height
+                bottom: 10.0,
             })
-            .fill(egui::Color32::GRAY)
+            .fill(egui::Color32::TRANSPARENT)
             .rounding(ui.style().noninteractive().rounding)
-            .stroke(egui::Stroke {
-                width: 1.0,
-                color: egui::Color32::DARK_GRAY,
-            })
             .show(ui, |ui| {
                 let response = ui.add(Image::new(&media, size).sense(egui::Sense::click()));
                 if response.hovered() {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
+                let extend_area = egui::Rect{ min: response.rect.right_top(), max: response.rect.right_bottom() + egui::Vec2::new(20.0,0.0) };
+                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
+                    if extend_area.contains( pointer_pos ) {
+                        if ui
+                                .add(
+                                    egui::Button::new( if app.media_full_width_list.contains(&url) { "<" } else { ">" })
+                                        .fill(egui::Color32::TRANSPARENT)
+                                        .min_size(Vec2::new(20.0, ui.available_height())),
+                                )
+                                .clicked()
+                        {
+                            if app.media_full_width_list.contains(&url) {
+                                app.media_full_width_list.remove(&url);
+                            } else {
+                                app.media_full_width_list.insert(url.clone());
+                            }
+                        }
+                    }
                 }
                 response_return = Some(response);
             });
