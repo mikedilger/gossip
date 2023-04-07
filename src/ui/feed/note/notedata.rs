@@ -4,11 +4,7 @@ use crate::{
     people::DbPerson,
 };
 use nostr_types::{Event, EventDelegation, EventKind, Id, NostrBech32, PublicKeyHex, Tag};
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::Rc
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(PartialEq)]
 pub(super) enum RepostType {
@@ -223,7 +219,8 @@ impl Notes {
 
     /// Drop all NoteData for a given person
     pub(in crate::ui) fn cache_invalidate_person(&mut self, pubkey: &PublicKeyHex) {
-        self.notes.retain(|_,note| note.borrow().author.pubkey != *pubkey);
+        self.notes
+            .retain(|_, note| note.borrow().author.pubkey != *pubkey);
     }
 
     pub(super) fn try_update_and_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {

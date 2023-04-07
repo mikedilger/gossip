@@ -227,9 +227,7 @@ fn render_note_inner(
             }
         };
 
-        let hide_footer = if hide_footer {
-            true
-        } else if note.author.muted > 0 {
+        let hide_footer = if hide_footer || note.author.muted > 0 {
             true
         } else if parent_repost.is_none() {
             match note.repost {
@@ -480,7 +478,6 @@ fn render_note_inner(
 
             // MAIN CONTENT
             if !collapsed {
-
                 if note.author.muted > 0 {
                     ui.label(RichText::new("MUTED POST").monospace().italics());
                 } else {

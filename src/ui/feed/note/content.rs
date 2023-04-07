@@ -2,13 +2,13 @@ use super::shatter::{ContentSegment, Span};
 use super::{GossipUi, NoteData, Page, RepostType};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
+use eframe::egui::Context;
 use eframe::{
     egui::{self, Image, Response},
     epaint::Vec2,
 };
 use egui::{RichText, Ui};
 use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag, Url};
-use eframe::egui::Context;
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -109,7 +109,12 @@ pub(super) fn render_nostr_url(
     }
 }
 
-pub(super) fn render_hyperlink(app: &mut GossipUi, ui: &mut Ui, note: &Ref<NoteData>, linkspan: &Span) {
+pub(super) fn render_hyperlink(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    note: &Ref<NoteData>,
+    linkspan: &Span,
+) {
     let link = note.shattered_content.slice(linkspan).unwrap();
     if let Some(image_url) = as_image_url(app, link) {
         show_image_toggle(app, ui, image_url);
