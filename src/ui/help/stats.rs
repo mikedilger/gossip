@@ -6,7 +6,6 @@ use humansize::{format_size, DECIMAL};
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-
     ui.add_space(24.0);
     ui.heading("Statistics".to_string());
     ui.add_space(12.0);
@@ -14,44 +13,34 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
 
     ui.add_space(10.0);
 
-    ScrollArea::vertical()
-        .show(ui, |ui| {
+    ScrollArea::vertical().show(ui, |ui| {
+        ui.add_space(10.0);
 
-            ui.add_space(10.0);
+        ui.label(format!(
+            "Total Bytes Read: {}",
+            format_size(GLOBALS.bytes_read.load(Ordering::Relaxed), DECIMAL)
+        ));
 
-            ui.label(format!(
-                "Total Bytes Read: {}",
-                format_size(GLOBALS.bytes_read.load(Ordering::Relaxed), DECIMAL)
-            ));
+        ui.add_space(6.0);
 
-            ui.add_space(6.0);
+        ui.label(format!(
+            "HTTP Requests in flight: {}",
+            GLOBALS.fetcher.requests_in_flight.load(Ordering::Relaxed)
+        ));
 
-            ui.label(format!(
-                "HTTP Requests in flight: {}",
-                GLOBALS.fetcher.requests_in_flight.load(Ordering::Relaxed)
-            ));
+        ui.add_space(6.0);
 
-            ui.add_space(6.0);
+        ui.label(format!("Events in memory: {}", GLOBALS.events.len()));
 
-            ui.label(format!(
-                "Events in memory: {}",
-                GLOBALS.events.len()
-            ));
+        ui.add_space(6.0);
 
-            ui.add_space(6.0);
+        ui.label(format!("People in memory: {}", GLOBALS.people.len()));
 
-            ui.label(format!(
-                "People in memory: {}",
-                GLOBALS.people.len()
-            ));
+        ui.add_space(6.0);
 
-            ui.add_space(6.0);
-
-            ui.label(format!(
-                "Number of known relays: {}",
-                GLOBALS.all_relays.len()
-            ));
-        });
+        ui.label(format!(
+            "Number of known relays: {}",
+            GLOBALS.all_relays.len()
+        ));
+    });
 }
-
-

@@ -154,7 +154,6 @@ impl Fetcher {
             return Err((format!("Fetcher is dead: {}", reason), file!(), line!()).into());
         }
 
-
         let client = GLOBALS.fetcher.client.clone();
 
         GLOBALS
