@@ -112,11 +112,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     );
 
                     ui.checkbox(
-                        &mut app.settings.show_first_mention,
-                        "Enable first mention (show)",
-                    );
-
-                    ui.checkbox(
                         &mut app.settings.direct_messages,
                         "Show Direct Messages",
                     )
@@ -127,6 +122,27 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         "Show Long-Form Posts",
                     )
                         .on_hover_text("Takes effect fully only on restart.");
+
+                    ui.add_space(12.0);
+                    ui.separator();
+                    ui.add_space(12.0);
+
+                    ui.heading("Post look-and-feel");
+
+                    ui.checkbox(
+                        &mut app.settings.show_mentions,
+                        "Render mentions inline",
+                    )
+                        .on_disabled_hover_text("Enable to render a mentioned post where it appears in the text")
+                        .on_hover_text("Disable to just show a link to a mentioned post where it appears in the text");
+
+                    ui.checkbox(
+                        &mut app.settings.show_media,
+                        "Render media inline",
+                    )
+                        .on_disabled_hover_text("Enable to show media inline by default (click on media to hide it)")
+                        .on_hover_text("Disable to hide media by default (click on the media placeholder to show it)");
+
 
                     ui.add_space(12.0);
                     ui.separator();
@@ -163,6 +179,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                     ui.checkbox(&mut app.settings.load_avatars, "Fetch Avatars")
                         .on_hover_text("If disabled, avatars will not be fetched, but cached avatars will still display. Takes effect on save.");
+
+                    ui.checkbox(&mut app.settings.load_media, "Fetch Media")
+                        .on_hover_text("If disabled, no new media will be fetched, but cached media will still display. Takes effect on save.");
 
                     ui.checkbox(&mut app.settings.check_nip05, "Check NIP-05")
                         .on_hover_text("If disabled, NIP-05 fetches will not be performed, but existing knowledge will be preserved, and following someone by NIP-05 will override this and do the fetch. Takes effect on save.");

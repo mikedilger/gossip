@@ -37,7 +37,7 @@ use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl};
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -139,6 +139,13 @@ struct GossipUi {
     placeholder_avatar: TextureHandle,
     settings: Settings,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
+    media: HashMap<Url, TextureHandle>,
+    /// used when settings.show_media=false to explicitly show
+    media_show_list: HashSet<Url>,
+    /// used when settings.show_media=false to explicitly hide
+    media_hide_list: HashSet<Url>,
+    /// media that the user has selected to show full-width
+    media_full_width_list: HashSet<Url>,
 
     // Search result
     search_result: String,
@@ -235,7 +242,7 @@ impl GossipUi {
         };
 
         let placeholder_avatar_texture_handle = {
-            let bytes = include_bytes!("../../placeholder_avatar.png");
+            let bytes = include_bytes!("../../assets/placeholder_avatar.png");
             let image = image::load_from_memory(bytes).unwrap();
             let size = [image.width() as _, image.height() as _];
             let image_buffer = image.to_rgba8();
@@ -246,6 +253,19 @@ impl GossipUi {
                 TextureOptions::default(), // magnification, minification
             )
         };
+
+        // how to load an svg
+        // let expand_right_symbol = {
+        //     let bytes = include_bytes!("../../assets/expand-image.svg");
+        //     let color_image = egui_extras::image::load_svg_bytes_with_size(
+        //         bytes,
+        //         egui_extras::image::FitTo::Size(200, 1000),
+        //     ).unwrap();
+        //     cctx.egui_ctx.load_texture(
+        //         "expand_right_symbol",
+        //         color_image,
+        //         TextureOptions::default())
+        // };
 
         let current_dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;
         let (override_dpi, override_dpi_value): (bool, u32) = match settings.override_dpi {
@@ -285,6 +305,10 @@ impl GossipUi {
             placeholder_avatar: placeholder_avatar_texture_handle,
             settings,
             avatars: HashMap::new(),
+            media: HashMap::new(),
+            media_show_list: HashSet::new(),
+            media_hide_list: HashSet::new(),
+            media_full_width_list: HashSet::new(),
             search_result: "".to_owned(),
             draft: "".to_owned(),
             draft_needs_focus: false,
@@ -689,6 +713,41 @@ impl GossipUi {
             );
             self.avatars
                 .insert(pubkeyhex.to_owned(), texture_handle.clone());
+            Some(texture_handle)
+        } else {
+            None
+        }
+    }
+
+    pub fn try_check_url(&self, url_string: &str) -> Option<Url> {
+        let unchecked_url = UncheckedUrl(url_string.to_owned());
+        GLOBALS.media.check_url(unchecked_url)
+    }
+
+    pub fn retry_media(&self, url: &Url) {
+        GLOBALS.media.retry_failed(&url.to_unchecked_url());
+    }
+
+    pub fn has_media_loading_failed(&self, url_string: &str) -> bool {
+        let unchecked_url = UncheckedUrl(url_string.to_owned());
+        GLOBALS.media.has_failed(&unchecked_url)
+    }
+
+    pub fn try_get_media(&mut self, ctx: &Context, url: Url) -> Option<TextureHandle> {
+        // Do not keep retrying if failed
+        if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
+            return None;
+        }
+
+        // see if we already have a texturehandle for this media
+        if let Some(th) = self.media.get(&url) {
+            return Some(th.to_owned());
+        }
+
+        if let Some(color_image) = GLOBALS.media.get_media(&url) {
+            let texture_handle =
+                ctx.load_texture(url.0.clone(), color_image, TextureOptions::default());
+            self.media.insert(url, texture_handle.clone());
             Some(texture_handle)
         } else {
             None
