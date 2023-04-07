@@ -133,16 +133,19 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         &mut app.settings.show_mentions,
                         "Render mentions inline",
                     )
-                        .on_disabled_hover_text("Enable to render a mentioned post where it appears in the text")
-                        .on_hover_text("Disable to just show a link to a mentioned post where it appears in the text");
+                        .on_hover_text(if app.settings.show_mentions {
+                            "Disable to just show a link to a mentioned post where it appears in the text"
+                        } else {
+                            "Enable to render a mentioned post where it appears in the text"
+                        });
 
                     ui.checkbox(
                         &mut app.settings.show_media,
-                        "Render media inline",
+                        "Render all media inline automatically",
                     )
-                        .on_disabled_hover_text("Enable to show media inline by default (click on media to hide it)")
-                        .on_hover_text("Disable to hide media by default (click on the media placeholder to show it)");
-
+                        .on_hover_text(
+                            "If off, you have to click to (potentially fetch and) render media inline. If on, all media referenced by posts in your feed will be (potentially fetched and) rendered. However, if Fetch Media is disabled, only cached media can be shown as media will not be fetched."
+                        );
 
                     ui.add_space(12.0);
                     ui.separator();
