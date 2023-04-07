@@ -143,6 +143,10 @@ impl People {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.people.len()
+    }
+
     // Start the periodic task management
     pub fn start() {
         task::spawn(async {

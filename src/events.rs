@@ -28,6 +28,10 @@ impl Events {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.events.len()
+    }
+
     pub fn insert(&self, event: Event, seen_on: Option<RelayUrl>) {
         // Add seen on
         if let Some(url) = seen_on {
