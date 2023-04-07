@@ -30,10 +30,14 @@ pub struct Fetcher {
 
 impl Fetcher {
     pub fn new() -> Fetcher {
+        let connect_timeout = std::time::Duration::new(30, 0);
+        let timeout = std::time::Duration::new(300, 0);
         let client = match Client::builder()
             .gzip(true)
             .brotli(true)
             .deflate(true)
+            .connect_timeout(connect_timeout)
+            .timeout(timeout)
             .build()
         {
             Ok(c) => c,
@@ -150,7 +154,6 @@ impl Fetcher {
             return Err((format!("Fetcher is dead: {}", reason), file!(), line!()).into());
         }
 
-        let timeout = std::time::Duration::new(60, 0);
 
         let client = GLOBALS.fetcher.client.clone();
 
@@ -160,7 +163,7 @@ impl Fetcher {
             .fetch_add(1, Ordering::SeqCst);
 
         // Fetch the resource
-        let req = client.get(&url.0).timeout(timeout);
+        let req = client.get(&url.0);
 
         let req = if GLOBALS.settings.read().set_user_agent {
             req.header("User-Agent", USER_AGENT)
