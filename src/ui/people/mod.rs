@@ -49,7 +49,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             if ui
                 .add(SelectableLabel::new(
                     app.page == Page::Person(person.pubkey.clone()),
-                    get_name(person),
+                    GossipUi::display_name_from_dbperson(person),
                 ))
                 .clicked()
             {
@@ -142,7 +142,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         };
 
                         ui.vertical(|ui| {
-                            ui.label(RichText::new(GossipUi::pubkey_short(&person.pubkey)).weak());
+                            ui.label(
+                                RichText::new(GossipUi::pubkeyhex_convert_short(&person.pubkey))
+                                    .weak(),
+                            );
                             GossipUi::render_person_name_line(app, ui, person);
                         });
                     });
@@ -158,13 +161,5 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         muted::update(app, ctx, _frame, ui);
     } else if matches!(app.page, Page::Person(_)) {
         person::update(app, ctx, _frame, ui);
-    }
-}
-
-fn get_name(person: &DbPerson) -> String {
-    if let Some(name) = person.name() {
-        name.to_owned()
-    } else {
-        GossipUi::pubkey_short(&person.pubkey)
     }
 }

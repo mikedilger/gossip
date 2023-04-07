@@ -61,8 +61,9 @@ fn content(
             },
         );
         ui.vertical(|ui| {
-            ui.heading(get_name(&person));
-            ui.label(RichText::new(GossipUi::pubkey_short(&pubkeyhex)).weak());
+            let name = GossipUi::display_name_from_dbperson(&person);
+            ui.heading(name);
+            ui.label(RichText::new(GossipUi::pubkeyhex_convert_short(&pubkeyhex)).weak());
             GossipUi::render_person_name_line(app, ui, &person);
         });
     });
@@ -196,13 +197,5 @@ fn content(
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::SetActivePerson(pubkeyhex.clone()));
-    }
-}
-
-fn get_name(person: &DbPerson) -> String {
-    if let Some(name) = person.name() {
-        name.to_owned()
-    } else {
-        GossipUi::pubkey_short(&person.pubkey)
     }
 }

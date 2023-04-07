@@ -43,6 +43,8 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
+use self::feed::Notes;
+
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
     let icon = image::load_from_memory(icon_bytes)?.to_rgba8();
@@ -112,6 +114,9 @@ struct GossipUi {
     // the f32's are the recommended image size
     qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
 
+    // Processed events caching
+    notes: Notes,
+
     // Post rendering
     render_raw: Option<Id>,
     render_qr: Option<Id>,
@@ -148,6 +153,7 @@ struct GossipUi {
     // User entry: posts
     draft: String,
     draft_needs_focus: bool,
+    draft_repost: Option<Id>,
     tag_someone: String,
     include_subject: bool,
     subject: String,
@@ -283,6 +289,7 @@ impl GossipUi {
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
+            notes: Notes::new(),
             render_raw: None,
             render_qr: None,
             approved: HashSet::new(),
@@ -305,6 +312,7 @@ impl GossipUi {
             search_result: "".to_owned(),
             draft: "".to_owned(),
             draft_needs_focus: false,
+            draft_repost: None,
             tag_someone: "".to_owned(),
             include_subject: false,
             subject: "".to_owned(),
@@ -401,6 +409,7 @@ impl GossipUi {
 
     fn clear_post(&mut self) {
         self.draft = "".to_owned();
+        self.draft_repost = None;
         self.tag_someone = "".to_owned();
         self.include_subject = false;
         self.subject = "".to_owned();
@@ -468,7 +477,9 @@ impl eframe::App for GossipUi {
                     ))
                     .clicked()
                 {
-                    self.set_page(Page::Feed(FeedKind::Followed(false)));
+                    self.set_page(Page::Feed(FeedKind::Followed(
+                        self.mainfeed_include_nonroot,
+                    )));
                 }
                 ui.separator();
                 if ui
@@ -572,7 +583,14 @@ impl eframe::App for GossipUi {
 }
 
 impl GossipUi {
-    pub fn hex_pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
+    /// A short rendering of a `PublicKey`
+    pub fn pubkey_short(pk: &PublicKey) -> String {
+        let npub = pk.as_bech32_string();
+        format!("{}…", &npub.get(0..20).unwrap_or("????????????????????"))
+    }
+
+    /// A short rendering of a `PublicKeyHex`
+    pub fn pubkeyhex_short(pubkeyhex: &PublicKeyHex) -> String {
         format!(
             "{}_{}...{}_{}",
             &pubkeyhex.as_str()[0..4],
@@ -582,18 +600,36 @@ impl GossipUi {
         )
     }
 
-    pub fn pubkey_short(pubkeyhex: &PublicKeyHex) -> String {
+    /// A short rendering of a `PublicKeyHex`, with attempt to convert to bech32
+    pub fn pubkeyhex_convert_short(pubkeyhex: &PublicKeyHex) -> String {
         match PublicKey::try_from_hex_string(pubkeyhex) {
-            Err(_) => GossipUi::hex_pubkey_short(pubkeyhex),
-            Ok(pk) => {
-                let npub = pk.as_bech32_string();
-                format!("{}…", &npub.get(0..20).unwrap_or("????????????????????"))
-            }
+            Ok(pk) => Self::pubkey_short(&pk),
+            Err(_) => GossipUi::pubkeyhex_short(pubkeyhex),
         }
     }
 
     pub fn hex_id_short(idhex: &IdHex) -> String {
         idhex.as_str()[0..8].to_string()
+    }
+
+    /// A display name for a `DbPerson`
+    pub fn display_name_from_dbperson(dbperson: &DbPerson) -> String {
+        if dbperson.muted == 1 {
+            "{MUTED PERSON}".to_owned()
+        } else {
+            match dbperson.display_name() {
+                Some(name) => name.to_owned(),
+                None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
+            }
+        }
+    }
+
+    /// A display name for a `PublicKeyHex`, via trying to lookup the person
+    pub fn display_name_from_pubkeyhex_lookup(pkh: &PublicKeyHex) -> String {
+        match GLOBALS.people.get(pkh) {
+            Some(dbperson) => Self::display_name_from_dbperson(&dbperson),
+            None => Self::pubkeyhex_convert_short(pkh),
+        }
     }
 
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
@@ -605,15 +641,12 @@ impl GossipUi {
         }
 
         ui.horizontal_wrapped(|ui| {
-            let name = if let Some(name) = person.display_name() {
-                name.to_owned()
-            } else {
-                GossipUi::pubkey_short(&person.pubkey)
-            };
+            let name = GossipUi::display_name_from_dbperson(person);
 
             ui.menu_button(&name, |ui| {
-                if ui.button("Mute").clicked() {
-                    GLOBALS.people.mute(&person.pubkey, true);
+                let mute_label = if person.muted == 1 { "Unmute" } else { "Mute" };
+                if ui.button(mute_label).clicked() {
+                    GLOBALS.people.mute(&person.pubkey, person.muted == 0);
                 }
                 if person.followed == 0 && ui.button("Follow").clicked() {
                     GLOBALS.people.follow(&person.pubkey, true);

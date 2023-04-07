@@ -29,6 +29,7 @@ pub enum ToOverlordMessage {
     PushFollow,
     PushMetadata(Metadata),
     RefreshFollowedMetadata,
+    Repost(Id),
     RankRelay(RelayUrl, u8),
     SaveSettings,
     SetActivePerson(PublicKeyHex),
