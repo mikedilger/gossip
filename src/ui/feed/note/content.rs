@@ -349,6 +349,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                                     BTN_SIZE,
                                     egui::Button::new(RichText::new("\u{274C}").size(TXT_SIZE)),
                                 )
+                                .on_hover_text("Hide (return to a link)")
                                 .clicked()
                             {
                                 if app.settings.show_media {
@@ -363,6 +364,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                                     BTN_SIZE,
                                     egui::Button::new(RichText::new("\u{1F310}").size(TXT_SIZE)),
                                 )
+                                .on_hover_text("View in Browser")
                                 .clicked()
                             {
                                 let modifiers = ui.ctx().input(|i| i.modifiers);
@@ -379,6 +381,7 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                                     BTN_SIZE,
                                     egui::Button::new(RichText::new("\u{1F4CB}").size(TXT_SIZE)),
                                 )
+                                .on_hover_text("Copy URL")
                                 .clicked()
                             {
                                 ui.output_mut(|o| o.copied_text = url.to_string());
