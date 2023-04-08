@@ -513,6 +513,12 @@ impl Overlord {
                 password.zeroize();
                 GLOBALS.signer.save_through_settings().await?;
             }
+            ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
+                if let Some(mut relay) = GLOBALS.all_relays.get_mut(&relay_url) {
+                    relay.value_mut().hidden = hidden;
+                }
+                DbRelay::update_hidden(relay_url, hidden).await?;
+            }
             ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
                 if import_priv.starts_with("ncryptsec") {
                     let epk = EncryptedPrivateKey(import_priv);

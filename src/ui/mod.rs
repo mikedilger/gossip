@@ -181,6 +181,7 @@ struct GossipUi {
     import_priv: String,
     import_pub: String,
     new_relay_url: String,
+    show_hidden_relays: bool,
     search: String,
     entering_search_page: bool,
 
@@ -334,6 +335,7 @@ impl GossipUi {
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
             new_relay_url: "".to_owned(),
+            show_hidden_relays: false,
             search: "".to_owned(),
             entering_search_page: false,
             collapsed: vec![],

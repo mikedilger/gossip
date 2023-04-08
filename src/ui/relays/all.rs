@@ -33,6 +33,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .to_overlord
                 .send(ToOverlordMessage::AdvertiseRelayList);
         }
+        ui.checkbox(
+            &mut app.show_hidden_relays,
+            "Show hidden relays"
+        );
     });
 
     ui.add_space(10.0);
@@ -45,6 +49,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .all_relays
         .iter()
         .map(|ri| ri.value().clone())
+        .filter(|ri| app.show_hidden_relays || !ri.hidden)
         .collect();
     relays.sort_by(|a, b| b.write.cmp(&a.write).then(a.url.cmp(&b.url)));
 
@@ -63,6 +68,7 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
         TableBuilder::new(ui)
             .striped(true)
             .column(Column::auto_with_initial_suggestion(250.0).resizable(true))
+            .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
@@ -103,6 +109,10 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                 header.col(|ui| {
                     ui.heading("Read rank")
                         .on_hover_text("How likely we will connect to relays to read other people's posts, from 0 (never) to 9 (highly). Default is 3.".to_string());
+                });
+                header.col(|ui| {
+                    ui.heading("Hide")
+                        .on_hover_text("Hide this relay.".to_string());
                 });
             }).body(|body| {
                 body.rows(24.0, relays.len(), |row_index, mut row| {
@@ -175,6 +185,14 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                                     .send(ToOverlordMessage::RankRelay(relay.url.clone(), relay.rank as u8 + 1));
                             }
                         });
+                    });
+                    row.col(|ui| {
+                        let icon = if relay.hidden { "♻️" } else { "🗑️" };
+                        if ui.button(icon).clicked() {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::HideOrShowRelay(relay.url.clone(), !relay.hidden));
+                        }
                     });
                 })
             });

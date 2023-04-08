@@ -14,6 +14,7 @@ pub struct DbRelay {
     pub read: bool,
     pub write: bool,
     pub advertise: bool,
+    pub hidden: bool,
 }
 
 impl DbRelay {
@@ -28,6 +29,7 @@ impl DbRelay {
             read: false,
             write: false,
             advertise: false,
+            hidden: false,
         }
     }
 
@@ -45,7 +47,7 @@ impl DbRelay {
 
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
         let sql = "SELECT url, success_count, failure_count, rank, last_connected_at, \
-             last_general_eose_at, read, write, advertise FROM relay"
+             last_general_eose_at, read, write, advertise, hidden FROM relay"
             .to_owned();
         let sql = match criteria {
             None => sql,
@@ -72,6 +74,7 @@ impl DbRelay {
                         read: row.get(6)?,
                         write: row.get(7)?,
                         advertise: row.get(8)?,
+                        hidden: row.get(9)?,
                     });
                 }
             }
@@ -94,8 +97,8 @@ impl DbRelay {
 
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank, \
-                   last_connected_at, last_general_eose_at, read, write, advertise) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+                   last_connected_at, last_general_eose_at, read, write, advertise, hidden) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)";
 
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
@@ -111,6 +114,7 @@ impl DbRelay {
                 &relay.read,
                 &relay.write,
                 &relay.advertise,
+                &relay.hidden,
             )));
             Ok::<(), Error>(())
         })
@@ -121,7 +125,8 @@ impl DbRelay {
 
     pub async fn update(relay: DbRelay) -> Result<(), Error> {
         let sql = "UPDATE relay SET success_count=?, failure_count=?, rank=?, \
-                   last_connected_at=?, last_general_eose_at=?, read=?, write=?, advertise=? WHERE url=?";
+                   last_connected_at=?, last_general_eose_at=?, \
+                   read=?, write=?, advertise=?, hidden=? WHERE url=?";
 
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
@@ -136,6 +141,7 @@ impl DbRelay {
                 &relay.read,
                 &relay.write,
                 &relay.advertise,
+                &relay.hidden,
                 &relay.url.0,
             )));
             Ok::<(), Error>(())
@@ -200,6 +206,19 @@ impl DbRelay {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((&advertise, &url.0)));
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    pub async fn update_hidden(url: RelayUrl, hidden: bool) -> Result<(), Error> {
+        let sql = "UPDATE relay SET hidden = ?  WHERE url = ?";
+        spawn_blocking(move || {
+            let db = GLOBALS.db.blocking_lock();
+            let mut stmt = db.prepare(sql)?;
+            rtry!(stmt.execute((&hidden, &url.0)));
             Ok::<(), Error>(())
         })
         .await??;

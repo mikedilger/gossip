@@ -16,6 +16,7 @@ pub enum ToOverlordMessage {
     FollowNip05(String),
     FollowNprofile(String),
     GeneratePrivateKey(String),
+    HideOrShowRelay(RelayUrl, bool),
     ImportPriv(String, String),
     ImportPub(String),
     Like(Id, PublicKey),
