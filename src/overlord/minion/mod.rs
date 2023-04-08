@@ -117,23 +117,32 @@ impl Minion {
                 .header("Accept", "application/nostr+json")
                 .send();
             let response = request_nip11_future.await?;
+            let status = response.status();
             match Self::text_with_charset(response, "utf-8").await {
-                Ok(text) => match serde_json::from_str::<RelayInformationDocument>(&text) {
-                    Ok(nip11) => {
-                        tracing::info!("{}: {}", &self.url, nip11);
-                        self.nip11 = Some(nip11);
+                Ok(text) => {
+                    if status.is_server_error() {
+                        tracing::warn!("{}: {}",
+                                       &self.url,
+                                       status.canonical_reason().unwrap_or(""));
+                    } else {
+                        match serde_json::from_str::<RelayInformationDocument>(&text) {
+                            Ok(nip11) => {
+                                tracing::info!("{}: {}", &self.url, nip11);
+                                self.nip11 = Some(nip11);
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "{}: Unable to parse response as NIP-11 ({}): {}",
+                                    &self.url,
+                                    e,
+                                    text
+                                );
+                            }
+                        }
                     }
-                    Err(e) => {
-                        tracing::warn!(
-                            "{}: Unable to parse response as NIP-11 ({}): {}",
-                            &self.url,
-                            e,
-                            text
-                        );
-                    }
-                },
+                }
                 Err(e) => {
-                    tracing::warn!("{}: Unable to read response: {}", &self.url, e);
+                    tracing::warn!("{}: Unable to read NIP-11 response: {}", &self.url, e);
                 }
             }
 
