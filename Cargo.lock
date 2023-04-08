@@ -2420,7 +2420,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.5.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types#69fa6e531a8e7ade1592b6bab636a1e1bb7712b0"
+source = "git+https://github.com/mikedilger/nostr-types#f065292b19f4ea1b8caf015ccf5ce0b9a99a981b"
 dependencies = [
  "aes",
  "base64 0.21.0",
@@ -2437,17 +2437,13 @@ dependencies = [
  "lazy_static",
  "num_cpus",
  "pbkdf2",
- "rand",
  "rand_core",
  "regex",
- "reqwest",
- "rpassword",
  "scrypt",
  "serde",
  "serde_json",
  "sha2",
  "thiserror",
- "tungstenite",
  "url",
  "zeroize",
 ]
@@ -3120,27 +3116,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b9de9831a129b122e7e61f242db509fa9d0838008bf0b29bb0624669edfe48a"
 dependencies = [
  "xmlparser",
-]
-
-[[package]]
-name = "rpassword"
-version = "7.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6678cf63ab3491898c0d021b493c94c9b221d91295294a2a5746eacbe5928322"
-dependencies = [
- "libc",
- "rtoolbox",
- "winapi",
-]
-
-[[package]]
-name = "rtoolbox"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "034e22c514f5c0cb8a10ff341b9b048b5ceb21591f31c8f44c43b960f9b3524a"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
