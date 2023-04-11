@@ -1,9 +1,11 @@
-use super::shatter::{shatter_content, ContentSegment, ShatteredContent};
 use crate::{
     globals::{Globals, GLOBALS},
     people::DbPerson,
 };
-use nostr_types::{Event, EventDelegation, EventKind, Id, NostrBech32, PublicKeyHex, Tag};
+use nostr_types::{
+    ContentSegment, Event, EventDelegation, EventKind, Id, NostrBech32, PublicKeyHex,
+    ShatteredContent, Tag,
+};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(PartialEq)]
@@ -105,7 +107,7 @@ impl NoteData {
         };
 
         // shatter content here so we can use it in our content analysis
-        let mut shattered_content = shatter_content(display_content);
+        let mut shattered_content = ShatteredContent::new(display_content);
 
         let mut has_tag_reference = false;
         let mut has_nostr_event_reference = false;

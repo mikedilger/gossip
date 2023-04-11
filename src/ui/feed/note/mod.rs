@@ -1,6 +1,5 @@
 mod content;
 mod notedata;
-mod shatter;
 
 pub use notedata::Notes;
 use std::cell::RefCell;

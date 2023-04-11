@@ -1,4 +1,3 @@
-use super::shatter::{ContentSegment, Span};
 use super::{GossipUi, NoteData, Page, RepostType};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
@@ -8,7 +7,7 @@ use eframe::{
     epaint::Vec2,
 };
 use egui::{RichText, Ui};
-use nostr_types::{Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Tag, Url};
+use nostr_types::{ContentSegment, Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
