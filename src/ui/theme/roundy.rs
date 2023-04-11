@@ -470,8 +470,12 @@ impl ThemeDef for RoundyTheme {
     fn repost_space_above_separator_before(_post: &NoteRenderData) -> f32 {
         0.0
     }
-    fn repost_space_below_separator_before(_post: &NoteRenderData) -> f32 {
-        8.0
+    fn repost_space_below_separator_before(post: &NoteRenderData) -> f32 {
+        if !post.is_comment_mention {
+            8.0
+        } else {
+            0.0
+        }
     }
 
     fn repost_separator_after_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
@@ -484,20 +488,20 @@ impl ThemeDef for RoundyTheme {
         0.0
     }
 
-    fn repost_inner_margin(_post: &NoteRenderData) -> Margin {
+    fn repost_inner_margin(post: &NoteRenderData) -> Margin {
         Margin {
             left: 0.0,
-            top: 6.0,
+            top: if post.is_comment_mention { 6.0 } else { 0.0 },
             right: 10.0,
-            bottom: 7.0,
+            bottom: if post.is_comment_mention { 7.0 } else { 0.0 },
         }
     }
-    fn repost_outer_margin(_post: &NoteRenderData) -> Margin {
+    fn repost_outer_margin(post: &NoteRenderData) -> Margin {
         Margin {
             left: 0.0,
-            top: 12.0,
+            top: if post.is_comment_mention { 10.0 } else { 4.0 },
             right: -10.0,
-            bottom: 12.0,
+            bottom: if post.is_comment_mention { 6.0 } else { 0.0 },
         }
     }
     fn repost_rounding(post: &NoteRenderData) -> Rounding {
