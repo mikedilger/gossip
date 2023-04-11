@@ -235,7 +235,7 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
             } else {
                 app.media_show_list.insert(url.clone());
             }
-            if ! app.settings.load_media {
+            if !app.settings.load_media {
                 *GLOBALS.status_message.blocking_write() = "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned();
             }
         }

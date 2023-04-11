@@ -33,10 +33,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .to_overlord
                 .send(ToOverlordMessage::AdvertiseRelayList);
         }
-        ui.checkbox(
-            &mut app.show_hidden_relays,
-            "Show hidden relays"
-        );
+        ui.checkbox(&mut app.show_hidden_relays, "Show hidden relays");
     });
 
     ui.add_space(10.0);

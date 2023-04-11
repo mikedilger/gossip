@@ -121,9 +121,11 @@ impl Minion {
             match Self::text_with_charset(response, "utf-8").await {
                 Ok(text) => {
                     if status.is_server_error() {
-                        tracing::warn!("{}: {}",
-                                       &self.url,
-                                       status.canonical_reason().unwrap_or(""));
+                        tracing::warn!(
+                            "{}: {}",
+                            &self.url,
+                            status.canonical_reason().unwrap_or("")
+                        );
                     } else {
                         match serde_json::from_str::<RelayInformationDocument>(&text) {
                             Ok(nip11) => {
