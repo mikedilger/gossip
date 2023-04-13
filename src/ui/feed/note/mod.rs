@@ -373,6 +373,9 @@ fn render_note_inner(
                                     .send(ToOverlordMessage::DeletePost(note.event.id));
                             }
                         }
+                        if ui.button("Rerender").clicked() {
+                            app.notes.cache_invalidate_note(&note.event.id);
+                        }
                     });
                     ui.add_space(4.0);
 

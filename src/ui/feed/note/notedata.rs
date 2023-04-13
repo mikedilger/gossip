@@ -212,12 +212,10 @@ impl Notes {
     }
      */
 
-    /*
     /// Drop NoteData for a specific note
     pub(super) fn cache_invalidate_note(&mut self, id: &Id) {
         self.notes.remove(id);
     }
-     */
 
     /// Drop all NoteData for a given person
     pub(in crate::ui) fn cache_invalidate_person(&mut self, pubkey: &PublicKeyHex) {
