@@ -102,6 +102,28 @@ impl Overlord {
         // Load followed people from the database
         GLOBALS.people.load_all_followed().await?;
 
+        // Load contact list from the database
+        if let Some(pk) = GLOBALS.signer.public_key() {
+            if let Some(event) = DbEvent::fetch_latest_contact_list(pk.into()).await? {
+                crate::process::process_new_event(&event, false, None, None).await?;
+            }
+        }
+
+        // Load last_contact_list_edit
+        {
+            let db = GLOBALS.db.lock().await;
+            if let Ok(last_edit) = db.query_row(
+                "SELECT last_contact_list_edit FROM local_settings LIMIT 1",
+                [],
+                |row| row.get::<usize, i64>(0),
+            ) {
+                GLOBALS
+                    .people
+                    .last_contact_list_edit
+                    .store(last_edit, Ordering::Relaxed);
+            }
+        }
+
         // Load delegation tag
         GLOBALS.delegation.load_through_settings()?;
 
@@ -585,11 +607,8 @@ impl Overlord {
             ToOverlordMessage::Post(content, tags, reply_to) => {
                 self.post(content, tags, reply_to).await?;
             }
-            ToOverlordMessage::PullFollowMerge => {
-                self.pull_following(true).await?;
-            }
-            ToOverlordMessage::PullFollowOverwrite => {
-                self.pull_following(false).await?;
+            ToOverlordMessage::PullFollow => {
+                self.pull_following().await?;
             }
             ToOverlordMessage::PushFollow => {
                 self.push_following().await?;
@@ -650,6 +669,9 @@ impl Overlord {
                 GLOBALS.settings.write().public_key = Some(public_key);
                 let settings = GLOBALS.settings.read().clone();
                 settings.save().await?;
+            }
+            ToOverlordMessage::UpdateFollowing(merge) => {
+                self.update_following(merge).await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let best_relays =
@@ -1052,17 +1074,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn pull_following(&mut self, merge: bool) -> Result<(), Error> {
-        // Set globally whether we are merging or not when newer following lists
-        // come in.
-        GLOBALS.pull_following_merge.store(merge, Ordering::Relaxed);
-
-        // Force re-evaluation of the contact list events
-        GLOBALS
-            .people
-            .last_contact_list_asof
-            .store(0, Ordering::Relaxed);
-
+    async fn pull_following(&mut self) -> Result<(), Error> {
         // Pull our list from all of the relays we post to
         let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
 
@@ -1080,9 +1092,6 @@ impl Overlord {
                 payload: ToMinionPayload::PullFollowing,
             });
         }
-
-        // When the event comes in, process will handle it with our global
-        // merge preference.
 
         Ok(())
     }
@@ -1528,6 +1537,90 @@ impl Overlord {
                 target: url.0.clone(),
                 payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
             });
+        }
+
+        Ok(())
+    }
+
+    // This updates the actual following list (based on the follow flag in the person table)
+    // from the last ContactList received
+    async fn update_following(&mut self, merge: bool) -> Result<(), Error> {
+        // Load the latest contact list from the database
+        let event = {
+            let pubkey = match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => return Ok(()), // we cannot do anything without an identity setup first
+            };
+            match DbEvent::fetch_latest_contact_list(pubkey.into()).await? {
+                Some(event) => event,
+                None => return Ok(()), // we have no contact list to update from
+            }
+        };
+
+        let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
+
+        let now = Unixtime::now().unwrap();
+
+        // 'p' tags represent the author's contacts
+        for tag in &event.tags {
+            if let Tag::Pubkey {
+                pubkey,
+                recommended_relay_url,
+                petname: _,
+            } = tag
+            {
+                // Save the pubkey for actual following them (outside of the loop in a batch)
+                pubkeys.push(pubkey.to_owned());
+
+                // If there is a URL, create or update person_relay last_suggested_kind3
+                if let Some(url) = recommended_relay_url
+                    .as_ref()
+                    .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
+                {
+                    DbPersonRelay::upsert_last_suggested_kind3(
+                        pubkey.to_string(),
+                        url,
+                        now.0 as u64,
+                    )
+                    .await?;
+                }
+
+                // TBD: do something with the petname
+            }
+        }
+
+        // Follow all those pubkeys, and unfollow everbody else if merge=false
+        // (and the date is used to ignore if the data is outdated)
+        GLOBALS
+            .people
+            .follow_all(&pubkeys, merge, event.created_at)
+            .await?;
+
+        // Update last_contact_list_edit
+        let last_edit = if merge {
+            Unixtime::now().unwrap() // now, since superior to the last event
+        } else {
+            event.created_at
+        };
+        GLOBALS
+            .people
+            .last_contact_list_edit
+            .store(last_edit.0, Ordering::Relaxed);
+        {
+            let db = GLOBALS.db.lock().await;
+            db.execute(
+                "UPDATE local_settings SET latest_contact_list_edit=?",
+                (last_edit.0,),
+            )?;
+        }
+
+        // Pick relays again
+        {
+            // Refresh person-relay scores
+            GLOBALS.relay_picker.refresh_person_relay_scores().await?;
+
+            // Then pick
+            self.pick_relays().await;
         }
 
         Ok(())

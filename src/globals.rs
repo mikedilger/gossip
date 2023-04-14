@@ -99,8 +99,6 @@ pub struct Globals {
     /// UI status message
     pub status_message: RwLock<String>,
 
-    pub pull_following_merge: AtomicBool,
-
     pub bytes_read: AtomicUsize,
 
     /// Delegation handling
@@ -143,7 +141,6 @@ lazy_static! {
             failed_avatars: RwLock::new(HashSet::new()),
             pixels_per_point_times_100: AtomicU32::new(139), // 100 dpi, 1/72th inch => 1.38888
             status_message: RwLock::new("Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()),
-            pull_following_merge: AtomicBool::new(true),
             bytes_read: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),

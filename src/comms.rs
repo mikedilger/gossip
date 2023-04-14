@@ -25,8 +25,7 @@ pub enum ToOverlordMessage {
     ProcessIncomingEvents,
     Post(String, Vec<Tag>, Option<Id>),
     PruneDatabase,
-    PullFollowMerge,
-    PullFollowOverwrite,
+    PullFollow,
     PushFollow,
     PushMetadata(Metadata),
     RefreshFollowedMetadata,
@@ -39,6 +38,7 @@ pub enum ToOverlordMessage {
     SetThreadFeed(Id, Id, Vec<RelayUrl>),
     Shutdown,
     UnlockKey(String),
+    UpdateFollowing(bool),
     UpdateMetadata(PublicKeyHex),
     UpdateMetadataInBulk(Vec<PublicKeyHex>),
 }

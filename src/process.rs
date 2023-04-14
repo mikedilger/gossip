@@ -6,7 +6,7 @@ use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
 use nostr_types::{
-    Event, EventKind, Metadata, NostrBech32, PublicKeyHex, RelayUrl, SimpleRelayList, Tag, Unixtime,
+    Event, EventKind, Metadata, NostrBech32, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -300,7 +300,32 @@ pub async fn process_new_event(
     if event.kind == EventKind::ContactList {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
-                process_your_contact_list(event).await?;
+                // We do not process our own contact list automatically.
+                // Instead we only process it on user command.
+                // See Overlord::update_following()
+                //
+                // But we do update people.last_contact_list_asof and _size
+                if event.created_at.0
+                    > GLOBALS
+                        .people
+                        .last_contact_list_asof
+                        .load(Ordering::Relaxed)
+                {
+                    GLOBALS
+                        .people
+                        .last_contact_list_asof
+                        .store(event.created_at.0, Ordering::Relaxed);
+                    let size = event
+                        .tags
+                        .iter()
+                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                        .count();
+                    GLOBALS
+                        .people
+                        .last_contact_list_size
+                        .store(size, Ordering::Relaxed);
+                }
+                return Ok(());
             } else {
                 process_somebody_elses_contact_list(event).await?;
             }
@@ -461,66 +486,6 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
             }
         }
         DbPersonRelay::set_relay_list(event.pubkey.into(), read_relays, write_relays).await?;
-    }
-
-    Ok(())
-}
-
-async fn process_your_contact_list(event: &Event) -> Result<(), Error> {
-    // Only process if it is newer than what we already have
-    if event.created_at.0
-        > GLOBALS
-            .people
-            .last_contact_list_asof
-            .load(Ordering::Relaxed)
-    {
-        GLOBALS
-            .people
-            .last_contact_list_asof
-            .store(event.created_at.0, Ordering::Relaxed);
-
-        let merge: bool = GLOBALS.pull_following_merge.load(Ordering::Relaxed);
-        let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
-
-        let now = Unixtime::now().unwrap();
-
-        // 'p' tags represent the author's contacts
-        for tag in &event.tags {
-            if let Tag::Pubkey {
-                pubkey,
-                recommended_relay_url,
-                petname: _,
-            } = tag
-            {
-                // Save the pubkey for actual following them (outside of the loop in a batch)
-                pubkeys.push(pubkey.to_owned());
-
-                // If there is a URL, create or update person_relay last_suggested_kind3
-                if let Some(url) = recommended_relay_url
-                    .as_ref()
-                    .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                {
-                    DbPersonRelay::upsert_last_suggested_kind3(
-                        pubkey.to_string(),
-                        url,
-                        now.0 as u64,
-                    )
-                    .await?;
-                }
-
-                // TBD: do something with the petname
-            }
-        }
-
-        // Follow all those pubkeys, and unfollow everbody else if merge=false
-        // (and the date is used to ignore if the data is outdated)
-        GLOBALS
-            .people
-            .follow_all(&pubkeys, merge, event.created_at)
-            .await?;
-
-        // Trigger the overlord to pick relays again
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
     }
 
     Ok(())

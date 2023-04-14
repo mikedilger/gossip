@@ -61,32 +61,89 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.separator();
 
     if app.page == Page::PeopleList {
-        ui.add_space(24.0);
+        let people: Vec<DbPerson> = GLOBALS
+            .people
+            .get_all()
+            .drain(..)
+            .filter(|p| p.followed == 1)
+            .collect();
+
+        ui.add_space(12.0);
+
+        let last_contact_list_size = GLOBALS
+            .people
+            .last_contact_list_size
+            .load(Ordering::Relaxed);
+        let last_contact_list_asof = GLOBALS
+            .people
+            .last_contact_list_asof
+            .load(Ordering::Relaxed);
+        let mut asof = "unknown".to_owned();
+        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_contact_list_asof) {
+            if let Ok(formatted) = stamp.format(time::macros::format_description!(
+                "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
+            )) {
+                asof = formatted;
+            }
+        }
+
+        ui.label(
+            RichText::new(format!(
+                "REMOTE: {} (size={})",
+                asof, last_contact_list_size
+            ))
+            .size(15.0),
+        )
+        .on_hover_text("This is the data in the latest ContactList event fetched from relays");
+
+        ui.add_space(10.0);
 
         ui.horizontal(|ui| {
-            if ui.button("↓ PULL ↓\nOverwrite").clicked() {
+            ui.add_space(30.0);
+
+            if ui.button("↓ Overwrite ↓").clicked() {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::PullFollowOverwrite);
+                    .send(ToOverlordMessage::UpdateFollowing(false));
             }
-            if ui.button("↓ PULL ↓\nMerge (Add)").clicked() {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PullFollowMerge);
+            if ui.button("↓ Merge ↓").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdateFollowing(true));
             }
 
             if GLOBALS.signer.is_ready() {
-                if ui.button("↑ PUSH ↑\n").clicked() {
+                if ui.button("↑ Publish ↑").clicked() {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
                 }
             }
 
-            if ui.button("Refresh\nMetadata").clicked() {
+            if ui.button("Refresh Metadata").clicked() {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::RefreshFollowedMetadata);
             }
         });
 
+        ui.add_space(10.0);
+
+        let last_contact_list_edit = GLOBALS
+            .people
+            .last_contact_list_edit
+            .load(Ordering::Relaxed);
+        let mut ledit = "unknown".to_owned();
+        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_contact_list_edit) {
+            if let Ok(formatted) = stamp.format(time::macros::format_description!(
+                "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
+            )) {
+                ledit = formatted;
+            }
+        }
+        ui.label(RichText::new(format!("LOCAL: {} (size={})", ledit, people.len())).size(15.0))
+            .on_hover_text("This is the local (and effective) following list");
+
         if !GLOBALS.signer.is_ready() {
+            ui.add_space(10.0);
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("setup your identity").clicked() {
@@ -99,13 +156,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add_space(10.0);
         ui.separator();
         ui.add_space(10.0);
-
-        let people: Vec<DbPerson> = GLOBALS
-            .people
-            .get_all()
-            .drain(..)
-            .filter(|p| p.followed == 1)
-            .collect();
 
         ui.heading(format!("People Followed ({})", people.len()));
         ui.add_space(18.0);
