@@ -479,6 +479,9 @@ impl Overlord {
                 old.zeroize();
                 new.zeroize();
             }
+            ToOverlordMessage::ClearFollowing => {
+                self.clear_following().await?;
+            }
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
             }
@@ -1117,6 +1120,11 @@ impl Overlord {
             });
         }
 
+        Ok(())
+    }
+
+    async fn clear_following(&mut self) -> Result<(), Error> {
+        GLOBALS.people.async_follow_none().await?;
         Ok(())
     }
 

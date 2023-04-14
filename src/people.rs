@@ -991,6 +991,23 @@ impl People {
         Ok(())
     }
 
+    pub async fn async_follow_none(&self) -> Result<(), Error> {
+        task::spawn_blocking(move || {
+            let db = GLOBALS.db.blocking_lock();
+            let now = Unixtime::now().unwrap().0;
+            db.execute("UPDATE person SET followed=0, followed_last_updated=?", (now,))?;
+            Ok::<(), Error>(())
+        })
+            .await??;
+
+        for mut elem in self.people.iter_mut() {
+            let mut person = elem.value_mut();
+            person.followed = 0;
+        }
+
+        Ok(())
+    }
+
     pub fn mute(&self, pubkeyhex: &PublicKeyHex, mute: bool) {
         // We can't do it now, but we spawn a task to do it soon
         let pubkeyhex = pubkeyhex.to_owned();

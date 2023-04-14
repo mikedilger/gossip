@@ -6,6 +6,7 @@ pub enum ToOverlordMessage {
     AddRelay(RelayUrl),
     AdvertiseRelayList,
     ChangePassphrase(String, String),
+    ClearFollowing,
     DelegationReset,
     DeletePost(Id),
     DeletePriv,

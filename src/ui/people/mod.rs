@@ -118,6 +118,24 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 }
             }
 
+            if GLOBALS.signer.is_ready() {
+                if app.follow_clear_needs_confirm {
+                    if ui.button("CANCEL").clicked() {
+                        app.follow_clear_needs_confirm = false;
+                    }
+                    if ui.button("YES, CLEAR ALL").clicked() {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::ClearFollowing);
+                        app.follow_clear_needs_confirm = false;
+                    }
+                } else {
+                    if ui.button("Clear All").clicked() {
+                        app.follow_clear_needs_confirm = true;
+                    }
+                }
+            }
+
             if ui.button("Refresh Metadata").clicked() {
                 let _ = GLOBALS
                     .to_overlord
