@@ -104,7 +104,7 @@ impl Overlord {
 
         // Load contact list from the database
         if let Some(pk) = GLOBALS.signer.public_key() {
-            if let Some(event) = DbEvent::fetch_latest_contact_list(pk.into()).await? {
+            if let Some(event) = DbEvent::fetch_last_contact_list(pk.into()).await? {
                 crate::process::process_new_event(&event, false, None, None).await?;
             }
         }
@@ -1559,7 +1559,7 @@ impl Overlord {
                 Some(pk) => pk,
                 None => return Ok(()), // we cannot do anything without an identity setup first
             };
-            match DbEvent::fetch_latest_contact_list(pubkey.into()).await? {
+            match DbEvent::fetch_last_contact_list(pubkey.into()).await? {
                 Some(event) => event,
                 None => return Ok(()), // we have no contact list to update from
             }
@@ -1598,11 +1598,7 @@ impl Overlord {
         }
 
         // Follow all those pubkeys, and unfollow everbody else if merge=false
-        // (and the date is used to ignore if the data is outdated)
-        GLOBALS
-            .people
-            .follow_all(&pubkeys, merge, event.created_at)
-            .await?;
+        GLOBALS.people.follow_all(&pubkeys, merge).await?;
 
         // Update last_contact_list_edit
         let last_edit = if merge {
@@ -1617,7 +1613,7 @@ impl Overlord {
         {
             let db = GLOBALS.db.lock().await;
             db.execute(
-                "UPDATE local_settings SET latest_contact_list_edit=?",
+                "UPDATE local_settings SET last_contact_list_edit=?",
                 (last_edit.0,),
             )?;
         }

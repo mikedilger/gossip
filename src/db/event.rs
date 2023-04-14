@@ -48,9 +48,7 @@ impl DbEvent {
         output
     }
 
-    pub async fn fetch_latest_contact_list(
-        pubkeyhex: PublicKeyHex,
-    ) -> Result<Option<Event>, Error> {
+    pub async fn fetch_last_contact_list(pubkeyhex: PublicKeyHex) -> Result<Option<Event>, Error> {
         let sql = "SELECT raw FROM event WHERE event.kind=3 AND event.pubkey=? ORDER BY created_at DESC LIMIT 1";
 
         let output: Result<Vec<Event>, Error> = spawn_blocking(move || {

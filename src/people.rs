@@ -804,7 +804,7 @@ impl People {
 
         // Get the content from our latest ContactList.
         // We don't use the data, but we shouldn't clobber it.
-        let content = match DbEvent::fetch_latest_contact_list(public_key.into()).await? {
+        let content = match DbEvent::fetch_last_contact_list(public_key.into()).await? {
             Some(c) => c.content,
             None => "".to_owned(),
         };
@@ -889,12 +889,7 @@ impl People {
         Ok(())
     }
 
-    pub async fn follow_all(
-        &self,
-        pubkeys: &[PublicKeyHex],
-        merge: bool,
-        asof: Unixtime,
-    ) -> Result<(), Error> {
+    pub async fn follow_all(&self, pubkeys: &[PublicKeyHex], merge: bool) -> Result<(), Error> {
         // If merging, and we already follow all these keys,
         // then just bail out
         if merge {
@@ -923,22 +918,23 @@ impl People {
         // Follow in database
         let sql = format!(
             "UPDATE person SET followed=1, followed_last_updated=? \
-             WHERE pubkey IN ({}) and followed_last_updated<?",
+             WHERE pubkey IN ({})",
             repeat_vars(pubkeys.len())
         );
 
         let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
+        let now = Unixtime::now().unwrap();
+
         task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
-            stmt.raw_bind_parameter(1, asof.0)?;
+            stmt.raw_bind_parameter(1, now.0)?;
             let mut pos = 2;
             for pk in pubkey_strings.iter() {
                 stmt.raw_bind_parameter(pos, pk)?;
                 pos += 1;
             }
-            stmt.raw_bind_parameter(pos, asof.0)?;
             stmt.raw_execute()?;
             Ok::<(), Error>(())
         })
@@ -948,7 +944,7 @@ impl People {
             // Unfollow in database
             let sql = format!(
                 "UPDATE person SET followed=0, followed_last_updated=? \
-                 WHERE pubkey NOT IN ({}) and followed_last_updated<?",
+                 WHERE pubkey NOT IN ({})",
                 repeat_vars(pubkeys.len())
             );
 
@@ -957,13 +953,12 @@ impl People {
             task::spawn_blocking(move || {
                 let db = GLOBALS.db.blocking_lock();
                 let mut stmt = db.prepare(&sql)?;
-                stmt.raw_bind_parameter(1, asof.0)?;
+                stmt.raw_bind_parameter(1, now.0)?;
                 let mut pos = 2;
                 for pk in pubkey_strings.iter() {
                     stmt.raw_bind_parameter(pos, pk)?;
                     pos += 1;
                 }
-                stmt.raw_bind_parameter(pos, asof.0)?;
                 stmt.raw_execute()?;
                 Ok::<(), Error>(())
             })
@@ -974,12 +969,10 @@ impl People {
         for mut elem in self.people.iter_mut() {
             let pkh = elem.key().clone();
             let mut person = elem.value_mut();
-            if person.followed_last_updated < asof.0 {
-                if pubkeys.contains(&pkh) {
-                    person.followed = 1;
-                } else if !merge {
-                    person.followed = 0;
-                }
+            if pubkeys.contains(&pkh) {
+                person.followed = 1;
+            } else if !merge {
+                person.followed = 0;
             }
         }
 
@@ -995,10 +988,13 @@ impl People {
         task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let now = Unixtime::now().unwrap().0;
-            db.execute("UPDATE person SET followed=0, followed_last_updated=?", (now,))?;
+            db.execute(
+                "UPDATE person SET followed=0, followed_last_updated=?",
+                (now,),
+            )?;
             Ok::<(), Error>(())
         })
-            .await??;
+        .await??;
 
         for mut elem in self.people.iter_mut() {
             let mut person = elem.value_mut();
