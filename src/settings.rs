@@ -18,7 +18,7 @@ pub const DEFAULT_OFFLINE: bool = false;
 pub const DEFAULT_THEME: Theme = Theme {
     variant: ThemeVariant::Default,
     dark_mode: false,
-    follow_os_dark_mode: true,
+    follow_os_dark_mode: false,
 };
 pub const DEFAULT_SET_CLIENT_TAG: bool = false;
 pub const DEFAULT_SET_USER_AGENT: bool = false;

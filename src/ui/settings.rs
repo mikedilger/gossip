@@ -212,23 +212,25 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                     ui.horizontal(|ui| {
                         ui.label("Theme:");
-                        if app.settings.theme.dark_mode {
-                            if ui
-                                .add(Button::new("🌙 Dark"))
-                                .on_hover_text("Switch to light mode")
-                                .clicked()
-                            {
-                                app.settings.theme.dark_mode = false;
-                                super::theme::apply_theme(app.settings.theme, ctx);
-                            }
-                        } else {
-                            if ui
-                                .add(Button::new("☀ Light"))
-                                .on_hover_text("Switch to dark mode")
-                                .clicked()
-                            {
-                                app.settings.theme.dark_mode = true;
-                                super::theme::apply_theme(app.settings.theme, ctx);
+                        if !app.settings.theme.follow_os_dark_mode {
+                            if app.settings.theme.dark_mode {
+                                if ui
+                                    .add(Button::new("🌙 Dark"))
+                                    .on_hover_text("Switch to light mode")
+                                    .clicked()
+                                {
+                                    app.settings.theme.dark_mode = false;
+                                    super::theme::apply_theme(app.settings.theme, ctx);
+                                }
+                            } else {
+                                if ui
+                                    .add(Button::new("☀ Light"))
+                                    .on_hover_text("Switch to dark mode")
+                                    .clicked()
+                                {
+                                    app.settings.theme.dark_mode = true;
+                                    super::theme::apply_theme(app.settings.theme, ctx);
+                                }
                             }
                         }
                         let theme_combo = egui::ComboBox::from_id_source("Theme");
@@ -242,10 +244,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     };
                                 }
                             });
-                        ui.checkbox(
-                            &mut app.settings.theme.follow_os_dark_mode,
-                            "Follow OS dark-mode"
-                        ).on_hover_text("Follow the operating system setting for dark-mode");
+                        ui.checkbox(&mut app.settings.theme.follow_os_dark_mode,"Follow OS dark-mode")
+                            .on_hover_text("Follow the operating system setting for dark-mode (requires app-restart to take effect)");
                     });
 
                     ui.add_space(12.0);

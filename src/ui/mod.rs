@@ -63,6 +63,7 @@ pub fn run() -> Result<(), Error> {
         resizable: true,
         centered: true,
         vsync: true,
+        follow_system_theme: GLOBALS.settings.read().theme.follow_os_dark_mode,
         ..Default::default()
     };
 
@@ -464,18 +465,13 @@ impl eframe::App for GossipUi {
             }
         }
 
-        {
+        if self.settings.theme.follow_os_dark_mode {
             // detect if the OS has changed dark/light mode
             let os_dark_mode = ctx.style().visuals.dark_mode;
             if os_dark_mode != self.settings.theme.dark_mode {
-                if self.settings.theme.follow_os_dark_mode {
-                    // switch to the OS setting
-                    self.settings.theme.dark_mode = os_dark_mode;
-                    theme::apply_theme(self.settings.theme, ctx);
-                } else {
-                    // re-apply our setting overriding OS
-                    theme::apply_theme(self.settings.theme, ctx);
-                }
+                // switch to the OS setting
+                self.settings.theme.dark_mode = os_dark_mode;
+                theme::apply_theme(self.settings.theme, ctx);
             }
         }
 
