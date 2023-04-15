@@ -63,6 +63,7 @@ pub fn run() -> Result<(), Error> {
         resizable: true,
         centered: true,
         vsync: true,
+        follow_system_theme: GLOBALS.settings.read().theme.follow_os_dark_mode,
         ..Default::default()
     };
 
@@ -200,7 +201,7 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-        let settings = GLOBALS.settings.read().clone();
+        let mut settings = GLOBALS.settings.read().clone();
 
         if let Some(dpi) = settings.override_dpi {
             let ppt: f32 = dpi as f32 / 72.0;
@@ -282,6 +283,9 @@ impl GossipUi {
         };
 
         // Apply current theme
+        if settings.theme.follow_os_dark_mode {
+            settings.theme.dark_mode = cctx.egui_ctx.style().visuals.dark_mode;
+        }
         theme::apply_theme(settings.theme, &cctx.egui_ctx);
 
         GossipUi {
@@ -458,6 +462,16 @@ impl eframe::App for GossipUi {
             // Friction stop when slow enough
             if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
                 self.future_scroll_offset = 0.0;
+            }
+        }
+
+        if self.settings.theme.follow_os_dark_mode {
+            // detect if the OS has changed dark/light mode
+            let os_dark_mode = ctx.style().visuals.dark_mode;
+            if os_dark_mode != self.settings.theme.dark_mode {
+                // switch to the OS setting
+                self.settings.theme.dark_mode = os_dark_mode;
+                theme::apply_theme(self.settings.theme, ctx);
             }
         }
 

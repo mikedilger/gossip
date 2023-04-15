@@ -18,6 +18,7 @@ pub const DEFAULT_OFFLINE: bool = false;
 pub const DEFAULT_THEME: Theme = Theme {
     variant: ThemeVariant::Default,
     dark_mode: false,
+    follow_os_dark_mode: false,
 };
 pub const DEFAULT_SET_CLIENT_TAG: bool = false;
 pub const DEFAULT_SET_USER_AGENT: bool = false;
@@ -153,6 +154,7 @@ impl Settings {
                 "pow" => settings.pow = row.1.parse::<u8>().unwrap_or(DEFAULT_POW),
                 "offline" => settings.offline = numstr_to_bool(row.1),
                 "dark_mode" => settings.theme.dark_mode = numstr_to_bool(row.1),
+                "follow_os_dark_mode" => settings.theme.follow_os_dark_mode = numstr_to_bool(row.1),
                 "theme" => {
                     for theme_variant in ThemeVariant::all() {
                         if &*row.1 == theme_variant.name() {
@@ -221,6 +223,7 @@ impl Settings {
              ('pow', ?),\
              ('offline', ?),\
              ('dark_mode', ?),\
+             ('follow_os_dark_mode', ?),\
              ('theme', ?),\
              ('set_client_tag', ?),\
              ('set_user_agent', ?),\
@@ -250,6 +253,7 @@ impl Settings {
             self.pow,
             bool_to_numstr(self.offline),
             bool_to_numstr(self.theme.dark_mode),
+            bool_to_numstr(self.theme.follow_os_dark_mode),
             self.theme.variant.name(),
             bool_to_numstr(self.set_client_tag),
             bool_to_numstr(self.set_user_agent),
