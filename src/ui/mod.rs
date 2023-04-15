@@ -200,7 +200,7 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-        let settings = GLOBALS.settings.read().clone();
+        let mut settings = GLOBALS.settings.read().clone();
 
         if let Some(dpi) = settings.override_dpi {
             let ppt: f32 = dpi as f32 / 72.0;
@@ -282,6 +282,9 @@ impl GossipUi {
         };
 
         // Apply current theme
+        if settings.theme.follow_os_dark_mode {
+            settings.theme.dark_mode = cctx.egui_ctx.style().visuals.dark_mode;
+        }
         theme::apply_theme(settings.theme, &cctx.egui_ctx);
 
         GossipUi {
