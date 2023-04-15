@@ -211,6 +211,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(12.0);
 
                     ui.horizontal(|ui| {
+                        ui.label("Theme:");
                         if app.settings.theme.dark_mode {
                             if ui
                                 .add(Button::new("🌙 Dark"))
@@ -230,7 +231,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                 super::theme::apply_theme(app.settings.theme, ctx);
                             }
                         }
-                        let theme_combo = egui::ComboBox::from_label("Theme");
+                        let theme_combo = egui::ComboBox::from_id_source("Theme");
                         theme_combo
                             .selected_text( app.settings.theme.name() )
                             .show_ui(ui, |ui| {
@@ -241,6 +242,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     };
                                 }
                             });
+                        ui.checkbox(
+                            &mut app.settings.theme.follow_os_dark_mode,
+                            "Follow OS dark-mode"
+                        ).on_hover_text("Follow the operating system setting for dark-mode");
                     });
 
                     ui.add_space(12.0);

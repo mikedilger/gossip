@@ -37,6 +37,7 @@ pub enum ThemeVariant {
 pub struct Theme {
     pub variant: ThemeVariant,
     pub dark_mode: bool,
+    pub follow_os_dark_mode: bool,
 }
 pub struct FeedProperties {
     /// This is a thread

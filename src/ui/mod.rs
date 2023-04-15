@@ -461,6 +461,21 @@ impl eframe::App for GossipUi {
             }
         }
 
+        {
+            // detect if the OS has changed dark/light mode
+            let os_dark_mode = ctx.style().visuals.dark_mode;
+            if os_dark_mode != self.settings.theme.dark_mode {
+                if self.settings.theme.follow_os_dark_mode {
+                    // switch to the OS setting
+                    self.settings.theme.dark_mode = os_dark_mode;
+                    theme::apply_theme(self.settings.theme, ctx);
+                } else {
+                    // re-apply our setting overriding OS
+                    theme::apply_theme(self.settings.theme, ctx);
+                }
+            }
+        }
+
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
