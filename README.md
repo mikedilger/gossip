@@ -8,7 +8,7 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 ### Installing
 
-- **ArchLinux**: https://aur.archlinux.org/packages/gossip or https://aur.archlinux.org/packages/gossip-git
+- **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) on the AUR
 - **Debian**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-ARCH.deb.zip`
 - **Microsoft Windows**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION.msi.zip`
 
@@ -18,7 +18,7 @@ or choose to [Build from Source](#building-from-source)
 
 The following features make gossip different than most other nostr clients so far:
 
-- Gossip follows people at they relays they profess to post to. That means it has to discover which relays those are (see [https://github.com/nostr-protocol/nips/blob/master/65.md](NIP-65)). Gossip connects to all relays necessary to cover everybody you follow, while also trying to listen to the minimum number of relays necessary to do that (considering that there is overlap, and that people generally post to multiple relays). It also dynamically adjusts to relays being down or disconnecting.
+- Gossip follows people at they relays they profess to post to. That means it has to discover which relays those are (see [NIP-65](https://github.com/nostr-protocol/nips/blob/master/65.md)). Gossip connects to all relays necessary to cover everybody you follow, while also trying to listen to the minimum number of relays necessary to do that (considering that there is overlap, and that people generally post to multiple relays). It also dynamically adjusts to relays being down or disconnecting.
 - Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory.
 - Gossip avoids web technologies (other than HTTP GET and WebSockets). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are complex and represent a security hazard due to such a large attack surface. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
 
@@ -28,7 +28,7 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 
 ## Media
 
-### Screenshot
+### Screenshots
 
 ![Gossip Screenshot, Default Light Theme](assets/gossip_screenshot_light.png)
 ![Gossip Screenshot, Default Dark Theme](assets/gossip_screenshot_dark.png)
@@ -42,7 +42,7 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 ## Development Ideology
 
 - **High user control**: The plan is for the user to be in control of quite a lot of settings regarding which posts they see, which relays to talk to, and when to fetch from them, but with some sane defaults.
-- **Key Security**: Private keys need to be handled as securely as possible. We store the key encrypted under a passphrase on disk, and we zero out any memory that has seen either the key or the passphrase that decrypts it. We also keep the decrypted key in just one place, the Signer, which doesn't provide access to the key directly. Eventually we will look to add hardware token support, probably first using programmable [Solo keys](https://solokeys.com/) because I have a few of those.
+- **Key Security**: Private keys need to be handled as securely as possible. We store the key encrypted under a passphrase on disk, and we zero out any memory that has seen either the key or the passphrase that decrypts it. We also keep the decrypted key in just one place, the Signer, which doesn't provide access to the key directly. Eventually we will look to add hardware token support, probably first using programmable [SoloKeys](https://solokeys.com/) because I have a few of those.
 - **Portable** design intended for the **desktop**: This is intended to run on desktop computers, but not limited as such. The platform must be supported by rust (most are), and SQLite3 needs to store its file somewhere. The UI will run on many backends.
 - **High-enough performance**: Generally the network speed should be your limiting factor on performance, not the UI or any other part of the code. It doesn't matter too much how fast the code runs as long as it is always faster than the network, and I think that's definitely true for gossip.
 - **Easy-ish on CPU/power usage**: We can't achieve this as well as other clients might because we use an immediate-mode renderer which necessarily recomputes what it draws every "frame" and may redraw many times per second. We are working hard to minimize the CPU impact of this hot loop. Try it and see.
