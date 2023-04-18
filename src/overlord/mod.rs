@@ -1456,7 +1456,6 @@ impl Overlord {
                 // Save relay
                 let db_relay = DbRelay::new(relay_url.clone());
                 DbRelay::insert(db_relay.clone()).await?;
-
                 if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(relay_url.clone()) {
                     entry.insert(db_relay);
                 }
@@ -1577,14 +1576,28 @@ impl Overlord {
                 petname: _,
             } = tag
             {
+                // Make sure we have that person
+                GLOBALS
+                    .people
+                    .create_all_if_missing(&[pubkey.to_owned()])
+                    .await?;
+
                 // Save the pubkey for actual following them (outside of the loop in a batch)
                 pubkeys.push(pubkey.to_owned());
 
-                // If there is a URL, create or update person_relay last_suggested_kind3
+                // If there is a URL
                 if let Some(url) = recommended_relay_url
                     .as_ref()
                     .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
                 {
+                    // Save relay if missing
+                    let db_relay = DbRelay::new(url.clone());
+                    DbRelay::insert(db_relay.clone()).await?;
+                    if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(url.clone()) {
+                        entry.insert(db_relay);
+                    }
+
+                    // create or update person_relay last_suggested_kind3
                     DbPersonRelay::upsert_last_suggested_kind3(
                         pubkey.to_string(),
                         url,
