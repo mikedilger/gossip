@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_recursion::async_recursion;
 use dashmap::mapref::entry::Entry;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use nostr_types::{Event, Filter, Id, RelayUrl};
 use std::fmt::Display;
 use std::sync::atomic::AtomicUsize;
@@ -17,6 +17,9 @@ pub struct Events {
     // Seen on data uses relay_map to compress it's data
     seen_on: DashMap<Id, VecSet<usize>>,
     relay_map: RelayMap,
+
+    // Events we are currently seeking from the database
+    sought_events: DashSet<Id>,
 }
 
 impl Events {
@@ -25,6 +28,7 @@ impl Events {
             events: DashMap::new(),
             seen_on: DashMap::new(),
             relay_map: RelayMap::new(),
+            sought_events: DashSet::new(),
         }
     }
 
@@ -80,6 +84,13 @@ impl Events {
             return Ok(Some(e));
         }
 
+        // Don't go seeking in the database if some other thread already is.
+        if self.sought_events.contains(&id) {
+            return Ok(None);
+        }
+        // Mark that we are handling this one
+        self.sought_events.insert(id);
+
         if let Some(event) = task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare("SELECT raw FROM event WHERE id=?")?;
@@ -96,10 +107,11 @@ impl Events {
         {
             // Process that event
             crate::process::process_new_event(&event, false, None, None).await?;
-
             self.insert(event.clone(), None);
+            self.sought_events.remove(&id);
             Ok(Some(event))
         } else {
+            self.sought_events.remove(&id);
             Ok(None)
         }
     }
