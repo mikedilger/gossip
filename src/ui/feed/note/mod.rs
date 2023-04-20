@@ -762,20 +762,17 @@ fn render_content(
                         }
                     } else if note.repost == Some(RepostType::Kind6Embedded) {
                         if note.embedded_event.is_some() {
-                            if let Some(inner_note_data) =
-                                NoteData::new(note.embedded_event.clone().unwrap())
-                            {
-                                let inner_ref = Rc::new(RefCell::new(inner_note_data));
-                                render_repost(
-                                    app,
-                                    ui,
-                                    ctx,
-                                    &note.repost,
-                                    inner_ref,
-                                    content_margin_left,
-                                    bottom_of_avatar,
-                                );
-                            }
+                            let inner_note_data = NoteData::new(note.embedded_event.clone().unwrap());
+                            let inner_ref = Rc::new(RefCell::new(inner_note_data));
+                            render_repost(
+                                app,
+                                ui,
+                                ctx,
+                                &note.repost,
+                                inner_ref,
+                                content_margin_left,
+                                bottom_of_avatar,
+                            );
                         }
                     } else {
                         // Possible subject line

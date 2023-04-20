@@ -45,7 +45,7 @@ pub(super) struct NoteData {
 }
 
 impl NoteData {
-    pub(super) fn new(event: Event) -> Option<NoteData> {
+    pub(super) fn new(event: Event) -> NoteData {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
 
@@ -168,7 +168,7 @@ impl NoteData {
             None => DbPerson::new(author_pubkey),
         };
 
-        Some(NoteData {
+        NoteData {
             event,
             delegation,
             author,
@@ -179,7 +179,7 @@ impl NoteData {
             reactions,
             self_already_reacted,
             shattered_content,
-        })
+        }
     }
 
     pub(super) fn update_reactions(&mut self) {
@@ -236,16 +236,15 @@ impl Notes {
         } else {
             // otherwise try to create new and add to cache
             if let Some(event) = GLOBALS.events.get(id) {
-                if let Some(note) = NoteData::new(event) {
-                    // add to cache
-                    let ref_note = Rc::new(RefCell::new(note));
-                    self.notes.insert(*id, ref_note);
-                    return self._try_get_and_borrow(id);
-                }
+                let note = NoteData::new(event);
+                // add to cache
+                let ref_note = Rc::new(RefCell::new(note));
+                self.notes.insert(*id, ref_note);
+                return self._try_get_and_borrow(id);
             } else {
                 // send a worker to try and load it from the database
                 // if it's in the db it will go into the cache and be
-                // available on the next UI update
+                // available on a future UI update
                 let id_copy = id.to_owned();
                 tokio::spawn(async move {
                     if let Err(e) = GLOBALS.events.get_local(id_copy).await {
