@@ -156,7 +156,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.horizontal(|ui| {
                         ui.label("Proof of Work: ")
                             .on_hover_text("The larger the number, the longer it takes.");
-                        ui.add(Slider::new(&mut app.settings.pow, 0..=40).text("leading zeroes"));
+                        ui.add(Slider::new(&mut app.settings.pow, 0..=40).text("leading zero bits"));
                     });
 
                     ui.add_space(12.0);
