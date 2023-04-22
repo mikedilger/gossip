@@ -762,7 +762,8 @@ fn render_content(
                         }
                     } else if note.repost == Some(RepostType::Kind6Embedded) {
                         if note.embedded_event.is_some() {
-                            let inner_note_data = NoteData::new(note.embedded_event.clone().unwrap());
+                            let inner_note_data =
+                                NoteData::new(note.embedded_event.clone().unwrap());
                             let inner_ref = Rc::new(RefCell::new(inner_note_data));
                             render_repost(
                                 app,
