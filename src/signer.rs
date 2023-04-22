@@ -158,7 +158,7 @@ impl Signer {
     pub fn sign_preevent(&self, preevent: PreEvent, pow: Option<u8>) -> Result<Event, Error> {
         match &*self.private.read() {
             Some(pk) => match pow {
-                Some(pow) => Ok(Event::new_with_pow(preevent, pk, pow)?),
+                Some(pow) => Ok(Event::new_with_pow(preevent, pk, pow, None)?),
                 None => Ok(Event::new(preevent, pk)?),
             },
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
