@@ -822,7 +822,7 @@ impl People {
             ots: None,
         };
 
-        GLOBALS.signer.sign_preevent(pre_event, None)
+        GLOBALS.signer.sign_preevent(pre_event, None, None)
     }
 
     pub fn follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) {

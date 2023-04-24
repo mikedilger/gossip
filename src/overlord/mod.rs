@@ -17,6 +17,7 @@ use nostr_types::{
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
@@ -903,7 +904,15 @@ impl Overlord {
 
             let powint = GLOBALS.settings.read().pow;
             let pow = if powint > 0 { Some(powint) } else { None };
-            GLOBALS.signer.sign_preevent(pre_event, pow)?
+            let (work_sender, work_receiver) = mpsc::channel();
+
+            let event = GLOBALS
+                .signer
+                .sign_preevent(pre_event, pow, Some(work_sender))?;
+
+            work_logger(&work_receiver, powint).await;
+
+            event
         };
 
         // Process this event locally
@@ -986,7 +995,7 @@ impl Overlord {
             ots: None,
         };
 
-        let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
+        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
 
         let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.advertise);
 
@@ -1051,7 +1060,15 @@ impl Overlord {
 
             let powint = GLOBALS.settings.read().pow;
             let pow = if powint > 0 { Some(powint) } else { None };
-            GLOBALS.signer.sign_preevent(pre_event, pow)?
+            let (work_sender, work_receiver) = mpsc::channel();
+
+            let event = GLOBALS
+                .signer
+                .sign_preevent(pre_event, pow, Some(work_sender))?;
+
+            work_logger(&work_receiver, powint).await;
+
+            event
         };
 
         let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
@@ -1143,7 +1160,7 @@ impl Overlord {
             ots: None,
         };
 
-        let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
+        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
 
         // Push to all of the relays we post to
         let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
@@ -1258,7 +1275,15 @@ impl Overlord {
 
             let powint = GLOBALS.settings.read().pow;
             let pow = if powint > 0 { Some(powint) } else { None };
-            GLOBALS.signer.sign_preevent(pre_event, pow)?
+            let (work_sender, work_receiver) = mpsc::channel();
+
+            let event = GLOBALS
+                .signer
+                .sign_preevent(pre_event, pow, Some(work_sender))?;
+
+            work_logger(&work_receiver, powint).await;
+
+            event
         };
 
         // Process this event locally
@@ -1515,7 +1540,7 @@ impl Overlord {
             };
 
             // Should we add a pow? Maybe the relay needs it.
-            GLOBALS.signer.sign_preevent(pre_event, None)?
+            GLOBALS.signer.sign_preevent(pre_event, None, None)?
         };
 
         // Process this event locally
@@ -1641,5 +1666,19 @@ impl Overlord {
         }
 
         Ok(())
+    }
+}
+
+async fn work_logger(work_receiver: &mpsc::Receiver<u8>, powint: u8) {
+    loop {
+        if let Ok(work) = work_receiver.recv() {
+            *GLOBALS.status_message.write().await = format!("PoW: {work}/{powint}");
+
+            if work >= powint {
+                *GLOBALS.status_message.write().await =
+                    format!("Message sent with {work} bits of work computed.");
+                break;
+            }
+        }
     }
 }

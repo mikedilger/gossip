@@ -1,3 +1,5 @@
+use std::sync::mpsc::Sender;
+
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{EncryptedPrivateKey, Event, KeySecurity, PreEvent, PrivateKey, PublicKey};
@@ -155,10 +157,15 @@ impl Signer {
         self.private.read().as_ref().map(|pk| pk.key_security())
     }
 
-    pub fn sign_preevent(&self, preevent: PreEvent, pow: Option<u8>) -> Result<Event, Error> {
+    pub fn sign_preevent(
+        &self,
+        preevent: PreEvent,
+        pow: Option<u8>,
+        work_sender: Option<Sender<u8>>,
+    ) -> Result<Event, Error> {
         match &*self.private.read() {
             Some(pk) => match pow {
-                Some(pow) => Ok(Event::new_with_pow(preevent, pk, pow, None)?),
+                Some(pow) => Ok(Event::new_with_pow(preevent, pk, pow, work_sender)?),
                 None => Ok(Event::new(preevent, pk)?),
             },
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),

@@ -148,7 +148,7 @@ impl Minion {
                     content: "".to_string(),
                     ots: None,
                 };
-                let event = GLOBALS.signer.sign_preevent(pre_event, None)?;
+                let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
                 let msg = ClientMessage::Auth(Box::new(event));
                 let wire = serde_json::to_string(&msg)?;
                 let ws_sink = self.sink.as_mut().unwrap();
