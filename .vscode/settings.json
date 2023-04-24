@@ -1,0 +1,5 @@
+{
+  "rust-analyzer.cargo.extraEnv": {
+    "RUSTFLAGS": "-C target-cpu=native --cfg tokio_unstable"
+  }
+}
