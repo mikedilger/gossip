@@ -12,6 +12,7 @@ edition = "2021"
 [features]
 default = ["rustls-tls"]
 lang-cjk = []
+video-ffmpeg = [ "egui-video", "sdl2" ]
 
 native-tls = [ "reqwest/native-tls", "tungstenite/native-tls", "tokio-tungstenite/native-tls"]
 rustls-tls = [ "reqwest/rustls-tls", "tungstenite/rustls-tls-webpki-roots", "tokio-tungstenite/rustls-tls-webpki-roots"]
@@ -29,7 +30,7 @@ dirs = "4.0"
 eframe = { git = "https://github.com/mikedilger/egui", branch="gossip", features = [ "dark-light", "persistence" ] }
 egui-winit = { git = "https://github.com/mikedilger/egui", branch="gossip", features = [ "default" ] }
 egui_extras = { git = "https://github.com/mikedilger/egui", branch="gossip", features = [ "image", "svg", "tracing" ] }
-egui-video = { git = "https://github.com/n00kii/egui-video", features = [ "from_bytes" ] }
+egui-video = { git = "https://github.com/n00kii/egui-video", features = [ "from_bytes" ], optional = true }
 encoding_rs = "0.8"
 fallible-iterator = "0.2"
 futures = "0.3"
@@ -50,7 +51,7 @@ rand = "0.8"
 regex = "1.7"
 reqwest = { version = "0.11", default-features=false, features = ["brotli", "deflate", "gzip", "json"] }
 rusqlite = { version = "0.28", features = ["bundled", "chrono", "serde_json"] }
-sdl2 = { version = "0.35.2", features = ["bundled"]}
+sdl2 = { version = "0.35.2", features = ["bundled"], optional = true}
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"

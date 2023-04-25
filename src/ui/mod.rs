@@ -37,11 +37,14 @@ use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
+#[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+#[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
+#[cfg(feature = "video-ffmpeg")]
+use core::cell::RefCell;
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
@@ -107,8 +110,10 @@ pub enum HighlightType {
 }
 
 struct GossipUi {
-    // ffmpeg player
+    #[cfg(feature = "video-ffmpeg")]
     audio_device: Option<AudioDevice>,
+    #[cfg(feature = "video-ffmpeg")]
+    video_players: HashMap<Url, Rc<RefCell<egui_video::Player>>>,
 
     // Rendering
     next_frame: Instant,
@@ -147,7 +152,6 @@ struct GossipUi {
     settings: Settings,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     images: HashMap<Url, TextureHandle>,
-    video_players: HashMap<Url, Rc<RefCell<egui_video::Player>>>,
     /// used when settings.show_media=false to explicitly show
     media_show_list: HashSet<Url>,
     /// used when settings.show_media=false to explicitly hide
@@ -264,6 +268,7 @@ impl GossipUi {
             )
         };
 
+        #[cfg(feature = "video-ffmpeg")]
         let audio_device = {
             let mut device = None;
             if let Ok(init) = sdl2::init() {
@@ -308,7 +313,10 @@ impl GossipUi {
         theme::apply_theme(settings.theme, &cctx.egui_ctx);
 
         GossipUi {
+            #[cfg(feature = "video-ffmpeg")]
             audio_device,
+            #[cfg(feature = "video-ffmpeg")]
+            video_players: HashMap::new(),
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
@@ -332,7 +340,6 @@ impl GossipUi {
             settings,
             avatars: HashMap::new(),
             images: HashMap::new(),
-            video_players: HashMap::new(),
             media_show_list: HashSet::new(),
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
@@ -793,6 +800,7 @@ impl GossipUi {
         }
     }
 
+    #[cfg(feature = "video-ffmpeg")]
     pub fn try_get_player(&mut self, ctx: &Context, url: Url) -> Option<Rc<RefCell<egui_video::Player>>> {
         // Do not keep retrying if failed
         if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
