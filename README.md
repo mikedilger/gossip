@@ -116,6 +116,17 @@ Most dependencies are probably already installed in your base operating system. 
 - pkg-config (debian: "pkg-config")
 - openssl (debian: "libssl-dev")
 - fontconfig (debian: "libfontconfig1-dev")
+- rust-sdl2 (follow the instructions in the [readme](https://github.com/Rust-SDL2/rust-sdl2/))
+
+#### macOS
+
+a. Install rust with rust-up: https://rustup.rs/
+b. Install homebrew if you don't have it yet https://brew.sh/
+c. Install these dependencies:
+
+```
+brew install cmake sdl2 pkg-config ffmpeg@5
+```
 
 ### Step 3 - Clone this Repository
 
