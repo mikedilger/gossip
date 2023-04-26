@@ -21,6 +21,10 @@ rustls-tls = [ "reqwest/rustls-tls", "tungstenite/rustls-tls-webpki-roots", "tok
 # override egui crate for egui_video dependency
 egui = { git =  "https://github.com/mikedilger/egui", branch="gossip" }
 
+[patch.'https://github.com/n00kii/rust-ffmpeg']
+# Use upstream which is newer
+ffmpeg-next = { git = "https://github.com/zmwangx/rust-ffmpeg" }
+
 [dependencies]
 async-recursion = "1.0"
 async-trait = "0.1"
