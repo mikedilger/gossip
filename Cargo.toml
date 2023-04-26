@@ -21,7 +21,7 @@ async-recursion = "1.0"
 async-trait = "0.1"
 base64 = "0.21"
 dashmap = "5.4"
-dirs = "4.0"
+dirs = "5.0"
 eframe = { git = "https://github.com/mikedilger/egui", rev = "cbfbf2910b56b29a9ea71caa1331cd73b594eb93", features = [ "persistence" ] }
 egui-winit = { git = "https://github.com/mikedilger/egui", rev = "cbfbf2910b56b29a9ea71caa1331cd73b594eb93", features = [ "default" ] }
 egui_extras = { git = "https://github.com/mikedilger/egui", rev = "cbfbf2910b56b29a9ea71caa1331cd73b594eb93", features = [ "image", "svg" ] }
@@ -42,9 +42,9 @@ nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "3066f3
 parking_lot = "0.12"
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust", rev = "519b77b3efa3f84961169b47d3de08c5ddd86548" }
 rand = "0.8"
-regex = "1.7"
+regex = "1.8"
 reqwest = { version = "0.11", default-features=false, features = ["brotli", "deflate", "gzip", "json"] }
-rusqlite = { version = "0.28", features = ["bundled", "chrono", "serde_json"] }
+rusqlite = { version = "0.29", features = ["bundled", "chrono", "serde_json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
@@ -55,7 +55,7 @@ tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
 tokio-tungstenite = { version = "0.18", default-features = false, features = [ "connect", "handshake" ] }
 tungstenite = { version = "0.18", default-features = false }
 vecmap-rs = "0.1"
-zeroize = "1.5"
+zeroize = "1.6"
 
 # Force scrypt to build with release-like speed even in dev mode
 [profile.dev.package.scrypt]
