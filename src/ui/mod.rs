@@ -53,7 +53,11 @@ pub fn run() -> Result<(), Error> {
     let options = eframe::NativeOptions {
         decorated: true,
         drag_and_drop_support: true,
-        default_theme: eframe::Theme::Light,
+        default_theme: if GLOBALS.settings.read().theme.dark_mode {
+            eframe::Theme::Dark
+        } else {
+            eframe::Theme::Light
+        },
         icon_data: Some(IconData {
             rgba: icon.into_raw(),
             width: icon_width,
