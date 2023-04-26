@@ -1071,7 +1071,7 @@ dependencies = [
 [[package]]
 name = "ecolor"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
+source = "git+https://github.com/mikedilger/egui?rev=cbfbf2910b56b29a9ea71caa1331cd73b594eb93#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1080,7 +1080,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.21.3"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
+source = "git+https://github.com/mikedilger/egui?rev=cbfbf2910b56b29a9ea71caa1331cd73b594eb93#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "bytemuck",
  "cocoa",
@@ -1110,7 +1110,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
+source = "git+https://github.com/mikedilger/egui?rev=cbfbf2910b56b29a9ea71caa1331cd73b594eb93#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "accesskit",
  "ahash 0.8.3",
@@ -1124,7 +1124,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.21.1"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
+source = "git+https://github.com/mikedilger/egui?rev=cbfbf2910b56b29a9ea71caa1331cd73b594eb93#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1141,7 +1141,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
+source = "git+https://github.com/mikedilger/egui?rev=cbfbf2910b56b29a9ea71caa1331cd73b594eb93#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "egui",
  "image",
@@ -1154,7 +1154,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
+source = "git+https://github.com/mikedilger/egui?rev=cbfbf2910b56b29a9ea71caa1331cd73b594eb93#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1194,7 +1194,7 @@ dependencies = [
 [[package]]
 name = "emath"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
+source = "git+https://github.com/mikedilger/egui?rev=cbfbf2910b56b29a9ea71caa1331cd73b594eb93#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1244,7 +1244,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
+source = "git+https://github.com/mikedilger/egui?rev=cbfbf2910b56b29a9ea71caa1331cd73b594eb93#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.3",
@@ -1695,7 +1695,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker#10df7ae5c48c521aa9ba8cb92931ea4721ed3cfa"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=b1d1c9d1b29b53354dbdfe01599a8f02ad4c33e5#b1d1c9d1b29b53354dbdfe01599a8f02ad4c33e5"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2419,7 +2419,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.5.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types#4bd0e4bea287245a602537bfb849ac3877cc023d"
+source = "git+https://github.com/mikedilger/nostr-types?rev=4bd0e4bea287245a602537bfb849ac3877cc023d#4bd0e4bea287245a602537bfb849ac3877cc023d"
 dependencies = [
  "aes",
  "base64 0.21.0",
@@ -2862,7 +2862,7 @@ dependencies = [
 [[package]]
 name = "qrcode"
 version = "0.12.0"
-source = "git+https://github.com/mikedilger/qrcode-rust#519b77b3efa3f84961169b47d3de08c5ddd86548"
+source = "git+https://github.com/mikedilger/qrcode-rust?rev=519b77b3efa3f84961169b47d3de08c5ddd86548#519b77b3efa3f84961169b47d3de08c5ddd86548"
 dependencies = [
  "checked_int_cast",
  "image",

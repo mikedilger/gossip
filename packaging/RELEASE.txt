@@ -1,6 +1,21 @@
 This is a draft of the steps taken to make a release.
 I intend to flesh this out as I actually make releases.
 
+Update crates from the bottom up:
+
+gossip
+├── eframe
+│   ├── egui
+│   ├── egui-winit
+│   └── egui_glow
+├── egui-winit
+├── egui_extras
+├── gossip-relay-picker
+│   └── nostr-types
+├── nostr-types
+└── qrcode
+
+
 Try to push our dependency changes upstream:
   https://github.com/mikedilger/qrcode-rust  (unlikely, stale for >3 years)
   https://github.com/mikedilger/egui
