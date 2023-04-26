@@ -117,6 +117,16 @@ Most dependencies are probably already installed in your base operating system. 
 - openssl (debian: "libssl-dev")
 - fontconfig (debian: "libfontconfig1-dev")
 
+#### macOS
+
+a. Install rust with rust-up: https://rustup.rs/
+b. Install homebrew if you don't have it yet https://brew.sh/
+c. Install these dependencies:
+
+```
+brew install cmake sdl2 pkg-config ffmpeg
+```
+
 ### Step 3 - Clone this Repository
 
 ````bash
@@ -189,15 +199,25 @@ Gossip by default does not include the CJK font because it is larger than all ot
 
 There are so many of these (172) that it becomes a real pain to add them all. But if you need one, please ask (open an issue) and I'll add it for you.
 
-### Known Issues
+### Video Playback
 
-#### Sqlite Constraint Issues (Foreign or Unique Key)
+You will need to install sdl2 (follow the instructions in the [readme](https://github.com/Rust-SDL2/rust-sdl2/)) and ffmpeg on your system.
+
+Compile with
+
+````
+  --features=video-ffmpeg
+````
+
+## Known Issues
+
+### Sqlite Constraint Issues (Foreign or Unique Key)
 
 First you need to locate your database file. The gossip directory is under this path: https://docs.rs/dirs/4.0.0/dirs/fn.data_dir.html  The database file is `gossip.sqlite`.  Then you need to install `sqlite3` on your system.
 
 Using `sqlite3` on your database file, the following kind of SQL can help you identify rows that violate foreign key constraints.
 
-##### Error: Sql(SqliteFailure(Error { code: ConstraintViolation, extended_code: 2067 }, Some("UNIQUE constraint failed: person_relay.person, person_relay.relay")))
+#### Error: Sql(SqliteFailure(Error { code: ConstraintViolation, extended_code: 2067 }, Some("UNIQUE constraint failed: person_relay.person, person_relay.relay")))
 
 You can find which rows are duplicated using: `select a.person, a.relay FROM person_relay a INNER JOIN person_relay b WHERE a.person=b.person AND a.relay=b.relay AND a.rowid!=b.rowid;`  You'll need to delete one row from each pair (by rowid so you don't delete both of them).
 

@@ -37,6 +37,12 @@ use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
+#[cfg(feature = "video-ffmpeg")]
+use egui_video::{AudioDevice, Player};
+#[cfg(feature = "video-ffmpeg")]
+use std::rc::Rc;
+#[cfg(feature = "video-ffmpeg")]
+use core::cell::RefCell;
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
@@ -108,6 +114,11 @@ pub enum HighlightType {
 }
 
 struct GossipUi {
+    #[cfg(feature = "video-ffmpeg")]
+    audio_device: Option<AudioDevice>,
+    #[cfg(feature = "video-ffmpeg")]
+    video_players: HashMap<Url, Rc<RefCell<egui_video::Player>>>,
+
     // Rendering
     next_frame: Instant,
     override_dpi: bool,
@@ -144,7 +155,7 @@ struct GossipUi {
     placeholder_avatar: TextureHandle,
     settings: Settings,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
-    media: HashMap<Url, TextureHandle>,
+    images: HashMap<Url, TextureHandle>,
     /// used when settings.show_media=false to explicitly show
     media_show_list: HashSet<Url>,
     /// used when settings.show_media=false to explicitly hide
@@ -261,6 +272,19 @@ impl GossipUi {
             )
         };
 
+        #[cfg(feature = "video-ffmpeg")]
+        let audio_device = {
+            let mut device = None;
+            if let Ok(init) = sdl2::init() {
+                if let Ok(audio) = init.audio() {
+                    if let Ok(dev) = egui_video::init_audio_device(&audio) {
+                        device = Some(dev);
+                    }
+                }
+            }
+            device
+        };
+
         // how to load an svg
         // let expand_right_symbol = {
         //     let bytes = include_bytes!("../../assets/expand-image.svg");
@@ -293,6 +317,10 @@ impl GossipUi {
         theme::apply_theme(settings.theme, &cctx.egui_ctx);
 
         GossipUi {
+            #[cfg(feature = "video-ffmpeg")]
+            audio_device,
+            #[cfg(feature = "video-ffmpeg")]
+            video_players: HashMap::new(),
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
@@ -315,7 +343,7 @@ impl GossipUi {
             placeholder_avatar: placeholder_avatar_texture_handle,
             settings,
             avatars: HashMap::new(),
-            media: HashMap::new(),
+            images: HashMap::new(),
             media_show_list: HashSet::new(),
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
@@ -762,15 +790,52 @@ impl GossipUi {
         }
 
         // see if we already have a texturehandle for this media
-        if let Some(th) = self.media.get(&url) {
+        if let Some(th) = self.images.get(&url) {
             return Some(th.to_owned());
         }
 
-        if let Some(color_image) = GLOBALS.media.get_media(&url) {
+        if let Some(color_image) = GLOBALS.media.get_image(&url) {
             let texture_handle =
                 ctx.load_texture(url.0.clone(), color_image, TextureOptions::default());
-            self.media.insert(url, texture_handle.clone());
+            self.images.insert(url, texture_handle.clone());
             Some(texture_handle)
+        } else {
+            None
+        }
+    }
+
+    #[cfg(feature = "video-ffmpeg")]
+    pub fn try_get_player(&mut self, ctx: &Context, url: Url) -> Option<Rc<RefCell<egui_video::Player>>> {
+        // Do not keep retrying if failed
+        if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
+            return None;
+        }
+
+        // see if we already have a player for this video
+        if let Some(player) = self.video_players.get(&url) {
+            return Some(player.to_owned());
+        }
+
+        if let Some(bytes) = GLOBALS.media.get_data(&url) {
+            if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
+                if let Some(audio) = &mut self.audio_device {
+                    if let Ok(player) = player.with_audio(audio) {
+                        let player_ref = Rc::new( RefCell::new( player ) );
+                        self.video_players.insert(url.clone(), player_ref.clone());
+                        Some(player_ref)
+                    } else {
+                        GLOBALS.media.has_failed(&url.to_unchecked_url());
+                        None
+                    }
+                } else {
+                    let player_ref = Rc::new( RefCell::new( player ) );
+                    self.video_players.insert(url.clone(), player_ref.clone());
+                    Some(player_ref)
+                }
+            } else {
+                GLOBALS.media.has_failed(&url.to_unchecked_url());
+                None
+            }
         } else {
             None
         }
