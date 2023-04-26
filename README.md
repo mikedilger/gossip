@@ -124,7 +124,7 @@ b. Install homebrew if you don't have it yet https://brew.sh/
 c. Install these dependencies:
 
 ```
-brew install cmake sdl2 pkg-config ffmpeg@5
+brew install cmake sdl2 pkg-config ffmpeg
 ```
 
 ### Step 3 - Clone this Repository
