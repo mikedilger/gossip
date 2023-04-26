@@ -672,6 +672,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "cocoa"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f425db7937052c684daec3bd6375c8abe2d146dca4b8b143d6db777c39138f3a"
+dependencies = [
+ "bitflags",
+ "block",
+ "cocoa-foundation",
+ "core-foundation",
+ "core-graphics",
+ "foreign-types",
+ "libc",
+ "objc",
+]
+
+[[package]]
+name = "cocoa-foundation"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "931d3837c286f56e3c58423ce4eba12d08db2374461a785c86f672b08b5650d6"
+dependencies = [
+ "bitflags",
+ "block",
+ "core-foundation",
+ "core-graphics-types",
+ "foreign-types",
+ "libc",
+ "objc",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -900,23 +931,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dark-light"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a62007a65515b3cd88c733dd3464431f05d2ad066999a824259d8edc3cf6f645"
-dependencies = [
- "dconf_rs",
- "detect-desktop-environment",
- "dirs",
- "objc",
- "rust-ini",
- "web-sys",
- "winreg",
- "zbus",
- "zvariant",
-]
-
-[[package]]
 name = "dashmap"
 version = "5.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -934,12 +948,6 @@ name = "data-url"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d7439c3735f405729d52c3fbbe4de140eaf938a1fe47d227c27f8254d4302a5"
-
-[[package]]
-name = "dconf_rs"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7046468a81e6a002061c01e6a7c83139daf91b11c30e66795b13217c2d885c8b"
 
 [[package]]
 name = "der"
@@ -974,12 +982,6 @@ dependencies = [
  "rustc_version",
  "syn 1.0.109",
 ]
-
-[[package]]
-name = "detect-desktop-environment"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21d8ad60dd5b13a4ee6bd8fa2d5d88965c597c67bce32b5fc49c94f55cb50810"
 
 [[package]]
 name = "digest"
@@ -1049,12 +1051,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dlv-list"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0688c2a7f92e427f44895cd63841bff7b29f8d7a1648b9e7e07a4a365b2e1257"
-
-[[package]]
 name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1075,7 +1071,7 @@ dependencies = [
 [[package]]
 name = "ecolor"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#aed0550d232afbd983e00b6aa794c13b8d3d7020"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1084,10 +1080,10 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.21.3"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#aed0550d232afbd983e00b6aa794c13b8d3d7020"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "bytemuck",
- "dark-light",
+ "cocoa",
  "directories-next",
  "egui",
  "egui-winit",
@@ -1095,46 +1091,49 @@ dependencies = [
  "glow",
  "glutin",
  "glutin-winit",
+ "image",
  "js-sys",
+ "log",
+ "objc",
  "percent-encoding",
  "raw-window-handle",
  "ron",
  "serde",
  "thiserror",
- "tracing",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "winapi",
  "winit",
 ]
 
 [[package]]
 name = "egui"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#aed0550d232afbd983e00b6aa794c13b8d3d7020"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "accesskit",
  "ahash 0.8.3",
  "epaint",
+ "log",
  "nohash-hasher",
  "ron",
  "serde",
- "tracing",
 ]
 
 [[package]]
 name = "egui-winit"
 version = "0.21.1"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#aed0550d232afbd983e00b6aa794c13b8d3d7020"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "accesskit_winit",
- "android-activity",
  "arboard",
  "egui",
  "instant",
+ "log",
+ "raw-window-handle",
  "serde",
  "smithay-clipboard",
- "tracing",
  "webbrowser",
  "winit",
 ]
@@ -1142,27 +1141,26 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#aed0550d232afbd983e00b6aa794c13b8d3d7020"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "egui",
  "image",
  "resvg",
  "serde",
  "tiny-skia",
- "tracing",
  "usvg",
 ]
 
 [[package]]
 name = "egui_glow"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#aed0550d232afbd983e00b6aa794c13b8d3d7020"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "bytemuck",
  "egui",
  "glow",
+ "log",
  "memoffset 0.6.5",
- "tracing",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -1196,7 +1194,7 @@ dependencies = [
 [[package]]
 name = "emath"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#aed0550d232afbd983e00b6aa794c13b8d3d7020"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1246,7 +1244,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.21.0"
-source = "git+https://github.com/mikedilger/egui?branch=gossip#aed0550d232afbd983e00b6aa794c13b8d3d7020"
+source = "git+https://github.com/mikedilger/egui?branch=gossip#cbfbf2910b56b29a9ea71caa1331cd73b594eb93"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.3",
@@ -1254,6 +1252,7 @@ dependencies = [
  "bytemuck",
  "ecolor",
  "emath",
+ "log",
  "nohash-hasher",
  "parking_lot",
  "serde",
@@ -2645,16 +2644,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ordered-multimap"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccd746e37177e1711c20dd619a1620f34f5c8b569c53590a72dedd5344d8924a"
-dependencies = [
- "dlv-list",
- "hashbrown",
-]
-
-[[package]]
 name = "ordered-stream"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3133,16 +3122,6 @@ dependencies = [
  "libsqlite3-sys",
  "serde_json",
  "smallvec",
-]
-
-[[package]]
-name = "rust-ini"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6d5f2436026b4f6e79dc829837d467cc7e9a55ee40e750d716713540715a2df"
-dependencies = [
- "cfg-if",
- "ordered-multimap",
 ]
 
 [[package]]
