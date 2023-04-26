@@ -23,7 +23,7 @@ egui = { git =  "https://github.com/mikedilger/egui", branch="gossip" }
 
 [patch.'https://github.com/n00kii/rust-ffmpeg']
 # Use upstream which is newer
-ffmpeg-next = { git = "https://github.com/zmwangx/rust-ffmpeg" }
+ffmpeg-next = { git = "https://github.com/bu5hm4nn/rust-ffmpeg" }
 
 [dependencies]
 async-recursion = "1.0"

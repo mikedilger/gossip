@@ -1433,7 +1433,7 @@ dependencies = [
 [[package]]
 name = "ffmpeg-next"
 version = "6.0.0"
-source = "git+https://github.com/zmwangx/rust-ffmpeg#6b84927798dade84037450a2b440139abde3a5ce"
+source = "git+https://github.com/bu5hm4nn/rust-ffmpeg#a08d9f86c2d2fb05fcf6ceb65ae68ef788964f18"
 dependencies = [
  "bitflags",
  "ffmpeg-sys-next",
