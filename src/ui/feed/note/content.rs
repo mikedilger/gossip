@@ -445,6 +445,9 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
             }
 
             // show the player
+            if !show_full_width {
+                player.stop();
+            }
             let response = player.ui( ui, [ size.x, size.y ] );
 
             // TODO fix click action
