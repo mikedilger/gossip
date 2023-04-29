@@ -906,11 +906,13 @@ impl Overlord {
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 
+            std::thread::spawn(move || {
+                work_logger(work_receiver, powint);
+            });
+
             let event = GLOBALS
                 .signer
                 .sign_preevent(pre_event, pow, Some(work_sender))?;
-
-            work_logger(&work_receiver, powint).await;
 
             event
         };
@@ -1062,11 +1064,13 @@ impl Overlord {
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 
+            std::thread::spawn(move || {
+                work_logger(work_receiver, powint);
+            });
+
             let event = GLOBALS
                 .signer
                 .sign_preevent(pre_event, pow, Some(work_sender))?;
-
-            work_logger(&work_receiver, powint).await;
 
             event
         };
@@ -1277,11 +1281,13 @@ impl Overlord {
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 
+            std::thread::spawn(move || {
+                work_logger(work_receiver, powint);
+            });
+
             let event = GLOBALS
                 .signer
                 .sign_preevent(pre_event, pow, Some(work_sender))?;
-
-            work_logger(&work_receiver, powint).await;
 
             event
         };
@@ -1669,16 +1675,19 @@ impl Overlord {
     }
 }
 
-async fn work_logger(work_receiver: &mpsc::Receiver<u8>, powint: u8) {
+fn work_logger(work_receiver: mpsc::Receiver<u8>, powint: u8) {
     loop {
         if let Ok(work) = work_receiver.recv() {
-            *GLOBALS.status_message.write().await = format!("PoW: {work}/{powint}");
-
             if work >= powint {
-                *GLOBALS.status_message.write().await =
-                    format!("Message sent with {work} bits of work computed.");
+                // Even if work > powint, it doesn't count since we declared our target.
+                *GLOBALS.status_message.blocking_write() =
+                    format!("Message sent with {powint} bits of work computed.");
                 break;
+            } else {
+                *GLOBALS.status_message.blocking_write() = format!("PoW: {work}/{powint}");
             }
+        } else {
+            break;
         }
     }
 }
