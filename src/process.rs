@@ -171,6 +171,12 @@ pub async fn process_new_event(
                         let dbrelay = DbRelay::new(url.clone());
                         DbRelay::insert(dbrelay).await?;
 
+                        // Add person if missing
+                        GLOBALS
+                            .people
+                            .create_all_if_missing(&[pubkey.clone()])
+                            .await?;
+
                         // upsert person_relay.last_suggested_bytag
                         let now = Unixtime::now()?.0 as u64;
                         DbPersonRelay::upsert_last_suggested_bytag(
