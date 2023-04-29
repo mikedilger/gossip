@@ -10,7 +10,12 @@ export LDFLAGS="-L${HOMEBREW_PREFIX}/lib -Wl,-rpath,${HOMEBREW_PREFIX}/lib${LDFL
 
 cargo build --release --features=lang-cjk
 
-VERSION=0.6.0
+VERSION=$(cat ../../Cargo.toml | grep ^version | awk -F= '{print $2}' | awk -F\" '{print $2}')
+echo $VERSION | grep -s unstable
+if [ $? -eq 0 ] ; then
+  GITHASH=$(git rev-parse --short HEAD)
+  VERSION=${VERSION}-$GITHASH
+fi
 NAME=gossip
 BIN_NAME=gossip-bin
 APP_NAME=Gossip
