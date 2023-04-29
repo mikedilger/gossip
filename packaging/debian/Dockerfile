@@ -12,7 +12,7 @@ RUN apt-get update \
     && apt -y autoremove \
     && apt clean \
     && rm -rf /var/lib/apt/lists/*
-RUN cargo install cargo-deb
+RUN cargo install --features=lang-cjk cargo-deb
 
 
 # Build gossip

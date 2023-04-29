@@ -5,7 +5,7 @@ Prerequisite for packaging:
 
 Compile:
 
-  $ cargo build --release
+  $ cargo build --release --features=lang-cjk
 
 Copy the binary to the packaging diretory
 
