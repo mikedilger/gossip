@@ -32,6 +32,8 @@ use crate::people::DbPerson;
 use crate::settings::Settings;
 pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::ui::widgets::CopyButton;
+#[cfg(feature = "video-ffmpeg")]
+use core::cell::RefCell;
 use eframe::{egui, IconData};
 use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
@@ -39,12 +41,10 @@ use egui::{
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
-#[cfg(feature = "video-ffmpeg")]
-use std::rc::Rc;
-#[cfg(feature = "video-ffmpeg")]
-use core::cell::RefCell;
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
+#[cfg(feature = "video-ffmpeg")]
+use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
@@ -805,7 +805,11 @@ impl GossipUi {
     }
 
     #[cfg(feature = "video-ffmpeg")]
-    pub fn try_get_player(&mut self, ctx: &Context, url: Url) -> Option<Rc<RefCell<egui_video::Player>>> {
+    pub fn try_get_player(
+        &mut self,
+        ctx: &Context,
+        url: Url,
+    ) -> Option<Rc<RefCell<egui_video::Player>>> {
         // Do not keep retrying if failed
         if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
             return None;
@@ -820,7 +824,7 @@ impl GossipUi {
             if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
                 if let Some(audio) = &mut self.audio_device {
                     if let Ok(player) = player.with_audio(audio) {
-                        let player_ref = Rc::new( RefCell::new( player ) );
+                        let player_ref = Rc::new(RefCell::new(player));
                         self.video_players.insert(url.clone(), player_ref.clone());
                         Some(player_ref)
                     } else {
@@ -828,7 +832,7 @@ impl GossipUi {
                         None
                     }
                 } else {
-                    let player_ref = Rc::new( RefCell::new( player ) );
+                    let player_ref = Rc::new(RefCell::new(player));
                     self.video_players.insert(url.clone(), player_ref.clone());
                     Some(player_ref)
                 }
