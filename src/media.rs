@@ -89,7 +89,7 @@ impl Media {
                 });
                 self.media_pending_processing.insert(url.clone());
                 None
-            },
+            }
             None => None,
         }
     }

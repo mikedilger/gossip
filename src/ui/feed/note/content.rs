@@ -276,7 +276,11 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
 fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
     let mut response_return = None;
     if let Some(media) = app.try_get_media(ui.ctx(), url.clone()) {
-        let size = media_scale(app.media_full_width_list.contains(&url), ui, media.size_vec2());
+        let size = media_scale(
+            app.media_full_width_list.contains(&url),
+            ui,
+            media.size_vec2(),
+        );
 
         // insert a newline if the current line has text
         if ui.cursor().min.x > ui.max_rect().min.x {
@@ -437,7 +441,14 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
     let show_full_width = app.media_full_width_list.contains(&url);
     if let Some(player_ref) = app.try_get_player(ui.ctx(), url.clone()) {
         if let Ok(mut player) = player_ref.try_borrow_mut() {
-            let size = media_scale(show_full_width, ui, Vec2{ x: player.width as f32, y: player.height as f32 });
+            let size = media_scale(
+                show_full_width,
+                ui,
+                Vec2 {
+                    x: player.width as f32,
+                    y: player.height as f32,
+                },
+            );
 
             // insert a newline if the current line has text
             if ui.cursor().min.x > ui.max_rect().min.x {
@@ -448,7 +459,7 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
             if !show_full_width {
                 player.stop();
             }
-            let response = player.ui( ui, [ size.x, size.y ] );
+            let response = player.ui(ui, [size.x, size.y]);
 
             // TODO fix click action
             let new_rect = response.rect.shrink(size.x / 2.0);
@@ -460,7 +471,7 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
 
 #[cfg(not(feature = "video-ffmpeg"))]
 fn try_render_video(_app: &mut GossipUi, _ui: &mut Ui, _url: Url) -> Option<Response> {
-    return None
+    return None;
 }
 
 fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
