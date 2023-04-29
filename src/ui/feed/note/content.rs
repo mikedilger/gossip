@@ -114,7 +114,15 @@ pub(super) fn render_hyperlink(
     note: &Ref<NoteData>,
     linkspan: &Span,
 ) {
-    let link = note.shattered_content.slice(linkspan).unwrap();
+    let link = {
+        let mut link = note.shattered_content.slice(linkspan).unwrap();
+        let link_split: Vec<&str> = link.split('?').collect();
+        if let Some(some_link) = link_split.first() {
+            link = *some_link
+        }
+        link
+    };
+
     if let Some(image_url) = as_image_url(app, link) {
         show_image_toggle(app, ui, image_url);
     } else if let Some(video_url) = as_video_url(app, link) {
@@ -435,7 +443,7 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
 fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
     let mut response_return = None;
     let show_full_width = app.media_full_width_list.contains(&url);
-    if let Some(player_ref) = app.try_get_player(ui.ctx(), url.clone()) {
+    if let Some(player_ref) = app.try_get_player(ui.ctx(), url) {
         if let Ok(mut player) = player_ref.try_borrow_mut() {
             let size = media_scale(show_full_width, ui, Vec2{ x: player.width as f32, y: player.height as f32 });
 
