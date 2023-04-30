@@ -1822,6 +1822,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tungstenite",
+ "url",
  "vecmap-rs",
  "zeroize",
 ]
