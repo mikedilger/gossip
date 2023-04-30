@@ -163,20 +163,28 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             draft_response.request_focus();
             app.draft_needs_focus = false;
         }
-        if draft_response.has_focus()
-            && ui.input_mut(|i| {
+
+        if draft_response.has_focus() && !app.draft.is_empty() {
+            let modifiers = if cfg!(target_os = "macos") {
+                Modifiers {
+                    command: true,
+                    ..Default::default()
+                }
+            } else {
+                Modifiers {
+                    ctrl: true,
+                    ..Default::default()
+                }
+            };
+    
+            if ui.input_mut(|i| {
                 i.consume_key(
-                    Modifiers {
-                        ctrl: true,
-                        command: true,
-                        ..Default::default()
-                    },
+                    modifiers,
                     Key::Enter,
                 )
-            })
-            && !app.draft.is_empty()
-        {
-            send_now = true;
+            }) {
+                send_now = true;
+            }
         }
 
         ui.add_space(8.0);
