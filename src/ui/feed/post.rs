@@ -186,6 +186,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 
     ui.horizontal(|ui| {
+        if ui.button("Cancel").clicked() {
+            app.clear_post();
+        }
+
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(12.0);
             let send_label = if app.draft_repost.is_some() {
@@ -198,10 +202,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 && (!app.draft.is_empty() || app.draft_repost.is_some())
             {
                 send_now = true;
-            }
-
-            if ui.button("Cancel").clicked() {
-                app.clear_post();
             }
 
             if app.draft_repost.is_none() {
