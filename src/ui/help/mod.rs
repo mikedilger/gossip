@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use eframe::egui;
-use egui::{Context, ScrollArea, SelectableLabel, Ui, Vec2};
+use egui::{Context, ScrollArea, Ui, Vec2};
 
 mod about;
 mod stats;
@@ -11,7 +11,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     {
         ui.horizontal(|ui| {
             if ui
-                .add(SelectableLabel::new(
+                .add(egui::SelectableLabel::new(
                     app.page == Page::HelpHelp,
                     "Getting Started",
                 ))
@@ -21,14 +21,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
             ui.separator();
             if ui
-                .add(SelectableLabel::new(app.page == Page::HelpStats, "Stats"))
+                .add(egui::SelectableLabel::new(app.page == Page::HelpStats, "Stats"))
                 .clicked()
             {
                 app.set_page(Page::HelpStats);
             }
             ui.separator();
             if ui
-                .add(SelectableLabel::new(app.page == Page::HelpAbout, "About"))
+                .add(egui::SelectableLabel::new(app.page == Page::HelpAbout, "About"))
                 .clicked()
             {
                 app.set_page(Page::HelpAbout);

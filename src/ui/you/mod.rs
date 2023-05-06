@@ -1,11 +1,12 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
+#[cfg(not(feature = "side-menu"))]
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::style::Margin;
-use egui::{Color32, Context, Frame, ScrollArea, SelectableLabel, Stroke, Ui, Vec2};
+use egui::{Color32, Context, Frame, ScrollArea, Stroke, Ui, Vec2};
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
@@ -17,7 +18,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     {
         ui.horizontal(|ui| {
             if ui
-                .add(SelectableLabel::new(app.page == Page::YourKeys, "Keys"))
+                .add(egui::SelectableLabel::new(app.page == Page::YourKeys, "Keys"))
                 .clicked()
             {
                 app.set_page(Page::YourKeys);
@@ -25,7 +26,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.separator();
             if let Some(pubkeyhex) = GLOBALS.signer.public_key() {
                 if ui
-                    .add(SelectableLabel::new(
+                    .add(egui::SelectableLabel::new(
                         app.page == Page::Feed(FeedKind::Person(pubkeyhex.into())),
                         "Notes »",
                     ))
@@ -36,7 +37,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.separator();
             }
             if ui
-                .add(SelectableLabel::new(
+                .add(egui::SelectableLabel::new(
                     app.page == Page::YourMetadata,
                     "Metadata",
                 ))
@@ -46,7 +47,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
             ui.separator();
             if ui
-                .add(SelectableLabel::new(
+                .add(egui::SelectableLabel::new(
                     app.page == Page::YourDelegation,
                     "Delegation",
                 ))

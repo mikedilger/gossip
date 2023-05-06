@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use crate::people::DbPerson;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Image, RichText, ScrollArea, SelectableLabel, Sense, Ui, Vec2};
+use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
 use std::sync::atomic::Ordering;
 
 mod follow;
@@ -12,16 +12,16 @@ mod muted;
 mod person;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let maybe_person = match &app.page {
-        Page::Person(pubkeyhex) => GLOBALS.people.get(pubkeyhex),
-        _ => None,
-    };
-
     #[cfg(not(feature = "side-menu"))]
     {
+        let maybe_person = match &app.page {
+            Page::Person(pubkeyhex) => GLOBALS.people.get(pubkeyhex),
+            _ => None,
+        };
+
         ui.horizontal(|ui| {
             if ui
-                .add(SelectableLabel::new(
+                .add(egui::SelectableLabel::new(
                     app.page == Page::PeopleList,
                     "Followed",
                 ))
@@ -31,7 +31,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
             ui.separator();
             if ui
-                .add(SelectableLabel::new(
+                .add(egui::SelectableLabel::new(
                     app.page == Page::PeopleFollow,
                     "Follow Someone New",
                 ))
@@ -41,7 +41,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
             ui.separator();
             if ui
-                .add(SelectableLabel::new(app.page == Page::PeopleMuted, "Muted"))
+                .add(egui::SelectableLabel::new(app.page == Page::PeopleMuted, "Muted"))
                 .clicked()
             {
                 app.set_page(Page::PeopleMuted);
@@ -49,7 +49,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.separator();
             if let Some(person) = &maybe_person {
                 if ui
-                    .add(SelectableLabel::new(
+                    .add(egui::SelectableLabel::new(
                         app.page == Page::Person(person.pubkey.clone()),
                         GossipUi::display_name_from_dbperson(person),
                     ))

@@ -3,7 +3,7 @@ use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
-use egui::{Context, Frame, RichText, ScrollArea, SelectableLabel, Ui, Vec2};
+use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
 use nostr_types::Id;
 
 pub use note::Notes;
@@ -35,7 +35,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
             ui.separator();
             if ui
-                .add(SelectableLabel::new(
+                .add(egui::SelectableLabel::new(
                     matches!(app.page, Page::Feed(FeedKind::Followed(_))),
                     "Main feed",
                 ))
@@ -45,7 +45,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
             ui.separator();
             if ui
-                .add(SelectableLabel::new(
+                .add(egui::SelectableLabel::new(
                     matches!(app.page, Page::Feed(FeedKind::Inbox(_))),
                     "Inbox",
                 ))
@@ -57,7 +57,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
                 ui.separator();
                 if ui
-                    .add(SelectableLabel::new(
+                    .add(egui::SelectableLabel::new(
                         app.page == Page::Feed(feed_kind.clone()),
                         "Thread",
                     ))
@@ -69,7 +69,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             if matches!(feed_kind, FeedKind::Person(..)) {
                 ui.separator();
                 if ui
-                    .add(SelectableLabel::new(
+                    .add(egui::SelectableLabel::new(
                         app.page == Page::Feed(feed_kind.clone()),
                         "Person",
                     ))

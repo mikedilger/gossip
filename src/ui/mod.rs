@@ -43,9 +43,7 @@ use egui::{
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
-use egui_winit::egui::{Response, Margin, CollapsingState, SelectableLabel, Rounding};
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
-use tracing_subscriber::Layer;
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -613,7 +611,7 @@ impl eframe::App for GossipUi {
             .show_separator_line(false)
             .frame(
                 egui::Frame::none()
-                .inner_margin( Margin::symmetric(20.0, 20.0 ) )
+                .inner_margin( egui::Margin::symmetric(20.0, 20.0 ) )
                 .fill(ctx.style().visuals.hyperlink_color)
             )
             .show(ctx, |ui| {
@@ -672,10 +670,6 @@ impl eframe::App for GossipUi {
 
                     // ---- People Submenu ----
                     {
-                        let show = self.page == Page::PeopleList
-                            || self.page == Page::PeopleFollow
-                            || self.page == Page::PeopleMuted
-                            || matches!(self.page, Page::Person(_));
                         let id = ui.make_persistent_id("people_menu_collapsible");
                         let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
                         let txt = if clps.is_open() {
@@ -697,8 +691,6 @@ impl eframe::App for GossipUi {
                     }
                     // ---- Relays Submenu ----
                     {
-                        let show = self.page == Page::RelaysLive
-                            || self.page == Page::RelaysAll;
                         let id = ui.make_persistent_id("relays_menu_collapsible");
                         let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
                         let txt = if clps.is_open() {
@@ -719,9 +711,6 @@ impl eframe::App for GossipUi {
                     }
                     // ---- Account Submenu ----
                     {
-                        let show = self.page == Page::YourKeys
-                            || self.page == Page::YourMetadata
-                            || self.page == Page::YourDelegation;
                         let id = ui.make_persistent_id("account_menu_collapsible");
                         let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
                         let txt = if clps.is_open() {
@@ -760,9 +749,6 @@ impl eframe::App for GossipUi {
                     }
                     // ---- Help Submenu ----
                     {
-                        let show = self.page == Page::HelpHelp
-                            || self.page == Page::HelpStats
-                            || self.page == Page::HelpAbout;
                         let id = ui.make_persistent_id("help_menu_collapsible");
                         let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
                         let txt = if clps.is_open() {
@@ -784,39 +770,51 @@ impl eframe::App for GossipUi {
                     }
         });
 
-        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
-            if !self.show_post_area {
-                let bottom_right = ui.ctx().screen_rect().right_bottom();
-                let pos = bottom_right + Vec2::new(-65.0, -75.0);
-                egui::Area::new(ui.next_auto_id())
-                    .movable(false)
-                    .interactable(true)
-                    .fixed_pos(pos)
-                    // FIXME IN EGUI: constrain is moving the box left for all of these boxes
-                    // even if they have different IDs and don't need it.
-                    .constrain(true)
-                    .show(ctx, |ui| {
-                        // ui.set_min_width(200.0);
-                        egui::Frame::popup(&self.settings.theme.get_style())
-                            .rounding(egui::Rounding::same(50.0))
-                            .stroke( egui::Stroke::NONE)
-                            .fill(ui.visuals().hyperlink_color)
-                            .show(
-                            ui,
-                            |ui| {
-                                let response = ui.add(
-                                    egui::Button::new( RichText::new("+").size(22.5).color(Color32::WHITE))
-                                        .fill(Color32::TRANSPARENT) );
-                                if response.clicked() {
-                                    self.show_post_area = true;
-                                }
-                                response.on_hover_cursor(egui::CursorIcon::PointingHand);
+        egui::TopBottomPanel::bottom("status")
+            .frame({
+                let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
+                #[cfg(feature = "side-menu")]
+                let frame = frame.inner_margin(egui::Margin::symmetric(20.0, 0.0));
+                frame
+                })
+            .show_separator_line(false)
+            .resizable(self.show_post_area)
+            .show(ctx, |ui| {
+            #[cfg(feature = "side-menu")]
+            {
+                if !self.show_post_area {
+                    let bottom_right = ui.ctx().screen_rect().right_bottom();
+                    let pos = bottom_right + Vec2::new(-65.0, -75.0);
+                    egui::Area::new(ui.next_auto_id())
+                        .movable(false)
+                        .interactable(true)
+                        .fixed_pos(pos)
+                        // FIXME IN EGUI: constrain is moving the box left for all of these boxes
+                        // even if they have different IDs and don't need it.
+                        .constrain(true)
+                        .show(ctx, |ui| {
+                            // ui.set_min_width(200.0);
+                            egui::Frame::popup(&self.settings.theme.get_style())
+                                .rounding(egui::Rounding::same(50.0))
+                                .stroke( egui::Stroke::NONE)
+                                .fill(ui.visuals().hyperlink_color)
+                                .show(
+                                ui,
+                                |ui| {
+                                    let response = ui.add(
+                                        egui::Button::new( RichText::new("+").size(22.5).color(Color32::WHITE))
+                                            .fill(Color32::TRANSPARENT) );
+                                    if response.clicked() {
+                                        self.show_post_area = true;
+                                    }
+                                    response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                            });
                         });
-                    });
-            } else {
-                ui.add_space(4.0);
-                feed::post::posting_area(self, ctx, frame, ui);
-                ui.separator();
+                } else {
+                    ui.add_space(4.0);
+                    feed::post::posting_area(self, ctx, frame, ui);
+                    ui.separator();
+                }
             }
             ui.horizontal(|ui| {
                 if ui
@@ -831,7 +829,16 @@ impl eframe::App for GossipUi {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| match self.page {
+        egui::CentralPanel::default()
+            .frame(
+                {
+                let frame = egui::Frame::central_panel(&self.settings.theme.get_style());
+                #[cfg(feature = "side-menu")]
+                let frame = frame.inner_margin(egui::Margin::symmetric(20.0, 10.0));
+                frame
+                }
+            )
+            .show(ctx, |ui| match self.page {
             Page::Feed(_) => feed::update(self, ctx, frame, ui),
             Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
                 people::update(self, ctx, frame, ui)
@@ -1112,6 +1119,7 @@ impl GossipUi {
     }
 }
 
+#[cfg(feature = "side-menu")]
 impl GossipUi {
     fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
         if add_selected_label(ui, self.page == page, text).clicked() {
@@ -1120,6 +1128,7 @@ impl GossipUi {
     }
 }
 
+#[cfg(feature = "side-menu")]
 fn new_selected_label( selected: bool, text: &str ) -> Label {
     let rtext = RichText::new(text).color(Color32::WHITE);
     if selected {
@@ -1129,21 +1138,8 @@ fn new_selected_label( selected: bool, text: &str ) -> Label {
     }
 }
 
-fn add_selected_icon_label( ui: &mut Ui, selected: bool, icon: &str, text: &str ) -> Response {
-    let label = new_selected_label(selected, text);
-    let ilabel = new_selected_label(selected, icon);
-    let mut response: Option<Response> = None;
-    ui.horizontal(|ui| {
-        let iresponse = ui.add_sized( [ui.spacing().indent - ui.spacing().item_spacing.x, 14.5], ilabel);
-        let lresponse = ui.add(label);
-        response = Some( iresponse | lresponse );
-    });
-    let response = response.unwrap();
-    response.clone().on_hover_cursor( egui::CursorIcon::PointingHand );
-    response
-}
-
-fn add_selected_label( ui: &mut Ui, selected: bool, text: &str) -> Response {
+#[cfg(feature = "side-menu")]
+fn add_selected_label( ui: &mut Ui, selected: bool, text: &str) -> egui::Response {
     let label = new_selected_label(selected, text);
     ui.add_space(2.0);
     let response = ui.add(label);

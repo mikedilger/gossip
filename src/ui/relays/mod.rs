@@ -2,7 +2,7 @@ use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, ScrollArea, SelectableLabel, Ui, Vec2};
+use egui::{Context, ScrollArea, Ui, Vec2};
 use egui_extras::{Column, TableBuilder};
 use nostr_types::RelayUrl;
 
@@ -13,14 +13,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     {
         ui.horizontal(|ui| {
             if ui
-                .add(SelectableLabel::new(app.page == Page::RelaysLive, "Live"))
+                .add(egui::SelectableLabel::new(app.page == Page::RelaysLive, "Live"))
                 .clicked()
             {
                 app.set_page(Page::RelaysLive);
             }
             ui.separator();
             if ui
-                .add(SelectableLabel::new(
+                .add(egui::SelectableLabel::new(
                     app.page == Page::RelaysAll,
                     "Configure",
                 ))
