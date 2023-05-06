@@ -333,7 +333,7 @@ impl GossipUi {
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
-            pubkey: GLOBALS.signer.public_key(),
+            pubkey: GLOBALS.signer.public_key(), // FIXME: track updates to public key
             notes: Notes::new(),
             render_raw: None,
             render_qr: None,
@@ -617,6 +617,9 @@ impl eframe::App for GossipUi {
                 .fill(Color32::GRAY)
             )
             .show(ctx, |ui| {
+                    // cut indentation in half
+                    ui.style_mut().spacing.indent /= 2.0;
+
                     ui.add_space(4.0);
                     let back_label_text = RichText::new("‹ Back");
                     let label = if self.history.is_empty() {
@@ -673,17 +676,16 @@ impl eframe::App for GossipUi {
                             || self.page == Page::PeopleFollow
                             || self.page == Page::PeopleMuted
                             || matches!(self.page, Page::Person(_));
-                        let txt = if show {
+                        let id = ui.make_persistent_id("people_menu_collapsible");
+                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
+                        let txt = if clps.is_open() {
                             "People \u{25BE}"
                         } else {
                             "People \u{25B8}"
                         };
-                        let id = ui.make_persistent_id("people_menu_collapsible");
-                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
-                        clps.set_open(show);
                         let header_res = ui.horizontal(|ui| {
                                 if ui.add( new_selected_label(false, txt) ).clicked() {
-                                    self.set_page(Page::PeopleList);
+                                    clps.toggle(ui);
                                 }
                             });
                         clps.show_body_indented(&header_res.response, ui, |ui| {
@@ -697,17 +699,16 @@ impl eframe::App for GossipUi {
                     {
                         let show = self.page == Page::RelaysLive
                             || self.page == Page::RelaysAll;
-                        let txt = if show {
+                        let id = ui.make_persistent_id("relays_menu_collapsible");
+                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
+                        let txt = if clps.is_open() {
                             "Relays \u{25BE}"
                         } else {
                             "Relays \u{25B8}"
                         };
-                        let id = ui.make_persistent_id("relays_menu_collapsible");
-                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
-                        clps.set_open(show);
                         let header_res = ui.horizontal(|ui| {
                                 if ui.add( new_selected_label(false, txt) ).clicked() {
-                                    self.set_page(Page::RelaysLive);
+                                    clps.toggle(ui);
                                 }
                             });
                         clps.show_body_indented(&header_res.response, ui, |ui| {
@@ -721,17 +722,16 @@ impl eframe::App for GossipUi {
                         let show = self.page == Page::YourKeys
                             || self.page == Page::YourMetadata
                             || self.page == Page::YourDelegation;
-                        let txt = if show {
+                        let id = ui.make_persistent_id("account_menu_collapsible");
+                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
+                        let txt = if clps.is_open() {
                             "Account \u{25BE}"
                         } else {
                             "Account \u{25B8}"
                         };
-                        let id = ui.make_persistent_id("account_menu_collapsible");
-                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
-                        clps.set_open(show);
                         let header_res = ui.horizontal(|ui| {
                                 if ui.add( new_selected_label(false, txt) ).clicked() {
-                                    self.set_page(Page::YourMetadata);
+                                    clps.toggle(ui);
                                 }
                             });
                         clps.show_body_indented(&header_res.response, ui, |ui| {
@@ -763,17 +763,16 @@ impl eframe::App for GossipUi {
                         let show = self.page == Page::HelpHelp
                             || self.page == Page::HelpStats
                             || self.page == Page::HelpAbout;
-                        let txt = if show {
+                        let id = ui.make_persistent_id("help_menu_collapsible");
+                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
+                        let txt = if clps.is_open() {
                             "Help \u{25BE}"
                         } else {
                             "Help \u{25B8}"
                         };
-                        let id = ui.make_persistent_id("help_menu_collapsible");
-                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
-                        clps.set_open(show);
                         let header_res = ui.horizontal(|ui| {
                                 if ui.add( new_selected_label(false, txt) ).clicked() {
-                                    self.set_page(Page::HelpHelp);
+                                    clps.toggle(ui);
                                 }
                             });
                         clps.show_body_indented(&header_res.response, ui, |ui| {
@@ -1113,6 +1112,7 @@ fn add_selected_icon_label( ui: &mut Ui, selected: bool, icon: &str, text: &str 
 
 fn add_selected_label( ui: &mut Ui, selected: bool, text: &str) -> Response {
     let label = new_selected_label(selected, text);
+    ui.add_space(2.0);
     let response = ui.add(label);
     ui.add_space(2.0);
     response.clone().on_hover_cursor( egui::CursorIcon::PointingHand );
