@@ -10,7 +10,7 @@ pub use note::Notes;
 
 mod note;
 pub use note::NoteRenderData;
-mod post;
+pub(super) mod post;
 
 struct FeedNoteParams {
     id: Id,
@@ -24,74 +24,77 @@ struct FeedNoteParams {
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed_kind = GLOBALS.feed.get_feed_kind();
 
-    // Feed Page Selection
-    ui.horizontal(|ui| {
-        if !app.settings.recompute_feed_periodically {
-            if ui.button("↻").clicked() {
-                GLOBALS.feed.sync_recompute();
+    #[cfg(not(feature = "side-menu"))]
+    {
+        // Feed Page Selection
+        ui.horizontal(|ui| {
+            if !app.settings.recompute_feed_periodically {
+                if ui.button("↻").clicked() {
+                    GLOBALS.feed.sync_recompute();
+                }
             }
-        }
-        ui.separator();
-        if ui
-            .add(SelectableLabel::new(
-                matches!(app.page, Page::Feed(FeedKind::Followed(_))),
-                "Main feed",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
-        }
-        ui.separator();
-        if ui
-            .add(SelectableLabel::new(
-                matches!(app.page, Page::Feed(FeedKind::Inbox(_))),
-                "Inbox",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
-        }
-        ui.separator();
-        if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
             ui.separator();
             if ui
                 .add(SelectableLabel::new(
-                    app.page == Page::Feed(feed_kind.clone()),
-                    "Thread",
+                    matches!(app.page, Page::Feed(FeedKind::Followed(_))),
+                    "Main feed",
                 ))
                 .clicked()
             {
-                app.set_page(Page::Feed(feed_kind.clone()));
+                app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
             }
-        }
-        if matches!(feed_kind, FeedKind::Person(..)) {
             ui.separator();
             if ui
                 .add(SelectableLabel::new(
-                    app.page == Page::Feed(feed_kind.clone()),
-                    "Person",
+                    matches!(app.page, Page::Feed(FeedKind::Inbox(_))),
+                    "Inbox",
                 ))
                 .clicked()
             {
-                app.set_page(Page::Feed(feed_kind.clone()));
+                app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
             }
-        }
-
-        if GLOBALS
-            .feed
-            .recompute_lock
-            .load(std::sync::atomic::Ordering::Relaxed)
-        {
             ui.separator();
-            ui.label("RECOMPUTING...");
-        }
-    });
+            if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
+                ui.separator();
+                if ui
+                    .add(SelectableLabel::new(
+                        app.page == Page::Feed(feed_kind.clone()),
+                        "Thread",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(feed_kind.clone()));
+                }
+            }
+            if matches!(feed_kind, FeedKind::Person(..)) {
+                ui.separator();
+                if ui
+                    .add(SelectableLabel::new(
+                        app.page == Page::Feed(feed_kind.clone()),
+                        "Person",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(feed_kind.clone()));
+                }
+            }
 
-    ui.add_space(10.0);
+            if GLOBALS
+                .feed
+                .recompute_lock
+                .load(std::sync::atomic::Ordering::Relaxed)
+            {
+                ui.separator();
+                ui.label("RECOMPUTING...");
+            }
+        });
 
-    post::posting_area(app, ctx, frame, ui);
+        ui.add_space(10.0);
 
-    ui.add_space(10.0);
+        post::posting_area(app, ctx, frame, ui);
+
+        ui.add_space(10.0);
+    }
 
     match feed_kind {
         FeedKind::Followed(with_replies) => {

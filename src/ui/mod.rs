@@ -43,8 +43,9 @@ use egui::{
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
-use egui_winit::egui::{Response, Margin};
+use egui_winit::egui::{Response, Margin, CollapsingState, SelectableLabel};
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
+use tracing_subscriber::Layer;
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -133,9 +134,6 @@ struct GossipUi {
     // the f32's are the recommended image size
     qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
 
-    // cached account pubkey
-    pubkey: Option<PublicKey>,
-
     // Processed events caching
     notes: Notes,
 
@@ -173,6 +171,7 @@ struct GossipUi {
     search_result: String,
 
     // User entry: posts
+    show_post_area: bool,
     draft: String,
     draft_needs_focus: bool,
     draft_repost: Option<Id>,
@@ -333,7 +332,6 @@ impl GossipUi {
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
-            pubkey: GLOBALS.signer.public_key(), // FIXME: track updates to public key
             notes: Notes::new(),
             render_raw: None,
             render_qr: None,
@@ -355,6 +353,7 @@ impl GossipUi {
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
             search_result: "".to_owned(),
+            show_post_area: false,
             draft: "".to_owned(),
             draft_needs_focus: false,
             draft_repost: None,
@@ -614,7 +613,7 @@ impl eframe::App for GossipUi {
             .frame(
                 egui::Frame::none()
                 .inner_margin( Margin::symmetric(20.0, 20.0 ) )
-                .fill(Color32::GRAY)
+                .fill(Color32::from_rgb(0x55, 0x7a, 0x95))
             )
             .show(ctx, |ui| {
                     // cut indentation in half
@@ -646,7 +645,7 @@ impl eframe::App for GossipUi {
                             self.mainfeed_include_nonroot,
                         )));
                     }
-                    if let Some(pubkey) = self.pubkey {
+                    if let Some(pubkey) = GLOBALS.signer.public_key() {
                         let pubkeyhex: PublicKeyHex = pubkey.into();
                         if add_selected_label(
                                 ui,
@@ -785,6 +784,34 @@ impl eframe::App for GossipUi {
         });
 
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+            if !self.show_post_area {
+                let bottom_right = ui.ctx().screen_rect().right_bottom();
+                let pos = bottom_right + Vec2::new(-60.0, -70.0);
+                egui::Area::new(ui.next_auto_id())
+                    .movable(false)
+                    .interactable(true)
+                    .fixed_pos(pos)
+                    // FIXME IN EGUI: constrain is moving the box left for all of these boxes
+                    // even if they have different IDs and don't need it.
+                    .constrain(true)
+                    .show(ctx, |ui| {
+                        // ui.set_min_width(200.0);
+                        egui::Frame::popup(&self.settings.theme.get_style()).show(
+                            ui,
+                            |ui| {
+                                if ui.button(RichText::new("+").size(16.5)).clicked() {
+                                    self.show_post_area = true;
+                                }
+                        });
+                    });
+            } else {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    if ui.button( RichText::new("X").size(16.5) ).clicked() {
+                        self.show_post_area = false;
+                    }
+                    feed::post::posting_area(self, ctx, frame, ui);
+                });
+            }
             ui.horizontal(|ui| {
                 if ui
                     .add(
@@ -1088,7 +1115,7 @@ impl GossipUi {
 }
 
 fn new_selected_label( selected: bool, text: &str ) -> Label {
-    let rtext = RichText::new(text);
+    let rtext = RichText::new(text).color(Color32::WHITE);
     if selected {
         Label::new(rtext.strong()).sense(Sense::click())
     } else {

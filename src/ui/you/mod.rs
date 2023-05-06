@@ -13,48 +13,51 @@ mod delegation;
 mod metadata;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.horizontal(|ui| {
-        if ui
-            .add(SelectableLabel::new(app.page == Page::YourKeys, "Keys"))
-            .clicked()
-        {
-            app.set_page(Page::YourKeys);
-        }
-        ui.separator();
-        if let Some(pubkeyhex) = GLOBALS.signer.public_key() {
+    #[cfg(not(feature = "side-menu"))]
+    {
+        ui.horizontal(|ui| {
+            if ui
+                .add(SelectableLabel::new(app.page == Page::YourKeys, "Keys"))
+                .clicked()
+            {
+                app.set_page(Page::YourKeys);
+            }
+            ui.separator();
+            if let Some(pubkeyhex) = GLOBALS.signer.public_key() {
+                if ui
+                    .add(SelectableLabel::new(
+                        app.page == Page::Feed(FeedKind::Person(pubkeyhex.into())),
+                        "Notes »",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(FeedKind::Person(pubkeyhex.into())));
+                }
+                ui.separator();
+            }
             if ui
                 .add(SelectableLabel::new(
-                    app.page == Page::Feed(FeedKind::Person(pubkeyhex.into())),
-                    "Notes »",
+                    app.page == Page::YourMetadata,
+                    "Metadata",
                 ))
                 .clicked()
             {
-                app.set_page(Page::Feed(FeedKind::Person(pubkeyhex.into())));
+                app.set_page(Page::YourMetadata);
             }
             ui.separator();
-        }
-        if ui
-            .add(SelectableLabel::new(
-                app.page == Page::YourMetadata,
-                "Metadata",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::YourMetadata);
-        }
+            if ui
+                .add(SelectableLabel::new(
+                    app.page == Page::YourDelegation,
+                    "Delegation",
+                ))
+                .clicked()
+            {
+                app.set_page(Page::YourDelegation);
+            }
+            ui.separator();
+        });
         ui.separator();
-        if ui
-            .add(SelectableLabel::new(
-                app.page == Page::YourDelegation,
-                "Delegation",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::YourDelegation);
-        }
-        ui.separator();
-    });
-    ui.separator();
+    }
 
     if app.page == Page::YourKeys {
         ui.add_space(10.0);

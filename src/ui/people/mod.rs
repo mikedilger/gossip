@@ -17,48 +17,51 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         _ => None,
     };
 
-    ui.horizontal(|ui| {
-        if ui
-            .add(SelectableLabel::new(
-                app.page == Page::PeopleList,
-                "Followed",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::PeopleList);
-        }
-        ui.separator();
-        if ui
-            .add(SelectableLabel::new(
-                app.page == Page::PeopleFollow,
-                "Follow Someone New",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::PeopleFollow);
-        }
-        ui.separator();
-        if ui
-            .add(SelectableLabel::new(app.page == Page::PeopleMuted, "Muted"))
-            .clicked()
-        {
-            app.set_page(Page::PeopleMuted);
-        }
-        ui.separator();
-        if let Some(person) = &maybe_person {
+    #[cfg(not(feature = "side-menu"))]
+    {
+        ui.horizontal(|ui| {
             if ui
                 .add(SelectableLabel::new(
-                    app.page == Page::Person(person.pubkey.clone()),
-                    GossipUi::display_name_from_dbperson(person),
+                    app.page == Page::PeopleList,
+                    "Followed",
                 ))
                 .clicked()
             {
-                app.set_page(Page::Person(person.pubkey.clone()));
+                app.set_page(Page::PeopleList);
             }
             ui.separator();
-        }
-    });
-    ui.separator();
+            if ui
+                .add(SelectableLabel::new(
+                    app.page == Page::PeopleFollow,
+                    "Follow Someone New",
+                ))
+                .clicked()
+            {
+                app.set_page(Page::PeopleFollow);
+            }
+            ui.separator();
+            if ui
+                .add(SelectableLabel::new(app.page == Page::PeopleMuted, "Muted"))
+                .clicked()
+            {
+                app.set_page(Page::PeopleMuted);
+            }
+            ui.separator();
+            if let Some(person) = &maybe_person {
+                if ui
+                    .add(SelectableLabel::new(
+                        app.page == Page::Person(person.pubkey.clone()),
+                        GossipUi::display_name_from_dbperson(person),
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Person(person.pubkey.clone()));
+                }
+                ui.separator();
+            }
+        });
+        ui.separator();
+    }
 
     if app.page == Page::PeopleList {
         let people: Vec<DbPerson> = GLOBALS

@@ -59,7 +59,7 @@ pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
     job
 }
 
-pub(super) fn posting_area(
+pub(in crate::ui) fn posting_area(
     app: &mut GossipUi,
     ctx: &Context,
     frame: &mut eframe::Frame,
