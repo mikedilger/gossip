@@ -35,12 +35,15 @@ use crate::ui::widgets::CopyButton;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
 use eframe::{egui, IconData};
+#[cfg(not(feature = "side-menu"))]
+use egui::SelectableLabel;
 use egui::{
-    Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
+    Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
+use egui_winit::egui::{Response, Margin};
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
@@ -129,6 +132,9 @@ struct GossipUi {
     // QR codes being rendered (in feed or elsewhere)
     // the f32's are the recommended image size
     qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
+
+    // cached account pubkey
+    pubkey: Option<PublicKey>,
 
     // Processed events caching
     notes: Notes,
@@ -327,6 +333,7 @@ impl GossipUi {
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
+            pubkey: GLOBALS.signer.public_key(),
             notes: Notes::new(),
             render_raw: None,
             render_qr: None,
@@ -507,6 +514,7 @@ impl eframe::App for GossipUi {
             }
         }
 
+        #[cfg(not(feature = "side-menu"))]
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
@@ -598,6 +606,183 @@ impl eframe::App for GossipUi {
                 ui.separator();
             });
             ui.add_space(4.0);
+        });
+
+        #[cfg(feature = "side-menu")]
+        egui::SidePanel::left("main-naviation-panel")
+            .show_separator_line(false)
+            .frame(
+                egui::Frame::none()
+                .inner_margin( Margin::symmetric(20.0, 20.0 ) )
+                .fill(Color32::GRAY)
+            )
+            .show(ctx, |ui| {
+                    ui.add_space(4.0);
+                    let back_label_text = RichText::new("‹ Back");
+                    let label = if self.history.is_empty() {
+                        Label::new(back_label_text.weak())
+                    } else {
+                        Label::new(back_label_text).sense(Sense::click())
+                    };
+                    if ui.add(label).clicked() {
+                        self.back();
+                    }
+
+                    ui.add_space(4.0);
+                    ui.separator();
+                    ui.add_space(4.0);
+
+                    if add_selected_label(
+                            ui,
+                            matches!(self.page, Page::Feed(FeedKind::Followed(_))),
+                            "Main Feed",
+                        )
+                        .clicked()
+                    {
+                        self.set_page(Page::Feed(FeedKind::Followed(
+                            self.mainfeed_include_nonroot,
+                        )));
+                    }
+                    if let Some(pubkey) = self.pubkey {
+                        let pubkeyhex: PublicKeyHex = pubkey.into();
+                        if add_selected_label(
+                                ui,
+                                matches!(&self.page, Page::Feed(FeedKind::Person(key)) if key.as_str() == pubkeyhex.as_str()),
+                                "My Notes",
+                            )
+                            .clicked()
+                        {
+                            self.set_page(Page::Feed(FeedKind::Person(pubkeyhex)));
+                        }
+                    }
+                    if add_selected_label(
+                            ui,
+                            matches!(self.page, Page::Feed(FeedKind::Inbox(_))),
+                            "Inbox",
+                        )
+                        .clicked()
+                    {
+                        self.set_page(Page::Feed(FeedKind::Inbox(true)));
+                    }
+
+                    ui.add_space(8.0);
+
+                    // ---- People Submenu ----
+                    {
+                        let show = self.page == Page::PeopleList
+                            || self.page == Page::PeopleFollow
+                            || self.page == Page::PeopleMuted
+                            || matches!(self.page, Page::Person(_));
+                        let txt = if show {
+                            "People \u{25BE}"
+                        } else {
+                            "People \u{25B8}"
+                        };
+                        let id = ui.make_persistent_id("people_menu_collapsible");
+                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
+                        clps.set_open(show);
+                        let header_res = ui.horizontal(|ui| {
+                                if ui.add( new_selected_label(false, txt) ).clicked() {
+                                    self.set_page(Page::PeopleList);
+                                }
+                            });
+                        clps.show_body_indented(&header_res.response, ui, |ui| {
+                                self.add_menu_item_page(ui, Page::PeopleList, "Followed");
+                                self.add_menu_item_page(ui, Page::PeopleFollow, "Follow new");
+                                self.add_menu_item_page(ui, Page::PeopleMuted, "Muted");
+                            });
+                        header_res.response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                    }
+                    // ---- Relays Submenu ----
+                    {
+                        let show = self.page == Page::RelaysLive
+                            || self.page == Page::RelaysAll;
+                        let txt = if show {
+                            "Relays \u{25BE}"
+                        } else {
+                            "Relays \u{25B8}"
+                        };
+                        let id = ui.make_persistent_id("relays_menu_collapsible");
+                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
+                        clps.set_open(show);
+                        let header_res = ui.horizontal(|ui| {
+                                if ui.add( new_selected_label(false, txt) ).clicked() {
+                                    self.set_page(Page::RelaysLive);
+                                }
+                            });
+                        clps.show_body_indented(&header_res.response, ui, |ui| {
+                                self.add_menu_item_page(ui, Page::RelaysLive, "Live");
+                                self.add_menu_item_page(ui, Page::RelaysAll, "Configure");
+                            });
+                        header_res.response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                    }
+                    // ---- Account Submenu ----
+                    {
+                        let show = self.page == Page::YourKeys
+                            || self.page == Page::YourMetadata
+                            || self.page == Page::YourDelegation;
+                        let txt = if show {
+                            "Account \u{25BE}"
+                        } else {
+                            "Account \u{25B8}"
+                        };
+                        let id = ui.make_persistent_id("account_menu_collapsible");
+                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
+                        clps.set_open(show);
+                        let header_res = ui.horizontal(|ui| {
+                                if ui.add( new_selected_label(false, txt) ).clicked() {
+                                    self.set_page(Page::YourMetadata);
+                                }
+                            });
+                        clps.show_body_indented(&header_res.response, ui, |ui| {
+                                self.add_menu_item_page(ui, Page::YourMetadata, "Profile");
+                                self.add_menu_item_page(ui, Page::YourKeys, "Keys");
+                                self.add_menu_item_page(ui, Page::YourDelegation, "Delegation");
+
+                            });
+                        header_res.response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                    }
+                    // ----
+                    if add_selected_label(ui, self.page == Page::Search, "Search")
+                        .clicked()
+                    {
+                        self.set_page(Page::Search);
+                    }
+                    // ----
+                    if add_selected_label(
+                            ui,
+                            self.page == Page::Settings,
+                            "Settings",
+                        )
+                        .clicked()
+                    {
+                        self.set_page(Page::Settings);
+                    }
+                    // ---- Help Submenu ----
+                    {
+                        let show = self.page == Page::HelpHelp
+                            || self.page == Page::HelpStats
+                            || self.page == Page::HelpAbout;
+                        let txt = if show {
+                            "Help \u{25BE}"
+                        } else {
+                            "Help \u{25B8}"
+                        };
+                        let id = ui.make_persistent_id("help_menu_collapsible");
+                        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), id, false );
+                        clps.set_open(show);
+                        let header_res = ui.horizontal(|ui| {
+                                if ui.add( new_selected_label(false, txt) ).clicked() {
+                                    self.set_page(Page::HelpHelp);
+                                }
+                            });
+                        clps.show_body_indented(&header_res.response, ui, |ui| {
+                                self.add_menu_item_page(ui, Page::HelpHelp, "Help");
+                                self.add_menu_item_page(ui, Page::HelpStats, "Stats");
+                                self.add_menu_item_page(ui, Page::HelpAbout, "About");
+                            });
+                        header_res.response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                    }
         });
 
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
@@ -893,4 +1078,43 @@ impl GossipUi {
             }
         }
     }
+}
+
+impl GossipUi {
+    fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
+        if add_selected_label(ui, self.page == page, text).clicked() {
+            self.set_page(page);
+        }
+    }
+}
+
+fn new_selected_label( selected: bool, text: &str ) -> Label {
+    let rtext = RichText::new(text);
+    if selected {
+        Label::new(rtext.strong()).sense(Sense::click())
+    } else {
+        Label::new(rtext).sense(Sense::click())
+    }
+}
+
+fn add_selected_icon_label( ui: &mut Ui, selected: bool, icon: &str, text: &str ) -> Response {
+    let label = new_selected_label(selected, text);
+    let ilabel = new_selected_label(selected, icon);
+    let mut response: Option<Response> = None;
+    ui.horizontal(|ui| {
+        let iresponse = ui.add_sized( [ui.spacing().indent - ui.spacing().item_spacing.x, 14.5], ilabel);
+        let lresponse = ui.add(label);
+        response = Some( iresponse | lresponse );
+    });
+    let response = response.unwrap();
+    response.clone().on_hover_cursor( egui::CursorIcon::PointingHand );
+    response
+}
+
+fn add_selected_label( ui: &mut Ui, selected: bool, text: &str) -> Response {
+    let label = new_selected_label(selected, text);
+    let response = ui.add(label);
+    ui.add_space(2.0);
+    response.clone().on_hover_cursor( egui::CursorIcon::PointingHand );
+    response
 }
