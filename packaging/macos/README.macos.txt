@@ -1,9 +1,9 @@
 
-APPLE SILICON ONLY
-------------------
+INTEL AND APPLE SILICON
+-----------------------
 
-This release works on Apple Silicon (M1/M2) hardware only. We have not built a release
-for Intel hardware. Perhaps in the future.
+There are two releases, one for x86_64 (Intel) and one for arm64 (Apple silicon).
+Choose the one that is right for your machine.
 
 
 INSTALLING
