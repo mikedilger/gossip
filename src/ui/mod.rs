@@ -43,7 +43,7 @@ use egui::{
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
-use egui_winit::egui::{Response, Margin, CollapsingState, SelectableLabel};
+use egui_winit::egui::{Response, Margin, CollapsingState, SelectableLabel, Rounding};
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
 use tracing_subscriber::Layer;
 use std::collections::{HashMap, HashSet};
@@ -454,6 +454,7 @@ impl GossipUi {
     }
 
     fn clear_post(&mut self) {
+        self.show_post_area = false;
         self.draft = "".to_owned();
         self.draft_repost = None;
         self.tag_someone = "".to_owned();
@@ -613,7 +614,7 @@ impl eframe::App for GossipUi {
             .frame(
                 egui::Frame::none()
                 .inner_margin( Margin::symmetric(20.0, 20.0 ) )
-                .fill(Color32::from_rgb(0x55, 0x7a, 0x95))
+                .fill(ctx.style().visuals.hyperlink_color)
             )
             .show(ctx, |ui| {
                     // cut indentation in half
@@ -786,7 +787,7 @@ impl eframe::App for GossipUi {
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             if !self.show_post_area {
                 let bottom_right = ui.ctx().screen_rect().right_bottom();
-                let pos = bottom_right + Vec2::new(-60.0, -70.0);
+                let pos = bottom_right + Vec2::new(-65.0, -75.0);
                 egui::Area::new(ui.next_auto_id())
                     .movable(false)
                     .interactable(true)
@@ -796,21 +797,26 @@ impl eframe::App for GossipUi {
                     .constrain(true)
                     .show(ctx, |ui| {
                         // ui.set_min_width(200.0);
-                        egui::Frame::popup(&self.settings.theme.get_style()).show(
+                        egui::Frame::popup(&self.settings.theme.get_style())
+                            .rounding(egui::Rounding::same(50.0))
+                            .stroke( egui::Stroke::NONE)
+                            .fill(ui.visuals().hyperlink_color)
+                            .show(
                             ui,
                             |ui| {
-                                if ui.button(RichText::new("+").size(16.5)).clicked() {
+                                let response = ui.add(
+                                    egui::Button::new( RichText::new("+").size(22.5).color(Color32::WHITE))
+                                        .fill(Color32::TRANSPARENT) );
+                                if response.clicked() {
                                     self.show_post_area = true;
                                 }
+                                response.on_hover_cursor(egui::CursorIcon::PointingHand);
                         });
                     });
             } else {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                    if ui.button( RichText::new("X").size(16.5) ).clicked() {
-                        self.show_post_area = false;
-                    }
-                    feed::post::posting_area(self, ctx, frame, ui);
-                });
+                ui.add_space(4.0);
+                feed::post::posting_area(self, ctx, frame, ui);
+                ui.separator();
             }
             ui.horizontal(|ui| {
                 if ui
