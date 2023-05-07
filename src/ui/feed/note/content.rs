@@ -115,11 +115,14 @@ pub(super) fn render_hyperlink(
     linkspan: &Span,
 ) {
     let link = note.shattered_content.slice(linkspan).unwrap();
-    if let Some(image_url) = as_image_url(app, link) {
-        show_image_toggle(app, ui, image_url);
-    //} else if is_video_url(&lowercase) {
-    // TODO
-    //    crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
+    if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
+        if is_image_url(&url) {
+            show_image_toggle(app, ui, nurl);
+        } else if is_video_url(&url) {
+            show_video_toggle(app, ui, nurl);
+        } else {
+            crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
+        }
     } else {
         crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
     }
@@ -172,8 +175,8 @@ pub(super) fn render_unknown_reference(ui: &mut Ui, num: usize) {
     }
 }
 
-fn is_image_url(url: &str) -> bool {
-    let lower = url.to_lowercase();
+fn is_image_url(url: &url::Url) -> bool {
+    let lower = url.path().to_lowercase();
     lower.ends_with(".jpg")
         || lower.ends_with(".jpeg")
         || lower.ends_with(".png")
@@ -181,23 +184,13 @@ fn is_image_url(url: &str) -> bool {
         || lower.ends_with(".webp")
 }
 
-fn as_image_url(app: &mut GossipUi, url: &str) -> Option<Url> {
-    if is_image_url(url) {
-        app.try_check_url(url)
-    } else {
-        None
-    }
-}
-
-/*
-fn is_video_url(url: &str) -> bool {
-    let lower = url.to_lowercase();
+fn is_video_url(url: &url::Url) -> bool {
+    let lower = url.path().to_lowercase();
     lower.ends_with(".mov")
         || lower.ends_with(".mp4")
         || lower.ends_with(".mkv")
         || lower.ends_with(".webm")
 }
- */
 
 fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     let row_height = ui.cursor().height();
@@ -209,7 +202,7 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
         || (!app.settings.show_media && app.media_show_list.contains(&url));
 
     if show_image {
-        if let Some(response) = try_render_media(app, ui, url.clone()) {
+        if let Some(response) = try_render_image(app, ui, url.clone()) {
             show_link = false;
 
             // full-width toggle
@@ -268,53 +261,19 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
 
 /// Try to fetch and render a piece of media
 ///  - return: true if successfully rendered, false otherwise
-fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
+fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
     let mut response_return = None;
     if let Some(media) = app.try_get_media(ui.ctx(), url.clone()) {
-        let ui_max = if app.media_full_width_list.contains(&url) {
-            Vec2::new(
-                ui.available_width() * 0.9,
-                ui.ctx().screen_rect().height() * 0.9,
-            )
-        } else {
-            Vec2::new(
-                ui.available_width() / 2.0,
-                ui.ctx().screen_rect().height() / 3.0,
-            )
-        };
-        let msize = media.size_vec2();
-        let aspect = media.aspect_ratio();
+        let size = media_scale(
+            app.media_full_width_list.contains(&url),
+            ui,
+            media.size_vec2(),
+        );
 
         // insert a newline if the current line has text
         if ui.cursor().min.x > ui.max_rect().min.x {
             ui.end_row();
         }
-
-        // determine maximum x and y sizes
-        let max_x = if ui_max.x > msize.x {
-            msize.x
-        } else {
-            ui_max.x
-        };
-        let max_y = if ui_max.y > msize.y {
-            msize.y
-        } else {
-            ui_max.y
-        };
-
-        // now determine if we are constrained by x or by y and
-        // calculate the resulting size
-        let mut size = Vec2::new(0.0, 0.0);
-        size.x = if max_x > max_y * aspect {
-            max_y * aspect
-        } else {
-            max_x
-        };
-        size.y = if max_y > max_x / aspect {
-            max_x / aspect
-        } else {
-            max_y
-        };
 
         // render the image with a nice frame around it
         egui::Frame::none()
@@ -395,4 +354,152 @@ fn try_render_media(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
             });
     };
     response_return
+}
+
+fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
+    let row_height = ui.cursor().height();
+    let url_string = url.to_string();
+    let mut show_link = true;
+
+    // FIXME show/hide lists should persist app restarts
+    let show_video = (app.settings.show_media && !app.media_hide_list.contains(&url))
+        || (!app.settings.show_media && app.media_show_list.contains(&url));
+
+    if show_video {
+        if let Some(response) = try_render_video(app, ui, url.clone()) {
+            show_link = false;
+
+            // full-width toggle
+            if response.clicked() {
+                if app.media_full_width_list.contains(&url) {
+                    app.media_full_width_list.remove(&url);
+                } else {
+                    app.media_full_width_list.insert(url.clone());
+                }
+            }
+        }
+    }
+
+    if show_link {
+        let response = ui.link("[ Video ]");
+        // show url on hover
+        response.clone().on_hover_text(url_string.clone());
+        // show media toggle
+        if response.clicked() {
+            if app.settings.show_media {
+                app.media_hide_list.remove(&url);
+            } else {
+                app.media_show_list.insert(url.clone());
+            }
+            if !app.settings.load_media {
+                *GLOBALS.status_message.blocking_write() = "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned();
+            }
+        }
+        // context menu
+        response.context_menu(|ui| {
+            if ui.button("Open in browser").clicked() {
+                let modifiers = ui.ctx().input(|i| i.modifiers);
+                ui.ctx().output_mut(|o| {
+                    o.open_url = Some(egui::output::OpenUrl {
+                        url: url_string.clone(),
+                        new_tab: modifiers.any(),
+                    });
+                });
+            }
+            if ui.button("Copy URL").clicked() {
+                ui.output_mut(|o| o.copied_text = url_string.clone());
+            }
+            if app.has_media_loading_failed(url_string.as_str())
+                && ui.button("Retry loading ...").clicked()
+            {
+                app.retry_media(&url);
+            }
+        });
+    }
+
+    ui.end_row();
+
+    // workaround for egui bug where image enlarges the cursor height
+    ui.set_row_height(row_height);
+}
+
+#[cfg(feature = "video-ffmpeg")]
+fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
+    let mut response_return = None;
+    let show_full_width = app.media_full_width_list.contains(&url);
+    if let Some(player_ref) = app.try_get_player(ui.ctx(), url) {
+        if let Ok(mut player) = player_ref.try_borrow_mut() {
+            let size = media_scale(
+                show_full_width,
+                ui,
+                Vec2 {
+                    x: player.width as f32,
+                    y: player.height as f32,
+                },
+            );
+
+            // insert a newline if the current line has text
+            if ui.cursor().min.x > ui.max_rect().min.x {
+                ui.end_row();
+            }
+
+            // show the player
+            if !show_full_width {
+                player.stop();
+            }
+            let response = player.ui(ui, [size.x, size.y]);
+
+            // TODO fix click action
+            let new_rect = response.rect.shrink(size.x / 2.0);
+            response_return = Some(response.with_new_rect(new_rect))
+        }
+    }
+    response_return
+}
+
+#[cfg(not(feature = "video-ffmpeg"))]
+fn try_render_video(_app: &mut GossipUi, _ui: &mut Ui, _url: Url) -> Option<Response> {
+    return None;
+}
+
+fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
+    let aspect = media_size.x / media_size.y;
+    let ui_max = if show_full_width {
+        Vec2::new(
+            ui.available_width() * 0.9,
+            ui.ctx().screen_rect().height() * 0.9,
+        )
+    } else {
+        Vec2::new(
+            ui.available_width() / 2.0,
+            ui.ctx().screen_rect().height() / 3.0,
+        )
+    };
+
+    // determine maximum x and y sizes
+    let max_x = if ui_max.x > media_size.x {
+        media_size.x
+    } else {
+        ui_max.x
+    };
+    let max_y = if ui_max.y > media_size.y {
+        media_size.y
+    } else {
+        ui_max.y
+    };
+
+    // now determine if we are constrained by x or by y and
+    // calculate the resulting size
+    let mut size = Vec2::new(0.0, 0.0);
+    size.x = if max_x > max_y * aspect {
+        max_y * aspect
+    } else {
+        max_x
+    };
+    size.y = if max_y > max_x / aspect {
+        max_x / aspect
+    } else {
+        max_y
+    };
+    size
 }

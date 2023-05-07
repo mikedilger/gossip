@@ -12,7 +12,8 @@ pub struct Media {
     // until the UI next asks for them, at which point we remove them
     // and hand them over. This way we can do the work that takes
     // longer and the UI can do as little work as possible.
-    media_temp: DashMap<Url, ColorImage>,
+    image_temp: DashMap<Url, ColorImage>,
+    data_temp: DashMap<Url, Vec<u8>>,
     media_pending_processing: DashSet<Url>,
     failed_media: RwLock<HashSet<UncheckedUrl>>,
 }
@@ -20,7 +21,8 @@ pub struct Media {
 impl Media {
     pub fn new() -> Media {
         Media {
-            media_temp: DashMap::new(),
+            image_temp: DashMap::new(),
+            data_temp: DashMap::new(),
             media_pending_processing: DashSet::new(),
             failed_media: RwLock::new(HashSet::new()),
         }
@@ -33,7 +35,6 @@ impl Media {
             Err(_) => {
                 // this cannot recover without new metadata
                 self.failed_media.blocking_write().insert(unchecked_url);
-
                 return None;
             }
         };
@@ -48,18 +49,9 @@ impl Media {
         self.failed_media.blocking_write().remove(unchecked_url);
     }
 
-    pub fn get_media(&self, url: &Url) -> Option<ColorImage> {
-        // If it failed before, error out now
-        if self
-            .failed_media
-            .blocking_read()
-            .contains(&url.to_unchecked_url())
-        {
-            return None; // cannot recover.
-        }
-
+    pub fn get_image(&self, url: &Url) -> Option<ColorImage> {
         // If we have it, hand it over (we won't need a copy anymore)
-        if let Some(th) = self.media_temp.remove(url) {
+        if let Some(th) = self.image_temp.remove(url) {
             return Some(th.1);
         }
 
@@ -68,14 +60,8 @@ impl Media {
             return None; // will recover after processing completes
         }
 
-        // Do not fetch if disabled
-        if !GLOBALS.settings.read().load_media {
-            return None; // can recover if the setting is switched
-        }
-
-        match GLOBALS.fetcher.try_get(url.clone()) {
-            Ok(None) => None,
-            Ok(Some(bytes)) => {
+        match self.get_data(url) {
+            Some(bytes) => {
                 // Finish this later (spawn)
                 let aurl = url.to_owned();
                 tokio::spawn(async move {
@@ -85,12 +71,12 @@ impl Media {
                             .load(Ordering::Relaxed)
                         / 100;
                     if let Ok(color_image) = egui_extras::image::load_image_bytes(&bytes) {
-                        GLOBALS.media.media_temp.insert(aurl, color_image);
+                        GLOBALS.media.image_temp.insert(aurl, color_image);
                     } else if let Ok(color_image) = egui_extras::image::load_svg_bytes_with_size(
                         &bytes,
                         FitTo::Size(size, size),
                     ) {
-                        GLOBALS.media.media_temp.insert(aurl, color_image);
+                        GLOBALS.media.image_temp.insert(aurl, color_image);
                     } else {
                         // this cannot recover without new metadata
                         GLOBALS
@@ -102,6 +88,36 @@ impl Media {
                     };
                 });
                 self.media_pending_processing.insert(url.clone());
+                None
+            }
+            None => None,
+        }
+    }
+
+    pub fn get_data(&self, url: &Url) -> Option<Vec<u8>> {
+        // If it failed before, error out now
+        if self
+            .failed_media
+            .blocking_read()
+            .contains(&url.to_unchecked_url())
+        {
+            return None; // cannot recover.
+        }
+
+        // If we have it, hand it over (we won't need a copy anymore)
+        if let Some(th) = self.data_temp.remove(url) {
+            return Some(th.1);
+        }
+
+        // Do not fetch if disabled
+        if !GLOBALS.settings.read().load_media {
+            return None; // can recover if the setting is switched
+        }
+
+        match GLOBALS.fetcher.try_get(url.clone()) {
+            Ok(None) => None,
+            Ok(Some(bytes)) => {
+                self.data_temp.insert(url.clone(), bytes);
                 None
             }
             Err(e) => {
