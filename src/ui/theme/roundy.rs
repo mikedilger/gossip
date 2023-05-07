@@ -371,6 +371,22 @@ impl ThemeDef for RoundyTheme {
         }
     }
 
+    fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::from_rgb(0x30, 0x6f, 0xc1)
+        } else {
+            Color32::from_rgb(0x55, 0x7a, 0x95)
+        }
+    }
+
+    fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::from_gray(0xf1)
+        } else {
+            Color32::from_gray(240)
+        }
+    }
+
     fn input_text_color(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
             Color32::from_gray(190)

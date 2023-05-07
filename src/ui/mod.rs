@@ -612,7 +612,7 @@ impl eframe::App for GossipUi {
             .frame(
                 egui::Frame::none()
                 .inner_margin( egui::Margin::symmetric(20.0, 20.0 ) )
-                .fill(ctx.style().visuals.hyperlink_color)
+                .fill(self.settings.theme.navigation_bg_fill())
             )
             .show(ctx, |ui| {
                     // cut indentation in half
@@ -633,7 +633,7 @@ impl eframe::App for GossipUi {
                     ui.separator();
                     ui.add_space(4.0);
 
-                    if add_selected_label(
+                    if self.add_selected_label(
                             ui,
                             matches!(self.page, Page::Feed(FeedKind::Followed(_))),
                             "Main Feed",
@@ -646,7 +646,7 @@ impl eframe::App for GossipUi {
                     }
                     if let Some(pubkey) = GLOBALS.signer.public_key() {
                         let pubkeyhex: PublicKeyHex = pubkey.into();
-                        if add_selected_label(
+                        if self.add_selected_label(
                                 ui,
                                 matches!(&self.page, Page::Feed(FeedKind::Person(key)) if key.as_str() == pubkeyhex.as_str()),
                                 "My Notes",
@@ -656,7 +656,7 @@ impl eframe::App for GossipUi {
                             self.set_page(Page::Feed(FeedKind::Person(pubkeyhex)));
                         }
                     }
-                    if add_selected_label(
+                    if self.add_selected_label(
                             ui,
                             matches!(self.page, Page::Feed(FeedKind::Inbox(_))),
                             "Inbox",
@@ -678,7 +678,7 @@ impl eframe::App for GossipUi {
                             "People \u{25B8}"
                         };
                         let header_res = ui.horizontal(|ui| {
-                                if ui.add( new_selected_label(false, txt) ).clicked() {
+                                if ui.add( self.new_selected_label(false, txt) ).clicked() {
                                     clps.toggle(ui);
                                 }
                             });
@@ -699,7 +699,7 @@ impl eframe::App for GossipUi {
                             "Relays \u{25B8}"
                         };
                         let header_res = ui.horizontal(|ui| {
-                                if ui.add( new_selected_label(false, txt) ).clicked() {
+                                if ui.add( self.new_selected_label(false, txt) ).clicked() {
                                     clps.toggle(ui);
                                 }
                             });
@@ -719,7 +719,7 @@ impl eframe::App for GossipUi {
                             "Account \u{25B8}"
                         };
                         let header_res = ui.horizontal(|ui| {
-                                if ui.add( new_selected_label(false, txt) ).clicked() {
+                                if ui.add( self.new_selected_label(false, txt) ).clicked() {
                                     clps.toggle(ui);
                                 }
                             });
@@ -732,13 +732,13 @@ impl eframe::App for GossipUi {
                         header_res.response.on_hover_cursor(egui::CursorIcon::PointingHand);
                     }
                     // ----
-                    if add_selected_label(ui, self.page == Page::Search, "Search")
+                    if self.add_selected_label(ui, self.page == Page::Search, "Search")
                         .clicked()
                     {
                         self.set_page(Page::Search);
                     }
                     // ----
-                    if add_selected_label(
+                    if self.add_selected_label(
                             ui,
                             self.page == Page::Settings,
                             "Settings",
@@ -757,7 +757,7 @@ impl eframe::App for GossipUi {
                             "Help \u{25B8}"
                         };
                         let header_res = ui.horizontal(|ui| {
-                                if ui.add( new_selected_label(false, txt) ).clicked() {
+                                if ui.add( self.new_selected_label(false, txt) ).clicked() {
                                     clps.toggle(ui);
                                 }
                             });
@@ -774,7 +774,9 @@ impl eframe::App for GossipUi {
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
                 #[cfg(feature = "side-menu")]
-                let frame = frame.inner_margin(egui::Margin::symmetric(20.0, 0.0));
+                let frame = frame.inner_margin(
+                    egui::Margin{ left: 20.0, right: 10.0, top: 10.0, bottom: 10.0 }
+                );
                 frame
                 })
             .show_separator_line(false)
@@ -797,12 +799,15 @@ impl eframe::App for GossipUi {
                             egui::Frame::popup(&self.settings.theme.get_style())
                                 .rounding(egui::Rounding::same(50.0))
                                 .stroke( egui::Stroke::NONE)
-                                .fill(ui.visuals().hyperlink_color)
+                                .fill(self.settings.theme.navigation_bg_fill())
                                 .show(
                                 ui,
                                 |ui| {
                                     let response = ui.add(
-                                        egui::Button::new( RichText::new("+").size(22.5).color(Color32::WHITE))
+                                        egui::Button::new( RichText::new("+")
+                                            .size(22.5)
+                                            .color(self.settings.theme.navigation_text_color()))
+                                            .stroke(egui::Stroke::NONE)
                                             .fill(Color32::TRANSPARENT) );
                                     if response.clicked() {
                                         self.show_post_area = true;
@@ -1122,28 +1127,28 @@ impl GossipUi {
 #[cfg(feature = "side-menu")]
 impl GossipUi {
     fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
-        if add_selected_label(ui, self.page == page, text).clicked() {
+        if self.add_selected_label(ui, self.page == page, text).clicked() {
             self.set_page(page);
         }
     }
-}
 
-#[cfg(feature = "side-menu")]
-fn new_selected_label( selected: bool, text: &str ) -> Label {
-    let rtext = RichText::new(text).color(Color32::WHITE);
-    if selected {
-        Label::new(rtext.strong()).sense(Sense::click())
-    } else {
-        Label::new(rtext).sense(Sense::click())
+    fn new_selected_label(&mut self, selected: bool, text: &str ) -> Label {
+        let rtext = RichText::new(text).color(self.settings.theme.navigation_text_color());
+        if selected {
+            Label::new(rtext.strong()).sense(Sense::click())
+        } else {
+            Label::new(rtext).sense(Sense::click())
+        }
+    }
+
+    fn add_selected_label(&mut self, ui: &mut Ui, selected: bool, text: &str) -> egui::Response {
+        let label = self.new_selected_label( selected, text);
+        ui.add_space(2.0);
+        let response = ui.add(label);
+        ui.add_space(2.0);
+        response.clone().on_hover_cursor( egui::CursorIcon::PointingHand );
+        response
     }
 }
 
-#[cfg(feature = "side-menu")]
-fn add_selected_label( ui: &mut Ui, selected: bool, text: &str) -> egui::Response {
-    let label = new_selected_label(selected, text);
-    ui.add_space(2.0);
-    let response = ui.add(label);
-    ui.add_space(2.0);
-    response.clone().on_hover_cursor( egui::CursorIcon::PointingHand );
-    response
-}
+

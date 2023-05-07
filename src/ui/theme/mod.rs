@@ -105,6 +105,18 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn navigation_bg_fill(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::navigation_bg_fill(self.dark_mode), )+
+                }
+            }
+
+            pub fn navigation_text_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::navigation_text_color(self.dark_mode), )+
+                }
+            }
+
             pub fn input_text_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::input_text_color(self.dark_mode), )+
@@ -289,6 +301,9 @@ pub trait ThemeDef: Send + Sync {
     fn highlight_text_format(highlight_type: HighlightType, dark_mode: bool) -> TextFormat;
     fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
+
+    fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32;
+    fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32;
 
     // egui by default uses inactive.fg_stroke for multiple things (buttons, any
     // labels made clickable, and TextEdit text. We try to always override TextEdit
