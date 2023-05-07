@@ -376,11 +376,19 @@ impl ThemeDef for DefaultTheme {
         }
     }
 
-    fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32 {
+    fn navigation_text_color(dark_mode: bool, selected: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            Color32::from_gray(0xf1)
+            if selected {
+                Color32::from_gray(0xf9)
+            } else {
+                Color32::from_gray(220)
+            }
         } else {
-            Color32::from_gray(240)
+            if selected {
+                Color32::from_gray(0xf9)
+            } else {
+                Color32::from_gray(220)
+            }
         }
     }
 

@@ -623,7 +623,9 @@ impl eframe::App for GossipUi {
                     let label = if self.history.is_empty() {
                         Label::new(back_label_text.weak())
                     } else {
-                        Label::new(back_label_text).sense(Sense::click())
+                        Label::new(back_label_text.color(
+                            self.settings.theme.navigation_text_color(false))
+                        ).sense(Sense::click())
                     };
                     if ui.add(label).clicked() {
                         self.back();
@@ -797,18 +799,19 @@ impl eframe::App for GossipUi {
                         .show(ctx, |ui| {
                             // ui.set_min_width(200.0);
                             egui::Frame::popup(&self.settings.theme.get_style())
-                                .rounding(egui::Rounding::same(50.0))
+                                .rounding(egui::Rounding::same(50.0)) // need the rounding for the shadow
                                 .stroke( egui::Stroke::NONE)
-                                .fill(self.settings.theme.navigation_bg_fill())
+                                .fill(Color32::TRANSPARENT)
                                 .show(
                                 ui,
                                 |ui| {
                                     let response = ui.add(
                                         egui::Button::new( RichText::new("+")
                                             .size(22.5)
-                                            .color(self.settings.theme.navigation_text_color()))
+                                            .color(self.settings.theme.navigation_text_color(false)))
                                             .stroke(egui::Stroke::NONE)
-                                            .fill(Color32::TRANSPARENT) );
+                                            .rounding(egui::Rounding::same(50.0))
+                                            .fill(self.settings.theme.navigation_bg_fill()) );
                                     if response.clicked() {
                                         self.show_post_area = true;
                                     }
@@ -1133,12 +1136,8 @@ impl GossipUi {
     }
 
     fn new_selected_label(&mut self, selected: bool, text: &str ) -> Label {
-        let rtext = RichText::new(text).color(self.settings.theme.navigation_text_color());
-        if selected {
-            Label::new(rtext.strong()).sense(Sense::click())
-        } else {
-            Label::new(rtext).sense(Sense::click())
-        }
+        let rtext = RichText::new(text).color(self.settings.theme.navigation_text_color(selected));
+        Label::new(rtext).sense(Sense::click())
     }
 
     fn add_selected_label(&mut self, ui: &mut Ui, selected: bool, text: &str) -> egui::Response {
