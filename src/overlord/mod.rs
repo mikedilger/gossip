@@ -910,11 +910,9 @@ impl Overlord {
                 work_logger(work_receiver, powint);
             });
 
-            let event = GLOBALS
+            GLOBALS
                 .signer
-                .sign_preevent(pre_event, pow, Some(work_sender))?;
-
-            event
+                .sign_preevent(pre_event, pow, Some(work_sender))?
         };
 
         // Process this event locally
@@ -1068,11 +1066,9 @@ impl Overlord {
                 work_logger(work_receiver, powint);
             });
 
-            let event = GLOBALS
+            GLOBALS
                 .signer
-                .sign_preevent(pre_event, pow, Some(work_sender))?;
-
-            event
+                .sign_preevent(pre_event, pow, Some(work_sender))?
         };
 
         let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
@@ -1285,11 +1281,9 @@ impl Overlord {
                 work_logger(work_receiver, powint);
             });
 
-            let event = GLOBALS
+            GLOBALS
                 .signer
-                .sign_preevent(pre_event, pow, Some(work_sender))?;
-
-            event
+                .sign_preevent(pre_event, pow, Some(work_sender))?
         };
 
         // Process this event locally
@@ -1676,18 +1670,14 @@ impl Overlord {
 }
 
 fn work_logger(work_receiver: mpsc::Receiver<u8>, powint: u8) {
-    loop {
-        if let Ok(work) = work_receiver.recv() {
-            if work >= powint {
-                // Even if work > powint, it doesn't count since we declared our target.
-                *GLOBALS.status_message.blocking_write() =
-                    format!("Message sent with {powint} bits of work computed.");
-                break;
-            } else {
-                *GLOBALS.status_message.blocking_write() = format!("PoW: {work}/{powint}");
-            }
-        } else {
+    while let Ok(work) = work_receiver.recv() {
+        if work >= powint {
+            // Even if work > powint, it doesn't count since we declared our target.
+            *GLOBALS.status_message.blocking_write() =
+                format!("Message sent with {powint} bits of work computed.");
             break;
+        } else {
+            *GLOBALS.status_message.blocking_write() = format!("PoW: {work}/{powint}");
         }
     }
 }

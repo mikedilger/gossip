@@ -176,13 +176,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ..Default::default()
                 }
             };
-    
-            if ui.input_mut(|i| {
-                i.consume_key(
-                    modifiers,
-                    Key::Enter,
-                )
-            }) {
+
+            if ui.input_mut(|i| i.consume_key(modifiers, Key::Enter)) {
                 send_now = true;
             }
         }

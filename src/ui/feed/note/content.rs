@@ -459,7 +459,7 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
 
 #[cfg(not(feature = "video-ffmpeg"))]
 fn try_render_video(_app: &mut GossipUi, _ui: &mut Ui, _url: Url) -> Option<Response> {
-    return None;
+    None
 }
 
 fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
