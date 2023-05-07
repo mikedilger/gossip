@@ -108,6 +108,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
                 ui.label(RichText::new("Any Post").size(11.0));
                 ui.separator();
+
+                #[cfg(feature = "side-menu")] // FIXME relocate
+                recompute_btn(app, ui);
             });
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
@@ -132,16 +135,28 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
                 ui.label(RichText::new("Everything you are Tagged On").size(11.0));
                 ui.separator();
+
+                #[cfg(feature = "side-menu")] // FIXME relocate
+                recompute_btn(app, ui);
             });
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Thread { id, .. } => {
+            #[cfg(feature = "side-menu")] // FIXME relocate
+            ui.horizontal(|ui|{
+                recompute_btn(app, ui);
+            });
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
                 render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string());
             }
         }
         FeedKind::Person(pubkeyhex) => {
+            #[cfg(feature = "side-menu")] // FIXME relocate
+            ui.horizontal(|ui|{
+                recompute_btn(app, ui);
+            });
+
             let feed = GLOBALS.feed.get_person_feed();
             render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
         }
@@ -299,5 +314,22 @@ fn render_note_maybe_fake(
                 is_last,
             },
         );
+    }
+}
+
+#[cfg(feature = "side-menu")]
+fn recompute_btn( app: &mut GossipUi, ui: &mut Ui ) {
+    if !app.settings.recompute_feed_periodically {
+        if ui.button("↻").clicked() {
+            GLOBALS.feed.sync_recompute();
+        }
+    }
+    if GLOBALS
+        .feed
+        .recompute_lock
+        .load(std::sync::atomic::Ordering::Relaxed)
+    {
+        ui.separator();
+        ui.label("RECOMPUTING...");
     }
 }
