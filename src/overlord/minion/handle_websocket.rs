@@ -120,7 +120,12 @@ impl Minion {
                 // If we are waiting for a response for this id, process
                 if self.postings.contains(&id) {
                     if ok {
-                        // save in event_relay
+                        // Save seen_on data in GLOBALS.events
+                        // (it was already processed by the overlord before the minion got it,
+                        //  but with None for seen_on.)
+                        GLOBALS.events.add_seen_on(id, &self.url);
+
+                        // save seen_on data in database
                         let event_relay = DbEventRelay {
                             event: idhex,
                             relay: url.0.to_owned(),
