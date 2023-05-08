@@ -1,5 +1,5 @@
 use super::Minion;
-use crate::db::DbRelay;
+use crate::db::{DbEventRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use futures::SinkExt;
@@ -109,17 +109,34 @@ impl Minion {
                 }
             }
             RelayMessage::Ok(id, ok, ok_message) => {
-                // These don't have to be processed.
-                let relay_response = format!(
-                    "{}: OK: id={} ok={} message=\"{}\"",
-                    &self.url,
-                    id.as_hex_string(),
-                    ok,
-                    ok_message
-                );
+                let url = &self.url;
+                let idhex = id.as_hex_string();
+                let relay_response = if !ok_message.is_empty() {
+                    format!("{url}: OK={ok} id={idhex}  message=\"{ok_message}\"")
+                } else {
+                    format!("{url}: OK={ok} id={idhex}")
+                };
+
+                // If we are waiting for a response for this id, process
+                if self.postings.contains(&id) {
+                    if ok {
+                        // save in event_relay
+                        let event_relay = DbEventRelay {
+                            event: idhex,
+                            relay: url.0.to_owned(),
+                            when_seen: Unixtime::now()?.0 as u64,
+                        };
+                        DbEventRelay::insert(event_relay).await?;
+                    } else {
+                        // demerit the relay
+                        self.bump_failure_count().await;
+                    }
+                    self.postings.remove(&id);
+                }
+
                 match ok {
-                    true => tracing::info!(relay_response),
-                    false => tracing::warn!(relay_response),
+                    true => tracing::info!("{relay_response}"),
+                    false => tracing::warn!("{relay_response}"),
                 }
             }
             RelayMessage::Auth(challenge) => {

@@ -86,7 +86,7 @@ pub async fn process_new_event(
                 relay: url.0.to_owned(),
                 when_seen: now,
             };
-            if let Err(e) = DbEventRelay::replace(db_event_relay).await {
+            if let Err(e) = DbEventRelay::insert(db_event_relay).await {
                 tracing::error!(
                     "Error saving relay of old-event {} {}: {}",
                     event.id.as_hex_string(),

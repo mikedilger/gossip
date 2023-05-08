@@ -14,11 +14,12 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, IdHex, IdHexPrefix, PublicKeyHex, PublicKeyHexPrefix,
+    ClientMessage, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKeyHex, PublicKeyHexPrefix,
     RelayInformationDocument, RelayUrl, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use subscription::Subscriptions;
@@ -40,6 +41,7 @@ pub struct Minion {
     subscriptions: Subscriptions,
     next_events_subscription_id: u32,
     keepgoing: bool,
+    postings: HashSet<Id>,
 }
 
 impl Minion {
@@ -66,6 +68,7 @@ impl Minion {
             subscriptions: Subscriptions::new(),
             next_events_subscription_id: 0,
             keepgoing: true,
+            postings: HashSet::new(),
         })
     }
 }
@@ -75,16 +78,7 @@ impl Minion {
         // Catch errors, Return nothing.
         if let Err(e) = self.handle_inner().await {
             tracing::error!("{}: ERROR: {}", &self.url, e);
-
-            // Bump the failure count for the relay.
-            self.dbrelay.failure_count += 1;
-            if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
-                tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
-            }
-            // Update in globals too
-            if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url) {
-                dbrelay.failure_count += 1;
-            }
+            self.bump_failure_count().await;
         }
 
         tracing::info!("{}: minion exiting", self.url);
@@ -210,17 +204,7 @@ impl Minion {
         self.sink = Some(sink);
 
         // Bump the success count for the relay
-        {
-            self.dbrelay.success_count += 1;
-            self.dbrelay.last_connected_at = Some(Unixtime::now().unwrap().0 as u64);
-            if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
-                tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
-            }
-            // set in globals
-            if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url) {
-                dbrelay.last_connected_at = self.dbrelay.last_connected_at;
-            }
-        }
+        self.bump_success_count(true).await;
 
         // Tell the overlord we are ready to receive commands
         self.tell_overlord_we_are_ready().await?;
@@ -312,6 +296,8 @@ impl Minion {
                 self.get_event(id).await?;
             }
             ToMinionPayload::PostEvent(event) => {
+                let id = event.id;
+                self.postings.insert(id);
                 let msg = ClientMessage::Event(event);
                 let wire = serde_json::to_string(&msg)?;
                 let ws_sink = self.sink.as_mut().unwrap();
@@ -955,6 +941,44 @@ impl Minion {
             // decoding returned Cow::Borrowed, meaning these bytes
             // are already valid utf8
             Ok(String::from_utf8_unchecked(full.to_vec()))
+        }
+    }
+
+    async fn bump_failure_count(&mut self) {
+        // Update in self
+        self.dbrelay.failure_count += 1;
+
+        // Save to database
+        if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+            tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
+        }
+
+        // Update in globals
+        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url) {
+            dbrelay.failure_count += 1;
+        }
+    }
+
+    async fn bump_success_count(&mut self, also_bump_last_connected: bool) {
+        let now = Unixtime::now().unwrap().0 as u64;
+
+        // Update in self
+        self.dbrelay.success_count += 1;
+        if also_bump_last_connected {
+            self.dbrelay.last_connected_at = Some(now);
+        }
+
+        // Save to database
+        if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+            tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
+        }
+
+        // Update in globals
+        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url) {
+            dbrelay.success_count += 1;
+            if also_bump_last_connected {
+                dbrelay.last_connected_at = Some(now);
+            }
         }
     }
 }

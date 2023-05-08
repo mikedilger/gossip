@@ -66,8 +66,8 @@ impl DbEventRelay {
         relays
     }
 
-    pub async fn replace(event_relay: DbEventRelay) -> Result<(), Error> {
-        let sql = "REPLACE INTO event_relay (event, relay, when_seen) \
+    pub async fn insert(event_relay: DbEventRelay) -> Result<(), Error> {
+        let sql = "INSERT OR IGNORE INTO event_relay (event, relay, when_seen) \
              VALUES (?1, ?2, ?3)";
 
         spawn_blocking(move || {
