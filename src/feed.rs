@@ -1,7 +1,7 @@
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Id, PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{EventDelegation, EventKind, Id, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -324,7 +324,17 @@ impl Feed {
                     .iter()
                     .filter(|e| kinds.contains(&e.kind)) // feed related
                     .filter(|e| !e.kind.augments_feed_related()) // not augmenting another event
-                    .filter(|e| e.value().pubkey.as_hex_string() == person_pubkey.as_str())
+                    .filter(|e| {
+                        if e.value().pubkey.as_hex_string() == person_pubkey.as_str() {
+                            true
+                        } else {
+                            if let EventDelegation::DelegatedBy(pk) = e.value().delegation() {
+                                pk.as_hex_string() == person_pubkey.as_str()
+                            } else {
+                                false
+                            }
+                        }
+                    })
                     .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
                     .map(|e| (e.value().created_at, e.value().id))
                     .collect();
