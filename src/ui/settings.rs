@@ -209,6 +209,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         "Highlight unread events",
                     );
                     ui.add_space(12.0);
+                    ui.checkbox(
+                        &mut app.settings.feed_direction_reverse_chronological,
+                        "Show feed in reverse chronological order (newest at the top)",
+                    );
+                    ui.add_space(12.0);
 
                     ui.horizontal(|ui| {
                         ui.label("Theme:");

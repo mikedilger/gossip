@@ -773,6 +773,16 @@ impl eframe::App for GossipUi {
                     }
         });
 
+        #[cfg(feature = "side-menu")]
+        egui::TopBottomPanel::top("menu")
+            .show_animated(ctx,
+                self.show_post_area && self.settings.feed_direction_reverse_chronological,
+                |ui|{
+                ui.add_space(4.0);
+                feed::post::posting_area(self, ctx, frame, ui);
+                ui.separator();
+        });
+
         egui::TopBottomPanel::bottom("status")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
@@ -819,7 +829,8 @@ impl eframe::App for GossipUi {
                                     response.on_hover_cursor(egui::CursorIcon::PointingHand);
                             });
                         });
-                } else {
+                }
+                if self.show_post_area && !self.settings.feed_direction_reverse_chronological {
                     ui.add_space(4.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                     ui.separator();
