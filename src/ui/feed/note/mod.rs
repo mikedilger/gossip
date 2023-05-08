@@ -560,6 +560,8 @@ fn render_note_inner(
                                         .clicked()
                                     {
                                         app.draft_repost = Some(note.event.id);
+                                        app.replying_to = None;
+                                        app.show_post_area = true;
                                     }
 
                                     ui.add_space(24.0);
@@ -588,6 +590,8 @@ fn render_note_inner(
                                             },
                                         };
                                         app.draft.push_str(&event_pointer.as_bech32_string());
+                                        app.draft_repost = None;
+                                        app.replying_to = None;
                                         app.show_post_area = true;
                                         app.draft_needs_focus = true;
                                     }
@@ -604,6 +608,7 @@ fn render_note_inner(
                                         .clicked()
                                     {
                                         app.replying_to = Some(note.event.id);
+                                        app.draft_repost = None;
                                         app.show_post_area = true;
                                         app.draft_needs_focus = true;
                                     }
