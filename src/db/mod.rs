@@ -125,6 +125,10 @@ fn upgrade(db: &Connection, mut version: usize) -> Result<(), Error> {
         );
     }
 
+    // Disable foreign key checks during upgrades (some foreign keys relationships
+    // may be broken, we don't want that to stop us)
+    db.pragma_update(None, "foreign_keys", "OFF")?;
+
     while version < UPGRADE_SQL.len() {
         tracing::info!("Upgrading database to version {}", version + 1);
         db.execute_batch(UPGRADE_SQL[version + 1 - 1])?;
@@ -139,6 +143,8 @@ fn upgrade(db: &Connection, mut version: usize) -> Result<(), Error> {
             db.execute("UPDATE local_settings SET schema_version=?", (version,))?;
         }
     }
+
+    db.pragma_update(None, "foreign_keys", "ON")?;
 
     tracing::info!("Database is at version {}", version);
 
@@ -238,7 +244,7 @@ fn normalize_urls() -> Result<(), Error> {
     Ok(())
 }
 
-const UPGRADE_SQL: [&str; 33] = [
+const UPGRADE_SQL: [&str; 34] = [
     include_str!("sql/schema1.sql"),
     include_str!("sql/schema2.sql"),
     include_str!("sql/schema3.sql"),
@@ -272,4 +278,5 @@ const UPGRADE_SQL: [&str; 33] = [
     include_str!("sql/schema31.sql"),
     include_str!("sql/schema32.sql"),
     include_str!("sql/schema33.sql"),
+    include_str!("sql/schema34.sql"),
 ];
