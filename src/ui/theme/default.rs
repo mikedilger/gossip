@@ -379,15 +379,15 @@ impl ThemeDef for DefaultTheme {
     fn navigation_text_color(dark_mode: bool, selected: bool) -> eframe::egui::Color32 {
         if dark_mode {
             if selected {
-                Color32::from_gray(0xf9)
+                Color32::from_rgb(0xe8, 0xd7, 0x72)
             } else {
-                Color32::from_gray(220)
+                Color32::from_gray(200)
             }
         } else {
             if selected {
                 Color32::from_gray(0xf9)
             } else {
-                Color32::from_gray(220)
+                Color32::from_gray(210)
             }
         }
     }
