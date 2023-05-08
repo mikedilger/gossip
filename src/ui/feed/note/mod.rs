@@ -588,6 +588,7 @@ fn render_note_inner(
                                             },
                                         };
                                         app.draft.push_str(&event_pointer.as_bech32_string());
+                                        app.show_post_area = true;
                                         app.draft_needs_focus = true;
                                     }
 
@@ -603,6 +604,7 @@ fn render_note_inner(
                                         .clicked()
                                     {
                                         app.replying_to = Some(note.event.id);
+                                        app.show_post_area = true;
                                         app.draft_needs_focus = true;
                                     }
 

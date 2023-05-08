@@ -453,6 +453,7 @@ impl GossipUi {
 
     fn clear_post(&mut self) {
         self.show_post_area = false;
+        self.draft_needs_focus = false;
         self.draft = "".to_owned();
         self.draft_repost = None;
         self.tag_someone = "".to_owned();
