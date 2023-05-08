@@ -350,6 +350,10 @@ pub(super) fn font_definitions() -> FontDefinitions {
         "DejaVuSans".to_owned(),
         FontData::from_static(include_bytes!("../../../fonts/DejaVuSansSansEmoji.ttf")),
     );
+    font_data.insert(
+        "DejaVuSansBold".to_owned(),
+        FontData::from_static(include_bytes!("../../../fonts/DejaVuSans-Bold-SansEmoji.ttf")),
+    );
 
     if cfg!(feature = "lang-cjk") {
         font_data.insert(
@@ -393,6 +397,11 @@ pub(super) fn font_definitions() -> FontDefinitions {
     families.insert(
         FontFamily::Monospace,
         vec!["Inconsolata".to_owned(), "NotoEmoji-Regular".to_owned()],
+    );
+
+    families.insert(
+        FontFamily::Name("Bold".into()),
+        vec!["DejaVuSansBold".to_owned()]
     );
 
     FontDefinitions {

@@ -26,3 +26,6 @@ Noto Emoji (monochrome) comes from:
 CHARS COVERED
   NotoEmoji-Regular:
      From 1F000 forward, we take these. Therefore strip them from the other fonts.
+
+
+pyftsubset DejaVuSans-Bold.ttf --unicodes="U+0000-FFFD" --ignore-missing-glyphs --output-file DejaVuSans-Bold-SansEmoji.ttf

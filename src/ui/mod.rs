@@ -38,7 +38,7 @@ use eframe::{egui, IconData};
 #[cfg(not(feature = "side-menu"))]
 use egui::SelectableLabel;
 use egui::{
-    Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense,
+    Color32, ColorImage, Context, FontFamily, Image, ImageData, Label, RichText, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
@@ -1148,7 +1148,10 @@ impl GossipUi {
     }
 
     fn new_selected_label(&mut self, selected: bool, text: &str ) -> Label {
-        let rtext = RichText::new(text).color(self.settings.theme.navigation_text_color(selected));
+        let mut rtext = RichText::new(text).color(self.settings.theme.navigation_text_color(selected));
+        if selected {
+            rtext = rtext.family(FontFamily::Name("Bold".into()));
+        }
         Label::new(rtext).sense(Sense::click())
     }
 
