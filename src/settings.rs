@@ -245,7 +245,7 @@ impl Settings {
              ('automatically_fetch_metadata', ?),\
              ('delegatee_tag', ?),\
              ('highlight_unread_events', ?),\
-             ('feed_direction_reverse_chronological', ?) \
+             ('feed_direction_reverse_chronological', ?),\
              ('enable_zap_receipts', ?)",
         )?;
         stmt.execute(params![
