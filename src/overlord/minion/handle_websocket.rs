@@ -131,7 +131,7 @@ impl Minion {
                             relay: url.0.to_owned(),
                             when_seen: Unixtime::now()?.0 as u64,
                         };
-                        DbEventRelay::insert(event_relay).await?;
+                        DbEventRelay::insert(event_relay, true).await?;
                     } else {
                         // demerit the relay
                         self.bump_failure_count().await;

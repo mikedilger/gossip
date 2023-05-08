@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{Id, RelayUrl};
+use rusqlite::DatabaseName;
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
@@ -66,18 +67,30 @@ impl DbEventRelay {
         relays
     }
 
-    pub async fn insert(event_relay: DbEventRelay) -> Result<(), Error> {
+    // Sometimes we insert an event and an event_relay so fast that this happens first
+    // and we get a 'FOREIGN KEY constraint failed' error.
+    pub async fn insert(event_relay: DbEventRelay, ignore_constraint: bool) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO event_relay (event, relay, when_seen) \
              VALUES (?1, ?2, ?3)";
 
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
+
+            if ignore_constraint {
+                db.pragma_update(Some(DatabaseName::Main), "foreign_keys", false)?;
+            }
+
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
                 &event_relay.event,
                 &event_relay.relay,
                 &event_relay.when_seen,
             )));
+
+            if ignore_constraint {
+                db.pragma_update(Some(DatabaseName::Main), "foreign_keys", true)?;
+            }
+
             Ok::<(), Error>(())
         })
         .await??;
