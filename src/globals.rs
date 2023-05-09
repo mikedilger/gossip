@@ -256,7 +256,7 @@ impl Globals {
         for ri in GLOBALS
             .all_relays
             .iter()
-            .filter(|ri| ri.value().has_usage_bits(DbRelay::WRITE))
+            .filter(|ri| ri.value().has_usage_bits(DbRelay::OUTBOX))
         {
             profile.relays.push(ri.key().to_unchecked_url())
         }

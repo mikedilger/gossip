@@ -320,6 +320,9 @@ impl Minion {
             ToMinionPayload::SubscribeConfig => {
                 self.subscribe_config().await?;
             }
+            ToMinionPayload::SubscribeDiscover(pubkeys) => {
+                self.subscribe_discover(pubkeys).await?;
+            }
             ToMinionPayload::SubscribePersonFeed(pubkeyhex) => {
                 self.subscribe_person_feed(pubkeyhex).await?;
             }
@@ -571,6 +574,25 @@ impl Minion {
             }];
 
             self.subscribe(filters, "config_feed").await?;
+        }
+
+        Ok(())
+    }
+
+    // Subscribe to the user's config which is on their own write relays
+    async fn subscribe_discover(&mut self, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
+        if !pubkeys.is_empty() {
+            let pkp: Vec<PublicKeyHexPrefix> =
+                pubkeys.iter().map(|pk| pk.to_owned().into()).collect();
+
+            let filters: Vec<Filter> = vec![Filter {
+                authors: pkp,
+                kinds: vec![EventKind::RelayList],
+                // these are all replaceable, no since required
+                ..Default::default()
+            }];
+
+            self.subscribe(filters, "discover_feed").await?;
         }
 
         Ok(())

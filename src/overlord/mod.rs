@@ -246,6 +246,24 @@ impl Overlord {
             self.pick_relays().await;
         }
 
+        // Separately subscribe to RelayList discovery for everyone we follow
+        // FIXME - what happens when this disconnects? We never restart this, do we?
+        let discover_relay_urls: Vec<RelayUrl> =
+            GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::DISCOVER));
+        let followed = GLOBALS.people.get_followed_pubkeys();
+        for relay_url in discover_relay_urls.iter() {
+            // Start a minion for this relay if there is none
+            if !GLOBALS.relay_is_connected(relay_url) {
+                self.start_minion(relay_url.clone()).await?;
+            }
+
+            // Subscribe to our config
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.to_string(),
+                payload: ToMinionPayload::SubscribeDiscover(followed.clone()),
+            });
+        }
+
         // Separately subscribe to our config on our write relays
         // FIXME - what happens when this disconnects? We never restart this, do we?
         let write_relay_urls: Vec<RelayUrl> =
@@ -256,18 +274,19 @@ impl Overlord {
                 self.start_minion(relay_url.clone()).await?;
             }
 
-            // Subscribe to our mentions
+            // Subscribe to our config
             let _ = self.to_minions.send(ToMinionMessage {
                 target: relay_url.to_string(),
                 payload: ToMinionPayload::SubscribeConfig,
             });
         }
 
-        /*
         // Separately subscribe to our mentions on our read relays
-        // (Because NIP-65 is not in widespread usage, we do this on all relays instead.
-        //  see apply_relay_assignment())
-        let read_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.read);
+        // FIXME - what happens when this disconnects? We never restart this, do we?
+        // NOTE: we also do this on all dynamically connected relays since NIP-65 is
+        //       not in widespread usage.
+        let read_relay_urls: Vec<RelayUrl> =
+            GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::READ));
         for relay_url in read_relay_urls.iter() {
             // Start a minion for this relay if there is none
             if !GLOBALS.relay_is_connected(relay_url) {
@@ -280,7 +299,6 @@ impl Overlord {
                 payload: ToMinionPayload::SubscribeMentions,
             });
         }
-         */
 
         'mainloop: loop {
             match self.loop_handler().await {
