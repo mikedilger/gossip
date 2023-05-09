@@ -247,7 +247,9 @@ impl Overlord {
         }
 
         // Separately subscribe to our config on our write relays
-        let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+        // FIXME - what happens when this disconnects? We never restart this, do we?
+        let write_relay_urls: Vec<RelayUrl> =
+            GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
         for relay_url in write_relay_urls.iter() {
             // Start a minion for this relay if there is none
             if !GLOBALS.relay_is_connected(relay_url) {
@@ -640,18 +642,13 @@ impl Overlord {
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 GLOBALS.people.set_active_person(pubkey).await?;
             }
-            ToOverlordMessage::SetRelayReadWrite(relay_url, read, write) => {
+            ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
                 if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
-                    dbrelay.read = read;
-                    dbrelay.write = write;
+                    dbrelay.adjust_usage_bit_memory_only(bit, value);
+                    dbrelay.save_usage_bits().await?;
+                } else {
+                    tracing::error!("CODE OVERSIGHT - We are adjusting a relay usage bit for a relay not in memory, how did that happen? It will not be saved.");
                 }
-                DbRelay::update_read_and_write(relay_url, read, write).await?;
-            }
-            ToOverlordMessage::SetRelayAdvertise(relay_url, advertise) => {
-                if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
-                    dbrelay.advertise = advertise;
-                }
-                DbRelay::update_advertise(relay_url, advertise).await?;
             }
             ToOverlordMessage::SetThreadFeed(id, referenced_by, relays) => {
                 self.set_thread_feed(id, referenced_by, relays).await?;
@@ -935,7 +932,8 @@ impl Overlord {
             }
 
             // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+            let write_relay_urls: Vec<RelayUrl> =
+                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
             relay_urls.extend(write_relay_urls);
 
             relay_urls.sort();
@@ -969,17 +967,21 @@ impl Overlord {
             }
         };
 
-        let read_or_write_relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.read || r.write);
+        let inbox_or_outbox_relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| {
+            r.has_usage_bits(DbRelay::INBOX) || r.has_usage_bits(DbRelay::OUTBOX)
+        });
         let mut tags: Vec<Tag> = Vec::new();
-        for relay in read_or_write_relays.iter() {
+        for relay in inbox_or_outbox_relays.iter() {
             tags.push(Tag::Reference {
                 url: relay.url.to_unchecked_url(),
-                marker: if relay.read && relay.write {
+                marker: if relay.has_usage_bits(DbRelay::INBOX)
+                    && relay.has_usage_bits(DbRelay::OUTBOX)
+                {
                     None
-                } else if relay.read {
-                    Some("read".to_owned())
-                } else if relay.write {
-                    Some("write".to_owned())
+                } else if relay.has_usage_bits(DbRelay::INBOX) {
+                    Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
+                } else if relay.has_usage_bits(DbRelay::OUTBOX) {
+                    Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
                 } else {
                     unreachable!()
                 },
@@ -997,7 +999,8 @@ impl Overlord {
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
 
-        let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.advertise);
+        let advertise_to_relay_urls: Vec<RelayUrl> =
+            GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::ADVERTISE));
 
         for relay_url in advertise_to_relay_urls {
             // Start a minion for it, if there is none
@@ -1071,7 +1074,8 @@ impl Overlord {
                 .sign_preevent(pre_event, pow, Some(work_sender))?
         };
 
-        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
+        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+        // FIXME - post it to relays we have seen it on.
 
         for relay in relays {
             // Start a minion for it, if there is none
@@ -1096,7 +1100,7 @@ impl Overlord {
 
     async fn pull_following(&mut self) -> Result<(), Error> {
         // Pull our list from all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
+        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
 
         for relay in relays {
             // Start a minion for it, if there is none
@@ -1120,7 +1124,7 @@ impl Overlord {
         let event = GLOBALS.people.generate_contact_list_event().await?;
 
         // Push to all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
+        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
 
         for relay in relays {
             // Start a minion for it, if there is none
@@ -1163,7 +1167,7 @@ impl Overlord {
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
 
         // Push to all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.write);
+        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
 
         for relay in relays {
             // Start a minion for it, if there is none
@@ -1293,7 +1297,8 @@ impl Overlord {
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+            let write_relay_urls: Vec<RelayUrl> =
+                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
             relay_urls.extend(write_relay_urls);
             relay_urls.sort();
             relay_urls.dedup();
@@ -1550,7 +1555,8 @@ impl Overlord {
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = GLOBALS.relays_url_filtered(|r| r.write);
+            let write_relay_urls: Vec<RelayUrl> =
+                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
             relay_urls.extend(write_relay_urls);
             relay_urls.sort();
             relay_urls.dedup();

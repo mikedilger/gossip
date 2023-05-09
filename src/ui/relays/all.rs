@@ -7,6 +7,14 @@ use egui::{Align, Context, Layout, Ui};
 use egui_extras::{Column, TableBuilder};
 use nostr_types::{RelayUrl, Unixtime};
 
+const READ_HOVER_TEXT: &str = "Where you actually read events from (including those tagging you, but also for other purposes).";
+const INBOX_HOVER_TEXT: &str = "Where you tell others you read from. You should also check Read. These relays shouldn't require payment. It is recommended to have a few.";
+const DISCOVER_HOVER_TEXT: &str = "Where you discover other people's relays lists.";
+const WRITE_HOVER_TEXT: &str =
+    "Where you actually write your events to. It is recommended to have a few.";
+const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
+const ADVERTISE_HOVER_TEXT: &str = "Where you advertise your relay list (inbox/outbox) to. It is recommended to advertise to lots of relays so that you can be found.";
+
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(16.0);
     ui.heading("Relays List");
@@ -48,7 +56,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .map(|ri| ri.value().clone())
         .filter(|ri| app.show_hidden_relays || !ri.hidden)
         .collect();
-    relays.sort_by(|a, b| b.write.cmp(&a.write).then(a.url.cmp(&b.url)));
+    relays.sort_by(|a, b| {
+        b.has_usage_bits(DbRelay::WRITE)
+            .cmp(&a.has_usage_bits(DbRelay::WRITE))
+            .then(a.url.cmp(&b.url))
+    });
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
         ui.add_space(18.0);
@@ -65,6 +77,9 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
         TableBuilder::new(ui)
             .striped(true)
             .column(Column::auto_with_initial_suggestion(250.0).resizable(true))
+            .column(Column::auto().resizable(true))
+            .column(Column::auto().resizable(true))
+            .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
             .column(Column::auto().resizable(true))
@@ -92,16 +107,22 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                         .on_hover_text("This only counts events served after EOSE, as they mark where we can pick up from next time.");
                 });
                 header.col(|ui| {
-                    ui.heading("Read")
-                        .on_hover_text("Read for events with mentions of you on these relays. It is recommended to have a few." );
+                    ui.heading("Read").on_hover_text(READ_HOVER_TEXT);
                 });
                 header.col(|ui| {
-                    ui.heading("Write")
-                        .on_hover_text("Write your events to these relays. It is recommended to have a few." );
+                    ui.heading("Inbox").on_hover_text(INBOX_HOVER_TEXT);
                 });
                 header.col(|ui| {
-                    ui.heading("Advertise")
-                        .on_hover_text("Advertise your read/write settings to this relay. It is recommended to advertise to many relays so that you can be found.");
+                    ui.heading("Discover").on_hover_text(DISCOVER_HOVER_TEXT);
+                });
+                header.col(|ui| {
+                    ui.heading("Write").on_hover_text(WRITE_HOVER_TEXT);
+                });
+                header.col(|ui| {
+                    ui.heading("Outbox").on_hover_text(OUTBOX_HOVER_TEXT);
+                });
+                header.col(|ui| {
+                    ui.heading("Advertise").on_hover_text(ADVERTISE_HOVER_TEXT);
                 });
                 header.col(|ui| {
                     ui.heading("Read rank")
@@ -136,36 +157,69 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                         }
                     });
                     row.col(|ui| {
-                        let mut read = relay.read; // checkbox needs a mutable state variable.
+                        let mut read = relay.has_usage_bits(DbRelay::READ); // checkbox needs a mutable state variable.
                         if ui.checkbox(&mut read, "")
-                            .on_hover_text("If selected, we will search for posts mentioning you on this relay.")
+                            .on_hover_text(READ_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::SetRelayReadWrite(relay.url.clone(), read, relay.write));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::READ, read));
                         }
                     });
                     row.col(|ui| {
-                        let mut write = relay.write; // checkbox needs a mutable state variable.
+                        let mut inbox = relay.has_usage_bits(DbRelay::INBOX); // checkbox needs a mutable state variable.
+                        if ui.checkbox(&mut inbox, "")
+                            .on_hover_text(INBOX_HOVER_TEXT)
+                            .clicked()
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::INBOX, inbox));
+                        }
+                    });
+                    row.col(|ui| {
+                        let mut discover = relay.has_usage_bits(DbRelay::DISCOVER); // checkbox needs a mutable state variable.
+                        if ui.checkbox(&mut discover, "")
+                            .on_hover_text(DISCOVER_HOVER_TEXT)
+                            .clicked()
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::DISCOVER, discover));
+                        }
+                    });
+                    row.col(|ui| {
+                        let mut write = relay.has_usage_bits(DbRelay::WRITE); // checkbox needs a mutable state variable.
                         if ui.checkbox(&mut write, "")
-                            .on_hover_text("If selected, posts you create will be sent to this relay.")
+                            .on_hover_text(WRITE_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::SetRelayReadWrite(relay.url.clone(), relay.read, write));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::WRITE, write));
                         }
                     });
                     row.col(|ui| {
-                        let mut advertise = relay.advertise; // checkbox needs a mutable state variable.
-                        if ui.checkbox(&mut advertise, "")
-                            .on_hover_text("If selected, when you send out your relay list advertisements, one of them will go to this relay.")
+                        let mut outbox = relay.has_usage_bits(DbRelay::OUTBOX); // checkbox needs a mutable state variable.
+                        if ui.checkbox(&mut outbox, "")
+                            .on_hover_text(OUTBOX_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::SetRelayAdvertise(relay.url.clone(), advertise));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::OUTBOX, outbox));
+                        }
+                    });
+                    row.col(|ui| {
+                        let mut advertise = relay.has_usage_bits(DbRelay::ADVERTISE); // checkbox needs a mutable state variable.
+                        if ui.checkbox(&mut advertise, "")
+                            .on_hover_text(ADVERTISE_HOVER_TEXT)
+                            .clicked()
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::ADVERTISE, advertise));
                         }
                     });
                     row.col(|ui| {

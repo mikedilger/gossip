@@ -1,3 +1,4 @@
+use super::DbRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use gossip_relay_picker::Direction;
@@ -354,7 +355,7 @@ impl DbPersonRelay {
                         .filter_map(|r| {
                             if ranked_relays.iter().any(|(url, _)| url == r.key()) {
                                 None // already in their list
-                            } else if r.value().read {
+                            } else if r.value().has_usage_bits(DbRelay::READ) {
                                 Some((r.key().clone(), last_score))
                             } else {
                                 None
@@ -365,14 +366,14 @@ impl DbPersonRelay {
                     ranked_relays.extend(additional);
                 }
                 Direction::Read => {
-                    // substitute our write relays
+                    // substitute our write relays???
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
                         .all_relays
                         .iter()
                         .filter_map(|r| {
                             if ranked_relays.iter().any(|(url, _)| url == r.key()) {
                                 None // already in their list
-                            } else if r.value().write {
+                            } else if r.value().has_usage_bits(DbRelay::WRITE) {
                                 Some((r.key().clone(), last_score))
                             } else {
                                 None
