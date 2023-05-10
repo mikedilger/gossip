@@ -290,7 +290,7 @@ impl Overlord {
             // Subscribe to our mentions
             let _ = self.to_minions.send(ToMinionMessage {
                 target: relay_url.to_string(),
-                payload: ToMinionPayload::SubscribeMentions,
+                payload: ToMinionPayload::SubscribeMentions(true),
             });
         }
 
@@ -354,7 +354,7 @@ impl Overlord {
         // of us on all these relays too
         let _ = self.to_minions.send(ToMinionMessage {
             target: assignment.relay_url.0.clone(),
-            payload: ToMinionPayload::SubscribeMentions,
+            payload: ToMinionPayload::SubscribeMentions(false),
         });
 
         Ok(())

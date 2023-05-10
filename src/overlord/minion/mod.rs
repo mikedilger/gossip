@@ -329,8 +329,10 @@ impl Minion {
             ToMinionPayload::SubscribeGeneralFeed(pubkeys) => {
                 self.subscribe_general_feed(pubkeys).await?;
             }
-            ToMinionPayload::SubscribeMentions => {
-                self.persistent = true;
+            ToMinionPayload::SubscribeMentions(persistent) => {
+                if persistent {
+                    self.persistent = true;
+                }
                 self.subscribe_mentions().await?;
             }
             ToMinionPayload::SubscribeConfig => {
