@@ -101,6 +101,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_followed();
             let id = if with_replies { "main" } else { "general" };
 
+            #[cfg(not(feature = "side-menu"))]
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Root Posts Only").size(11.0));
                 if crate::ui::components::switch(ui, &mut app.mainfeed_include_nonroot).clicked() {
@@ -108,9 +109,25 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
                 ui.label(RichText::new("Any Post").size(11.0));
                 ui.separator();
+            });
 
-                #[cfg(feature = "side-menu")] // FIXME relocate
+            #[cfg(feature = "side-menu")]
+            ui.allocate_ui_with_layout(
+                Vec2::new( ui.available_width(), ui.spacing().interact_size.y ),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+
+                add_left_space(ui);
                 recompute_btn(app, ui);
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new("Any Post").size(11.0));
+                    let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
+                    if crate::ui::components::switch_with_size(ui, &mut app.mainfeed_include_nonroot, size).clicked() {
+                        app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
+                    }
+                    ui.label(RichText::new("Root Posts Only").size(11.0));
+                });
             });
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
@@ -318,9 +335,15 @@ fn render_note_maybe_fake(
 }
 
 #[cfg(feature = "side-menu")]
+fn add_left_space(ui: &mut Ui)
+{
+    ui.add_space( 2.0 );
+}
+
+#[cfg(feature = "side-menu")]
 fn recompute_btn( app: &mut GossipUi, ui: &mut Ui ) {
     if !app.settings.recompute_feed_periodically {
-        if ui.button("↻").clicked() {
+        if ui.link("Refresh").clicked() {
             GLOBALS.feed.sync_recompute();
         }
     }
