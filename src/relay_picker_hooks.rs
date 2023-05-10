@@ -32,7 +32,7 @@ impl RelayPickerHooks for Hooks {
 
     /// Is the relay currently connected?
     fn is_relay_connected(&self, relay: &RelayUrl) -> bool {
-        GLOBALS.connected_relays.contains(relay)
+        GLOBALS.connected_relays.contains_key(relay)
     }
 
     /// Returns the maximum number of relays that should be connected to at one time

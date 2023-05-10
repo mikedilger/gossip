@@ -36,10 +36,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.heading("Connected Relays");
         ui.add_space(18.0);
 
-        let connected_relays: Vec<RelayUrl> = GLOBALS
+        let connected_relays: Vec<(RelayUrl, Vec<&'static str>)> = GLOBALS
             .connected_relays
             .iter()
-            .map(|r| r.key().clone())
+            .map(|r| (r.key().clone(), r.value().clone()))
             .collect();
 
         ScrollArea::vertical()
@@ -55,18 +55,23 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         .column(Column::auto_with_initial_suggestion(250.0).resizable(true))
                         .column(Column::auto().resizable(true))
                         .column(Column::auto().resizable(true))
+                        .column(Column::auto().resizable(true))
                         .header(20.0, |mut header| {
                             header.col(|ui| {
                                 ui.heading("Relay URL");
                             });
                             header.col(|ui| {
-                                ui.heading("Num Keys");
+                                ui.heading("Following");
+                            });
+                            header.col(|ui| {
+                                ui.heading("Reasons");
                             });
                             header.col(|_| {});
                         })
                         .body(|body| {
                             body.rows(24.0, connected_relays.len(), |row_index, mut row| {
-                                let relay_url = &connected_relays[row_index];
+                                let relay_url = &connected_relays[row_index].0;
+                                let reasons = &connected_relays[row_index].1;
                                 row.col(|ui| {
                                     crate::ui::widgets::break_anywhere_label(ui, &relay_url.0);
                                 });
@@ -76,6 +81,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                     {
                                         ui.label(format!("{}", assignment.pubkeys.len()));
                                     }
+                                });
+                                row.col(|ui| {
+                                    ui.label(reasons.join(", "));
                                 });
                                 row.col(|ui| {
                                     if ui.button("Disconnect").clicked() {

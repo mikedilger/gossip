@@ -65,7 +65,7 @@ pub struct Globals {
     pub all_relays: DashMap<RelayUrl, DbRelay>,
 
     /// The relays currently connected to
-    pub connected_relays: DashSet<RelayUrl>,
+    pub connected_relays: DashMap<RelayUrl, Vec<&'static str>>,
 
     /// The relay picker, used to pick the next relay
     pub relay_picker: RelayPicker<Hooks>,
@@ -130,7 +130,7 @@ lazy_static! {
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
             all_relays: DashMap::new(),
-            connected_relays: DashSet::new(),
+            connected_relays: DashMap::new(),
             relay_picker: Default::default(),
             shutting_down: AtomicBool::new(false),
             settings: PRwLock::new(Settings::default()),
@@ -294,9 +294,5 @@ impl Globals {
                 }
             })
             .collect()
-    }
-
-    pub fn relay_is_connected(&self, url: &RelayUrl) -> bool {
-        self.connected_relays.contains(url)
     }
 }
