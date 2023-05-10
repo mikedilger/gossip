@@ -676,10 +676,10 @@ impl eframe::App for GossipUi {
                     // cut indentation
                     // ui.style_mut().spacing.indent = 8.0;
                     ui.style_mut().spacing.indent = 0.0;
-                    ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.settings.theme.navigation_text_color(false);
-                    ui.style_mut().visuals.widgets.hovered.fg_stroke.color = self.settings.theme.navigation_text_color(false);
+                    ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.settings.theme.navigation_text_color();
+                    ui.style_mut().visuals.widgets.hovered.fg_stroke.color = self.settings.theme.navigation_text_hover_color();
                     ui.style_mut().visuals.widgets.hovered.fg_stroke.width = 1.0;
-                    ui.style_mut().visuals.widgets.active.fg_stroke.color = self.settings.theme.navigation_text_color(true);
+                    ui.style_mut().visuals.widgets.active.fg_stroke.color = self.settings.theme.navigation_text_active_color();
 
                     ui.add_space(4.0);
                     let back_label_text = RichText::new("‹ Back");
@@ -687,7 +687,7 @@ impl eframe::App for GossipUi {
                         Label::new(back_label_text.weak())
                     } else {
                         Label::new(back_label_text.color(
-                            self.settings.theme.navigation_text_color(false))
+                            self.settings.theme.navigation_text_color())
                         ).sense(Sense::click())
                     };
                     if ui.add(label).clicked() {
@@ -796,7 +796,7 @@ impl eframe::App for GossipUi {
                     // ---- "plus icon" ----
                     if !self.show_post_area {
                         let bottom_right = ui.ctx().screen_rect().right_bottom();
-                        let pos = bottom_right + Vec2::new(-65.0, -55.0);
+                        let pos = bottom_right + Vec2::new(-65.0, -65.0);
 
                         egui::Area::new(ui.next_auto_id())
                             .movable(false)
@@ -808,23 +808,40 @@ impl eframe::App for GossipUi {
                             .show(ctx, |ui| {
                                 // ui.set_min_width(200.0);
                                 egui::Frame::popup(&self.settings.theme.get_style())
-                                    .rounding(egui::Rounding::same(50.0)) // need the rounding for the shadow
+                                    .rounding(egui::Rounding::same(90.0)) // need the rounding for the shadow
                                     .stroke( egui::Stroke::NONE)
                                     .fill(Color32::TRANSPARENT)
                                     .show(
                                     ui,
                                     |ui| {
-                                        let response = ui.add(
-                                            egui::Button::new( RichText::new("+")
+                                        if GLOBALS.signer.is_ready() {
+                                            let response = ui.add_sized(
+                                                [ 30.0, 30.0 ],
+                                                egui::Button::new( RichText::new("+")
                                                 .size(22.5)
-                                                .color(self.settings.theme.navigation_text_color(false)))
+                                                .color(self.settings.theme.navigation_text_color()))
                                                 .stroke(egui::Stroke::NONE)
-                                                .rounding(egui::Rounding::same(50.0))
+                                                .rounding(egui::Rounding::same(90.0))
                                                 .fill(self.settings.theme.navigation_bg_fill()) );
-                                        if response.clicked() {
-                                            self.show_post_area = true;
+                                            if response.clicked() {
+                                                self.show_post_area = true;
+                                            }
+                                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                                        } else {
+                                            let response = ui.add_sized(
+                                                [ 30.0, 30.0 ],
+                                                egui::Button::new( RichText::new("\u{1f513}")
+                                                .color(self.settings.theme.navigation_text_color()))
+                                                .stroke(egui::Stroke::NONE)
+                                                .rounding(egui::Rounding::same(90.0))
+                                                .fill(self.settings.theme.navigation_bg_fill()) );
+                                            if response.clicked() {
+                                                self.set_page(Page::YourKeys);
+                                            }
+                                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
                                         }
-                                        response.on_hover_cursor(egui::CursorIcon::PointingHand);
+
+
                                 });
                             });
                     }
@@ -1207,24 +1224,20 @@ impl GossipUi {
         }
     }
 
-    fn new_header_label(&self, is_open: bool, text: &str ) -> components::NavItem {
-        let rtext = RichText::new(text)
-            .color(self.settings.theme.navigation_text_color(false)
-            .gamma_multiply(if is_open { 0.7 } else { 1.0 }));
-        // let mut rtext = RichText::new(text).color(self.settings.theme.navigation_text_color(selected));
-        // if selected {
-        //     rtext = rtext.family(FontFamily::Name("Bold".into()));
-        // }
-        components::NavItem::new(rtext, is_open).hover_color(Color32::WHITE).sense(Sense::click())
+    fn new_header_label(&self, is_open: bool, text: &str ) -> NavItem {
+        NavItem::new(text, is_open)
+            .color(self.settings.theme.navigation_text_color())
+            .active_color(self.settings.theme.navigation_header_active_color())
+            .hover_color(self.settings.theme.navigation_text_hover_color())
+            .sense(Sense::click())
     }
 
-    fn new_selected_label(&self, selected: bool, text: &str ) -> components::NavItem {
-        let rtext = RichText::new(text).color(self.settings.theme.navigation_text_color(selected));
-        // let mut rtext = RichText::new(text).color(self.settings.theme.navigation_text_color(selected));
-        // if selected {
-        //     rtext = rtext.family(FontFamily::Name("Bold".into()));
-        // }
-        components::NavItem::new(rtext, selected).hover_color(Color32::WHITE).sense(Sense::click())
+    fn new_selected_label(&self, selected: bool, text: &str ) -> NavItem {
+        NavItem::new(text, selected)
+            .color(self.settings.theme.navigation_text_color())
+            .active_color(self.settings.theme.navigation_text_active_color())
+            .hover_color(self.settings.theme.navigation_text_hover_color())
+            .sense(Sense::click())
     }
 
     fn add_selected_label(&self, ui: &mut Ui, selected: bool, text: &str) -> egui::Response {

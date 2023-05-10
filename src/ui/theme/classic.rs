@@ -373,20 +373,28 @@ impl ThemeDef for ClassicTheme {
         }
     }
 
-    fn navigation_text_color(dark_mode: bool, selected: bool) -> eframe::egui::Color32 {
+    fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            if selected {
-                Color32::from_gray(0xf9)
-            } else {
-                Color32::from_gray(220)
-            }
+            Color32::from_gray(220)
         } else {
-            if selected {
-                Color32::from_gray(0xf9)
-            } else {
-                Color32::from_gray(220)
-            }
+            Color32::from_gray(220)
         }
+    }
+
+    fn navigation_text_active_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::from_gray(0xf9)
+        } else {
+            Color32::from_gray(0xf9)
+        }
+    }
+
+    fn navigation_text_hover_color(dark_mode: bool) -> eframe::egui::Color32 {
+        Color32::WHITE
+    }
+
+    fn navigation_header_active_color(dark_mode: bool) -> eframe::egui::Color32 {
+        Color32::from_gray(0xaa)
     }
 
     fn input_text_color(dark_mode: bool) -> eframe::egui::Color32 {

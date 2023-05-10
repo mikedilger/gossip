@@ -1,3 +1,4 @@
+//#![allow(dead_code)]
 use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
 
@@ -13,46 +14,43 @@ use egui::{widget_text::WidgetTextGalley, *};
 #[must_use = "You should put this widget in an ui with `ui.add(widget);`"]
 pub struct NavItem {
     text: WidgetText,
-    wrap: Option<bool>,
     sense: Option<Sense>,
+    color: Option<Color32>,
+    active_color: Option<Color32>,
     hover_color: Option<Color32>,
-    selected: bool,
+    is_active: bool,
 }
 
 impl NavItem {
-    pub fn new(text: impl Into<WidgetText>, selected: bool) -> Self {
+    pub fn new(text: impl Into<WidgetText>, active: bool) -> Self {
         Self {
             text: text.into(),
-            wrap: None,
             sense: None,
+            color: None,
+            active_color: None,
             hover_color: None,
-            selected,
+            is_active: active,
         }
     }
 
-    pub fn text(&self) -> &str {
-        self.text.text()
+    /// Set an optional color
+    #[inline]
+    pub fn color(mut self, color: Color32) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    /// Set an optional active color
+    #[inline]
+    pub fn active_color(mut self, color: Color32) -> Self {
+        self.active_color = Some(color);
+        self
     }
 
     /// Set an optional hover color
     #[inline]
     pub fn hover_color(mut self, color: Color32) -> Self {
         self.hover_color = Some(color);
-        self
-    }
-
-    /// If `true`, the text will wrap to stay within the max width of the [`Ui`].
-    ///
-    /// By default [`Self::wrap`] will be `true` in vertical layouts
-    /// and horizontal layouts with wrapping,
-    /// and `false` on non-wrapping horizontal layouts.
-    ///
-    /// Note that any `\n` in the text will always produce a new line.
-    ///
-    /// You can also use [`crate::Style::wrap`].
-    #[inline]
-    pub fn wrap(mut self, wrap: bool) -> Self {
-        self.wrap = Some(wrap);
         self
     }
 
@@ -107,7 +105,7 @@ impl NavItem {
             .text
             .into_text_job(ui.style(), FontSelection::Default, valign);
 
-        let should_wrap = self.wrap.unwrap_or_else(|| ui.wrap_text());
+        let should_wrap = ui.wrap_text();
         let available_width = ui.available_width();
 
         if should_wrap
@@ -180,34 +178,29 @@ impl NavItem {
 
 impl Widget for NavItem {
     fn ui(self, ui: &mut Ui) -> Response {
+        let is_active = self.is_active;
+        let color = self.color;
         let hover_color = self.hover_color;
+        let active_color = self.active_color;
         let (pos, text_galley, response) = self.layout_in_ui(ui);
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Label, text_galley.text()));
 
         if ui.is_rect_visible(response.rect) {
-            let response_color = ui.style().interact(&response).text_color();
-
-            let underline = if response.has_focus() || response.highlighted() {
-                Stroke::new(1.0, response_color)
-            } else {
-                Stroke::NONE
-            };
-
-            let override_text_color = if response.hovered() {
+            let color = if hover_color.is_some() && response.hovered() {
                 hover_color
+            } else if is_active && active_color.is_some() {
+                active_color
+            } else if color.is_some() {
+                color
             } else {
-                if text_galley.galley_has_color {
-                    None
-                } else {
-                    Some(response_color)
-                }
+                Some(ui.style().interact(&response).text_color())
             };
 
             ui.painter().add(epaint::TextShape {
                 pos,
                 galley: text_galley.galley,
-                override_text_color,
-                underline,
+                override_text_color: color,
+                underline: Stroke::NONE,
                 angle: 0.0,
             });
         }
