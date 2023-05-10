@@ -247,14 +247,13 @@ impl Overlord {
         }
 
         // Separately subscribe to RelayList discovery for everyone we follow
-        // FIXME - what happens when this disconnects? We never restart this, do we?
         let discover_relay_urls: Vec<RelayUrl> =
             GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::DISCOVER));
         let followed = GLOBALS.people.get_followed_pubkeys();
         for relay_url in discover_relay_urls.iter() {
             // Start a minion for this relay if there is none
             if !GLOBALS.relay_is_connected(relay_url) {
-                self.start_minion(relay_url.clone()).await?;
+                self.start_minion(relay_url.clone(), true).await?;
             }
 
             // Subscribe to our config
@@ -265,13 +264,12 @@ impl Overlord {
         }
 
         // Separately subscribe to our config on our write relays
-        // FIXME - what happens when this disconnects? We never restart this, do we?
         let write_relay_urls: Vec<RelayUrl> =
             GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
         for relay_url in write_relay_urls.iter() {
             // Start a minion for this relay if there is none
             if !GLOBALS.relay_is_connected(relay_url) {
-                self.start_minion(relay_url.clone()).await?;
+                self.start_minion(relay_url.clone(), true).await?;
             }
 
             // Subscribe to our config
@@ -282,7 +280,6 @@ impl Overlord {
         }
 
         // Separately subscribe to our mentions on our read relays
-        // FIXME - what happens when this disconnects? We never restart this, do we?
         // NOTE: we also do this on all dynamically connected relays since NIP-65 is
         //       not in widespread usage.
         let read_relay_urls: Vec<RelayUrl> =
@@ -290,7 +287,7 @@ impl Overlord {
         for relay_url in read_relay_urls.iter() {
             // Start a minion for this relay if there is none
             if !GLOBALS.relay_is_connected(relay_url) {
-                self.start_minion(relay_url.clone()).await?;
+                self.start_minion(relay_url.clone(), true).await?;
             }
 
             // Subscribe to our mentions
@@ -348,7 +345,8 @@ impl Overlord {
     async fn apply_relay_assignment(&mut self, assignment: RelayAssignment) -> Result<(), Error> {
         // Start a minion for this relay if there is none
         if !GLOBALS.relay_is_connected(&assignment.relay_url) {
-            self.start_minion(assignment.relay_url.clone()).await?;
+            self.start_minion(assignment.relay_url.clone(), false)
+                .await?;
         }
 
         // Subscribe to the general feed
@@ -367,12 +365,12 @@ impl Overlord {
         Ok(())
     }
 
-    async fn start_minion(&mut self, url: RelayUrl) -> Result<(), Error> {
+    async fn start_minion(&mut self, url: RelayUrl, persistent: bool) -> Result<(), Error> {
         if GLOBALS.settings.read().offline {
             return Ok(());
         }
 
-        let mut minion = Minion::new(url.clone()).await?;
+        let mut minion = Minion::new(url.clone(), persistent).await?;
         let abort_handle = self.minions.spawn(async move { minion.handle().await });
         let id = abort_handle.id();
         self.minions_task_url.insert(id, url.clone());
@@ -530,7 +528,7 @@ impl Overlord {
                 for url in relay_urls.iter() {
                     // Start a minion for it, if there is none
                     if !GLOBALS.relay_is_connected(url) {
-                        self.start_minion(url.clone()).await?;
+                        self.start_minion(url.clone(), false).await?;
                     }
                     let _ = self.to_minions.send(ToMinionMessage {
                         target: url.0.clone(),
@@ -705,7 +703,7 @@ impl Overlord {
                 {
                     // Start a minion for this relay if there is none
                     if !GLOBALS.relay_is_connected(relay_url) {
-                        self.start_minion(relay_url.to_owned()).await?;
+                        self.start_minion(relay_url.to_owned(), false).await?;
                     }
 
                     // Subscribe to metadata and contact lists for this person
@@ -736,7 +734,7 @@ impl Overlord {
                 for (relay_url, pubkeys) in map.drain() {
                     // Start a minion for this relay if there is none
                     if !GLOBALS.relay_is_connected(&relay_url) {
-                        self.start_minion(relay_url.clone()).await?;
+                        self.start_minion(relay_url.clone(), false).await?;
                     }
 
                     // Subscribe to metadata and contact lists for this person
@@ -961,7 +959,7 @@ impl Overlord {
         for url in relay_urls {
             // Start a minion for it, if there is none
             if !GLOBALS.relay_is_connected(&url) {
-                self.start_minion(url.clone()).await?;
+                self.start_minion(url.clone(), false).await?;
             }
 
             // Send it the event to post
@@ -1023,7 +1021,7 @@ impl Overlord {
         for relay_url in advertise_to_relay_urls {
             // Start a minion for it, if there is none
             if !GLOBALS.relay_is_connected(&relay_url) {
-                self.start_minion(relay_url.clone()).await?;
+                self.start_minion(relay_url.clone(), false).await?;
             }
 
             // Send it the event to post
@@ -1098,7 +1096,7 @@ impl Overlord {
         for relay in relays {
             // Start a minion for it, if there is none
             if !GLOBALS.relay_is_connected(&relay.url) {
-                self.start_minion(relay.url.clone()).await?;
+                self.start_minion(relay.url.clone(), false).await?;
             }
 
             // Send it the event to post
@@ -1123,7 +1121,7 @@ impl Overlord {
         for relay in relays {
             // Start a minion for it, if there is none
             if !GLOBALS.relay_is_connected(&relay.url) {
-                self.start_minion(relay.url.clone()).await?;
+                self.start_minion(relay.url.clone(), false).await?;
             }
 
             // Send it the event to pull our followers
@@ -1147,7 +1145,7 @@ impl Overlord {
         for relay in relays {
             // Start a minion for it, if there is none
             if !GLOBALS.relay_is_connected(&relay.url) {
-                self.start_minion(relay.url.clone()).await?;
+                self.start_minion(relay.url.clone(), false).await?;
             }
 
             // Send it the event to pull our followers
@@ -1190,7 +1188,7 @@ impl Overlord {
         for relay in relays {
             // Start a minion for it, if there is none
             if !GLOBALS.relay_is_connected(&relay.url) {
-                self.start_minion(relay.url.clone()).await?;
+                self.start_minion(relay.url.clone(), false).await?;
             }
 
             // Send it the event to pull our followers
@@ -1229,7 +1227,7 @@ impl Overlord {
         for (url, pubkeys) in map.drain() {
             // Start minion if needed
             if !GLOBALS.relay_is_connected(&url) {
-                self.start_minion(url.clone()).await?;
+                self.start_minion(url.clone(), false).await?;
             }
 
             // Subscribe to their metadata
@@ -1325,7 +1323,7 @@ impl Overlord {
         for url in relay_urls {
             // Start a minion for it, if there is none
             if !GLOBALS.relay_is_connected(&url) {
-                self.start_minion(url.clone()).await?;
+                self.start_minion(url.clone(), false).await?;
             }
 
             // Send it the event to post
@@ -1477,7 +1475,7 @@ impl Overlord {
             for url in relays.iter() {
                 // Start minion if needed
                 if !GLOBALS.relay_is_connected(url) {
-                    self.start_minion(url.clone()).await?;
+                    self.start_minion(url.clone(), false).await?;
                 }
 
                 // Subscribe
@@ -1583,7 +1581,7 @@ impl Overlord {
         for url in relay_urls {
             // Start a minion for it, if there is none
             if !GLOBALS.relay_is_connected(&url) {
-                self.start_minion(url.clone()).await?;
+                self.start_minion(url.clone(), false).await?;
             }
 
             // Send it the event to post

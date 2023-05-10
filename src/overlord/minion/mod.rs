@@ -42,10 +42,11 @@ pub struct Minion {
     next_events_subscription_id: u32,
     keepgoing: bool,
     postings: HashSet<Id>,
+    persistent: bool,
 }
 
 impl Minion {
-    pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
+    pub async fn new(url: RelayUrl, persistent: bool) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = match DbRelay::fetch_one(&url).await? {
@@ -69,16 +70,29 @@ impl Minion {
             next_events_subscription_id: 0,
             keepgoing: true,
             postings: HashSet::new(),
+            persistent,
         })
     }
 }
 
 impl Minion {
     pub async fn handle(&mut self) {
-        // Catch errors, Return nothing.
-        if let Err(e) = self.handle_inner().await {
-            tracing::error!("{}: ERROR: {}", &self.url, e);
-            self.bump_failure_count().await;
+        loop {
+            // Catch errors, Return nothing.
+            if let Err(e) = self.handle_inner().await {
+                tracing::error!("{}: ERROR: {}", &self.url, e);
+                self.bump_failure_count().await;
+            }
+
+            if self.persistent {
+                tracing::info!(
+                    "{}: Persistent connection will reconnect in 30 seconds...",
+                    &self.url
+                );
+                tokio::time::sleep(std::time::Duration::new(30, 0)).await;
+            } else {
+                break;
+            }
         }
 
         tracing::info!("{}: minion exiting", self.url);
@@ -310,17 +324,21 @@ impl Minion {
             ToMinionPayload::Shutdown => {
                 tracing::info!("{}: Websocket listener shutting down", &self.url);
                 self.keepgoing = false;
+                self.persistent = false;
             }
             ToMinionPayload::SubscribeGeneralFeed(pubkeys) => {
                 self.subscribe_general_feed(pubkeys).await?;
             }
             ToMinionPayload::SubscribeMentions => {
+                self.persistent = true;
                 self.subscribe_mentions().await?;
             }
             ToMinionPayload::SubscribeConfig => {
+                self.persistent = true;
                 self.subscribe_config().await?;
             }
             ToMinionPayload::SubscribeDiscover(pubkeys) => {
+                self.persistent = true;
                 self.subscribe_discover(pubkeys).await?;
             }
             ToMinionPayload::SubscribePersonFeed(pubkeyhex) => {
