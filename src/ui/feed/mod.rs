@@ -3,14 +3,14 @@ use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use eframe::egui;
-use egui::{Context, Frame, RichText, ScrollArea, SelectableLabel, Ui, Vec2};
+use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
 use nostr_types::Id;
 
 pub use note::Notes;
 
 mod note;
 pub use note::NoteRenderData;
-mod post;
+pub(super) mod post;
 
 struct FeedNoteParams {
     id: Id,
@@ -24,80 +24,84 @@ struct FeedNoteParams {
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed_kind = GLOBALS.feed.get_feed_kind();
 
-    // Feed Page Selection
-    ui.horizontal(|ui| {
-        if !app.settings.recompute_feed_periodically {
-            if ui.button("↻").clicked() {
-                GLOBALS.feed.sync_recompute();
+    #[cfg(not(feature = "side-menu"))]
+    {
+        // Feed Page Selection
+        ui.horizontal(|ui| {
+            if !app.settings.recompute_feed_periodically {
+                if ui.button("↻").clicked() {
+                    GLOBALS.feed.sync_recompute();
+                }
             }
-        }
-        ui.separator();
-        if ui
-            .add(SelectableLabel::new(
-                matches!(app.page, Page::Feed(FeedKind::Followed(_))),
-                "Main feed",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
-        }
-        ui.separator();
-        if ui
-            .add(SelectableLabel::new(
-                matches!(app.page, Page::Feed(FeedKind::Inbox(_))),
-                "Inbox",
-            ))
-            .clicked()
-        {
-            app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
-        }
-        ui.separator();
-        if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
             ui.separator();
             if ui
-                .add(SelectableLabel::new(
-                    app.page == Page::Feed(feed_kind.clone()),
-                    "Thread",
+                .add(egui::SelectableLabel::new(
+                    matches!(app.page, Page::Feed(FeedKind::Followed(_))),
+                    "Main feed",
                 ))
                 .clicked()
             {
-                app.set_page(Page::Feed(feed_kind.clone()));
+                app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
             }
-        }
-        if matches!(feed_kind, FeedKind::Person(..)) {
             ui.separator();
             if ui
-                .add(SelectableLabel::new(
-                    app.page == Page::Feed(feed_kind.clone()),
-                    "Person",
+                .add(egui::SelectableLabel::new(
+                    matches!(app.page, Page::Feed(FeedKind::Inbox(_))),
+                    "Inbox",
                 ))
                 .clicked()
             {
-                app.set_page(Page::Feed(feed_kind.clone()));
+                app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
             }
-        }
-
-        if GLOBALS
-            .feed
-            .recompute_lock
-            .load(std::sync::atomic::Ordering::Relaxed)
-        {
             ui.separator();
-            ui.label("RECOMPUTING...");
-        }
-    });
+            if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
+                ui.separator();
+                if ui
+                    .add(egui::SelectableLabel::new(
+                        app.page == Page::Feed(feed_kind.clone()),
+                        "Thread",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(feed_kind.clone()));
+                }
+            }
+            if matches!(feed_kind, FeedKind::Person(..)) {
+                ui.separator();
+                if ui
+                    .add(egui::SelectableLabel::new(
+                        app.page == Page::Feed(feed_kind.clone()),
+                        "Person",
+                    ))
+                    .clicked()
+                {
+                    app.set_page(Page::Feed(feed_kind.clone()));
+                }
+            }
 
-    ui.add_space(10.0);
+            if GLOBALS
+                .feed
+                .recompute_lock
+                .load(std::sync::atomic::Ordering::Relaxed)
+            {
+                ui.separator();
+                ui.label("RECOMPUTING...");
+            }
+        });
 
-    post::posting_area(app, ctx, frame, ui);
+        ui.add_space(10.0);
 
-    ui.add_space(10.0);
+        post::posting_area(app, ctx, frame, ui);
+
+        ui.add_space(10.0);
+    }
 
     match feed_kind {
         FeedKind::Followed(with_replies) => {
             let feed = GLOBALS.feed.get_followed();
             let id = if with_replies { "main" } else { "general" };
 
+            #[cfg(not(feature = "side-menu"))]
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Root Posts Only").size(11.0));
                 if crate::ui::components::switch(ui, &mut app.mainfeed_include_nonroot).clicked() {
@@ -105,6 +109,25 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
                 ui.label(RichText::new("Any Post").size(11.0));
                 ui.separator();
+            });
+
+            #[cfg(feature = "side-menu")]
+            ui.allocate_ui_with_layout(
+                Vec2::new( ui.available_width(), ui.spacing().interact_size.y ),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+
+                add_left_space(ui);
+                recompute_btn(app, ui);
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new("Any Post").size(11.0));
+                    let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
+                    if crate::ui::components::switch_with_size(ui, &mut app.mainfeed_include_nonroot, size).clicked() {
+                        app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
+                    }
+                    ui.label(RichText::new("Root Posts Only").size(11.0));
+                });
             });
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
@@ -129,16 +152,28 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
                 ui.label(RichText::new("Everything you are Tagged On").size(11.0));
                 ui.separator();
+
+                #[cfg(feature = "side-menu")] // FIXME relocate
+                recompute_btn(app, ui);
             });
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Thread { id, .. } => {
+            #[cfg(feature = "side-menu")] // FIXME relocate
+            ui.horizontal(|ui|{
+                recompute_btn(app, ui);
+            });
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
                 render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string());
             }
         }
         FeedKind::Person(pubkeyhex) => {
+            #[cfg(feature = "side-menu")] // FIXME relocate
+            ui.horizontal(|ui|{
+                recompute_btn(app, ui);
+            });
+
             let feed = GLOBALS.feed.get_person_feed();
             render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
         }
@@ -296,5 +331,28 @@ fn render_note_maybe_fake(
                 is_last,
             },
         );
+    }
+}
+
+#[cfg(feature = "side-menu")]
+fn add_left_space(ui: &mut Ui)
+{
+    ui.add_space( 2.0 );
+}
+
+#[cfg(feature = "side-menu")]
+fn recompute_btn( app: &mut GossipUi, ui: &mut Ui ) {
+    if !app.settings.recompute_feed_periodically {
+        if ui.link("Refresh").clicked() {
+            GLOBALS.feed.sync_recompute();
+        }
+    }
+    if GLOBALS
+        .feed
+        .recompute_lock
+        .load(std::sync::atomic::Ordering::Relaxed)
+    {
+        ui.separator();
+        ui.label("RECOMPUTING...");
     }
 }

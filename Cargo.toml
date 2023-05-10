@@ -12,6 +12,7 @@ edition = "2021"
 [features]
 default = ["rustls-tls"]
 lang-cjk = []
+side-menu = []
 video-ffmpeg = [ "egui-video", "sdl2" ]
 
 native-tls = [ "reqwest/native-tls", "tungstenite/native-tls", "tokio-tungstenite/native-tls"]

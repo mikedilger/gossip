@@ -35,12 +35,15 @@ use crate::ui::widgets::CopyButton;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
 use eframe::{egui, IconData};
+#[cfg(not(feature = "side-menu"))]
+use egui::SelectableLabel;
 use egui::{
-    Color32, ColorImage, Context, Image, ImageData, Label, RichText, SelectableLabel, Sense,
+    Color32, ColorImage, Context, FontFamily, Image, ImageData, Label, RichText, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
+use egui_winit::egui::Response;
 use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
@@ -49,6 +52,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
+use self::components::NavItem;
 use self::feed::Notes;
 
 pub fn run() -> Result<(), Error> {
@@ -107,6 +111,51 @@ enum Page {
     HelpAbout,
 }
 
+#[derive(Eq, Hash, PartialEq)]
+enum SubMenu {
+    People,
+    Relays,
+    Account,
+    Help
+}
+
+impl SubMenu {
+    fn to_id_str(&self) -> &'static str {
+        match self {
+            SubMenu::People => "people_submenu",
+            SubMenu::Account => "account_submenu",
+            SubMenu::Relays => "relays_submenu",
+            SubMenu::Help => "help_submenu",
+        }
+    }
+}
+
+struct SubMenuState{
+    submenu_states: HashMap<SubMenu,bool>,
+}
+
+impl SubMenuState {
+    fn new() -> Self {
+        let mut submenu_states: HashMap<SubMenu, bool> = HashMap::new();
+        submenu_states.insert(SubMenu::People, false);
+        submenu_states.insert(SubMenu::Relays, false);
+        submenu_states.insert(SubMenu::Account, false);
+        submenu_states.insert(SubMenu::Help, false);
+        Self {
+            submenu_states,
+        }
+    }
+    fn set_active(&mut self, item: &SubMenu) {
+        for entry in self.submenu_states.iter_mut() {
+            if entry.0 == item {
+                *entry.1 = true;
+            } else {
+                *entry.1 = false;
+            }
+        }
+    }
+}
+
 pub enum HighlightType {
     Nothing,
     PublicKey,
@@ -148,6 +197,8 @@ struct GossipUi {
     history: Vec<Page>,
     mainfeed_include_nonroot: bool,
     inbox_include_indirect: bool,
+    submenu_ids: HashMap<SubMenu,egui::Id>,
+    submenu_state: SubMenuState,
 
     // General Data
     about: About,
@@ -167,6 +218,7 @@ struct GossipUi {
     search_result: String,
 
     // User entry: posts
+    show_post_area: bool,
     draft: String,
     draft_needs_focus: bool,
     draft_repost: Option<Id>,
@@ -245,6 +297,12 @@ impl GossipUi {
                 to.round_text_to_pixels = true;
             });
         }
+
+        let mut submenu_ids: HashMap<SubMenu, egui::Id> = HashMap::new();
+        submenu_ids.insert(SubMenu::People, egui::Id::new(SubMenu::People.to_id_str()));
+        submenu_ids.insert(SubMenu::Account, egui::Id::new(SubMenu::Account.to_id_str()));
+        submenu_ids.insert(SubMenu::Relays, egui::Id::new(SubMenu::Relays.to_id_str()));
+        submenu_ids.insert(SubMenu::Help, egui::Id::new(SubMenu::Help.to_id_str()));
 
         let icon_texture_handle = {
             let bytes = include_bytes!("../../gossip.png");
@@ -338,6 +396,8 @@ impl GossipUi {
             history: vec![],
             mainfeed_include_nonroot: false,
             inbox_include_indirect: false,
+            submenu_ids,
+            submenu_state: SubMenuState::new(),
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
@@ -348,6 +408,7 @@ impl GossipUi {
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
             search_result: "".to_owned(),
+            show_post_area: false,
             draft: "".to_owned(),
             draft_needs_focus: false,
             draft_repost: None,
@@ -448,6 +509,8 @@ impl GossipUi {
     }
 
     fn clear_post(&mut self) {
+        self.show_post_area = false;
+        self.draft_needs_focus = false;
         self.draft = "".to_owned();
         self.draft_repost = None;
         self.tag_someone = "".to_owned();
@@ -507,6 +570,7 @@ impl eframe::App for GossipUi {
             }
         }
 
+        #[cfg(not(feature = "side-menu"))]
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
@@ -600,7 +664,227 @@ impl eframe::App for GossipUi {
             ui.add_space(4.0);
         });
 
-        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+        #[cfg(feature = "side-menu")]
+        egui::SidePanel::left("main-naviation-panel")
+            .show_separator_line(false)
+            .frame(
+                egui::Frame::none()
+                .inner_margin( egui::Margin::symmetric(20.0, 20.0 ) )
+                .fill(self.settings.theme.navigation_bg_fill())
+            )
+            .show(ctx, |ui| {
+                    // cut indentation
+                    // ui.style_mut().spacing.indent = 8.0;
+                    ui.style_mut().spacing.indent = 0.0;
+                    ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.settings.theme.navigation_text_color();
+                    ui.style_mut().visuals.widgets.hovered.fg_stroke.color = self.settings.theme.navigation_text_hover_color();
+                    ui.style_mut().visuals.widgets.hovered.fg_stroke.width = 1.0;
+                    ui.style_mut().visuals.widgets.active.fg_stroke.color = self.settings.theme.navigation_text_active_color();
+
+                    ui.add_space(4.0);
+                    let back_label_text = RichText::new("‹ Back");
+                    let label = if self.history.is_empty() {
+                        Label::new(back_label_text.weak())
+                    } else {
+                        Label::new(back_label_text.color(
+                            self.settings.theme.navigation_text_color())
+                        ).sense(Sense::click())
+                    };
+                    if ui.add(label).clicked() {
+                        self.back();
+                    }
+
+                    ui.add_space(4.0);
+                    ui.separator();
+                    ui.add_space(4.0);
+
+                    if self.add_selected_label(
+                            ui,
+                            matches!(self.page, Page::Feed(FeedKind::Followed(_))),
+                            "Main Feed",
+                        )
+                        .clicked()
+                    {
+                        self.set_page(Page::Feed(FeedKind::Followed(
+                            self.mainfeed_include_nonroot,
+                        )));
+                    }
+                    if let Some(pubkey) = GLOBALS.signer.public_key() {
+                        let pubkeyhex: PublicKeyHex = pubkey.into();
+                        if self.add_selected_label(
+                                ui,
+                                matches!(&self.page, Page::Feed(FeedKind::Person(key)) if key.as_str() == pubkeyhex.as_str()),
+                                "My Notes",
+                            )
+                            .clicked()
+                        {
+                            self.set_page(Page::Feed(FeedKind::Person(pubkeyhex)));
+                        }
+                    }
+                    if self.add_selected_label(
+                            ui,
+                            matches!(self.page, Page::Feed(FeedKind::Inbox(_))),
+                            "Inbox",
+                        )
+                        .clicked()
+                    {
+                        self.set_page(Page::Feed(FeedKind::Inbox(true)));
+                    }
+
+                    ui.add_space(8.0);
+
+                    // ---- People Submenu ----
+                    {
+                        let (mut submenu, header_response) =
+                            self.get_openable_menu( ui, SubMenu::People, "People");
+                        submenu.show_body_indented(&header_response, ui, |ui| {
+                                self.add_menu_item_page(ui, Page::PeopleList, "Followed");
+                                self.add_menu_item_page(ui, Page::PeopleFollow, "Follow new");
+                                self.add_menu_item_page(ui, Page::PeopleMuted, "Muted");
+                            });
+                        self.after_openable_menu(ui, &submenu);
+                    }
+                    // ---- Relays Submenu ----
+                    {
+                        let (mut submenu, header_response) =
+                            self.get_openable_menu( ui, SubMenu::Relays, "Relays");
+                        submenu.show_body_indented(&header_response, ui, |ui| {
+                                self.add_menu_item_page(ui, Page::RelaysLive, "Live");
+                                self.add_menu_item_page(ui, Page::RelaysAll, "Configure");
+                            });
+                        self.after_openable_menu(ui, &submenu);
+                    }
+                    // ---- Account Submenu ----
+                    {
+                        let (mut submenu, header_response) =
+                            self.get_openable_menu( ui, SubMenu::Account, "Account");
+                        submenu.show_body_indented(&header_response, ui, |ui| {
+                                self.add_menu_item_page(ui, Page::YourMetadata, "Profile");
+                                self.add_menu_item_page(ui, Page::YourKeys, "Keys");
+                                self.add_menu_item_page(ui, Page::YourDelegation, "Delegation");
+                            });
+                        self.after_openable_menu(ui, &submenu);
+                    }
+                    // ----
+                    if self.add_selected_label(ui, self.page == Page::Search, "Search")
+                        .clicked()
+                    {
+                        self.set_page(Page::Search);
+                    }
+                    // ----
+                    if self.add_selected_label(
+                            ui,
+                            self.page == Page::Settings,
+                            "Settings",
+                        )
+                        .clicked()
+                    {
+                        self.set_page(Page::Settings);
+                    }
+                    // ---- Help Submenu ----
+                    {
+                        let (mut submenu, header_response) =
+                            self.get_openable_menu( ui, SubMenu::Help, "Help");
+                        submenu.show_body_indented(&header_response, ui, |ui| {
+                                self.add_menu_item_page(ui, Page::HelpHelp, "Help");
+                                self.add_menu_item_page(ui, Page::HelpStats, "Stats");
+                                self.add_menu_item_page(ui, Page::HelpAbout, "About");
+                            });
+                        self.after_openable_menu(ui, &submenu);
+                    }
+
+                    // ---- "plus icon" ----
+                    if !self.show_post_area {
+                        let bottom_right = ui.ctx().screen_rect().right_bottom();
+                        let pos = bottom_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0);
+
+                        egui::Area::new(ui.next_auto_id())
+                            .movable(false)
+                            .interactable(true)
+                            .fixed_pos(pos)
+                            // FIXME IN EGUI: constrain is moving the box left for all of these boxes
+                            // even if they have different IDs and don't need it.
+                            .constrain(true)
+                            .show(ctx, |ui| {
+                                // ui.set_min_width(200.0);
+                                egui::Frame::popup(&self.settings.theme.get_style())
+                                    .rounding(egui::Rounding::same(90.0)) // need the rounding for the shadow
+                                    .stroke( egui::Stroke::NONE)
+                                    .fill(Color32::TRANSPARENT)
+                                    .show(
+                                    ui,
+                                    |ui| {
+                                        if GLOBALS.signer.is_ready() {
+                                            let response = ui.add_sized(
+                                                [ crate::AVATAR_SIZE_F32 , crate::AVATAR_SIZE_F32 ],
+                                                egui::Button::new( RichText::new("+")
+                                                .size(22.5)
+                                                .color(self.settings.theme.navigation_text_color()))
+                                                .stroke(egui::Stroke::NONE)
+                                                .rounding(egui::Rounding::same(90.0))
+                                                .fill(self.settings.theme.navigation_bg_fill()) );
+                                            if response.clicked() {
+                                                self.show_post_area = true;
+                                            }
+                                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                                        } else {
+                                            let response = ui.add_sized(
+                                                [ crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32 ],
+                                                egui::Button::new( RichText::new("\u{1f513}")
+                                                .size(20.0)
+                                                .color(self.settings.theme.navigation_text_color()))
+                                                .stroke(egui::Stroke::NONE)
+                                                .rounding(egui::Rounding::same(90.0))
+                                                .fill(self.settings.theme.navigation_bg_fill()) );
+                                            if response.clicked() {
+                                                self.set_page(Page::YourKeys);
+                                            }
+                                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                                        }
+
+
+                                });
+                            });
+                    }
+
+        });
+
+        #[cfg(feature = "side-menu")]
+        egui::TopBottomPanel::top("top-area")
+            .frame(
+                egui::Frame::side_top_panel(&self.settings.theme.get_style())
+                    .inner_margin(egui::Margin{ left: 20.0, right: 15.0, top: 10.0, bottom: 10.0 })
+            )
+            .resizable(true)
+            .show_animated(ctx,
+                self.show_post_area && self.settings.feed_direction_reverse_chronological,
+                |ui|{
+                feed::post::posting_area(self, ctx, frame, ui);
+        });
+
+        egui::TopBottomPanel::bottom("status")
+            .frame({
+                let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
+                #[cfg(feature = "side-menu")]
+                let frame = frame.inner_margin(
+                    if !self.settings.feed_direction_reverse_chronological {
+                        egui::Margin{ left: 20.0, right: 10.0, top: 10.0, bottom: 10.0 }
+                    } else {
+                        egui::Margin{ left: 20.0, right: 10.0, top: 1.0, bottom: 3.0 }
+                    }
+                );
+                frame
+                })
+            .show_separator_line(false)
+            .show(ctx, |ui| {
+            #[cfg(feature = "side-menu")]
+            {
+                if self.show_post_area && !self.settings.feed_direction_reverse_chronological {
+                    ui.add_space(7.0);
+                    feed::post::posting_area(self, ctx, frame, ui);
+                    ui.separator();
+                }
+            }
             ui.horizontal(|ui| {
                 if ui
                     .add(
@@ -614,7 +898,16 @@ impl eframe::App for GossipUi {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| match self.page {
+        egui::CentralPanel::default()
+            .frame(
+                {
+                let frame = egui::Frame::central_panel(&self.settings.theme.get_style());
+                #[cfg(feature = "side-menu")]
+                let frame = frame.inner_margin(egui::Margin::symmetric(20.0, 10.0));
+                frame
+                }
+            )
+            .show(ctx, |ui| match self.page {
             Page::Feed(_) => feed::update(self, ctx, frame, ui),
             Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
                 people::update(self, ctx, frame, ui)
@@ -894,3 +1187,68 @@ impl GossipUi {
         }
     }
 }
+
+#[cfg(feature = "side-menu")]
+impl GossipUi {
+    fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
+        if self.add_selected_label(ui, self.page == page, text).clicked() {
+            self.set_page(page);
+        }
+    }
+
+    fn get_openable_menu(&mut self, ui: &mut Ui, item: SubMenu, label: &str) -> (egui::CollapsingState, Response) {
+        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), self.submenu_ids[&item], false );
+        let txt = if clps.is_open() {
+            label.to_string() + " \u{25BE}"
+        } else {
+            label.to_string() + " \u{25B8}"
+        };
+        if clps.is_open() {
+            ui.add_space(10.0)
+        }
+        let header_res = ui.horizontal(|ui| {
+            if ui.add( self.new_header_label(clps.is_open(), txt.as_str()) ).clicked() {
+                clps.toggle(ui);
+                self.submenu_state.set_active(&item);
+            }
+        });
+        if clps.is_open() {
+            clps.set_open(self.submenu_state.submenu_states[&item]);
+        }
+        header_res.response.clone().on_hover_cursor(egui::CursorIcon::PointingHand);
+        (clps, header_res.response)
+    }
+
+    fn after_openable_menu(&self, ui: &mut Ui, submenu: &egui::CollapsingState ) {
+        if submenu.is_open() {
+            ui.add_space(10.0)
+        }
+    }
+
+    fn new_header_label(&self, is_open: bool, text: &str ) -> NavItem {
+        NavItem::new(text, is_open)
+            .color(self.settings.theme.navigation_text_color())
+            .active_color(self.settings.theme.navigation_header_active_color())
+            .hover_color(self.settings.theme.navigation_text_hover_color())
+            .sense(Sense::click())
+    }
+
+    fn new_selected_label(&self, selected: bool, text: &str ) -> NavItem {
+        NavItem::new(text, selected)
+            .color(self.settings.theme.navigation_text_color())
+            .active_color(self.settings.theme.navigation_text_active_color())
+            .hover_color(self.settings.theme.navigation_text_hover_color())
+            .sense(Sense::click())
+    }
+
+    fn add_selected_label(&self, ui: &mut Ui, selected: bool, text: &str) -> egui::Response {
+        let label = self.new_selected_label( selected, text);
+        ui.add_space(2.0);
+        let response = ui.add(label);
+        ui.add_space(2.0);
+        response.clone().on_hover_cursor( egui::CursorIcon::PointingHand );
+        response
+    }
+}
+
+

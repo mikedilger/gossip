@@ -105,6 +105,41 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            #[cfg(feature = "side-menu")]
+            pub fn navigation_bg_fill(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::navigation_bg_fill(self.dark_mode), )+
+                }
+            }
+
+            #[cfg(feature = "side-menu")]
+            pub fn navigation_text_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::navigation_text_color(self.dark_mode), )+
+                }
+            }
+
+            #[cfg(feature = "side-menu")]
+            pub fn navigation_text_active_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::navigation_text_active_color(self.dark_mode), )+
+                }
+            }
+
+            #[cfg(feature = "side-menu")]
+            pub fn navigation_text_hover_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::navigation_text_hover_color(self.dark_mode), )+
+                }
+            }
+
+            #[cfg(feature = "side-menu")]
+            pub fn navigation_header_active_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::navigation_header_active_color(self.dark_mode), )+
+                }
+            }
+
             pub fn input_text_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::input_text_color(self.dark_mode), )+
@@ -290,6 +325,12 @@ pub trait ThemeDef: Send + Sync {
     fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
 
+    fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32;
+    fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32;
+    fn navigation_text_active_color(dark_mode: bool) -> eframe::egui::Color32;
+    fn navigation_text_hover_color(dark_mode: bool) -> eframe::egui::Color32;
+    fn navigation_header_active_color(dark_mode: bool) -> eframe::egui::Color32;
+
     // egui by default uses inactive.fg_stroke for multiple things (buttons, any
     // labels made clickable, and TextEdit text. We try to always override TextEdit
     // text with this color instead.
@@ -332,6 +373,10 @@ pub(super) fn font_definitions() -> FontDefinitions {
     font_data.insert(
         "DejaVuSans".to_owned(),
         FontData::from_static(include_bytes!("../../../fonts/DejaVuSansSansEmoji.ttf")),
+    );
+    font_data.insert(
+        "DejaVuSansBold".to_owned(),
+        FontData::from_static(include_bytes!("../../../fonts/DejaVuSans-Bold-SansEmoji.ttf")),
     );
 
     if cfg!(feature = "lang-cjk") {
@@ -376,6 +421,11 @@ pub(super) fn font_definitions() -> FontDefinitions {
     families.insert(
         FontFamily::Monospace,
         vec!["Inconsolata".to_owned(), "NotoEmoji-Regular".to_owned()],
+    );
+
+    families.insert(
+        FontFamily::Name("Bold".into()),
+        vec!["DejaVuSansBold".to_owned()]
     );
 
     FontDefinitions {
