@@ -1,5 +1,6 @@
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
+use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::{GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
@@ -75,7 +76,11 @@ pub(in crate::ui) fn posting_area(
                 }
                 ui.label(" to post.");
             });
-        } else if !GLOBALS.all_relays.iter().any(|r| r.value().write) {
+        } else if !GLOBALS
+            .all_relays
+            .iter()
+            .any(|r| r.value().has_usage_bits(DbRelay::WRITE))
+        {
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("choose write relays").clicked() {

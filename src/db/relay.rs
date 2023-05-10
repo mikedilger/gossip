@@ -8,29 +8,68 @@ pub struct DbRelay {
     pub url: RelayUrl,
     pub success_count: u64,
     pub failure_count: u64,
-    pub rank: u64,
     pub last_connected_at: Option<u64>,
     pub last_general_eose_at: Option<u64>,
-    pub read: bool,
-    pub write: bool,
-    pub advertise: bool,
+    pub rank: u64,
     pub hidden: bool,
+    pub usage_bits: u64,
 }
 
 impl DbRelay {
+    pub const READ: u64 = 1 << 0; // 1
+    pub const WRITE: u64 = 1 << 1; // 2
+    pub const ADVERTISE: u64 = 1 << 2; // 4
+    pub const INBOX: u64 = 1 << 3; // 8
+    pub const OUTBOX: u64 = 1 << 4; // 16
+    pub const DISCOVER: u64 = 1 << 5; // 32
+
+    const SQL_OUTBOX_IS_ON: &'static str = "(relay.usage_bits & 16 = 16)";
+
     pub fn new(url: RelayUrl) -> DbRelay {
         DbRelay {
             url,
             success_count: 0,
             failure_count: 0,
-            rank: 3,
             last_connected_at: None,
             last_general_eose_at: None,
-            read: false,
-            write: false,
-            advertise: false,
+            rank: 3,
             hidden: false,
+            usage_bits: 0,
         }
+    }
+
+    pub fn set_usage_bits_memory_only(&mut self, bits: u64) {
+        self.usage_bits |= bits;
+    }
+
+    pub fn clear_usage_bits_memory_only(&mut self, bits: u64) {
+        self.usage_bits &= !bits;
+    }
+
+    pub fn adjust_usage_bit_memory_only(&mut self, bit: u64, value: bool) {
+        if value {
+            self.set_usage_bits_memory_only(bit);
+        } else {
+            self.clear_usage_bits_memory_only(bit);
+        }
+    }
+
+    pub fn has_usage_bits(&self, bits: u64) -> bool {
+        self.usage_bits & bits == bits
+    }
+
+    pub async fn save_usage_bits(&self) -> Result<(), Error> {
+        let sql = "UPDATE relay SET usage_bits = ? WHERE url = ?";
+        let bits = self.usage_bits;
+        let url = self.url.0.clone();
+        spawn_blocking(move || {
+            let db = GLOBALS.db.blocking_lock();
+            let mut stmt = db.prepare(sql)?;
+            rtry!(stmt.execute((bits, url,)));
+            Ok::<(), Error>(())
+        })
+        .await??;
+        Ok(())
     }
 
     pub fn attempts(&self) -> u64 {
@@ -46,8 +85,8 @@ impl DbRelay {
     }
 
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
-        let sql = "SELECT url, success_count, failure_count, rank, last_connected_at, \
-             last_general_eose_at, read, write, advertise, hidden FROM relay"
+        let sql = "SELECT url, success_count, failure_count, last_connected_at, \
+             last_general_eose_at, rank, hidden, usage_bits FROM relay"
             .to_owned();
         let sql = match criteria {
             None => sql,
@@ -68,13 +107,11 @@ impl DbRelay {
                         url,
                         success_count: row.get(1)?,
                         failure_count: row.get(2)?,
-                        rank: row.get(3)?,
-                        last_connected_at: row.get(4)?,
-                        last_general_eose_at: row.get(5)?,
-                        read: row.get(6)?,
-                        write: row.get(7)?,
-                        advertise: row.get(8)?,
-                        hidden: row.get(9)?,
+                        last_connected_at: row.get(3)?,
+                        last_general_eose_at: row.get(4)?,
+                        rank: row.get(5)?,
+                        hidden: row.get(6)?,
+                        usage_bits: row.get(7)?,
                     });
                 }
             }
@@ -96,9 +133,9 @@ impl DbRelay {
     }
 
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
-        let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, rank, \
-                   last_connected_at, last_general_eose_at, read, write, advertise, hidden) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)";
+        let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, \
+                   last_connected_at, last_general_eose_at, rank, hidden, usage_bits) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
@@ -108,13 +145,11 @@ impl DbRelay {
                 &relay.url.0,
                 &relay.success_count,
                 &relay.failure_count,
-                &relay.rank,
                 &relay.last_connected_at,
                 &relay.last_general_eose_at,
-                &relay.read,
-                &relay.write,
-                &relay.advertise,
+                &relay.rank,
                 &relay.hidden,
+                &relay.usage_bits,
             )));
             Ok::<(), Error>(())
         })
@@ -124,9 +159,10 @@ impl DbRelay {
     }
 
     pub async fn update(relay: DbRelay) -> Result<(), Error> {
-        let sql = "UPDATE relay SET success_count=?, failure_count=?, rank=?, \
+        let sql = "UPDATE relay SET success_count=?, failure_count=?, \
                    last_connected_at=?, last_general_eose_at=?, \
-                   read=?, write=?, advertise=?, hidden=? WHERE url=?";
+                   rank=?, hidden=?, usage_bits=? \
+                   WHERE url=?";
 
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
@@ -135,15 +171,31 @@ impl DbRelay {
             rtry!(stmt.execute((
                 &relay.success_count,
                 &relay.failure_count,
-                &relay.rank,
                 &relay.last_connected_at,
                 &relay.last_general_eose_at,
-                &relay.read,
-                &relay.write,
-                &relay.advertise,
+                &relay.rank,
                 &relay.hidden,
+                &relay.usage_bits,
                 &relay.url.0,
             )));
+            Ok::<(), Error>(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    pub async fn clear_all_relay_list_usage_bits() -> Result<(), Error> {
+        // Keep only bits which are NOT part of relay lists
+        let sql = format!(
+            "UPDATE relay SET usage_bits = usage_bits & {}",
+            !(Self::INBOX | Self::OUTBOX)
+        );
+
+        spawn_blocking(move || {
+            let db = GLOBALS.db.blocking_lock();
+            let mut stmt = db.prepare(&sql)?;
+            rtry!(stmt.execute(()));
             Ok::<(), Error>(())
         })
         .await??;
@@ -163,49 +215,6 @@ impl DbRelay {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((&last_general_eose_at, &url.0)));
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-
-    pub async fn clear_read_and_write() -> Result<(), Error> {
-        let sql = "UPDATE relay SET read = false, write = false";
-        spawn_blocking(move || {
-            let db = GLOBALS.db.blocking_lock();
-            let mut stmt = db.prepare(sql)?;
-            rtry!(stmt.execute(()));
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-
-    pub async fn update_read_and_write(
-        url: RelayUrl,
-        read: bool,
-        write: bool,
-    ) -> Result<(), Error> {
-        let sql = "UPDATE relay SET read = ?, write = ?  WHERE url = ?";
-        spawn_blocking(move || {
-            let db = GLOBALS.db.blocking_lock();
-            let mut stmt = db.prepare(sql)?;
-            rtry!(stmt.execute((&read, &write, &url.0)));
-            Ok::<(), Error>(())
-        })
-        .await??;
-
-        Ok(())
-    }
-
-    pub async fn update_advertise(url: RelayUrl, advertise: bool) -> Result<(), Error> {
-        let sql = "UPDATE relay SET advertise = ?  WHERE url = ?";
-        spawn_blocking(move || {
-            let db = GLOBALS.db.blocking_lock();
-            let mut stmt = db.prepare(sql)?;
-            rtry!(stmt.execute((&advertise, &url.0)));
             Ok::<(), Error>(())
         })
         .await??;
@@ -287,13 +296,18 @@ impl DbRelay {
     }
 
     pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
-        // Try to find a relay where the event was seen AND that I write to which
+        // FIXME - USE THE INBOX FOR THE USER, NOT THE SEEN ON RELAY
+
+        // Try to find a relay where the event was seen AND that is an outbox to which
         // has a rank>1
-        let sql = "SELECT url FROM relay INNER JOIN event_relay ON relay.url=event_relay.relay \
-                   WHERE event_relay.event=? AND relay.write=1 AND relay.rank>1";
+        let sql = format!(
+            "SELECT url FROM relay INNER JOIN event_relay ON relay.url=event_relay.relay \
+             WHERE event_relay.event=? AND {} AND relay.rank>1",
+            Self::SQL_OUTBOX_IS_ON
+        );
         let output: Option<RelayUrl> = spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
-            let mut stmt = db.prepare(sql)?;
+            let mut stmt = db.prepare(&sql)?;
             let mut query_result = rtry!(stmt.query([reply_to.as_hex_string()]));
             if let Some(row) = query_result.next()? {
                 let s: String = row.get(0)?;

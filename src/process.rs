@@ -392,64 +392,82 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
 
             tracing::info!("Processing our own relay list");
 
-            // clear all read/write flags in relays (will be added back below)
-
-            // in database
-            DbRelay::clear_read_and_write().await?;
+            // clear all read/write flags from relays (will be added back below)
+            DbRelay::clear_all_relay_list_usage_bits().await?;
 
             // in memory
             for mut elem in GLOBALS.all_relays.iter_mut() {
-                elem.value_mut().read = false;
-                elem.value_mut().write = false;
+                elem.value_mut()
+                    .clear_usage_bits_memory_only(DbRelay::INBOX | DbRelay::OUTBOX);
             }
         }
     }
 
-    let mut read_relays: Vec<RelayUrl> = Vec::new();
-    let mut write_relays: Vec<RelayUrl> = Vec::new();
+    let mut inbox_relays: Vec<RelayUrl> = Vec::new();
+    let mut outbox_relays: Vec<RelayUrl> = Vec::new();
     for tag in event.tags.iter() {
         if let Tag::Reference { url, marker } = tag {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if let Some(m) = marker {
                     match &*m.trim().to_lowercase() {
                         "read" => {
-                            read_relays.push(relay_url.clone());
+                            // 'read' means inbox and not outbox
+                            inbox_relays.push(relay_url.clone());
                             if ours {
-                                // set in database
-                                DbRelay::update_read_and_write(relay_url.clone(), true, false)
-                                    .await?;
-                                // set in memory
                                 if let Some(mut elem) = GLOBALS.all_relays.get_mut(&relay_url) {
-                                    elem.read = true;
-                                    elem.write = false;
+                                    // Update
+                                    elem.set_usage_bits_memory_only(DbRelay::INBOX);
+                                    elem.clear_usage_bits_memory_only(DbRelay::OUTBOX);
+                                    elem.save_usage_bits().await?;
+                                } else {
+                                    // Create
+                                    let mut dbrelay = DbRelay::new(relay_url.to_owned());
+                                    // Since we are creating, we add READ
+                                    dbrelay
+                                        .set_usage_bits_memory_only(DbRelay::INBOX | DbRelay::READ);
+                                    DbRelay::insert(dbrelay).await?;
                                 }
                             }
                         }
                         "write" => {
-                            write_relays.push(relay_url.clone());
+                            // 'write' means outbox and not inbox
+                            outbox_relays.push(relay_url.clone());
                             if ours {
-                                // set in database
-                                DbRelay::update_read_and_write(relay_url.clone(), false, true)
-                                    .await?;
-                                // set in memory
                                 if let Some(mut elem) = GLOBALS.all_relays.get_mut(&relay_url) {
-                                    elem.read = false;
-                                    elem.write = true;
+                                    // Update
+                                    elem.set_usage_bits_memory_only(DbRelay::OUTBOX);
+                                    elem.clear_usage_bits_memory_only(DbRelay::INBOX);
+                                    elem.save_usage_bits().await?;
+                                } else {
+                                    // Create
+                                    let mut dbrelay = DbRelay::new(relay_url.to_owned());
+                                    // Since we are creating, we add WRITE
+                                    dbrelay.set_usage_bits_memory_only(
+                                        DbRelay::OUTBOX | DbRelay::WRITE,
+                                    );
+                                    DbRelay::insert(dbrelay).await?;
                                 }
                             }
                         }
                         _ => {} // ignore unknown marker
                     }
                 } else {
-                    read_relays.push(relay_url.clone());
-                    write_relays.push(relay_url.clone());
+                    // No marker means both inbox and outbox
+                    inbox_relays.push(relay_url.clone());
+                    outbox_relays.push(relay_url.clone());
                     if ours {
-                        // set in database
-                        DbRelay::update_read_and_write(relay_url.clone(), true, true).await?;
-                        // set in memory
                         if let Some(mut elem) = GLOBALS.all_relays.get_mut(&relay_url) {
-                            elem.read = true;
-                            elem.write = true;
+                            // Update
+                            elem.set_usage_bits_memory_only(DbRelay::INBOX | DbRelay::OUTBOX);
+                            elem.save_usage_bits().await?;
+                        } else {
+                            // Create
+                            let mut dbrelay = DbRelay::new(relay_url.to_owned());
+                            // Since we are creating, we add READ and WRITE
+                            dbrelay.set_usage_bits_memory_only(
+                                DbRelay::INBOX | DbRelay::OUTBOX | DbRelay::READ | DbRelay::WRITE,
+                            );
+                            DbRelay::insert(dbrelay).await?;
                         }
                     }
                 }
@@ -457,7 +475,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
         }
     }
 
-    DbPersonRelay::set_relay_list(event.pubkey.into(), read_relays, write_relays).await?;
+    DbPersonRelay::set_relay_list(event.pubkey.into(), inbox_relays, outbox_relays).await?;
 
     Ok(())
 }
@@ -479,19 +497,19 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
             return Ok(());
         }
 
-        let mut read_relays: Vec<RelayUrl> = Vec::new();
-        let mut write_relays: Vec<RelayUrl> = Vec::new();
+        let mut inbox_relays: Vec<RelayUrl> = Vec::new();
+        let mut outbox_relays: Vec<RelayUrl> = Vec::new();
         for (url, simple_relay_usage) in srl.0.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if simple_relay_usage.read {
-                    read_relays.push(relay_url.clone());
+                    inbox_relays.push(relay_url.clone());
                 }
                 if simple_relay_usage.write {
-                    write_relays.push(relay_url.clone());
+                    outbox_relays.push(relay_url.clone());
                 }
             }
         }
-        DbPersonRelay::set_relay_list(event.pubkey.into(), read_relays, write_relays).await?;
+        DbPersonRelay::set_relay_list(event.pubkey.into(), inbox_relays, outbox_relays).await?;
     }
 
     Ok(())
