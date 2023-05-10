@@ -796,7 +796,7 @@ impl eframe::App for GossipUi {
                     // ---- "plus icon" ----
                     if !self.show_post_area {
                         let bottom_right = ui.ctx().screen_rect().right_bottom();
-                        let pos = bottom_right + Vec2::new(-65.0, -65.0);
+                        let pos = bottom_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0);
 
                         egui::Area::new(ui.next_auto_id())
                             .movable(false)
@@ -816,7 +816,7 @@ impl eframe::App for GossipUi {
                                     |ui| {
                                         if GLOBALS.signer.is_ready() {
                                             let response = ui.add_sized(
-                                                [ 30.0, 30.0 ],
+                                                [ crate::AVATAR_SIZE_F32 , crate::AVATAR_SIZE_F32 ],
                                                 egui::Button::new( RichText::new("+")
                                                 .size(22.5)
                                                 .color(self.settings.theme.navigation_text_color()))
@@ -829,8 +829,9 @@ impl eframe::App for GossipUi {
                                             response.on_hover_cursor(egui::CursorIcon::PointingHand);
                                         } else {
                                             let response = ui.add_sized(
-                                                [ 30.0, 30.0 ],
+                                                [ crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32 ],
                                                 egui::Button::new( RichText::new("\u{1f513}")
+                                                .size(20.0)
                                                 .color(self.settings.theme.navigation_text_color()))
                                                 .stroke(egui::Stroke::NONE)
                                                 .rounding(egui::Rounding::same(90.0))
