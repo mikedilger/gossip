@@ -385,7 +385,7 @@ impl ThemeDef for DefaultTheme {
             }
         } else {
             if selected {
-                Color32::from_gray(0xf9)
+                Color32::WHITE
             } else {
                 Color32::from_gray(210)
             }

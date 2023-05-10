@@ -1,5 +1,9 @@
+mod nav_item;
+
 use eframe::egui;
 use egui::{Label, Response, Sense, Ui};
+
+pub use nav_item::NavItem;
 
 pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
     let mut emojis = "😀😁😆😅😂🤣\
@@ -42,7 +46,11 @@ pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
 
 pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
     let desired_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
-    let (rect, mut response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
+    switch_with_size(ui, on, desired_size)
+}
+
+pub fn switch_with_size(ui: &mut Ui, on: &mut bool, size: egui::Vec2) -> Response {
+    let (rect, mut response) = ui.allocate_exact_size(size, egui::Sense::click());
     if response.clicked() {
         *on = !*on;
         response.mark_changed();
