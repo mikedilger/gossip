@@ -84,6 +84,12 @@ impl Minion {
                 self.bump_failure_count().await;
             }
 
+            // Check global shutdown, because we may be unable to get an overlord message if
+            // this relay never lets us connect.
+            if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+                break;
+            }
+
             if self.persistent {
                 tracing::info!(
                     "{}: Persistent connection will reconnect in 30 seconds...",
