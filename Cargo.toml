@@ -10,7 +10,7 @@ default-run = "gossip"
 edition = "2021"
 
 [features]
-default = ["rustls-tls"]
+default = ["rustls-tls", "side-menu"]
 lang-cjk = []
 side-menu = []
 video-ffmpeg = [ "egui-video", "sdl2" ]
