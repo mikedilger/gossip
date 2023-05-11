@@ -130,9 +130,9 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(0x24),
+                window_fill: Color32::from_gray(36),
                 panel_fill: Color32::from_gray(10),
-                faint_bg_color: Color32::from_gray(0x14),
+                faint_bg_color: Color32::from_gray(20),
                 extreme_bg_color: Color32::from_gray(36),
                 code_bg_color: Color32::from_gray(64),
 
@@ -141,7 +141,7 @@ impl ThemeDef for DefaultTheme {
                 override_text_color: None,
                 warn_fg_color: Color32::from_rgb(255, 143, 0), // orange
                 error_fg_color: Color32::from_rgb(255, 0, 0),  // red
-                hyperlink_color: Color32::from_rgb(0x73, 0x95, 0xae), // light blue?
+                hyperlink_color: Color32::from_rgb(115, 149, 174), // light blue
 
                 selection: Selection {
                     bg_fill: Color32::from_gray(40),
@@ -213,18 +213,18 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(0xed),
-                panel_fill: Color32::from_gray(0xed),
-                faint_bg_color: Color32::from_gray(0xf9),
-                extreme_bg_color: Color32::from_gray(0xff),
+                window_fill: Color32::from_gray(237),
+                panel_fill: Color32::from_gray(237),
+                faint_bg_color: Color32::from_gray(249),
+                extreme_bg_color: Color32::from_gray(255),
                 code_bg_color: Color32::from_gray(230),
 
                 // Foreground colors
-                window_stroke: Stroke::new(1.0, Color32::from_rgb(0x5d, 0x5c, 0x61)), // DONE
+                window_stroke: Stroke::new(1.0, Color32::from_rgb(93, 92, 97)), // DONE
                 override_text_color: None,
                 warn_fg_color: Color32::from_rgb(255, 100, 0), // slightly orange red. it's difficult to find a warning color that pops on bright background.
                 error_fg_color: Color32::from_rgb(255, 0, 0),  // red
-                hyperlink_color: Color32::from_rgb(0x55, 0x7a, 0x95), // DONE
+                hyperlink_color: Color32::from_rgb(85, 122, 149), // DONE
 
                 selection: Selection {
                     bg_fill: Color32::from_gray(220),                 // DONE
@@ -370,9 +370,9 @@ impl ThemeDef for DefaultTheme {
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            Color32::from_rgb(0x30, 0x6f, 0xc1)
+            Color32::from_rgb(48, 111, 193)
         } else {
-            Color32::from_rgb(0x55, 0x7a, 0x95)
+            Color32::from_rgb(85, 122, 149)
         }
     }
 
@@ -386,9 +386,9 @@ impl ThemeDef for DefaultTheme {
 
     fn navigation_text_active_color(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            Color32::from_gray(0xf9)
+            Color32::from_gray(249)
         } else {
-            Color32::from_gray(0xf9)
+            Color32::from_gray(249)
         }
     }
 
@@ -397,7 +397,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn navigation_header_active_color(dark_mode: bool) -> eframe::egui::Color32 {
-        Color32::from_gray(0xaa)
+        Color32::from_gray(170)
     }
 
     fn input_text_color(dark_mode: bool) -> eframe::egui::Color32 {
