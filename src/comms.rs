@@ -62,7 +62,7 @@ pub enum ToMinionPayload {
     SubscribeConfig,
     SubscribeDiscover(Vec<PublicKeyHex>),
     SubscribeGeneralFeed(Vec<PublicKeyHex>),
-    SubscribeMentions(bool), // bool for persistent
+    SubscribeMentions,
     SubscribePersonFeed(PublicKeyHex),
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
     TempSubscribeMetadata(Vec<PublicKeyHex>),

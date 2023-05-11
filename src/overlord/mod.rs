@@ -290,7 +290,7 @@ impl Overlord {
             // Subscribe to our mentions
             let _ = self.to_minions.send(ToMinionMessage {
                 target: relay_url.to_string(),
-                payload: ToMinionPayload::SubscribeMentions(true),
+                payload: ToMinionPayload::SubscribeMentions,
             });
         }
 
@@ -354,7 +354,7 @@ impl Overlord {
         // of us on all these relays too
         let _ = self.to_minions.send(ToMinionMessage {
             target: assignment.relay_url.0.clone(),
-            payload: ToMinionPayload::SubscribeMentions(false),
+            payload: ToMinionPayload::SubscribeMentions,
         });
 
         Ok(())
@@ -371,13 +371,15 @@ impl Overlord {
             return Ok(());
         }
 
+        // FIXME - handle persistence a different way
+
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
             // If already connected, add the reason.
             if !refmut.value_mut().contains(&reason) {
                 refmut.value_mut().push(reason);
             }
         } else {
-            let mut minion = Minion::new(url.clone(), persistent).await?;
+            let mut minion = Minion::new(url.clone()).await?;
             let abort_handle = self.minions.spawn(async move { minion.handle().await });
             let id = abort_handle.id();
             self.minions_task_url.insert(id, url.clone());
