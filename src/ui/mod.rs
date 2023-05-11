@@ -793,6 +793,17 @@ impl eframe::App for GossipUi {
                         self.after_openable_menu(ui, &submenu);
                     }
 
+                    ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui|{
+                        if ui.add(
+                            Label::new(GLOBALS.status_message.blocking_read().clone())
+                                .sense(Sense::click()),
+                        )
+                            .clicked()
+                        {
+                            *GLOBALS.status_message.blocking_write() = "".to_string();
+                        }
+                    });
+
                     // ---- "plus icon" ----
                     if !self.show_post_area {
                         let bottom_right = ui.ctx().screen_rect().right_bottom();
@@ -862,6 +873,16 @@ impl eframe::App for GossipUi {
                 feed::post::posting_area(self, ctx, frame, ui);
         });
 
+        #[cfg(not(feature = "side-menu"))]
+        let show_status = true;
+        #[cfg(feature = "side-menu")]
+        let show_status = self.show_post_area && !self.settings.feed_direction_reverse_chronological;
+
+        #[cfg(not(feature = "side-menu"))]
+        let resizable = false;
+        #[cfg(feature = "side-menu")]
+        let resizable = true;
+
         egui::TopBottomPanel::bottom("status")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
@@ -875,8 +896,11 @@ impl eframe::App for GossipUi {
                 );
                 frame
                 })
+            .resizable(resizable)
             .show_separator_line(false)
-            .show(ctx, |ui| {
+            .show_animated(ctx,
+                show_status,
+                |ui| {
             #[cfg(feature = "side-menu")]
             {
                 if self.show_post_area && !self.settings.feed_direction_reverse_chronological {
@@ -885,6 +909,7 @@ impl eframe::App for GossipUi {
                     ui.separator();
                 }
             }
+            #[cfg(not(feature = "side-menu"))]
             ui.horizontal(|ui| {
                 if ui
                     .add(
