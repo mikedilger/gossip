@@ -2,7 +2,7 @@ use super::Minion;
 use crate::db::{DbEventRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use futures::SinkExt;
+use futures_util::sink::SinkExt;
 use nostr_types::{ClientMessage, EventKind, PreEvent, RelayMessage, Tag, Unixtime};
 use tungstenite::protocol::Message as WsMessage;
 
@@ -173,8 +173,8 @@ impl Minion {
                 let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
                 let msg = ClientMessage::Auth(Box::new(event));
                 let wire = serde_json::to_string(&msg)?;
-                let ws_sink = self.sink.as_mut().unwrap();
-                ws_sink.send(WsMessage::Text(wire)).await?;
+                let ws_stream = self.stream.as_mut().unwrap();
+                ws_stream.send(WsMessage::Text(wire)).await?;
                 tracing::info!("Authenticated to {}", &self.url);
             }
         }

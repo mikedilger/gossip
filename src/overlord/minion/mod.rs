@@ -8,8 +8,8 @@ use crate::globals::GLOBALS;
 use crate::USER_AGENT;
 use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};
-use futures::{SinkExt, StreamExt};
-use futures_util::stream::{SplitSink, SplitStream};
+use futures_util::sink::SinkExt;
+use futures_util::stream::StreamExt;
 use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
@@ -36,8 +36,7 @@ pub struct Minion {
     from_overlord: Receiver<ToMinionMessage>,
     dbrelay: DbRelay,
     nip11: Option<RelayInformationDocument>,
-    stream: Option<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
-    sink: Option<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, WsMessage>>,
+    stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     subscriptions: Subscriptions,
     next_events_subscription_id: u32,
     keepgoing: bool,
@@ -65,7 +64,6 @@ impl Minion {
             dbrelay,
             nip11: None,
             stream: None,
-            sink: None,
             subscriptions: Subscriptions::new(),
             next_events_subscription_id: 0,
             keepgoing: true,
@@ -219,9 +217,7 @@ impl Minion {
             websocket_stream
         };
 
-        let (sink, stream) = websocket_stream.split();
-        self.stream = Some(stream);
-        self.sink = Some(sink);
+        self.stream = Some(websocket_stream);
 
         // Bump the success count for the relay
         self.bump_success_count(true).await;
@@ -244,8 +240,8 @@ impl Minion {
         }
 
         // Close the connection
-        let ws_sink = self.sink.as_mut().unwrap();
-        if let Err(e) = ws_sink.send(WsMessage::Close(None)).await {
+        let ws_stream = self.stream.as_mut().unwrap();
+        if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
             tracing::error!("websocket close error: {}", e);
         }
 
@@ -254,7 +250,6 @@ impl Minion {
 
     async fn loop_handler(&mut self) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
-        let ws_sink = self.sink.as_mut().unwrap();
 
         let mut timer = tokio::time::interval(std::time::Duration::new(55, 0));
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -262,7 +257,7 @@ impl Minion {
 
         select! {
             _ = timer.tick() => {
-                ws_sink.send(WsMessage::Ping(vec![0x1])).await?;
+                ws_stream.send(WsMessage::Ping(vec![0x1])).await?;
             },
             ws_message = ws_stream.next() => {
                 let ws_message = match ws_message {
@@ -320,8 +315,8 @@ impl Minion {
                 self.postings.insert(id);
                 let msg = ClientMessage::Event(event);
                 let wire = serde_json::to_string(&msg)?;
-                let ws_sink = self.sink.as_mut().unwrap();
-                ws_sink.send(WsMessage::Text(wire)).await?;
+                let ws_stream = self.stream.as_mut().unwrap();
+                ws_stream.send(WsMessage::Text(wire)).await?;
                 tracing::info!("Posted event to {}", &self.url);
             }
             ToMinionPayload::PullFollowing => {
@@ -733,13 +728,13 @@ impl Minion {
     // Create or replace the following subscription
     /*
     async fn upsert_following(&mut self, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
-        let websocket_sink = self.sink.as_mut().unwrap();
+        let websocket_stream = self.stream.as_mut().unwrap();
 
         if pubkeys.is_empty() {
             if let Some(sub) = self.subscriptions.get("following") {
                 // Close the subscription
                 let wire = serde_json::to_string(&sub.close_message())?;
-                websocket_sink.send(WsMessage::Text(wire.clone())).await?;
+                websocket_stream.send(WsMessage::Text(wire.clone())).await?;
 
                 // Remove the subscription from the map
                 self.subscriptions.remove("following");
@@ -836,7 +831,7 @@ impl Minion {
 
         // Subscribe (or resubscribe) to the subscription
         let wire = serde_json::to_string(&req_message)?;
-        websocket_sink.send(WsMessage::Text(wire.clone())).await?;
+        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
 
         tracing::trace!("{}: Sent {}", &self.url, &wire);
 
@@ -868,9 +863,9 @@ impl Minion {
         let req_message = self.subscriptions.get(&handle).unwrap().req_message();
 
         // Subscribe on the relay
-        let websocket_sink = self.sink.as_mut().unwrap();
+        let websocket_stream = self.stream.as_mut().unwrap();
         let wire = serde_json::to_string(&req_message)?;
-        websocket_sink.send(WsMessage::Text(wire.clone())).await?;
+        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
 
         tracing::trace!("{}: Sent {}", &self.url, &wire);
 
@@ -930,9 +925,9 @@ impl Minion {
         );
         let req_message = self.subscriptions.get(handle).unwrap().req_message();
         let wire = serde_json::to_string(&req_message)?;
-        let websocket_sink = self.sink.as_mut().unwrap();
+        let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
-        websocket_sink.send(WsMessage::Text(wire.clone())).await?;
+        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
         Ok(())
     }
 
@@ -942,9 +937,9 @@ impl Minion {
         }
         let close_message = self.subscriptions.get(handle).unwrap().close_message();
         let wire = serde_json::to_string(&close_message)?;
-        let websocket_sink = self.sink.as_mut().unwrap();
+        let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
-        websocket_sink.send(WsMessage::Text(wire.clone())).await?;
+        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
         let id = self.subscriptions.remove(handle);
         if let Some(id) = id {
             tracing::debug!(
