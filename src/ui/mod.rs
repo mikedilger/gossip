@@ -38,7 +38,7 @@ use eframe::{egui, IconData};
 #[cfg(not(feature = "side-menu"))]
 use egui::SelectableLabel;
 use egui::{
-    Color32, ColorImage, Context, FontFamily, Image, ImageData, Label, RichText, Sense,
+    Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]

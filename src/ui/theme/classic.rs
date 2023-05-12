@@ -13,6 +13,18 @@ impl ThemeDef for ClassicTheme {
         "Classic"
     }
 
+    fn accent_color(_dark_mode: bool) -> Color32 {
+        Color32::from_rgb(0, 0, 0) // Not used
+    }
+
+    fn highlight_color(_dark_mode: bool) -> Color32 {
+        Color32::from_rgb(0, 0, 0) // Not used
+    }
+
+    fn accent_complementary_color(_dark_mode: bool) -> Color32 {
+        Color32::from_rgb(0, 0, 0) // Not used
+    }
+
     fn get_style(dark_mode: bool) -> Style {
         let mut style = Style::default();
 
@@ -389,11 +401,11 @@ impl ThemeDef for ClassicTheme {
         }
     }
 
-    fn navigation_text_hover_color(dark_mode: bool) -> eframe::egui::Color32 {
+    fn navigation_text_hover_color(_dark_mode: bool) -> eframe::egui::Color32 {
         Color32::WHITE
     }
 
-    fn navigation_header_active_color(dark_mode: bool) -> eframe::egui::Color32 {
+    fn navigation_header_active_color(_dark_mode: bool) -> eframe::egui::Color32 {
         Color32::from_gray(0xaa)
     }
 

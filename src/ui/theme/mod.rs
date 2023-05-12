@@ -314,7 +314,10 @@ theme_dispatch!(
 pub trait ThemeDef: Send + Sync {
     // User facing name
     fn name() -> &'static str;
-
+    fn accent_color(dark_mode: bool) -> Color32;
+    fn highlight_color(dark_mode: bool) -> Color32;
+    fn accent_complementary_color(dark_mode: bool) -> Color32;
+    
     // These styles are used by egui by default for widgets if you don't override them
     // in place.
     fn get_style(dark_mode: bool) -> Style;

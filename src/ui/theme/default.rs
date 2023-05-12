@@ -15,6 +15,28 @@ impl ThemeDef for DefaultTheme {
         "Default"
     }
 
+    fn accent_color(dark_mode: bool) -> Color32 {
+        if dark_mode {
+            Color32::from_rgb(27, 31, 51)
+        } else {
+            Color32::from_rgb(85, 122, 149)
+        }
+    }
+
+    fn highlight_color(dark_mode: bool) -> Color32 {
+        if dark_mode {
+            Color32::from_rgb(34, 28, 38)
+        } else {
+            Color32::from_rgb(255, 255, 237)
+        }
+    }
+
+    fn accent_complementary_color(dark_mode: bool) -> Color32 {
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+        hsva.h = hsva.h + 0.5;
+        hsva.into()
+    }
+
     fn get_style(dark_mode: bool) -> Style {
         let mut style = Style::default();
 
@@ -87,7 +109,7 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_white_alpha(8),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(30)), // separators, borders
+                        bg_stroke: Stroke::new(2.0, Color32::from_white_alpha(5)), // separators, borders
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
@@ -104,26 +126,26 @@ impl ThemeDef for DefaultTheme {
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
-                        weak_bg_fill: Color32::from_gray(70),
-                        bg_fill: Color32::from_gray(70),
-                        bg_stroke: Stroke::new(0.0, Color32::from_gray(150)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_gray(240)),
+                        weak_bg_fill: Self::accent_color(dark_mode),
+                        bg_fill: Self::accent_color(dark_mode),
+                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
+                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(200)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
                     active: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(55),
                         bg_fill: Color32::from_gray(55),
-                        bg_stroke: Stroke::new(0.0, Color32::WHITE),
-                        fg_stroke: Stroke::new(2.0, Color32::from_gray(160)),
+                        bg_stroke: Stroke::new(0.0, Color32::from_white_alpha(95)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(200)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
                     open: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_gray(27),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(60)),
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(210)),
+                        bg_stroke: Stroke::new(1.0, Color32::from_white_alpha(50)),
+                        fg_stroke: Stroke::new(1.0, Color32::from_white_alpha(90)),
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
                     },
@@ -137,11 +159,15 @@ impl ThemeDef for DefaultTheme {
                 code_bg_color: Color32::from_gray(64),
 
                 // Foreground colors
-                window_stroke: Stroke::new(1.0, Color32::from_gray(230)),
+                window_stroke: Stroke::new(1.0, Color32::from_white_alpha(20)),
                 override_text_color: None,
-                warn_fg_color: Color32::from_rgb(255, 143, 0), // orange
-                error_fg_color: Color32::from_rgb(255, 0, 0),  // red
-                hyperlink_color: Color32::from_rgb(115, 149, 174), // light blue
+                warn_fg_color: Self::accent_complementary_color(true),
+                error_fg_color: Self::accent_complementary_color(true),
+                hyperlink_color: {
+                    let mut hsva: ecolor::HsvaGamma = Self::accent_color(true).into();
+                    hsva.v = (hsva.v + 0.3).min(1.0); // lighten
+                    hsva.into()
+                },
 
                 selection: Selection {
                     bg_fill: Color32::from_gray(40),
@@ -170,7 +196,7 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(248),
                         bg_fill: Color32::from_black_alpha(20),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(230)),
+                        bg_stroke: Stroke::new(2.0, Color32::from_white_alpha(5)),
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(80)), // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
@@ -187,18 +213,18 @@ impl ThemeDef for DefaultTheme {
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
-                        weak_bg_fill: Color32::from_gray(220),
-                        bg_fill: Color32::from_gray(220),
-                        bg_stroke: Stroke::new(0.0, Color32::from_gray(105)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::BLACK),
+                        weak_bg_fill: Self::accent_color(dark_mode),
+                        bg_fill: Self::accent_color(dark_mode),
+                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
+                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(200)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
                     active: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(165),
-                        bg_fill: Color32::from_gray(165),
-                        bg_stroke: Stroke::new(0.0, Color32::BLACK),
-                        fg_stroke: Stroke::new(2.0, Color32::BLACK),
+                        bg_fill: Color32::from_black_alpha(50),
+                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(200)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
@@ -206,7 +232,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(220),
                         bg_fill: Color32::from_gray(220),
                         bg_stroke: Stroke::new(1.0, Color32::from_gray(160)),
-                        fg_stroke: Stroke::new(1.0, Color32::BLACK),
+                        fg_stroke: Stroke::new(1.0, Self::accent_color(dark_mode)),
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
                     },
@@ -220,11 +246,11 @@ impl ThemeDef for DefaultTheme {
                 code_bg_color: Color32::from_gray(230),
 
                 // Foreground colors
-                window_stroke: Stroke::new(1.0, Color32::from_rgb(93, 92, 97)), // DONE
+                window_stroke: Stroke::new(1.0, Color32::from_black_alpha(40)),
                 override_text_color: None,
-                warn_fg_color: Color32::from_rgb(255, 100, 0), // slightly orange red. it's difficult to find a warning color that pops on bright background.
-                error_fg_color: Color32::from_rgb(255, 0, 0),  // red
-                hyperlink_color: Color32::from_rgb(85, 122, 149), // DONE
+                warn_fg_color: Self::accent_complementary_color(false),
+                error_fg_color: Self::accent_complementary_color(false),
+                hyperlink_color: Self::accent_color(false),
 
                 selection: Selection {
                     bg_fill: Color32::from_gray(220),                 // DONE
@@ -353,58 +379,65 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
-        if dark_mode {
-            Color32::LIGHT_RED
-        } else {
-            Color32::DARK_RED
-        }
+        Self::accent_complementary_color(dark_mode)
     }
 
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(false).into();
         if dark_mode {
-            Color32::LIGHT_BLUE
+            hsva.v = (hsva.v + 0.1).min(1.0); // lighten
         } else {
-            Color32::DARK_BLUE
+            hsva.v = (hsva.v - 0.2).max(0.0); // darken
         }
+        hsva.into()
     }
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
-        if dark_mode {
-            Color32::from_rgb(48, 111, 193)
-        } else {
-            Color32::from_rgb(85, 122, 149)
-        }
+        Self::accent_color(dark_mode)
     }
 
     fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32 {
-        if dark_mode {
-            Color32::from_gray(220)
-        } else {
-            Color32::from_gray(220)
-        }
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+        hsva.s = 0.05;
+        hsva.v = 0.86;
+        hsva.into()
     }
 
     fn navigation_text_active_color(dark_mode: bool) -> eframe::egui::Color32 {
-        if dark_mode {
-            Color32::from_gray(249)
-        } else {
-            Color32::from_gray(249)
-        }
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+        hsva.s = 0.05;
+        hsva.v = 0.97;
+        hsva.into()
     }
 
     fn navigation_text_hover_color(dark_mode: bool) -> eframe::egui::Color32 {
-        Color32::WHITE
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+        hsva.s = 0.05;
+        hsva.v = 1.00;
+        hsva.into()
     }
 
     fn navigation_header_active_color(dark_mode: bool) -> eframe::egui::Color32 {
-        Color32::from_gray(170)
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(false).into();
+        if dark_mode {
+            hsva.v = (hsva.v + 0.1).min(1.0); // lighten
+        } else {
+            hsva.v = (hsva.v - 0.2).max(0.0); // darken
+        }
+        hsva.into()
     }
 
     fn input_text_color(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            Color32::from_gray(190)
+            let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+            hsva.s = 0.05;
+            hsva.v = 0.74;
+            hsva.into()
         } else {
-            Color32::from_gray(60)
+            let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+            hsva.s = 0.05;
+            hsva.v = 0.23;
+            hsva.into()
         }
     }
 
@@ -412,12 +445,8 @@ impl ThemeDef for DefaultTheme {
     fn feed_scroll_rounding(_feed: &FeedProperties) -> Rounding {
         Rounding::none()
     }
-    fn feed_scroll_fill(dark_mode: bool, _feed: &FeedProperties) -> Color32 {
-        if dark_mode {
-            Color32::from_gray(0)
-        } else {
-            Color32::from_gray(240)
-        }
+    fn feed_scroll_fill(_dark_mode: bool, _feed: &FeedProperties) -> Color32 {
+        Color32::from_rgba_premultiplied(0, 0, 0, 0) // Transparent separator
     }
     fn feed_scroll_stroke(_dark_mode: bool, _feed: &FeedProperties) -> Stroke {
         Stroke::NONE
@@ -482,21 +511,32 @@ impl ThemeDef for DefaultTheme {
     fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
         if post.is_main_event {
             if dark_mode {
-                Color32::from_rgb(16, 23, 33)
+                let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
+                hsva.h = hsva.h - 0.07;
+                hsva.v = hsva.v + 0.1;
+                hsva.into()
             } else {
-                Color32::from_rgb(246, 252, 227)
+                let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
+                hsva.h = hsva.h + 0.07;
+                hsva.into()
             }
         } else if post.is_new {
             if dark_mode {
-                Color32::from_rgb(34, 28, 38)
+                Self::highlight_color(true)
             } else {
-                Color32::from_rgb(255, 255, 237)
+                Self::highlight_color(false)
             }
         } else {
             if dark_mode {
-                Color32::from_rgb(30, 30, 30)
+                let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+                hsva.s = 0.0;
+                hsva.v = 0.12;
+                hsva.into()
             } else {
-                Color32::WHITE
+                let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
+                hsva.s = 0.0;
+                hsva.v = 1.0;
+                hsva.into()
             }
         }
     }
@@ -507,9 +547,17 @@ impl ThemeDef for DefaultTheme {
     fn repost_separator_before_stroke(dark_mode: bool, _post: &NoteRenderData) -> Stroke {
         if !_post.is_comment_mention {
             if dark_mode {
-                Stroke::new(1.0, Color32::from_gray(60))
+                let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+                hsva.s = 0.0;
+                hsva.v = 0.22;
+                let rgb: Color32 = hsva.into();
+                Stroke::new(1.0, rgb)
             } else {
-                Stroke::new(1.0, Color32::from_gray(230))
+                let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
+                hsva.s = 0.0;
+                hsva.v = 0.90;
+                let rgb: Color32 = hsva.into();
+                Stroke::new(1.0, rgb)
             }
         } else {
             Stroke::NONE
