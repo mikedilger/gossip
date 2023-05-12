@@ -29,6 +29,7 @@ pub enum ToOverlordMessage {
     PullFollow,
     PushFollow,
     PushMetadata(Metadata),
+    ReengageMinion(RelayUrl, Vec<RelayJob>),
     RefreshFollowedMetadata,
     Repost(Id),
     RankRelay(RelayUrl, u8),
@@ -68,4 +69,20 @@ pub enum ToMinionPayload {
     TempSubscribeMetadata(Vec<PublicKeyHex>),
     UnsubscribePersonFeed,
     UnsubscribeThreadFeed,
+}
+
+#[derive(Debug, Clone)]
+pub struct RelayJob {
+    // Short reason for human viewing
+    pub reason: &'static str,
+
+    // Payload sent when it was started
+    pub payload: ToMinionPayload,
+
+    // Persistent? (restart if we get disconnected)
+    pub persistent: bool,
+
+    // NOTE, there is other per-relay data stored elsewhere in
+    //   overlord.minions_task_url
+    //   GLOBALS.relay_picker
 }

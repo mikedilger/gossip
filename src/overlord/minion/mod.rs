@@ -72,9 +72,9 @@ impl Minion {
 }
 
 impl Minion {
-    pub async fn handle(&mut self) {
+    pub async fn handle(&mut self, messages: Vec<ToMinionPayload>) {
         // Catch errors, Return nothing.
-        if let Err(e) = self.handle_inner().await {
+        if let Err(e) = self.handle_inner(messages).await {
             tracing::error!("{}: ERROR: {}", &self.url, e);
             self.bump_failure_count().await;
         }
@@ -82,7 +82,7 @@ impl Minion {
         tracing::info!("{}: minion exiting", self.url);
     }
 
-    async fn handle_inner(&mut self) -> Result<(), Error> {
+    async fn handle_inner(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
         tracing::trace!("{}: Minion handling started", &self.url); // minion will log when it connects
 
         // Connect to the relay
@@ -202,6 +202,11 @@ impl Minion {
         // Bump the success count for the relay
         self.bump_success_count(true).await;
 
+        // Handle initial messages
+        for message in messages.drain(..) {
+            self.handle_overlord_message(message).await?;
+        }
+
         // Tell the overlord we are ready to receive commands
         self.tell_overlord_we_are_ready().await?;
 
@@ -282,7 +287,7 @@ impl Minion {
                     Err(e) => return Err(e.into())
                 };
                 if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
-                    self.handle_overlord_message(to_minion_message).await?;
+                    self.handle_overlord_message(to_minion_message.payload).await?;
                 }
             },
         }
@@ -290,8 +295,8 @@ impl Minion {
         Ok(())
     }
 
-    pub async fn handle_overlord_message(&mut self, message: ToMinionMessage) -> Result<(), Error> {
-        match message.payload {
+    pub async fn handle_overlord_message(&mut self, message: ToMinionPayload) -> Result<(), Error> {
+        match message {
             ToMinionPayload::FetchEvent(id) => {
                 self.get_event(id).await?;
             }

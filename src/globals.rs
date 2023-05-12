@@ -1,4 +1,4 @@
-use crate::comms::{ToMinionMessage, ToOverlordMessage};
+use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::db::DbRelay;
 use crate::delegation::Delegation;
 use crate::events::Events;
@@ -18,6 +18,7 @@ use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
+
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -65,7 +66,7 @@ pub struct Globals {
     pub all_relays: DashMap<RelayUrl, DbRelay>,
 
     /// The relays currently connected to
-    pub connected_relays: DashMap<RelayUrl, Vec<&'static str>>,
+    pub connected_relays: DashMap<RelayUrl, Vec<RelayJob>>,
 
     /// The relay picker, used to pick the next relay
     pub relay_picker: RelayPicker<Hooks>,

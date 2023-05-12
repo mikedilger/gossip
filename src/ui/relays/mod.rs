@@ -39,10 +39,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.heading("Connected Relays");
         ui.add_space(18.0);
 
-        let connected_relays: Vec<(RelayUrl, Vec<&'static str>)> = GLOBALS
+        let connected_relays: Vec<(RelayUrl, String)> = GLOBALS
             .connected_relays
             .iter()
-            .map(|r| (r.key().clone(), r.value().clone()))
+            .map(|r|
+                 (
+                     r.key().clone(),
+                     r.value().iter().map(|rj| {
+                         if rj.persistent {
+                             format!("[{}]", rj.reason)
+                         } else {
+                             rj.reason.to_string()
+                         }
+                     }).collect::<Vec<String>>().join(", ")
+                 )
+            )
             .collect();
 
         ScrollArea::vertical()
@@ -64,7 +75,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                 ui.heading("Relay URL");
                             });
                             header.col(|ui| {
-                                ui.heading("Following");
+                                ui.heading("# Keys");
                             });
                             header.col(|ui| {
                                 ui.heading("Reasons");
@@ -86,7 +97,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                     }
                                 });
                                 row.col(|ui| {
-                                    ui.label(reasons.join(", "));
+                                    ui.label(reasons);
                                 });
                                 row.col(|ui| {
                                     if ui.button("Disconnect").clicked() {
