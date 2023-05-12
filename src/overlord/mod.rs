@@ -267,7 +267,7 @@ impl Overlord {
             self.engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
-                    reason: "outbox",
+                    reason: "config",
                     payload: ToMinionPayload::SubscribeConfig,
                     persistent: true
                 }]).await?;
@@ -282,7 +282,7 @@ impl Overlord {
             self.engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
-                    reason: "inbox",
+                    reason: "mentions",
                     payload: ToMinionPayload::SubscribeMentions,
                     persistent: true,
                 }]).await?;
@@ -338,13 +338,13 @@ impl Overlord {
         self.engage_minion(
             assignment.relay_url.clone(),
             vec![RelayJob {
-                reason: "following",
+                reason: "follow",
                 payload: ToMinionPayload::SubscribeGeneralFeed(assignment.pubkeys.clone()),
                 persistent: false
             },RelayJob {
                 // Until NIP-65 is in widespread use, we should listen for mentions
                 // of us on all these relays too
-                reason: "casual-mentions",
+                reason: "mentions",
                 payload: ToMinionPayload::SubscribeMentions,
                 persistent: false
             }]).await?;
@@ -741,7 +741,7 @@ impl Overlord {
                     self.engage_minion(
                         relay_url.to_owned(),
                         vec![RelayJob {
-                            reason: "read-metadata",
+                            reason: "tmp-metadata",
                             payload: ToMinionPayload::TempSubscribeMetadata(vec![pubkey.clone()]),
                             persistent: false
                         }]).await?;
@@ -769,7 +769,7 @@ impl Overlord {
                     self.engage_minion(
                         relay_url.clone(),
                         vec![RelayJob {
-                            reason: "read-metadata",
+                            reason: "tmp-metadata",
                             payload: ToMinionPayload::TempSubscribeMetadata(pubkeys),
                             persistent: false
                         }]).await?;
@@ -1150,7 +1150,7 @@ impl Overlord {
             self.engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
-                    reason: "read-our-contacts",
+                    reason: "pull-contacts",
                     payload: ToMinionPayload::PullFollowing,
                     persistent: false,
                 }]).await?;
@@ -1172,7 +1172,7 @@ impl Overlord {
             self.engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
-                    reason: "write-our-contacts",
+                    reason: "pushing-contacts",
                     payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
                     persistent: false
                 }]).await?;
@@ -1247,7 +1247,7 @@ impl Overlord {
             self.engage_minion(
                 url.clone(),
                 vec![RelayJob {
-                    reason: "read-metadata",
+                    reason: "tmp-metadata",
                     payload: ToMinionPayload::TempSubscribeMetadata(pubkeys),
                     persistent: false,
                 }]).await?;
@@ -1343,7 +1343,7 @@ impl Overlord {
             self.engage_minion(
                 url.clone(),
                 vec![RelayJob {
-                    reason: "repost",
+                    reason: "reposting",
                     payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
                     persistent: false
                 }]).await?;
@@ -1597,7 +1597,7 @@ impl Overlord {
             self.engage_minion(
                 url.to_owned(),
                 vec![RelayJob {
-                    reason: "delete",
+                    reason: "deleting",
                     payload: ToMinionPayload::PostEvent(Box::new(event.clone())),
                     persistent: false
                 }]).await?;
