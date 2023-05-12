@@ -127,7 +127,7 @@ impl ThemeDef for DefaultTheme {
                     },
                     hovered: WidgetVisuals {
                         weak_bg_fill: Color32::from_white_alpha(60),
-                        bg_fill: Color32::from_white_alpha(60),
+                        bg_fill: Color32::from_white_alpha(8),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
                         fg_stroke: Stroke::new(1.5, Self::accent_color(dark_mode)),
                         rounding: Rounding::same(3.0),
@@ -165,7 +165,7 @@ impl ThemeDef for DefaultTheme {
                 error_fg_color: Self::accent_complementary_color(true),
                 hyperlink_color: {
                     let mut hsva: ecolor::HsvaGamma = Self::accent_color(true).into();
-                    hsva.v = (hsva.v + 0.3).min(1.0); // lighten
+                    hsva.v = (hsva.v + 0.5).min(1.0); // lighten
                     hsva.into()
                 },
 
@@ -383,9 +383,9 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
-        let mut hsva: ecolor::HsvaGamma = Self::accent_color(false).into();
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
         if dark_mode {
-            hsva.v = (hsva.v + 0.1).min(1.0); // lighten
+            hsva.v = (hsva.v + 0.2).min(1.0); // lighten
         } else {
             hsva.v = (hsva.v - 0.2).max(0.0); // darken
         }
