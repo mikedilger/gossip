@@ -120,6 +120,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             bottom: 10.0,
                         })
                         .show(ui, |ui| {
+                            ui.heading("Passphrase Needed");
                             offer_unlock_priv_key(app, ui);
                         });
 
@@ -216,9 +217,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     }
 }
 
-fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
-    ui.heading("Passphrase Needed");
-
+pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.label("Passphrase: ");
         let response = ui.add(text_edit_line!(app, app.password).password(true));
@@ -229,15 +228,14 @@ fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
             app.password.zeroize();
             app.password = "".to_owned();
         }
+        if ui.button("Unlock Private Key").clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::UnlockKey(app.password.clone()));
+            app.password.zeroize();
+            app.password = "".to_owned();
+        }
     });
-
-    if ui.button("Unlock Private Key").clicked() {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::UnlockKey(app.password.clone()));
-        app.password.zeroize();
-        app.password = "".to_owned();
-    }
 }
 
 fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {

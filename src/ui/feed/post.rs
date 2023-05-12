@@ -2,7 +2,7 @@ use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
-use crate::ui::{GossipUi, HighlightType, Page, Theme};
+use crate::ui::{GossipUi, HighlightType, Page, Theme, you};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, ScrollArea, Ui, Vec2};
@@ -70,11 +70,15 @@ pub(in crate::ui) fn posting_area(
     ui.vertical(|ui| {
         if !GLOBALS.signer.is_ready() {
             ui.horizontal_wrapped(|ui| {
-                ui.label("You need to ");
-                if ui.link("setup your identity").clicked() {
-                    app.set_page(Page::YourKeys);
+                if GLOBALS.signer.encrypted_private_key().is_some() {
+                    you::offer_unlock_priv_key(app, ui);
+                } else {
+                    ui.label("You need to ");
+                    if ui.link("setup your identity").clicked() {
+                        app.set_page(Page::YourKeys);
+                    }
+                    ui.label(" to post.");
                 }
-                ui.label(" to post.");
             });
         } else if !GLOBALS
             .all_relays
