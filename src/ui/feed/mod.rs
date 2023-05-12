@@ -145,6 +145,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_inbox();
             let id = if indirect { "activity" } else { "inbox" };
 
+            #[cfg(not(feature = "side-menu"))]
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Direct Replies Only").size(11.0));
                 if crate::ui::components::switch(ui, &mut app.inbox_include_indirect).clicked() {
@@ -155,6 +156,25 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
                 #[cfg(feature = "side-menu")] // FIXME relocate
                 recompute_btn(app, ui);
+            });
+
+            #[cfg(feature = "side-menu")]
+            ui.allocate_ui_with_layout(
+                Vec2::new( ui.available_width(), ui.spacing().interact_size.y ),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+
+                add_left_space(ui);
+                recompute_btn(app, ui);
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new("Everything you are Tagged On").size(11.0));
+                    let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
+                    if crate::ui::components::switch_with_size(ui, &mut app.inbox_include_indirect, size).clicked() {
+                        app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
+                    }
+                    ui.label(RichText::new("Direct Replies Only").size(11.0));
+                });
             });
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);

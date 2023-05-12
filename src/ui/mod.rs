@@ -728,7 +728,7 @@ impl eframe::App for GossipUi {
                         )
                         .clicked()
                     {
-                        self.set_page(Page::Feed(FeedKind::Inbox(true)));
+                        self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
                     }
 
                     ui.add_space(8.0);
