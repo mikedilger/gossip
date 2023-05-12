@@ -728,7 +728,7 @@ impl eframe::App for GossipUi {
                         )
                         .clicked()
                     {
-                        self.set_page(Page::Feed(FeedKind::Inbox(true)));
+                        self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
                     }
 
                     ui.add_space(8.0);
@@ -793,6 +793,17 @@ impl eframe::App for GossipUi {
                         self.after_openable_menu(ui, &submenu);
                     }
 
+                    ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui|{
+                        if ui.add(
+                            Label::new(GLOBALS.status_message.blocking_read().clone())
+                                .sense(Sense::click()),
+                        )
+                            .clicked()
+                        {
+                            *GLOBALS.status_message.blocking_write() = "".to_string();
+                        }
+                    });
+
                     // ---- "plus icon" ----
                     if !self.show_post_area {
                         let bottom_right = ui.ctx().screen_rect().right_bottom();
@@ -814,33 +825,22 @@ impl eframe::App for GossipUi {
                                     .show(
                                     ui,
                                     |ui| {
-                                        if GLOBALS.signer.is_ready() {
-                                            let response = ui.add_sized(
-                                                [ crate::AVATAR_SIZE_F32 , crate::AVATAR_SIZE_F32 ],
-                                                egui::Button::new( RichText::new("+")
-                                                .size(22.5)
-                                                .color(self.settings.theme.navigation_text_color()))
-                                                .stroke(egui::Stroke::NONE)
-                                                .rounding(egui::Rounding::same(90.0))
-                                                .fill(self.settings.theme.navigation_bg_fill()) );
-                                            if response.clicked() {
-                                                self.show_post_area = true;
-                                            }
-                                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                                        let text = if GLOBALS.signer.is_ready() {
+                                            RichText::new("+").size(22.5)
                                         } else {
-                                            let response = ui.add_sized(
-                                                [ crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32 ],
-                                                egui::Button::new( RichText::new("\u{1f513}")
-                                                .size(20.0)
-                                                .color(self.settings.theme.navigation_text_color()))
-                                                .stroke(egui::Stroke::NONE)
-                                                .rounding(egui::Rounding::same(90.0))
-                                                .fill(self.settings.theme.navigation_bg_fill()) );
-                                            if response.clicked() {
-                                                self.set_page(Page::YourKeys);
-                                            }
-                                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                                            RichText::new("\u{1f513}").size(20.0)
+                                        };
+                                        let response = ui.add_sized(
+                                            [ crate::AVATAR_SIZE_F32 , crate::AVATAR_SIZE_F32 ],
+                                            egui::Button::new( text
+                                            .color(self.settings.theme.navigation_text_color()))
+                                            .stroke(egui::Stroke::NONE)
+                                            .rounding(egui::Rounding::same(90.0))
+                                            .fill(self.settings.theme.navigation_bg_fill()) );
+                                        if response.clicked() {
+                                            self.show_post_area = true;
                                         }
+                                        response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
 
                                 });
@@ -862,6 +862,16 @@ impl eframe::App for GossipUi {
                 feed::post::posting_area(self, ctx, frame, ui);
         });
 
+        #[cfg(not(feature = "side-menu"))]
+        let show_status = true;
+        #[cfg(feature = "side-menu")]
+        let show_status = self.show_post_area && !self.settings.feed_direction_reverse_chronological;
+
+        #[cfg(not(feature = "side-menu"))]
+        let resizable = false;
+        #[cfg(feature = "side-menu")]
+        let resizable = true;
+
         egui::TopBottomPanel::bottom("status")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
@@ -875,8 +885,11 @@ impl eframe::App for GossipUi {
                 );
                 frame
                 })
+            .resizable(resizable)
             .show_separator_line(false)
-            .show(ctx, |ui| {
+            .show_animated(ctx,
+                show_status,
+                |ui| {
             #[cfg(feature = "side-menu")]
             {
                 if self.show_post_area && !self.settings.feed_direction_reverse_chronological {
@@ -885,6 +898,7 @@ impl eframe::App for GossipUi {
                     ui.separator();
                 }
             }
+            #[cfg(not(feature = "side-menu"))]
             ui.horizontal(|ui| {
                 if ui
                     .add(
