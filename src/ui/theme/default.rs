@@ -159,7 +159,7 @@ impl ThemeDef for DefaultTheme {
                 code_bg_color: Color32::from_gray(64),
 
                 // Foreground colors
-                window_stroke: Stroke::new(1.0, Color32::from_white_alpha(20)),
+                window_stroke: Stroke::new(1.0, Color32::from_black_alpha(10)),
                 override_text_color: None,
                 warn_fg_color: Self::accent_complementary_color(true),
                 error_fg_color: Self::accent_complementary_color(true),
