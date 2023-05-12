@@ -38,7 +38,7 @@ use eframe::{egui, IconData};
 #[cfg(not(feature = "side-menu"))]
 use egui::SelectableLabel;
 use egui::{
-    Color32, ColorImage, Context, FontFamily, Image, ImageData, Label, RichText, Sense,
+    Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense,
     TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
@@ -684,7 +684,8 @@ impl eframe::App for GossipUi {
                     ui.add_space(4.0);
                     let back_label_text = RichText::new("‹ Back");
                     let label = if self.history.is_empty() {
-                        Label::new(back_label_text.weak())
+                        Label::new(back_label_text.color(
+                            Color32::from_white_alpha(8)))
                     } else {
                         Label::new(back_label_text.color(
                             self.settings.theme.navigation_text_color())
