@@ -126,10 +126,10 @@ impl ThemeDef for DefaultTheme {
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
-                        weak_bg_fill: Self::accent_color(dark_mode),
-                        bg_fill: Self::accent_color(dark_mode),
+                        weak_bg_fill: Color32::from_white_alpha(60),
+                        bg_fill: Color32::from_white_alpha(60),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(200)),
+                        fg_stroke: Stroke::new(1.5, Self::accent_color(dark_mode)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
@@ -137,7 +137,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(55),
                         bg_fill: Color32::from_gray(55),
                         bg_stroke: Stroke::new(0.0, Color32::from_white_alpha(95)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(200)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(20)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
@@ -213,10 +213,10 @@ impl ThemeDef for DefaultTheme {
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
-                        weak_bg_fill: Self::accent_color(dark_mode),
-                        bg_fill: Self::accent_color(dark_mode),
+                        weak_bg_fill: Color32::from_black_alpha(10),
+                        bg_fill: Color32::from_black_alpha(10),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(200)),
+                        fg_stroke: Stroke::new(1.5, Self::accent_color(dark_mode)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
