@@ -78,7 +78,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                 ui.heading("# Keys");
                             });
                             header.col(|ui| {
-                                ui.heading("Reasons");
+                                ui.heading("Reasons")
+                                    .on_hover_text("Reasons in [brackets] are persistent based on your relay usage configurations; if the connection drops, it will be restarted and resubscribed after a delay.");
                             });
                             header.col(|_| {});
                         })
