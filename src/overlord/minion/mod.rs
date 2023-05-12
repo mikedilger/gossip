@@ -430,7 +430,7 @@ impl Minion {
         if !followed_pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
                 .iter()
-                .map(|pk| pk.to_owned().into())
+                .map(|pk| pk.prefix(16)) // quarter-size
                 .collect();
 
             // feed related by people followed
@@ -451,7 +451,7 @@ impl Minion {
                 .people
                 .get_followed_pubkeys_needing_relay_lists(&followed_pubkeys)
                 .drain(..)
-                .map(|pk| pk.into())
+                .map(|pk| pk.prefix(16)) // quarter-size
                 .collect();
 
             if !keys_needing_relay_lists.is_empty() {
@@ -588,7 +588,7 @@ impl Minion {
     async fn subscribe_discover(&mut self, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
         if !pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHexPrefix> =
-                pubkeys.iter().map(|pk| pk.to_owned().into()).collect();
+                pubkeys.iter().map(|pk| pk.prefix(16)).collect(); // quarter-size prefix
 
             let filters: Vec<Filter> = vec![Filter {
                 authors: pkp,
@@ -673,7 +673,9 @@ impl Minion {
         let enable_reactions = GLOBALS.settings.read().reactions;
 
         if !vec_ids.is_empty() {
-            let idhp: Vec<IdHexPrefix> = vec_ids.iter().map(|id| id.to_owned().into()).collect();
+            let idhp: Vec<IdHexPrefix> = vec_ids.iter().map(
+                |id| id.prefix(16) // quarter-size
+            ).collect();
 
             // Get ancestors we know of so far
             filters.push(Filter {
@@ -860,7 +862,9 @@ impl Minion {
         &mut self,
         mut pubkeyhexs: Vec<PublicKeyHex>,
     ) -> Result<(), Error> {
-        let pkhp: Vec<PublicKeyHexPrefix> = pubkeyhexs.drain(..).map(|pk| pk.into()).collect();
+        let pkhp: Vec<PublicKeyHexPrefix> = pubkeyhexs.drain(..).map(
+            |pk| pk.prefix(16) // quarter-size
+        ).collect();
 
         tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
 
