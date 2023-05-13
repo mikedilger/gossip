@@ -33,7 +33,7 @@ impl ThemeDef for DefaultTheme {
 
     fn accent_complementary_color(dark_mode: bool) -> Color32 {
         let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-        hsva.h = hsva.h + 0.5;
+        hsva.h = (hsva.h + 0.5) % 1.0;
         hsva.into()
     }
 
@@ -512,12 +512,12 @@ impl ThemeDef for DefaultTheme {
         if post.is_main_event {
             if dark_mode {
                 let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
-                hsva.h = hsva.h - 0.07;
-                hsva.v = hsva.v + 0.1;
+                hsva.h = (hsva.h - 0.07) % 1.0;
+                hsva.v = (hsva.v + 0.1) % 1.0;
                 hsva.into()
             } else {
                 let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
-                hsva.h = hsva.h + 0.07;
+                hsva.h = (hsva.h + 0.07) % 1.0;
                 hsva.into()
             }
         } else if post.is_new {
