@@ -221,12 +221,17 @@ pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.label("Passphrase: ");
         let response = ui.add(text_edit_line!(app, app.password).password(true));
+        if app.unlock_needs_focus {
+            response.request_focus();
+            app.unlock_needs_focus = false;
+        }
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::UnlockKey(app.password.clone()));
             app.password.zeroize();
             app.password = "".to_owned();
+            app.draft_needs_focus = true;
         }
         if ui.button("Unlock Private Key").clicked() {
             let _ = GLOBALS
@@ -234,6 +239,7 @@ pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
                 .send(ToOverlordMessage::UnlockKey(app.password.clone()));
             app.password.zeroize();
             app.password = "".to_owned();
+            app.draft_needs_focus = true;
         }
     });
 }

@@ -224,6 +224,7 @@ struct GossipUi {
     draft: String,
     draft_needs_focus: bool,
     draft_repost: Option<Id>,
+    unlock_needs_focus: bool,
     tag_someone: String,
     include_subject: bool,
     subject: String,
@@ -414,6 +415,7 @@ impl GossipUi {
             draft: "".to_owned(),
             draft_needs_focus: false,
             draft_repost: None,
+            unlock_needs_focus: false,
             tag_someone: "".to_owned(),
             include_subject: false,
             subject: "".to_owned(),
@@ -847,6 +849,11 @@ impl eframe::App for GossipUi {
                                             .fill(self.settings.theme.navigation_bg_fill()) );
                                         if response.clicked() {
                                             self.show_post_area = true;
+                                            if GLOBALS.signer.is_ready() {
+                                                self.draft_needs_focus = true;
+                                            } else {
+                                                self.unlock_needs_focus = true;
+                                            }
                                         }
                                         response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
