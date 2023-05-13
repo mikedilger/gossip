@@ -399,14 +399,14 @@ impl ThemeDef for DefaultTheme {
     fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32 {
         let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
         hsva.s = 0.05;
-        hsva.v = 0.86;
+        hsva.v = if dark_mode { 0.56 } else { 0.86 };
         hsva.into()
     }
 
     fn navigation_text_active_color(dark_mode: bool) -> eframe::egui::Color32 {
         let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
         hsva.s = 0.05;
-        hsva.v = 0.97;
+        hsva.v = if dark_mode { 0.86 } else { 0.97 };
         hsva.into()
     }
 
