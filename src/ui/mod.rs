@@ -827,9 +827,10 @@ impl eframe::App for GossipUi {
                             .constrain(true)
                             .show(ctx, |ui| {
                                 egui::Frame::popup(&self.settings.theme.get_style())
-                                    .rounding(egui::Rounding::same(90.0)) // need the rounding for the shadow
-                                    .stroke( egui::Stroke::NONE)
+                                    .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32/2.0)) // need the rounding for the shadow
+                                    .stroke(egui::Stroke::NONE)
                                     .fill(Color32::TRANSPARENT)
+                                    //.shadow(egui::epaint::Shadow::NONE)
                                     .show(
                                     ui,
                                     |ui| {
@@ -843,7 +844,7 @@ impl eframe::App for GossipUi {
                                             egui::Button::new( text
                                             .color(self.settings.theme.navigation_text_color()))
                                             .stroke(egui::Stroke::NONE)
-                                            .rounding(egui::Rounding::same(90.0))
+                                            .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32))
                                             .fill(self.settings.theme.navigation_bg_fill()) );
                                         if response.clicked() {
                                             self.show_post_area = true;
