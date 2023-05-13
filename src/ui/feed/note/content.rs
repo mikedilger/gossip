@@ -291,65 +291,7 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                 if response.hovered() {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
-                // image button menu to the right of the image
-                static BTN_SIZE: Vec2 = Vec2 { x: 20.0, y: 20.0 };
-                static TXT_SIZE: f32 = 9.0;
-                static SPACE: f32 = 10.0;
-                let extend_area = egui::Rect {
-                    min: response.rect.right_top(),
-                    max: response.rect.right_bottom() + egui::Vec2::new(BTN_SIZE.x, 0.0),
-                };
-                let extend_area = extend_area.expand(SPACE * 2.0);
-                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-                    if extend_area.contains(pointer_pos) {
-                        ui.add_space(SPACE);
-                        ui.vertical(|ui| {
-                            ui.add_space(SPACE);
-                            if ui
-                                .add_sized(
-                                    BTN_SIZE,
-                                    egui::Button::new(RichText::new("\u{274C}").size(TXT_SIZE)),
-                                )
-                                .on_hover_text("Hide (return to a link)")
-                                .clicked()
-                            {
-                                if app.settings.show_media {
-                                    app.media_hide_list.insert(url.clone());
-                                } else {
-                                    app.media_show_list.remove(&url);
-                                }
-                            }
-                            ui.add_space(SPACE);
-                            if ui
-                                .add_sized(
-                                    BTN_SIZE,
-                                    egui::Button::new(RichText::new("\u{1F310}").size(TXT_SIZE)),
-                                )
-                                .on_hover_text("View in Browser")
-                                .clicked()
-                            {
-                                let modifiers = ui.ctx().input(|i| i.modifiers);
-                                ui.ctx().output_mut(|o| {
-                                    o.open_url = Some(egui::output::OpenUrl {
-                                        url: url.to_string(),
-                                        new_tab: modifiers.any(),
-                                    });
-                                });
-                            }
-                            ui.add_space(SPACE);
-                            if ui
-                                .add_sized(
-                                    BTN_SIZE,
-                                    egui::Button::new(RichText::new("\u{1F4CB}").size(TXT_SIZE)),
-                                )
-                                .on_hover_text("Copy URL")
-                                .clicked()
-                            {
-                                ui.output_mut(|o| o.copied_text = url.to_string());
-                            }
-                        });
-                    }
-                }
+                add_media_menu( app, ui, url, &response);
                 response_return = Some(response);
             });
     };
@@ -427,7 +369,7 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
 fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
     let mut response_return = None;
     let show_full_width = app.media_full_width_list.contains(&url);
-    if let Some(player_ref) = app.try_get_player(ui.ctx(), url) {
+    if let Some(player_ref) = app.try_get_player(ui.ctx(), url.clone()) {
         if let Ok(mut player) = player_ref.try_borrow_mut() {
             let size = media_scale(
                 show_full_width,
@@ -448,6 +390,8 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                 player.stop();
             }
             let response = player.ui(ui, [size.x, size.y]);
+
+            add_media_menu(app, ui, url, &response);
 
             // TODO fix click action
             let new_rect = response.rect.shrink(size.x / 2.0);
@@ -502,4 +446,66 @@ fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
         max_y
     };
     size
+}
+
+fn add_media_menu( app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response ) {
+    // image button menu to the right of the image
+    static BTN_SIZE: Vec2 = Vec2 { x: 20.0, y: 20.0 };
+    static TXT_SIZE: f32 = 9.0;
+    static SPACE: f32 = 10.0;
+    let extend_area = egui::Rect {
+        min: response.rect.right_top(),
+        max: response.rect.right_bottom() + egui::Vec2::new(BTN_SIZE.x, 0.0),
+    };
+    let extend_area = extend_area.expand(SPACE * 2.0);
+    if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
+        if extend_area.contains(pointer_pos) {
+            ui.add_space(SPACE);
+            ui.vertical(|ui| {
+                ui.add_space(SPACE);
+                if ui
+                    .add_sized(
+                        BTN_SIZE,
+                        egui::Button::new(RichText::new("\u{274C}").size(TXT_SIZE)),
+                    )
+                    .on_hover_text("Hide (return to a link)")
+                    .clicked()
+                {
+                    if app.settings.show_media {
+                        app.media_hide_list.insert(url.clone());
+                    } else {
+                        app.media_show_list.remove(&url);
+                    }
+                }
+                ui.add_space(SPACE);
+                if ui
+                    .add_sized(
+                        BTN_SIZE,
+                        egui::Button::new(RichText::new("\u{1F310}").size(TXT_SIZE)),
+                    )
+                    .on_hover_text("View in Browser")
+                    .clicked()
+                {
+                    let modifiers = ui.ctx().input(|i| i.modifiers);
+                    ui.ctx().output_mut(|o| {
+                        o.open_url = Some(egui::output::OpenUrl {
+                            url: url.to_string(),
+                            new_tab: modifiers.any(),
+                        });
+                    });
+                }
+                ui.add_space(SPACE);
+                if ui
+                    .add_sized(
+                        BTN_SIZE,
+                        egui::Button::new(RichText::new("\u{1F4CB}").size(TXT_SIZE)),
+                    )
+                    .on_hover_text("Copy URL")
+                    .clicked()
+                {
+                    ui.output_mut(|o| o.copied_text = url.to_string());
+                }
+            });
+        }
+    }
 }
