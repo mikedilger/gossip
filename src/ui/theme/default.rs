@@ -126,10 +126,10 @@ impl ThemeDef for DefaultTheme {
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
-                        weak_bg_fill: Self::accent_color(dark_mode),
-                        bg_fill: Self::accent_color(dark_mode),
+                        weak_bg_fill: Color32::from_white_alpha(60),
+                        bg_fill: Color32::from_white_alpha(8),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(200)),
+                        fg_stroke: Stroke::new(1.5, Self::accent_color(dark_mode)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
@@ -137,7 +137,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(55),
                         bg_fill: Color32::from_gray(55),
                         bg_stroke: Stroke::new(0.0, Color32::from_white_alpha(95)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(200)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(20)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
@@ -155,17 +155,17 @@ impl ThemeDef for DefaultTheme {
                 window_fill: Color32::from_gray(36),
                 panel_fill: Color32::from_gray(10),
                 faint_bg_color: Color32::from_gray(20),
-                extreme_bg_color: Color32::from_gray(10),
+                extreme_bg_color: Color32::from_gray(20),
                 code_bg_color: Color32::from_gray(64),
 
                 // Foreground colors
-                window_stroke: Stroke::new(1.0, Color32::from_white_alpha(20)),
+                window_stroke: Stroke::new(1.0, Color32::from_black_alpha(10)),
                 override_text_color: None,
                 warn_fg_color: Self::accent_complementary_color(true),
                 error_fg_color: Self::accent_complementary_color(true),
                 hyperlink_color: {
                     let mut hsva: ecolor::HsvaGamma = Self::accent_color(true).into();
-                    hsva.v = (hsva.v + 0.3).min(1.0); // lighten
+                    hsva.v = (hsva.v + 0.5).min(1.0); // lighten
                     hsva.into()
                 },
 
@@ -213,10 +213,10 @@ impl ThemeDef for DefaultTheme {
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
-                        weak_bg_fill: Self::accent_color(dark_mode),
-                        bg_fill: Self::accent_color(dark_mode),
+                        weak_bg_fill: Color32::from_black_alpha(10),
+                        bg_fill: Color32::from_black_alpha(10),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(200)),
+                        fg_stroke: Stroke::new(1.5, Self::accent_color(dark_mode)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
@@ -239,10 +239,10 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(237),
-                panel_fill: Color32::from_gray(237),
-                faint_bg_color: Color32::from_gray(249),
-                extreme_bg_color: Color32::from_gray(237),
+                window_fill: Color32::from_gray(236),
+                panel_fill: Color32::from_gray(236),
+                faint_bg_color: Color32::from_gray(248),
+                extreme_bg_color: Color32::from_gray(246),
                 code_bg_color: Color32::from_gray(230),
 
                 // Foreground colors
@@ -383,9 +383,9 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
-        let mut hsva: ecolor::HsvaGamma = Self::accent_color(false).into();
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
         if dark_mode {
-            hsva.v = (hsva.v + 0.1).min(1.0); // lighten
+            hsva.v = (hsva.v + 0.2).min(1.0); // lighten
         } else {
             hsva.v = (hsva.v - 0.2).max(0.0); // darken
         }
