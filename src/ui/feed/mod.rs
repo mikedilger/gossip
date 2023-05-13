@@ -261,6 +261,7 @@ fn render_a_feed(
                         );
                     }
                 });
+            ui.add_space(100.0);
         });
 }
 
