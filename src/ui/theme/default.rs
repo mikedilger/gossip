@@ -379,7 +379,12 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
-        Self::accent_complementary_color(dark_mode)
+        let mut hsva: ecolor::HsvaGamma = Self::accent_complementary_color(dark_mode).into();
+        if dark_mode {
+            hsva.v = (hsva.v + 0.5).min(1.0); // lighten
+        }
+        hsva.s = 1.0;
+        hsva.into()
     }
 
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
