@@ -86,10 +86,6 @@ impl Minion {
                         tracing::debug!("{}: {}: EOSE: {:?}", &self.url, handle, subid);
                         if close {
                             self.unsubscribe(&handle).await?;
-                            // If that was the last (temp_) subscription, set minion to exit
-                            if self.subscriptions.is_empty() {
-                                self.keepgoing = false;
-                            }
                         } else {
                             sub.set_eose();
                         }

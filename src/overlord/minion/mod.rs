@@ -292,6 +292,11 @@ impl Minion {
             },
         }
 
+        // Don't continue if we have no more subscriptions
+        if self.subscriptions.is_empty() {
+            self.keepgoing = false;
+        }
+
         Ok(())
     }
 
@@ -339,17 +344,9 @@ impl Minion {
             }
             ToMinionPayload::UnsubscribePersonFeed => {
                 self.unsubscribe("person_feed").await?;
-                // Close down if we aren't handling any more subscriptions
-                if self.subscriptions.is_empty() {
-                    self.keepgoing = false;
-                }
             }
             ToMinionPayload::UnsubscribeThreadFeed => {
                 self.unsubscribe("thread_feed").await?;
-                // Close down if we aren't handling any more subscriptions
-                if self.subscriptions.is_empty() {
-                    self.keepgoing = false;
-                }
             }
         }
 
