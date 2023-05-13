@@ -525,9 +525,9 @@ impl Overlord {
             if !persistent_jobs.is_empty() {
                 // Do it after a delay
                 std::mem::drop(tokio::spawn(async move {
-                    // Delay 15 seconds first
-                    tracing::info!("Minion {} will restart in 15 seconds to continue persistent jobs", &url);
-                    tokio::time::sleep(std::time::Duration::new(15, 0)).await;
+                    // Delay 30 seconds first
+                    tracing::info!("Minion {} will restart in 30 seconds to continue persistent jobs", &url);
+                    tokio::time::sleep(std::time::Duration::new(30, 0)).await;
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::ReengageMinion(url, persistent_jobs));
