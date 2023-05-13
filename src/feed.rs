@@ -1,4 +1,4 @@
-use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
+use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{EventDelegation, EventKind, Id, PublicKeyHex, RelayUrl, Unixtime};
@@ -68,11 +68,17 @@ impl Feed {
         // When going to Followed or Inbox, we stop listening for Thread/Person events
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            payload: ToMinionPayload::UnsubscribeThreadFeed,
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+            }
         });
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            payload: ToMinionPayload::UnsubscribePersonFeed,
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
+            }
         });
     }
 
@@ -86,11 +92,17 @@ impl Feed {
         // When going to Followed or Inbox, we stop listening for Thread/Person events
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            payload: ToMinionPayload::UnsubscribeThreadFeed,
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+            }
         });
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            payload: ToMinionPayload::UnsubscribePersonFeed,
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
+            }
         });
     }
 
@@ -106,7 +118,10 @@ impl Feed {
 
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            payload: ToMinionPayload::UnsubscribePersonFeed,
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
+            }
         });
         let _ =
             GLOBALS
@@ -123,11 +138,17 @@ impl Feed {
 
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            payload: ToMinionPayload::UnsubscribeThreadFeed,
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+            }
         });
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
-            payload: ToMinionPayload::SubscribePersonFeed(pubkey),
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey),
+            }
         });
     }
 

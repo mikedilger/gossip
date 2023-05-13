@@ -55,7 +55,15 @@ pub struct ToMinionMessage {
 }
 
 #[derive(Debug, Clone)]
-pub enum ToMinionPayload {
+pub struct ToMinionPayload {
+    /// A job id, so the minion and overlord can talk about the job.
+    pub job_id: u64,
+
+    pub detail: ToMinionPayloadDetail,
+}
+
+#[derive(Debug, Clone)]
+pub enum ToMinionPayloadDetail {
     FetchEvent(IdHex),
     PostEvent(Box<Event>),
     PullFollowing,

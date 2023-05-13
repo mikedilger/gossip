@@ -1,7 +1,7 @@
 mod handle_websocket;
 mod subscription;
 
-use crate::comms::{ToMinionMessage, ToMinionPayload, ToOverlordMessage};
+use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::db::DbRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -301,11 +301,11 @@ impl Minion {
     }
 
     pub async fn handle_overlord_message(&mut self, message: ToMinionPayload) -> Result<(), Error> {
-        match message {
-            ToMinionPayload::FetchEvent(id) => {
+        match message.detail {
+            ToMinionPayloadDetail::FetchEvent(id) => {
                 self.get_event(id).await?;
             }
-            ToMinionPayload::PostEvent(event) => {
+            ToMinionPayloadDetail::PostEvent(event) => {
                 let id = event.id;
                 self.postings.insert(id);
                 let msg = ClientMessage::Event(event);
@@ -314,38 +314,38 @@ impl Minion {
                 ws_stream.send(WsMessage::Text(wire)).await?;
                 tracing::info!("Posted event to {}", &self.url);
             }
-            ToMinionPayload::PullFollowing => {
+            ToMinionPayloadDetail::PullFollowing => {
                 self.pull_following().await?;
             }
-            ToMinionPayload::Shutdown => {
+            ToMinionPayloadDetail::Shutdown => {
                 tracing::info!("{}: Websocket listener shutting down", &self.url);
                 self.keepgoing = false;
             }
-            ToMinionPayload::SubscribeGeneralFeed(pubkeys) => {
+            ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys) => {
                 self.subscribe_general_feed(pubkeys).await?;
             }
-            ToMinionPayload::SubscribeMentions => {
+            ToMinionPayloadDetail::SubscribeMentions => {
                 self.subscribe_mentions().await?;
             }
-            ToMinionPayload::SubscribeConfig => {
+            ToMinionPayloadDetail::SubscribeConfig => {
                 self.subscribe_config().await?;
             }
-            ToMinionPayload::SubscribeDiscover(pubkeys) => {
+            ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(pubkeys).await?;
             }
-            ToMinionPayload::SubscribePersonFeed(pubkeyhex) => {
+            ToMinionPayloadDetail::SubscribePersonFeed(pubkeyhex) => {
                 self.subscribe_person_feed(pubkeyhex).await?;
             }
-            ToMinionPayload::SubscribeThreadFeed(main, parents) => {
+            ToMinionPayloadDetail::SubscribeThreadFeed(main, parents) => {
                 self.subscribe_thread_feed(main, parents).await?;
             }
-            ToMinionPayload::TempSubscribeMetadata(pubkeyhexs) => {
+            ToMinionPayloadDetail::TempSubscribeMetadata(pubkeyhexs) => {
                 self.temp_subscribe_metadata(pubkeyhexs).await?;
             }
-            ToMinionPayload::UnsubscribePersonFeed => {
+            ToMinionPayloadDetail::UnsubscribePersonFeed => {
                 self.unsubscribe("person_feed").await?;
             }
-            ToMinionPayload::UnsubscribeThreadFeed => {
+            ToMinionPayloadDetail::UnsubscribeThreadFeed => {
                 self.unsubscribe("thread_feed").await?;
             }
         }
