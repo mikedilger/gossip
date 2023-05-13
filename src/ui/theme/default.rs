@@ -33,7 +33,7 @@ impl ThemeDef for DefaultTheme {
 
     fn accent_complementary_color(dark_mode: bool) -> Color32 {
         let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-        hsva.h = hsva.h + 0.5;
+        hsva.h = (hsva.h + 0.5) % 1.0;
         hsva.into()
     }
 
@@ -379,7 +379,12 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn warning_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
-        Self::accent_complementary_color(dark_mode)
+        let mut hsva: ecolor::HsvaGamma = Self::accent_complementary_color(dark_mode).into();
+        if dark_mode {
+            hsva.v = (hsva.v + 0.5).min(1.0); // lighten
+        }
+        hsva.s = 1.0;
+        hsva.into()
     }
 
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
@@ -512,12 +517,12 @@ impl ThemeDef for DefaultTheme {
         if post.is_main_event {
             if dark_mode {
                 let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
-                hsva.h = hsva.h - 0.07;
-                hsva.v = hsva.v + 0.1;
+                hsva.h = (hsva.h - 0.07) % 1.0;
+                hsva.v = (hsva.v + 0.1) % 1.0;
                 hsva.into()
             } else {
                 let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
-                hsva.h = hsva.h + 0.07;
+                hsva.h = (hsva.h + 0.07) % 1.0;
                 hsva.into()
             }
         } else if post.is_new {
