@@ -62,6 +62,8 @@ pub fn run() -> Result<(), Error> {
 
     let options = eframe::NativeOptions {
         decorated: true,
+        #[cfg(target_os = "macos")]
+        fullsize_content: true,
         drag_and_drop_support: true,
         default_theme: if GLOBALS.settings.read().theme.dark_mode {
             eframe::Theme::Dark
@@ -669,12 +671,17 @@ impl eframe::App for GossipUi {
             .show_separator_line(false)
             .frame(
                 egui::Frame::none()
-                .inner_margin( egui::Margin::symmetric(20.0, 20.0 ) )
+                .inner_margin({
+                    #[cfg(not(target_os = "macos"))]
+                    let margin = egui::Margin::symmetric( 20.0, 20.0 );
+                    #[cfg(target_os = "macos")]
+                    let margin = egui::Margin{ left: 20.0, right: 20.0, top: 35.0, bottom: 20.0 };
+                    margin
+                })
                 .fill(self.settings.theme.navigation_bg_fill())
             )
             .show(ctx, |ui| {
                     // cut indentation
-                    // ui.style_mut().spacing.indent = 8.0;
                     ui.style_mut().spacing.indent = 0.0;
                     ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.settings.theme.navigation_text_color();
                     ui.style_mut().visuals.widgets.hovered.fg_stroke.color = self.settings.theme.navigation_text_hover_color();
