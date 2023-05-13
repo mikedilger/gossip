@@ -34,7 +34,7 @@ pub const DEFAULT_CHECK_NIP05: bool = false;
 pub const DEFAULT_DIRECT_MESSAGES: bool = true;
 pub const DEFAULT_AUTOMATICALLY_FETCH_METADATA: bool = true;
 pub const DEFAULT_HIGHLIGHT_UNREAD_EVENTS: bool = true;
-pub const DEFAULT_FEED_DIRECTION_REVERSE_CHRONOLOGICAL: bool = true;
+pub const DEFAULT_POSTING_AREA_AT_TOP: bool = true;
 pub const DEFAULT_ENABLE_ZAP_RECEIPTS: bool = false;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -66,7 +66,7 @@ pub struct Settings {
     pub automatically_fetch_metadata: bool,
     pub delegatee_tag: String,
     pub highlight_unread_events: bool,
-    pub feed_direction_reverse_chronological: bool,
+    pub posting_area_at_top: bool,
     pub enable_zap_receipts: bool,
 }
 
@@ -100,7 +100,7 @@ impl Default for Settings {
             automatically_fetch_metadata: DEFAULT_AUTOMATICALLY_FETCH_METADATA,
             delegatee_tag: String::new(),
             highlight_unread_events: DEFAULT_HIGHLIGHT_UNREAD_EVENTS,
-            feed_direction_reverse_chronological: DEFAULT_FEED_DIRECTION_REVERSE_CHRONOLOGICAL,
+            posting_area_at_top: DEFAULT_POSTING_AREA_AT_TOP,
             enable_zap_receipts: DEFAULT_ENABLE_ZAP_RECEIPTS,
         }
     }
@@ -194,8 +194,8 @@ impl Settings {
                 "highlight_unread_events" => {
                     settings.highlight_unread_events = numstr_to_bool(row.1)
                 }
-                "feed_direction_reverse_chronological" => {
-                    settings.feed_direction_reverse_chronological = numstr_to_bool(row.1)
+                "posting_area_at_top" => {
+                    settings.posting_area_at_top = numstr_to_bool(row.1)
                 }
                 "enable_zap_receipts" => settings.enable_zap_receipts = false, //numstr_to_bool(row.1),
                 _ => {}
@@ -245,7 +245,7 @@ impl Settings {
              ('automatically_fetch_metadata', ?),\
              ('delegatee_tag', ?),\
              ('highlight_unread_events', ?),\
-             ('feed_direction_reverse_chronological', ?),\
+             ('posting_area_at_top', ?),\
              ('enable_zap_receipts', ?)",
         )?;
         stmt.execute(params![
@@ -276,7 +276,7 @@ impl Settings {
             bool_to_numstr(self.automatically_fetch_metadata),
             self.delegatee_tag,
             bool_to_numstr(self.highlight_unread_events),
-            bool_to_numstr(self.feed_direction_reverse_chronological),
+            bool_to_numstr(self.posting_area_at_top),
             "0" // bool_to_numstr(self.enable_zap_receipts),
         ])?;
 

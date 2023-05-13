@@ -208,10 +208,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         &mut app.settings.highlight_unread_events,
                         "Highlight unread events",
                     );
-                    ui.add_space(12.0);
                     ui.checkbox(
-                        &mut app.settings.feed_direction_reverse_chronological,
-                        "Show feed in reverse chronological order (newest at the top)",
+                        &mut app.settings.posting_area_at_top,
+                        "Show posting area at the top instead of the bottom",
                     );
                     ui.add_space(12.0);
 

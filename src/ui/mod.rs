@@ -872,7 +872,7 @@ impl eframe::App for GossipUi {
             )
             .resizable(true)
             .show_animated(ctx,
-                self.show_post_area && self.settings.feed_direction_reverse_chronological,
+                self.show_post_area && self.settings.posting_area_at_top,
                 |ui|{
                 feed::post::posting_area(self, ctx, frame, ui);
         });
@@ -880,7 +880,7 @@ impl eframe::App for GossipUi {
         #[cfg(not(feature = "side-menu"))]
         let show_status = true;
         #[cfg(feature = "side-menu")]
-        let show_status = self.show_post_area && !self.settings.feed_direction_reverse_chronological;
+        let show_status = self.show_post_area && !self.settings.posting_area_at_top;
 
         #[cfg(not(feature = "side-menu"))]
         let resizable = false;
@@ -892,7 +892,7 @@ impl eframe::App for GossipUi {
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
                 #[cfg(feature = "side-menu")]
                 let frame = frame.inner_margin(
-                    if !self.settings.feed_direction_reverse_chronological {
+                    if !self.settings.posting_area_at_top {
                         egui::Margin{ left: 20.0, right: 10.0, top: 10.0, bottom: 10.0 }
                     } else {
                         egui::Margin{ left: 20.0, right: 10.0, top: 1.0, bottom: 3.0 }
@@ -907,10 +907,9 @@ impl eframe::App for GossipUi {
                 |ui| {
             #[cfg(feature = "side-menu")]
             {
-                if self.show_post_area && !self.settings.feed_direction_reverse_chronological {
+                if self.show_post_area && !self.settings.posting_area_at_top {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
-                    ui.separator();
                 }
             }
             #[cfg(not(feature = "side-menu"))]
