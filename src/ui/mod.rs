@@ -899,16 +899,16 @@ impl eframe::App for GossipUi {
                 let frame = frame.inner_margin(if !self.settings.posting_area_at_top {
                     egui::Margin {
                         left: 20.0,
-                        right: 10.0,
+                        right: 18.0,
                         top: 10.0,
                         bottom: 10.0,
                     }
                 } else {
                     egui::Margin {
                         left: 20.0,
-                        right: 10.0,
+                        right: 18.0,
                         top: 1.0,
-                        bottom: 3.0,
+                        bottom: 5.0,
                     }
                 });
                 frame
@@ -941,7 +941,13 @@ impl eframe::App for GossipUi {
             .frame({
                 let frame = egui::Frame::central_panel(&self.settings.theme.get_style());
                 #[cfg(feature = "side-menu")]
-                let frame = frame.inner_margin(egui::Margin::symmetric(20.0, 10.0));
+                let frame = frame.inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 10.0,
+                    top: 10.0,
+                    bottom: 0.0,
+                });
+                
                 frame
             })
             .show(ctx, |ui| match self.page {
