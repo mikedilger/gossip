@@ -16,9 +16,9 @@ impl Subscriptions {
         }
     }
 
-    pub fn add(&mut self, handle: &str, filters: Vec<Filter>) -> String {
+    pub fn add(&mut self, handle: &str, job_id: u64, filters: Vec<Filter>) -> String {
         let id = format!("{}", self.count);
-        let mut sub = Subscription::new(&id);
+        let mut sub = Subscription::new(&id, job_id);
         self.count += 1;
         sub.filters = filters;
         self.handle_to_id.insert(handle.to_owned(), id.clone());
@@ -91,14 +91,16 @@ impl Subscriptions {
 #[derive(Clone, Debug)]
 pub struct Subscription {
     id: String,
+    job_id: u64,
     filters: Vec<Filter>,
     eose: bool,
 }
 
 impl Subscription {
-    pub fn new(id: &str) -> Subscription {
+    pub fn new(id: &str, job_id: u64) -> Subscription {
         Subscription {
             id: id.to_owned(),
+            job_id,
             filters: vec![],
             eose: false,
         }
@@ -106,6 +108,10 @@ impl Subscription {
 
     pub fn get_id(&self) -> String {
         self.id.clone()
+    }
+
+    pub fn get_job_id(&self) -> u64 {
+        self.job_id
     }
 
     pub fn set_eose(&mut self) {

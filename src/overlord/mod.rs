@@ -669,6 +669,16 @@ impl Overlord {
             ToOverlordMessage::MinionIsReady => {
                 // currently ignored
             }
+            ToOverlordMessage::MinionJobComplete(url, job_id) => {
+                // Complete the job if not persistent
+                if job_id != 0 {
+                    if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
+                        refmut.value_mut().retain(|job| {
+                            job.payload.job_id != job_id || job.persistent
+                        })
+                    }
+                }
+            }
             ToOverlordMessage::PickRelays => {
                 // When manually doing this, we refresh person_relay scores first which
                 // often change if the user just added follows.
