@@ -21,14 +21,20 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
             ui.separator();
             if ui
-                .add(egui::SelectableLabel::new(app.page == Page::HelpStats, "Stats"))
+                .add(egui::SelectableLabel::new(
+                    app.page == Page::HelpStats,
+                    "Stats",
+                ))
                 .clicked()
             {
                 app.set_page(Page::HelpStats);
             }
             ui.separator();
             if ui
-                .add(egui::SelectableLabel::new(app.page == Page::HelpAbout, "About"))
+                .add(egui::SelectableLabel::new(
+                    app.page == Page::HelpAbout,
+                    "About",
+                ))
                 .clicked()
             {
                 app.set_page(Page::HelpAbout);

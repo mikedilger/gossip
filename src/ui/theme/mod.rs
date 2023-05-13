@@ -317,7 +317,7 @@ pub trait ThemeDef: Send + Sync {
     fn accent_color(dark_mode: bool) -> Color32;
     fn highlight_color(dark_mode: bool) -> Color32;
     fn accent_complementary_color(dark_mode: bool) -> Color32;
-    
+
     // These styles are used by egui by default for widgets if you don't override them
     // in place.
     fn get_style(dark_mode: bool) -> Style;
@@ -379,7 +379,9 @@ pub(super) fn font_definitions() -> FontDefinitions {
     );
     font_data.insert(
         "DejaVuSansBold".to_owned(),
-        FontData::from_static(include_bytes!("../../../fonts/DejaVuSans-Bold-SansEmoji.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../../fonts/DejaVuSans-Bold-SansEmoji.ttf"
+        )),
     );
 
     if cfg!(feature = "lang-cjk") {
@@ -428,7 +430,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     families.insert(
         FontFamily::Name("Bold".into()),
-        vec!["DejaVuSansBold".to_owned()]
+        vec!["DejaVuSansBold".to_owned()],
     );
 
     FontDefinitions {

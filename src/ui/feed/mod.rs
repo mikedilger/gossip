@@ -113,23 +113,31 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             #[cfg(feature = "side-menu")]
             ui.allocate_ui_with_layout(
-                Vec2::new( ui.available_width(), ui.spacing().interact_size.y ),
+                Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
+                    add_left_space(ui);
+                    recompute_btn(app, ui);
 
-                add_left_space(ui);
-                recompute_btn(app, ui);
-
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(16.0);
-                    ui.label(RichText::new("Include replies").size(11.0));
-                    let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-                    if crate::ui::components::switch_with_size(ui, &mut app.mainfeed_include_nonroot, size).clicked() {
-                        app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
-                    }
-                    ui.label(RichText::new("Main posts").size(11.0));
-                });
-            });
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add_space(16.0);
+                        ui.label(RichText::new("Include replies").size(11.0));
+                        let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
+                        if crate::ui::components::switch_with_size(
+                            ui,
+                            &mut app.mainfeed_include_nonroot,
+                            size,
+                        )
+                        .clicked()
+                        {
+                            app.set_page(Page::Feed(FeedKind::Followed(
+                                app.mainfeed_include_nonroot,
+                            )));
+                        }
+                        ui.label(RichText::new("Main posts").size(11.0));
+                    });
+                },
+            );
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
@@ -161,29 +169,35 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             #[cfg(feature = "side-menu")]
             ui.allocate_ui_with_layout(
-                Vec2::new( ui.available_width(), ui.spacing().interact_size.y ),
+                Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
+                    add_left_space(ui);
+                    recompute_btn(app, ui);
 
-                add_left_space(ui);
-                recompute_btn(app, ui);
-
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(16.0);
-                    ui.label(RichText::new("Everything").size(11.0));
-                    let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-                    if crate::ui::components::switch_with_size(ui, &mut app.inbox_include_indirect, size).clicked() {
-                        app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
-                    }
-                    ui.label(RichText::new("Replies & DM").size(11.0));
-                });
-            });
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add_space(16.0);
+                        ui.label(RichText::new("Everything").size(11.0));
+                        let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
+                        if crate::ui::components::switch_with_size(
+                            ui,
+                            &mut app.inbox_include_indirect,
+                            size,
+                        )
+                        .clicked()
+                        {
+                            app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
+                        }
+                        ui.label(RichText::new("Replies & DM").size(11.0));
+                    });
+                },
+            );
             ui.add_space(4.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Thread { id, .. } => {
             #[cfg(feature = "side-menu")] // FIXME relocate
-            ui.horizontal(|ui|{
+            ui.horizontal(|ui| {
                 recompute_btn(app, ui);
             });
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
@@ -192,7 +206,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         FeedKind::Person(pubkeyhex) => {
             #[cfg(feature = "side-menu")] // FIXME relocate
-            ui.horizontal(|ui|{
+            ui.horizontal(|ui| {
                 recompute_btn(app, ui);
             });
 
@@ -357,13 +371,12 @@ fn render_note_maybe_fake(
 }
 
 #[cfg(feature = "side-menu")]
-fn add_left_space(ui: &mut Ui)
-{
-    ui.add_space( 2.0 );
+fn add_left_space(ui: &mut Ui) {
+    ui.add_space(2.0);
 }
 
 #[cfg(feature = "side-menu")]
-fn recompute_btn( app: &mut GossipUi, ui: &mut Ui ) {
+fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
     if !app.settings.recompute_feed_periodically {
         if ui.link("Refresh").clicked() {
             GLOBALS.feed.sync_recompute();

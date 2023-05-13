@@ -194,9 +194,7 @@ impl Settings {
                 "highlight_unread_events" => {
                     settings.highlight_unread_events = numstr_to_bool(row.1)
                 }
-                "posting_area_at_top" => {
-                    settings.posting_area_at_top = numstr_to_bool(row.1)
-                }
+                "posting_area_at_top" => settings.posting_area_at_top = numstr_to_bool(row.1),
                 "enable_zap_receipts" => settings.enable_zap_receipts = false, //numstr_to_bool(row.1),
                 _ => {}
             }

@@ -2,7 +2,7 @@ use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
-use crate::ui::{GossipUi, HighlightType, Page, Theme, you};
+use crate::ui::{you, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, ScrollArea, Ui, Vec2};

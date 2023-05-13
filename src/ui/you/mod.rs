@@ -18,7 +18,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     {
         ui.horizontal(|ui| {
             if ui
-                .add(egui::SelectableLabel::new(app.page == Page::YourKeys, "Keys"))
+                .add(egui::SelectableLabel::new(
+                    app.page == Page::YourKeys,
+                    "Keys",
+                ))
                 .clicked()
             {
                 app.set_page(Page::YourKeys);

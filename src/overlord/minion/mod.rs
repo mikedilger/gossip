@@ -40,7 +40,7 @@ pub struct Minion {
     subscriptions: Subscriptions,
     next_events_subscription_id: u32,
     keepgoing: bool,
-    postings: HashSet<Id>
+    postings: HashSet<Id>,
 }
 
 impl Minion {
@@ -226,7 +226,7 @@ impl Minion {
 
         // Close the connection
         let ws_stream = self.stream.as_mut().unwrap();
-        if ! ws_stream.is_terminated() {
+        if !ws_stream.is_terminated() {
             if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
                 tracing::error!("websocket close error: {}", e);
             }
@@ -313,8 +313,10 @@ impl Minion {
                 let ws_stream = self.stream.as_mut().unwrap();
                 ws_stream.send(WsMessage::Text(wire)).await?;
                 tracing::info!("Posted event to {}", &self.url);
-                self.to_overlord.send(ToOverlordMessage::MinionJobComplete(self.url.clone(), message.job_id))?;
-
+                self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                    self.url.clone(),
+                    message.job_id,
+                ))?;
             }
             ToMinionPayloadDetail::PullFollowing => {
                 self.pull_following(message.job_id).await?;
@@ -336,13 +338,16 @@ impl Minion {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
             }
             ToMinionPayloadDetail::SubscribePersonFeed(pubkeyhex) => {
-                self.subscribe_person_feed(message.job_id, pubkeyhex).await?;
+                self.subscribe_person_feed(message.job_id, pubkeyhex)
+                    .await?;
             }
             ToMinionPayloadDetail::SubscribeThreadFeed(main, parents) => {
-                self.subscribe_thread_feed(message.job_id, main, parents).await?;
+                self.subscribe_thread_feed(message.job_id, main, parents)
+                    .await?;
             }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeyhexs) => {
-                self.temp_subscribe_metadata(message.job_id, pubkeyhexs).await?;
+                self.temp_subscribe_metadata(message.job_id, pubkeyhexs)
+                    .await?;
             }
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
                 self.unsubscribe("person_feed").await?;
@@ -474,7 +479,10 @@ impl Minion {
 
         if filters.is_empty() {
             self.unsubscribe("general_feed").await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(self.url.clone(), job_id))?;
+            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                self.url.clone(),
+                job_id,
+            ))?;
         } else {
             self.subscribe(filters, "general_feed", job_id).await?;
 
@@ -586,10 +594,13 @@ impl Minion {
     }
 
     // Subscribe to the user's config which is on their own write relays
-    async fn subscribe_discover(&mut self, job_id: u64, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
+    async fn subscribe_discover(
+        &mut self,
+        job_id: u64,
+        pubkeys: Vec<PublicKeyHex>,
+    ) -> Result<(), Error> {
         if !pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHexPrefix> =
-                pubkeys.iter().map(|pk| pk.prefix(16)).collect(); // quarter-size prefix
+            let pkp: Vec<PublicKeyHexPrefix> = pubkeys.iter().map(|pk| pk.prefix(16)).collect(); // quarter-size prefix
 
             let filters: Vec<Filter> = vec![Filter {
                 authors: pkp,
@@ -605,7 +616,11 @@ impl Minion {
     }
 
     // Subscribe to the posts a person generates on the relays they write to
-    async fn subscribe_person_feed(&mut self, job_id: u64, pubkey: PublicKeyHex) -> Result<(), Error> {
+    async fn subscribe_person_feed(
+        &mut self,
+        job_id: u64,
+        pubkey: PublicKeyHex,
+    ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
         // Allow all feed related event kinds
@@ -655,7 +670,10 @@ impl Minion {
 
         if filters.is_empty() {
             self.unsubscribe("person_feed").await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(self.url.clone(), job_id))?;
+            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                self.url.clone(),
+                job_id,
+            ))?;
         } else {
             self.subscribe(filters, "person_feed", job_id).await?;
         }
@@ -676,9 +694,12 @@ impl Minion {
         let enable_reactions = GLOBALS.settings.read().reactions;
 
         if !vec_ids.is_empty() {
-            let idhp: Vec<IdHexPrefix> = vec_ids.iter().map(
-                |id| id.prefix(16) // quarter-size
-            ).collect();
+            let idhp: Vec<IdHexPrefix> = vec_ids
+                .iter()
+                .map(
+                    |id| id.prefix(16), // quarter-size
+                )
+                .collect();
 
             // Get ancestors we know of so far
             filters.push(Filter {
@@ -866,9 +887,12 @@ impl Minion {
         job_id: u64,
         mut pubkeyhexs: Vec<PublicKeyHex>,
     ) -> Result<(), Error> {
-        let pkhp: Vec<PublicKeyHexPrefix> = pubkeyhexs.drain(..).map(
-            |pk| pk.prefix(16) // quarter-size
-        ).collect();
+        let pkhp: Vec<PublicKeyHexPrefix> = pubkeyhexs
+            .drain(..)
+            .map(
+                |pk| pk.prefix(16), // quarter-size
+            )
+            .collect();
 
         tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
 
@@ -896,7 +920,12 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe(&mut self, filters: Vec<Filter>, handle: &str, job_id: u64) -> Result<(), Error> {
+    async fn subscribe(
+        &mut self,
+        filters: Vec<Filter>,
+        handle: &str,
+        job_id: u64,
+    ) -> Result<(), Error> {
         if self.subscriptions.has(handle) {
             // Unsubscribe. will resubscribe under a new handle.
             self.unsubscribe(handle).await?;
@@ -949,7 +978,7 @@ impl Minion {
         }
         self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
             self.url.clone(),
-            subscription.get_job_id()
+            subscription.get_job_id(),
         ))?;
         Ok(())
     }

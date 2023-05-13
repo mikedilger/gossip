@@ -13,7 +13,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     {
         ui.horizontal(|ui| {
             if ui
-                .add(egui::SelectableLabel::new(app.page == Page::RelaysLive, "Live"))
+                .add(egui::SelectableLabel::new(
+                    app.page == Page::RelaysLive,
+                    "Live",
+                ))
                 .clicked()
             {
                 app.set_page(Page::RelaysLive);
@@ -42,18 +45,22 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         let connected_relays: Vec<(RelayUrl, String)> = GLOBALS
             .connected_relays
             .iter()
-            .map(|r|
-                 (
-                     r.key().clone(),
-                     r.value().iter().map(|rj| {
-                         if rj.persistent {
-                             format!("[{}]", rj.reason)
-                         } else {
-                             rj.reason.to_string()
-                         }
-                     }).collect::<Vec<String>>().join(", ")
-                 )
-            )
+            .map(|r| {
+                (
+                    r.key().clone(),
+                    r.value()
+                        .iter()
+                        .map(|rj| {
+                            if rj.persistent {
+                                format!("[{}]", rj.reason)
+                            } else {
+                                rj.reason.to_string()
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                )
+            })
             .collect();
 
         ScrollArea::vertical()

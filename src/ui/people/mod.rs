@@ -41,7 +41,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
             ui.separator();
             if ui
-                .add(egui::SelectableLabel::new(app.page == Page::PeopleMuted, "Muted"))
+                .add(egui::SelectableLabel::new(
+                    app.page == Page::PeopleMuted,
+                    "Muted",
+                ))
                 .clicked()
             {
                 app.set_page(Page::PeopleMuted);

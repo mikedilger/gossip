@@ -71,14 +71,14 @@ impl Feed {
             payload: ToMinionPayload {
                 job_id: 0,
                 detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            }
+            },
         });
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload {
                 job_id: 0,
                 detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            }
+            },
         });
     }
 
@@ -95,14 +95,14 @@ impl Feed {
             payload: ToMinionPayload {
                 job_id: 0,
                 detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            }
+            },
         });
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload {
                 job_id: 0,
                 detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            }
+            },
         });
     }
 
@@ -121,7 +121,7 @@ impl Feed {
             payload: ToMinionPayload {
                 job_id: 0,
                 detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            }
+            },
         });
         let _ =
             GLOBALS
@@ -141,14 +141,14 @@ impl Feed {
             payload: ToMinionPayload {
                 job_id: 0,
                 detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            }
+            },
         });
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload {
                 job_id: 0,
                 detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey),
-            }
+            },
         });
     }
 

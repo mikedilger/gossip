@@ -90,7 +90,6 @@ pub struct RelayJob {
 
     // Persistent? (restart if we get disconnected)
     pub persistent: bool,
-
     // NOTE, there is other per-relay data stored elsewhere in
     //   overlord.minions_task_url
     //   GLOBALS.relay_picker

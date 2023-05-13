@@ -38,8 +38,8 @@ use eframe::{egui, IconData};
 #[cfg(not(feature = "side-menu"))]
 use egui::SelectableLabel;
 use egui::{
-    Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense,
-    TextStyle, TextureHandle, TextureOptions, Ui, Vec2,
+    Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense, TextStyle,
+    TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
@@ -118,7 +118,7 @@ enum SubMenu {
     People,
     Relays,
     Account,
-    Help
+    Help,
 }
 
 impl SubMenu {
@@ -132,8 +132,8 @@ impl SubMenu {
     }
 }
 
-struct SubMenuState{
-    submenu_states: HashMap<SubMenu,bool>,
+struct SubMenuState {
+    submenu_states: HashMap<SubMenu, bool>,
 }
 
 impl SubMenuState {
@@ -143,9 +143,7 @@ impl SubMenuState {
         submenu_states.insert(SubMenu::Relays, false);
         submenu_states.insert(SubMenu::Account, false);
         submenu_states.insert(SubMenu::Help, false);
-        Self {
-            submenu_states,
-        }
+        Self { submenu_states }
     }
     fn set_active(&mut self, item: &SubMenu) {
         for entry in self.submenu_states.iter_mut() {
@@ -199,7 +197,7 @@ struct GossipUi {
     history: Vec<Page>,
     mainfeed_include_nonroot: bool,
     inbox_include_indirect: bool,
-    submenu_ids: HashMap<SubMenu,egui::Id>,
+    submenu_ids: HashMap<SubMenu, egui::Id>,
     submenu_state: SubMenuState,
 
     // General Data
@@ -303,7 +301,10 @@ impl GossipUi {
 
         let mut submenu_ids: HashMap<SubMenu, egui::Id> = HashMap::new();
         submenu_ids.insert(SubMenu::People, egui::Id::new(SubMenu::People.to_id_str()));
-        submenu_ids.insert(SubMenu::Account, egui::Id::new(SubMenu::Account.to_id_str()));
+        submenu_ids.insert(
+            SubMenu::Account,
+            egui::Id::new(SubMenu::Account.to_id_str()),
+        );
         submenu_ids.insert(SubMenu::Relays, egui::Id::new(SubMenu::Relays.to_id_str()));
         submenu_ids.insert(SubMenu::Help, egui::Id::new(SubMenu::Help.to_id_str()));
 
@@ -823,11 +824,8 @@ impl eframe::App for GossipUi {
                             .movable(false)
                             .interactable(true)
                             .fixed_pos(pos)
-                            // FIXME IN EGUI: constrain is moving the box left for all of these boxes
-                            // even if they have different IDs and don't need it.
                             .constrain(true)
                             .show(ctx, |ui| {
-                                // ui.set_min_width(200.0);
                                 egui::Frame::popup(&self.settings.theme.get_style())
                                     .rounding(egui::Rounding::same(90.0)) // need the rounding for the shadow
                                     .stroke( egui::Stroke::NONE)
@@ -856,8 +854,6 @@ impl eframe::App for GossipUi {
                                             }
                                         }
                                         response.on_hover_cursor(egui::CursorIcon::PointingHand);
-
-
                                 });
                             });
                     }
@@ -867,15 +863,23 @@ impl eframe::App for GossipUi {
         #[cfg(feature = "side-menu")]
         egui::TopBottomPanel::top("top-area")
             .frame(
-                egui::Frame::side_top_panel(&self.settings.theme.get_style())
-                    .inner_margin(egui::Margin{ left: 20.0, right: 15.0, top: 10.0, bottom: 10.0 })
+                egui::Frame::side_top_panel(&self.settings.theme.get_style()).inner_margin(
+                    egui::Margin {
+                        left: 20.0,
+                        right: 15.0,
+                        top: 10.0,
+                        bottom: 10.0,
+                    },
+                ),
             )
             .resizable(true)
-            .show_animated(ctx,
+            .show_animated(
+                ctx,
                 self.show_post_area && self.settings.posting_area_at_top,
-                |ui|{
-                feed::post::posting_area(self, ctx, frame, ui);
-        });
+                |ui| {
+                    feed::post::posting_area(self, ctx, frame, ui);
+                },
+            );
 
         #[cfg(not(feature = "side-menu"))]
         let show_status = true;
@@ -891,65 +895,69 @@ impl eframe::App for GossipUi {
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
                 #[cfg(feature = "side-menu")]
-                let frame = frame.inner_margin(
-                    if !self.settings.posting_area_at_top {
-                        egui::Margin{ left: 20.0, right: 10.0, top: 10.0, bottom: 10.0 }
-                    } else {
-                        egui::Margin{ left: 20.0, right: 10.0, top: 1.0, bottom: 3.0 }
+                let frame = frame.inner_margin(if !self.settings.posting_area_at_top {
+                    egui::Margin {
+                        left: 20.0,
+                        right: 10.0,
+                        top: 10.0,
+                        bottom: 10.0,
                     }
-                );
+                } else {
+                    egui::Margin {
+                        left: 20.0,
+                        right: 10.0,
+                        top: 1.0,
+                        bottom: 3.0,
+                    }
+                });
                 frame
-                })
+            })
             .resizable(resizable)
             .show_separator_line(false)
-            .show_animated(ctx,
-                show_status,
-                |ui| {
-            #[cfg(feature = "side-menu")]
-            {
-                if self.show_post_area && !self.settings.posting_area_at_top {
-                    ui.add_space(7.0);
-                    feed::post::posting_area(self, ctx, frame, ui);
-                }
-            }
-            #[cfg(not(feature = "side-menu"))]
-            ui.horizontal(|ui| {
-                if ui
-                    .add(
-                        Label::new(GLOBALS.status_message.blocking_read().clone())
-                            .sense(Sense::click()),
-                    )
-                    .clicked()
+            .show_animated(ctx, show_status, |ui| {
+                #[cfg(feature = "side-menu")]
                 {
-                    *GLOBALS.status_message.blocking_write() = "".to_string();
+                    if self.show_post_area && !self.settings.posting_area_at_top {
+                        ui.add_space(7.0);
+                        feed::post::posting_area(self, ctx, frame, ui);
+                    }
                 }
+                #[cfg(not(feature = "side-menu"))]
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(
+                            Label::new(GLOBALS.status_message.blocking_read().clone())
+                                .sense(Sense::click()),
+                        )
+                        .clicked()
+                    {
+                        *GLOBALS.status_message.blocking_write() = "".to_string();
+                    }
+                });
             });
-        });
 
         egui::CentralPanel::default()
-            .frame(
-                {
+            .frame({
                 let frame = egui::Frame::central_panel(&self.settings.theme.get_style());
                 #[cfg(feature = "side-menu")]
                 let frame = frame.inner_margin(egui::Margin::symmetric(20.0, 10.0));
                 frame
-                }
-            )
+            })
             .show(ctx, |ui| match self.page {
-            Page::Feed(_) => feed::update(self, ctx, frame, ui),
-            Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
-                people::update(self, ctx, frame, ui)
-            }
-            Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
-                you::update(self, ctx, frame, ui)
-            }
-            Page::RelaysLive | Page::RelaysAll => relays::update(self, ctx, frame, ui),
-            Page::Search => search::update(self, ctx, frame, ui),
-            Page::Settings => settings::update(self, ctx, frame, ui),
-            Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
-                help::update(self, ctx, frame, ui)
-            }
-        });
+                Page::Feed(_) => feed::update(self, ctx, frame, ui),
+                Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
+                    people::update(self, ctx, frame, ui)
+                }
+                Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
+                    you::update(self, ctx, frame, ui)
+                }
+                Page::RelaysLive | Page::RelaysAll => relays::update(self, ctx, frame, ui),
+                Page::Search => search::update(self, ctx, frame, ui),
+                Page::Settings => settings::update(self, ctx, frame, ui),
+                Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
+                    help::update(self, ctx, frame, ui)
+                }
+            });
     }
 }
 
@@ -1219,13 +1227,22 @@ impl GossipUi {
 #[cfg(feature = "side-menu")]
 impl GossipUi {
     fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
-        if self.add_selected_label(ui, self.page == page, text).clicked() {
+        if self
+            .add_selected_label(ui, self.page == page, text)
+            .clicked()
+        {
             self.set_page(page);
         }
     }
 
-    fn get_openable_menu(&mut self, ui: &mut Ui, item: SubMenu, label: &str) -> (egui::CollapsingState, Response) {
-        let mut clps = egui::CollapsingState::load_with_default_open( ui.ctx(), self.submenu_ids[&item], false );
+    fn get_openable_menu(
+        &mut self,
+        ui: &mut Ui,
+        item: SubMenu,
+        label: &str,
+    ) -> (egui::CollapsingState, Response) {
+        let mut clps =
+            egui::CollapsingState::load_with_default_open(ui.ctx(), self.submenu_ids[&item], false);
         let txt = if clps.is_open() {
             label.to_string() + " \u{25BE}"
         } else {
@@ -1235,7 +1252,10 @@ impl GossipUi {
             ui.add_space(10.0)
         }
         let header_res = ui.horizontal(|ui| {
-            if ui.add( self.new_header_label(clps.is_open(), txt.as_str()) ).clicked() {
+            if ui
+                .add(self.new_header_label(clps.is_open(), txt.as_str()))
+                .clicked()
+            {
                 clps.toggle(ui);
                 self.submenu_state.set_active(&item);
             }
@@ -1243,17 +1263,20 @@ impl GossipUi {
         if clps.is_open() {
             clps.set_open(self.submenu_state.submenu_states[&item]);
         }
-        header_res.response.clone().on_hover_cursor(egui::CursorIcon::PointingHand);
+        header_res
+            .response
+            .clone()
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
         (clps, header_res.response)
     }
 
-    fn after_openable_menu(&self, ui: &mut Ui, submenu: &egui::CollapsingState ) {
+    fn after_openable_menu(&self, ui: &mut Ui, submenu: &egui::CollapsingState) {
         if submenu.is_open() {
             ui.add_space(10.0)
         }
     }
 
-    fn new_header_label(&self, is_open: bool, text: &str ) -> NavItem {
+    fn new_header_label(&self, is_open: bool, text: &str) -> NavItem {
         NavItem::new(text, is_open)
             .color(self.settings.theme.navigation_text_color())
             .active_color(self.settings.theme.navigation_header_active_color())
@@ -1261,7 +1284,7 @@ impl GossipUi {
             .sense(Sense::click())
     }
 
-    fn new_selected_label(&self, selected: bool, text: &str ) -> NavItem {
+    fn new_selected_label(&self, selected: bool, text: &str) -> NavItem {
         NavItem::new(text, selected)
             .color(self.settings.theme.navigation_text_color())
             .active_color(self.settings.theme.navigation_text_active_color())
@@ -1270,13 +1293,13 @@ impl GossipUi {
     }
 
     fn add_selected_label(&self, ui: &mut Ui, selected: bool, text: &str) -> egui::Response {
-        let label = self.new_selected_label( selected, text);
+        let label = self.new_selected_label(selected, text);
         ui.add_space(2.0);
         let response = ui.add(label);
         ui.add_space(2.0);
-        response.clone().on_hover_cursor( egui::CursorIcon::PointingHand );
+        response
+            .clone()
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
         response
     }
 }
-
-
