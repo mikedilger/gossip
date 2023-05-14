@@ -830,7 +830,7 @@ impl eframe::App for GossipUi {
                                     .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32/2.0)) // need the rounding for the shadow
                                     .stroke(egui::Stroke::NONE)
                                     .fill(Color32::TRANSPARENT)
-                                    //.shadow(egui::epaint::Shadow::NONE)
+                                    .shadow(egui::epaint::Shadow::NONE)
                                     .show(
                                     ui,
                                     |ui| {
