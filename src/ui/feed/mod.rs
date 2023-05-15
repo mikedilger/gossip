@@ -106,6 +106,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.label(RichText::new("Main posts").size(11.0));
                 if crate::ui::components::switch(ui, &mut app.mainfeed_include_nonroot).clicked() {
                     app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
+                    ctx.data_mut(|d| {
+                        d.insert_persisted(
+                            egui::Id::new("mainfeed_include_nonroot"),
+                            app.mainfeed_include_nonroot,
+                        );
+                    });
                 }
                 ui.label(RichText::new("Include replies").size(11.0));
                 ui.separator();
@@ -133,6 +139,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             app.set_page(Page::Feed(FeedKind::Followed(
                                 app.mainfeed_include_nonroot,
                             )));
+                            ctx.data_mut(|d| {
+                                d.insert_persisted(
+                                    egui::Id::new("mainfeed_include_nonroot"),
+                                    app.mainfeed_include_nonroot,
+                                );
+                            });
                         }
                         ui.label(RichText::new("Main posts").size(11.0));
                     });
@@ -159,6 +171,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.label(RichText::new("Replies & DM").size(11.0));
                 if crate::ui::components::switch(ui, &mut app.inbox_include_indirect).clicked() {
                     app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
+                    ctx.data_mut(|d| {
+                        d.insert_persisted(
+                            egui::Id::new("inbox_include_indirect"),
+                            app.inbox_include_indirect,
+                        );
+                    });
                 }
                 ui.label(RichText::new("Everything").size(11.0));
                 ui.separator();
@@ -187,6 +205,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         .clicked()
                         {
                             app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
+                            ctx.data_mut(|d| {
+                                d.insert_persisted(
+                                    egui::Id::new("inbox_include_indirect"),
+                                    app.inbox_include_indirect,
+                                );
+                            });
                         }
                         ui.label(RichText::new("Replies & DM").size(11.0));
                     });

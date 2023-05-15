@@ -291,7 +291,7 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                 if response.hovered() {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
-                add_media_menu( app, ui, url, &response);
+                add_media_menu(app, ui, url, &response);
                 response_return = Some(response);
             });
     };
@@ -448,7 +448,7 @@ fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
     size
 }
 
-fn add_media_menu( app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response ) {
+fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response) {
     // image button menu to the right of the image
     static BTN_SIZE: Vec2 = Vec2 { x: 20.0, y: 20.0 };
     static TXT_SIZE: f32 = 9.0;

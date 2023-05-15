@@ -398,8 +398,14 @@ impl GossipUi {
             setting_active_person: false,
             page: start_page,
             history: vec![],
-            mainfeed_include_nonroot: false,
-            inbox_include_indirect: false,
+            mainfeed_include_nonroot: cctx
+                .egui_ctx
+                .data_mut(|d| d.get_persisted(egui::Id::new("mainfeed_include_nonroot")))
+                .unwrap_or(false),
+            inbox_include_indirect: cctx
+                .egui_ctx
+                .data_mut(|d| d.get_persisted(egui::Id::new("inbox_include_indirect")))
+                .unwrap_or(false),
             submenu_ids,
             submenu_state: SubMenuState::new(),
             about: crate::about::about(),
@@ -947,7 +953,7 @@ impl eframe::App for GossipUi {
                     top: 10.0,
                     bottom: 0.0,
                 });
-                
+
                 frame
             })
             .show(ctx, |ui| match self.page {
