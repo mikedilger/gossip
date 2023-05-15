@@ -385,20 +385,20 @@ impl ThemeDef for ClassicTheme {
         }
     }
 
-    fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32 {
-        if dark_mode {
-            Color32::from_gray(220)
-        } else {
-            Color32::from_gray(220)
-        }
+    fn navigation_text_color(_dark_mode: bool) -> eframe::egui::Color32 {
+        //if dark_mode {
+        Color32::from_gray(220)
+        //} else {
+        //    Color32::from_gray(220)
+        //}
     }
 
-    fn navigation_text_active_color(dark_mode: bool) -> eframe::egui::Color32 {
-        if dark_mode {
-            Color32::from_gray(0xf9)
-        } else {
-            Color32::from_gray(0xf9)
-        }
+    fn navigation_text_active_color(_dark_mode: bool) -> eframe::egui::Color32 {
+        //if dark_mode {
+        Color32::from_gray(0xf9)
+        //} else {
+        //    Color32::from_gray(0xf9)
+        //}
     }
 
     fn navigation_text_hover_color(_dark_mode: bool) -> eframe::egui::Color32 {
