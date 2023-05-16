@@ -1,7 +1,7 @@
 use super::GossipUi;
-use crate::comms::ToOverlordMessage;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
+use crate::{comms::ToOverlordMessage, ui::components};
 use eframe::egui;
 use egui::{Align, Context, Layout, Ui};
 use egui_extras::{Column, TableBuilder};
@@ -73,179 +73,15 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 }
 
 fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
-    ui.push_id(id, |ui| {
-        TableBuilder::new(ui)
-            .striped(true)
-            .column(Column::auto_with_initial_suggestion(250.0).resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::auto().resizable(true))
-            .column(Column::remainder())
-            .header(20.0, |mut header| {
-                header.col(|ui| {
-                    ui.heading("Relay URL");
-                });
-                header.col(|ui| {
-                    ui.heading("Attempts");
-                });
-                header.col(|ui| {
-                    ui.heading("Success Rate (%)");
-                });
-                header.col(|ui| {
-                    ui.heading("Last Connected");
-                });
-                header.col(|ui| {
-                    ui.heading("Last Event")
-                        .on_hover_text("This only counts events served after EOSE, as they mark where we can pick up from next time.");
-                });
-                header.col(|ui| {
-                    ui.heading("Read").on_hover_text(READ_HOVER_TEXT);
-                });
-                header.col(|ui| {
-                    ui.heading("Inbox").on_hover_text(INBOX_HOVER_TEXT);
-                });
-                header.col(|ui| {
-                    ui.heading("Discover").on_hover_text(DISCOVER_HOVER_TEXT);
-                });
-                header.col(|ui| {
-                    ui.heading("Write").on_hover_text(WRITE_HOVER_TEXT);
-                });
-                header.col(|ui| {
-                    ui.heading("Outbox").on_hover_text(OUTBOX_HOVER_TEXT);
-                });
-                header.col(|ui| {
-                    ui.heading("Advertise").on_hover_text(ADVERTISE_HOVER_TEXT);
-                });
-                header.col(|ui| {
-                    ui.heading("Read rank")
-                        .on_hover_text("How likely we will connect to relays to read other people's posts, from 0 (never) to 9 (highly). Default is 3.".to_string());
-                });
-                header.col(|ui| {
-                    ui.heading("Hide")
-                        .on_hover_text("Hide this relay.".to_string());
-                });
-            }).body(|body| {
-                body.rows(24.0, relays.len(), |row_index, mut row| {
-                    let relay = relays.get_mut(row_index).unwrap();
-                    row.col(|ui| {
-                        crate::ui::widgets::break_anywhere_label(ui,&relay.url.0);
-                    });
-                    row.col(|ui| {
-                        ui.label(&format!("{}", relay.attempts()));
-                    });
-                    row.col(|ui| {
-                        ui.label(&format!("{}", (relay.success_rate() * 100.0) as u32));
-                    });
-                    row.col(|ui| {
-                        if let Some(at) = relay.last_connected_at {
-                            let ago = crate::date_ago::date_ago(Unixtime(at as i64));
-                            ui.label(&ago);
-                        }
-                    });
-                    row.col(|ui| {
-                        if let Some(at) = relay.last_general_eose_at {
-                            let ago = crate::date_ago::date_ago(Unixtime(at as i64));
-                            ui.label(&ago);
-                        }
-                    });
-                    row.col(|ui| {
-                        let mut read = relay.has_usage_bits(DbRelay::READ); // checkbox needs a mutable state variable.
-                        if ui.checkbox(&mut read, "")
-                            .on_hover_text(READ_HOVER_TEXT)
-                            .clicked()
-                        {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::READ, read));
-                        }
-                    });
-                    row.col(|ui| {
-                        let mut inbox = relay.has_usage_bits(DbRelay::INBOX); // checkbox needs a mutable state variable.
-                        if ui.checkbox(&mut inbox, "")
-                            .on_hover_text(INBOX_HOVER_TEXT)
-                            .clicked()
-                        {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::INBOX, inbox));
-                        }
-                    });
-                    row.col(|ui| {
-                        let mut discover = relay.has_usage_bits(DbRelay::DISCOVER); // checkbox needs a mutable state variable.
-                        if ui.checkbox(&mut discover, "")
-                            .on_hover_text(DISCOVER_HOVER_TEXT)
-                            .clicked()
-                        {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::DISCOVER, discover));
-                        }
-                    });
-                    row.col(|ui| {
-                        let mut write = relay.has_usage_bits(DbRelay::WRITE); // checkbox needs a mutable state variable.
-                        if ui.checkbox(&mut write, "")
-                            .on_hover_text(WRITE_HOVER_TEXT)
-                            .clicked()
-                        {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::WRITE, write));
-                        }
-                    });
-                    row.col(|ui| {
-                        let mut outbox = relay.has_usage_bits(DbRelay::OUTBOX); // checkbox needs a mutable state variable.
-                        if ui.checkbox(&mut outbox, "")
-                            .on_hover_text(OUTBOX_HOVER_TEXT)
-                            .clicked()
-                        {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::OUTBOX, outbox));
-                        }
-                    });
-                    row.col(|ui| {
-                        let mut advertise = relay.has_usage_bits(DbRelay::ADVERTISE); // checkbox needs a mutable state variable.
-                        if ui.checkbox(&mut advertise, "")
-                            .on_hover_text(ADVERTISE_HOVER_TEXT)
-                            .clicked()
-                        {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::ADVERTISE, advertise));
-                        }
-                    });
-                    row.col(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(format!("{}",relay.rank));
-                            if ui.button("↓").clicked() && relay.rank>0 {
-                                let _ = GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::RankRelay(relay.url.clone(), relay.rank as u8 - 1));
-                            }
-                            if ui.button("↑").clicked() && relay.rank<9 {
-                                let _ = GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::RankRelay(relay.url.clone(), relay.rank as u8 + 1));
-                            }
-                        });
-                    });
-                    row.col(|ui| {
-                        let icon = if relay.hidden { "♻️" } else { "🗑️" };
-                        if ui.button(icon).clicked() {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::HideOrShowRelay(relay.url.clone(), !relay.hidden));
-                        }
-                    });
-                })
-            });
-    });
+    egui::ScrollArea::vertical()
+        .id_source(id)
+        // .override_scroll_delta(Vec2 {
+        //     x: 0.0,
+        //     y: app.current_scroll_offset * 2.0, // double speed
+        // })
+        .show(ui, |ui| {
+            for relay in relays {
+                ui.add(components::RelayEntry::new(relay));
+            }
+        });
 }
