@@ -1,13 +1,12 @@
-use super::{GossipUi, Page, components};
+use super::{GossipUi, Page, components, widgets};
 use crate::{comms::ToOverlordMessage, db::DbRelay};
 use crate::globals::GLOBALS;
 use eframe::egui;
 use eframe::epaint::ahash::HashSet;
 use egui::{Context, ScrollArea, Ui, Vec2};
-use egui_extras::{Column, TableBuilder};
 use nostr_types::RelayUrl;
 
-mod all;
+mod known;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     #[cfg(not(feature = "side-menu"))]
@@ -15,29 +14,29 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.horizontal(|ui| {
             if ui
                 .add(egui::SelectableLabel::new(
-                    app.page == Page::RelaysLive,
+                    app.page == Page::RelaysActivityMonitor,
                     "Live",
                 ))
                 .clicked()
             {
-                app.set_page(Page::RelaysLive);
+                app.set_page(Page::RelaysActivityMonitor);
             }
             ui.separator();
             if ui
                 .add(egui::SelectableLabel::new(
-                    app.page == Page::RelaysAll,
+                    app.page == Page::RelaysKnownNetwork,
                     "Configure",
                 ))
                 .clicked()
             {
-                app.set_page(Page::RelaysAll);
+                app.set_page(Page::RelaysKnownNetwork);
             }
             ui.separator();
         });
         ui.separator();
     }
 
-    if app.page == Page::RelaysLive {
+    if app.page == Page::RelaysActivityMonitor {
         ui.add_space(10.0);
 
         ui.heading("Connected Relays");
@@ -72,7 +71,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             })
             .show(ui, |ui| {
                 for relay in relays {
-                    let mut widget = components::RelayEntry::new(&relay);
+                    let mut widget = widgets::RelayEntry::new(&relay);
                     if let Some(ref assignment) =
                         GLOBALS.relay_picker.get_relay_assignment(&relay.url)
                     {
@@ -103,7 +102,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.label("All followed people are fully covered.".to_owned());
                 }
             });
-    } else if app.page == Page::RelaysAll {
-        all::update(app, ctx, frame, ui);
+    } else if app.page == Page::RelaysKnownNetwork {
+        known::update(app, ctx, frame, ui);
     }
 }

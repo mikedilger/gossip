@@ -1,17 +1,16 @@
 use super::GossipUi;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
+use crate::ui::widgets;
 use crate::{comms::ToOverlordMessage, ui::components};
 use eframe::egui;
 use egui::{Align, Context, Layout, Ui};
-use egui_extras::{Column, TableBuilder};
-use nostr_types::{RelayUrl, Unixtime};
+use nostr_types::{RelayUrl};
 
 const READ_HOVER_TEXT: &str = "Where you actually read events from (including those tagging you, but also for other purposes).";
 const INBOX_HOVER_TEXT: &str = "Where you tell others you read from. You should also check Read. These relays shouldn't require payment. It is recommended to have a few.";
 const DISCOVER_HOVER_TEXT: &str = "Where you discover other people's relays lists.";
-const WRITE_HOVER_TEXT: &str =
-    "Where you actually write your events to. It is recommended to have a few.";
+const WRITE_HOVER_TEXT: &str = "Where you actually write your events to. It is recommended to have a few.";
 const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
 const ADVERTISE_HOVER_TEXT: &str = "Where you advertise your relay list (inbox/outbox) to. It is recommended to advertise to lots of relays so that you can be found.";
 
@@ -66,8 +65,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(18.0);
 
         ui.with_layout(Layout::top_down(Align::Min), |ui| {
-            ui.heading("All Known Relays:");
-            relay_table(ui, &mut relays, "allrelays");
+            ui.heading("Known Relays:");
+            relay_table(ui, &mut relays, "knownrelays");
         });
     });
 }
@@ -81,7 +80,7 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
         // })
         .show(ui, |ui| {
             for relay in relays {
-                let mut widget = components::RelayEntry::new(relay);
+                let mut widget = widgets::RelayEntry::new(relay);
                 if let Some(ref assignment) =
                     GLOBALS.relay_picker.get_relay_assignment(&relay.url)
                 {

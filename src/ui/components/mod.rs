@@ -1,11 +1,5 @@
-mod nav_item;
-mod relay_entry;
-
 use eframe::egui;
 use egui::{Label, Response, Sense, Ui};
-
-pub use nav_item::NavItem;
-pub use relay_entry::RelayEntry;
 
 pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
     let mut emojis = "😀😁😆😅😂🤣\

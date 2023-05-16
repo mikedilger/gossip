@@ -52,7 +52,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
-use self::components::NavItem;
+use self::widgets::NavItem;
 use self::feed::Notes;
 
 pub fn run() -> Result<(), Error> {
@@ -104,8 +104,8 @@ enum Page {
     YourKeys,
     YourMetadata,
     YourDelegation,
-    RelaysLive,
-    RelaysAll,
+    RelaysActivityMonitor,
+    RelaysKnownNetwork,
     Search,
     Settings,
     HelpHelp,
@@ -634,12 +634,12 @@ impl eframe::App for GossipUi {
                 ui.separator();
                 if ui
                     .add(SelectableLabel::new(
-                        self.page == Page::RelaysLive || self.page == Page::RelaysAll,
+                        self.page == Page::RelaysActivityMonitor || self.page == Page::RelaysKnownNetwork,
                         "Relays",
                     ))
                     .clicked()
                 {
-                    self.set_page(Page::RelaysLive);
+                    self.set_page(Page::RelaysActivityMonitor);
                 }
                 ui.separator();
                 if ui
@@ -766,8 +766,8 @@ impl eframe::App for GossipUi {
                         let (mut submenu, header_response) =
                             self.get_openable_menu( ui, SubMenu::Relays, "Relays");
                         submenu.show_body_indented(&header_response, ui, |ui| {
-                                self.add_menu_item_page(ui, Page::RelaysLive, "Live");
-                                self.add_menu_item_page(ui, Page::RelaysAll, "Configure");
+                                self.add_menu_item_page(ui, Page::RelaysActivityMonitor, "Activity Monitor");
+                                self.add_menu_item_page(ui, Page::RelaysKnownNetwork, "Known Network");
                             });
                         self.after_openable_menu(ui, &submenu);
                     }
@@ -964,7 +964,7 @@ impl eframe::App for GossipUi {
                 Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                     you::update(self, ctx, frame, ui)
                 }
-                Page::RelaysLive | Page::RelaysAll => relays::update(self, ctx, frame, ui),
+                Page::RelaysActivityMonitor | Page::RelaysKnownNetwork => relays::update(self, ctx, frame, ui),
                 Page::Search => search::update(self, ctx, frame, ui),
                 Page::Settings => settings::update(self, ctx, frame, ui),
                 Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {

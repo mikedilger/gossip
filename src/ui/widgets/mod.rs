@@ -1,6 +1,12 @@
 mod copy_button;
 pub use copy_button::CopyButton;
 
+mod nav_item;
+pub use nav_item::NavItem;
+
+mod relay_entry;
+pub use relay_entry::RelayEntry;
+
 use eframe::egui::{FontSelection, Ui, WidgetText};
 
 pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {

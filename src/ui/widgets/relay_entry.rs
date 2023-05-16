@@ -206,7 +206,6 @@ impl<'a> RelayEntry<'a> {
                 usage.push("discover")
             }
             let usage_str = usage.iter().map(|s| s.to_string()).collect::<Vec<String>>().join(", ");
-;
             let usage_str = usage_str.trim_end_matches(", ");
             let pos = pos2( rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
             draw_text_at(ui, pos, usage_str.into(), Align::RIGHT, Some(ui.visuals().text_color()), None);
