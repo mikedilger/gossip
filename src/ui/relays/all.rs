@@ -81,7 +81,13 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
         // })
         .show(ui, |ui| {
             for relay in relays {
-                ui.add(components::RelayEntry::new(relay));
+                let mut widget = components::RelayEntry::new(relay);
+                if let Some(ref assignment) =
+                    GLOBALS.relay_picker.get_relay_assignment(&relay.url)
+                {
+                    widget = widget.user_count(assignment.pubkeys.len());
+                }
+                ui.add( widget );
             }
         });
 }

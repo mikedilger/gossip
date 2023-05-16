@@ -1,7 +1,8 @@
-use super::{GossipUi, Page};
-use crate::comms::ToOverlordMessage;
+use super::{GossipUi, Page, components};
+use crate::{comms::ToOverlordMessage, db::DbRelay};
 use crate::globals::GLOBALS;
 use eframe::egui;
+use eframe::epaint::ahash::HashSet;
 use egui::{Context, ScrollArea, Ui, Vec2};
 use egui_extras::{Column, TableBuilder};
 use nostr_types::RelayUrl;
@@ -42,26 +43,26 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.heading("Connected Relays");
         ui.add_space(18.0);
 
-        let connected_relays: Vec<(RelayUrl, String)> = GLOBALS
+        let connected_relays: HashSet<RelayUrl> = GLOBALS
             .connected_relays
             .iter()
             .map(|r| {
-                (
-                    r.key().clone(),
-                    r.value()
-                        .iter()
-                        .map(|rj| {
-                            if rj.persistent {
-                                format!("[{}]", rj.reason)
-                            } else {
-                                rj.reason.to_string()
-                            }
-                        })
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                )
+                    r.key().clone()
             })
             .collect();
+
+        let mut relays: Vec<DbRelay> = GLOBALS
+                .all_relays
+                .iter()
+                .map(|ri| ri.value().clone())
+                .filter(|ri| connected_relays.contains(&ri.url))
+                .collect();
+
+        relays.sort_by(|a, b| {
+            b.has_usage_bits(DbRelay::WRITE)
+                .cmp(&a.has_usage_bits(DbRelay::WRITE))
+                .then(a.url.cmp(&b.url))
+        });
 
         ScrollArea::vertical()
             .id_source("relay_coverage")
@@ -70,53 +71,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 y: app.current_scroll_offset,
             })
             .show(ui, |ui| {
-                ui.push_id("general_feed_relays", |ui| {
-                    TableBuilder::new(ui)
-                        .striped(true)
-                        .column(Column::auto_with_initial_suggestion(250.0).resizable(true))
-                        .column(Column::auto().resizable(true))
-                        .column(Column::auto().resizable(true))
-                        .column(Column::auto().resizable(true))
-                        .header(20.0, |mut header| {
-                            header.col(|ui| {
-                                ui.heading("Relay URL");
-                            });
-                            header.col(|ui| {
-                                ui.heading("# Keys");
-                            });
-                            header.col(|ui| {
-                                ui.heading("Reasons")
-                                    .on_hover_text("Reasons in [brackets] are persistent based on your relay usage configurations; if the connection drops, it will be restarted and resubscribed after a delay.");
-                            });
-                            header.col(|_| {});
-                        })
-                        .body(|body| {
-                            body.rows(24.0, connected_relays.len(), |row_index, mut row| {
-                                let relay_url = &connected_relays[row_index].0;
-                                let reasons = &connected_relays[row_index].1;
-                                row.col(|ui| {
-                                    crate::ui::widgets::break_anywhere_label(ui, &relay_url.0);
-                                });
-                                row.col(|ui| {
-                                    if let Some(ref assignment) =
-                                        GLOBALS.relay_picker.get_relay_assignment(relay_url)
-                                    {
-                                        ui.label(format!("{}", assignment.pubkeys.len()));
-                                    }
-                                });
-                                row.col(|ui| {
-                                    ui.label(reasons);
-                                });
-                                row.col(|ui| {
-                                    if ui.button("Disconnect").clicked() {
-                                        let _ = GLOBALS.to_overlord.send(
-                                            ToOverlordMessage::DropRelay(relay_url.to_owned()),
-                                        );
-                                    }
-                                });
-                            });
-                        });
-                });
+                for relay in relays {
+                    let mut widget = components::RelayEntry::new(&relay);
+                    if let Some(ref assignment) =
+                        GLOBALS.relay_picker.get_relay_assignment(&relay.url)
+                    {
+                        widget = widget.user_count(assignment.pubkeys.len());
+                    }
+                    ui.add( widget );
+                }
 
                 ui.add_space(10.0);
                 ui.separator();

@@ -24,17 +24,11 @@ enum RelayEntryView {
 /// A relay entry has different views, which can be chosen with the
 /// show_<view> functions.
 ///
-/// ```
-/// # egui::__run_test_ui(|ui| {
-/// ui.add(components::RelayEntry::new("Item1", false));
-/// ui.add(components::RelayEntry::new("Item2", true);
-/// ui.add(components::RelayEntry::new(egui::RichText::new("With formatting").underline(), false));
-/// # });
-/// ```
 #[must_use = "You should put this widget in an ui with `ui.add(widget);`"]
 pub struct RelayEntry<'a> {
     relay: &'a DbRelay,
     view: RelayEntryView,
+    user_count: Option<usize>,
     rounding: Rounding,
     fill: Option<Color32>,
     stroke: Option<Stroke>,
@@ -47,12 +41,18 @@ impl<'a> RelayEntry<'a> {
         Self {
             relay,
             view: RelayEntryView::List,
+            user_count: None,
             rounding: Rounding::same(5.0),
             fill: None,
             stroke: None,
             accent: None,
             highlight: None,
         }
+    }
+
+    pub fn user_count(mut self, count: usize) -> Self {
+        self.user_count = Some(count);
+        self
     }
 
     pub fn rounding(mut self, rounding: Rounding) -> Self {
@@ -142,43 +142,75 @@ impl<'a> RelayEntry<'a> {
     }
 
     fn paint_stats(&self, ui: &mut Ui, rect: &Rect) {
-        let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + 30.0);
-        let text = RichText::new( format!("Rate: {:.0}%", self.relay.success_rate() * 100.0) );
-        draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
-        let pos = pos + vec2(80.0, 0.0);
-        let mut ago = "".to_string();
-        if let Some(at) = self.relay.last_connected_at {
-            ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
-        } else {
-            ago += "?";
-        }
-        let text = RichText::new( format!("Last event: {}", ago ) );
-        draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
-        let pos = pos + vec2(120.0, 0.0);
-        let text = RichText::new( format!("Users: {}", 0) );
-        draw_text_at(ui, pos, text.into(), Align::LEFT,  Some(ui.visuals().text_color()), None);
+        { // stats
+            let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + 30.0);
+            let text = RichText::new( format!("Rate: {:.0}% ({})",
+                self.relay.success_rate() * 100.0,
+                self.relay.success_count));
+            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
 
-        let mut usage: Vec<&'static str> = Vec::new();
-        if self.relay.has_usage_bits(DbRelay::READ | DbRelay::INBOX) {
-            usage.push("public read");
-        } else if self.relay.has_usage_bits(DbRelay::READ) {
-            usage.push("private read");
+            let pos = pos + vec2(120.0, 0.0);
+            let mut ago = "".to_string();
+            if let Some(at) = self.relay.last_general_eose_at {
+                ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
+            } else {
+                ago += "?";
+            }
+            let text = RichText::new( format!("Last event: {}", ago ) );
+            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
+
+            let pos = pos + vec2(110.0, 0.0);
+            let mut ago = "".to_string();
+            if let Some(at) = self.relay.last_connected_at {
+                ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
+            } else {
+                ago += "?";
+            }
+            let text = RichText::new( format!("Last connection: {}", ago ) );
+            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
+
+            let pos = pos + vec2(140.0, 0.0);
+            if let Some(count) = self.user_count {
+                let text = RichText::new( format!("Following: {}", count) );
+                let (galley, response) = allocate_text_at(ui, pos, text.into());
+                let (color, stroke) = if response.hovered() {
+                    let color = self.accent.unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
+                    (color, Stroke::new(1.0, color))
+                } else {
+                    let color = ui.visuals().text_color();
+                    (color, Stroke::new(1.0, color))
+                };
+                if response.clicked() {
+                    // TODO go to following page for this relay?
+                }
+                draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
+            }
         }
-        if self.relay.has_usage_bits(DbRelay::WRITE | DbRelay::OUTBOX) {
-            usage.push("public write");
-        } else if self.relay.has_usage_bits(DbRelay::WRITE) {
-            usage.push("private write");
+
+        { // usage bits
+            let mut usage: Vec<&'static str> = Vec::new();
+            if self.relay.has_usage_bits(DbRelay::READ | DbRelay::INBOX) {
+                usage.push("public read");
+            } else if self.relay.has_usage_bits(DbRelay::READ) {
+                usage.push("private read");
+            }
+            if self.relay.has_usage_bits(DbRelay::WRITE | DbRelay::OUTBOX) {
+                usage.push("public write");
+            } else if self.relay.has_usage_bits(DbRelay::WRITE) {
+                usage.push("private write");
+            }
+            if self.relay.has_usage_bits(DbRelay::ADVERTISE) {
+                usage.push("advertise")
+            }
+            if self.relay.has_usage_bits(DbRelay::DISCOVER) {
+                usage.push("discover")
+            }
+            let usage_str = usage.iter().map(|s| s.to_string()).collect::<Vec<String>>().join(", ");
+;
+            let usage_str = usage_str.trim_end_matches(", ");
+            let pos = pos2( rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
+            draw_text_at(ui, pos, usage_str.into(), Align::RIGHT, Some(ui.visuals().text_color()), None);
         }
-        if self.relay.has_usage_bits(DbRelay::ADVERTISE) {
-            usage.push("advertise")
-        }
-        if self.relay.has_usage_bits(DbRelay::DISCOVER) {
-            usage.push("discover")
-        }
-        let usage_str = usage.iter().fold("".to_string(), |str, u| str + *u + ", " );
-        let usage_str = usage_str.trim_end_matches(", ");
-        let pos = pos2( rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
-        draw_text_at(ui, pos, usage_str.into(), Align::RIGHT, Some(ui.visuals().text_color()), None);
     }
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
@@ -249,7 +281,8 @@ fn draw_text_galley_at(ui: &mut Ui,
     pos: Pos2,
     galley: WidgetTextGalley,
     color: Option<Color32>,
-    underline: Option<Stroke>) {
+    underline: Option<Stroke>) -> Rect {
+    let size = galley.galley.rect.size();
     let underline = underline.unwrap_or(Stroke::NONE);
     ui.painter().add(epaint::TextShape {
         pos,
@@ -258,6 +291,7 @@ fn draw_text_galley_at(ui: &mut Ui,
         underline,
         angle: 0.0,
     });
+    Rect::from_min_size(pos, size)
 }
 
 fn draw_text_at(ui: &mut Ui,
@@ -265,7 +299,7 @@ fn draw_text_at(ui: &mut Ui,
     text: WidgetText,
     align: Align,
     color: Option<Color32>,
-    underline: Option<Stroke>) {
+    underline: Option<Stroke>) -> Rect {
     let galley = text_to_galley(ui, text, align);
     draw_text_galley_at(ui, pos, galley, color, underline)
 }
