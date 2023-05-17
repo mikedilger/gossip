@@ -158,7 +158,7 @@ impl<'a> RelayEntry<'a> {
 
     fn paint_stats(&self, ui: &mut Ui, rect: &Rect) {
         {
-            // stats
+            // ---- Success Rate ----
             let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + 30.0);
             let text = RichText::new(format!(
                 "Rate: {:.0}% ({})",
@@ -174,6 +174,33 @@ impl<'a> RelayEntry<'a> {
                 None,
             );
 
+            // ---- Following ----
+            let pos = pos + vec2(130.0, 0.0);
+            let mut active = true;
+            let text = if let Some(count) = self.user_count {
+                RichText::new(format!("Following: {}", count))
+            } else {
+                active = false;
+                RichText::new("Following: -")
+            };
+            let (galley, response) = allocate_text_at(ui, pos, text.into());
+            let (color, stroke) = if !active {
+                (ui.visuals().weak_text_color(), Stroke::NONE)
+            } else if response.hovered() {
+                let color = self
+                    .accent
+                    .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
+                (color, Stroke::new(1.0, color))
+            } else {
+                let color = ui.visuals().text_color();
+                (color, Stroke::new(1.0, color))
+            };
+            if response.clicked() {
+                // TODO go to following page for this relay?
+            }
+            draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
+
+            // ---- Last event ----
             let pos = pos + vec2(120.0, 0.0);
             let mut ago = "".to_string();
             if let Some(at) = self.relay.last_general_eose_at {
@@ -191,7 +218,8 @@ impl<'a> RelayEntry<'a> {
                 None,
             );
 
-            let pos = pos + vec2(110.0, 0.0);
+            // ---- Last connection ----
+            let pos = pos + vec2(120.0, 0.0);
             let mut ago = "".to_string();
             if let Some(at) = self.relay.last_connected_at {
                 ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
@@ -207,25 +235,6 @@ impl<'a> RelayEntry<'a> {
                 Some(ui.visuals().text_color()),
                 None,
             );
-
-            let pos = pos + vec2(150.0, 0.0);
-            if let Some(count) = self.user_count {
-                let text = RichText::new(format!("Following: {}", count));
-                let (galley, response) = allocate_text_at(ui, pos, text.into());
-                let (color, stroke) = if response.hovered() {
-                    let color = self
-                        .accent
-                        .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-                    (color, Stroke::new(1.0, color))
-                } else {
-                    let color = ui.visuals().text_color();
-                    (color, Stroke::new(1.0, color))
-                };
-                if response.clicked() {
-                    // TODO go to following page for this relay?
-                }
-                draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
-            }
         }
 
         {
