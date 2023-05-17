@@ -14,6 +14,14 @@ const TEXT_RIGHT: f32 = 15.0;
 const TEXT_TOP: f32 = 15.0;
 const BTN_SIZE: f32 = 20.0;
 
+const READ_HOVER_TEXT: &str = "Where you actually read events from (including those tagging you, but also for other purposes).";
+const INBOX_HOVER_TEXT: &str = "Where you tell others you read from. You should also check Read. These relays shouldn't require payment. It is recommended to have a few.";
+const DISCOVER_HOVER_TEXT: &str = "Where you discover other people's relays lists.";
+const WRITE_HOVER_TEXT: &str =
+    "Where you actually write your events to. It is recommended to have a few.";
+const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
+const ADVERTISE_HOVER_TEXT: &str = "Where you advertise your relay list (inbox/outbox) to. It is recommended to advertise to lots of relays so that you can be found.";
+
 enum RelayEntryView {
     List,
     Edit,
@@ -94,8 +102,15 @@ impl<'a> RelayEntry<'a> {
 
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
         let text = RichText::new(self.relay.url.as_str()).size(16.5);
-        let pos = rect.min + vec2( TEXT_LEFT, TEXT_TOP);
-        draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
+        let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
+        draw_text_at(
+            ui,
+            pos,
+            text.into(),
+            Align::LEFT,
+            Some(ui.visuals().text_color()),
+            None,
+        );
     }
 
     fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
@@ -112,10 +127,12 @@ impl<'a> RelayEntry<'a> {
     fn paint_edit_btn(&self, ui: &mut Ui, rect: &Rect) {
         if self.relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + MARGIN_TOP);
-            let text = RichText::new( "pick up & configure" );
+            let text = RichText::new("pick up & configure");
             let (galley, response) = allocate_text_right_align_at(ui, pos, text.into());
             let (color, stroke) = if response.hovered() {
-                let color = self.accent.unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
+                let color = self
+                    .accent
+                    .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
                 (color, Stroke::new(1.0, color))
             } else {
                 (ui.visuals().text_color(), Stroke::NONE)
@@ -125,14 +142,12 @@ impl<'a> RelayEntry<'a> {
             }
             draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
         } else {
-            let pos = rect.right_top() + vec2(-BTN_SIZE -TEXT_RIGHT, 10.0 + MARGIN_TOP);
+            let pos = rect.right_top() + vec2(-BTN_SIZE - TEXT_RIGHT, 10.0 + MARGIN_TOP);
             let btn_rect = Rect::from_min_size(pos, vec2(BTN_SIZE, BTN_SIZE));
-            let response = ui.interact(
-                btn_rect,
-                ui.next_auto_id(),
-                Sense::click());
+            let response = ui.interact(btn_rect, ui.next_auto_id(), Sense::click());
             let color = if response.hovered() {
-                self.accent.unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color)
+                self.accent
+                    .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color)
             } else {
                 ui.visuals().text_color()
             };
@@ -142,12 +157,22 @@ impl<'a> RelayEntry<'a> {
     }
 
     fn paint_stats(&self, ui: &mut Ui, rect: &Rect) {
-        { // stats
+        {
+            // stats
             let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + 30.0);
-            let text = RichText::new( format!("Rate: {:.0}% ({})",
+            let text = RichText::new(format!(
+                "Rate: {:.0}% ({})",
                 self.relay.success_rate() * 100.0,
-                self.relay.success_count));
-            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
+                self.relay.success_count
+            ));
+            draw_text_at(
+                ui,
+                pos,
+                text.into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
 
             let pos = pos + vec2(120.0, 0.0);
             let mut ago = "".to_string();
@@ -156,8 +181,15 @@ impl<'a> RelayEntry<'a> {
             } else {
                 ago += "?";
             }
-            let text = RichText::new( format!("Last event: {}", ago ) );
-            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
+            let text = RichText::new(format!("Last event: {}", ago));
+            draw_text_at(
+                ui,
+                pos,
+                text.into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
 
             let pos = pos + vec2(110.0, 0.0);
             let mut ago = "".to_string();
@@ -166,15 +198,24 @@ impl<'a> RelayEntry<'a> {
             } else {
                 ago += "?";
             }
-            let text = RichText::new( format!("Last connection: {}", ago ) );
-            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
+            let text = RichText::new(format!("Last connection: {}", ago));
+            draw_text_at(
+                ui,
+                pos,
+                text.into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
 
-            let pos = pos + vec2(140.0, 0.0);
+            let pos = pos + vec2(150.0, 0.0);
             if let Some(count) = self.user_count {
-                let text = RichText::new( format!("Following: {}", count) );
+                let text = RichText::new(format!("Following: {}", count));
                 let (galley, response) = allocate_text_at(ui, pos, text.into());
                 let (color, stroke) = if response.hovered() {
-                    let color = self.accent.unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
+                    let color = self
+                        .accent
+                        .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
                     (color, Stroke::new(1.0, color))
                 } else {
                     let color = ui.visuals().text_color();
@@ -187,7 +228,8 @@ impl<'a> RelayEntry<'a> {
             }
         }
 
-        { // usage bits
+        {
+            // usage bits
             let mut usage: Vec<&'static str> = Vec::new();
             if self.relay.has_usage_bits(DbRelay::READ | DbRelay::INBOX) {
                 usage.push("public read");
@@ -205,10 +247,21 @@ impl<'a> RelayEntry<'a> {
             if self.relay.has_usage_bits(DbRelay::DISCOVER) {
                 usage.push("discover")
             }
-            let usage_str = usage.iter().map(|s| s.to_string()).collect::<Vec<String>>().join(", ");
+            let usage_str = usage
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+                .join(", ");
             let usage_str = usage_str.trim_end_matches(", ");
-            let pos = pos2( rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
-            draw_text_at(ui, pos, usage_str.into(), Align::RIGHT, Some(ui.visuals().text_color()), None);
+            let pos = pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
+            draw_text_at(
+                ui,
+                pos,
+                usage_str.into(),
+                Align::RIGHT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
         }
     }
 
@@ -255,32 +308,41 @@ fn text_to_galley(ui: &mut Ui, text: WidgetText, align: Align) -> WidgetTextGall
     ui.fonts(|f| text_job.into_galley(f))
 }
 
-fn allocate_text_at(ui: &mut Ui, pos: Pos2, text: WidgetText) -> (WidgetTextGalley,Response) {
+fn allocate_text_at(ui: &mut Ui, pos: Pos2, text: WidgetText) -> (WidgetTextGalley, Response) {
     let galley = text_to_galley(ui, text, Align::LEFT);
     let response = ui.interact(
         Rect::from_min_size(pos, galley.galley.rect.size()),
         ui.next_auto_id(),
-        Sense::click());
+        Sense::click(),
+    );
     (galley, response)
 }
 
-fn allocate_text_right_align_at(ui: &mut Ui, pos: Pos2, text: WidgetText) -> (WidgetTextGalley,Response) {
+fn allocate_text_right_align_at(
+    ui: &mut Ui,
+    pos: Pos2,
+    text: WidgetText,
+) -> (WidgetTextGalley, Response) {
     let galley = text_to_galley(ui, text, Align::RIGHT);
     let grect = galley.galley.rect;
     let response = ui.interact(
         Rect::from_min_max(
             pos2(pos.x - grect.width(), pos.y),
-            pos2( pos.x, pos.y + grect.height())),
+            pos2(pos.x, pos.y + grect.height()),
+        ),
         ui.next_auto_id(),
-        Sense::click());
+        Sense::click(),
+    );
     (galley, response)
 }
 
-fn draw_text_galley_at(ui: &mut Ui,
+fn draw_text_galley_at(
+    ui: &mut Ui,
     pos: Pos2,
     galley: WidgetTextGalley,
     color: Option<Color32>,
-    underline: Option<Stroke>) -> Rect {
+    underline: Option<Stroke>,
+) -> Rect {
     let size = galley.galley.rect.size();
     let underline = underline.unwrap_or(Stroke::NONE);
     ui.painter().add(epaint::TextShape {
@@ -293,12 +355,14 @@ fn draw_text_galley_at(ui: &mut Ui,
     Rect::from_min_size(pos, size)
 }
 
-fn draw_text_at(ui: &mut Ui,
+fn draw_text_at(
+    ui: &mut Ui,
     pos: Pos2,
     text: WidgetText,
     align: Align,
     color: Option<Color32>,
-    underline: Option<Stroke>) -> Rect {
+    underline: Option<Stroke>,
+) -> Rect {
     let galley = text_to_galley(ui, text, align);
     draw_text_galley_at(ui, pos, galley, color, underline)
 }

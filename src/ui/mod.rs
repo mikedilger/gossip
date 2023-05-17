@@ -52,8 +52,8 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
-use self::widgets::NavItem;
 use self::feed::Notes;
+use self::widgets::NavItem;
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
@@ -181,6 +181,9 @@ struct GossipUi {
 
     // Processed events caching
     notes: Notes,
+
+    // RelayUi
+    relay_ui: relays::RelayUi,
 
     // Post rendering
     render_raw: Option<Id>,
@@ -390,6 +393,7 @@ impl GossipUi {
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
             notes: Notes::new(),
+            relay_ui: relays::RelayUi::new(),
             render_raw: None,
             render_qr: None,
             approved: HashSet::new(),
@@ -634,7 +638,8 @@ impl eframe::App for GossipUi {
                 ui.separator();
                 if ui
                     .add(SelectableLabel::new(
-                        self.page == Page::RelaysActivityMonitor || self.page == Page::RelaysKnownNetwork,
+                        self.page == Page::RelaysActivityMonitor
+                            || self.page == Page::RelaysKnownNetwork,
                         "Relays",
                     ))
                     .clicked()
@@ -964,7 +969,9 @@ impl eframe::App for GossipUi {
                 Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                     you::update(self, ctx, frame, ui)
                 }
-                Page::RelaysActivityMonitor | Page::RelaysKnownNetwork => relays::update(self, ctx, frame, ui),
+                Page::RelaysActivityMonitor | Page::RelaysKnownNetwork => {
+                    relays::update(self, ctx, frame, ui)
+                }
                 Page::Search => search::update(self, ctx, frame, ui),
                 Page::Settings => settings::update(self, ctx, frame, ui),
                 Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {

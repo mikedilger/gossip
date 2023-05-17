@@ -7,7 +7,9 @@ pub use nav_item::NavItem;
 mod relay_entry;
 pub use relay_entry::RelayEntry;
 
+use eframe::egui::widgets::TextEdit;
 use eframe::egui::{FontSelection, Ui, WidgetText};
+use egui_winit::egui::{vec2, Rect, Response, Sense};
 
 pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {
     let mut job = text.into().into_text_job(
@@ -29,4 +31,34 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     );
     job.job.wrap.break_anywhere = true;
     ui.hyperlink_to(job.job, url);
+}
+
+pub fn search_filter_field(ui: &mut Ui, field: &mut String) -> Response {
+    // search field
+    let response = ui.add(
+        TextEdit::singleline(field)
+            .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
+            .desired_width(300.0),
+    );
+    let rect = Rect::from_min_size(
+        response.rect.right_top() - vec2(response.rect.height(), 0.0),
+        vec2(response.rect.height(), response.rect.height()),
+    );
+
+    // search clear button
+    if ui
+        .put(
+            rect,
+            NavItem::new("\u{2715}", field.is_empty())
+                .color(ui.visuals().widgets.inactive.fg_stroke.color)
+                .active_color(ui.visuals().widgets.active.fg_stroke.color)
+                .hover_color(ui.visuals().hyperlink_color)
+                .sense(Sense::click()),
+        )
+        .clicked()
+    {
+        field.clear();
+    }
+
+    response
 }
