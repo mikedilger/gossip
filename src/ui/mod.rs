@@ -207,6 +207,7 @@ struct GossipUi {
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
+    options_symbol: TextureHandle,
     settings: Settings,
     avatars: HashMap<PublicKeyHex, TextureHandle>,
     images: HashMap<Url, TextureHandle>,
@@ -351,17 +352,19 @@ impl GossipUi {
         };
 
         // how to load an svg
-        // let expand_right_symbol = {
-        //     let bytes = include_bytes!("../../assets/expand-image.svg");
-        //     let color_image = egui_extras::image::load_svg_bytes_with_size(
-        //         bytes,
-        //         egui_extras::image::FitTo::Size(200, 1000),
-        //     ).unwrap();
-        //     cctx.egui_ctx.load_texture(
-        //         "expand_right_symbol",
-        //         color_image,
-        //         TextureOptions::default())
-        // };
+        let options_symbol = {
+            let bytes = include_bytes!("../../assets/option.svg");
+            let color_image = egui_extras::image::load_svg_bytes_with_size(
+                bytes,
+                egui_extras::image::FitTo::Size(
+                    (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
+                    (cctx.egui_ctx.pixels_per_point() * 40.0) as u32),
+            ).unwrap();
+            cctx.egui_ctx.load_texture(
+                "options_symbol",
+                color_image,
+                TextureOptions::LINEAR)
+        };
 
         let current_dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;
         let (override_dpi, override_dpi_value): (bool, u32) = match settings.override_dpi {
@@ -415,6 +418,7 @@ impl GossipUi {
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
+            options_symbol,
             settings,
             avatars: HashMap::new(),
             images: HashMap::new(),

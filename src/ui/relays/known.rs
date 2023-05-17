@@ -68,7 +68,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 })
                 .show(ui, |ui| {
                     for relay in relays {
-                        let mut widget = widgets::RelayEntry::new(&relay);
+                        let mut widget =
+                            widgets::RelayEntry::new(&relay)
+                                .accent(app.settings.theme.accent_color())
+                                .option_symbol(&app.options_symbol);
                         if let Some(ref assignment) =
                             GLOBALS.relay_picker.get_relay_assignment(&relay.url)
                         {

@@ -42,6 +42,7 @@ pub struct RelayEntry<'a> {
     stroke: Option<Stroke>,
     accent: Option<Color32>,
     highlight: Option<Color32>,
+    option_symbol: Option<&'a TextureHandle>,
 }
 
 impl<'a> RelayEntry<'a> {
@@ -55,6 +56,7 @@ impl<'a> RelayEntry<'a> {
             stroke: None,
             accent: None,
             highlight: None,
+            option_symbol: None,
         }
     }
 
@@ -85,6 +87,11 @@ impl<'a> RelayEntry<'a> {
 
     pub fn highlight(mut self, highlight: Color32) -> Self {
         self.highlight = Some(highlight);
+        self
+    }
+
+    pub fn option_symbol(mut self, option_symbol: &'a TextureHandle ) -> Self {
+        self.option_symbol = Some(option_symbol);
         self
     }
 }
@@ -140,6 +147,7 @@ impl<'a> RelayEntry<'a> {
             if response.clicked() {
                 // TODO go to edit mode
             }
+            response.on_hover_cursor(CursorIcon::PointingHand);
             draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
         } else {
             let pos = rect.right_top() + vec2(-BTN_SIZE - TEXT_RIGHT, 10.0 + MARGIN_TOP);
@@ -151,8 +159,15 @@ impl<'a> RelayEntry<'a> {
             } else {
                 ui.visuals().text_color()
             };
-            let text = RichText::new("\u{2699}").size(20.0);
-            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(color), None);
+            response.on_hover_cursor(CursorIcon::PointingHand);
+            if let Some(symbol) = self.option_symbol {
+                let mut mesh = Mesh::with_texture((symbol).into());
+                mesh.add_rect_with_uv(btn_rect.shrink(2.0), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), color);
+                ui.painter().add(Shape::mesh(mesh));
+            } else {
+                let text = RichText::new("\u{2699}").size(20.0);
+                draw_text_at(ui, pos, text.into(), Align::LEFT, Some(color), None);
+            }
         }
     }
 
@@ -181,7 +196,7 @@ impl<'a> RelayEntry<'a> {
                 RichText::new(format!("Following: {}", count))
             } else {
                 active = false;
-                RichText::new("Following: -")
+                RichText::new("Following: ---")
             };
             let (galley, response) = allocate_text_at(ui, pos, text.into());
             let (color, stroke) = if !active {
@@ -198,6 +213,7 @@ impl<'a> RelayEntry<'a> {
             if response.clicked() {
                 // TODO go to following page for this relay?
             }
+            if active { response.on_hover_cursor(CursorIcon::PointingHand); }
             draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
 
             // ---- Last event ----
