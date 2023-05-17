@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
-use super::GossipUi;
+use super::{
+    filter_relay, relay_filter_combo, relay_sort_combo, GossipUi, RelayFilter, RelaySorting,
+};
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets;
@@ -12,36 +14,17 @@ use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(10.0);
-
     ui.horizontal_wrapped(|ui| {
         ui.heading("Activity Monitor");
         ui.add_space(50.0);
-
-        widgets::search_filter_field(ui, &mut app.relay_ui.search);
-
-        // let sort_combo = egui::ComboBox::from_id_source("relayactivitymonitorsortcombo");
-        // sort_combo
-        //     .selected_text(  )
-        //     .show_ui(ui, |ui| {
-        //         // for theme_variant in ThemeVariant::all() {
-        //         //     if ui.add(egui::widgets::SelectableLabel::new(*theme_variant == app.settings.theme.variant, theme_variant.name())).clicked() {
-
-        //         //     };
-        //         // }
-        //     });
-
-        // let filter_combo = egui::ComboBox::from_id_source("relayactivitymonitorfiltercombo");
-        // filter_combo
-        //     .selected_text( app.settings.theme.name() )
-        //     .show_ui(ui, |ui| {
-        //         // for theme_variant in ThemeVariant::all() {
-        //         //     if ui.add(egui::widgets::SelectableLabel::new(*theme_variant == app.settings.theme.variant, theme_variant.name())).clicked() {
-
-        //         //     };
-        //         // }
-        //     });
+        widgets::search_filter_field(ui, &mut app.relay_ui.search, 200.0);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+            ui.add_space(20.0);
+            relay_filter_combo(app, ui, "RelayActivityMonitorFilterCombo".into());
+            ui.add_space(20.0);
+            relay_sort_combo(app, ui, "RelayActivityMonitorSortCombo".into());
+        });
     });
-
     ui.add_space(10.0);
 
     let connected_relays: HashSet<RelayUrl> = GLOBALS
@@ -54,24 +37,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .all_relays
         .iter()
         .map(|ri| ri.value().clone())
-        .filter(|ri| {
-            connected_relays.contains(&ri.url) && {
-                if app.relay_ui.search.len() > 1 {
-                    ri.url
-                        .as_str()
-                        .to_lowercase()
-                        .contains(&app.relay_ui.search.to_lowercase())
-                } else {
-                    true
-                }
-            }
-        })
+        .filter(|ri| connected_relays.contains(&ri.url) && filter_relay(&app.relay_ui, ri))
         .collect();
 
     relays.sort_by(|a, b| {
-        b.has_usage_bits(DbRelay::WRITE)
-            .cmp(&a.has_usage_bits(DbRelay::WRITE))
-            .then(a.url.cmp(&b.url))
+        super::sort_relay(&app.relay_ui, a, b)
     });
 
     egui::ScrollArea::vertical()
@@ -82,7 +52,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         })
         .show(ui, |ui| {
             for relay in relays {
-                let mut widget = widgets::RelayEntry::new(&relay);
+                let mut widget =
+                    widgets::RelayEntry::new(&relay).accent(app.settings.theme.accent_color());
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&relay.url)
                 {
                     widget = widget.user_count(assignment.pubkeys.len());

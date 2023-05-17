@@ -1,4 +1,4 @@
-use super::GossipUi;
+use super::{filter_relay, relay_filter_combo, relay_sort_combo, GossipUi};
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets;
@@ -10,8 +10,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal_wrapped(|ui| {
         ui.heading("Known Relays");
         ui.add_space(50.0);
-
-        widgets::search_filter_field(ui, &mut app.relay_ui.search);
+        widgets::search_filter_field(ui, &mut app.relay_ui.search, 200.0);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+            ui.add_space(20.0);
+            relay_filter_combo(app, ui, "KnownRelaysFilterCombo".into());
+            ui.add_space(20.0);
+            relay_sort_combo(app, ui, "KnownRelaysSortCombo".into());
+        });
     });
     ui.add_space(10.0);
 
@@ -46,24 +51,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .all_relays
         .iter()
         .map(|ri| ri.value().clone())
-        .filter(|ri| {
-            app.show_hidden_relays
-                || !ri.hidden && {
-                    if app.relay_ui.search.len() > 1 {
-                        ri.url
-                            .as_str()
-                            .to_lowercase()
-                            .contains(&app.relay_ui.search.to_lowercase())
-                    } else {
-                        true
-                    }
-                }
-        })
+        .filter(|ri| app.show_hidden_relays || !ri.hidden && filter_relay(&app.relay_ui, ri))
         .collect();
+
     relays.sort_by(|a, b| {
-        b.has_usage_bits(DbRelay::WRITE)
-            .cmp(&a.has_usage_bits(DbRelay::WRITE))
-            .then(a.url.cmp(&b.url))
+        super::sort_relay(&app.relay_ui, a, b)
     });
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {

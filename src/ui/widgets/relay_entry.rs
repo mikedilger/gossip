@@ -108,7 +108,7 @@ impl<'a> RelayEntry<'a> {
             pos,
             text.into(),
             Align::LEFT,
-            Some(ui.visuals().text_color()),
+            Some(self.accent.unwrap_or(ui.visuals().text_color())),
             None,
         );
     }

@@ -66,6 +66,24 @@ macro_rules! theme_dispatch {
                 self.variant.name()
             }
 
+            pub fn accent_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_color(self.dark_mode), )+
+                }
+            }
+
+            pub fn highlight_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::highlight_color(self.dark_mode), )+
+                }
+            }
+
+            pub fn accent_complementary_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_complementary_color(self.dark_mode), )+
+                }
+            }
+
             pub fn get_style(&self) -> Style {
                 match self.variant {
                     $( $variant => $class::get_style(self.dark_mode), )+

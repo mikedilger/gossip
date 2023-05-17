@@ -33,12 +33,12 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     ui.hyperlink_to(job.job, url);
 }
 
-pub fn search_filter_field(ui: &mut Ui, field: &mut String) -> Response {
+pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Response {
     // search field
     let response = ui.add(
         TextEdit::singleline(field)
             .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
-            .desired_width(300.0),
+            .desired_width(width),
     );
     let rect = Rect::from_min_size(
         response.rect.right_top() - vec2(response.rect.height(), 0.0),
