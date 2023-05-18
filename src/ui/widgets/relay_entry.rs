@@ -33,9 +33,9 @@ pub enum RelayEntryView {
 /// A relay entry has different views, which can be chosen with the
 /// show_<view> functions.
 ///
-#[must_use = "You should put this widget in an ui with `ui.add(widget);`"]
-pub struct RelayEntry<'a> {
-    relay: &'a DbRelay,
+#[derive(Clone)]
+pub struct RelayEntry {
+    db_relay: DbRelay,
     view: RelayEntryView,
     active: bool,
     user_count: Option<usize>,
@@ -44,13 +44,13 @@ pub struct RelayEntry<'a> {
     stroke: Option<Stroke>,
     accent: Option<Color32>,
     highlight: Option<Color32>,
-    option_symbol: Option<&'a TextureHandle>,
+    option_symbol: Option<TextureHandle>,
 }
 
-impl<'a> RelayEntry<'a> {
-    pub fn new(relay: &'a DbRelay) -> Self {
+impl RelayEntry {
+    pub fn new(db_relay: DbRelay) -> Self {
         Self {
-            relay,
+            db_relay,
             view: RelayEntryView::List,
             active: true,
             user_count: None,
@@ -63,21 +63,20 @@ impl<'a> RelayEntry<'a> {
         }
     }
 
-    pub fn edit(mut self, edit: bool) -> Self {
+    pub fn set_edit(&mut self, edit: bool) {
         if edit {
             self.view = RelayEntryView::Edit;
+        } else {
+            self.view = RelayEntryView::List;
         }
-        self
     }
 
-    pub fn set_active(mut self, active: bool) -> Self {
+    pub fn set_active(&mut self, active: bool) {
         self.active = active;
-        self
     }
 
-    pub fn user_count(mut self, count: usize) -> Self {
+    pub fn set_user_count(&mut self, count: usize) {
         self.user_count = Some(count);
-        self
     }
 
     pub fn rounding(mut self, rounding: Rounding) -> Self {
@@ -105,7 +104,7 @@ impl<'a> RelayEntry<'a> {
         self
     }
 
-    pub fn option_symbol(mut self, option_symbol: &'a TextureHandle ) -> Self {
+    pub fn option_symbol(mut self, option_symbol: TextureHandle ) -> Self {
         self.option_symbol = Some(option_symbol);
         self
     }
@@ -115,7 +114,7 @@ impl<'a> RelayEntry<'a> {
     }
 }
 
-impl<'a> RelayEntry<'a> {
+impl RelayEntry {
     fn allocate_list_view(&self, ui: &mut Ui) -> (Rect, Response) {
         let available_width = ui.available_size_before_wrap().x;
         let height = 80.0;
@@ -137,7 +136,7 @@ impl<'a> RelayEntry<'a> {
     }
 
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let text = RichText::new(self.relay.url.as_str()).size(16.5);
+        let text = RichText::new(self.db_relay.url.as_str()).size(16.5);
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
         draw_text_at(
             ui,
@@ -161,7 +160,7 @@ impl<'a> RelayEntry<'a> {
     }
 
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
-        if self.relay.usage_bits == 0 {
+        if self.db_relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + MARGIN_TOP);
             let text = RichText::new("pick up & configure");
             let (galley, response) = allocate_text_right_align_at(ui, pos, text.into());
@@ -194,8 +193,8 @@ impl<'a> RelayEntry<'a> {
                 ui.visuals().text_color()
             };
             response.clone().on_hover_cursor(CursorIcon::PointingHand);
-            if let Some(symbol) = self.option_symbol {
-                let mut mesh = Mesh::with_texture((symbol).into());
+            if let Some(symbol) = &self.option_symbol {
+                let mut mesh = Mesh::with_texture(symbol.into());
                 mesh.add_rect_with_uv(btn_rect.shrink(2.0), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), color);
                 ui.painter().add(Shape::mesh(mesh));
             } else {
@@ -216,7 +215,7 @@ impl<'a> RelayEntry<'a> {
         let response = ui.interact(
             btn_rect,
             ui.next_auto_id(),
-            Sense::click(),);
+            Sense::click());
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
 
         let visuals = ui.style().interact(&response);
@@ -235,17 +234,21 @@ impl<'a> RelayEntry<'a> {
                 .min;
         text.paint_with_visuals(ui.painter(), text_pos, visuals);
 
+        if response.clicked() {
+            self.view = RelayEntryView::List;
+        }
+
         return response;
     }
 
-    fn paint_stats(&self, ui: &mut Ui, rect: &Rect) {
+    fn paint_stats(&self, ui: &mut Ui, rect: &Rect, with_usage: bool) {
         {
             // ---- Success Rate ----
             let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + 30.0);
             let text = RichText::new(format!(
                 "Rate: {:.0}% ({})",
-                self.relay.success_rate() * 100.0,
-                self.relay.success_count
+                self.db_relay.success_rate() * 100.0,
+                self.db_relay.success_count
             ));
             draw_text_at(
                 ui,
@@ -286,7 +289,7 @@ impl<'a> RelayEntry<'a> {
             // ---- Last event ----
             let pos = pos + vec2(120.0, 0.0);
             let mut ago = "".to_string();
-            if let Some(at) = self.relay.last_general_eose_at {
+            if let Some(at) = self.db_relay.last_general_eose_at {
                 ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
             } else {
                 ago += "?";
@@ -304,7 +307,7 @@ impl<'a> RelayEntry<'a> {
             // ---- Last connection ----
             let pos = pos + vec2(120.0, 0.0);
             let mut ago = "".to_string();
-            if let Some(at) = self.relay.last_connected_at {
+            if let Some(at) = self.db_relay.last_connected_at {
                 ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
             } else {
                 ago += "?";
@@ -320,23 +323,23 @@ impl<'a> RelayEntry<'a> {
             );
         }
 
-        {
+        if with_usage {
             // usage bits
             let mut usage: Vec<&'static str> = Vec::new();
-            if self.relay.has_usage_bits(DbRelay::READ | DbRelay::INBOX) {
+            if self.db_relay.has_usage_bits(DbRelay::READ | DbRelay::INBOX) {
                 usage.push("public read");
-            } else if self.relay.has_usage_bits(DbRelay::READ) {
+            } else if self.db_relay.has_usage_bits(DbRelay::READ) {
                 usage.push("private read");
             }
-            if self.relay.has_usage_bits(DbRelay::WRITE | DbRelay::OUTBOX) {
+            if self.db_relay.has_usage_bits(DbRelay::WRITE | DbRelay::OUTBOX) {
                 usage.push("public write");
-            } else if self.relay.has_usage_bits(DbRelay::WRITE) {
+            } else if self.db_relay.has_usage_bits(DbRelay::WRITE) {
                 usage.push("private write");
             }
-            if self.relay.has_usage_bits(DbRelay::ADVERTISE) {
+            if self.db_relay.has_usage_bits(DbRelay::ADVERTISE) {
                 usage.push("advertise")
             }
-            if self.relay.has_usage_bits(DbRelay::DISCOVER) {
+            if self.db_relay.has_usage_bits(DbRelay::DISCOVER) {
                 usage.push("discover")
             }
             let usage_str = usage
@@ -357,6 +360,14 @@ impl<'a> RelayEntry<'a> {
         }
     }
 
+    fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
+
+    }
+
+    fn paint_usage_settings(&self, ui: &mut Ui, rect: &Rect) {
+
+    }
+
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
     fn update_list_view(mut self, ui: &mut Ui) -> Response {
         let (rect, mut response) = self.allocate_list_view(ui);
@@ -366,7 +377,7 @@ impl<'a> RelayEntry<'a> {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
-            self.paint_stats(ui, &rect);
+            self.paint_stats(ui, &rect, true);
         }
 
         response
@@ -380,13 +391,16 @@ impl<'a> RelayEntry<'a> {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
             response |= self.paint_save_btn(ui, &rect);
+            self.paint_stats(ui, &rect, false);
+            self.paint_nip11(ui, &rect);
+            self.paint_usage_settings(ui, &rect);
         }
 
         response
     }
 }
 
-impl<'a> Widget for RelayEntry<'a> {
+impl Widget for RelayEntry {
     fn ui(self, ui: &mut Ui) -> Response {
         let response: Response;
         match self.view {

@@ -7,13 +7,13 @@ use egui::{Align, Context, Layout, Ui};
 use egui_winit::egui::{Id, ScrollArea, vec2, Sense};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let is_editing = app.relay_ui.edit.is_some();
+    let is_editing = app.relays.edit.is_some();
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.heading("Known Relays");
         ui.add_space(50.0);
         ui.set_enabled(!is_editing);
-        widgets::search_filter_field(ui, &mut app.relay_ui.search, 200.0);
+        widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
             relay_filter_combo(app, ui, "KnownRelaysFilterCombo".into());
@@ -54,54 +54,55 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .all_relays
         .iter()
         .map(|ri| ri.value().clone())
-        .filter(|ri| app.show_hidden_relays || !ri.hidden && filter_relay(&app.relay_ui, ri))
+        .filter(|ri| app.show_hidden_relays || !ri.hidden && filter_relay(&app.relays, ri))
         .collect();
 
     relays.sort_by(|a, b| {
-        super::sort_relay(&app.relay_ui, a, b)
+        super::sort_relay(&app.relays, a, b)
     });
 
     let scroll_size = ui.available_size_before_wrap();
     let id_source: Id = "KnowRelaysScroll".into();
-    let enable_scroll = app.relay_ui.edit.is_none() && !ScrollArea::is_scrolling(ui, id_source);
+    let enable_scroll = app.relays.edit.is_none() && !ScrollArea::is_scrolling(ui, id_source);
 
     ScrollArea::vertical()
         .id_source(id_source)
         .show(ui, |ui| {
             let mut pos_last_entry = ui.cursor().left_top();
 
-            for relay in relays {
-                let edit = if let Some(edit_url) = &app.relay_ui.edit {
-                    edit_url == &relay.url
+            for db_relay in relays {
+                let db_url = db_relay.url.clone();
+                let edit = if let Some(edit_url) = &app.relays.edit {
+                    edit_url == &db_relay.url
                 } else {
                     false
                 };
                 let enabled = edit || !is_editing;
-                let mut widget =
-                    widgets::RelayEntry::new(&relay)
-                        .edit(edit)
-                        .set_active(enabled)
-                        .accent(app.settings.theme.accent_color())
-                        .option_symbol(&app.options_symbol);
-                if let Some(ref assignment) =
-                    GLOBALS.relay_picker.get_relay_assignment(&relay.url)
+                let widget = if let Some(widget) = app.relays.get(&db_relay.url) {
+                    widget
+                } else {
+                    app.relays.create(db_relay, app.settings.theme.accent_color(), app.options_symbol.clone())
+                };
+                widget.set_edit(edit);
+                widget.set_active(enabled);
+                if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url)
                 {
-                    widget = widget.user_count(assignment.pubkeys.len());
+                    widget.set_user_count(assignment.pubkeys.len());
                 }
-                let response = ui.add_enabled(enabled, widget);
+                let response = ui.add_enabled(enabled, widget.clone());
                 if response.clicked() {
                     if !edit {
-                        app.relay_ui.edit = Some(relay.url);
+                        app.relays.edit = Some(db_url);
                         response.scroll_to_me(Some(egui::Align::Center));
                     } else {
-                        app.relay_ui.edit = None;
+                        app.relays.edit = None;
                     }
                 }
                 pos_last_entry = response.rect.left_top();
             }
 
             // add enough space to show the last relay entry at the top when editing
-            if app.relay_ui.edit.is_some() {
+            if app.relays.edit.is_some() {
                 let desired_size = scroll_size - vec2( 0.0 , ui.cursor().top() - pos_last_entry.y);
                 ui.allocate_exact_size(desired_size, Sense::hover());
             }

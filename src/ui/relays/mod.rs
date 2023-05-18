@@ -1,31 +1,52 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashMap, option};
 
 use crate::db::DbRelay;
 
-use super::{GossipUi, Page};
+use super::{GossipUi, Page, widgets::RelayEntry};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id, Rect};
-use nostr_types::RelayUrl;
+use egui_winit::egui::{Id, Rect, TextureHandle, Color32};
+use nostr_types::{RelayUrl, Url};
 
 mod activity;
 mod known;
 
 pub(super) struct RelayUi {
+    /// A cached list of relay entries
+    /// so we can save some state like NIP-11 information
+    relays: HashMap<RelayUrl,RelayEntry>,
+    /// text of search field
     search: String,
+    /// how to sort relay entries
     sort: RelaySorting,
+    /// which relays to include in the list
     filter: RelayFilter,
+    /// an optional relay url
     edit: Option<RelayUrl>,
 }
 
 impl RelayUi {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
+            relays: HashMap::new(),
             search: String::new(),
             sort: RelaySorting::default(),
             filter: RelayFilter::default(),
             edit: None,
         }
+    }
+
+    pub(self) fn get(&mut self, url: &RelayUrl) -> Option<&mut RelayEntry> {
+        self.relays.get_mut(url)
+    }
+
+    pub(self) fn create(&mut self, db_relay: DbRelay, accent: Color32, option_symbol: TextureHandle) -> &mut RelayEntry {
+        let db_url = db_relay.url.clone();
+        let relay_entry = RelayEntry::new(db_relay)
+                .accent(accent)
+                .option_symbol(option_symbol);
+        self.relays.insert(db_url.clone(), relay_entry);
+        self.relays.get_mut(&db_url).unwrap()
     }
 }
 
@@ -128,30 +149,30 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui, id: Id) {
     let sort_combo = egui::ComboBox::from_id_source(id);
     sort_combo
         .width(130.0)
-        .selected_text(app.relay_ui.sort.get_name())
+        .selected_text(app.relays.sort.get_name())
         .show_ui(ui, |ui| {
             ui.selectable_value(
-                &mut app.relay_ui.sort,
+                &mut app.relays.sort,
                 RelaySorting::HighestFollowingFirst,
                 RelaySorting::HighestFollowingFirst.get_name(),
             );
             ui.selectable_value(
-                &mut app.relay_ui.sort,
+                &mut app.relays.sort,
                 RelaySorting::HighestSuccessRateFirst,
                 RelaySorting::HighestSuccessRateFirst.get_name(),
             );
             ui.selectable_value(
-                &mut app.relay_ui.sort,
+                &mut app.relays.sort,
                 RelaySorting::LowestSuccessRateFirst,
                 RelaySorting::LowestSuccessRateFirst.get_name(),
             );
             ui.selectable_value(
-                &mut app.relay_ui.sort,
+                &mut app.relays.sort,
                 RelaySorting::WriteRelaysFirst,
                 RelaySorting::WriteRelaysFirst.get_name(),
             );
             ui.selectable_value(
-                &mut app.relay_ui.sort,
+                &mut app.relays.sort,
                 RelaySorting::AdvertiseRelaysFirst,
                 RelaySorting::AdvertiseRelaysFirst.get_name(),
             );
@@ -164,30 +185,30 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui, id: Id) {
 pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui, id: Id) {
     let filter_combo = egui::ComboBox::from_id_source(id);
     filter_combo
-        .selected_text(app.relay_ui.filter.get_name())
+        .selected_text(app.relays.filter.get_name())
         .show_ui(ui, |ui| {
             ui.selectable_value(
-                &mut app.relay_ui.filter,
+                &mut app.relays.filter,
                 RelayFilter::All,
                 RelayFilter::All.get_name(),
             );
             ui.selectable_value(
-                &mut app.relay_ui.filter,
+                &mut app.relays.filter,
                 RelayFilter::Write,
                 RelayFilter::Write.get_name(),
             );
             ui.selectable_value(
-                &mut app.relay_ui.filter,
+                &mut app.relays.filter,
                 RelayFilter::Read,
                 RelayFilter::Read.get_name(),
             );
             ui.selectable_value(
-                &mut app.relay_ui.filter,
+                &mut app.relays.filter,
                 RelayFilter::Advertise,
                 RelayFilter::Advertise.get_name(),
             );
             ui.selectable_value(
-                &mut app.relay_ui.filter,
+                &mut app.relays.filter,
                 RelayFilter::Private,
                 RelayFilter::Private.get_name(),
             );
@@ -206,7 +227,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &DbRelay, b: &DbRelay) -> Ordering {
         RelaySorting::AdvertiseRelaysFirst => b.has_usage_bits(DbRelay::ADVERTISE)
                                                 .cmp(&a.has_usage_bits(DbRelay::ADVERTISE))
                                                 .then(a.url.cmp(&b.url)),
-        RelaySorting::HighestFollowingFirst => Ordering::Equal, // FIXME need following numbers here
+        RelaySorting::HighestFollowingFirst => a.url.cmp(&b.url), // FIXME need following numbers here
         RelaySorting::HighestSuccessRateFirst => b.success_rate()
                                                 .total_cmp(&a.success_rate())
                                                 .then(a.url.cmp(&b.url)),

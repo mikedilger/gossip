@@ -183,7 +183,7 @@ struct GossipUi {
     notes: Notes,
 
     // RelayUi
-    relay_ui: relays::RelayUi,
+    relays: relays::RelayUi,
 
     // Post rendering
     render_raw: Option<Id>,
@@ -396,7 +396,7 @@ impl GossipUi {
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
             notes: Notes::new(),
-            relay_ui: relays::RelayUi::new(),
+            relays: relays::RelayUi::new(),
             render_raw: None,
             render_qr: None,
             approved: HashSet::new(),
