@@ -14,10 +14,12 @@ use egui_winit::egui::{vec2, Rect, Sense, Id, ScrollArea, Pos2};
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+    let is_editing = app.relay_ui.edit.is_some();
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.heading("Activity Monitor");
         ui.add_space(50.0);
+        ui.set_enabled(!is_editing);
         widgets::search_filter_field(ui, &mut app.relay_ui.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
@@ -51,7 +53,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     egui::ScrollArea::vertical()
         .id_source(id_source)
-        .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
             let mut pos_last_entry = ui.cursor().left_top();
 
@@ -61,21 +62,22 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 } else {
                     false
                 };
+                let enabled = edit || !is_editing;
                 let mut widget =
                     widgets::RelayEntry::new(&relay)
                         .edit(edit)
-                        .set_active(edit || app.relay_ui.edit.is_none())
+                        .set_active(enabled)
                         .accent(app.settings.theme.accent_color())
                         .option_symbol(&app.options_symbol);
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&relay.url)
                 {
                     widget = widget.user_count(assignment.pubkeys.len());
                 }
-                let response = ui.add(widget);
+                let response = ui.add_enabled(enabled, widget);
                 if response.clicked() {
                     if !edit {
                         app.relay_ui.edit = Some(relay.url);
-                        response.scroll_to_me(Some(egui::Align::TOP));
+                        response.scroll_to_me(Some(egui::Align::Center));
                     } else {
                         app.relay_ui.edit = None;
                     }

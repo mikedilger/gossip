@@ -139,17 +139,12 @@ impl<'a> RelayEntry<'a> {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
         let text = RichText::new(self.relay.url.as_str()).size(16.5);
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
-        let color = if self.active {
-            self.accent.unwrap_or(ui.visuals().text_color())
-        } else {
-            ui.visuals().widgets.inactive.fg_stroke.color
-        };
         draw_text_at(
             ui,
             pos,
             text.into(),
             Align::LEFT,
-            Some(color),
+            Some(self.accent.unwrap_or(ui.visuals().text_color())),
             None,
         );
     }
@@ -161,17 +156,6 @@ impl<'a> RelayEntry<'a> {
             rect: outer_rect,
             rounding: self.rounding,
             fill: self.fill.unwrap_or(ui.style().visuals.faint_bg_color),
-            stroke: self.stroke.unwrap_or(Stroke::NONE),
-        });
-    }
-
-    fn paint_overlay(&self, ui: &mut Ui, rect: &Rect) {
-        let mut outer_rect = rect.shrink2(vec2(0.0, MARGIN_TOP));
-        outer_rect.set_right(outer_rect.right() - MARGIN_RIGHT); // margin
-        ui.painter().add(epaint::RectShape {
-            rect: outer_rect,
-            rounding: self.rounding,
-            fill: Color32::from_white_alpha(0x80),
             stroke: self.stroke.unwrap_or(Stroke::NONE),
         });
     }
@@ -383,11 +367,6 @@ impl<'a> RelayEntry<'a> {
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
-
-            /// overlay if not active
-            if !self.active {
-                self.paint_overlay(ui, &rect);
-            }
         }
 
         response
