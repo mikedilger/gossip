@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::hash::Hash;
 
 use super::{
     filter_relay, relay_filter_combo, relay_sort_combo, GossipUi, RelayFilter, RelaySorting,
@@ -9,7 +10,7 @@ use crate::ui::widgets;
 use crate::{comms::ToOverlordMessage, ui::widgets::NavItem};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{vec2, Rect, Sense};
+use egui_winit::egui::{vec2, Rect, Sense, Id, ScrollArea, Pos2};
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -44,23 +45,42 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         super::sort_relay(&app.relay_ui, a, b)
     });
 
+    let scroll_size = ui.available_size_before_wrap();
+    let id_source: Id = "RelayActivityMonitorScroll".into();
+    let enable_scroll = app.relay_ui.edit.is_none() && !ScrollArea::is_scrolling(ui, id_source);
+
     egui::ScrollArea::vertical()
-        .id_source("relay_coverage")
-        .override_scroll_delta(egui::Vec2 {
-            x: 0.0,
-            y: app.current_scroll_offset,
-        })
+        .id_source(id_source)
+        .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
+            let mut pos_last_entry = ui.cursor().left_top();
+
             for relay in relays {
+                let edit = if let Some(edit_url) = &app.relay_ui.edit {
+                    edit_url == &relay.url
+                } else {
+                    false
+                };
                 let mut widget =
                     widgets::RelayEntry::new(&relay)
+                        .edit(edit)
+                        .set_active(edit || app.relay_ui.edit.is_none())
                         .accent(app.settings.theme.accent_color())
                         .option_symbol(&app.options_symbol);
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&relay.url)
                 {
                     widget = widget.user_count(assignment.pubkeys.len());
                 }
-                ui.add(widget);
+                let response = ui.add(widget);
+                if response.clicked() {
+                    if !edit {
+                        app.relay_ui.edit = Some(relay.url);
+                        response.scroll_to_me(Some(egui::Align::TOP));
+                    } else {
+                        app.relay_ui.edit = None;
+                    }
+                }
+                pos_last_entry = response.rect.left_top();
             }
 
             ui.add_space(10.0);
@@ -83,6 +103,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 }
             } else {
                 ui.label("All followed people are fully covered.".to_owned());
+            }
+
+            // add enough space to show the last relay entry at the top when editing
+            if app.relay_ui.edit.is_some() {
+                let desired_size = scroll_size - vec2( 0.0 , ui.cursor().top() - pos_last_entry.y);
+                ui.allocate_exact_size(desired_size, Sense::hover());
             }
         });
 }

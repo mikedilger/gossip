@@ -22,7 +22,8 @@ const WRITE_HOVER_TEXT: &str =
 const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
 const ADVERTISE_HOVER_TEXT: &str = "Where you advertise your relay list (inbox/outbox) to. It is recommended to advertise to lots of relays so that you can be found.";
 
-enum RelayEntryView {
+#[derive(Clone, PartialEq)]
+pub enum RelayEntryView {
     List,
     Edit,
 }
@@ -36,6 +37,7 @@ enum RelayEntryView {
 pub struct RelayEntry<'a> {
     relay: &'a DbRelay,
     view: RelayEntryView,
+    active: bool,
     user_count: Option<usize>,
     rounding: Rounding,
     fill: Option<Color32>,
@@ -50,6 +52,7 @@ impl<'a> RelayEntry<'a> {
         Self {
             relay,
             view: RelayEntryView::List,
+            active: true,
             user_count: None,
             rounding: Rounding::same(5.0),
             fill: None,
@@ -58,6 +61,18 @@ impl<'a> RelayEntry<'a> {
             highlight: None,
             option_symbol: None,
         }
+    }
+
+    pub fn edit(mut self, edit: bool) -> Self {
+        if edit {
+            self.view = RelayEntryView::Edit;
+        }
+        self
+    }
+
+    pub fn set_active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
     }
 
     pub fn user_count(mut self, count: usize) -> Self {
@@ -94,6 +109,10 @@ impl<'a> RelayEntry<'a> {
         self.option_symbol = Some(option_symbol);
         self
     }
+
+    pub fn view(&self) -> RelayEntryView {
+        self.view.clone()
+    }
 }
 
 impl<'a> RelayEntry<'a> {
@@ -107,15 +126,30 @@ impl<'a> RelayEntry<'a> {
         )
     }
 
+    fn allocate_edit_view(&self, ui: &mut Ui) -> (Rect, Response) {
+        let available_width = ui.available_size_before_wrap().x;
+        let height = 300.0;
+
+        ui.allocate_exact_size(
+            vec2(available_width, height),
+            Sense::focusable_noninteractive(),
+        )
+    }
+
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
         let text = RichText::new(self.relay.url.as_str()).size(16.5);
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
+        let color = if self.active {
+            self.accent.unwrap_or(ui.visuals().text_color())
+        } else {
+            ui.visuals().widgets.inactive.fg_stroke.color
+        };
         draw_text_at(
             ui,
             pos,
             text.into(),
             Align::LEFT,
-            Some(self.accent.unwrap_or(ui.visuals().text_color())),
+            Some(color),
             None,
         );
     }
@@ -131,24 +165,40 @@ impl<'a> RelayEntry<'a> {
         });
     }
 
-    fn paint_edit_btn(&self, ui: &mut Ui, rect: &Rect) {
+    fn paint_overlay(&self, ui: &mut Ui, rect: &Rect) {
+        let mut outer_rect = rect.shrink2(vec2(0.0, MARGIN_TOP));
+        outer_rect.set_right(outer_rect.right() - MARGIN_RIGHT); // margin
+        ui.painter().add(epaint::RectShape {
+            rect: outer_rect,
+            rounding: self.rounding,
+            fill: Color32::from_white_alpha(0x80),
+            stroke: self.stroke.unwrap_or(Stroke::NONE),
+        });
+    }
+
+    fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         if self.relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + MARGIN_TOP);
             let text = RichText::new("pick up & configure");
             let (galley, response) = allocate_text_right_align_at(ui, pos, text.into());
-            let (color, stroke) = if response.hovered() {
-                let color = self
-                    .accent
-                    .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-                (color, Stroke::new(1.0, color))
+            let (color, stroke) = if self.active {
+                if response.hovered() {
+                    let color = self
+                        .accent
+                        .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
+                    (color, Stroke::new(1.0, color))
+                } else {
+                    (ui.visuals().text_color(), Stroke::NONE)
+                }
             } else {
-                (ui.visuals().text_color(), Stroke::NONE)
+                (ui.visuals().widgets.inactive.fg_stroke.color, Stroke::NONE)
             };
-            if response.clicked() {
-                // TODO go to edit mode
+            if self.active && response.clicked() {
+                self.view = RelayEntryView::Edit;
             }
-            response.on_hover_cursor(CursorIcon::PointingHand);
+            response.clone().on_hover_cursor(CursorIcon::PointingHand);
             draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
+            return response;
         } else {
             let pos = rect.right_top() + vec2(-BTN_SIZE - TEXT_RIGHT, 10.0 + MARGIN_TOP);
             let btn_rect = Rect::from_min_size(pos, vec2(BTN_SIZE, BTN_SIZE));
@@ -159,7 +209,7 @@ impl<'a> RelayEntry<'a> {
             } else {
                 ui.visuals().text_color()
             };
-            response.on_hover_cursor(CursorIcon::PointingHand);
+            response.clone().on_hover_cursor(CursorIcon::PointingHand);
             if let Some(symbol) = self.option_symbol {
                 let mut mesh = Mesh::with_texture((symbol).into());
                 mesh.add_rect_with_uv(btn_rect.shrink(2.0), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), color);
@@ -168,7 +218,40 @@ impl<'a> RelayEntry<'a> {
                 let text = RichText::new("\u{2699}").size(20.0);
                 draw_text_at(ui, pos, text.into(), Align::LEFT, Some(color), None);
             }
+            return response;
         }
+    }
+
+    fn paint_save_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
+        let button_padding = ui.spacing().button_padding;
+        let text = WidgetText::from("Save and close").into_galley(ui, Some(false), 0.0, TextStyle::Button);
+        let mut desired_size = text.size() + 2.0 * button_padding;
+        desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
+        let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 -MARGIN_BOTTOM) - desired_size;
+        let btn_rect = Rect::from_min_size(pos, desired_size);
+        let response = ui.interact(
+            btn_rect,
+            ui.next_auto_id(),
+            Sense::click(),);
+        response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
+
+        let visuals = ui.style().interact(&response);
+
+        {
+            let fill = visuals.weak_bg_fill;
+            let stroke = visuals.bg_stroke;
+            let rounding = visuals.rounding;
+            ui.painter()
+                .rect(btn_rect.expand(visuals.expansion), rounding, fill, stroke);
+        }
+
+        let text_pos =
+            ui.layout()
+                .align_size_within_rect(text.size(), btn_rect.shrink2(button_padding))
+                .min;
+        text.paint_with_visuals(ui.painter(), text_pos, visuals);
+
+        return response;
     }
 
     fn paint_stats(&self, ui: &mut Ui, rect: &Rect) {
@@ -191,7 +274,7 @@ impl<'a> RelayEntry<'a> {
 
             // ---- Following ----
             let pos = pos + vec2(130.0, 0.0);
-            let mut active = true;
+            let mut active = self.active;
             let text = if let Some(count) = self.user_count {
                 RichText::new(format!("Following: {}", count))
             } else {
@@ -291,22 +374,35 @@ impl<'a> RelayEntry<'a> {
     }
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
-    fn update_list_view(self, ui: &mut Ui) -> Response {
-        let (rect, response) = self.allocate_list_view(ui);
+    fn update_list_view(mut self, ui: &mut Ui) -> Response {
+        let (rect, mut response) = self.allocate_list_view(ui);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
-            self.paint_edit_btn(ui, &rect);
+            response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
+
+            /// overlay if not active
+            if !self.active {
+                self.paint_overlay(ui, &rect);
+            }
         }
 
         response
     }
 
-    fn update_edit_view(self, ui: &mut Ui) -> Response {
-        let (_, response) = self.allocate_list_view(ui);
+    fn update_edit_view(mut self, ui: &mut Ui) -> Response {
+        let (rect, mut response) = self.allocate_edit_view(ui);
+
+        // all the heavy lifting is only done if it's actually visible
+        if ui.is_rect_visible(rect) {
+            self.paint_frame(ui, &rect);
+            self.paint_title(ui, &rect);
+            response |= self.paint_save_btn(ui, &rect);
+        }
+
         response
     }
 }

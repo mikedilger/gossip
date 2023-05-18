@@ -5,7 +5,8 @@ use crate::db::DbRelay;
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::Id;
+use egui_winit::egui::{Id, Rect};
+use nostr_types::RelayUrl;
 
 mod activity;
 mod known;
@@ -14,6 +15,7 @@ pub(super) struct RelayUi {
     search: String,
     sort: RelaySorting,
     filter: RelayFilter,
+    edit: Option<RelayUrl>,
 }
 
 impl RelayUi {
@@ -22,6 +24,7 @@ impl RelayUi {
             search: String::new(),
             sort: RelaySorting::default(),
             filter: RelayFilter::default(),
+            edit: None,
         }
     }
 }
@@ -37,7 +40,7 @@ pub(super) enum RelaySorting {
 
 impl Default for RelaySorting {
     fn default() -> Self {
-        RelaySorting::HighestFollowingFirst
+        RelaySorting::WriteRelaysFirst
     }
 }
 

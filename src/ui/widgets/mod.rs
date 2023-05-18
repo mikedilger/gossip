@@ -5,7 +5,7 @@ mod nav_item;
 pub use nav_item::NavItem;
 
 mod relay_entry;
-pub use relay_entry::RelayEntry;
+pub use relay_entry::{RelayEntry, RelayEntryView};
 
 use eframe::egui::widgets::TextEdit;
 use eframe::egui::{FontSelection, Ui, WidgetText};
