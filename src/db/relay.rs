@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Id, RelayUrl};
+use nostr_types::{Id, RelayInformationDocument, RelayUrl};
 use tokio::task::spawn_blocking;
 
 #[derive(Debug, Clone)]
@@ -13,6 +13,8 @@ pub struct DbRelay {
     pub rank: u64,
     pub hidden: bool,
     pub usage_bits: u64,
+    pub nip11: Option<RelayInformationDocument>,
+    pub last_attempt_nip11: Option<u64>,
 }
 
 impl DbRelay {
@@ -35,6 +37,8 @@ impl DbRelay {
             rank: 3,
             hidden: false,
             usage_bits: 0,
+            nip11: None,
+            last_attempt_nip11: None,
         }
     }
 
@@ -86,7 +90,8 @@ impl DbRelay {
 
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbRelay>, Error> {
         let sql = "SELECT url, success_count, failure_count, last_connected_at, \
-             last_general_eose_at, rank, hidden, usage_bits FROM relay"
+                   last_general_eose_at, rank, hidden, usage_bits, \
+                   nip11, last_attempt_nip11 FROM relay"
             .to_owned();
         let sql = match criteria {
             None => sql,
@@ -101,8 +106,12 @@ impl DbRelay {
             let mut output: Vec<DbRelay> = Vec::new();
             while let Some(row) = rows.next()? {
                 let s: String = row.get(0)?;
+
                 // just skip over invalid relay URLs
                 if let Ok(url) = RelayUrl::try_from_str(&s) {
+
+                    let nip11: Option<String> = row.get(8)?;
+
                     output.push(DbRelay {
                         url,
                         success_count: row.get(1)?,
@@ -112,6 +121,11 @@ impl DbRelay {
                         rank: row.get(5)?,
                         hidden: row.get(6)?,
                         usage_bits: row.get(7)?,
+                        nip11: match nip11 {
+                            None => None,
+                            Some(s) => serde_json::from_str(&s)?
+                        },
+                        last_attempt_nip11: row.get(9)?,
                     });
                 }
             }
@@ -134,8 +148,9 @@ impl DbRelay {
 
     pub async fn insert(relay: DbRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO relay (url, success_count, failure_count, \
-                   last_connected_at, last_general_eose_at, rank, hidden, usage_bits) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
+                   last_connected_at, last_general_eose_at, rank, hidden, usage_bits, \
+                   nip11, last_attempt_nip11) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)";
 
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
@@ -150,6 +165,11 @@ impl DbRelay {
                 &relay.rank,
                 &relay.hidden,
                 &relay.usage_bits,
+                match relay.nip11 {
+                    None => None,
+                    Some(n11) => Some(serde_json::to_string(&n11)?),
+                },
+                &relay.last_attempt_nip11,
             )));
             Ok::<(), Error>(())
         })
@@ -161,7 +181,7 @@ impl DbRelay {
     pub async fn update(relay: DbRelay) -> Result<(), Error> {
         let sql = "UPDATE relay SET success_count=?, failure_count=?, \
                    last_connected_at=?, last_general_eose_at=?, \
-                   rank=?, hidden=?, usage_bits=? \
+                   rank=?, hidden=?, usage_bits=?, nip11=?, last_attempt_nip11=? \
                    WHERE url=?";
 
         spawn_blocking(move || {
@@ -176,6 +196,11 @@ impl DbRelay {
                 &relay.rank,
                 &relay.hidden,
                 &relay.usage_bits,
+                match relay.nip11 {
+                    None => None,
+                    Some(n11) => Some(serde_json::to_string(&n11)?),
+                },
+                &relay.last_attempt_nip11,
                 &relay.url.0,
             )));
             Ok::<(), Error>(())
