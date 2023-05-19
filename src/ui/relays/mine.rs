@@ -1,16 +1,12 @@
-use std::collections::HashSet;
-
 use super::{
     filter_relay, relay_filter_combo, relay_sort_combo, GossipUi,
 };
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets::{self, RelayEntry};
-use crate::{comms::ToOverlordMessage};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, Sense};
-use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();

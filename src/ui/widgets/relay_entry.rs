@@ -1,5 +1,3 @@
-use std::fmt::LowerHex;
-
 //#![allow(dead_code)]
 use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
@@ -257,7 +255,7 @@ impl RelayEntry {
             let text = RichText::new("pick up & configure");
             let accent = self.accent
                 .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-            let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.active, accent);
+            let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.active,false, accent);
             if self.active && response.clicked() {
                 self.view = RelayEntryView::Edit;
             }
@@ -267,10 +265,10 @@ impl RelayEntry {
             let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
             let response = ui.interact(btn_rect, id, Sense::click());
             let color = if response.hovered() {
+                ui.visuals().text_color()
+            } else {
                 self.accent
                     .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color)
-            } else {
-                ui.visuals().text_color()
             };
             response.clone().on_hover_cursor(CursorIcon::PointingHand);
             if let Some(symbol) = &self.option_symbol {
@@ -292,7 +290,9 @@ impl RelayEntry {
     fn paint_close_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id: Id = (self.db_relay.url.to_string() + "close_btn").into();
         let button_padding = ui.spacing().button_padding;
-        let text = WidgetText::from("Close").into_galley(ui, Some(false), 0.0, TextStyle::Button);
+        let text = WidgetText::from("Close")
+            .color( ui.visuals().extreme_bg_color )
+            .into_galley(ui, Some(false), 0.0, TextStyle::Button);
         let mut desired_size = text.size() + 2.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
         let pos =
@@ -300,12 +300,13 @@ impl RelayEntry {
         let btn_rect = Rect::from_min_size(pos, desired_size);
         let response = ui.interact(btn_rect, id, Sense::click());
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
+        response.clone().on_hover_cursor(egui::CursorIcon::PointingHand);
 
         let visuals = ui.style().interact(&response);
-
+        let accent = self.accent.unwrap_or(ui.visuals().hyperlink_color);
         {
-            let fill = visuals.weak_bg_fill;
-            let stroke = visuals.bg_stroke;
+            let fill = accent;
+            let stroke = Stroke::new( visuals.bg_stroke.width, accent );
             let rounding = visuals.rounding;
             ui.painter()
                 .rect(btn_rect.expand(visuals.expansion), rounding, fill, stroke);
@@ -332,7 +333,7 @@ impl RelayEntry {
         let accent = self.accent.unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
         let id: Id = (self.db_relay.url.to_string() + "remove_button").into();
         let text = "Remove from personal list";
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, accent);
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, true, accent);
         if response.clicked() {
             // TODO remove relay
         }
@@ -340,7 +341,7 @@ impl RelayEntry {
         let pos = pos + vec2(200.0, 0.0);
         let id: Id = (self.db_relay.url.to_string() + "disconnect_button").into();
         let text = "Force disconnect";
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, accent);
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, true, accent);
         if response.clicked() {
             let _ = GLOBALS.to_overlord.send(
                 ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
@@ -380,7 +381,7 @@ impl RelayEntry {
             let id: Id = (self.db_relay.url.to_string() + "following_link").into();
             let accent = self.accent
                 .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-            let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, accent);
+            let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, true, accent);
             if response.clicked() {
                 // TODO go to following page for this relay?
             }
@@ -876,16 +877,32 @@ fn draw_text_galley_at(
     underline: Option<Stroke>,
 ) -> Rect {
     let size = galley.galley.rect.size();
+    let halign = galley.galley.job.halign;
     let color = color.or(Some(ui.visuals().text_color()));
-    let underline = underline.unwrap_or(Stroke::NONE);
     ui.painter().add(epaint::TextShape {
         pos,
         galley: galley.galley,
         override_text_color: color,
-        underline,
+        underline: Stroke::NONE,
         angle: 0.0,
     });
-    Rect::from_min_size(pos, size)
+    let rect = if halign == Align::LEFT {
+        Rect::from_min_size(pos, size)
+    } else {
+        Rect::from_x_y_ranges( pos.x - size.x ..= pos.x, pos.y ..= pos.y + size.y)
+    };
+    if let Some(stroke) = underline {
+        let stroke = Stroke::new( stroke.width, stroke.color.gamma_multiply(0.6));
+        let line_height = ui.fonts(|f| {
+            f.row_height(&FontId::default())
+        });
+        let painter = ui.painter();
+        painter.hline(
+           rect.min.x ..= rect.max.x,
+           rect.min.y + line_height - 2.0,
+           stroke);
+    }
+    rect
 }
 
 fn draw_text_at(
@@ -908,6 +925,7 @@ fn draw_link_at(
     text: WidgetText,
     align: Align,
     active: bool,
+    secondary: bool,
     hover_color: Color32,
 ) -> Response {
     let (galley, response) = if align == Align::Min {
@@ -915,14 +933,26 @@ fn draw_link_at(
     } else {
         allocate_text_right_align_at(ui, pos, text.into(), id)
     };
-    let (color, stroke) = if active {
-        if response.hovered() {
-            (hover_color, Stroke::new(1.0, hover_color))
+    let (color, stroke) = if !secondary {
+        if active {
+            if response.hovered() {
+                (ui.visuals().text_color(), Stroke::NONE)
+            } else {
+                (hover_color, Stroke::new(1.0, hover_color))
+            }
         } else {
-            (ui.visuals().text_color(), Stroke::NONE)
+            (ui.visuals().weak_text_color(), Stroke::NONE)
         }
     } else {
-        (ui.visuals().weak_text_color(), Stroke::NONE)
+        if active {
+            if response.hovered() {
+                (hover_color, Stroke::NONE)
+            } else {
+                (ui.visuals().text_color(), Stroke::new(1.0, ui.visuals().text_color()))
+            }
+        } else {
+            (ui.visuals().weak_text_color(), Stroke::NONE)
+        }
     };
     response.clone().on_hover_cursor(CursorIcon::PointingHand);
     draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));

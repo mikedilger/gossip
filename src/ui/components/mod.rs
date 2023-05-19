@@ -1,7 +1,6 @@
 use eframe::egui;
 use egui::{Label, Response, Sense, Ui};
-use egui_winit::egui::{Color32, Id, Rect};
-use qrcode::Color;
+use egui_winit::egui::{Color32, Id, Rect, Stroke};
 
 pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
     let mut emojis = "😀😁😆😅😂🤣\
@@ -141,11 +140,11 @@ pub fn switch_custom_at(
         } else {
             visuals.bg_stroke
         };
-        ui.painter().rect(rect, radius, bg_fill, visuals.bg_stroke);
+        ui.painter().rect(rect.shrink(1.0), radius, bg_fill, visuals.bg_stroke);
         let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
         let center = egui::pos2(circle_x, rect.center().y);
         ui.painter()
-            .circle(center, 0.875 * radius, knob_fill, fg_stroke);
+            .circle(center, 0.875 * radius, knob_fill, Stroke::new( 0.7, fg_stroke.color));
     }
 
     response
