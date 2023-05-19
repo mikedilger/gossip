@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap, option};
+use std::cmp::Ordering;
 
 use crate::db::DbRelay;
 
@@ -8,7 +8,8 @@ use egui::{Context, Ui};
 use egui_winit::egui::Id;
 use nostr_types::RelayUrl;
 
-mod activity;
+mod active;
+mod mine;
 mod known;
 
 pub(super) struct RelayUi {
@@ -119,7 +120,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 
     if app.page == Page::RelaysActivityMonitor {
-        activity::update(app, ctx, frame, ui);
+        active::update(app, ctx, frame, ui);
+    } else if app.page == Page::RelaysMine {
+        mine::update(app, ctx, frame, ui);
     } else if app.page == Page::RelaysKnownNetwork {
         known::update(app, ctx, frame, ui);
     }
@@ -128,11 +131,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 ///
 /// Draw relay sort comboBox
 ///
-pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui, id: Id) {
-    let sort_combo = egui::ComboBox::from_id_source(id);
+pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
+    let sort_combo = egui::ComboBox::from_id_source(Id::from("RelaySortCombo"));
     sort_combo
         .width(130.0)
-        .selected_text(app.relays.sort.get_name())
+        .selected_text("Sort by ".to_string() + app.relays.sort.get_name())
         .show_ui(ui, |ui| {
             ui.selectable_value(
                 &mut app.relays.sort,
@@ -165,8 +168,8 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui, id: Id) {
 ///
 /// Draw relay filter comboBox
 ///
-pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui, id: Id) {
-    let filter_combo = egui::ComboBox::from_id_source(id);
+pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
+    let filter_combo = egui::ComboBox::from_id_source(Id::from("RelayFilterCombo"));
     filter_combo
         .selected_text(app.relays.filter.get_name())
         .show_ui(ui, |ui| {

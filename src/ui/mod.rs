@@ -105,6 +105,7 @@ enum Page {
     YourMetadata,
     YourDelegation,
     RelaysActivityMonitor,
+    RelaysMine,
     RelaysKnownNetwork,
     Search,
     Settings,
@@ -775,7 +776,8 @@ impl eframe::App for GossipUi {
                         let (mut submenu, header_response) =
                             self.get_openable_menu( ui, SubMenu::Relays, "Relays");
                         submenu.show_body_indented(&header_response, ui, |ui| {
-                                self.add_menu_item_page(ui, Page::RelaysActivityMonitor, "Activity Monitor");
+                                self.add_menu_item_page(ui, Page::RelaysActivityMonitor, "Active Relays");
+                                self.add_menu_item_page(ui, Page::RelaysMine, "My Relays");
                                 self.add_menu_item_page(ui, Page::RelaysKnownNetwork, "Known Network");
                             });
                         self.after_openable_menu(ui, &submenu);
@@ -973,7 +975,7 @@ impl eframe::App for GossipUi {
                 Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                     you::update(self, ctx, frame, ui)
                 }
-                Page::RelaysActivityMonitor | Page::RelaysKnownNetwork => {
+                Page::RelaysActivityMonitor | Page::RelaysMine | Page::RelaysKnownNetwork => {
                     relays::update(self, ctx, frame, ui)
                 }
                 Page::Search => search::update(self, ctx, frame, ui),

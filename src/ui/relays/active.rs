@@ -16,15 +16,15 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     let is_editing = app.relays.edit.is_some();
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
-        ui.heading("Activity Monitor");
+        ui.heading("Active Relays");
         ui.add_space(50.0);
         ui.set_enabled(!is_editing);
         widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
-            relay_filter_combo(app, ui, "RelayActivityMonitorFilterCombo".into());
+            relay_filter_combo(app, ui);
             ui.add_space(20.0);
-            relay_sort_combo(app, ui, "RelayActivityMonitorSortCombo".into());
+            relay_sort_combo(app, ui);
         });
     });
     ui.add_space(10.0);
