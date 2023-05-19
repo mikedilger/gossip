@@ -3,14 +3,14 @@ use std::fmt::LowerHex;
 //#![allow(dead_code)]
 use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
-use nostr_types::{Unixtime, PublicKeyHex};
+use nostr_types::{PublicKeyHex, Unixtime};
 
 use crate::{comms::ToOverlordMessage, db::DbRelay, globals::GLOBALS, ui::components};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 80.0;
 /// Height of the edit view (width always max. available)
-const EDIT_VIEW_HEIGHT: f32 = 300.0;
+const EDIT_VIEW_HEIGHT: f32 = 250.0;
 /// Spacing of frame: left
 const OUTER_MARGIN_LEFT: f32 = 0.0;
 /// Spacing of frame: right
@@ -25,14 +25,22 @@ const TEXT_LEFT: f32 = 20.0;
 const TEXT_RIGHT: f32 = 25.0;
 /// Start of text (excl. outer margin): top
 const TEXT_TOP: f32 = 15.0;
+/// Y-offset for first separator
+const HLINE_1_Y_OFFSET: f32 = 57.0;
+/// Y-offset for second separator
+const HLINE_2_Y_OFFSET: f32 = 190.0;
 /// Size of edit button
 const EDIT_BTN_SIZE: f32 = 20.0;
 /// Spacing of stats row to heading
 const STATS_Y_SPACING: f32 = 30.0;
+/// Distance of usage switch-left from TEXT_RIGHT
+const USAGE_SWITCH_PULL_RIGHT: f32 = 300.0;
 /// Spacing of usage switches: y direction
 const USAGE_SWITCH_Y_SPACING: f32 = 30.0;
+/// Spacing of usage switches: x direction
+const USAGE_SWITCH_X_SPACING: f32 = 150.0;
 /// Center offset of switch to text
-const USAGE_SWITCH_Y_OFFSET: f32 = 2.0;
+const USAGE_SWITCH_Y_OFFSET: f32 = 2.5;
 /// Spacing between nip11 text rows
 const NIP11_Y_SPACING: f32 = 20.0;
 /// Copy symbol for nip11 items copy button
@@ -113,7 +121,6 @@ pub struct RelayEntry {
     user_count: Option<usize>,
     usage: UsageBits,
     rounding: Rounding,
-    fill: Option<Color32>,
     stroke: Option<Stroke>,
     accent: Option<Color32>,
     highlight: Option<Color32>,
@@ -130,7 +137,6 @@ impl RelayEntry {
             user_count: None,
             usage,
             rounding: Rounding::same(5.0),
-            fill: None,
             stroke: None,
             accent: None,
             highlight: None,
@@ -156,11 +162,6 @@ impl RelayEntry {
 
     pub fn rounding(mut self, rounding: Rounding) -> Self {
         self.rounding = rounding;
-        self
-    }
-
-    pub fn fill(mut self, fill: Color32) -> Self {
-        self.fill = Some(fill);
         self
     }
 
@@ -224,12 +225,12 @@ impl RelayEntry {
     fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
         let frame_rect = Rect::from_min_max(
             rect.min + vec2(OUTER_MARGIN_LEFT, OUTER_MARGIN_TOP),
-            rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM)
+            rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM),
         );
         let fill = if self.view == RelayEntryView::List {
-            self.fill.unwrap_or(ui.style().visuals.faint_bg_color)
+            ui.style().visuals.faint_bg_color
         } else {
-            Color32::WHITE
+            ui.style().visuals.extreme_bg_color
         };
         ui.painter().add(epaint::RectShape {
             rect: frame_rect,
@@ -293,11 +294,11 @@ impl RelayEntry {
     fn paint_close_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id: Id = (self.db_relay.url.to_string() + "close_btn").into();
         let button_padding = ui.spacing().button_padding;
-        let text =
-            WidgetText::from("Close").into_galley(ui, Some(false), 0.0, TextStyle::Button);
+        let text = WidgetText::from("Close").into_galley(ui, Some(false), 0.0, TextStyle::Button);
         let mut desired_size = text.size() + 2.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
-        let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - OUTER_MARGIN_BOTTOM) - desired_size;
+        let pos =
+            rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - OUTER_MARGIN_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
         let response = ui.interact(btn_rect, id, Sense::click());
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
@@ -468,7 +469,6 @@ impl RelayEntry {
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(desc) = &doc.description {
-                let mut desc = desc.clone();
                 let desc = safe_truncate(desc.as_str(), 200); // TODO is this a good number?
                 draw_text_at(ui, pos, desc.into(), align, None, None);
             }
@@ -476,7 +476,7 @@ impl RelayEntry {
             if let Some(pubkey) = &doc.pubkey {
                 if let Ok(pubhex) = PublicKeyHex::try_from_str(pubkey.as_str()) {
                     let npub = pubhex.as_bech32_string();
-                    draw_text_at(ui, pos, npub.clone().into(), align, None, None);
+                    let rect = draw_text_at(ui, pos, npub.clone().into(), align, None, None);
                     let id: Id = (self.db_relay.url.to_string() + "copy_nip11_npub").into();
                     let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
                     let text = RichText::new(COPY_SYMBOL);
@@ -495,7 +495,7 @@ impl RelayEntry {
             if doc.supported_nips.len() > 0 {
                 let mut text = "NIPS: ".to_string();
                 for nip in &doc.supported_nips {
-                    text.push_str(format!( " {},", *nip ).as_str());
+                    text.push_str(format!(" {},", *nip).as_str());
                 }
                 text.truncate(text.len() - 1); // safe because we built the string
                 draw_text_at(ui, pos, text.into(), align, None, None);
@@ -504,14 +504,26 @@ impl RelayEntry {
     }
 
     fn paint_usage_settings(&mut self, ui: &mut Ui, rect: &Rect) {
-        let pos = rect.right_top() + vec2(-TEXT_RIGHT - 250.0, TEXT_TOP + 70.0);
+        let knob_fill = ui.visuals().extreme_bg_color;
+        let on_fill = self.accent.unwrap_or(ui.visuals().widgets.active.bg_fill);
+        let off_fill = ui.visuals().widgets.inactive.bg_fill;
+        let pos = rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, TEXT_TOP + 70.0);
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
-        { // ---- advertise ----
+        {
+            // ---- advertise ----
             let id: Id = (self.db_relay.url.to_string() + "advertise_switch").into();
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
-            if components::switch_with_size_at(ui, &mut self.usage.advertise, switch_size, spos, id)
-                .changed()
-            {
+            let response = components::switch_custom_at(
+                ui,
+                &mut self.usage.advertise,
+                switch_size,
+                spos,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
@@ -520,6 +532,7 @@ impl RelayEntry {
                         self.usage.advertise,
                     ));
             }
+            response.on_hover_text(ADVERTISE_HOVER_TEXT);
             draw_text_at(
                 ui,
                 pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
@@ -530,12 +543,21 @@ impl RelayEntry {
             );
         }
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
-        { // ---- read ----
+        {
+            // ---- read ----
             let id: Id = (self.db_relay.url.to_string() + "read_switch").into();
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
-            if components::switch_with_size_at(ui, &mut self.usage.read, switch_size, spos, id)
-                .changed()
-            {
+            let response = components::switch_custom_at(
+                ui,
+                &mut self.usage.read,
+                switch_size,
+                spos,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
@@ -544,10 +566,147 @@ impl RelayEntry {
                         self.usage.read,
                     ));
             }
+            response.on_hover_text(READ_HOVER_TEXT);
             draw_text_at(
                 ui,
-                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 2.0),
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
                 "Read".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        {
+            // ---- inbox ----
+            let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
+            let id: Id = (self.db_relay.url.to_string() + "inbox_switch").into();
+            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let response = components::switch_custom_at(
+                ui,
+                &mut self.usage.inbox,
+                switch_size,
+                spos,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdjustRelayUsageBit(
+                        self.db_relay.url.clone(),
+                        DbRelay::INBOX,
+                        self.usage.inbox,
+                    ));
+            }
+            response.on_hover_text(INBOX_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Inbox".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+        {
+            // ---- write ----
+            let id: Id = (self.db_relay.url.to_string() + "write_switch").into();
+            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let response = components::switch_custom_at(
+                ui,
+                &mut self.usage.write,
+                switch_size,
+                spos,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdjustRelayUsageBit(
+                        self.db_relay.url.clone(),
+                        DbRelay::WRITE,
+                        self.usage.write,
+                    ));
+            }
+            response.on_hover_text(WRITE_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Write".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        {
+            // ---- outbox ----
+            let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
+            let id: Id = (self.db_relay.url.to_string() + "outbox_switch").into();
+            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let response = components::switch_custom_at(
+                ui,
+                &mut self.usage.outbox,
+                switch_size,
+                spos,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdjustRelayUsageBit(
+                        self.db_relay.url.clone(),
+                        DbRelay::OUTBOX,
+                        self.usage.outbox,
+                    ));
+            }
+            response.on_hover_text(OUTBOX_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Outbox".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+        {
+            // ---- discover ----
+            let id: Id = (self.db_relay.url.to_string() + "discover_switch").into();
+            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let response = components::switch_custom_at(
+                ui,
+                &mut self.usage.discover,
+                switch_size,
+                spos,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdjustRelayUsageBit(
+                        self.db_relay.url.clone(),
+                        DbRelay::DISCOVER,
+                        self.usage.discover,
+                    ));
+            }
+            response.on_hover_text(DISCOVER_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Discover".into(),
                 Align::LEFT,
                 Some(ui.visuals().text_color()),
                 None,
@@ -577,11 +736,12 @@ impl RelayEntry {
         if ui.is_rect_visible(rect) {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
-            response |= self.paint_close_btn(ui, &rect);
             self.paint_stats(ui, &rect, false);
+            paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
             self.paint_nip11(ui, &rect);
-            paint_hline(ui, &rect, 60.0);
             self.paint_usage_settings(ui, &rect);
+            paint_hline(ui, &rect, HLINE_2_Y_OFFSET);
+            response |= self.paint_close_btn(ui, &rect);
         }
 
         response
@@ -605,7 +765,7 @@ fn paint_hline(ui: &mut Ui, rect: &Rect, y_pos: f32) {
     painter.hline(
         (rect.left() + TEXT_LEFT + 1.0)..=(rect.right() - TEXT_RIGHT - 1.0),
         painter.round_to_pixel(rect.top() + TEXT_TOP + y_pos),
-        Stroke::new( 2.0, Color32::from_gray(0xE0)),
+        Stroke::new(2.0, ui.visuals().panel_fill),
     );
 }
 

@@ -1,6 +1,7 @@
 use eframe::egui;
 use egui::{Label, Response, Sense, Ui};
-use egui_winit::egui::{Rect, Id};
+use egui_winit::egui::{Color32, Id, Rect};
+use qrcode::Color;
 
 pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
     let mut emojis = "😀😁😆😅😂🤣\
@@ -65,6 +66,9 @@ pub fn switch_with_size_at(
         *on = !*on;
         response.mark_changed();
     }
+    response
+        .clone()
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
     response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *on, ""));
 
     if ui.is_rect_visible(rect) {
@@ -86,6 +90,53 @@ pub fn switch_with_size_at(
             visuals.fg_stroke.color,
             visuals.fg_stroke,
         );
+    }
+
+    response
+}
+
+pub fn switch_custom_at(
+    ui: &mut Ui,
+    on: &mut bool,
+    size: egui::Vec2,
+    pos: egui::Pos2,
+    id: Id,
+    knob_fill: Color32,
+    on_fill: Color32,
+    off_fill: Color32,
+) -> Response {
+    let rect = Rect::from_min_size(pos, size);
+    let mut response = ui.interact(rect, id, egui::Sense::click());
+    if response.clicked() {
+        *on = !*on;
+        response.mark_changed();
+    }
+    response
+        .clone()
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *on, ""));
+
+    if ui.is_rect_visible(rect) {
+        let how_on = ui.ctx().animate_bool(response.id, *on);
+        let visuals = ui.style().interact_selectable(&response, *on);
+
+        // skip expansion, keep tight
+        //let rect = rect.expand(visuals.expansion);
+
+        let radius = 0.5 * rect.height();
+        // bg_fill, bg_stroke, fg_stroke, expansion
+        let bg_fill = if visuals == ui.visuals().widgets.inactive {
+            visuals.bg_fill
+        } else if *on {
+            on_fill
+        } else {
+            off_fill
+        };
+        ui.painter().rect(rect, radius, bg_fill, visuals.bg_stroke);
+        let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
+        let center = egui::pos2(circle_x, rect.center().y);
+        ui.painter()
+            .circle(center, 0.875 * radius, knob_fill, visuals.fg_stroke);
     }
 
     response
