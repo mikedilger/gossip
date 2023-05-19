@@ -235,11 +235,7 @@ impl RelayEntry {
             rect.min + vec2(OUTER_MARGIN_LEFT, OUTER_MARGIN_TOP),
             rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM),
         );
-        let fill = if self.view == RelayEntryView::List {
-            ui.style().visuals.faint_bg_color
-        } else {
-            ui.style().visuals.extreme_bg_color
-        };
+        let fill = ui.style().visuals.extreme_bg_color;
         ui.painter().add(epaint::RectShape {
             rect: frame_rect,
             rounding: self.rounding,
