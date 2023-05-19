@@ -520,41 +520,6 @@ impl RelayEntry {
         let pos = rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, TEXT_TOP + 70.0);
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
         {
-            // ---- advertise ----
-            let id: Id = (self.db_relay.url.to_string() + "advertise_switch").into();
-            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
-            let response = components::switch_custom_at(
-                ui,
-                true,
-                &mut self.usage.advertise,
-                switch_size,
-                spos,
-                id,
-                knob_fill,
-                on_fill,
-                off_fill,
-            );
-            if response.changed() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.db_relay.url.clone(),
-                        DbRelay::ADVERTISE,
-                        self.usage.advertise,
-                    ));
-            }
-            response.on_hover_text(ADVERTISE_HOVER_TEXT);
-            draw_text_at(
-                ui,
-                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
-                "Share publicly".into(),
-                Align::LEFT,
-                Some(ui.visuals().text_color()),
-                None,
-            );
-        }
-        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
-        {
             // ---- read ----
             let id: Id = (self.db_relay.url.to_string() + "read_switch").into();
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
@@ -760,6 +725,41 @@ impl RelayEntry {
                 ui,
                 pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
                 "Discover".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+        {
+            // ---- advertise ----
+            let id: Id = (self.db_relay.url.to_string() + "advertise_switch").into();
+            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let response = components::switch_custom_at(
+                ui,
+                true,
+                &mut self.usage.advertise,
+                switch_size,
+                spos,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdjustRelayUsageBit(
+                        self.db_relay.url.clone(),
+                        DbRelay::ADVERTISE,
+                        self.usage.advertise,
+                    ));
+            }
+            response.on_hover_text(ADVERTISE_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Advertise".into(),
                 Align::LEFT,
                 Some(ui.visuals().text_color()),
                 None,
