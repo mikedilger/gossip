@@ -87,6 +87,8 @@ impl Minion {
 
         // Connect to the relay
         let websocket_stream = {
+
+            // Parse the URI
             let uri: http::Uri = self.url.0.parse::<Uri>()?;
             let mut parts: Parts = uri.into_parts();
             parts.scheme = match parts.scheme {
@@ -98,6 +100,8 @@ impl Minion {
                 None => Some(Scheme::HTTPS),
             };
             let uri = http::Uri::from_parts(parts)?;
+
+            // Fetch NIP-11 data
             let request_nip11_future = reqwest::Client::builder()
                 .timeout(std::time::Duration::new(30, 0))
                 .redirect(reqwest::redirect::Policy::none())
@@ -109,6 +113,7 @@ impl Minion {
                 .header("Accept", "application/nostr+json")
                 .send();
             let response = request_nip11_future.await?;
+            self.dbrelay.last_attempt_nip11 = Some(Unixtime::now().unwrap().0 as u64);
             let status = response.status();
             match Self::text_with_charset(response, "utf-8").await {
                 Ok(text) => {
@@ -123,6 +128,7 @@ impl Minion {
                             Ok(nip11) => {
                                 tracing::info!("{}: {}", &self.url, nip11);
                                 self.nip11 = Some(nip11);
+                                self.dbrelay.nip11 = self.nip11.clone();
                             }
                             Err(e) => {
                                 tracing::warn!(
@@ -139,6 +145,13 @@ impl Minion {
                     tracing::warn!("{}: Unable to read NIP-11 response: {}", &self.url, e);
                 }
             }
+
+            // Save updated NIP-11 data (even if it failed)
+            // in memory...
+            let _ = GLOBALS.all_relays.insert(self.url.clone(), self.dbrelay.clone());
+            // and in the database...
+            DbRelay::update(self.dbrelay.clone()).await?;
+
 
             let key: [u8; 16] = rand::random();
 
