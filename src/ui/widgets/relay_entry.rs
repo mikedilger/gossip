@@ -29,6 +29,8 @@ const TEXT_TOP: f32 = 15.0;
 const HLINE_1_Y_OFFSET: f32 = 57.0;
 /// Y-offset for second separator
 const HLINE_2_Y_OFFSET: f32 = 190.0;
+/// Thickness of separator
+const HLINE_THICKNESS: f32 = 1.5;
 /// Size of edit button
 const EDIT_BTN_SIZE: f32 = 20.0;
 /// Spacing of stats row to heading
@@ -41,6 +43,14 @@ const USAGE_SWITCH_Y_SPACING: f32 = 30.0;
 const USAGE_SWITCH_X_SPACING: f32 = 150.0;
 /// Center offset of switch to text
 const USAGE_SWITCH_Y_OFFSET: f32 = 2.5;
+/// Center offset of line to text
+const USAGE_LINE_Y_OFFSET: f32 = 7.25;
+/// Line start as left offset from second switch
+const USAGE_LINE_X_START: f32 = -60.0;
+/// Line end as left offset from second switch
+const USAGE_LINE_X_END: f32 = -10.0;
+/// Line thickness
+const USAGE_LINE_THICKNESS: f32 = 1.0;
 /// Spacing between nip11 text rows
 const NIP11_Y_SPACING: f32 = 20.0;
 /// Copy symbol for nip11 items copy button
@@ -515,6 +525,7 @@ impl RelayEntry {
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
+                true,
                 &mut self.usage.advertise,
                 switch_size,
                 spos,
@@ -549,6 +560,7 @@ impl RelayEntry {
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
+                true,
                 &mut self.usage.read,
                 switch_size,
                 spos,
@@ -565,6 +577,17 @@ impl RelayEntry {
                         DbRelay::READ,
                         self.usage.read,
                     ));
+                if self.usage.read == false {
+                    // if read was turned off, inbox must also be turned off
+                    self.usage.inbox = false;
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::AdjustRelayUsageBit(
+                            self.db_relay.url.clone(),
+                            DbRelay::INBOX,
+                            self.usage.inbox,
+                        ));
+                }
             }
             response.on_hover_text(READ_HOVER_TEXT);
             draw_text_at(
@@ -577,12 +600,20 @@ impl RelayEntry {
             );
         }
         {
+            // ---- connecting line ----
+            let start = pos + vec2(USAGE_SWITCH_X_SPACING + USAGE_LINE_X_START, USAGE_LINE_Y_OFFSET);
+            let end = pos + vec2(USAGE_SWITCH_X_SPACING + USAGE_LINE_X_END, USAGE_LINE_Y_OFFSET);
+            let painter = ui.painter();
+            painter.hline(start.x..=end.x, end.y, Stroke::new(USAGE_LINE_THICKNESS, ui.visuals().panel_fill));
+        }
+        {
             // ---- inbox ----
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
             let id: Id = (self.db_relay.url.to_string() + "inbox_switch").into();
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
+                self.usage.read,
                 &mut self.usage.inbox,
                 switch_size,
                 spos,
@@ -617,6 +648,7 @@ impl RelayEntry {
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
+                true,
                 &mut self.usage.write,
                 switch_size,
                 spos,
@@ -633,6 +665,18 @@ impl RelayEntry {
                         DbRelay::WRITE,
                         self.usage.write,
                     ));
+
+                if self.usage.write == false {
+                    // if write was turned off, outbox must also be turned off
+                    self.usage.outbox = false;
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::AdjustRelayUsageBit(
+                            self.db_relay.url.clone(),
+                            DbRelay::OUTBOX,
+                            self.usage.outbox,
+                        ));
+                }
             }
             response.on_hover_text(WRITE_HOVER_TEXT);
             draw_text_at(
@@ -645,12 +689,20 @@ impl RelayEntry {
             );
         }
         {
+            // ---- connecting line ----
+            let start = pos + vec2(USAGE_SWITCH_X_SPACING + USAGE_LINE_X_START, USAGE_LINE_Y_OFFSET);
+            let end = pos + vec2(USAGE_SWITCH_X_SPACING + USAGE_LINE_X_END, USAGE_LINE_Y_OFFSET);
+            let painter = ui.painter();
+            painter.hline(start.x..=end.x, end.y, Stroke::new(USAGE_LINE_THICKNESS, ui.visuals().panel_fill));
+        }
+        {
             // ---- outbox ----
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
             let id: Id = (self.db_relay.url.to_string() + "outbox_switch").into();
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
+                self.usage.write,
                 &mut self.usage.outbox,
                 switch_size,
                 spos,
@@ -685,6 +737,7 @@ impl RelayEntry {
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
+                true,
                 &mut self.usage.discover,
                 switch_size,
                 spos,
@@ -765,7 +818,7 @@ fn paint_hline(ui: &mut Ui, rect: &Rect, y_pos: f32) {
     painter.hline(
         (rect.left() + TEXT_LEFT + 1.0)..=(rect.right() - TEXT_RIGHT - 1.0),
         painter.round_to_pixel(rect.top() + TEXT_TOP + y_pos),
-        Stroke::new(2.0, ui.visuals().panel_fill),
+        Stroke::new(HLINE_THICKNESS, ui.visuals().panel_fill),
     );
 }
 

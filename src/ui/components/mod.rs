@@ -97,7 +97,8 @@ pub fn switch_with_size_at(
 
 pub fn switch_custom_at(
     ui: &mut Ui,
-    on: &mut bool,
+    enabled: bool,
+    value: &mut bool,
     size: egui::Vec2,
     pos: egui::Pos2,
     id: Id,
@@ -106,37 +107,45 @@ pub fn switch_custom_at(
     off_fill: Color32,
 ) -> Response {
     let rect = Rect::from_min_size(pos, size);
-    let mut response = ui.interact(rect, id, egui::Sense::click());
+    let sense = if enabled { egui::Sense::click() } else { egui::Sense::hover() };
+    let mut response = ui.interact(rect, id, sense);
     if response.clicked() {
-        *on = !*on;
+        *value = !*value;
         response.mark_changed();
     }
-    response
-        .clone()
-        .on_hover_cursor(egui::CursorIcon::PointingHand);
-    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *on, ""));
+    if enabled { response.clone().on_hover_cursor(egui::CursorIcon::PointingHand); }
+    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *value, ""));
 
     if ui.is_rect_visible(rect) {
-        let how_on = ui.ctx().animate_bool(response.id, *on);
-        let visuals = ui.style().interact_selectable(&response, *on);
+        let how_on = ui.ctx().animate_bool(response.id, *value);
+        let visuals = if enabled {
+            ui.style().interact_selectable(&response, *value)
+        } else {
+            ui.visuals().widgets.inactive
+        };
 
         // skip expansion, keep tight
         //let rect = rect.expand(visuals.expansion);
 
         let radius = 0.5 * rect.height();
         // bg_fill, bg_stroke, fg_stroke, expansion
-        let bg_fill = if visuals == ui.visuals().widgets.inactive {
+        let bg_fill = if !enabled {
             visuals.bg_fill
-        } else if *on {
+        } else if *value {
             on_fill
         } else {
             off_fill
+        };
+        let fg_stroke = if enabled {
+            visuals.fg_stroke
+        } else {
+            visuals.bg_stroke
         };
         ui.painter().rect(rect, radius, bg_fill, visuals.bg_stroke);
         let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
         let center = egui::pos2(circle_x, rect.center().y);
         ui.painter()
-            .circle(center, 0.875 * radius, knob_fill, visuals.fg_stroke);
+            .circle(center, 0.875 * radius, knob_fill, fg_stroke);
     }
 
     response
