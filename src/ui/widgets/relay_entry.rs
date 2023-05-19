@@ -415,7 +415,36 @@ impl RelayEntry {
         }
     }
 
-    fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {}
+    fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
+        let align = egui::Align::LEFT;
+        let pos = rect.left_top() + vec2(TEXT_LEFT, TEXT_TOP + 70.0 + 3.0);
+        if let Some(doc) = &self.db_relay.nip11 {
+            if let Some(contact) = &doc.contact {
+                let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
+                let id: Id = (self.db_relay.url.to_string() + "copy_nip11_contact").into();
+                let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
+                let text = RichText::new("\u{2398}");
+                let (galley, response) = allocate_text_at(ui, pos, text.into(), id);
+                if response.clicked() {
+                    ui.output_mut(|o| {
+                        o.copied_text = contact.to_string();
+                        *GLOBALS.status_message.blocking_write() = "copied to clipboard".into();
+                    });
+                }
+                response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                draw_text_galley_at(ui, pos, galley, None, None);
+            }
+            let pos = pos + vec2(0.0, 30.0);
+            if let Some(desc) = &doc.description {
+                let mut desc = desc.clone();
+                desc.truncate(200); // TODO is this a good number?
+                draw_text_at(ui, pos, desc.into(), align, None, None);
+            }
+            if let Some(pubkey) = &doc.pubkey {
+
+            }
+        }
+    }
 
     fn paint_usage_settings(&mut self, ui: &mut Ui, rect: &Rect) {
         let pos = rect.right_top() + vec2(-TEXT_RIGHT - 250.0, TEXT_TOP + 70.0);
@@ -573,6 +602,7 @@ fn draw_text_galley_at(
     underline: Option<Stroke>,
 ) -> Rect {
     let size = galley.galley.rect.size();
+    let color = color.or(Some(ui.visuals().text_color()));
     let underline = underline.unwrap_or(Stroke::NONE);
     ui.painter().add(epaint::TextShape {
         pos,
@@ -593,5 +623,6 @@ fn draw_text_at(
     underline: Option<Stroke>,
 ) -> Rect {
     let galley = text_to_galley(ui, text, align);
+    let color = color.or(Some(ui.visuals().text_color()));
     draw_text_galley_at(ui, pos, galley, color, underline)
 }
