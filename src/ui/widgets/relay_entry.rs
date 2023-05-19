@@ -1,18 +1,44 @@
+use std::fmt::LowerHex;
+
 //#![allow(dead_code)]
 use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
-use nostr_types::Unixtime;
+use nostr_types::{Unixtime, PublicKeyHex};
 
 use crate::{comms::ToOverlordMessage, db::DbRelay, globals::GLOBALS, ui::components};
 
-const MARGIN_LEFT: f32 = 0.0;
-const MARGIN_RIGHT: f32 = 5.0;
-const MARGIN_TOP: f32 = 5.0;
-const MARGIN_BOTTOM: f32 = 5.0;
+/// Height of the list view (width always max. available)
+const LIST_VIEW_HEIGHT: f32 = 80.0;
+/// Height of the edit view (width always max. available)
+const EDIT_VIEW_HEIGHT: f32 = 300.0;
+/// Spacing of frame: left
+const OUTER_MARGIN_LEFT: f32 = 0.0;
+/// Spacing of frame: right
+const OUTER_MARGIN_RIGHT: f32 = 5.0;
+/// Spacing of frame: top
+const OUTER_MARGIN_TOP: f32 = 5.0;
+/// Spacing of frame: bottom
+const OUTER_MARGIN_BOTTOM: f32 = 5.0;
+/// Start of text (excl. outer margin): left
 const TEXT_LEFT: f32 = 20.0;
+/// Start of text (excl. outer margin): right
 const TEXT_RIGHT: f32 = 25.0;
+/// Start of text (excl. outer margin): top
 const TEXT_TOP: f32 = 15.0;
-const BTN_SIZE: f32 = 20.0;
+/// Size of edit button
+const EDIT_BTN_SIZE: f32 = 20.0;
+/// Spacing of stats row to heading
+const STATS_Y_SPACING: f32 = 30.0;
+/// Spacing of usage switches: y direction
+const USAGE_SWITCH_Y_SPACING: f32 = 30.0;
+/// Center offset of switch to text
+const USAGE_SWITCH_Y_OFFSET: f32 = 2.0;
+/// Spacing between nip11 text rows
+const NIP11_Y_SPACING: f32 = 20.0;
+/// Copy symbol for nip11 items copy button
+const COPY_SYMBOL: &'static str = "\u{2398}";
+/// Max length of title string
+const TITLE_MAX_LEN: usize = 50;
 
 const READ_HOVER_TEXT: &str = "Where you actually read events from (including those tagging you, but also for other purposes).";
 const INBOX_HOVER_TEXT: &str = "Where you tell others you read from. You should also check Read. These relays shouldn't require payment. It is recommended to have a few.";
@@ -166,20 +192,24 @@ impl RelayEntry {
 impl RelayEntry {
     fn allocate_list_view(&self, ui: &mut Ui) -> (Rect, Response) {
         let available_width = ui.available_size_before_wrap().x;
-        let height = 80.0;
+        let height = LIST_VIEW_HEIGHT;
 
         ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
     }
 
     fn allocate_edit_view(&self, ui: &mut Ui) -> (Rect, Response) {
         let available_width = ui.available_size_before_wrap().x;
-        let height = 300.0;
+        let height = EDIT_VIEW_HEIGHT;
 
         ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
     }
 
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let text = RichText::new(self.db_relay.url.as_str()).size(16.5);
+        let mut title = safe_truncate(self.db_relay.url.as_str(), TITLE_MAX_LEN).to_string();
+        if self.db_relay.url.0.len() > TITLE_MAX_LEN {
+            title.push_str("\u{2026}"); // append ellipsis
+        }
+        let text = RichText::new(title).size(16.5);
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
         draw_text_at(
             ui,
@@ -192,15 +222,17 @@ impl RelayEntry {
     }
 
     fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
-        let mut outer_rect = rect.shrink2(vec2(0.0, MARGIN_TOP));
-        outer_rect.set_right(outer_rect.right() - MARGIN_RIGHT); // margin
+        let frame_rect = Rect::from_min_max(
+            rect.min + vec2(OUTER_MARGIN_LEFT, OUTER_MARGIN_TOP),
+            rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM)
+        );
         let fill = if self.view == RelayEntryView::List {
             self.fill.unwrap_or(ui.style().visuals.faint_bg_color)
         } else {
             Color32::WHITE
         };
         ui.painter().add(epaint::RectShape {
-            rect: outer_rect,
+            rect: frame_rect,
             rounding: self.rounding,
             fill,
             stroke: self.stroke.unwrap_or(Stroke::NONE),
@@ -210,7 +242,7 @@ impl RelayEntry {
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id: Id = (self.db_relay.url.to_string() + "edit_btn").into();
         if self.db_relay.usage_bits == 0 {
-            let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + MARGIN_TOP);
+            let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let text = RichText::new("pick up & configure");
             let (galley, response) = allocate_text_right_align_at(ui, pos, text.into(), id);
             let (color, stroke) = if self.active {
@@ -232,8 +264,8 @@ impl RelayEntry {
             draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
             return response;
         } else {
-            let pos = rect.right_top() + vec2(-BTN_SIZE - TEXT_RIGHT, 10.0 + MARGIN_TOP);
-            let btn_rect = Rect::from_min_size(pos, vec2(BTN_SIZE, BTN_SIZE));
+            let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
+            let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
             let response = ui.interact(btn_rect, id, Sense::click());
             let color = if response.hovered() {
                 self.accent
@@ -265,7 +297,7 @@ impl RelayEntry {
             WidgetText::from("Close").into_galley(ui, Some(false), 0.0, TextStyle::Button);
         let mut desired_size = text.size() + 2.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
-        let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - MARGIN_BOTTOM) - desired_size;
+        let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - OUTER_MARGIN_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
         let response = ui.interact(btn_rect, id, Sense::click());
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
@@ -296,7 +328,7 @@ impl RelayEntry {
     fn paint_stats(&self, ui: &mut Ui, rect: &Rect, with_usage: bool) {
         {
             // ---- Success Rate ----
-            let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + 30.0);
+            let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + STATS_Y_SPACING);
             let text = RichText::new(format!(
                 "Rate: {:.0}% ({})",
                 self.db_relay.success_rate() * 100.0,
@@ -417,13 +449,13 @@ impl RelayEntry {
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
         let align = egui::Align::LEFT;
-        let pos = rect.left_top() + vec2(TEXT_LEFT, TEXT_TOP + 70.0 + 3.0);
+        let pos = rect.left_top() + vec2(TEXT_LEFT, TEXT_TOP + 70.0);
         if let Some(doc) = &self.db_relay.nip11 {
             if let Some(contact) = &doc.contact {
                 let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
                 let id: Id = (self.db_relay.url.to_string() + "copy_nip11_contact").into();
                 let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
-                let text = RichText::new("\u{2398}");
+                let text = RichText::new(COPY_SYMBOL);
                 let (galley, response) = allocate_text_at(ui, pos, text.into(), id);
                 if response.clicked() {
                     ui.output_mut(|o| {
@@ -434,14 +466,39 @@ impl RelayEntry {
                 response.on_hover_cursor(egui::CursorIcon::PointingHand);
                 draw_text_galley_at(ui, pos, galley, None, None);
             }
-            let pos = pos + vec2(0.0, 30.0);
+            let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(desc) = &doc.description {
                 let mut desc = desc.clone();
-                desc.truncate(200); // TODO is this a good number?
+                let desc = safe_truncate(desc.as_str(), 200); // TODO is this a good number?
                 draw_text_at(ui, pos, desc.into(), align, None, None);
             }
+            let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(pubkey) = &doc.pubkey {
-
+                if let Ok(pubhex) = PublicKeyHex::try_from_str(pubkey.as_str()) {
+                    let npub = pubhex.as_bech32_string();
+                    draw_text_at(ui, pos, npub.clone().into(), align, None, None);
+                    let id: Id = (self.db_relay.url.to_string() + "copy_nip11_npub").into();
+                    let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
+                    let text = RichText::new(COPY_SYMBOL);
+                    let (galley, response) = allocate_text_at(ui, pos, text.into(), id);
+                    if response.clicked() {
+                        ui.output_mut(|o| {
+                            o.copied_text = npub;
+                            *GLOBALS.status_message.blocking_write() = "copied to clipboard".into();
+                        });
+                    }
+                    response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                    draw_text_galley_at(ui, pos, galley, None, None);
+                }
+            }
+            let pos = pos + vec2(0.0, NIP11_Y_SPACING);
+            if doc.supported_nips.len() > 0 {
+                let mut text = "NIPS: ".to_string();
+                for nip in &doc.supported_nips {
+                    text.push_str(format!( " {},", *nip ).as_str());
+                }
+                text.truncate(text.len() - 1); // safe because we built the string
+                draw_text_at(ui, pos, text.into(), align, None, None);
             }
         }
     }
@@ -451,7 +508,8 @@ impl RelayEntry {
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
         { // ---- advertise ----
             let id: Id = (self.db_relay.url.to_string() + "advertise_switch").into();
-            if components::switch_with_size_at(ui, &mut self.usage.advertise, switch_size, pos, id)
+            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            if components::switch_with_size_at(ui, &mut self.usage.advertise, switch_size, spos, id)
                 .changed()
             {
                 let _ = GLOBALS
@@ -464,17 +522,18 @@ impl RelayEntry {
             }
             draw_text_at(
                 ui,
-                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 2.0),
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
                 "Share publicly".into(),
                 Align::LEFT,
                 Some(ui.visuals().text_color()),
                 None,
             );
         }
-        let pos = pos + vec2(0.0, 30.0);
+        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         { // ---- read ----
             let id: Id = (self.db_relay.url.to_string() + "read_switch").into();
-            if components::switch_with_size_at(ui, &mut self.usage.read, switch_size, pos, id)
+            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            if components::switch_with_size_at(ui, &mut self.usage.read, switch_size, spos, id)
                 .changed()
             {
                 let _ = GLOBALS
@@ -625,4 +684,13 @@ fn draw_text_at(
     let galley = text_to_galley(ui, text, align);
     let color = color.or(Some(ui.visuals().text_color()));
     draw_text_galley_at(ui, pos, galley, color, underline)
+}
+
+/// UTF-8 safe truncate (String::truncate() can panic)
+#[inline]
+fn safe_truncate(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars) {
+        None => s,
+        Some((idx, _)) => &s[..idx],
+    }
 }
