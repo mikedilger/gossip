@@ -6,11 +6,11 @@ use super::{
 };
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
-use crate::ui::widgets;
+use crate::ui::widgets::{self, RelayEntry};
 use crate::{comms::ToOverlordMessage, ui::widgets::NavItem};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{vec2, Rect, Sense, Id, ScrollArea, Pos2};
+use egui_winit::egui::{vec2, Id, Pos2, Rect, ScrollArea, Sense};
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -43,9 +43,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .filter(|ri| connected_relays.contains(&ri.url) && filter_relay(&app.relays, ri))
         .collect();
 
-    relays.sort_by(|a, b| {
-        super::sort_relay(&app.relays, a, b)
-    });
+    relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
 
     let scroll_size = ui.available_size_before_wrap();
     let id_source: Id = "RelayActivityMonitorScroll".into();
@@ -64,18 +62,15 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     false
                 };
                 let enabled = edit || !is_editing;
-                let widget = if let Some(widget) = app.relays.get(&db_relay.url) {
-                    widget
-                } else {
-                    app.relays.create(db_relay, app.settings.theme.accent_color(), app.options_symbol.clone())
-                };
+                let mut widget = RelayEntry::new(db_relay)
+                    .accent(app.settings.theme.accent_color())
+                    .option_symbol(app.options_symbol.clone());
                 widget.set_edit(edit);
                 widget.set_active(enabled);
-                if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url)
-                {
+                if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                     widget.set_user_count(assignment.pubkeys.len());
                 }
-                let response = ui.add_enabled(enabled, widget.clone());
+                let response = ui.add_enabled(enabled, widget);
                 if response.clicked() {
                     if !edit {
                         app.relays.edit = Some(db_url);
@@ -111,7 +106,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
             // add enough space to show the last relay entry at the top when editing
             if app.relays.edit.is_some() {
-                let desired_size = scroll_size - vec2( 0.0 , ui.cursor().top() - pos_last_entry.y);
+                let desired_size = scroll_size - vec2(0.0, ui.cursor().top() - pos_last_entry.y);
                 ui.allocate_exact_size(desired_size, Sense::hover());
             }
         });

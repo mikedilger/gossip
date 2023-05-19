@@ -2,10 +2,10 @@ use std::{cmp::Ordering, collections::HashMap, option};
 
 use crate::db::DbRelay;
 
-use super::{GossipUi, Page, widgets::RelayEntry};
+use super::{widgets::RelayEntry, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id, Rect, TextureHandle, Color32};
+use egui_winit::egui::{Color32, Id, Rect, TextureHandle};
 use nostr_types::{RelayUrl, Url};
 
 mod activity;
@@ -14,7 +14,7 @@ mod known;
 pub(super) struct RelayUi {
     /// A cached list of relay entries
     /// so we can save some state like NIP-11 information
-    relays: HashMap<RelayUrl,RelayEntry>,
+    relays: HashMap<RelayUrl, RelayEntry>,
     /// text of search field
     search: String,
     /// how to sort relay entries
@@ -40,11 +40,16 @@ impl RelayUi {
         self.relays.get_mut(url)
     }
 
-    pub(self) fn create(&mut self, db_relay: DbRelay, accent: Color32, option_symbol: TextureHandle) -> &mut RelayEntry {
+    pub(self) fn create(
+        &mut self,
+        db_relay: DbRelay,
+        accent: Color32,
+        option_symbol: TextureHandle,
+    ) -> &mut RelayEntry {
         let db_url = db_relay.url.clone();
         let relay_entry = RelayEntry::new(db_relay)
-                .accent(accent)
-                .option_symbol(option_symbol);
+            .accent(accent)
+            .option_symbol(option_symbol);
         self.relays.insert(db_url.clone(), relay_entry);
         self.relays.get_mut(&db_url).unwrap()
     }
@@ -221,19 +226,23 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui, id: Id) {
 ///
 pub(super) fn sort_relay(rui: &RelayUi, a: &DbRelay, b: &DbRelay) -> Ordering {
     match rui.sort {
-        RelaySorting::WriteRelaysFirst => b.has_usage_bits(DbRelay::WRITE)
-                                            .cmp(&a.has_usage_bits(DbRelay::WRITE))
-                                            .then(a.url.cmp(&b.url)),
-        RelaySorting::AdvertiseRelaysFirst => b.has_usage_bits(DbRelay::ADVERTISE)
-                                                .cmp(&a.has_usage_bits(DbRelay::ADVERTISE))
-                                                .then(a.url.cmp(&b.url)),
+        RelaySorting::WriteRelaysFirst => b
+            .has_usage_bits(DbRelay::WRITE)
+            .cmp(&a.has_usage_bits(DbRelay::WRITE))
+            .then(a.url.cmp(&b.url)),
+        RelaySorting::AdvertiseRelaysFirst => b
+            .has_usage_bits(DbRelay::ADVERTISE)
+            .cmp(&a.has_usage_bits(DbRelay::ADVERTISE))
+            .then(a.url.cmp(&b.url)),
         RelaySorting::HighestFollowingFirst => a.url.cmp(&b.url), // FIXME need following numbers here
-        RelaySorting::HighestSuccessRateFirst => b.success_rate()
-                                                .total_cmp(&a.success_rate())
-                                                .then(a.url.cmp(&b.url)),
-        RelaySorting::LowestSuccessRateFirst => a.success_rate()
-                                                .total_cmp(&b.success_rate())
-                                                .then(a.url.cmp(&b.url)),
+        RelaySorting::HighestSuccessRateFirst => b
+            .success_rate()
+            .total_cmp(&a.success_rate())
+            .then(a.url.cmp(&b.url)),
+        RelaySorting::LowestSuccessRateFirst => a
+            .success_rate()
+            .total_cmp(&b.success_rate())
+            .then(a.url.cmp(&b.url)),
     }
 }
 

@@ -358,12 +358,12 @@ impl GossipUi {
                 bytes,
                 egui_extras::image::FitTo::Size(
                     (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
-                    (cctx.egui_ctx.pixels_per_point() * 40.0) as u32),
-            ).unwrap();
-            cctx.egui_ctx.load_texture(
-                "options_symbol",
-                color_image,
-                TextureOptions::LINEAR)
+                    (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
+                ),
+            )
+            .unwrap();
+            cctx.egui_ctx
+                .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
 
         let current_dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;

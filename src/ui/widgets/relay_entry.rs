@@ -3,14 +3,14 @@ use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
 use nostr_types::Unixtime;
 
-use crate::db::DbRelay;
+use crate::{comms::ToOverlordMessage, db::DbRelay, globals::GLOBALS, ui::components};
 
 const MARGIN_LEFT: f32 = 0.0;
 const MARGIN_RIGHT: f32 = 5.0;
 const MARGIN_TOP: f32 = 5.0;
 const MARGIN_BOTTOM: f32 = 5.0;
-const TEXT_LEFT: f32 = 10.0;
-const TEXT_RIGHT: f32 = 15.0;
+const TEXT_LEFT: f32 = 20.0;
+const TEXT_RIGHT: f32 = 25.0;
 const TEXT_TOP: f32 = 15.0;
 const BTN_SIZE: f32 = 20.0;
 
@@ -39,7 +39,7 @@ struct UsageBits {
 }
 
 impl UsageBits {
-    fn from_usage_bits( usage_bits: u64 ) -> Self {
+    fn from_usage_bits(usage_bits: u64) -> Self {
         Self {
             read: usage_bits & DbRelay::READ == DbRelay::READ,
             write: usage_bits & DbRelay::WRITE == DbRelay::WRITE,
@@ -52,12 +52,24 @@ impl UsageBits {
 
     fn to_usage_bits(&self) -> u64 {
         let mut bits: u64 = 0;
-        if self.read { bits |= DbRelay::READ }
-        if self.write { bits |= DbRelay::WRITE }
-        if self.advertise { bits |= DbRelay::ADVERTISE }
-        if self.inbox { bits |= DbRelay::INBOX }
-        if self.outbox { bits |= DbRelay::OUTBOX }
-        if self.discover { bits |= DbRelay::DISCOVER }
+        if self.read {
+            bits |= DbRelay::READ
+        }
+        if self.write {
+            bits |= DbRelay::WRITE
+        }
+        if self.advertise {
+            bits |= DbRelay::ADVERTISE
+        }
+        if self.inbox {
+            bits |= DbRelay::INBOX
+        }
+        if self.outbox {
+            bits |= DbRelay::OUTBOX
+        }
+        if self.discover {
+            bits |= DbRelay::DISCOVER
+        }
         bits
     }
 }
@@ -141,7 +153,7 @@ impl RelayEntry {
         self
     }
 
-    pub fn option_symbol(mut self, option_symbol: TextureHandle ) -> Self {
+    pub fn option_symbol(mut self, option_symbol: TextureHandle) -> Self {
         self.option_symbol = Some(option_symbol);
         self
     }
@@ -156,20 +168,14 @@ impl RelayEntry {
         let available_width = ui.available_size_before_wrap().x;
         let height = 80.0;
 
-        ui.allocate_exact_size(
-            vec2(available_width, height),
-            Sense::hover(),
-        )
+        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
     }
 
     fn allocate_edit_view(&self, ui: &mut Ui) -> (Rect, Response) {
         let available_width = ui.available_size_before_wrap().x;
         let height = 300.0;
 
-        ui.allocate_exact_size(
-            vec2(available_width, height),
-            Sense::hover(),
-        )
+        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
     }
 
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
@@ -188,10 +194,15 @@ impl RelayEntry {
     fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
         let mut outer_rect = rect.shrink2(vec2(0.0, MARGIN_TOP));
         outer_rect.set_right(outer_rect.right() - MARGIN_RIGHT); // margin
+        let fill = if self.view == RelayEntryView::List {
+            self.fill.unwrap_or(ui.style().visuals.faint_bg_color)
+        } else {
+            Color32::WHITE
+        };
         ui.painter().add(epaint::RectShape {
             rect: outer_rect,
             rounding: self.rounding,
-            fill: self.fill.unwrap_or(ui.style().visuals.faint_bg_color),
+            fill,
             stroke: self.stroke.unwrap_or(Stroke::NONE),
         });
     }
@@ -233,7 +244,11 @@ impl RelayEntry {
             response.clone().on_hover_cursor(CursorIcon::PointingHand);
             if let Some(symbol) = &self.option_symbol {
                 let mut mesh = Mesh::with_texture(symbol.into());
-                mesh.add_rect_with_uv(btn_rect.shrink(2.0), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), color);
+                mesh.add_rect_with_uv(
+                    btn_rect.shrink(2.0),
+                    Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                    color,
+                );
                 ui.painter().add(Shape::mesh(mesh));
             } else {
                 let text = RichText::new("\u{2699}").size(20.0);
@@ -243,18 +258,16 @@ impl RelayEntry {
         }
     }
 
-    fn paint_save_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
-        let id: Id = (self.db_relay.url.to_string() + "save_btn").into();
+    fn paint_close_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
+        let id: Id = (self.db_relay.url.to_string() + "close_btn").into();
         let button_padding = ui.spacing().button_padding;
-        let text = WidgetText::from("Save and close").into_galley(ui, Some(false), 0.0, TextStyle::Button);
+        let text =
+            WidgetText::from("Close").into_galley(ui, Some(false), 0.0, TextStyle::Button);
         let mut desired_size = text.size() + 2.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
-        let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 -MARGIN_BOTTOM) - desired_size;
+        let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - MARGIN_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
-        let response = ui.interact(
-            btn_rect,
-            id,
-            Sense::click());
+        let response = ui.interact(btn_rect, id, Sense::click());
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
 
         let visuals = ui.style().interact(&response);
@@ -267,10 +280,10 @@ impl RelayEntry {
                 .rect(btn_rect.expand(visuals.expansion), rounding, fill, stroke);
         }
 
-        let text_pos =
-            ui.layout()
-                .align_size_within_rect(text.size(), btn_rect.shrink2(button_padding))
-                .min;
+        let text_pos = ui
+            .layout()
+            .align_size_within_rect(text.size(), btn_rect.shrink2(button_padding))
+            .min;
         text.paint_with_visuals(ui.painter(), text_pos, visuals);
 
         if response.clicked() {
@@ -323,7 +336,9 @@ impl RelayEntry {
             if response.clicked() {
                 // TODO go to following page for this relay?
             }
-            if active { response.on_hover_cursor(CursorIcon::PointingHand); }
+            if active {
+                response.on_hover_cursor(CursorIcon::PointingHand);
+            }
             draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
 
             // ---- Last event ----
@@ -400,12 +415,56 @@ impl RelayEntry {
         }
     }
 
-    fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
+    fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {}
 
-    }
-
-    fn paint_usage_settings(&self, ui: &mut Ui, rect: &Rect) {
-
+    fn paint_usage_settings(&mut self, ui: &mut Ui, rect: &Rect) {
+        let pos = rect.right_top() + vec2(-TEXT_RIGHT - 250.0, TEXT_TOP + 70.0);
+        let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
+        { // ---- advertise ----
+            let id: Id = (self.db_relay.url.to_string() + "advertise_switch").into();
+            if components::switch_with_size_at(ui, &mut self.usage.advertise, switch_size, pos, id)
+                .changed()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdjustRelayUsageBit(
+                        self.db_relay.url.clone(),
+                        DbRelay::ADVERTISE,
+                        self.usage.advertise,
+                    ));
+            }
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 2.0),
+                "Share publicly".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        let pos = pos + vec2(0.0, 30.0);
+        { // ---- read ----
+            let id: Id = (self.db_relay.url.to_string() + "read_switch").into();
+            if components::switch_with_size_at(ui, &mut self.usage.read, switch_size, pos, id)
+                .changed()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdjustRelayUsageBit(
+                        self.db_relay.url.clone(),
+                        DbRelay::READ,
+                        self.usage.read,
+                    ));
+            }
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 2.0),
+                "Read".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
     }
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
@@ -430,9 +489,10 @@ impl RelayEntry {
         if ui.is_rect_visible(rect) {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
-            response |= self.paint_save_btn(ui, &rect);
+            response |= self.paint_close_btn(ui, &rect);
             self.paint_stats(ui, &rect, false);
             self.paint_nip11(ui, &rect);
+            paint_hline(ui, &rect, 60.0);
             self.paint_usage_settings(ui, &rect);
         }
 
@@ -452,6 +512,15 @@ impl Widget for RelayEntry {
     }
 }
 
+fn paint_hline(ui: &mut Ui, rect: &Rect, y_pos: f32) {
+    let painter = ui.painter();
+    painter.hline(
+        (rect.left() + TEXT_LEFT + 1.0)..=(rect.right() - TEXT_RIGHT - 1.0),
+        painter.round_to_pixel(rect.top() + TEXT_TOP + y_pos),
+        Stroke::new( 2.0, Color32::from_gray(0xE0)),
+    );
+}
+
 fn text_to_galley(ui: &mut Ui, text: WidgetText, align: Align) -> WidgetTextGalley {
     let mut text_job = text.into_text_job(
         ui.style(),
@@ -462,7 +531,12 @@ fn text_to_galley(ui: &mut Ui, text: WidgetText, align: Align) -> WidgetTextGall
     ui.fonts(|f| text_job.into_galley(f))
 }
 
-fn allocate_text_at(ui: &mut Ui, pos: Pos2, text: WidgetText, id: Id) -> (WidgetTextGalley, Response) {
+fn allocate_text_at(
+    ui: &mut Ui,
+    pos: Pos2,
+    text: WidgetText,
+    id: Id,
+) -> (WidgetTextGalley, Response) {
     let galley = text_to_galley(ui, text, Align::LEFT);
     let response = ui.interact(
         Rect::from_min_size(pos, galley.galley.rect.size()),
@@ -476,7 +550,7 @@ fn allocate_text_right_align_at(
     ui: &mut Ui,
     pos: Pos2,
     text: WidgetText,
-    id: Id
+    id: Id,
 ) -> (WidgetTextGalley, Response) {
     let galley = text_to_galley(ui, text, Align::RIGHT);
     let grect = galley.galley.rect;
