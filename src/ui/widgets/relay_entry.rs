@@ -255,24 +255,12 @@ impl RelayEntry {
         if self.db_relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let text = RichText::new("pick up & configure");
-            let (galley, response) = allocate_text_right_align_at(ui, pos, text.into(), id);
-            let (color, stroke) = if self.active {
-                if response.hovered() {
-                    let color = self
-                        .accent
-                        .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-                    (color, Stroke::new(1.0, color))
-                } else {
-                    (ui.visuals().text_color(), Stroke::NONE)
-                }
-            } else {
-                (ui.visuals().widgets.inactive.fg_stroke.color, Stroke::NONE)
-            };
+            let accent = self.accent
+                .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
+            let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.active, accent);
             if self.active && response.clicked() {
                 self.view = RelayEntryView::Edit;
             }
-            response.clone().on_hover_cursor(CursorIcon::PointingHand);
-            draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
             return response;
         } else {
             let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
@@ -336,6 +324,32 @@ impl RelayEntry {
         return response;
     }
 
+    fn paint_lower_buttons(&self, ui: &mut Ui, rect: &Rect) -> Response {
+        let line_height = ui.fonts(|f| {
+            f.row_height(&FontId::default())
+        });
+        let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 -OUTER_MARGIN_BOTTOM -line_height);
+        let accent = self.accent.unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
+        let id: Id = (self.db_relay.url.to_string() + "remove_button").into();
+        let text = "Remove from personal list";
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, accent);
+        if response.clicked() {
+            // TODO remove relay
+        }
+
+        let pos = pos + vec2(200.0, 0.0);
+        let id: Id = (self.db_relay.url.to_string() + "disconnect_button").into();
+        let text = "Force disconnect";
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, accent);
+        if response.clicked() {
+            let _ = GLOBALS.to_overlord.send(
+                ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
+            );
+        }
+        // pass the response back so the page knows the edit view should close
+        response
+    }
+
     fn paint_stats(&self, ui: &mut Ui, rect: &Rect, with_usage: bool) {
         {
             // ---- Success Rate ----
@@ -364,25 +378,12 @@ impl RelayEntry {
                 RichText::new("Following: ---")
             };
             let id: Id = (self.db_relay.url.to_string() + "following_link").into();
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), id);
-            let (color, stroke) = if !active {
-                (ui.visuals().weak_text_color(), Stroke::NONE)
-            } else if response.hovered() {
-                let color = self
-                    .accent
-                    .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-                (color, Stroke::new(1.0, color))
-            } else {
-                let color = ui.visuals().text_color();
-                (color, Stroke::new(1.0, color))
-            };
+            let accent = self.accent
+                .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
+            let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, accent);
             if response.clicked() {
                 // TODO go to following page for this relay?
             }
-            if active {
-                response.on_hover_cursor(CursorIcon::PointingHand);
-            }
-            draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
 
             // ---- Last event ----
             let pos = pos + vec2(120.0, 0.0);
@@ -794,6 +795,7 @@ impl RelayEntry {
             self.paint_nip11(ui, &rect);
             self.paint_usage_settings(ui, &rect);
             paint_hline(ui, &rect, HLINE_2_Y_OFFSET);
+            self.paint_lower_buttons(ui, &rect);
             response |= self.paint_close_btn(ui, &rect);
         }
 
@@ -897,6 +899,34 @@ fn draw_text_at(
     let galley = text_to_galley(ui, text, align);
     let color = color.or(Some(ui.visuals().text_color()));
     draw_text_galley_at(ui, pos, galley, color, underline)
+}
+
+fn draw_link_at(
+    ui: &mut Ui,
+    id: Id,
+    pos: Pos2,
+    text: WidgetText,
+    align: Align,
+    active: bool,
+    hover_color: Color32,
+) -> Response {
+    let (galley, response) = if align == Align::Min {
+        allocate_text_at(ui, pos, text.into(), id)
+    } else {
+        allocate_text_right_align_at(ui, pos, text.into(), id)
+    };
+    let (color, stroke) = if active {
+        if response.hovered() {
+            (hover_color, Stroke::new(1.0, hover_color))
+        } else {
+            (ui.visuals().text_color(), Stroke::NONE)
+        }
+    } else {
+        (ui.visuals().weak_text_color(), Stroke::NONE)
+    };
+    response.clone().on_hover_cursor(CursorIcon::PointingHand);
+    draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
+    response
 }
 
 /// UTF-8 safe truncate (String::truncate() can panic)

@@ -47,17 +47,22 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     let scroll_size = ui.available_size_before_wrap();
     let id_source: Id = "RelayActivityMonitorScroll".into();
-    let enable_scroll = app.relays.edit.is_none() && !ScrollArea::is_scrolling(ui, id_source);
 
     egui::ScrollArea::vertical()
         .id_source(id_source)
         .show(ui, |ui| {
             let mut pos_last_entry = ui.cursor().left_top();
+            let mut has_edit_target = false;
 
             for db_relay in relays {
                 let db_url = db_relay.url.clone();
                 let edit = if let Some(edit_url) = &app.relays.edit {
-                    edit_url == &db_url
+                    if edit_url == &db_url {
+                        has_edit_target = true;
+                        true
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 };
@@ -74,12 +79,19 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 if response.clicked() {
                     if !edit {
                         app.relays.edit = Some(db_url);
+                        has_edit_target = true;
                         response.scroll_to_me(Some(egui::Align::Center));
                     } else {
                         app.relays.edit = None;
                     }
                 }
                 pos_last_entry = response.rect.left_top();
+            }
+
+            if !has_edit_target {
+                // the relay we wanted to edit was not in the list anymore
+                // -> release edit modal
+                app.relays.edit = None;
             }
 
             ui.add_space(10.0);
