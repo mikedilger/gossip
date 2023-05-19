@@ -2,19 +2,16 @@ use std::{cmp::Ordering, collections::HashMap, option};
 
 use crate::db::DbRelay;
 
-use super::{widgets::RelayEntry, GossipUi, Page};
+use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Color32, Id, Rect, TextureHandle};
-use nostr_types::{RelayUrl, Url};
+use egui_winit::egui::Id;
+use nostr_types::RelayUrl;
 
 mod activity;
 mod known;
 
 pub(super) struct RelayUi {
-    /// A cached list of relay entries
-    /// so we can save some state like NIP-11 information
-    relays: HashMap<RelayUrl, RelayEntry>,
     /// text of search field
     search: String,
     /// how to sort relay entries
@@ -28,30 +25,11 @@ pub(super) struct RelayUi {
 impl RelayUi {
     pub(super) fn new() -> Self {
         Self {
-            relays: HashMap::new(),
             search: String::new(),
             sort: RelaySorting::default(),
             filter: RelayFilter::default(),
             edit: None,
         }
-    }
-
-    pub(self) fn get(&mut self, url: &RelayUrl) -> Option<&mut RelayEntry> {
-        self.relays.get_mut(url)
-    }
-
-    pub(self) fn create(
-        &mut self,
-        db_relay: DbRelay,
-        accent: Color32,
-        option_symbol: TextureHandle,
-    ) -> &mut RelayEntry {
-        let db_url = db_relay.url.clone();
-        let relay_entry = RelayEntry::new(db_relay)
-            .accent(accent)
-            .option_symbol(option_symbol);
-        self.relays.insert(db_url.clone(), relay_entry);
-        self.relays.get_mut(&db_url).unwrap()
     }
 }
 

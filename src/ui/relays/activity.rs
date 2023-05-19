@@ -1,16 +1,15 @@
 use std::collections::HashSet;
-use std::hash::Hash;
 
 use super::{
-    filter_relay, relay_filter_combo, relay_sort_combo, GossipUi, RelayFilter, RelaySorting,
+    filter_relay, relay_filter_combo, relay_sort_combo, GossipUi,
 };
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets::{self, RelayEntry};
-use crate::{comms::ToOverlordMessage, ui::widgets::NavItem};
+use crate::{comms::ToOverlordMessage};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{vec2, Id, Pos2, Rect, ScrollArea, Sense};
+use egui_winit::egui::{vec2, Id, Sense};
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -79,8 +78,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 if response.clicked() {
                     if !edit {
                         app.relays.edit = Some(db_url);
-                        has_edit_target = true;
                         response.scroll_to_me(Some(egui::Align::Center));
+                        has_edit_target = true;
                     } else {
                         app.relays.edit = None;
                     }
