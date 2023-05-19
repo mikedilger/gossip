@@ -242,7 +242,7 @@ impl ThemeDef for DefaultTheme {
                 window_fill: Color32::from_gray(236),
                 panel_fill: Color32::from_gray(236),
                 faint_bg_color: Color32::from_gray(248),
-                extreme_bg_color: Color32::from_gray(246),
+                extreme_bg_color: Color32::from_gray(255),
                 code_bg_color: Color32::from_gray(230),
 
                 // Foreground colors
