@@ -826,7 +826,7 @@ impl RelayEntry {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
-            self.paint_stats(ui, &rect, true);
+            self.paint_stats(ui, &rect, self.db_relay.usage_bits != 0);
         }
 
         response
