@@ -49,7 +49,7 @@ impl ThemeDef for DefaultTheme {
         // pub window_margin: Margin,
 
         // /// Button size is text size plus this on each side
-        style.spacing.button_padding = vec2(10.0, 2.0);
+        // style.spacing.button_padding = vec2(10.0, 2.0);
 
         // /// Horizontal and vertical margins within a menu frame.
         // pub menu_margin: Margin,
