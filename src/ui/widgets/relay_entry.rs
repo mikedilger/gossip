@@ -245,7 +245,7 @@ impl RelayEntry {
     }
 
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
-        let id: Id = (self.db_relay.url.to_string() + "edit_btn").into();
+        let id = self.make_id("edit_btn");
         if self.db_relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let text = RichText::new("pick up & configure");
@@ -284,12 +284,12 @@ impl RelayEntry {
     }
 
     fn paint_close_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
-        let id: Id = (self.db_relay.url.to_string() + "close_btn").into();
+        let id = self.make_id("close_btn");
         let button_padding = ui.spacing().button_padding;
         let text = WidgetText::from("Close")
             .color( ui.visuals().extreme_bg_color )
             .into_galley(ui, Some(false), 0.0, TextStyle::Button);
-        let mut desired_size = text.size() + 2.0 * button_padding;
+        let mut desired_size = text.size() + 4.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
         let pos =
             rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - OUTER_MARGIN_BOTTOM) - desired_size;
@@ -317,7 +317,7 @@ impl RelayEntry {
 
         let text_pos = ui
             .layout()
-            .align_size_within_rect(text.size(), btn_rect.shrink2(button_padding))
+            .align_size_within_rect(text.size(), btn_rect.shrink2(2.0 * button_padding))
             .min;
         text.paint_with_visuals(ui.painter(), text_pos, visuals);
 
@@ -334,7 +334,7 @@ impl RelayEntry {
         });
         let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 -OUTER_MARGIN_BOTTOM -line_height);
         let accent = self.accent.unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-        let id: Id = (self.db_relay.url.to_string() + "remove_button").into();
+        let id = self.make_id("remove_button");
         let text = "Remove from personal list";
         let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, true, accent);
         if response.clicked() {
@@ -342,7 +342,7 @@ impl RelayEntry {
         }
 
         let pos = pos + vec2(200.0, 0.0);
-        let id: Id = (self.db_relay.url.to_string() + "disconnect_button").into();
+        let id = self.make_id("disconnect_button");
         let text = "Force disconnect";
         let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, true, accent);
         if response.clicked() {
@@ -381,7 +381,7 @@ impl RelayEntry {
                 active = false;
                 RichText::new("Following: ---")
             };
-            let id: Id = (self.db_relay.url.to_string() + "following_link").into();
+            let id = self.make_id("following_link");
             let accent = self.accent
                 .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
             let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, true, accent);
@@ -428,38 +428,57 @@ impl RelayEntry {
 
         if with_usage {
             // usage bits
-            let mut usage: Vec<&'static str> = Vec::new();
-            if self.usage.read && self.usage.inbox {
-                usage.push("public read");
-            } else if self.usage.read {
-                usage.push("private read");
+            let right = pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
+            let align = Align::Center;
+
+            fn switch( ui: &mut Ui, str: &str, on: bool ) -> (RichText, Option<Color32>) {
+                let active = Some(ui.visuals().text_color());
+                let inactive = Some(ui.visuals().text_color().gamma_multiply(0.4));
+                if on {
+                    (RichText::new( str ), active)
+                } else {
+                    (RichText::new(str), inactive)
+                }
             }
-            if self.usage.write && self.usage.outbox {
-                usage.push("public write");
-            } else if self.usage.write {
-                usage.push("private write");
-            }
-            if self.usage.advertise {
-                usage.push("advertise")
-            }
-            if self.usage.discover {
-                usage.push("discover")
-            }
-            let usage_str = usage
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>()
-                .join(", ");
-            let usage_str = usage_str.trim_end_matches(", ");
-            let pos = pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
-            draw_text_at(
-                ui,
-                pos,
-                usage_str.into(),
-                Align::RIGHT,
-                Some(ui.visuals().text_color()),
-                None,
-            );
+
+            const RIGHT: f32 = -8.0;
+            const SPACE: f32 = -20.0;
+
+            let pos = right + vec2(RIGHT + 5.0 * SPACE,0.0);
+            let (text, color) = switch( ui, "R", self.usage.read );
+            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
+            draw_text_galley_at(ui, pos, galley, color, None);
+            response.on_hover_text(READ_HOVER_TEXT);
+
+            let pos = right + vec2(RIGHT + 4.0 * SPACE,0.0);
+            let (text, color) = switch( ui, "I", self.usage.inbox );
+            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
+            draw_text_galley_at(ui, pos, galley, color, None);
+            response.on_hover_text(INBOX_HOVER_TEXT);
+
+            let pos = right + vec2(RIGHT + 3.0 * SPACE,0.0);
+            let (text, color) = switch( ui, "W", self.usage.write );
+            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
+            draw_text_galley_at(ui, pos, galley, color, None);
+            response.on_hover_text(WRITE_HOVER_TEXT);
+
+            let pos = right + vec2(RIGHT + 2.0 * SPACE,0.0);
+            let (text, color) = switch( ui, "O", self.usage.outbox );
+            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
+            draw_text_galley_at(ui, pos, galley, color, None);
+            response.on_hover_text(OUTBOX_HOVER_TEXT);
+
+            let pos = right + vec2(RIGHT + 1.0 * SPACE,0.0);
+            let (text, color) = switch( ui, "D", self.usage.discover );
+            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
+            draw_text_galley_at(ui, pos, galley, color, None);
+            response.on_hover_text(DISCOVER_HOVER_TEXT);
+
+            let pos = right + vec2(RIGHT + 0.0 * SPACE,0.0);
+            let (text, color) = switch( ui, "A", self.usage.advertise );
+            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
+            draw_text_galley_at(ui, pos, galley, color, None);
+            response.on_hover_text(ADVERTISE_HOVER_TEXT);
         }
     }
 
@@ -469,10 +488,10 @@ impl RelayEntry {
         if let Some(doc) = &self.db_relay.nip11 {
             if let Some(contact) = &doc.contact {
                 let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
-                let id: Id = (self.db_relay.url.to_string() + "copy_nip11_contact").into();
+                let id = self.make_id("copy_nip11_contact");
                 let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
                 let text = RichText::new(COPY_SYMBOL);
-                let (galley, response) = allocate_text_at(ui, pos, text.into(), id);
+                let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
                 if response.clicked() {
                     ui.output_mut(|o| {
                         o.copied_text = contact.to_string();
@@ -492,10 +511,10 @@ impl RelayEntry {
                 if let Ok(pubhex) = PublicKeyHex::try_from_str(pubkey.as_str()) {
                     let npub = pubhex.as_bech32_string();
                     let rect = draw_text_at(ui, pos, npub.clone().into(), align, None, None);
-                    let id: Id = (self.db_relay.url.to_string() + "copy_nip11_npub").into();
+                    let id = self.make_id("copy_nip11_npub");
                     let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
                     let text = RichText::new(COPY_SYMBOL);
-                    let (galley, response) = allocate_text_at(ui, pos, text.into(), id);
+                    let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
                     if response.clicked() {
                         ui.output_mut(|o| {
                             o.copied_text = npub;
@@ -526,7 +545,7 @@ impl RelayEntry {
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
         {
             // ---- read ----
-            let id: Id = (self.db_relay.url.to_string() + "read_switch").into();
+            let id = self.make_id("read_switch");
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
@@ -579,7 +598,7 @@ impl RelayEntry {
         {
             // ---- inbox ----
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
-            let id: Id = (self.db_relay.url.to_string() + "inbox_switch").into();
+            let id = self.make_id("inbox_switch");
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
@@ -614,7 +633,7 @@ impl RelayEntry {
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
             // ---- write ----
-            let id: Id = (self.db_relay.url.to_string() + "write_switch").into();
+            let id = self.make_id("write_switch");
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
@@ -668,7 +687,7 @@ impl RelayEntry {
         {
             // ---- outbox ----
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
-            let id: Id = (self.db_relay.url.to_string() + "outbox_switch").into();
+            let id = self.make_id("outbox_switch");
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
@@ -703,7 +722,7 @@ impl RelayEntry {
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
             // ---- discover ----
-            let id: Id = (self.db_relay.url.to_string() + "discover_switch").into();
+            let id = self.make_id("discover_switch");
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
@@ -735,10 +754,10 @@ impl RelayEntry {
                 None,
             );
         }
-        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
             // ---- advertise ----
-            let id: Id = (self.db_relay.url.to_string() + "advertise_switch").into();
+            let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
+            let id = self.make_id("advertise_switch");
             let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
             let response = components::switch_custom_at(
                 ui,
@@ -770,6 +789,10 @@ impl RelayEntry {
                 None,
             );
         }
+    }
+
+    fn make_id(&self, str: &str ) -> Id {
+        (self.db_relay.url.to_string() + str).into()
     }
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
@@ -842,30 +865,26 @@ fn allocate_text_at(
     ui: &mut Ui,
     pos: Pos2,
     text: WidgetText,
+    align: Align,
     id: Id,
 ) -> (WidgetTextGalley, Response) {
-    let galley = text_to_galley(ui, text, Align::LEFT);
-    let response = ui.interact(
-        Rect::from_min_size(pos, galley.galley.rect.size()),
-        id,
-        Sense::click(),
-    );
-    (galley, response)
-}
-
-fn allocate_text_right_align_at(
-    ui: &mut Ui,
-    pos: Pos2,
-    text: WidgetText,
-    id: Id,
-) -> (WidgetTextGalley, Response) {
-    let galley = text_to_galley(ui, text, Align::RIGHT);
+    let galley = text_to_galley(ui, text, align);
     let grect = galley.galley.rect;
-    let response = ui.interact(
+    let rect = if align == Align::Min {
+        Rect::from_min_size(pos, galley.galley.rect.size())
+    } else if align == Align::Center {
+        Rect::from_min_max(
+            pos2(pos.x - grect.width() / 2.0, pos.y),
+            pos2(pos.x + grect.width() / 2.0, pos.y + grect.height()),
+        )
+    } else {
         Rect::from_min_max(
             pos2(pos.x - grect.width(), pos.y),
             pos2(pos.x, pos.y + grect.height()),
-        ),
+        )
+    };
+    let response = ui.interact(
+        rect,
         id,
         Sense::click(),
     );
@@ -931,11 +950,7 @@ fn draw_link_at(
     secondary: bool,
     hover_color: Color32,
 ) -> Response {
-    let (galley, response) = if align == Align::Min {
-        allocate_text_at(ui, pos, text.into(), id)
-    } else {
-        allocate_text_right_align_at(ui, pos, text.into(), id)
-    };
+    let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
     let (color, stroke) = if !secondary {
         if active {
             if response.hovered() {
