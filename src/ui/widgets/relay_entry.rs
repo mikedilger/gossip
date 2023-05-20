@@ -431,53 +431,68 @@ impl RelayEntry {
             let right = pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
             let align = Align::Center;
 
-            fn switch( ui: &mut Ui, str: &str, on: bool ) -> (RichText, Option<Color32>) {
-                let active = Some(ui.visuals().text_color());
-                let inactive = Some(ui.visuals().text_color().gamma_multiply(0.4));
+            fn switch( ui: &mut Ui, str: &str, on: bool ) -> (RichText, Color32) {
+                let active = ui.visuals().text_color();
+                let inactive = ui.visuals().text_color().gamma_multiply(0.4);
                 if on {
-                    (RichText::new( str ), active)
+                    (RichText::new(str), active)
                 } else {
                     (RichText::new(str), inactive)
                 }
             }
 
             const RIGHT: f32 = -8.0;
-            const SPACE: f32 = -20.0;
+            const SPACE: f32 = 23.0;
+            const HLINE_Y: f32 = 7.0;
 
-            let pos = right + vec2(RIGHT + 5.0 * SPACE,0.0);
+            // ---- R ----
+            let pos = right + vec2(RIGHT - 5.0 * SPACE,0.0);
             let (text, color) = switch( ui, "R", self.usage.read );
             let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
-            draw_text_galley_at(ui, pos, galley, color, None);
+            draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(READ_HOVER_TEXT);
 
-            let pos = right + vec2(RIGHT + 4.0 * SPACE,0.0);
+            // ---- I ----
+            let pos = right + vec2(RIGHT - 4.0 * SPACE,0.0);
             let (text, color) = switch( ui, "I", self.usage.inbox );
             let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
-            draw_text_galley_at(ui, pos, galley, color, None);
+            draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(INBOX_HOVER_TEXT);
 
-            let pos = right + vec2(RIGHT + 3.0 * SPACE,0.0);
+            // ---- + ----
+            let pos = pos - vec2(SPACE/2.0,0.0);
+            draw_text_at(ui, pos, "+".into(), align, Some(color), None);
+
+            // ---- W ----
+            let pos = right + vec2(RIGHT - 3.0 * SPACE,0.0);
             let (text, color) = switch( ui, "W", self.usage.write );
             let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
-            draw_text_galley_at(ui, pos, galley, color, None);
+            draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(WRITE_HOVER_TEXT);
 
-            let pos = right + vec2(RIGHT + 2.0 * SPACE,0.0);
+            // ---- O ----
+            let pos = right + vec2(RIGHT - 2.0 * SPACE,0.0);
             let (text, color) = switch( ui, "O", self.usage.outbox );
             let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
-            draw_text_galley_at(ui, pos, galley, color, None);
+            draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(OUTBOX_HOVER_TEXT);
 
-            let pos = right + vec2(RIGHT + 1.0 * SPACE,0.0);
+            // ---- + ----
+            let pos = pos - vec2(SPACE/2.0,0.0);
+            draw_text_at(ui, pos, "+".into(), align, Some(color), None);
+
+            // ---- D ----
+            let pos = right + vec2(RIGHT - 1.0 * SPACE,0.0);
             let (text, color) = switch( ui, "D", self.usage.discover );
             let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
-            draw_text_galley_at(ui, pos, galley, color, None);
+            draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(DISCOVER_HOVER_TEXT);
 
-            let pos = right + vec2(RIGHT + 0.0 * SPACE,0.0);
+            // ---- A ----
+            let pos = right + vec2(RIGHT - 0.0 * SPACE,0.0);
             let (text, color) = switch( ui, "A", self.usage.advertise );
             let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
-            draw_text_galley_at(ui, pos, galley, color, None);
+            draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(ADVERTISE_HOVER_TEXT);
         }
     }
