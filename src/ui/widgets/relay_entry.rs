@@ -55,6 +55,14 @@ const NIP11_Y_SPACING: f32 = 20.0;
 const COPY_SYMBOL: &'static str = "\u{2398}";
 /// Max length of title string
 const TITLE_MAX_LEN: usize = 50;
+/// First stat column x location
+const STATS_COL_1_X: f32 = TEXT_LEFT;
+/// Second stat column x location
+const STATS_COL_2_X: f32 = 130.0;
+/// Second stat column x location
+const STATS_COL_3_X: f32 = 120.0;
+/// Second stat column x location
+const STATS_COL_4_X: f32 = 120.0;
 
 const READ_HOVER_TEXT: &str = "Where you actually read events from (including those tagging you, but also for other purposes).";
 const INBOX_HOVER_TEXT: &str = "Where you tell others you read from. You should also check Read. These relays shouldn't require payment. It is recommended to have a few.";
@@ -357,7 +365,7 @@ impl RelayEntry {
     fn paint_stats(&self, ui: &mut Ui, rect: &Rect, with_usage: bool) {
         {
             // ---- Success Rate ----
-            let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + STATS_Y_SPACING);
+            let pos = rect.min + vec2(STATS_COL_1_X, TEXT_TOP + STATS_Y_SPACING);
             let text = RichText::new(format!(
                 "Rate: {:.0}% ({})",
                 self.db_relay.success_rate() * 100.0,
@@ -373,7 +381,7 @@ impl RelayEntry {
             );
 
             // ---- Following ----
-            let pos = pos + vec2(130.0, 0.0);
+            let pos = pos + vec2(STATS_COL_2_X, 0.0);
             let mut active = self.active;
             let text = if let Some(count) = self.user_count {
                 RichText::new(format!("Following: {}", count))
@@ -390,7 +398,7 @@ impl RelayEntry {
             }
 
             // ---- Last event ----
-            let pos = pos + vec2(120.0, 0.0);
+            let pos = pos + vec2(STATS_COL_3_X, 0.0);
             let mut ago = "".to_string();
             if let Some(at) = self.db_relay.last_general_eose_at {
                 ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
@@ -408,7 +416,7 @@ impl RelayEntry {
             );
 
             // ---- Last connection ----
-            let pos = pos + vec2(120.0, 0.0);
+            let pos = pos + vec2(STATS_COL_4_X, 0.0);
             let mut ago = "".to_string();
             if let Some(at) = self.db_relay.last_connected_at {
                 ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
@@ -443,7 +451,6 @@ impl RelayEntry {
 
             const RIGHT: f32 = -8.0;
             const SPACE: f32 = 23.0;
-            const HLINE_Y: f32 = 7.0;
 
             // ---- R ----
             let pos = right + vec2(RIGHT - 5.0 * SPACE,0.0);
