@@ -300,8 +300,15 @@ impl RelayEntry {
 
         let visuals = ui.style().interact(&response);
         let accent = self.accent.unwrap_or(ui.visuals().hyperlink_color);
+
         {
-            let fill = accent;
+            let fill = if response.hovered() {
+                let mut hsva: ecolor::HsvaGamma  = accent.into();
+                hsva.v *= 0.8;
+                hsva.into()
+            } else {
+                accent
+            };
             let stroke = Stroke::new( visuals.bg_stroke.width, accent );
             let rounding = visuals.rounding;
             ui.painter()
