@@ -5,7 +5,7 @@ use crate::db::DbRelay;
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::Id;
+use egui_winit::egui::{Id, vec2, Vec2, Rect};
 use nostr_types::RelayUrl;
 
 mod active;
@@ -126,6 +126,47 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     } else if app.page == Page::RelaysKnownNetwork {
         known::update(app, ctx, frame, ui);
     }
+}
+
+pub(super) fn entry_dialog(ctx: &Context, window_open: &mut bool) {
+    const DLG_SIZE: Vec2 = vec2(500.0, 150.0);
+
+    egui::Area::new("hide-background-area")
+        .fixed_pos(ctx.screen_rect().left_top())
+        .movable(false)
+        .interactable(false)
+        .order(egui::Order::Middle)
+        .show(ctx, |ui| {
+            ui.painter().rect_filled(
+                ctx.screen_rect(),
+                egui::Rounding::same(0.0),
+                egui::Color32::from_rgba_unmultiplied(0x80,0x80,0x80,0x80));
+        });
+
+    let id: Id = "relays-add-dialog".into();
+    let frame = egui::Frame::popup(&ctx.style());
+    let area = egui::Area::new(id)
+        .movable(false)
+        .interactable(true)
+        .order(egui::Order::Foreground)
+        .fixed_pos(ctx.screen_rect().center() - DLG_SIZE/2.0);
+    area.show_open_close_animation(ctx, &frame, *window_open);
+    area.show(ctx, |ui| {
+        frame.show(ui, |ui|{
+            ui.set_min_size(DLG_SIZE);
+
+            let pos = ui.min_rect().left_top();
+
+            let close_rect = Rect::from_x_y_ranges(
+                pos.x + 100.0 ..= pos.x + 150.0,
+                pos.y + 110.0 ..= pos.y + 130.0
+            );
+
+            if ui.put(  close_rect, egui::Button::new("Close")).clicked() {
+                *window_open = false;
+            }
+        });
+    });
 }
 
 ///

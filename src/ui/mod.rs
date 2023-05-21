@@ -255,6 +255,7 @@ struct GossipUi {
     new_metadata_fieldname: String,
     import_priv: String,
     import_pub: String,
+    relay_entry_dialog: bool,
     new_relay_url: String,
     show_hidden_relays: bool,
     search: String,
@@ -453,6 +454,7 @@ impl GossipUi {
             new_metadata_fieldname: String::new(),
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
+            relay_entry_dialog: false,
             new_relay_url: "".to_owned(),
             show_hidden_relays: false,
             search: "".to_owned(),
@@ -590,6 +592,11 @@ impl eframe::App for GossipUi {
             }
         }
 
+        // dialogues first
+        if self.relay_entry_dialog {
+            relays::entry_dialog(ctx, &mut self.relay_entry_dialog);
+        }
+
         #[cfg(not(feature = "side-menu"))]
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.add_space(6.0);
@@ -700,6 +707,8 @@ impl eframe::App for GossipUi {
                 .fill(self.settings.theme.navigation_bg_fill())
             )
             .show(ctx, |ui| {
+                    self.begin_ui(ui);
+
                     // cut indentation
                     ui.style_mut().spacing.indent = 0.0;
                     ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.settings.theme.navigation_text_color();
@@ -779,6 +788,12 @@ impl eframe::App for GossipUi {
                                 self.add_menu_item_page(ui, Page::RelaysActivityMonitor, "Active Relays");
                                 self.add_menu_item_page(ui, Page::RelaysMine, "My Relays");
                                 self.add_menu_item_page(ui, Page::RelaysKnownNetwork, "Known Network");
+                                ui.vertical(|ui| {
+                                    ui.spacing_mut().button_padding *= 2.0;
+                                    if ui.button(RichText::new("Add Relay").color(ui.visuals().text_color())).clicked() {
+                                        self.relay_entry_dialog = true;
+                                    }
+                                });
                             });
                         self.after_openable_menu(ui, &submenu);
                     }
@@ -843,6 +858,7 @@ impl eframe::App for GossipUi {
                             .fixed_pos(pos)
                             .constrain(true)
                             .show(ctx, |ui| {
+                                self.begin_ui(ui);
                                 egui::Frame::popup(&self.settings.theme.get_style())
                                     .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32/2.0)) // need the rounding for the shadow
                                     .stroke(egui::Stroke::NONE)
@@ -895,6 +911,7 @@ impl eframe::App for GossipUi {
                 ctx,
                 self.show_post_area && self.settings.posting_area_at_top,
                 |ui| {
+                    self.begin_ui(ui);
                     feed::post::posting_area(self, ctx, frame, ui);
                 },
             );
@@ -933,6 +950,7 @@ impl eframe::App for GossipUi {
             .resizable(resizable)
             .show_separator_line(false)
             .show_animated(ctx, show_status, |ui| {
+                self.begin_ui(ui);
                 #[cfg(feature = "side-menu")]
                 {
                     if self.show_post_area && !self.settings.posting_area_at_top {
@@ -967,27 +985,35 @@ impl eframe::App for GossipUi {
 
                 frame
             })
-            .show(ctx, |ui| match self.page {
-                Page::Feed(_) => feed::update(self, ctx, frame, ui),
-                Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
-                    people::update(self, ctx, frame, ui)
-                }
-                Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
-                    you::update(self, ctx, frame, ui)
-                }
-                Page::RelaysActivityMonitor | Page::RelaysMine | Page::RelaysKnownNetwork => {
-                    relays::update(self, ctx, frame, ui)
-                }
-                Page::Search => search::update(self, ctx, frame, ui),
-                Page::Settings => settings::update(self, ctx, frame, ui),
-                Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
-                    help::update(self, ctx, frame, ui)
+            .show(ctx, |ui| {
+                self.begin_ui(ui);
+                match self.page {
+                    Page::Feed(_) => feed::update(self, ctx, frame, ui),
+                    Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
+                        people::update(self, ctx, frame, ui)
+                    }
+                    Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
+                        you::update(self, ctx, frame, ui)
+                    }
+                    Page::RelaysActivityMonitor | Page::RelaysMine | Page::RelaysKnownNetwork => {
+                        relays::update(self, ctx, frame, ui)
+                    }
+                    Page::Search => search::update(self, ctx, frame, ui),
+                    Page::Settings => settings::update(self, ctx, frame, ui),
+                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
+                        help::update(self, ctx, frame, ui)
+                    }
                 }
             });
     }
 }
 
 impl GossipUi {
+    fn begin_ui(&self, ui: &mut Ui) {
+        // if a dialog is open, disable the rest of the UI
+        ui.set_enabled(!self.relay_entry_dialog);
+    }
+
     /// A short rendering of a `PublicKey`
     pub fn pubkey_short(pk: &PublicKey) -> String {
         let npub = pk.as_bech32_string();

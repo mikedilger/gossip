@@ -459,7 +459,7 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
     };
     let extend_area = extend_area.expand(SPACE * 2.0);
     if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-        if extend_area.contains(pointer_pos) {
+        if extend_area.contains(pointer_pos) && ui.is_enabled() {
             ui.add_space(SPACE);
             ui.vertical(|ui| {
                 ui.add_space(SPACE);
