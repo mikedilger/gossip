@@ -255,8 +255,6 @@ struct GossipUi {
     new_metadata_fieldname: String,
     import_priv: String,
     import_pub: String,
-    relay_entry_dialog: bool,
-    new_relay_url: String,
     show_hidden_relays: bool,
     search: String,
     entering_search_page: bool,
@@ -454,8 +452,6 @@ impl GossipUi {
             new_metadata_fieldname: String::new(),
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
-            relay_entry_dialog: false,
-            new_relay_url: "".to_owned(),
             show_hidden_relays: false,
             search: "".to_owned(),
             entering_search_page: false,
@@ -593,8 +589,8 @@ impl eframe::App for GossipUi {
         }
 
         // dialogues first
-        if self.relay_entry_dialog {
-            relays::entry_dialog(ctx, &mut self.relay_entry_dialog);
+        if self.relays.add_dialog_active {
+            relays::entry_dialog(ctx, self);
         }
 
         #[cfg(not(feature = "side-menu"))]
@@ -790,8 +786,12 @@ impl eframe::App for GossipUi {
                                 self.add_menu_item_page(ui, Page::RelaysKnownNetwork, "Known Network");
                                 ui.vertical(|ui| {
                                     ui.spacing_mut().button_padding *= 2.0;
-                                    if ui.button(RichText::new("Add Relay").color(ui.visuals().text_color())).clicked() {
-                                        self.relay_entry_dialog = true;
+                                    ui.visuals_mut().widgets.inactive.weak_bg_fill = self.settings.theme.accent_color().linear_multiply(0.2);
+                                    ui.visuals_mut().widgets.inactive.fg_stroke.width = 1.0;
+                                    ui.visuals_mut().widgets.hovered.weak_bg_fill = self.settings.theme.navigation_text_color();
+                                    ui.visuals_mut().widgets.hovered.fg_stroke.color = self.settings.theme.accent_color();
+                                    if ui.button(RichText::new("Add Relay")).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                                        self.relays.add_dialog_active = true;
                                     }
                                 });
                             });
@@ -1011,7 +1011,7 @@ impl eframe::App for GossipUi {
 impl GossipUi {
     fn begin_ui(&self, ui: &mut Ui) {
         // if a dialog is open, disable the rest of the UI
-        ui.set_enabled(!self.relay_entry_dialog);
+        ui.set_enabled(!self.relays.add_dialog_active);
     }
 
     /// A short rendering of a `PublicKey`
@@ -1349,9 +1349,6 @@ impl GossipUi {
         ui.add_space(2.0);
         let response = ui.add(label);
         ui.add_space(2.0);
-        response
-            .clone()
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
         response
     }
 }
