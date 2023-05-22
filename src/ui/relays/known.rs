@@ -19,6 +19,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             relay_filter_combo(app, ui);
             ui.add_space(20.0);
             relay_sort_combo(app, ui);
+            ui.add_space(20.0);
+            ui.checkbox(&mut app.show_hidden_relays, "Show hidden");
         });
     });
     ui.add_space(10.0);
