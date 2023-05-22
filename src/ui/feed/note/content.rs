@@ -217,9 +217,8 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     }
 
     if show_link {
-        let response = ui.link("[ Image ]");
-        // show url on hover
-        response.clone().on_hover_text(url_string.clone());
+        let response = ui.link("[ Image ]")
+            .on_hover_text(url_string.clone()); // show url on hover
         // show media toggle
         if response.clicked() {
             if app.settings.show_media {
@@ -323,9 +322,8 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     }
 
     if show_link {
-        let response = ui.link("[ Video ]");
-        // show url on hover
-        response.clone().on_hover_text(url_string.clone());
+        let response = ui.link("[ Video ]")
+            .on_hover_text(url_string.clone()); // show url on hover
         // show media toggle
         if response.clicked() {
             if app.settings.show_media {

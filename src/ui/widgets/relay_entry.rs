@@ -267,14 +267,13 @@ impl RelayEntry {
         } else {
             let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
-            let response = ui.interact(btn_rect, id, Sense::click());
+            let response = ui.interact(btn_rect, id, Sense::click()).on_hover_cursor(CursorIcon::PointingHand);
             let color = if response.hovered() {
                 ui.visuals().text_color()
             } else {
                 self.accent
                     .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color)
             };
-            response.clone().on_hover_cursor(CursorIcon::PointingHand);
             if let Some(symbol) = &self.option_symbol {
                 let mut mesh = Mesh::with_texture(symbol.into());
                 mesh.add_rect_with_uv(
@@ -302,9 +301,8 @@ impl RelayEntry {
         let pos =
             rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - OUTER_MARGIN_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
-        let response = ui.interact(btn_rect, id, Sense::click());
+        let response = ui.interact(btn_rect, id, Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand);
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
-        response.clone().on_hover_cursor(egui::CursorIcon::PointingHand);
 
         let visuals = ui.style().interact(&response);
         let accent = self.accent.unwrap_or(ui.visuals().hyperlink_color);
@@ -973,6 +971,7 @@ fn draw_link_at(
     hover_color: Color32,
 ) -> Response {
     let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
+    let response = response.on_hover_cursor(CursorIcon::PointingHand);
     let (color, stroke) = if !secondary {
         if active {
             if response.hovered() {
@@ -994,7 +993,6 @@ fn draw_link_at(
             (ui.visuals().weak_text_color(), Stroke::NONE)
         }
     };
-    response.clone().on_hover_cursor(CursorIcon::PointingHand);
     draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
     response
 }

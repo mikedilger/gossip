@@ -112,7 +112,7 @@ pub fn switch_custom_at(
         *value = !*value;
         response.mark_changed();
     }
-    if enabled { response.clone().on_hover_cursor(egui::CursorIcon::PointingHand); }
+    response = if enabled { response.on_hover_cursor(egui::CursorIcon::PointingHand) } else { response };
     response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *value, ""));
 
     if ui.is_rect_visible(rect) {
