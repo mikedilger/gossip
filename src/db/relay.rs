@@ -76,9 +76,9 @@ impl DbRelay {
         Ok(())
     }
 
-    pub fn attempts(&self) -> u64 {
-        self.success_count + self.failure_count
-    }
+    // pub fn attempts(&self) -> u64 {
+    //     self.success_count + self.failure_count
+    // }
 
     pub fn success_rate(&self) -> f32 {
         let attempts = self.success_count + self.failure_count;

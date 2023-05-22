@@ -52,7 +52,7 @@ const USAGE_LINE_THICKNESS: f32 = 1.0;
 /// Spacing between nip11 text rows
 const NIP11_Y_SPACING: f32 = 20.0;
 /// Copy symbol for nip11 items copy button
-const COPY_SYMBOL: &'static str = "\u{2398}";
+const COPY_SYMBOL: &str = "\u{2398}";
 /// Max length of title string
 const TITLE_MAX_LEN: usize = 50;
 /// First stat column x location
@@ -100,28 +100,28 @@ impl UsageBits {
         }
     }
 
-    fn to_usage_bits(&self) -> u64 {
-        let mut bits: u64 = 0;
-        if self.read {
-            bits |= DbRelay::READ
-        }
-        if self.write {
-            bits |= DbRelay::WRITE
-        }
-        if self.advertise {
-            bits |= DbRelay::ADVERTISE
-        }
-        if self.inbox {
-            bits |= DbRelay::INBOX
-        }
-        if self.outbox {
-            bits |= DbRelay::OUTBOX
-        }
-        if self.discover {
-            bits |= DbRelay::DISCOVER
-        }
-        bits
-    }
+    // fn to_usage_bits(&self) -> u64 {
+    //     let mut bits: u64 = 0;
+    //     if self.read {
+    //         bits |= DbRelay::READ
+    //     }
+    //     if self.write {
+    //         bits |= DbRelay::WRITE
+    //     }
+    //     if self.advertise {
+    //         bits |= DbRelay::ADVERTISE
+    //     }
+    //     if self.inbox {
+    //         bits |= DbRelay::INBOX
+    //     }
+    //     if self.outbox {
+    //         bits |= DbRelay::OUTBOX
+    //     }
+    //     if self.discover {
+    //         bits |= DbRelay::DISCOVER
+    //     }
+    //     bits
+    // }
 }
 
 /// Relay Entry
@@ -133,13 +133,11 @@ impl UsageBits {
 pub struct RelayEntry {
     db_relay: DbRelay,
     view: RelayEntryView,
-    active: bool,
+    enabled: bool,
     user_count: Option<usize>,
     usage: UsageBits,
-    rounding: Rounding,
-    stroke: Option<Stroke>,
     accent: Option<Color32>,
-    highlight: Option<Color32>,
+    // highlight: Option<Color32>,
     option_symbol: Option<TextureHandle>,
 }
 
@@ -149,13 +147,11 @@ impl RelayEntry {
         Self {
             db_relay,
             view: RelayEntryView::List,
-            active: true,
+            enabled: true,
             user_count: None,
             usage,
-            rounding: Rounding::same(5.0),
-            stroke: None,
             accent: None,
-            highlight: None,
+            // highlight: None,
             option_symbol: None,
         }
     }
@@ -168,22 +164,12 @@ impl RelayEntry {
         }
     }
 
-    pub fn set_active(&mut self, active: bool) {
-        self.active = active;
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
     }
 
     pub fn set_user_count(&mut self, count: usize) {
         self.user_count = Some(count);
-    }
-
-    pub fn rounding(mut self, rounding: Rounding) -> Self {
-        self.rounding = rounding;
-        self
-    }
-
-    pub fn stroke(mut self, stroke: Stroke) -> Self {
-        self.stroke = Some(stroke);
-        self
     }
 
     pub fn accent(mut self, accent: Color32) -> Self {
@@ -191,19 +177,19 @@ impl RelayEntry {
         self
     }
 
-    pub fn highlight(mut self, highlight: Color32) -> Self {
-        self.highlight = Some(highlight);
-        self
-    }
+    // pub fn highlight(mut self, highlight: Color32) -> Self {
+    //     self.highlight = Some(highlight);
+    //     self
+    // }
 
     pub fn option_symbol(mut self, option_symbol: TextureHandle) -> Self {
         self.option_symbol = Some(option_symbol);
         self
     }
 
-    pub fn view(&self) -> RelayEntryView {
-        self.view.clone()
-    }
+    // pub fn view(&self) -> RelayEntryView {
+    //     self.view.clone()
+    // }
 }
 
 impl RelayEntry {
@@ -224,7 +210,7 @@ impl RelayEntry {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
         let mut title = safe_truncate(self.db_relay.url.as_str(), TITLE_MAX_LEN).to_string();
         if self.db_relay.url.0.len() > TITLE_MAX_LEN {
-            title.push_str("\u{2026}"); // append ellipsis
+            title.push('\u{2026}'); // append ellipsis
         }
         let text = RichText::new(title).size(16.5);
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
@@ -246,9 +232,9 @@ impl RelayEntry {
         let fill = ui.style().visuals.extreme_bg_color;
         ui.painter().add(epaint::RectShape {
             rect: frame_rect,
-            rounding: self.rounding,
+            rounding: Rounding::same(5.0),
             fill,
-            stroke: self.stroke.unwrap_or(Stroke::NONE),
+            stroke: Stroke::NONE,
         });
     }
 
@@ -257,13 +243,11 @@ impl RelayEntry {
         if self.db_relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let text = RichText::new("pick up & configure");
-            let accent = self.accent
-                .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-            let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.active,false, accent);
-            if self.active && response.clicked() {
+            let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled,false);
+            if self.enabled && response.clicked() {
                 self.view = RelayEntryView::Edit;
             }
-            return response;
+            response
         } else {
             let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
@@ -286,7 +270,7 @@ impl RelayEntry {
                 let text = RichText::new("\u{2699}").size(20.0);
                 draw_text_at(ui, pos, text.into(), Align::LEFT, Some(color), None);
             }
-            return response;
+            response
         }
     }
 
@@ -331,7 +315,7 @@ impl RelayEntry {
             self.view = RelayEntryView::List;
         }
 
-        return response;
+        response
     }
 
     fn paint_lower_buttons(&self, ui: &mut Ui, rect: &Rect) -> Response {
@@ -339,10 +323,9 @@ impl RelayEntry {
             f.row_height(&FontId::default())
         });
         let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 -OUTER_MARGIN_BOTTOM -line_height);
-        let accent = self.accent.unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
         let id = self.make_id("remove_button");
         let text = "Remove from personal list";
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, true, accent);
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
             // TODO remove relay
         }
@@ -350,7 +333,7 @@ impl RelayEntry {
         let pos = pos + vec2(200.0, 0.0);
         let id = self.make_id("disconnect_button");
         let text = "Force disconnect";
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.active, true, accent);
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
             let _ = GLOBALS.to_overlord.send(
                 ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
@@ -380,7 +363,7 @@ impl RelayEntry {
 
             // ---- Following ----
             let pos = pos + vec2(STATS_COL_2_X, 0.0);
-            let mut active = self.active;
+            let mut active = self.enabled;
             let text = if let Some(count) = self.user_count {
                 RichText::new(format!("Following: {}", count))
             } else {
@@ -388,9 +371,7 @@ impl RelayEntry {
                 RichText::new("Following: ---")
             };
             let id = self.make_id("following_link");
-            let accent = self.accent
-                .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color);
-            let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, true, accent);
+            let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, true);
             if response.clicked() {
                 // TODO go to following page for this relay?
             }
@@ -546,7 +527,7 @@ impl RelayEntry {
                 }
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
-            if doc.supported_nips.len() > 0 {
+            if !doc.supported_nips.is_empty() {
                 let mut text = "NIPS: ".to_string();
                 for nip in &doc.supported_nips {
                     text.push_str(format!(" {},", *nip).as_str());
@@ -566,13 +547,12 @@ impl RelayEntry {
         {
             // ---- read ----
             let id = self.make_id("read_switch");
-            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
             let response = components::switch_custom_at(
                 ui,
                 true,
                 &mut self.usage.read,
-                switch_size,
-                spos,
+                sw_rect,
                 id,
                 knob_fill,
                 on_fill,
@@ -586,7 +566,7 @@ impl RelayEntry {
                         DbRelay::READ,
                         self.usage.read,
                     ));
-                if self.usage.read == false {
+                if !self.usage.read {
                     // if read was turned off, inbox must also be turned off
                     self.usage.inbox = false;
                     let _ = GLOBALS
@@ -619,13 +599,12 @@ impl RelayEntry {
             // ---- inbox ----
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
             let id = self.make_id("inbox_switch");
-            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
             let response = components::switch_custom_at(
                 ui,
                 self.usage.read,
                 &mut self.usage.inbox,
-                switch_size,
-                spos,
+                sw_rect,
                 id,
                 knob_fill,
                 on_fill,
@@ -654,13 +633,12 @@ impl RelayEntry {
         {
             // ---- write ----
             let id = self.make_id("write_switch");
-            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
             let response = components::switch_custom_at(
                 ui,
                 true,
                 &mut self.usage.write,
-                switch_size,
-                spos,
+                sw_rect,
                 id,
                 knob_fill,
                 on_fill,
@@ -675,7 +653,7 @@ impl RelayEntry {
                         self.usage.write,
                     ));
 
-                if self.usage.write == false {
+                if !self.usage.write {
                     // if write was turned off, outbox must also be turned off
                     self.usage.outbox = false;
                     let _ = GLOBALS
@@ -708,13 +686,12 @@ impl RelayEntry {
             // ---- outbox ----
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
             let id = self.make_id("outbox_switch");
-            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
             let response = components::switch_custom_at(
                 ui,
                 self.usage.write,
                 &mut self.usage.outbox,
-                switch_size,
-                spos,
+                sw_rect,
                 id,
                 knob_fill,
                 on_fill,
@@ -743,13 +720,12 @@ impl RelayEntry {
         {
             // ---- discover ----
             let id = self.make_id("discover_switch");
-            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
             let response = components::switch_custom_at(
                 ui,
                 true,
                 &mut self.usage.discover,
-                switch_size,
-                spos,
+                sw_rect,
                 id,
                 knob_fill,
                 on_fill,
@@ -778,13 +754,12 @@ impl RelayEntry {
             // ---- advertise ----
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
             let id = self.make_id("advertise_switch");
-            let spos = pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET);
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
             let response = components::switch_custom_at(
                 ui,
                 true,
                 &mut self.usage.advertise,
-                switch_size,
-                spos,
+                sw_rect,
                 id,
                 knob_fill,
                 on_fill,
@@ -852,13 +827,14 @@ impl RelayEntry {
 
 impl Widget for RelayEntry {
     fn ui(self, ui: &mut Ui) -> Response {
-        let response: Response;
-        match self.view {
-            RelayEntryView::List => response = self.update_list_view(ui),
-            RelayEntryView::Edit => response = self.update_edit_view(ui),
+        if self.accent.is_some() {
+            ui.visuals_mut().widgets.hovered.fg_stroke.color = self.accent.unwrap();
         }
 
-        response
+        match self.view {
+            RelayEntryView::List => self.update_list_view(ui),
+            RelayEntryView::Edit => self.update_edit_view(ui),
+        }
     }
 }
 
@@ -966,14 +942,14 @@ fn draw_link_at(
     pos: Pos2,
     text: WidgetText,
     align: Align,
-    active: bool,
+    enabled: bool,
     secondary: bool,
-    hover_color: Color32,
 ) -> Response {
-    let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
+    let (galley, response) = allocate_text_at(ui, pos, text, align, id);
     let response = response.on_hover_cursor(CursorIcon::PointingHand);
+    let hover_color = ui.visuals().widgets.hovered.fg_stroke.color;
     let (color, stroke) = if !secondary {
-        if active {
+        if enabled {
             if response.hovered() {
                 (ui.visuals().text_color(), Stroke::NONE)
             } else {
@@ -983,7 +959,7 @@ fn draw_link_at(
             (ui.visuals().weak_text_color(), Stroke::NONE)
         }
     } else {
-        if active {
+        if enabled {
             if response.hovered() {
                 (hover_color, Stroke::NONE)
             } else {

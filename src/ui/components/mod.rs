@@ -98,14 +98,12 @@ pub fn switch_custom_at(
     ui: &mut Ui,
     enabled: bool,
     value: &mut bool,
-    size: egui::Vec2,
-    pos: egui::Pos2,
+    rect: Rect,
     id: Id,
     knob_fill: Color32,
     on_fill: Color32,
     off_fill: Color32,
 ) -> Response {
-    let rect = Rect::from_min_size(pos, size);
     let sense = if enabled { egui::Sense::click() } else { egui::Sense::hover() };
     let mut response = ui.interact(rect, id, sense);
     if response.clicked() {

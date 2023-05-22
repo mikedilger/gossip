@@ -5,7 +5,6 @@ use eframe::egui::{
     FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle, Visuals,
 };
 use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
-use egui_winit::egui::vec2;
 use std::collections::BTreeMap;
 
 #[derive(Default)]

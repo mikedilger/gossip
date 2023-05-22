@@ -70,7 +70,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .accent(app.settings.theme.accent_color())
                     .option_symbol(app.options_symbol.clone());
                 widget.set_edit(edit);
-                widget.set_active(enabled);
+                widget.set_enabled(enabled);
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                     widget.set_user_count(assignment.pubkeys.len());
                 }

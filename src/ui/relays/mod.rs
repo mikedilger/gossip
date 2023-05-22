@@ -2,10 +2,10 @@ use std::cmp::Ordering;
 
 use crate::{db::DbRelay, globals::GLOBALS, comms::ToOverlordMessage};
 
-use super::{GossipUi, Page, widgets::NavItem};
+use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id, vec2, Vec2, Rect, Align2, RichText, TextBuffer};
+use egui_winit::egui::{Id, vec2, Rect, RichText, TextBuffer};
 use nostr_types::RelayUrl;
 
 mod active;
@@ -40,46 +40,36 @@ impl RelayUi {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq,Default)]
 pub(super) enum RelaySorting {
-    WriteRelaysFirst,
-    AdvertiseRelaysFirst,
-    HighestFollowingFirst,
-    HighestSuccessRateFirst,
-    LowestSuccessRateFirst,
-}
-
-impl Default for RelaySorting {
-    fn default() -> Self {
-        RelaySorting::WriteRelaysFirst
-    }
+    #[default]
+    WriteRelays,
+    AdvertiseRelays,
+    HighestFollowing,
+    HighestSuccessRate,
+    LowestSuccessRate,
 }
 
 impl RelaySorting {
     pub fn get_name(&self) -> &str {
         match self {
-            RelaySorting::WriteRelaysFirst => "Write Relays",
-            RelaySorting::AdvertiseRelaysFirst => "Advertise Relays",
-            RelaySorting::HighestFollowingFirst => "Following",
-            RelaySorting::HighestSuccessRateFirst => "Success Rate",
-            RelaySorting::LowestSuccessRateFirst => "Failure Rate",
+            RelaySorting::WriteRelays => "Write Relays",
+            RelaySorting::AdvertiseRelays => "Advertise Relays",
+            RelaySorting::HighestFollowing => "Following",
+            RelaySorting::HighestSuccessRate => "Success Rate",
+            RelaySorting::LowestSuccessRate => "Failure Rate",
         }
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Default)]
 pub(super) enum RelayFilter {
+    #[default]
     All,
     Write,
     Read,
     Advertise,
     Private,
-}
-
-impl Default for RelayFilter {
-    fn default() -> Self {
-        RelayFilter::All
-    }
 }
 
 impl RelayFilter {
@@ -247,28 +237,28 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
         .show_ui(ui, |ui| {
             ui.selectable_value(
                 &mut app.relays.sort,
-                RelaySorting::HighestFollowingFirst,
-                RelaySorting::HighestFollowingFirst.get_name(),
+                RelaySorting::HighestFollowing,
+                RelaySorting::HighestFollowing.get_name(),
             );
             ui.selectable_value(
                 &mut app.relays.sort,
-                RelaySorting::HighestSuccessRateFirst,
-                RelaySorting::HighestSuccessRateFirst.get_name(),
+                RelaySorting::HighestSuccessRate,
+                RelaySorting::HighestSuccessRate.get_name(),
             );
             ui.selectable_value(
                 &mut app.relays.sort,
-                RelaySorting::LowestSuccessRateFirst,
-                RelaySorting::LowestSuccessRateFirst.get_name(),
+                RelaySorting::LowestSuccessRate,
+                RelaySorting::LowestSuccessRate.get_name(),
             );
             ui.selectable_value(
                 &mut app.relays.sort,
-                RelaySorting::WriteRelaysFirst,
-                RelaySorting::WriteRelaysFirst.get_name(),
+                RelaySorting::WriteRelays,
+                RelaySorting::WriteRelays.get_name(),
             );
             ui.selectable_value(
                 &mut app.relays.sort,
-                RelaySorting::AdvertiseRelaysFirst,
-                RelaySorting::AdvertiseRelaysFirst.get_name(),
+                RelaySorting::AdvertiseRelays,
+                RelaySorting::AdvertiseRelays.get_name(),
             );
         });
 }
@@ -315,20 +305,20 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
 ///
 pub(super) fn sort_relay(rui: &RelayUi, a: &DbRelay, b: &DbRelay) -> Ordering {
     match rui.sort {
-        RelaySorting::WriteRelaysFirst => b
+        RelaySorting::WriteRelays => b
             .has_usage_bits(DbRelay::WRITE)
             .cmp(&a.has_usage_bits(DbRelay::WRITE))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::AdvertiseRelaysFirst => b
+        RelaySorting::AdvertiseRelays => b
             .has_usage_bits(DbRelay::ADVERTISE)
             .cmp(&a.has_usage_bits(DbRelay::ADVERTISE))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::HighestFollowingFirst => a.url.cmp(&b.url), // FIXME need following numbers here
-        RelaySorting::HighestSuccessRateFirst => b
+        RelaySorting::HighestFollowing => a.url.cmp(&b.url), // FIXME need following numbers here
+        RelaySorting::HighestSuccessRate => b
             .success_rate()
             .total_cmp(&a.success_rate())
             .then(a.url.cmp(&b.url)),
-        RelaySorting::LowestSuccessRateFirst => a
+        RelaySorting::LowestSuccessRate => a
             .success_rate()
             .total_cmp(&b.success_rate())
             .then(a.url.cmp(&b.url)),
