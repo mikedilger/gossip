@@ -630,6 +630,80 @@ impl RelayEntry {
             );
         }
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+
+        {
+            // ---- rank slider ----
+            let r = self.db_relay.rank;
+            let mut new_r = self.db_relay.rank;
+            let txt_color = ui.visuals().text_color();
+            let on_text = ui.visuals().extreme_bg_color;
+            let (bg, txt) = if r == 0 {
+                ([on_fill, off_fill, off_fill, off_fill],
+                 [on_text, txt_color, txt_color, txt_color])
+            } else if r >= 1 && r <= 2 {
+                ([off_fill, on_fill, off_fill, off_fill],
+                 [txt_color, on_text, txt_color, txt_color])
+            } else if r > 2 && r <= 5 {
+                ([off_fill, off_fill, on_fill, off_fill],
+                 [txt_color, txt_color, on_text, txt_color])
+            } else {
+                ([off_fill, off_fill, off_fill, on_fill],
+                 [txt_color, txt_color, txt_color, on_text])
+            };
+
+            let size = vec2(50.0, 20.0);
+            let btn_round = ui.visuals().widgets.inactive.rounding;
+            let stroke = Stroke::NONE;
+            let mut font: FontId = Default::default();
+            font.size = 12.0;
+            {
+                ui.painter().text(pos, Align2::LEFT_TOP, "Rank:", font.clone(), txt_color);
+            }
+            let pos = pos+vec2(70.0,0.0);
+            {
+                let rect = Rect::from_min_size(pos + vec2(-size.x/2.0, -3.0), size );
+                ui.painter().rect(rect, btn_round, bg[0], stroke);
+                ui.painter().text(pos, Align2::CENTER_TOP, "Off", font.clone(), txt[0]);
+                if ui.interact(rect, self.make_id("rank_off"), Sense::click()).clicked() {
+                    new_r = 0;
+                }
+            }
+            let pos = pos+vec2(60.0,0.0);
+            {
+                let rect = Rect::from_min_size(pos + vec2(-size.x/2.0, -3.0), size );
+                ui.painter().rect(rect, btn_round, bg[1], stroke);
+                ui.painter().text(pos, Align2::CENTER_TOP, "Low", font.clone(), txt[1]);
+                if ui.interact(rect, self.make_id("rank_low"), Sense::click()).clicked() {
+                    new_r = 1;
+                }
+            }
+            let pos = pos+vec2(60.0,0.0);
+            {
+                let rect = Rect::from_min_size(pos + vec2(-size.x/2.0, -3.0), size );
+                ui.painter().rect(rect, btn_round, bg[2], stroke);
+                ui.painter().text(pos, Align2::CENTER_TOP, "Med", font.clone(), txt[2]);
+                if ui.interact(rect, self.make_id("rank_med"), Sense::click()).clicked() {
+                    new_r = 3;
+                }
+            }
+            let pos = pos+vec2(60.0,0.0);
+            {
+                let rect = Rect::from_min_size(pos + vec2(-size.x/2.0, -3.0), size );
+                ui.painter().rect(rect, btn_round, bg[3], stroke);
+                ui.painter().text(pos, Align2::CENTER_TOP, "High", font, txt[3]);
+                if ui.interact(rect, self.make_id("rank_high"), Sense::click()).clicked() {
+                    new_r = 9;
+                }
+            }
+
+            if new_r != self.db_relay.rank {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::RankRelay(self.db_relay.url.clone(), new_r as u8));
+            }
+        }
+
+        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
             // ---- write ----
             let id = self.make_id("write_switch");
