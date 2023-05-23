@@ -630,9 +630,26 @@ impl RelayEntry {
             );
         }
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+        {
+            // ---- connecting arc ---
+            const RADIUS: f32 = USAGE_SWITCH_Y_SPACING/2.0;
+            let start = pos + vec2(-5.0, 7.25);
+            let end = pos + vec2(-5.0, -USAGE_SWITCH_Y_SPACING + 7.25);
+            let p2 = start + vec2(-RADIUS, 0.0);
+            let p3 = end + vec2(-RADIUS, 0.0);
+            let arc = egui::Shape::CubicBezier(egui::epaint::CubicBezierShape{
+                points: [start, p2, p3, end],
+                closed: false,
+                fill: Color32::TRANSPARENT,
+                stroke: Stroke::new(1.0, off_fill)
+            });
+            ui.painter().add(arc);
+        }
 
         {
             // ---- rank slider ----
+            const BTN_SIZE: Vec2 = vec2(38.0, 20.0);
+            const BTN_SP_X: f32 = BTN_SIZE.x + 7.0;
             let r = self.db_relay.rank;
             let mut new_r = self.db_relay.rank;
             let txt_color = ui.visuals().text_color();
@@ -640,58 +657,103 @@ impl RelayEntry {
             let (bg, txt) = if r == 0 {
                 ([on_fill, off_fill, off_fill, off_fill],
                  [on_text, txt_color, txt_color, txt_color])
-            } else if r >= 1 && r <= 2 {
+            } else if r == 1 {
                 ([off_fill, on_fill, off_fill, off_fill],
                  [txt_color, on_text, txt_color, txt_color])
-            } else if r > 2 && r <= 5 {
+            } else if r == 3 {
                 ([off_fill, off_fill, on_fill, off_fill],
                  [txt_color, txt_color, on_text, txt_color])
-            } else {
+            } else if r == 9{
                 ([off_fill, off_fill, off_fill, on_fill],
                  [txt_color, txt_color, txt_color, on_text])
+            } else {
+                ([off_fill, off_fill, off_fill, off_fill],
+                [txt_color, txt_color, txt_color, txt_color])
             };
 
-            let size = vec2(50.0, 20.0);
             let btn_round = ui.visuals().widgets.inactive.rounding;
             let stroke = Stroke::NONE;
             let mut font: FontId = Default::default();
-            font.size = 12.0;
+            font.size = 11.0;
             {
-                ui.painter().text(pos, Align2::LEFT_TOP, "Rank:", font.clone(), txt_color);
+                ui.painter().text(pos, Align2::LEFT_TOP, "Priority:", font.clone(), txt_color);
             }
-            let pos = pos+vec2(70.0,0.0);
+            let pos = pos+vec2(85.0,0.0);
             {
-                let rect = Rect::from_min_size(pos + vec2(-size.x/2.0, -3.0), size );
+                {
+                    // -- - button --
+                    let rect = Rect::from_min_size( pos + vec2(-28.0, -2.0), vec2(20.0,18.0) );
+                    let resp = ui.interact(rect, self.make_id("rank_sub"), Sense::click())
+                        .on_hover_cursor(CursorIcon::PointingHand);
+                    if resp.clicked() {
+                        if new_r > 0 {
+                            new_r -= 1;
+                        }
+                    }
+                    let (fill, txt) = if resp.hovered() {
+                        (on_fill, on_text)
+                    } else {
+                        (off_fill, txt_color)
+                    };
+                    ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
+                    ui.painter().text(rect.center()-vec2(1.0,0.0), Align2::CENTER_CENTER, "\u{2212}", font.clone(), txt);
+                }
+                {
+                    // -- + button --
+                    let rect = Rect::from_min_size( pos + vec2(9.0, -2.0), vec2(20.0,18.0) );
+                    let resp = ui.interact(rect, self.make_id("rank_add"), Sense::click())
+                        .on_hover_cursor(CursorIcon::PointingHand);
+                    if resp.clicked() {
+                        if new_r < 9 {
+                            new_r += 1;
+                        }
+                    }
+                    let (fill, txt) = if resp.hovered() {
+                        (on_fill, on_text)
+                    } else {
+                        (off_fill, txt_color)
+                    };
+                    ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
+                    ui.painter().text(rect.center()+vec2(1.0,0.0), Align2::CENTER_CENTER, "\u{002B}", font.clone(), txt);
+                }
+                // -- value display --
+                let rect = Rect::from_min_size(pos + vec2(-10.0, -3.0), vec2(20.0,20.0) );
+                ui.painter().rect(rect, btn_round, ui.visuals().extreme_bg_color, Stroke::new(1.0, off_fill));
+                ui.painter().text(pos, Align2::CENTER_TOP, format!( "{}", r), font.clone(), txt_color);
+            }
+            let pos = pos+vec2(BTN_SP_X + 15.0,0.0);
+            {
+                let rect = Rect::from_min_size(pos + vec2(-BTN_SIZE.x/2.0, -3.0), BTN_SIZE );
                 ui.painter().rect(rect, btn_round, bg[0], stroke);
                 ui.painter().text(pos, Align2::CENTER_TOP, "Off", font.clone(), txt[0]);
-                if ui.interact(rect, self.make_id("rank_off"), Sense::click()).clicked() {
+                if ui.interact(rect, self.make_id("rank_off"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).clicked() {
                     new_r = 0;
                 }
             }
-            let pos = pos+vec2(60.0,0.0);
+            let pos = pos+vec2(BTN_SP_X,0.0);
             {
-                let rect = Rect::from_min_size(pos + vec2(-size.x/2.0, -3.0), size );
+                let rect = Rect::from_min_size(pos + vec2(-BTN_SIZE.x/2.0, -3.0), BTN_SIZE );
                 ui.painter().rect(rect, btn_round, bg[1], stroke);
                 ui.painter().text(pos, Align2::CENTER_TOP, "Low", font.clone(), txt[1]);
-                if ui.interact(rect, self.make_id("rank_low"), Sense::click()).clicked() {
+                if ui.interact(rect, self.make_id("rank_low"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).clicked() {
                     new_r = 1;
                 }
             }
-            let pos = pos+vec2(60.0,0.0);
+            let pos = pos+vec2(BTN_SP_X,0.0);
             {
-                let rect = Rect::from_min_size(pos + vec2(-size.x/2.0, -3.0), size );
+                let rect = Rect::from_min_size(pos + vec2(-BTN_SIZE.x/2.0, -3.0), BTN_SIZE );
                 ui.painter().rect(rect, btn_round, bg[2], stroke);
                 ui.painter().text(pos, Align2::CENTER_TOP, "Med", font.clone(), txt[2]);
-                if ui.interact(rect, self.make_id("rank_med"), Sense::click()).clicked() {
+                if ui.interact(rect, self.make_id("rank_med"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).clicked() {
                     new_r = 3;
                 }
             }
-            let pos = pos+vec2(60.0,0.0);
+            let pos = pos+vec2(BTN_SP_X,0.0);
             {
-                let rect = Rect::from_min_size(pos + vec2(-size.x/2.0, -3.0), size );
+                let rect = Rect::from_min_size(pos + vec2(-BTN_SIZE.x/2.0, -3.0), BTN_SIZE );
                 ui.painter().rect(rect, btn_round, bg[3], stroke);
-                ui.painter().text(pos, Align2::CENTER_TOP, "High", font, txt[3]);
-                if ui.interact(rect, self.make_id("rank_high"), Sense::click()).clicked() {
+                ui.painter().text(pos, Align2::CENTER_TOP, "High", font.clone(), txt[3]);
+                if ui.interact(rect, self.make_id("rank_high"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).clicked() {
                     new_r = 9;
                 }
             }
