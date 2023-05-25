@@ -1,5 +1,6 @@
 use crate::error::Error;
 use std::env;
+use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
@@ -44,23 +45,21 @@ impl Profile {
                 }
 
                 let mut dir = base_dir.clone();
-                dir.push(profile);
+                dir.push(&profile);
 
-                {
-                    // make sure the profile dir is inside the base dir, i.e. protect from directory traversal
-                    let base_canonical = base_dir
-                        .canonicalize()
-                        .map_err(|e| Error::from(format!("Base dir is invalid: {}", e)))?;
-                    let profile_canonical = dir
-                        .canonicalize()
-                        .map_err(|e| Error::from(format!("Profile dir is invalid: {}", e)))?;
-                    if !profile_canonical.starts_with(&base_canonical) {
-                        return Err(Error::from(format!(
-                            "Profile dir is outside of the base dir ({:?} not in {:?})",
-                            profile_canonical, base_canonical
-                        )));
+                match dir.file_name() {
+                    Some(filename) => {
+                        if filename != OsStr::new(&profile) {
+                            return Err(Error::from(format!(
+                                "Profile is not a simple filename: {}",
+                                profile
+                            )));
+                        }
                     }
-                }
+                    None => {
+                        return Err(Error::from(format!("Profile is invalid: {}", profile)));
+                    }
+                };
 
                 dir
             }
