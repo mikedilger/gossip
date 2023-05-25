@@ -504,8 +504,15 @@ impl RelayEntry {
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(desc) = &doc.description {
-                let desc = safe_truncate(desc.as_str(), 200); // TODO is this a good number?
-                draw_text_at(ui, pos, desc.into(), align, None, None);
+                let desc_tr = safe_truncate(desc.as_str(), 70); // TODO is this a good number?
+                let rect = draw_text_at(ui, pos, desc_tr.into(), align, None, None);
+                ui.interact(rect, self.make_id("nip11desc"), Sense::hover())
+                    .on_hover_ui(|ui|{
+                        ui.horizontal_wrapped(|ui|{
+                            ui.set_max_width(400.0);
+                            ui.label(desc);
+                        });
+                    });
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(pubkey) = &doc.pubkey {
