@@ -56,9 +56,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     false
                 };
                 let enabled = edit || !is_editing;
-                let mut widget = RelayEntry::new(db_relay)
-                    .accent(app.settings.theme.accent_color())
-                    .option_symbol(app.options_symbol.clone());
+                let mut widget = RelayEntry::new(db_relay, app);
                 widget.set_edit(edit);
                 widget.set_enabled(enabled);
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {

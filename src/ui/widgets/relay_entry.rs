@@ -3,7 +3,7 @@ use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
 use nostr_types::{PublicKeyHex, Unixtime};
 
-use crate::{comms::ToOverlordMessage, db::DbRelay, globals::GLOBALS, ui::components};
+use crate::{comms::ToOverlordMessage, db::DbRelay, globals::GLOBALS, ui::{components, GossipUi}};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 80.0;
@@ -136,23 +136,29 @@ pub struct RelayEntry {
     enabled: bool,
     user_count: Option<usize>,
     usage: UsageBits,
-    accent: Option<Color32>,
+    accent: Color32,
+    accent_hover: Color32,
     // highlight: Option<Color32>,
-    option_symbol: Option<TextureHandle>,
+    option_symbol: TextureId,
 }
 
 impl RelayEntry {
-    pub fn new(db_relay: DbRelay) -> Self {
+    pub(in crate::ui) fn new(db_relay: DbRelay, app: &mut GossipUi) -> Self {
         let usage = UsageBits::from_usage_bits(db_relay.usage_bits);
+        let accent = app.settings.theme.accent_color();
+        let mut hsva: ecolor::HsvaGamma  = accent.into();
+        hsva.v *= 0.8;
+        let accent_hover: Color32 = hsva.into();
         Self {
             db_relay,
             view: RelayEntryView::List,
             enabled: true,
             user_count: None,
             usage,
-            accent: None,
+            accent,
+            accent_hover,
             // highlight: None,
-            option_symbol: None,
+            option_symbol: (&app.options_symbol).into(),
         }
     }
 
@@ -170,21 +176,6 @@ impl RelayEntry {
 
     pub fn set_user_count(&mut self, count: usize) {
         self.user_count = Some(count);
-    }
-
-    pub fn accent(mut self, accent: Color32) -> Self {
-        self.accent = Some(accent);
-        self
-    }
-
-    // pub fn highlight(mut self, highlight: Color32) -> Self {
-    //     self.highlight = Some(highlight);
-    //     self
-    // }
-
-    pub fn option_symbol(mut self, option_symbol: TextureHandle) -> Self {
-        self.option_symbol = Some(option_symbol);
-        self
     }
 
     // pub fn view(&self) -> RelayEntryView {
@@ -219,7 +210,7 @@ impl RelayEntry {
             pos,
             text.into(),
             Align::LEFT,
-            Some(self.accent.unwrap_or(ui.visuals().text_color())),
+            Some(self.accent),
             None,
         );
     }
@@ -256,20 +247,14 @@ impl RelayEntry {
                 ui.visuals().text_color()
             } else {
                 self.accent
-                    .unwrap_or(ui.style().visuals.widgets.hovered.fg_stroke.color)
             };
-            if let Some(symbol) = &self.option_symbol {
-                let mut mesh = Mesh::with_texture(symbol.into());
-                mesh.add_rect_with_uv(
-                    btn_rect.shrink(2.0),
-                    Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                    color,
-                );
-                ui.painter().add(Shape::mesh(mesh));
-            } else {
-                let text = RichText::new("\u{2699}").size(20.0);
-                draw_text_at(ui, pos, text.into(), Align::LEFT, Some(color), None);
-            }
+            let mut mesh = Mesh::with_texture(self.option_symbol);
+            mesh.add_rect_with_uv(
+                btn_rect.shrink(2.0),
+                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                color,
+            );
+            ui.painter().add(Shape::mesh(mesh));
             response
         }
     }
@@ -289,17 +274,13 @@ impl RelayEntry {
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
 
         let visuals = ui.style().interact(&response);
-        let accent = self.accent.unwrap_or(ui.visuals().hyperlink_color);
-
         {
             let fill = if response.hovered() {
-                let mut hsva: ecolor::HsvaGamma  = accent.into();
-                hsva.v *= 0.8;
-                hsva.into()
+                self.accent_hover
             } else {
-                accent
+                self.accent
             };
-            let stroke = Stroke::new( visuals.bg_stroke.width, accent );
+            let stroke = Stroke::new( visuals.bg_stroke.width, self.accent );
             let rounding = visuals.rounding;
             ui.painter()
                 .rect(btn_rect.expand(visuals.expansion), rounding, fill, stroke);
@@ -547,7 +528,7 @@ impl RelayEntry {
 
     fn paint_usage_settings(&mut self, ui: &mut Ui, rect: &Rect) {
         let knob_fill = ui.visuals().extreme_bg_color;
-        let on_fill = self.accent.unwrap_or(ui.visuals().widgets.active.bg_fill);
+        let on_fill = self.accent;
         let off_fill = ui.visuals().widgets.inactive.bg_fill;
         let pos = rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, TEXT_TOP + 70.0);
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
@@ -636,142 +617,6 @@ impl RelayEntry {
                 None,
             );
         }
-        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
-        {
-            // ---- connecting arc ---
-            const RADIUS: f32 = USAGE_SWITCH_Y_SPACING/2.0;
-            let start = pos + vec2(-5.0, 7.25);
-            let end = pos + vec2(-5.0, -USAGE_SWITCH_Y_SPACING + 7.25);
-            let p2 = start + vec2(-RADIUS, 0.0);
-            let p3 = end + vec2(-RADIUS, 0.0);
-            let arc = egui::Shape::CubicBezier(egui::epaint::CubicBezierShape{
-                points: [start, p2, p3, end],
-                closed: false,
-                fill: Color32::TRANSPARENT,
-                stroke: Stroke::new(1.0, off_fill)
-            });
-            ui.painter().add(arc);
-        }
-
-        {
-            // ---- rank slider ----
-            const BTN_SIZE: Vec2 = vec2(38.0, 20.0);
-            const BTN_SP_X: f32 = BTN_SIZE.x + 7.0;
-            let r = self.db_relay.rank;
-            let mut new_r = self.db_relay.rank;
-            let txt_color = ui.visuals().text_color();
-            let on_text = ui.visuals().extreme_bg_color;
-            let (bg, txt) = if r == 0 {
-                ([on_fill, off_fill, off_fill, off_fill],
-                 [on_text, txt_color, txt_color, txt_color])
-            } else if r == 1 {
-                ([off_fill, on_fill, off_fill, off_fill],
-                 [txt_color, on_text, txt_color, txt_color])
-            } else if r == 3 {
-                ([off_fill, off_fill, on_fill, off_fill],
-                 [txt_color, txt_color, on_text, txt_color])
-            } else if r == 9{
-                ([off_fill, off_fill, off_fill, on_fill],
-                 [txt_color, txt_color, txt_color, on_text])
-            } else {
-                ([off_fill, off_fill, off_fill, off_fill],
-                [txt_color, txt_color, txt_color, txt_color])
-            };
-
-            let btn_round = ui.visuals().widgets.inactive.rounding;
-            let stroke = Stroke::NONE;
-            let mut font: FontId = Default::default();
-            font.size = 11.0;
-            {
-                ui.painter().text(pos, Align2::LEFT_TOP, "Priority:", font.clone(), txt_color);
-            }
-            let pos = pos+vec2(85.0,0.0);
-            {
-                {
-                    // -- - button --
-                    let rect = Rect::from_min_size( pos + vec2(-28.0, -2.0), vec2(20.0,18.0) );
-                    let resp = ui.interact(rect, self.make_id("rank_sub"), Sense::click())
-                        .on_hover_cursor(CursorIcon::PointingHand);
-                    if resp.clicked() {
-                        if new_r > 0 {
-                            new_r -= 1;
-                        }
-                    }
-                    let (fill, txt) = if resp.hovered() {
-                        (on_fill, on_text)
-                    } else {
-                        (off_fill, txt_color)
-                    };
-                    ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
-                    ui.painter().text(rect.center()-vec2(1.0,0.0), Align2::CENTER_CENTER, "\u{2212}", font.clone(), txt);
-                }
-                {
-                    // -- + button --
-                    let rect = Rect::from_min_size( pos + vec2(9.0, -2.0), vec2(20.0,18.0) );
-                    let resp = ui.interact(rect, self.make_id("rank_add"), Sense::click())
-                        .on_hover_cursor(CursorIcon::PointingHand);
-                    if resp.clicked() {
-                        if new_r < 9 {
-                            new_r += 1;
-                        }
-                    }
-                    let (fill, txt) = if resp.hovered() {
-                        (on_fill, on_text)
-                    } else {
-                        (off_fill, txt_color)
-                    };
-                    ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
-                    ui.painter().text(rect.center()+vec2(1.0,0.0), Align2::CENTER_CENTER, "\u{002B}", font.clone(), txt);
-                }
-                // -- value display --
-                let rect = Rect::from_min_size(pos + vec2(-10.0, -3.0), vec2(20.0,20.0) );
-                ui.painter().rect(rect, btn_round, ui.visuals().extreme_bg_color, Stroke::new(1.0, off_fill));
-                ui.painter().text(pos, Align2::CENTER_TOP, format!( "{}", r), font.clone(), txt_color);
-            }
-            let pos = pos+vec2(BTN_SP_X + 15.0,0.0);
-            {
-                let rect = Rect::from_min_size(pos + vec2(-BTN_SIZE.x/2.0, -3.0), BTN_SIZE );
-                ui.painter().rect(rect, btn_round, bg[0], stroke);
-                ui.painter().text(pos, Align2::CENTER_TOP, "Off", font.clone(), txt[0]);
-                if ui.interact(rect, self.make_id("rank_off"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).clicked() {
-                    new_r = 0;
-                }
-            }
-            let pos = pos+vec2(BTN_SP_X,0.0);
-            {
-                let rect = Rect::from_min_size(pos + vec2(-BTN_SIZE.x/2.0, -3.0), BTN_SIZE );
-                ui.painter().rect(rect, btn_round, bg[1], stroke);
-                ui.painter().text(pos, Align2::CENTER_TOP, "Low", font.clone(), txt[1]);
-                if ui.interact(rect, self.make_id("rank_low"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).clicked() {
-                    new_r = 1;
-                }
-            }
-            let pos = pos+vec2(BTN_SP_X,0.0);
-            {
-                let rect = Rect::from_min_size(pos + vec2(-BTN_SIZE.x/2.0, -3.0), BTN_SIZE );
-                ui.painter().rect(rect, btn_round, bg[2], stroke);
-                ui.painter().text(pos, Align2::CENTER_TOP, "Med", font.clone(), txt[2]);
-                if ui.interact(rect, self.make_id("rank_med"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).clicked() {
-                    new_r = 3;
-                }
-            }
-            let pos = pos+vec2(BTN_SP_X,0.0);
-            {
-                let rect = Rect::from_min_size(pos + vec2(-BTN_SIZE.x/2.0, -3.0), BTN_SIZE );
-                ui.painter().rect(rect, btn_round, bg[3], stroke);
-                ui.painter().text(pos, Align2::CENTER_TOP, "High", font.clone(), txt[3]);
-                if ui.interact(rect, self.make_id("rank_high"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).clicked() {
-                    new_r = 9;
-                }
-            }
-
-            if new_r != self.db_relay.rank {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::RankRelay(self.db_relay.url.clone(), new_r as u8));
-            }
-        }
-
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
             // ---- write ----
@@ -927,6 +772,71 @@ impl RelayEntry {
                 None,
             );
         }
+        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+        {
+            // ---- rank slider ----
+            let r = self.db_relay.rank;
+            let mut new_r = self.db_relay.rank;
+            let txt_color = ui.visuals().text_color();
+            let on_text = ui.visuals().extreme_bg_color;
+            const BTN_HEIGHT: f32 = 20.0;
+            const BTN_RADIUS: f32 = BTN_HEIGHT/2.0;
+            const BTN_ROUND: Rounding = Rounding{ nw: BTN_RADIUS, ne: BTN_RADIUS, sw: BTN_RADIUS, se: BTN_RADIUS };
+            let font: FontId = Default::default();
+            // font.size = 11.0;
+            {
+                // -- value display --
+                let rect = Rect::from_min_size(pos + vec2(10.0, -5.0), vec2(BTN_HEIGHT * 2.0 + 8.0,BTN_HEIGHT + 4.0) );
+                ui.painter().rect(rect, BTN_ROUND, ui.visuals().extreme_bg_color, Stroke::new(1.0, off_fill));
+                ui.painter().text(pos + vec2(34.0,0.0), Align2::CENTER_TOP, format!( "{}", r), font.clone(), txt_color);
+                {
+                    // -- - button --
+                    let rect = Rect::from_min_size( pos + vec2(0.0, -2.0), vec2(BTN_HEIGHT,BTN_HEIGHT) );
+                    let resp = ui.interact(rect, self.make_id("rank_sub"), Sense::click())
+                        .on_hover_cursor(CursorIcon::PointingHand);
+                    if resp.clicked() {
+                        if new_r > 0 {
+                            new_r -= 1;
+                        }
+                    }
+                    let (fill, txt) = if resp.hovered() {
+                        (self.accent_hover, on_text)
+                    } else {
+                        (self.accent, on_text)
+                    };
+                    ui.painter().rect(rect, BTN_ROUND, fill, Stroke::NONE);
+                    ui.painter().text(rect.center(), Align2::CENTER_CENTER, "\u{2212}", font.clone(), txt);
+                }
+                {
+                    // -- + button --
+                    let rect = Rect::from_min_size( pos + vec2(48.0, -2.0), vec2(BTN_HEIGHT,BTN_HEIGHT) );
+                    let resp = ui.interact(rect, self.make_id("rank_add"), Sense::click())
+                        .on_hover_cursor(CursorIcon::PointingHand);
+                    if resp.clicked() {
+                        if new_r < 9 {
+                            new_r += 1;
+                        }
+                    }
+                    let (fill, txt) = if resp.hovered() {
+                        (self.accent_hover, on_text)
+                    } else {
+                        (self.accent, on_text)
+                    };
+                    ui.painter().rect(rect, BTN_ROUND, fill, Stroke::NONE);
+                    ui.painter().text(rect.center(), Align2::CENTER_CENTER, "\u{002B}", font.clone(), txt);
+                }
+            }
+            let pos = pos+vec2(80.0,0.0);
+            {
+                ui.painter().text(pos, Align2::LEFT_TOP, "Relay-picker rank", font.clone(), txt_color);
+            }
+
+            if new_r != self.db_relay.rank {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::RankRelay(self.db_relay.url.clone(), new_r as u8));
+            }
+        }
     }
 
     fn make_id(&self, str: &str ) -> Id {
@@ -970,9 +880,7 @@ impl RelayEntry {
 
 impl Widget for RelayEntry {
     fn ui(self, ui: &mut Ui) -> Response {
-        if self.accent.is_some() {
-            ui.visuals_mut().widgets.hovered.fg_stroke.color = self.accent.unwrap();
-        }
+        ui.visuals_mut().widgets.hovered.fg_stroke.color = self.accent;
 
         match self.view {
             RelayEntryView::List => self.update_list_view(ui),
