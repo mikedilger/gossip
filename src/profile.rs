@@ -3,10 +3,8 @@ use std::path::{PathBuf};
 use std::sync::{RwLock};
 use crate::error::Error;
 
-type ProfileRef = Option<Profile>;
-
 lazy_static! {
-    static ref CURRENT: RwLock<ProfileRef> = RwLock::new(None);
+    static ref CURRENT: RwLock<Option<Profile>> = RwLock::new(None);
 }
 
 ///
