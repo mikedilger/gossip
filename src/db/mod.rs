@@ -30,15 +30,11 @@ use crate::globals::GLOBALS;
 use crate::profile::Profile;
 use fallible_iterator::FallibleIterator;
 use rusqlite::Connection;
-use std::fs;
 use std::sync::atomic::Ordering;
 use tokio::task;
 
 pub fn init_database() -> Result<Connection, Error> {
     let profile_dir = Profile::current()?.profile_dir;
-
-    // Create our data directory only if it doesn't exist
-    fs::create_dir_all(&profile_dir)?;
 
     // Connect to (or create) our database
     let mut db_path = profile_dir;

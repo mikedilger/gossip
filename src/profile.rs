@@ -1,6 +1,7 @@
 use crate::error::Error;
 use std::env;
 use std::ffi::OsStr;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
@@ -71,6 +72,10 @@ impl Profile {
             base_dir.push("cache");
             base_dir
         };
+
+        fs::create_dir_all(&base_dir)?;
+        fs::create_dir_all(&profile_dir)?;
+        fs::create_dir_all(&cache_dir)?;
 
         Ok(Profile {
             base_dir,

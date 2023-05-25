@@ -64,12 +64,6 @@ impl Fetcher {
             }
         };
 
-        // Create our data directory only if it doesn't exist
-        if let Err(e) = fs::create_dir_all(&cache_dir) {
-            f.dead = Some(format!("{}", e));
-            return f;
-        }
-
         f.cache_dir = cache_dir;
         f
     }
