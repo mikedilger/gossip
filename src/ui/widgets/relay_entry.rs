@@ -779,19 +779,18 @@ impl RelayEntry {
             let mut new_r = self.db_relay.rank;
             let txt_color = ui.visuals().text_color();
             let on_text = ui.visuals().extreme_bg_color;
-            const BTN_HEIGHT: f32 = 20.0;
-            const BTN_RADIUS: f32 = BTN_HEIGHT/2.0;
-            const BTN_ROUND: Rounding = Rounding{ nw: BTN_RADIUS, ne: BTN_RADIUS, sw: BTN_RADIUS, se: BTN_RADIUS };
+            let btn_height: f32 = ui.spacing().interact_size.y;
+            let btn_round: Rounding = Rounding::same(btn_height/2.0);
             let font: FontId = Default::default();
             // font.size = 11.0;
             {
                 // -- value display --
-                let rect = Rect::from_min_size(pos + vec2(10.0, -5.0), vec2(BTN_HEIGHT * 2.0 + 8.0,BTN_HEIGHT + 4.0) );
-                ui.painter().rect(rect, BTN_ROUND, ui.visuals().extreme_bg_color, Stroke::new(1.0, off_fill));
+                let rect = Rect::from_min_size(pos + vec2(10.0, -4.0), vec2(40.0 + 8.0,btn_height + 4.0) );
+                ui.painter().rect(rect, btn_round, ui.visuals().extreme_bg_color, Stroke::new(1.0, off_fill));
                 ui.painter().text(pos + vec2(34.0,0.0), Align2::CENTER_TOP, format!( "{}", r), font.clone(), txt_color);
                 {
                     // -- - button --
-                    let rect = Rect::from_min_size( pos + vec2(0.0, -2.0), vec2(BTN_HEIGHT,BTN_HEIGHT) );
+                    let rect = Rect::from_min_size( pos + vec2(0.0, -2.0), vec2(btn_height,btn_height) );
                     let resp = ui.interact(rect, self.make_id("rank_sub"), Sense::click())
                         .on_hover_cursor(CursorIcon::PointingHand);
                     if resp.clicked() {
@@ -804,12 +803,12 @@ impl RelayEntry {
                     } else {
                         (self.accent, on_text)
                     };
-                    ui.painter().rect(rect, BTN_ROUND, fill, Stroke::NONE);
+                    ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
                     ui.painter().text(rect.center(), Align2::CENTER_CENTER, "\u{2212}", font.clone(), txt);
                 }
                 {
                     // -- + button --
-                    let rect = Rect::from_min_size( pos + vec2(48.0, -2.0), vec2(BTN_HEIGHT,BTN_HEIGHT) );
+                    let rect = Rect::from_min_size( pos + vec2(48.0, -2.0), vec2(btn_height,btn_height) );
                     let resp = ui.interact(rect, self.make_id("rank_add"), Sense::click())
                         .on_hover_cursor(CursorIcon::PointingHand);
                     if resp.clicked() {
@@ -822,7 +821,7 @@ impl RelayEntry {
                     } else {
                         (self.accent, on_text)
                     };
-                    ui.painter().rect(rect, BTN_ROUND, fill, Stroke::NONE);
+                    ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
                     ui.painter().text(rect.center(), Align2::CENTER_CENTER, "\u{002B}", font.clone(), txt);
                 }
             }
