@@ -1,3 +1,5 @@
+use crate::profile::Profile;
+
 #[derive(Debug)]
 pub struct About {
     pub name: String,
@@ -11,13 +13,10 @@ pub struct About {
 }
 
 pub fn about() -> About {
-    let data_dir = match dirs::data_dir() {
-        Some(mut d) => {
-            d.push("gossip");
-            format!("{}/", d.display())
-        }
-        None => "Cannot find a directory to store application data.".to_owned(),
-    };
+    let data_dir = Profile::current()
+        .map_or(
+            "Cannot find a directory to store application data.".to_owned(),
+            |p| { format!("{}/", p.profile_dir.display()) });
 
     let mut version = env!("CARGO_PKG_VERSION").to_string();
     if version.contains("unstable") {

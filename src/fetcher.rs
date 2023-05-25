@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::RwLock;
 use tokio::task;
+use crate::profile::Profile;
 
 #[derive(Debug, Default)]
 pub struct Fetcher {
@@ -55,15 +56,13 @@ impl Fetcher {
         };
 
         // Setup the cache directory
-        let mut cache_dir = match dirs::data_dir() {
-            Some(d) => d,
-            None => {
+        let cache_dir = match Profile::current() {
+            Ok(p) => p.cache_dir,
+            Err(_) => {
                 f.dead = Some("No Data Directory.".to_owned());
                 return f;
             }
         };
-        cache_dir.push("gossip");
-        cache_dir.push("cache");
 
         // Create our data directory only if it doesn't exist
         if let Err(e) = fs::create_dir_all(&cache_dir) {

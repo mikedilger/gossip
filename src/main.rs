@@ -43,6 +43,7 @@ mod settings;
 mod signer;
 mod tags;
 mod ui;
+mod profile;
 
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;

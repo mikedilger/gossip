@@ -32,17 +32,16 @@ use rusqlite::Connection;
 use std::fs;
 use std::sync::atomic::Ordering;
 use tokio::task;
+use crate::profile::Profile;
 
 pub fn init_database() -> Result<Connection, Error> {
-    let mut data_dir = dirs::data_dir()
-        .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
-    data_dir.push("gossip");
+    let profile_dir = Profile::current()?.profile_dir;
 
     // Create our data directory only if it doesn't exist
-    fs::create_dir_all(&data_dir)?;
+    fs::create_dir_all(&profile_dir)?;
 
     // Connect to (or create) our database
-    let mut db_path = data_dir.clone();
+    let mut db_path = profile_dir;
     db_path.push("gossip.sqlite");
     let connection = Connection::open_with_flags(
         &db_path,
