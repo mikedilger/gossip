@@ -37,13 +37,13 @@ mod nip05;
 mod overlord;
 mod people;
 mod process;
+mod profile;
 mod relationship;
 mod relay_picker_hooks;
 mod settings;
 mod signer;
 mod tags;
 mod ui;
-mod profile;
 
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;

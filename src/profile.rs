@@ -1,7 +1,7 @@
-use std::env;
-use std::path::{PathBuf};
-use std::sync::{RwLock};
 use crate::error::Error;
+use std::env;
+use std::path::PathBuf;
+use std::sync::RwLock;
 
 lazy_static! {
     static ref CURRENT: RwLock<Option<Profile>> = RwLock::new(None);
@@ -22,13 +22,12 @@ pub struct Profile {
 
 impl Profile {
     fn new() -> Result<Profile, Error> {
-
         // By default it's what `dirs::data_dir()` gives, but we allow overriding the base directory via env vars
         let base_dir = match env::var("GOSSIP_DIR") {
             Ok(dir) => {
                 tracing::info!("Using GOSSIP_DIR: {}", dir);
                 PathBuf::from(dir)
-            },
+            }
             Err(_) => {
                 let mut base_dir = dirs::data_dir()
                     .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
@@ -49,18 +48,23 @@ impl Profile {
 
                 {
                     // make sure the profile dir is inside the base dir, i.e. protect from directory traversal
-                    let base_canonical = base_dir.canonicalize()
+                    let base_canonical = base_dir
+                        .canonicalize()
                         .map_err(|_| Error::from("Base dir is invalid."))?;
-                    let profile_canonical = dir.canonicalize()
+                    let profile_canonical = dir
+                        .canonicalize()
                         .map_err(|_| Error::from("Profile dir is invalid."))?;
                     if !profile_canonical.starts_with(&base_canonical) {
-                        return Err(Error::from(format!("Profile dir is outside of the base dir ({:?} not in {:?})", profile_canonical, base_canonical)));
+                        return Err(Error::from(format!(
+                            "Profile dir is outside of the base dir ({:?} not in {:?})",
+                            profile_canonical, base_canonical
+                        )));
                     }
                 }
 
                 dir
             }
-            Err(_) => base_dir.clone()
+            Err(_) => base_dir.clone(),
         };
 
         let cache_dir = {
@@ -81,7 +85,7 @@ impl Profile {
             // create a new scope to drop the read lock before we try to create a new profile if it doesn't exist
             let current = CURRENT.read().unwrap();
             if current.is_some() {
-                return Ok(current.as_ref().unwrap().clone())
+                return Ok(current.as_ref().unwrap().clone());
             }
         }
         let created = Profile::new()?;

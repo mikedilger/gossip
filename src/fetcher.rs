@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::profile::Profile;
 use crate::USER_AGENT;
 use nostr_types::Url;
 use reqwest::Client;
@@ -11,7 +12,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::RwLock;
 use tokio::task;
-use crate::profile::Profile;
 
 #[derive(Debug, Default)]
 pub struct Fetcher {

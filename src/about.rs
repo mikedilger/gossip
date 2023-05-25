@@ -13,10 +13,10 @@ pub struct About {
 }
 
 pub fn about() -> About {
-    let data_dir = Profile::current()
-        .map_or(
-            "Cannot find a directory to store application data.".to_owned(),
-            |p| { format!("{}/", p.profile_dir.display()) });
+    let data_dir = Profile::current().map_or(
+        "Cannot find a directory to store application data.".to_owned(),
+        |p| format!("{}/", p.profile_dir.display()),
+    );
 
     let mut version = env!("CARGO_PKG_VERSION").to_string();
     if version.contains("unstable") {

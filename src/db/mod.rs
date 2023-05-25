@@ -27,12 +27,12 @@ pub use person_relay::DbPersonRelay;
 
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::profile::Profile;
 use fallible_iterator::FallibleIterator;
 use rusqlite::Connection;
 use std::fs;
 use std::sync::atomic::Ordering;
 use tokio::task;
-use crate::profile::Profile;
 
 pub fn init_database() -> Result<Connection, Error> {
     let profile_dir = Profile::current()?.profile_dir;
