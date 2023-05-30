@@ -32,7 +32,17 @@ pub(super) fn render_content(
                     if let Some(tag) = note.event.tags.get(*num) {
                         match tag {
                             Tag::Pubkey { pubkey, .. } => {
-                                render_profile_link(app, ui, pubkey);
+                                // sometimes an invalid hex string will make its way in here
+                                if let Ok(pk) = PublicKeyHex::try_from_str(pubkey.as_str()) {
+                                    render_profile_link(app, ui, &pk);
+                                } else if let Ok(pk) = nostr_types::PublicKey::try_from_bech32_string(pubkey.as_str()) {
+                                    render_profile_link(app, ui, &pk.into());
+                                    tracing::warn!("Got [ \"p\", \"{}\" ] tag in message '{}'", pubkey.as_str(), note.event.id.as_hex_string() );
+                                } else {
+                                    ui.label(RichText::new(pubkey.as_str()).color(ui.visuals().warn_fg_color) )
+                                        .on_hover_text("Link was not valid hex or npub format, check json tags for details");
+                                    tracing::warn!("Got [ \"p\", \"{}\" ] tag in message '{}'", pubkey.as_str(), note.event.id.as_hex_string() );
+                                }
                             }
                             Tag::Event { id, .. } => {
                                 let mut render_link = true;
