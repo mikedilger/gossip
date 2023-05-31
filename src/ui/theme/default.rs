@@ -110,7 +110,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_white_alpha(8),
                         bg_stroke: Stroke::new(2.0, Color32::from_white_alpha(5)), // separators, borders
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(190)), // normal text color
+                        fg_stroke: Stroke::new(1.0, Color32::from_gray(170)), // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
                     },
@@ -121,7 +121,7 @@ impl ThemeDef for DefaultTheme {
                         // The following is used for All buttons, any clickable text,
                         //    AND text inputs, whether they are inactive OR active. It's really
                         //    overloaded.
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(120)), // button text
+                        fg_stroke: Stroke::new(1.0, Color32::from_gray(200)), // button text
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
@@ -152,11 +152,11 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(36),
-                panel_fill: Color32::from_gray(10),
-                faint_bg_color: Color32::from_gray(20),
-                extreme_bg_color: Color32::from_gray(20),
-                code_bg_color: Color32::from_gray(64),
+                window_fill: Color32::from_gray(36), // pulldown menus and tooltips
+                panel_fill: Color32::from_gray(6), // panel backgrounds, even-table-rows
+                faint_bg_color: Color32::from_gray(24), // odd-table-rows
+                extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
+                code_bg_color: Color32::from_gray(64), // ???
 
                 // Foreground colors
                 window_stroke: Stroke::new(1.0, Color32::from_black_alpha(10)),
@@ -239,11 +239,11 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(236),
-                panel_fill: Color32::from_gray(236),
-                faint_bg_color: Color32::from_gray(248),
-                extreme_bg_color: Color32::from_gray(246),
-                code_bg_color: Color32::from_gray(230),
+                window_fill: Color32::from_gray(236), // pulldown menus and tooltips
+                panel_fill: Color32::from_gray(236), // panel backgrounds, even-table-rows
+                faint_bg_color: Color32::from_gray(248), // odd-table-rows
+                extreme_bg_color: Color32::from_gray(246), // text input background; scrollbar background
+                code_bg_color: Color32::from_gray(230), // ???
 
                 // Foreground colors
                 window_stroke: Stroke::new(1.0, Color32::from_black_alpha(40)),
