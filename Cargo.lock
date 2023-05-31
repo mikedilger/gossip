@@ -454,6 +454,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc827186963e592360843fb5ba4b973e145841266c1357f7180c43526f2e5b61"
 
 [[package]]
+name = "bitcoin"
+version = "0.29.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0694ea59225b0c5f3cb405ff3f670e4828358ed26aec49dc352f730f0cb1a8a3"
+dependencies = [
+ "bech32",
+ "bitcoin_hashes",
+ "secp256k1",
+]
+
+[[package]]
+name = "bitcoin_hashes"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90064b8dee6815a6470d60bad07bbbaee885c0e12d04177138fa3291a01b7bc4"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1831,7 +1848,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=994fe75cca2d165e39767bf963341c84a58a8257#994fe75cca2d165e39767bf963341c84a58a8257"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=2f67495b862b2d30df7fd0018039a8b83ee9e2ea#2f67495b862b2d30df7fd0018039a8b83ee9e2ea"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2283,6 +2300,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightning"
+version = "0.0.114"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "800ec68a160529ba3ca12c5db629867c4a8de2df272792c1246602966a5b789b"
+dependencies = [
+ "bitcoin",
+]
+
+[[package]]
+name = "lightning-invoice"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adfb59c6d13e130aece30fc72a7c17d74b201aed0ffb201b740f36e07aaece32"
+dependencies = [
+ "bech32",
+ "bitcoin_hashes",
+ "lightning",
+ "num-traits",
+ "secp256k1",
+]
+
+[[package]]
 name = "link-cplusplus"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2573,7 +2612,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.6.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=9be791bf03355d0d618dfa3b04c69f90daecfe60#9be791bf03355d0d618dfa3b04c69f90daecfe60"
+source = "git+https://github.com/mikedilger/nostr-types?rev=991b492a5c0a398c5c2300ec79fb7e653a6a95a0#991b492a5c0a398c5c2300ec79fb7e653a6a95a0"
 dependencies = [
  "aes",
  "base64 0.21.0",
@@ -2588,6 +2627,7 @@ dependencies = [
  "inout",
  "k256",
  "lazy_static",
+ "lightning-invoice",
  "linkify",
  "num_cpus",
  "pbkdf2",
@@ -3472,6 +3512,25 @@ dependencies = [
  "pkcs8",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "secp256k1"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b1629c9c557ef9b293568b338dddfc8208c98a18c59d722a9d53f859d9c9b62"
+dependencies = [
+ "bitcoin_hashes",
+ "secp256k1-sys",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83080e2c2fc1006e625be82e5d1eb6a43b7fd9578b617fcc55814daf286bba4b"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
