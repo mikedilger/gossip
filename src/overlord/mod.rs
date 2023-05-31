@@ -1311,7 +1311,12 @@ impl Overlord {
 
     // This gets it whether we had it or not. Because it might have changed.
     async fn refresh_followed_metadata(&mut self) -> Result<(), Error> {
-        let pubkeys = GLOBALS.people.get_followed_pubkeys();
+        let mut pubkeys = GLOBALS.people.get_followed_pubkeys();
+
+        // add own pubkey as well
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
+            pubkeys.push(pubkey.into())
+        }
 
         let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
