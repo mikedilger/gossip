@@ -266,11 +266,21 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     });
 
     if send_now {
+        let mut tags: Vec<Tag> = Vec::new();
+        if app.include_content_warning {
+            tags.push(Tag::ContentWarning(app.content_warning.clone()));
+        }
+        if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
+            tags.push(delegatee_tag);
+        }
+        if app.include_subject {
+            tags.push(Tag::Subject(app.subject.clone()));
+        }
         match app.replying_to {
             Some(replying_to_id) => {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
                     app.draft.clone(),
-                    vec![],
+                    tags,
                     Some(replying_to_id),
                 ));
             }
@@ -280,16 +290,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         .to_overlord
                         .send(ToOverlordMessage::Repost(event_id));
                 } else {
-                    let mut tags: Vec<Tag> = Vec::new();
-                    if app.include_subject {
-                        tags.push(Tag::Subject(app.subject.clone()));
-                    }
-                    if app.include_content_warning {
-                        tags.push(Tag::ContentWarning(app.content_warning.clone()));
-                    }
-                    if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
-                        tags.push(delegatee_tag);
-                    }
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
                         app.draft.clone(),
                         tags,
