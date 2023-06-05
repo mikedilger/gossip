@@ -42,7 +42,7 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -211,9 +211,6 @@ struct GossipUi {
     media_hide_list: HashSet<Url>,
     /// media that the user has selected to show full-width
     media_full_width_list: HashSet<Url>,
-
-    // Search result
-    search_result: String,
 
     // User entry: posts
     show_post_area: bool,
@@ -415,7 +412,6 @@ impl GossipUi {
             media_show_list: HashSet::new(),
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
-            search_result: "".to_owned(),
             show_post_area: false,
             draft: "".to_owned(),
             draft_needs_focus: false,
@@ -461,27 +457,6 @@ impl GossipUi {
             self.qr_codes.clear();
             self.render_qr = None;
             self.person_qr = None;
-        }
-    }
-
-    fn set_page_thread_with_relays(&mut self, page: Page, relays: Vec<RelayUrl>) {
-        tracing::debug!("RELAYS: {:?}", relays);
-        if let Page::Feed(FeedKind::Thread { id, referenced_by }) = page {
-            if self.page != page {
-                tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
-                self.history.push(self.page.clone());
-
-                GLOBALS.feed.set_feed_to_thread(id, referenced_by, relays);
-
-                // Clear QR codes on page switches
-                self.qr_codes.clear();
-                self.render_qr = None;
-                self.person_qr = None;
-
-                self.page = page;
-            }
-        } else {
-            self.set_page(page);
         }
     }
 
@@ -816,11 +791,9 @@ impl eframe::App for GossipUi {
             .resizable(resizable)
             .show_separator_line(false)
             .show_animated(ctx, show_status, |ui| {
-                {
-                    if self.show_post_area && !self.settings.posting_area_at_top {
-                        ui.add_space(7.0);
-                        feed::post::posting_area(self, ctx, frame, ui);
-                    }
+                if self.show_post_area && !self.settings.posting_area_at_top {
+                    ui.add_space(7.0);
+                    feed::post::posting_area(self, ctx, frame, ui);
                 }
             });
 

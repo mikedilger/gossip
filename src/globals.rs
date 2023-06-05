@@ -5,7 +5,7 @@ use crate::events::Events;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::media::Media;
-use crate::people::People;
+use crate::people::{DbPerson, People};
 use crate::relationship::Relationship;
 use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
@@ -106,6 +106,10 @@ pub struct Globals {
 
     /// Media loading
     pub media: Media,
+
+    /// Search results
+    pub people_search_results: PRwLock<Vec<DbPerson>>,
+    pub note_search_results: PRwLock<Vec<Event>>,
 }
 
 lazy_static! {
@@ -144,6 +148,8 @@ lazy_static! {
             bytes_read: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),
+            people_search_results: PRwLock::new(Vec::new()),
+            note_search_results: PRwLock::new(Vec::new()),
         }
     };
 }

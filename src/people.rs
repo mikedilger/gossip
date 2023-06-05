@@ -1147,7 +1147,7 @@ impl People {
         Ok(())
     }
 
-    async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
+    pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
         let sql = "SELECT pubkey, metadata, metadata_at, \
              nip05_valid, nip05_last_checked, \
              followed, followed_last_updated, muted, \

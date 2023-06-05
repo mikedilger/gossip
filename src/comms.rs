@@ -35,6 +35,7 @@ pub enum ToOverlordMessage {
     Repost(Id),
     RankRelay(RelayUrl, u8),
     SaveSettings,
+    Search(String),
     SetActivePerson(PublicKeyHex),
     AdjustRelayUsageBit(RelayUrl, u64, bool),
     SetThreadFeed(Id, Id, Vec<RelayUrl>),

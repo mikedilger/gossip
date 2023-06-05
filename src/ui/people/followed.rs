@@ -39,9 +39,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             "REMOTE: {} (size={})",
             asof, last_contact_list_size
         ))
-            .size(15.0),
+        .size(15.0),
     )
-        .on_hover_text("This is the data in the latest ContactList event fetched from relays");
+    .on_hover_text("This is the data in the latest ContactList event fetched from relays");
 
     ui.add_space(10.0);
 
@@ -145,10 +145,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
                         / 100.0;
                     if ui
-                        .add(
-                            Image::new(&avatar, Vec2 { x: size, y: size })
-                                .sense(Sense::click()),
-                        )
+                        .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
                         .clicked()
                     {
                         app.set_page(Page::Person(person.pubkey.clone()));
@@ -156,8 +153,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                     ui.vertical(|ui| {
                         ui.label(
-                            RichText::new(GossipUi::pubkeyhex_convert_short(&person.pubkey))
-                                .weak(),
+                            RichText::new(GossipUi::pubkeyhex_convert_short(&person.pubkey)).weak(),
                         );
                         GossipUi::render_person_name_line(app, ui, person);
                     });
