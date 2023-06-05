@@ -1,7 +1,5 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
-#[cfg(not(feature = "side-menu"))]
-use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
@@ -14,55 +12,6 @@ mod delegation;
 mod metadata;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    #[cfg(not(feature = "side-menu"))]
-    {
-        ui.horizontal(|ui| {
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::YourKeys,
-                    "Keys",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::YourKeys);
-            }
-            ui.separator();
-            if let Some(pubkeyhex) = GLOBALS.signer.public_key() {
-                if ui
-                    .add(egui::SelectableLabel::new(
-                        app.page == Page::Feed(FeedKind::Person(pubkeyhex.into())),
-                        "Notes »",
-                    ))
-                    .clicked()
-                {
-                    app.set_page(Page::Feed(FeedKind::Person(pubkeyhex.into())));
-                }
-                ui.separator();
-            }
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::YourMetadata,
-                    "Metadata",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::YourMetadata);
-            }
-            ui.separator();
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::YourDelegation,
-                    "Delegation",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::YourDelegation);
-            }
-            ui.separator();
-        });
-        ui.separator();
-    }
-
     if app.page == Page::YourKeys {
         ui.add_space(10.0);
         ui.heading("Your Keys");

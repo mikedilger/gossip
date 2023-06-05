@@ -24,100 +24,11 @@ struct FeedNoteParams {
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     let feed_kind = GLOBALS.feed.get_feed_kind();
 
-    #[cfg(not(feature = "side-menu"))]
-    {
-        // Feed Page Selection
-        ui.horizontal(|ui| {
-            if !app.settings.recompute_feed_periodically {
-                if ui.button("↻").clicked() {
-                    GLOBALS.feed.sync_recompute();
-                }
-            }
-            ui.separator();
-            if ui
-                .add(egui::SelectableLabel::new(
-                    matches!(app.page, Page::Feed(FeedKind::Followed(_))),
-                    "Main feed",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
-            }
-            ui.separator();
-            if ui
-                .add(egui::SelectableLabel::new(
-                    matches!(app.page, Page::Feed(FeedKind::Inbox(_))),
-                    "Inbox",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
-            }
-            ui.separator();
-            if matches!(feed_kind.clone(), FeedKind::Thread { .. }) {
-                ui.separator();
-                if ui
-                    .add(egui::SelectableLabel::new(
-                        app.page == Page::Feed(feed_kind.clone()),
-                        "Thread",
-                    ))
-                    .clicked()
-                {
-                    app.set_page(Page::Feed(feed_kind.clone()));
-                }
-            }
-            if matches!(feed_kind, FeedKind::Person(..)) {
-                ui.separator();
-                if ui
-                    .add(egui::SelectableLabel::new(
-                        app.page == Page::Feed(feed_kind.clone()),
-                        "Person",
-                    ))
-                    .clicked()
-                {
-                    app.set_page(Page::Feed(feed_kind.clone()));
-                }
-            }
-
-            if GLOBALS
-                .feed
-                .recompute_lock
-                .load(std::sync::atomic::Ordering::Relaxed)
-            {
-                ui.separator();
-                ui.label("RECOMPUTING...");
-            }
-        });
-
-        ui.add_space(10.0);
-
-        post::posting_area(app, ctx, frame, ui);
-
-        ui.add_space(10.0);
-    }
-
     match feed_kind {
         FeedKind::Followed(with_replies) => {
             let feed = GLOBALS.feed.get_followed();
             let id = if with_replies { "main" } else { "general" };
 
-            #[cfg(not(feature = "side-menu"))]
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("Main posts").size(11.0));
-                if crate::ui::components::switch(ui, &mut app.mainfeed_include_nonroot).clicked() {
-                    app.set_page(Page::Feed(FeedKind::Followed(app.mainfeed_include_nonroot)));
-                    ctx.data_mut(|d| {
-                        d.insert_persisted(
-                            egui::Id::new("mainfeed_include_nonroot"),
-                            app.mainfeed_include_nonroot,
-                        );
-                    });
-                }
-                ui.label(RichText::new("Include replies").size(11.0));
-                ui.separator();
-            });
-
-            #[cfg(feature = "side-menu")]
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
@@ -166,26 +77,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_inbox();
             let id = if indirect { "activity" } else { "inbox" };
 
-            #[cfg(not(feature = "side-menu"))]
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("Replies & DM").size(11.0));
-                if crate::ui::components::switch(ui, &mut app.inbox_include_indirect).clicked() {
-                    app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
-                    ctx.data_mut(|d| {
-                        d.insert_persisted(
-                            egui::Id::new("inbox_include_indirect"),
-                            app.inbox_include_indirect,
-                        );
-                    });
-                }
-                ui.label(RichText::new("Everything").size(11.0));
-                ui.separator();
-
-                #[cfg(feature = "side-menu")] // FIXME relocate
-                recompute_btn(app, ui);
-            });
-
-            #[cfg(feature = "side-menu")]
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
@@ -220,7 +111,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Thread { id, .. } => {
-            #[cfg(feature = "side-menu")] // FIXME relocate
             ui.horizontal(|ui| {
                 recompute_btn(app, ui);
             });
@@ -229,7 +119,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
         }
         FeedKind::Person(pubkeyhex) => {
-            #[cfg(feature = "side-menu")] // FIXME relocate
             ui.horizontal(|ui| {
                 recompute_btn(app, ui);
             });
@@ -395,12 +284,10 @@ fn render_note_maybe_fake(
     }
 }
 
-#[cfg(feature = "side-menu")]
 fn add_left_space(ui: &mut Ui) {
     ui.add_space(2.0);
 }
 
-#[cfg(feature = "side-menu")]
 fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
     if !app.settings.recompute_feed_periodically {
         if ui.link("Refresh").clicked() {

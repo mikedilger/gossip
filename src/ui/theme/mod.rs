@@ -105,35 +105,30 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            #[cfg(feature = "side-menu")]
             pub fn navigation_bg_fill(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::navigation_bg_fill(self.dark_mode), )+
                 }
             }
 
-            #[cfg(feature = "side-menu")]
             pub fn navigation_text_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::navigation_text_color(self.dark_mode), )+
                 }
             }
 
-            #[cfg(feature = "side-menu")]
             pub fn navigation_text_active_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::navigation_text_active_color(self.dark_mode), )+
                 }
             }
 
-            #[cfg(feature = "side-menu")]
             pub fn navigation_text_hover_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::navigation_text_hover_color(self.dark_mode), )+
                 }
             }
 
-            #[cfg(feature = "side-menu")]
             pub fn navigation_header_active_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::navigation_header_active_color(self.dark_mode), )+

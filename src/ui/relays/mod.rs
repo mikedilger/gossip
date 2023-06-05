@@ -9,33 +9,6 @@ use nostr_types::RelayUrl;
 mod all;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    #[cfg(not(feature = "side-menu"))]
-    {
-        ui.horizontal(|ui| {
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::RelaysLive,
-                    "Live",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::RelaysLive);
-            }
-            ui.separator();
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::RelaysAll,
-                    "Configure",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::RelaysAll);
-            }
-            ui.separator();
-        });
-        ui.separator();
-    }
-
     if app.page == Page::RelaysLive {
         ui.add_space(10.0);
 

@@ -44,12 +44,6 @@ pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
     output
 }
 
-#[cfg(not(feature = "side-menu"))]
-pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
-    let desired_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
-    switch_with_size(ui, on, desired_size)
-}
-
 pub fn switch_with_size(ui: &mut Ui, on: &mut bool, size: egui::Vec2) -> Response {
     let (rect, mut response) = ui.allocate_exact_size(size, egui::Sense::click());
     if response.clicked() {

@@ -12,60 +12,6 @@ mod muted;
 mod person;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    #[cfg(not(feature = "side-menu"))]
-    {
-        let maybe_person = match &app.page {
-            Page::Person(pubkeyhex) => GLOBALS.people.get(pubkeyhex),
-            _ => None,
-        };
-
-        ui.horizontal(|ui| {
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::PeopleList,
-                    "Followed",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::PeopleList);
-            }
-            ui.separator();
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::PeopleFollow,
-                    "Follow Someone New",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::PeopleFollow);
-            }
-            ui.separator();
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::PeopleMuted,
-                    "Muted",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::PeopleMuted);
-            }
-            ui.separator();
-            if let Some(person) = &maybe_person {
-                if ui
-                    .add(egui::SelectableLabel::new(
-                        app.page == Page::Person(person.pubkey.clone()),
-                        GossipUi::display_name_from_dbperson(person),
-                    ))
-                    .clicked()
-                {
-                    app.set_page(Page::Person(person.pubkey.clone()));
-                }
-                ui.separator();
-            }
-        });
-        ui.separator();
-    }
-
     if app.page == Page::PeopleList {
         let people: Vec<DbPerson> = GLOBALS
             .people
