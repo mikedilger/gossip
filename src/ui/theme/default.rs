@@ -153,10 +153,10 @@ impl ThemeDef for DefaultTheme {
 
                 // Background colors
                 window_fill: Color32::from_gray(36), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(6), // panel backgrounds, even-table-rows
+                panel_fill: Color32::from_gray(6),   // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(24), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
-                code_bg_color: Color32::from_gray(64), // ???
+                code_bg_color: Color32::from_gray(64),    // ???
 
                 // Foreground colors
                 window_stroke: Stroke::new(1.0, Color32::from_black_alpha(10)),
@@ -240,10 +240,10 @@ impl ThemeDef for DefaultTheme {
 
                 // Background colors
                 window_fill: Color32::from_gray(236), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(236), // panel backgrounds, even-table-rows
+                panel_fill: Color32::from_gray(236),  // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(248), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(246), // text input background; scrollbar background
-                code_bg_color: Color32::from_gray(230), // ???
+                code_bg_color: Color32::from_gray(230),    // ???
 
                 // Foreground colors
                 window_stroke: Stroke::new(1.0, Color32::from_black_alpha(40)),
