@@ -18,7 +18,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
     ui.horizontal(|ui| {
         let response = ui.add(
             text_edit_line!(app, app.search)
-                .hint_text("npub1 / note1 / nevent1.  Other kinds of searches not yet implemented")
+                .hint_text("Search for People and Notes")
                 .desired_width(600.0),
         );
 
