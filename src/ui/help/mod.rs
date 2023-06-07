@@ -7,43 +7,6 @@ mod about;
 mod stats;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    #[cfg(not(feature = "side-menu"))]
-    {
-        ui.horizontal(|ui| {
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::HelpHelp,
-                    "Getting Started",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::HelpHelp);
-            }
-            ui.separator();
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::HelpStats,
-                    "Stats",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::HelpStats);
-            }
-            ui.separator();
-            if ui
-                .add(egui::SelectableLabel::new(
-                    app.page == Page::HelpAbout,
-                    "About",
-                ))
-                .clicked()
-            {
-                app.set_page(Page::HelpAbout);
-            }
-            ui.separator();
-        });
-        ui.separator();
-    }
-
     if app.page == Page::HelpHelp {
         ui.add_space(24.0);
         ui.heading("Help - Getting Started");

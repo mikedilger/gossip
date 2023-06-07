@@ -144,6 +144,31 @@ impl DbEvent {
         output
     }
 
+    pub async fn search(text: &str) -> Result<Vec<Event>, Error> {
+        let sql = format!("SELECT raw FROM event WHERE (kind=1 OR kind=30023) AND (\
+                           content LIKE '%{text}%' \
+                           OR \
+                           id IN (SELECT event FROM event_tag WHERE label IN ('t', 'subject', 'summary', 'title') AND field0 like '%{text}%') \
+                           ) \
+                           ORDER BY created_at DESC");
+
+        let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
+            let db = GLOBALS.db.blocking_lock();
+            let mut stmt = db.prepare(&sql)?;
+            let mut rows = stmt.query([])?;
+            let mut output: Vec<Event> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let raw: String = row.get(0)?;
+                let event: Event = serde_json::from_str(&raw)?;
+                output.push(event);
+            }
+            Ok(output)
+        })
+        .await?;
+
+        output
+    }
+
     /*
     pub async fn fetch_by_ids(ids: Vec<IdHex>) -> Result<Vec<DbEvent>, Error> {
         if ids.is_empty() {

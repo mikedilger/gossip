@@ -139,11 +139,11 @@ impl ThemeDef for ClassicTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(0x24),
-                panel_fill: Color32::from_gray(0x24),
-                faint_bg_color: Color32::from_gray(0x14),
-                extreme_bg_color: Color32::from_gray(0),
-                code_bg_color: Color32::from_gray(64),
+                window_fill: Color32::from_gray(0x24), // pulldown menus and tooltips
+                panel_fill: Color32::from_gray(0x24),  // panel backgrounds, even-table-rows
+                faint_bg_color: Color32::from_gray(0x14), // odd-table-rows
+                extreme_bg_color: Color32::from_gray(0), // text input background; scrollbar background
+                code_bg_color: Color32::from_gray(64),   // ???
 
                 // Foreground colors
                 window_stroke: Stroke::new(1.0, Color32::from_gray(230)),
@@ -222,11 +222,11 @@ impl ThemeDef for ClassicTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(0xed),
-                panel_fill: Color32::from_gray(0xed),
-                faint_bg_color: Color32::from_gray(0xf9),
-                extreme_bg_color: Color32::from_gray(0xff),
-                code_bg_color: Color32::from_gray(230),
+                window_fill: Color32::from_gray(0xed), // pulldown menus and tooltips
+                panel_fill: Color32::from_gray(0xed),  // panel backgrounds, even-table-rows
+                faint_bg_color: Color32::from_gray(0xf9), // odd-table-rows
+                extreme_bg_color: Color32::from_gray(0xff), // text input background; scrollbar background
+                code_bg_color: Color32::from_gray(230),     // ???
 
                 // Foreground colors
                 window_stroke: Stroke::new(1.0, Color32::from_rgb(0x5d, 0x5c, 0x61)), // DONE

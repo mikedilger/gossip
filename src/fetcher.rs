@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::profile::Profile;
 use crate::USER_AGENT;
 use nostr_types::Url;
 use reqwest::Client;
@@ -55,21 +56,13 @@ impl Fetcher {
         };
 
         // Setup the cache directory
-        let mut cache_dir = match dirs::data_dir() {
-            Some(d) => d,
-            None => {
+        let cache_dir = match Profile::current() {
+            Ok(p) => p.cache_dir,
+            Err(_) => {
                 f.dead = Some("No Data Directory.".to_owned());
                 return f;
             }
         };
-        cache_dir.push("gossip");
-        cache_dir.push("cache");
-
-        // Create our data directory only if it doesn't exist
-        if let Err(e) = fs::create_dir_all(&cache_dir) {
-            f.dead = Some(format!("{}", e));
-            return f;
-        }
 
         f.cache_dir = cache_dir;
         f

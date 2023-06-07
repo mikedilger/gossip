@@ -35,8 +35,6 @@ use crate::ui::widgets::CopyButton;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
 use eframe::{egui, IconData};
-#[cfg(not(feature = "side-menu"))]
-use egui::SelectableLabel;
 use egui::{
     Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense, TextStyle,
     TextureHandle, TextureOptions, Ui, Vec2,
@@ -44,7 +42,7 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl, Url};
+use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -218,9 +216,6 @@ struct GossipUi {
     media_hide_list: HashSet<Url>,
     /// media that the user has selected to show full-width
     media_full_width_list: HashSet<Url>,
-
-    // Search result
-    search_result: String,
 
     // User entry: posts
     show_post_area: bool,
@@ -425,7 +420,6 @@ impl GossipUi {
             media_show_list: HashSet::new(),
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
-            search_result: "".to_owned(),
             show_post_area: false,
             draft: "".to_owned(),
             draft_needs_focus: false,
@@ -470,27 +464,6 @@ impl GossipUi {
             self.qr_codes.clear();
             self.render_qr = None;
             self.person_qr = None;
-        }
-    }
-
-    fn set_page_thread_with_relays(&mut self, page: Page, relays: Vec<RelayUrl>) {
-        tracing::debug!("RELAYS: {:?}", relays);
-        if let Page::Feed(FeedKind::Thread { id, referenced_by }) = page {
-            if self.page != page {
-                tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
-                self.history.push(self.page.clone());
-
-                GLOBALS.feed.set_feed_to_thread(id, referenced_by, relays);
-
-                // Clear QR codes on page switches
-                self.qr_codes.clear();
-                self.render_qr = None;
-                self.person_qr = None;
-
-                self.page = page;
-            }
-        } else {
-            self.set_page(page);
         }
     }
 
@@ -593,102 +566,6 @@ impl eframe::App for GossipUi {
             relays::entry_dialog(ctx, self);
         }
 
-        #[cfg(not(feature = "side-menu"))]
-        egui::TopBottomPanel::top("menu").show(ctx, |ui| {
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                let back_label_text = RichText::new("‹ Back");
-                let label = if self.history.is_empty() {
-                    Label::new(back_label_text.weak())
-                } else {
-                    Label::new(back_label_text).sense(Sense::click())
-                };
-                if ui.add(label).clicked() {
-                    self.back();
-                }
-                ui.separator();
-                if ui
-                    .add(SelectableLabel::new(
-                        matches!(self.page, Page::Feed(_)),
-                        "Feed",
-                    ))
-                    .clicked()
-                {
-                    self.set_page(Page::Feed(FeedKind::Followed(
-                        self.mainfeed_include_nonroot,
-                    )));
-                }
-                ui.separator();
-                if ui
-                    .add(SelectableLabel::new(
-                        self.page == Page::PeopleList
-                            || self.page == Page::PeopleFollow
-                            || self.page == Page::PeopleMuted
-                            || matches!(self.page, Page::Person(_)),
-                        "People",
-                    ))
-                    .clicked()
-                {
-                    self.set_page(Page::PeopleList);
-                }
-                ui.separator();
-                if ui
-                    .add(SelectableLabel::new(
-                        self.page == Page::YourKeys
-                            || self.page == Page::YourMetadata
-                            || self.page == Page::YourDelegation,
-                        "You",
-                    ))
-                    .clicked()
-                {
-                    self.set_page(Page::YourKeys);
-                }
-                ui.separator();
-                if ui
-                    .add(SelectableLabel::new(
-                        self.page == Page::RelaysActivityMonitor
-                            || self.page == Page::RelaysKnownNetwork,
-                        "Relays",
-                    ))
-                    .clicked()
-                {
-                    self.set_page(Page::RelaysActivityMonitor);
-                }
-                ui.separator();
-                if ui
-                    .add(SelectableLabel::new(self.page == Page::Search, "Search"))
-                    .clicked()
-                {
-                    self.set_page(Page::Search);
-                }
-                ui.separator();
-                if ui
-                    .add(SelectableLabel::new(
-                        self.page == Page::Settings,
-                        "Settings",
-                    ))
-                    .clicked()
-                {
-                    self.set_page(Page::Settings);
-                }
-                ui.separator();
-                if ui
-                    .add(SelectableLabel::new(
-                        self.page == Page::HelpHelp
-                            || self.page == Page::HelpStats
-                            || self.page == Page::HelpAbout,
-                        "Help",
-                    ))
-                    .clicked()
-                {
-                    self.set_page(Page::HelpHelp);
-                }
-                ui.separator();
-            });
-            ui.add_space(4.0);
-        });
-
-        #[cfg(feature = "side-menu")]
         egui::SidePanel::left("main-naviation-panel")
             .show_separator_line(false)
             .frame(
@@ -894,7 +771,6 @@ impl eframe::App for GossipUi {
 
         });
 
-        #[cfg(feature = "side-menu")]
         egui::TopBottomPanel::top("top-area")
             .frame(
                 egui::Frame::side_top_panel(&self.settings.theme.get_style()).inner_margin(
@@ -916,20 +792,12 @@ impl eframe::App for GossipUi {
                 },
             );
 
-        #[cfg(not(feature = "side-menu"))]
-        let show_status = true;
-        #[cfg(feature = "side-menu")]
         let show_status = self.show_post_area && !self.settings.posting_area_at_top;
-
-        #[cfg(not(feature = "side-menu"))]
-        let resizable = false;
-        #[cfg(feature = "side-menu")]
         let resizable = true;
 
         egui::TopBottomPanel::bottom("status")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
-                #[cfg(feature = "side-menu")]
                 let frame = frame.inner_margin(if !self.settings.posting_area_at_top {
                     egui::Margin {
                         left: 20.0,
@@ -951,31 +819,15 @@ impl eframe::App for GossipUi {
             .show_separator_line(false)
             .show_animated(ctx, show_status, |ui| {
                 self.begin_ui(ui);
-                #[cfg(feature = "side-menu")]
-                {
-                    if self.show_post_area && !self.settings.posting_area_at_top {
-                        ui.add_space(7.0);
-                        feed::post::posting_area(self, ctx, frame, ui);
-                    }
+                if self.show_post_area && !self.settings.posting_area_at_top {
+                    ui.add_space(7.0);
+                    feed::post::posting_area(self, ctx, frame, ui);
                 }
-                #[cfg(not(feature = "side-menu"))]
-                ui.horizontal(|ui| {
-                    if ui
-                        .add(
-                            Label::new(GLOBALS.status_message.blocking_read().clone())
-                                .sense(Sense::click()),
-                        )
-                        .clicked()
-                    {
-                        *GLOBALS.status_message.blocking_write() = "".to_string();
-                    }
-                });
             });
 
         egui::CentralPanel::default()
             .frame({
                 let frame = egui::Frame::central_panel(&self.settings.theme.get_style());
-                #[cfg(feature = "side-menu")]
                 let frame = frame.inner_margin(egui::Margin {
                     left: 20.0,
                     right: 10.0,
@@ -1276,7 +1128,6 @@ impl GossipUi {
     }
 }
 
-#[cfg(feature = "side-menu")]
 impl GossipUi {
     fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
         if self

@@ -109,7 +109,6 @@ impl DbRelay {
 
                 // just skip over invalid relay URLs
                 if let Ok(url) = RelayUrl::try_from_str(&s) {
-
                     let nip11: Option<String> = row.get(8)?;
 
                     output.push(DbRelay {
@@ -123,7 +122,7 @@ impl DbRelay {
                         usage_bits: row.get(7)?,
                         nip11: match nip11 {
                             None => None,
-                            Some(s) => serde_json::from_str(&s)?
+                            Some(s) => serde_json::from_str(&s)?,
                         },
                         last_attempt_nip11: row.get(9)?,
                     });
