@@ -57,12 +57,14 @@ const COPY_SYMBOL: &str = "\u{2398}";
 const TITLE_MAX_LEN: usize = 50;
 /// First stat column x location
 const STATS_COL_1_X: f32 = TEXT_LEFT;
-/// Second stat column x location
+/// 2. stat column x offset
 const STATS_COL_2_X: f32 = 130.0;
-/// Second stat column x location
+/// 3. stat column x offset
 const STATS_COL_3_X: f32 = 120.0;
-/// Second stat column x location
+/// 4. stat column x offset
 const STATS_COL_4_X: f32 = 120.0;
+/// 5. stat column x offset
+const STATS_COL_5_X: f32 = 150.0;
 
 const READ_HOVER_TEXT: &str = "Where you actually read events from (including those tagging you, but also for other purposes).";
 const INBOX_HOVER_TEXT: &str = "Where you tell others you read from. You should also check Read. These relays shouldn't require payment. It is recommended to have a few.";
@@ -384,6 +386,18 @@ impl RelayEntry {
                 ago += "?";
             }
             let text = RichText::new(format!("Last connection: {}", ago));
+            draw_text_at(
+                ui,
+                pos,
+                text.into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+
+            // ---- Rank ----
+            let pos = pos + vec2(STATS_COL_5_X, 0.0);
+            let text = RichText::new(format!("Usage Rank: {}", self.db_relay.rank ));
             draw_text_at(
                 ui,
                 pos,
@@ -774,7 +788,7 @@ impl RelayEntry {
         }
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
-            // ---- rank slider ----
+            // ---- rank ----
             let r = self.db_relay.rank;
             let mut new_r = self.db_relay.rank;
             let txt_color = ui.visuals().text_color();
