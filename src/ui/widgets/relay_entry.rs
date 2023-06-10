@@ -236,7 +236,9 @@ impl RelayEntry {
         if self.db_relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let text = RichText::new("pick up & configure");
-            let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled,false);
+            let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled,false)
+                .on_hover_cursor(CursorIcon::PointingHand)
+                .on_hover_text("Configure this relay as one of your personal relays");
             if self.enabled && response.clicked() {
                 self.view = RelayEntryView::Edit;
             }
@@ -244,7 +246,9 @@ impl RelayEntry {
         } else {
             let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
-            let response = ui.interact(btn_rect, id, Sense::click()).on_hover_cursor(CursorIcon::PointingHand);
+            let response = ui.interact(btn_rect, id, Sense::click())
+                .on_hover_cursor(CursorIcon::PointingHand)
+                .on_hover_text("Configure Relay");
             let color = if response.hovered() {
                 ui.visuals().text_color()
             } else {
@@ -346,18 +350,19 @@ impl RelayEntry {
 
             // ---- Following ----
             let pos = pos + vec2(STATS_COL_2_X, 0.0);
-            let mut active = self.enabled;
+            // let mut active = self.enabled;
             let text = if let Some(count) = self.user_count {
                 RichText::new(format!("Following: {}", count))
             } else {
-                active = false;
+                // active = false;
                 RichText::new("Following: ---")
             };
-            let id = self.make_id("following_link");
-            let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, true);
-            if response.clicked() {
-                // TODO go to following page for this relay?
-            }
+            // let id = self.make_id("following_link");
+            // let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, true);
+            // if response.clicked() {
+            //     // TODO go to following page for this relay?
+            // }
+            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
 
             // ---- Last event ----
             let pos = pos + vec2(STATS_COL_3_X, 0.0);
@@ -413,6 +418,12 @@ impl RelayEntry {
             let right = pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
             let align = Align::Center;
 
+            let bg_rect = egui::Rect::from_x_y_ranges(
+                right.x - 150.0 ..= right.x,
+                right.y - 5.0 ..= right.y + 18.0);
+            let bg_radius = bg_rect.height() / 2.0;
+            ui.painter().rect_filled(bg_rect, egui::Rounding::same(bg_radius), ui.visuals().code_bg_color);
+
             fn switch( ui: &mut Ui, str: &str, on: bool ) -> (RichText, Color32) {
                 let active = ui.visuals().text_color();
                 let inactive = ui.visuals().text_color().gamma_multiply(0.4);
@@ -423,7 +434,7 @@ impl RelayEntry {
                 }
             }
 
-            const RIGHT: f32 = -8.0;
+            const RIGHT: f32 = -17.0;
             const SPACE: f32 = 23.0;
 
             // ---- R ----
