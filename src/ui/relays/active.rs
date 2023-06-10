@@ -17,11 +17,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.heading("Active Relays");
-        ui.add_space(30.0);
-        if ui.button("Pick Again").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
-        }
-        ui.add_space(30.0);
+        ui.add_space(50.0);
         ui.set_enabled(!is_editing);
         widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
@@ -43,6 +39,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             let count = elem.value();
             let name = GossipUi::display_name_from_pubkeyhex_lookup(pk);
             ui.label(format!("{}: coverage short by {} relay(s)", name, count));
+        }
+        ui.add_space(12.0);
+        if ui.button("Pick Again").clicked() {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
         }
     } else {
         ui.label("All followed people are fully covered.".to_owned());
