@@ -1848,7 +1848,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=2f67495b862b2d30df7fd0018039a8b83ee9e2ea#2f67495b862b2d30df7fd0018039a8b83ee9e2ea"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=833711e7027f83d38fc3f6fcd846fc9381eb4a95#833711e7027f83d38fc3f6fcd846fc9381eb4a95"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2612,7 +2612,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.6.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=991b492a5c0a398c5c2300ec79fb7e653a6a95a0#991b492a5c0a398c5c2300ec79fb7e653a6a95a0"
+source = "git+https://github.com/mikedilger/nostr-types?rev=16547fd2b01f55d5ccbef09879138c7f8ab1fcb0#16547fd2b01f55d5ccbef09879138c7f8ab1fcb0"
 dependencies = [
  "aes",
  "base64 0.21.0",
@@ -2638,6 +2638,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "thread-priority",
  "url",
  "zeroize",
 ]
@@ -3393,6 +3394,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustversion"
+version = "1.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f3208ce4d8448b3f3e7d168a73f5e0c43a61e32930de3bceeccedb388b6bf06"
+
+[[package]]
 name = "ryu"
 version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3879,6 +3886,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.15",
+]
+
+[[package]]
+name = "thread-priority"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c56ce92f1285eaaa11fc1a3201e25de97898c50e87caa4c2aee836fe05288de"
+dependencies = [
+ "bitflags 1.3.2",
+ "cfg-if",
+ "libc",
+ "log",
+ "rustversion",
+ "winapi",
 ]
 
 [[package]]
