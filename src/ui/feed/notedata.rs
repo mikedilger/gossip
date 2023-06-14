@@ -3,8 +3,8 @@ use crate::{
     people::DbPerson,
 };
 use nostr_types::{
-    ContentSegment, Event, EventDelegation, EventKind, Id, NostrBech32, PublicKeyHex,
-    ShatteredContent, Tag,
+    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32,
+    PublicKeyHex, ShatteredContent, Tag,
 };
 
 #[derive(PartialEq)]
@@ -37,6 +37,8 @@ pub(super) struct NoteData {
     pub(super) mentions: Vec<(usize, Id)>,
     /// Known reactions to this post
     pub(super) reactions: Vec<(char, usize)>,
+    /// The total amount of MilliSatoshi zapped to this note
+    pub(super) zaptotal: MilliSatoshi,
     /// Has the current user reacted to this post?
     pub(super) self_already_reacted: bool,
     /// The content shattered into renderable elements
@@ -53,6 +55,8 @@ impl NoteData {
         let deletion = Globals::get_deletion_sync(event.id);
 
         let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
+
+        let zaptotal = Globals::get_zap_total_sync(event.id);
 
         // build a list of all cached mentions and their index
         // only notes that are in the cache will be rendered as reposts
@@ -176,6 +180,7 @@ impl NoteData {
             embedded_event,
             mentions,
             reactions,
+            zaptotal,
             self_already_reacted,
             shattered_content,
         }

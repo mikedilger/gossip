@@ -12,7 +12,7 @@ use crate::settings::Settings;
 use crate::signer::Signer;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
-use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
+use nostr_types::{Event, Id, MilliSatoshi, Profile, PublicKeyHex, RelayUrl};
 use parking_lot::RwLock as PRwLock;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -245,6 +245,18 @@ impl Globals {
         let mut v: Vec<(char, usize)> = output.iter().map(|(c, u)| (*c, u.len())).collect();
         v.sort();
         (v, self_already_reacted)
+    }
+
+    pub fn get_zap_total_sync(id: Id) -> MilliSatoshi {
+        let mut total = MilliSatoshi(0);
+        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
+            for (_other_id, relationship) in relationships.iter() {
+                if let Relationship::ZapReceipt(millisats) = relationship {
+                    total = total + *millisats;
+                }
+            }
+        }
+        total
     }
 
     pub fn get_deletion_sync(id: Id) -> Option<String> {
