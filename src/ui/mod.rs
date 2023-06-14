@@ -771,7 +771,7 @@ impl eframe::App for GossipUi {
         egui::TopBottomPanel::bottom("status")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
-                let frame = frame.inner_margin(if !self.settings.posting_area_at_top {
+                frame.inner_margin(if !self.settings.posting_area_at_top {
                     egui::Margin {
                         left: 20.0,
                         right: 18.0,
@@ -785,8 +785,7 @@ impl eframe::App for GossipUi {
                         top: 1.0,
                         bottom: 5.0,
                     }
-                });
-                frame
+                })
             })
             .resizable(resizable)
             .show_separator_line(false)
@@ -800,14 +799,12 @@ impl eframe::App for GossipUi {
         egui::CentralPanel::default()
             .frame({
                 let frame = egui::Frame::central_panel(&self.settings.theme.get_style());
-                let frame = frame.inner_margin(egui::Margin {
+                frame.inner_margin(egui::Margin {
                     left: 20.0,
                     right: 10.0,
                     top: 10.0,
                     bottom: 0.0,
-                });
-
-                frame
+                })
             })
             .show(ctx, |ui| match self.page {
                 Page::Feed(_) => feed::update(self, ctx, frame, ui),
