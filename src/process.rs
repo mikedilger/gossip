@@ -1,6 +1,6 @@
 use crate::comms::ToOverlordMessage;
 use crate::db::{
-    DbEvent, DbEventHashtag, DbEventRelationship, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay,
+    DbEvent, DbEventHashtag, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay,
 };
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
@@ -199,64 +199,24 @@ pub async fn process_new_event(
     {
         // replies to
         if let Some((id, _)) = event.replies_to() {
-            if from_relay {
-                let db_event_relationship = DbEventRelationship {
-                    original: event.id.as_hex_string(),
-                    refers_to: id.as_hex_string(),
-                    relationship: "reply".to_string(),
-                    content: None,
-                };
-                db_event_relationship.insert().await?;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Reply).await;
         }
 
         // replies to root
         if let Some((id, _)) = event.replies_to_root() {
-            if from_relay {
-                let db_event_relationship = DbEventRelationship {
-                    original: event.id.as_hex_string(),
-                    refers_to: id.as_hex_string(),
-                    relationship: "root".to_string(),
-                    content: None,
-                };
-                db_event_relationship.insert().await?;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Root).await;
         }
 
         // mentions
         for (id, _) in event.mentions() {
-            if from_relay {
-                let db_event_relationship = DbEventRelationship {
-                    original: event.id.as_hex_string(),
-                    refers_to: id.as_hex_string(),
-                    relationship: "mention".to_string(),
-                    content: None,
-                };
-                db_event_relationship.insert().await?;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Mention).await;
         }
 
         // reacts to
         if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-            if from_relay {
-                let db_event_relationship = DbEventRelationship {
-                    original: event.id.as_hex_string(),
-                    refers_to: id.as_hex_string(),
-                    relationship: "reaction".to_string(),
-                    content: Some(reaction.clone()),
-                };
-                db_event_relationship.insert().await?;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Reaction(reaction)).await;
         }
@@ -264,17 +224,6 @@ pub async fn process_new_event(
         // deletes
         if let Some((ids, reason)) = event.deletes() {
             for id in ids {
-                if from_relay {
-                    let db_event_relationship = DbEventRelationship {
-                        original: event.id.as_hex_string(),
-                        refers_to: id.as_hex_string(),
-                        relationship: "deletion".to_string(),
-                        content: Some(reason.clone()),
-                        // FIXME: this table should have one more column for optional data
-                    };
-                    db_event_relationship.insert().await?;
-                }
-
                 // since it is a delete, we don't actually desire the event.
 
                 // Insert into relationships

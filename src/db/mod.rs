@@ -13,9 +13,6 @@ pub use event_hashtag::DbEventHashtag;
 mod event_tag;
 pub use event_tag::DbEventTag;
 
-mod event_relationship;
-pub use event_relationship::DbEventRelationship;
-
 mod relay;
 pub use relay::DbRelay;
 
@@ -239,7 +236,7 @@ fn normalize_urls() -> Result<(), Error> {
     Ok(())
 }
 
-const UPGRADE_SQL: [&str; 35] = [
+const UPGRADE_SQL: [&str; 36] = [
     include_str!("sql/schema1.sql"),
     include_str!("sql/schema2.sql"),
     include_str!("sql/schema3.sql"),
@@ -275,4 +272,5 @@ const UPGRADE_SQL: [&str; 35] = [
     include_str!("sql/schema33.sql"),
     include_str!("sql/schema34.sql"),
     include_str!("sql/schema35.sql"),
+    include_str!("sql/schema36.sql"),
 ];
