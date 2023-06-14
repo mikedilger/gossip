@@ -235,6 +235,17 @@ pub async fn process_new_event(
                     .await;
             }
         }
+
+        // zaps
+        match event.zaps() {
+            Ok(Some(zapdata)) => {
+                // Insert into relationships
+                Globals::add_relationship(zapdata.id, event.id, Relationship::ZapReceipt(zapdata.amount))
+                    .await;
+            },
+            Err(e) =>tracing::error!("Invalid zap receipt: {}", e),
+            _ => {}
+        }
     }
 
     // Save event_hashtags
