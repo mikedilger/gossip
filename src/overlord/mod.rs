@@ -172,7 +172,7 @@ impl Overlord {
                 .read()
                 .feed_related_event_kinds()
                 .iter()
-                .map(|e| <EventKind as Into<u64>>::into(*e))
+                .map(|e| <EventKind as Into<u32>>::into(*e))
                 .map(|e| e.to_string())
                 .collect::<Vec<String>>()
                 .join(",");

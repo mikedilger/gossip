@@ -133,7 +133,7 @@ impl Events {
                     c.push(',');
                 }
                 virgin = false;
-                let k: u64 = (*kind).into();
+                let k: u32 = (*kind).into();
                 c.push_str(&format!("{}", k));
             }
             c.push(')');

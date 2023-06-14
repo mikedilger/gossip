@@ -29,7 +29,10 @@ pub async fn process_new_event(
             raw: serde_json::to_string(&event)?,
             pubkey: event.pubkey.into(),
             created_at: event.created_at.0,
-            kind: event.kind.into(),
+            kind: {
+                let k: u32 = event.kind.into();
+                k.into()
+            },
             content: event.content.clone(),
             ots: event.ots.clone(),
         };

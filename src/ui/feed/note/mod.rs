@@ -347,6 +347,8 @@ fn render_note_inner(
                                         vec.iter().map(|url| url.to_unchecked_url()).collect()
                                     }
                                 },
+                                author: None,
+                                kind: None,
                             };
                             ui.output_mut(|o| o.copied_text = event_pointer.as_bech32_string());
                         }
@@ -588,6 +590,8 @@ fn render_note_inner(
                                                     .map(|url| url.to_unchecked_url())
                                                     .collect(),
                                             },
+                                            author: None,
+                                            kind: None,
                                         };
                                         app.draft.push_str(&event_pointer.as_bech32_string());
                                         app.draft_repost = None;
