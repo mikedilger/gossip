@@ -217,10 +217,16 @@ pub async fn process_new_event(
         if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Reaction(reaction)).await;
+
+            // UI cache invalidation (so the note get rerendered)
+            GLOBALS.ui_notes_to_invalidate.write().push(id);
         }
 
         // deletes
         if let Some((ids, reason)) = event.deletes() {
+            // UI cache invalidation (so the notes get rerendered)
+            GLOBALS.ui_notes_to_invalidate.write().extend(&ids);
+
             for id in ids {
                 // since it is a delete, we don't actually desire the event.
 

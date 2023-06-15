@@ -411,6 +411,9 @@ impl People {
                 Ok::<(), Error>(())
             })
                 .await??;
+
+            // UI cache invalidation (so notes of the person get rerendered)
+            GLOBALS.ui_people_to_invalidate.write().push(pubkeyhex.to_owned());
         }
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
@@ -866,6 +869,9 @@ impl People {
             }
         }
 
+        // UI cache invalidation (so notes of the person get rerendered)
+        GLOBALS.ui_people_to_invalidate.write().push(pubkeyhex.to_owned());
+
         if follow > 0 {
             // Add the person to the relay_picker for picking
             GLOBALS.relay_picker.add_someone(pubkeyhex.to_owned())?;
@@ -1143,6 +1149,9 @@ impl People {
             Ok::<(), Error>(())
         })
         .await??;
+
+        // UI cache invalidation (so notes of the person get rerendered)
+        GLOBALS.ui_people_to_invalidate.write().push(pubkeyhex.to_owned());
 
         Ok(())
     }

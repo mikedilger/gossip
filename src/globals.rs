@@ -110,6 +110,14 @@ pub struct Globals {
     /// Search results
     pub people_search_results: PRwLock<Vec<DbPerson>>,
     pub note_search_results: PRwLock<Vec<Event>>,
+
+    /// UI note cache invalidation per note
+    // when we update an augment (deletion/reaction/zap) the UI must recompute
+    pub ui_notes_to_invalidate: PRwLock<Vec<Id>>,
+
+    /// UI note cache invalidation per person
+    // when we update a DbPerson, the UI must recompute all notes by them
+    pub ui_people_to_invalidate: PRwLock<Vec<PublicKeyHex>>,
 }
 
 lazy_static! {
@@ -150,6 +158,8 @@ lazy_static! {
             media: Media::new(),
             people_search_results: PRwLock::new(Vec::new()),
             note_search_results: PRwLock::new(Vec::new()),
+            ui_notes_to_invalidate: PRwLock::new(Vec::new()),
+            ui_people_to_invalidate: PRwLock::new(Vec::new()),
         }
     };
 }

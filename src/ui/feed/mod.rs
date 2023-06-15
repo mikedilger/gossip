@@ -26,6 +26,23 @@ struct FeedNoteParams {
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
+
+    // Do cache invalidations
+    if ! GLOBALS.ui_notes_to_invalidate.read().is_empty() {
+        let mut handle = GLOBALS.ui_notes_to_invalidate.write();
+        for id in handle.iter() {
+            app.notes.cache_invalidate_note(id);
+        }
+        *handle = Vec::new();
+    }
+    if ! GLOBALS.ui_people_to_invalidate.read().is_empty() {
+        let mut handle = GLOBALS.ui_people_to_invalidate.write();
+        for pkh in handle.iter() {
+            app.notes.cache_invalidate_person(pkh);
+        }
+        *handle = Vec::new();
+    }
+
     let feed_kind = GLOBALS.feed.get_feed_kind();
 
     match feed_kind {
