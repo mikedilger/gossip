@@ -1,7 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{
-    DbEvent, DbEventHashtag, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay,
-};
+use crate::db::{DbEvent, DbEventHashtag, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
