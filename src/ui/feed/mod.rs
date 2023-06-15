@@ -6,11 +6,15 @@ use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
 use nostr_types::Id;
 
-pub use note::Notes;
+mod notedata;
+
+mod notes;
+pub use notes::Notes;
 
 mod note;
 pub use note::NoteRenderData;
 pub(super) mod post;
+
 
 struct FeedNoteParams {
     id: Id,

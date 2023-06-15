@@ -1,11 +1,10 @@
 mod content;
-mod notedata;
 
-pub use notedata::Notes;
+pub use super::Notes;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use notedata::{NoteData, RepostType};
+use super::notedata::{NoteData, RepostType};
 
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
