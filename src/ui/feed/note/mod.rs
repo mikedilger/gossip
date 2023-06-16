@@ -131,15 +131,25 @@ pub(super) fn render_note(
                     })
             });
 
+            // Store actual rendered height for future reference
+            let bottom = ui.next_widget_position();
+            app.height.insert(id, bottom.y - top.y);
+
             // Mark post as viewed if hovered AND we are not scrolling
             if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
                 GLOBALS.viewed_events.insert(id);
                 GLOBALS.new_viewed_events.blocking_write().insert(id);
             }
 
-            // Store actual rendered height for future reference
-            let bottom = ui.next_widget_position();
-            app.height.insert(id, bottom.y - top.y);
+            // Record if the rendered note was visible
+            {
+                let screen_rect = ctx.input(|i| i.screen_rect); // Rect
+                let offscreen = bottom.y < 0.0 || top.y > screen_rect.max.y;
+                if !offscreen {
+                    // Record that this note was visibly rendered
+                    app.next_visible_note_ids.push(id);
+                }
+            }
 
             thin_separator(
                 ui,
@@ -872,6 +882,8 @@ fn render_repost(
                             .repost_space_below_separator_before(&render_data),
                     );
                     ui.horizontal_wrapped(|ui| {
+                        let top = ui.next_widget_position();
+
                         // FIXME: don't recurse forever
                         render_note_inner(
                             app,
@@ -882,6 +894,18 @@ fn render_repost(
                             false,
                             parent_repost,
                         );
+
+                        let bottom = ui.next_widget_position();
+
+                        // Record if the rendered repost was visible
+                        {
+                            let screen_rect = ctx.input(|i| i.screen_rect); // Rect
+                            let offscreen = bottom.y < 0.0 || top.y > screen_rect.max.y;
+                            if !offscreen {
+                                // Record that this note was visibly rendered
+                                app.next_visible_note_ids.push(repost_data.event.id);
+                            }
+                        }
                     });
                     ui.add_space(
                         app.settings

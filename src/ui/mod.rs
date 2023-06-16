@@ -252,6 +252,13 @@ struct GossipUi {
 
     // Collapsed threads
     collapsed: Vec<Id>,
+
+    // Visisble Note IDs
+    // (we resubscribe to reactions/zaps/deletes when this changes)
+    visible_note_ids: Vec<Id>,
+    // This one is built up as rendering happens, then compared
+    next_visible_note_ids: Vec<Id>,
+    last_visible_update: Instant,
 }
 
 impl Drop for GossipUi {
@@ -443,6 +450,9 @@ impl GossipUi {
             search: "".to_owned(),
             entering_search_page: false,
             collapsed: vec![],
+            visible_note_ids: vec![],
+            next_visible_note_ids: vec![],
+            last_visible_update: Instant::now(),
         }
     }
 
@@ -1085,9 +1095,7 @@ impl GossipUi {
             }
         }
     }
-}
 
-impl GossipUi {
     fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
         if self
             .add_selected_label(ui, self.page == page, text)
@@ -1163,5 +1171,38 @@ impl GossipUi {
             .clone()
             .on_hover_cursor(egui::CursorIcon::PointingHand);
         response
+    }
+
+    fn handle_visible_note_changes(&mut self) {
+        let no_change = self.visible_note_ids == self.next_visible_note_ids;
+        let scrolling = self.current_scroll_offset != 0.0;
+        let too_rapid = Instant::now() - self.last_visible_update < Duration::from_secs(3);
+        let empty = self.next_visible_note_ids.is_empty();
+
+        if no_change || scrolling || too_rapid || empty {
+            // Clear the accumulator
+            // It will fill up again next frame and be tested again.
+            self.next_visible_note_ids.clear();
+            return;
+        }
+
+        // Update when this happened, so we don't accept again too rapidly
+        self.last_visible_update = Instant::now();
+
+        // Save to self.visibile_note_ids
+        self.visible_note_ids = std::mem::take(&mut self.next_visible_note_ids);
+
+        if !self.visible_note_ids.is_empty() {
+            tracing::debug!(
+                "VISIBLE = {:?}",
+                self.visible_note_ids
+                    .iter()
+                    .map(|id| Into::<IdHex>::into(*id).prefix(10).into_string())
+                    .collect::<Vec<_>>()
+            );
+
+            // Tell the overlord
+            // TBD
+        }
     }
 }

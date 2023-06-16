@@ -146,6 +146,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
         }
     }
+
+    // Handle any changes due to changes in which notes are visible
+    app.handle_visible_note_changes();
 }
 
 fn render_a_feed(
