@@ -529,7 +529,7 @@ impl eframe::App for GossipUi {
         {
             // Add the amount of scroll requested to the future
             let mut requested_scroll: f32 = 0.0;
-            ctx.input_mut(|i| {
+            ctx.input(|i| {
                 requested_scroll = i.scroll_delta.y;
             });
             self.future_scroll_offset += requested_scroll;

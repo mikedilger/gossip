@@ -15,7 +15,6 @@ mod note;
 pub use note::NoteRenderData;
 pub(super) mod post;
 
-
 struct FeedNoteParams {
     id: Id,
     indent: usize,
@@ -26,16 +25,15 @@ struct FeedNoteParams {
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-
     // Do cache invalidations
-    if ! GLOBALS.ui_notes_to_invalidate.read().is_empty() {
+    if !GLOBALS.ui_notes_to_invalidate.read().is_empty() {
         let mut handle = GLOBALS.ui_notes_to_invalidate.write();
         for id in handle.iter() {
             app.notes.cache_invalidate_note(id);
         }
         *handle = Vec::new();
     }
-    if ! GLOBALS.ui_people_to_invalidate.read().is_empty() {
+    if !GLOBALS.ui_people_to_invalidate.read().is_empty() {
         let mut handle = GLOBALS.ui_people_to_invalidate.write();
         for pkh in handle.iter() {
             app.notes.cache_invalidate_person(pkh);
@@ -238,7 +236,7 @@ fn render_note_maybe_fake(
         Some(h) => *h,
         None => {
             // render the actual post and return
-            // The first frame will be very slow, but it will only need to do this
+            // The first frame will be slow, but it will only need to do this
             // once per post.
             note::render_note(
                 app,

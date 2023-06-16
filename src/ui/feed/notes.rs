@@ -1,5 +1,5 @@
-use crate::globals::GLOBALS;
 use super::notedata::NoteData;
+use crate::globals::GLOBALS;
 use nostr_types::{Id, PublicKeyHex};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 

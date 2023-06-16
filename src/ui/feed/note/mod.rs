@@ -102,11 +102,11 @@ pub(super) fn render_note(
 
             let top = ui.next_widget_position();
 
-            ui.horizontal(|ui| {
+            let inner_response = ui.horizontal(|ui| {
                 // Outer indents first
                 app.settings.theme.feed_post_outer_indent(ui, &render_data);
 
-                let inner_response = Frame::none()
+                Frame::none()
                     .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
                     .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
                     .rounding(app.settings.theme.feed_frame_rounding(&render_data))
@@ -128,14 +128,14 @@ pub(super) fn render_note(
                                 &None,
                             );
                         });
-                    });
-
-                // Mark post as viewed if hovered AND we are not scrolling
-                if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
-                    GLOBALS.viewed_events.insert(id);
-                    GLOBALS.new_viewed_events.blocking_write().insert(id);
-                }
+                    })
             });
+
+            // Mark post as viewed if hovered AND we are not scrolling
+            if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
+                GLOBALS.viewed_events.insert(id);
+                GLOBALS.new_viewed_events.blocking_write().insert(id);
+            }
 
             // Store actual rendered height for future reference
             let bottom = ui.next_widget_position();
