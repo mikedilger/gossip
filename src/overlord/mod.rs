@@ -835,6 +835,43 @@ impl Overlord {
                     .await?;
                 }
             }
+            ToOverlordMessage::VisibleNotesChanged(visible) => {
+                let visible: Vec<IdHex> = visible.iter().map(|i| (*i).into()).collect();
+
+                let mut relay_urls: Vec<RelayUrl> = GLOBALS
+                    .connected_relays
+                    .iter()
+                    .filter_map(|r| {
+                        for job in r.value() {
+                            if job.reason == "follow"
+                                || job.reason == "mentions"
+                                || job.reason == "fetch-event"
+                                || job.reason == "read-thread"
+                            {
+                                return Some(r.key().clone());
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+
+                // Resubscribe to augments
+                // On all currently connected relays
+                for url in relay_urls.drain(..) {
+                    self.engage_minion(
+                        url,
+                        vec![RelayJob {
+                            reason: "augments",
+                            payload: ToMinionPayload {
+                                job_id: rand::random::<u64>(),
+                                detail: ToMinionPayloadDetail::SubscribeAugments(visible.clone()),
+                            },
+                            persistent: false,
+                        }],
+                    )
+                    .await?;
+                }
+            }
         }
 
         Ok(true)

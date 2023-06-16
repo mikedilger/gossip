@@ -339,6 +339,9 @@ impl Minion {
                 tracing::info!("{}: Websocket listener shutting down", &self.url);
                 self.keepgoing = false;
             }
+            ToMinionPayloadDetail::SubscribeAugments(ids) => {
+                self.subscribe_augments(message.job_id, ids).await?;
+            }
             ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys) => {
                 self.subscribe_general_feed(message.job_id, pubkeys).await?;
             }
@@ -376,6 +379,33 @@ impl Minion {
 
     async fn tell_overlord_we_are_ready(&self) -> Result<(), Error> {
         self.to_overlord.send(ToOverlordMessage::MinionIsReady)?;
+        Ok(())
+    }
+
+    async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
+        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        event_kinds.retain(|f| f.augments_feed_related());
+
+        let filter = Filter {
+            e: ids,
+            kinds: event_kinds,
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "augments", job_id).await?;
+
+        if let Some(sub) = self.subscription_map.get_mut("augments") {
+            if let Some(nip11) = &self.nip11 {
+                if !nip11.supports_nip(15) {
+                    // Does not support EOSE.  Set subscription to EOSE now.
+                    sub.set_eose();
+                }
+            } else {
+                // Does not support EOSE.  Set subscription to EOSE now.
+                sub.set_eose();
+            }
+        }
+
         Ok(())
     }
 

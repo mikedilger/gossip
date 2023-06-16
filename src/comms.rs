@@ -44,6 +44,7 @@ pub enum ToOverlordMessage {
     UpdateFollowing(bool),
     UpdateMetadata(PublicKeyHex),
     UpdateMetadataInBulk(Vec<PublicKeyHex>),
+    VisibleNotesChanged(Vec<Id>),
 }
 
 /// This is a message sent to the minions
@@ -70,6 +71,7 @@ pub enum ToMinionPayloadDetail {
     PostEvent(Box<Event>),
     PullFollowing,
     Shutdown,
+    SubscribeAugments(Vec<IdHex>),
     SubscribeConfig,
     SubscribeDiscover(Vec<PublicKeyHex>),
     SubscribeGeneralFeed(Vec<PublicKeyHex>),

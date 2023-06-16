@@ -1193,7 +1193,7 @@ impl GossipUi {
         self.visible_note_ids = std::mem::take(&mut self.next_visible_note_ids);
 
         if !self.visible_note_ids.is_empty() {
-            tracing::debug!(
+            tracing::trace!(
                 "VISIBLE = {:?}",
                 self.visible_note_ids
                     .iter()
@@ -1202,7 +1202,11 @@ impl GossipUi {
             );
 
             // Tell the overlord
-            // TBD
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::VisibleNotesChanged(
+                    self.visible_note_ids.clone(),
+                ));
         }
     }
 }
