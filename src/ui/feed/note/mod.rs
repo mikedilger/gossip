@@ -665,17 +665,11 @@ fn render_note_inner(
                                     }
                                 }
 
-
                                 if app.settings.enable_zap_receipts {
                                     ui.add_space(24.0);
 
-                                    ui.add(Label::new(
-                                        RichText::new("⚡")
-                                            .size(20.0)
-                                    ));
-                                    ui.add(Label::new(
-                                        format!("{}", note.zaptotal.0 / 1000)
-                                    ));
+                                    ui.add(Label::new(RichText::new("⚡").size(20.0)));
+                                    ui.add(Label::new(format!("{}", note.zaptotal.0 / 1000)));
                                 }
 
                                 ui.add_space(24.0);

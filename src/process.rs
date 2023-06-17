@@ -240,13 +240,17 @@ pub async fn process_new_event(
         match event.zaps() {
             Ok(Some(zapdata)) => {
                 // Insert into relationships
-                Globals::add_relationship(zapdata.id, event.id, Relationship::ZapReceipt(zapdata.amount))
-                    .await;
+                Globals::add_relationship(
+                    zapdata.id,
+                    event.id,
+                    Relationship::ZapReceipt(zapdata.amount),
+                )
+                .await;
 
                 // UI cache invalidation (so the note gets rerendered)
                 GLOBALS.ui_notes_to_invalidate.write().push(zapdata.id);
-            },
-            Err(e) =>tracing::error!("Invalid zap receipt: {}", e),
+            }
+            Err(e) => tracing::error!("Invalid zap receipt: {}", e),
             _ => {}
         }
     }

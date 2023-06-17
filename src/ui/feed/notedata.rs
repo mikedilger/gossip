@@ -3,8 +3,8 @@ use crate::{
     people::DbPerson,
 };
 use nostr_types::{
-    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32,
-    PublicKeyHex, ShatteredContent, Tag,
+    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKeyHex,
+    ShatteredContent, Tag,
 };
 
 #[derive(PartialEq)]
