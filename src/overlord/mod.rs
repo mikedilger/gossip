@@ -513,17 +513,17 @@ impl Overlord {
                                 s if s.as_u16() >= 400 => 90,
                                 _ => 30,
                             };
-                        }
-                        else if let tungstenite::error::Error::ConnectionClosed = wserror {
+                        } else if let tungstenite::error::Error::ConnectionClosed = wserror {
                             tracing::debug!("Minion {} completed", &url);
-                        }
-                        else if let tungstenite::error::Error::Protocol(protocol_error) = wserror {
+                        } else if let tungstenite::error::Error::Protocol(protocol_error) = wserror
+                        {
                             exclusion = match protocol_error {
-                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake => 30,
+                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake => {
+                                    30
+                                }
                                 _ => 120,
                             }
-                        }
-                        else {
+                        } else {
                             exclusion = 30;
                         }
                     }
@@ -735,7 +735,7 @@ impl Overlord {
                             .retain(|job| job.payload.job_id != job_id || job.persistent);
 
                         // If only one 'augments' job remains, disconnect the relay
-                        if refmut.value().len() == 1 && refmut.value()[0].reason=="augments" {
+                        if refmut.value().len() == 1 && refmut.value()[0].reason == "augments" {
                             let _ = self.to_minions.send(ToMinionMessage {
                                 target: url.0,
                                 payload: ToMinionPayload {
