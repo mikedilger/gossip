@@ -732,7 +732,18 @@ impl Overlord {
                     if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
                         refmut
                             .value_mut()
-                            .retain(|job| job.payload.job_id != job_id || job.persistent)
+                            .retain(|job| job.payload.job_id != job_id || job.persistent);
+
+                        // If only one 'augments' job remains, disconnect the relay
+                        if refmut.value().len() == 1 && refmut.value()[0].reason=="augments" {
+                            let _ = self.to_minions.send(ToMinionMessage {
+                                target: url.0,
+                                payload: ToMinionPayload {
+                                    job_id: 0,
+                                    detail: ToMinionPayloadDetail::Shutdown,
+                                },
+                            });
+                        }
                     }
                 }
             }
