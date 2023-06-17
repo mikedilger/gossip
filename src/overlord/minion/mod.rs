@@ -117,7 +117,7 @@ impl Minion {
                     } else {
                         match serde_json::from_str::<RelayInformationDocument>(&text) {
                             Ok(nip11) => {
-                                tracing::info!("{}: {}", &self.url, nip11);
+                                tracing::debug!("{}: {}", &self.url, nip11);
                                 self.nip11 = Some(nip11);
                                 self.dbrelay.nip11 = self.nip11.clone();
                             }
@@ -198,7 +198,7 @@ impl Minion {
             )
             .await??;
 
-            tracing::info!("{}: Connected", &self.url);
+            tracing::debug!("{}: Connected", &self.url);
 
             websocket_stream
         };
@@ -332,7 +332,7 @@ impl Minion {
                 self.pull_following(message.job_id).await?;
             }
             ToMinionPayloadDetail::Shutdown => {
-                tracing::info!("{}: Websocket listener shutting down", &self.url);
+                tracing::debug!("{}: Websocket listener shutting down", &self.url);
                 self.keepgoing = false;
             }
             ToMinionPayloadDetail::SubscribeAugments(ids) => {

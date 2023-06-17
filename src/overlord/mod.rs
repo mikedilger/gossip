@@ -53,11 +53,11 @@ impl Overlord {
             tracing::error!("{}", e);
         }
 
-        tracing::info!("Overlord signalling UI to shutdown");
+        tracing::debug!("Overlord signalling UI to shutdown");
 
         GLOBALS.shutting_down.store(true, Ordering::Relaxed);
 
-        tracing::info!("Overlord signalling minions to shutdown");
+        tracing::debug!("Overlord signalling minions to shutdown");
 
         // Send shutdown message to all minions (and ui)
         // If this fails, it's probably because there are no more listeners
@@ -492,7 +492,7 @@ impl Overlord {
             }
             Ok((_id, result)) => match result {
                 Ok(_) => {
-                    tracing::info!("Minion {} completed", &url);
+                    tracing::debug!("Minion {} completed", &url);
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url).await;
