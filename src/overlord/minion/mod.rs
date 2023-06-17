@@ -970,9 +970,7 @@ impl Minion {
         handle: &str,
         job_id: u64,
     ) -> Result<(), Error> {
-        if self.subscription_map.has(handle) {
-            // Unsubscribe. will resubscribe under a new handle.
-            self.unsubscribe(handle).await?;
+        if let Some(sub) = self.subscription_map.get_mut(handle) {
 
             // Gratitously bump the EOSE as if the relay was finished, since it was
             // our fault the subscription is getting cut off.  This way we will pick up
@@ -980,14 +978,26 @@ impl Minion {
             // yet again.
             let now = Unixtime::now().unwrap();
             DbRelay::update_general_eose(self.dbrelay.url.clone(), now.0 as u64).await?;
+
+            sub.set_filters(filters);
+            sub.change_job_id(job_id);
+            let id = sub.get_id();
+            tracing::debug!(
+                "UPDATED SUBSCRIPTION on {} handle={}, id={}",
+                &self.url,
+                handle,
+                id
+            );
+        } else {
+            let id = self.subscription_map.add(handle, job_id, filters);
+            tracing::debug!(
+                "NEW SUBSCRIPTION on {} handle={}, id={}",
+                &self.url,
+                handle,
+                &id
+            );
         }
-        let id = self.subscription_map.add(handle, job_id, filters);
-        tracing::debug!(
-            "NEW SUBSCRIPTION on {} handle={}, id={}",
-            &self.url,
-            handle,
-            &id
-        );
+
         let req_message = self.subscription_map.get(handle).unwrap().req_message();
         let wire = serde_json::to_string(&req_message)?;
         let websocket_stream = self.stream.as_mut().unwrap();
