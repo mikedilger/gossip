@@ -690,6 +690,22 @@ impl Overlord {
                     }
                 }
             }
+            ToOverlordMessage::MinionJobUpdated(url, old_job_id, new_job_id) => {
+                if old_job_id != 0 && new_job_id != 0 {
+                    if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
+                        refmut.value_mut().retain_mut(|job| {
+                            if job.payload.job_id == new_job_id {
+                                false // remove the new job
+                            } else if job.payload.job_id == old_job_id {
+                                job.payload.job_id = new_job_id;
+                                true // keep the old job, with modified job id
+                            } else {
+                                true // keep the rest
+                            }
+                        })
+                    }
+                }
+            }
             ToOverlordMessage::PickRelays => {
                 // When manually doing this, we refresh person_relay scores first which
                 // often change if the user just added follows.

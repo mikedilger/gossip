@@ -23,6 +23,7 @@ pub enum ToOverlordMessage {
     Like(Id, PublicKey),
     MinionIsReady,
     MinionJobComplete(RelayUrl, u64),
+    MinionJobUpdated(RelayUrl, u64, u64),
     PickRelays,
     ProcessIncomingEvents,
     Post(String, Vec<Tag>, Option<Id>),

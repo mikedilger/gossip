@@ -30,8 +30,10 @@ impl Subscription {
         self.job_id
     }
 
-    pub fn change_job_id(&mut self, job_id: u64) {
+    pub fn change_job_id(&mut self, job_id: u64) -> u64 {
+        let old = self.job_id;
         self.job_id = job_id;
+        old
     }
 
     pub fn set_eose(&mut self) {

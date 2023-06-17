@@ -971,7 +971,6 @@ impl Minion {
         job_id: u64,
     ) -> Result<(), Error> {
         if let Some(sub) = self.subscription_map.get_mut(handle) {
-
             // Gratitously bump the EOSE as if the relay was finished, since it was
             // our fault the subscription is getting cut off.  This way we will pick up
             // where we left off instead of potentially loading a bunch of events
@@ -980,7 +979,7 @@ impl Minion {
             DbRelay::update_general_eose(self.dbrelay.url.clone(), now.0 as u64).await?;
 
             sub.set_filters(filters);
-            sub.change_job_id(job_id);
+            let old_job_id = sub.change_job_id(job_id);
             let id = sub.get_id();
             tracing::debug!(
                 "UPDATED SUBSCRIPTION on {} handle={}, id={}",
@@ -988,6 +987,11 @@ impl Minion {
                 handle,
                 id
             );
+            self.to_overlord.send(ToOverlordMessage::MinionJobUpdated(
+                self.url.clone(),
+                old_job_id,
+                job_id,
+            ))?;
         } else {
             let id = self.subscription_map.add(handle, job_id, filters);
             tracing::debug!(
