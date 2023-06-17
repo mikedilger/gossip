@@ -12,6 +12,7 @@ use crate::tags::{
 };
 use dashmap::mapref::entry::Entry;
 use gossip_relay_picker::{Direction, RelayAssignment};
+use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, NostrBech32,
@@ -30,7 +31,7 @@ pub struct Overlord {
     inbox: UnboundedReceiver<ToOverlordMessage>,
 
     // All the minion tasks running.
-    minions: task::JoinSet<()>,
+    minions: task::JoinSet<Result<(), Error>>,
 
     // Map from minion task::Id to Url
     minions_task_url: HashMap<task::Id, RelayUrl>,
@@ -343,7 +344,7 @@ impl Overlord {
                         if let Err(e) = self.apply_relay_assignment(ra.to_owned()).await {
                             tracing::error!("{}", e);
                             // On failure, return it
-                            GLOBALS.relay_picker.relay_disconnected(&relay_url);
+                            GLOBALS.relay_picker.relay_disconnected(&relay_url, 120);
                         }
                     } else {
                         tracing::warn!("Relay Picker just picked {} but it is already no longer part of it's relay assignments!", &relay_url);
@@ -459,65 +460,97 @@ impl Overlord {
 
     async fn handle_task_nextjoined(
         &mut self,
-        task_nextjoined: Option<Result<(task::Id, ()), task::JoinError>>,
+        task_nextjoined: Option<Result<(task::Id, Result<(), Error>), task::JoinError>>,
     ) {
         if task_nextjoined.is_none() {
             return; // rare but possible
         }
-        match task_nextjoined.unwrap() {
+
+        let join_result = task_nextjoined.unwrap();
+        let id = match join_result {
+            Err(ref join_error) => join_error.id(),
+            Ok((id, _)) => id,
+        };
+        let url = match self.minions_task_url.get(&id).cloned() {
+            Some(url) => url,
+            None => return, // unknown minion!
+        };
+
+        // Remove from our hashmap
+        self.minions_task_url.remove(&id);
+
+        // Set to not connected
+        let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
+
+        let mut exclusion: u64 = 0;
+
+        match join_result {
             Err(join_error) => {
-                let id = join_error.id();
-                let maybe_url = self.minions_task_url.get(&id).cloned();
-                match maybe_url {
-                    Some(url) => {
-                        // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
-                        // Minion probably alreaedy logged, this may be redundant.
-                        tracing::error!("Minion {} completed with error: {}", &url, join_error);
-
-                        // Minion probably already logged failure in relay table
-
-                        // Set to not connected
-                        let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
-
-                        // Remove from our hashmap
-                        self.minions_task_url.remove(&id);
-
-                        // We might need to act upon this minion exiting
-                        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                            self.recover_from_minion_exit(url, relayjobs).await;
+                tracing::error!("Minion {} completed with join error: {}", &url, join_error);
+                Self::bump_failure_count(&url).await;
+                exclusion = 60;
+            }
+            Ok((_id, result)) => match result {
+                Ok(_) => {
+                    tracing::info!("Minion {} completed", &url);
+                }
+                Err(e) => {
+                    Self::bump_failure_count(&url).await;
+                    tracing::error!("Minion {} completed with error: {}", &url, e);
+                    if let ErrorKind::Websocket(wserror) = e.kind {
+                        if let tungstenite::error::Error::Http(response) = wserror {
+                            exclusion = match response.status() {
+                                StatusCode::MOVED_PERMANENTLY => 60 * 60 * 24,
+                                StatusCode::PERMANENT_REDIRECT => 60 * 60 * 24,
+                                StatusCode::UNAUTHORIZED => 60 * 60 * 24,
+                                StatusCode::PAYMENT_REQUIRED => 60 * 60 * 24,
+                                StatusCode::FORBIDDEN => 60 * 60 * 24,
+                                StatusCode::NOT_FOUND => 60 * 60 * 24,
+                                StatusCode::PROXY_AUTHENTICATION_REQUIRED => 60 * 60 * 24,
+                                StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => 60 * 60 * 24,
+                                StatusCode::NOT_IMPLEMENTED => 60 * 60 * 24,
+                                StatusCode::BAD_GATEWAY => 60 * 60 * 24,
+                                s if s.as_u16() >= 400 => 90,
+                                _ => 30,
+                            };
+                        }
+                        else if let tungstenite::error::Error::ConnectionClosed = wserror {
+                            tracing::debug!("Minion {} completed", &url);
+                        }
+                        else if let tungstenite::error::Error::Protocol(protocol_error) = wserror {
+                            exclusion = match protocol_error {
+                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake => 30,
+                                _ => 120,
+                            }
+                        }
+                        else {
+                            exclusion = 30;
                         }
                     }
-                    None => {
-                        tracing::error!("Minion UNKNOWN completed with error: {}", join_error);
-                    }
                 }
-            }
-            Ok((id, _)) => {
-                let maybe_url = self.minions_task_url.get(&id).cloned();
-                match maybe_url {
-                    Some(url) => {
-                        tracing::info!("Relay Task {} completed", &url);
+            },
+        };
 
-                        // Set to not connected
-                        let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
+        if exclusion > 0 {
+            GLOBALS
+                .relay_picker
+                .relay_disconnected(&url, exclusion as i64);
+        }
 
-                        // Remove from our hashmap
-                        self.minions_task_url.remove(&id);
-
-                        // We might need to act upon this minion exiting
-                        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                            self.recover_from_minion_exit(url, relayjobs).await;
-                        }
-                    }
-                    None => tracing::error!("Relay Task UNKNOWN completed"),
-                }
-            }
+        // We might need to act upon this minion exiting
+        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
+            self.recover_from_minion_exit(url, relayjobs, exclusion)
+                .await;
         }
     }
 
-    async fn recover_from_minion_exit(&mut self, url: RelayUrl, jobs: Option<Vec<RelayJob>>) {
+    async fn recover_from_minion_exit(
+        &mut self,
+        url: RelayUrl,
+        jobs: Option<Vec<RelayJob>>,
+        exclusion: u64,
+    ) {
         // For people we are following, pick relays
-        GLOBALS.relay_picker.relay_disconnected(&url);
         if let Err(e) = GLOBALS.relay_picker.refresh_person_relay_scores().await {
             tracing::error!("Error: {}", e);
         }
@@ -531,16 +564,29 @@ impl Overlord {
             if !persistent_jobs.is_empty() {
                 // Do it after a delay
                 std::mem::drop(tokio::spawn(async move {
-                    // Delay 30 seconds first
+                    // Delay for exclusion first
                     tracing::info!(
-                        "Minion {} will restart in 30 seconds to continue persistent jobs",
-                        &url
+                        "Minion {} will restart in {} seconds to continue persistent jobs",
+                        &url,
+                        exclusion
                     );
-                    tokio::time::sleep(std::time::Duration::new(30, 0)).await;
+                    tokio::time::sleep(std::time::Duration::new(exclusion, 0)).await;
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::ReengageMinion(url, persistent_jobs));
                 }));
+            }
+        }
+    }
+
+    async fn bump_failure_count(url: &RelayUrl) {
+        // Update in globals
+        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(url) {
+            dbrelay.failure_count += 1;
+
+            // Save to database
+            if let Err(e) = DbRelay::update(dbrelay.clone()).await {
+                tracing::error!("{}: ERROR bumping relay failure count: {}", url, e);
             }
         }
     }

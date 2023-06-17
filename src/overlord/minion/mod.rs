@@ -4,7 +4,7 @@ mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::db::DbRelay;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::USER_AGENT;
 use base64::Engine;
@@ -73,18 +73,9 @@ impl Minion {
 }
 
 impl Minion {
-    pub async fn handle(&mut self, messages: Vec<ToMinionPayload>) {
-        // Catch errors, Return nothing.
-        if let Err(e) = self.handle_inner(messages).await {
-            tracing::error!("{}: ERROR: {}", &self.url, e);
-            self.bump_failure_count().await;
-        }
-
-        tracing::info!("{}: minion exiting", self.url);
-    }
-
-    async fn handle_inner(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
-        tracing::trace!("{}: Minion handling started", &self.url); // minion will log when it connects
+    pub async fn handle(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
+        // minion will log when it connects
+        tracing::trace!("{}: Minion handling started", &self.url);
 
         // Connect to the relay
         let websocket_stream = {
@@ -206,6 +197,7 @@ impl Minion {
                 tokio_tungstenite::connect_async_with_config(req, Some(config)),
             )
             .await??;
+
             tracing::info!("{}: Connected", &self.url);
 
             websocket_stream
@@ -232,8 +224,12 @@ impl Minion {
                     }
                 }
                 Err(e) => {
-                    // Log them and keep going
                     tracing::error!("{}: {}", &self.url, e);
+                    if let ErrorKind::Websocket(_) = e.kind {
+                        return Err(e);
+                    }
+
+                    // for other errors, keep going
                 }
             }
         }
