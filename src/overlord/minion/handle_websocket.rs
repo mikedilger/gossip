@@ -69,7 +69,7 @@ impl Minion {
                 }
             }
             RelayMessage::Notice(msg) => {
-                tracing::info!("{}: NOTICE: {}", &self.url, msg);
+                tracing::warn!("{}: NOTICE: {}", &self.url, msg);
             }
             RelayMessage::Eose(subid) => {
                 let handle = self
