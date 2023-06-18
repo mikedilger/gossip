@@ -69,6 +69,12 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
         }
     }
 
+    // UI cache invalidation (so notes of the person get rerendered)
+    GLOBALS
+        .ui_people_to_invalidate
+        .write()
+        .push(person.pubkey.clone());
+
     if valid {
         update_relays(nip05, nip05file, &person.pubkey).await?;
     }
