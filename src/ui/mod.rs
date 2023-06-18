@@ -866,13 +866,9 @@ impl GossipUi {
 
     /// A display name for a `DbPerson`
     pub fn display_name_from_dbperson(dbperson: &DbPerson) -> String {
-        if dbperson.muted == 1 {
-            "{MUTED PERSON}".to_owned()
-        } else {
-            match dbperson.display_name() {
-                Some(name) => name.to_owned(),
-                None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
-            }
+        match dbperson.display_name() {
+            Some(name) => name.to_owned(),
+            None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
         }
     }
 
