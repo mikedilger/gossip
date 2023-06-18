@@ -65,97 +65,96 @@ pub(super) fn render_note(
         // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
-            // Completely eliminate muted posts if not viewing a thread
-            if note_data.author.muted > 0 && !threaded {
-                return;
-            }
+            // Render if not muted
+            if note_data.author.muted == 0 {
+                let is_new = app.settings.highlight_unread_events
+                    && !GLOBALS.viewed_events.contains(&note_data.event.id);
 
-            let is_new = app.settings.highlight_unread_events
-                && !GLOBALS.viewed_events.contains(&note_data.event.id);
+                let is_main_event: bool = {
+                    let feed_kind = GLOBALS.feed.get_feed_kind();
+                    match feed_kind {
+                        FeedKind::Thread { id, .. } => id == note_data.event.id,
+                        _ => false,
+                    }
+                };
 
-            let is_main_event: bool = {
-                let feed_kind = GLOBALS.feed.get_feed_kind();
-                match feed_kind {
-                    FeedKind::Thread { id, .. } => id == note_data.event.id,
-                    _ => false,
+                let height = if let Some(height) = app.height.get(&id) {
+                    height
+                } else {
+                    &0.0
+                };
+
+                let render_data = NoteRenderData {
+                    height: *height,
+                    has_repost: note_data.repost.is_some(),
+                    is_comment_mention: false,
+                    is_new,
+                    is_thread: threaded,
+                    is_first,
+                    is_last,
+                    is_main_event,
+                    thread_position: indent as i32,
+                    can_post: GLOBALS.signer.is_ready(),
+                };
+
+                let top = ui.next_widget_position();
+
+                let inner_response = ui.horizontal(|ui| {
+                    // Outer indents first
+                    app.settings.theme.feed_post_outer_indent(ui, &render_data);
+
+                    Frame::none()
+                        .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
+                        .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
+                        .rounding(app.settings.theme.feed_frame_rounding(&render_data))
+                        .shadow(app.settings.theme.feed_frame_shadow(&render_data))
+                        .fill(app.settings.theme.feed_frame_fill(&render_data))
+                        .stroke(app.settings.theme.feed_frame_stroke(&render_data))
+                        .show(ui, |ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                // Inner indents first
+                                app.settings.theme.feed_post_inner_indent(ui, &render_data);
+
+                                render_note_inner(
+                                    app,
+                                    ctx,
+                                    ui,
+                                    note_ref.clone(),
+                                    &render_data,
+                                    as_reply_to,
+                                    &None,
+                                );
+                            });
+                        })
+                });
+
+                // Store actual rendered height for future reference
+                let bottom = ui.next_widget_position();
+                app.height.insert(id, bottom.y - top.y);
+
+                // Mark post as viewed if hovered AND we are not scrolling
+                if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
+                    GLOBALS.viewed_events.insert(id);
+                    GLOBALS.new_viewed_events.blocking_write().insert(id);
                 }
-            };
 
-            let height = if let Some(height) = app.height.get(&id) {
-                height
-            } else {
-                &0.0
-            };
-
-            let render_data = NoteRenderData {
-                height: *height,
-                has_repost: note_data.repost.is_some(),
-                is_comment_mention: false,
-                is_new,
-                is_thread: threaded,
-                is_first,
-                is_last,
-                is_main_event,
-                thread_position: indent as i32,
-                can_post: GLOBALS.signer.is_ready(),
-            };
-
-            let top = ui.next_widget_position();
-
-            let inner_response = ui.horizontal(|ui| {
-                // Outer indents first
-                app.settings.theme.feed_post_outer_indent(ui, &render_data);
-
-                Frame::none()
-                    .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
-                    .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
-                    .rounding(app.settings.theme.feed_frame_rounding(&render_data))
-                    .shadow(app.settings.theme.feed_frame_shadow(&render_data))
-                    .fill(app.settings.theme.feed_frame_fill(&render_data))
-                    .stroke(app.settings.theme.feed_frame_stroke(&render_data))
-                    .show(ui, |ui| {
-                        ui.horizontal_wrapped(|ui| {
-                            // Inner indents first
-                            app.settings.theme.feed_post_inner_indent(ui, &render_data);
-
-                            render_note_inner(
-                                app,
-                                ctx,
-                                ui,
-                                note_ref.clone(),
-                                &render_data,
-                                as_reply_to,
-                                &None,
-                            );
-                        });
-                    })
-            });
-
-            // Store actual rendered height for future reference
-            let bottom = ui.next_widget_position();
-            app.height.insert(id, bottom.y - top.y);
-
-            // Mark post as viewed if hovered AND we are not scrolling
-            if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
-                GLOBALS.viewed_events.insert(id);
-                GLOBALS.new_viewed_events.blocking_write().insert(id);
-            }
-
-            // Record if the rendered note was visible
-            {
-                let screen_rect = ctx.input(|i| i.screen_rect); // Rect
-                let offscreen = bottom.y < 0.0 || top.y > screen_rect.max.y;
-                if !offscreen {
-                    // Record that this note was visibly rendered
-                    app.next_visible_note_ids.push(id);
+                // Record if the rendered note was visible
+                {
+                    let screen_rect = ctx.input(|i| i.screen_rect); // Rect
+                    let offscreen = bottom.y < 0.0 || top.y > screen_rect.max.y;
+                    if !offscreen {
+                        // Record that this note was visibly rendered
+                        app.next_visible_note_ids.push(id);
+                    }
                 }
+
+                thin_separator(
+                    ui,
+                    app.settings.theme.feed_post_separator_stroke(&render_data),
+                );
             }
 
-            thin_separator(
-                ui,
-                app.settings.theme.feed_post_separator_stroke(&render_data),
-            );
-
+            // even if muted, continue rendering thread children
             if threaded && !as_reply_to {
                 let replies = Globals::get_replies_sync(id);
                 let iter = replies.iter();
@@ -196,14 +195,10 @@ fn render_note_inner(
         let collapsed = app.collapsed.contains(&note.event.id);
 
         // Load avatar texture
-        let avatar = if note.author.muted > 0 {
-            app.placeholder_avatar.clone()
+        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
+            avatar
         } else {
-            if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
-                avatar
-            } else {
-                app.placeholder_avatar.clone()
-            }
+            app.placeholder_avatar.clone()
         };
 
         // Determine avatar size
@@ -235,7 +230,7 @@ fn render_note_inner(
             }
         };
 
-        let hide_footer = if hide_footer || note.author.muted > 0 {
+        let hide_footer = if hide_footer {
             true
         } else if parent_repost.is_none() {
             match note.repost {
@@ -491,19 +486,15 @@ fn render_note_inner(
 
             // MAIN CONTENT
             if !collapsed {
-                if note.author.muted > 0 {
-                    ui.label(RichText::new("MUTED POST").monospace().italics());
-                } else {
-                    render_content(
-                        app,
-                        ui,
-                        ctx,
-                        note_ref.clone(),
-                        note.deletion.is_some(),
-                        content_margin_left,
-                        content_pull_top,
-                    );
-                }
+                render_content(
+                    app,
+                    ui,
+                    ctx,
+                    note_ref.clone(),
+                    note.deletion.is_some(),
+                    content_margin_left,
+                    content_pull_top,
+                );
 
                 // deleted?
                 if let Some(delete_reason) = &note.deletion {
