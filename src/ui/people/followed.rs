@@ -48,19 +48,35 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.horizontal(|ui| {
         ui.add_space(30.0);
 
-        if ui.button("↓ Overwrite ↓").clicked() {
+        if ui
+            .button("↓ Overwrite ↓")
+            .on_hover_text(
+                "This pulls down your Contact List, erasing anything that is already here",
+            )
+            .clicked()
+        {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::UpdateFollowing(false));
         }
-        if ui.button("↓ Merge ↓").clicked() {
+        if ui
+            .button("↓ Merge ↓")
+            .on_hover_text(
+                "This pulls down your contact list, merging it into what is already here",
+            )
+            .clicked()
+        {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::UpdateFollowing(true));
         }
 
         if GLOBALS.signer.is_ready() {
-            if ui.button("↑ Publish ↑").clicked() {
+            if ui
+                .button("↑ Publish ↑")
+                .on_hover_text("This publishes your contact list")
+                .clicked()
+            {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
             }
         }
@@ -81,7 +97,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
         }
 
-        if ui.button("Refresh Metadata").clicked() {
+        if ui
+            .button("Refresh Metadata")
+            .on_hover_text(
+                "This will seek out metadata (name, avatar, etc) on each person in the list below",
+            )
+            .clicked()
+        {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::RefreshFollowedMetadata);
