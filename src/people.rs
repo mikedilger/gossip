@@ -1051,6 +1051,12 @@ impl People {
             }
         }
 
+        // UI cache invalidation (so notes of the person get rerendered)
+        GLOBALS
+            .ui_people_to_invalidate
+            .write()
+            .push(pubkeyhex.to_owned());
+
         Ok(())
     }
 
