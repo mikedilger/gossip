@@ -493,10 +493,12 @@ impl Overlord {
             Ok((_id, result)) => match result {
                 Ok(_) => {
                     tracing::debug!("Minion {} completed", &url);
+                    // no exclusion
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url).await;
                     tracing::error!("Minion {} completed with error: {}", &url, e);
+                    exclusion = 60;
                     if let ErrorKind::Websocket(wserror) = e.kind {
                         if let tungstenite::error::Error::Http(response) = wserror {
                             exclusion = match response.status() {
@@ -511,10 +513,11 @@ impl Overlord {
                                 StatusCode::NOT_IMPLEMENTED => 60 * 60 * 24,
                                 StatusCode::BAD_GATEWAY => 60 * 60 * 24,
                                 s if s.as_u16() >= 400 => 90,
-                                _ => 30,
+                                _ => 60,
                             };
                         } else if let tungstenite::error::Error::ConnectionClosed = wserror {
                             tracing::debug!("Minion {} completed", &url);
+                            exclusion = 0; // was not actually an error
                         } else if let tungstenite::error::Error::Protocol(protocol_error) = wserror
                         {
                             exclusion = match protocol_error {
@@ -523,19 +526,16 @@ impl Overlord {
                                 }
                                 _ => 120,
                             }
-                        } else {
-                            exclusion = 30;
                         }
                     }
                 }
             },
         };
 
-        if exclusion > 0 {
-            GLOBALS
-                .relay_picker
-                .relay_disconnected(&url, exclusion as i64);
-        }
+        // Let the relay picker know it disconnected
+        GLOBALS
+            .relay_picker
+            .relay_disconnected(&url, exclusion as i64);
 
         // We might need to act upon this minion exiting
         if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
