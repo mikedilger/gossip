@@ -5,7 +5,7 @@ use crate::comms::{
 };
 use crate::db::{DbEvent, DbEventFlags, DbEventRelay, DbPersonRelay, DbRelay};
 use crate::error::{Error, ErrorKind};
-use crate::globals::GLOBALS;
+use crate::globals::{ZapState, GLOBALS};
 use crate::people::People;
 use crate::tags::{
     add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
@@ -15,8 +15,9 @@ use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, NostrBech32,
-    NostrUrl, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, MilliSatoshi,
+    NostrBech32, NostrUrl, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -946,6 +947,12 @@ impl Overlord {
                     )
                     .await?;
                 }
+            }
+            ToOverlordMessage::ZapStart(id, pubkey, lnurl) => {
+                self.zap_start(id, pubkey, lnurl).await?;
+            }
+            ToOverlordMessage::Zap(id, pubkey, msats, comment) => {
+                self.zap(id, pubkey, msats, comment).await?;
             }
         }
 
@@ -1949,6 +1956,237 @@ impl Overlord {
 
         let note_search_results = DbEvent::search(&text).await?;
         *GLOBALS.note_search_results.write() = note_search_results;
+
+        Ok(())
+    }
+
+    async fn zap_start(
+        &mut self,
+        id: Id,
+        target_pubkey: PublicKey,
+        lnurl: UncheckedUrl,
+    ) -> Result<(), Error> {
+        if GLOBALS.signer.public_key().is_none() {
+            tracing::warn!("You need to setup your identity to zap.");
+            *GLOBALS.status_message.write().await =
+                "You need to setup your identity to zap.".to_string();
+            *GLOBALS.current_zap.write() = ZapState::None;
+            return Ok(());
+        }
+
+        *GLOBALS.current_zap.write() = ZapState::CheckingLnurl(id, target_pubkey, lnurl.clone());
+
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::new(15, 0))
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            .build()?;
+
+        // Convert the lnurl UncheckedUrl to a Url
+        let url = nostr_types::Url::try_from_unchecked_url(&lnurl)?;
+
+        // Read the PayRequestData from the lnurl
+        let response = client.get(url.as_str()).send().await?;
+        let text = response.text().await?;
+        let prd: PayRequestData = match serde_json::from_str(&text) {
+            Ok(prd) => prd,
+            Err(e) => {
+                tracing::error!("Zap pay request data invalid: {}, {}", text, e);
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Ok(());
+            }
+        };
+
+        // Verify it supports nostr
+        if prd.allows_nostr != Some(true) {
+            tracing::warn!("Zap wallet does not support nostr");
+            *GLOBALS.status_message.write().await =
+                "Zap wallet does not support nostr.".to_string();
+            *GLOBALS.current_zap.write() = ZapState::None;
+            return Ok(());
+        }
+
+        *GLOBALS.current_zap.write() = ZapState::SeekingAmount(id, target_pubkey, prd, lnurl);
+
+        Ok(())
+    }
+
+    async fn zap(
+        &mut self,
+        id: Id,
+        target_pubkey: PublicKey,
+        msats: MilliSatoshi,
+        comment: String,
+    ) -> Result<(), Error> {
+        use serde_json::Value;
+
+        let user_pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("You need to setup your identity to zap.");
+                *GLOBALS.status_message.write().await =
+                    "You need to setup your identity to zap.".to_string();
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Ok(());
+            }
+        };
+
+        // Make sure we are in the right zap state, and destructure it
+        let (state_id, state_pubkey, prd, lnurl) = match *GLOBALS.current_zap.read() {
+            ZapState::SeekingAmount(state_id, state_pubkey, ref prd, ref lnurl) => {
+                (state_id, state_pubkey, prd.clone(), lnurl.clone())
+            }
+            _ => {
+                tracing::warn!("Wrong zap state. Resetting zap state.");
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Ok(());
+            }
+        };
+
+        // Make sure the zap we are doing matches the zap we setup previously
+        if id != state_id || target_pubkey != state_pubkey {
+            tracing::warn!("Zap mismatch. Resetting zap state.");
+            *GLOBALS.current_zap.write() = ZapState::None;
+            return Ok(());
+        }
+
+        // Validate amount bounds
+        if let Some(Value::Number(n)) = prd.other.get("minSendable") {
+            if let Some(u) = n.as_u64() {
+                if msats.0 < u {
+                    tracing::warn!("Zap amount too low. Min is {}", u);
+                    *GLOBALS.status_message.write().await = "Zap amount is too low.".to_string();
+                    // leave zap state as is.
+                    return Ok(());
+                }
+            }
+        }
+        if let Some(Value::Number(n)) = prd.other.get("maxSendable") {
+            if let Some(u) = n.as_u64() {
+                if msats.0 > u {
+                    tracing::warn!("Zap amount too high. Max is {}", u);
+                    *GLOBALS.status_message.write().await = "Zap amount is too high.".to_string();
+                    // leave zap state as is.
+                    return Ok(());
+                }
+            }
+        }
+
+        // Bump the state
+        *GLOBALS.current_zap.write() = ZapState::LoadingInvoice(id, target_pubkey);
+
+        let msats_string: String = format!("{}", msats.0);
+
+        // Convert the callback UncheckedUrl to a Url
+        let callback = nostr_types::Url::try_from_unchecked_url(&prd.callback)?;
+
+        // Get the relays to have the receipt posted to
+        let relays = {
+            // Start with the relays the event was seen on
+            let mut relays = match GLOBALS.events.get_seen_on(&id) {
+                Some(vec) => vec,
+                None => Vec::new(),
+            };
+
+            // Add the read relays of the target person
+            let mut target_read_relays =
+                DbPersonRelay::get_best_relays(target_pubkey.into(), Direction::Read).await?;
+            let target_read_relays: Vec<RelayUrl> =
+                target_read_relays.drain(..).map(|pair| pair.0).collect();
+            relays.extend(target_read_relays);
+
+            // Add all my write relays
+            let write_relay_urls: Vec<RelayUrl> =
+                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+            relays.extend(write_relay_urls);
+
+            if relays.is_empty() {
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Err(ErrorKind::NoRelay.into());
+            }
+
+            // Deduplicate
+            relays.sort();
+            relays.dedup();
+
+            // Turn relays into strings for the event tag
+            let relays: Vec<String> = relays.iter().map(|r| r.as_str().to_owned()).collect();
+            relays
+        };
+
+        // Generate the zap request event
+        let pre_event = PreEvent {
+            pubkey: user_pubkey,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::ZapRequest,
+            tags: vec![
+                Tag::Event {
+                    id,
+                    recommended_relay_url: None,
+                    marker: None,
+                },
+                Tag::Pubkey {
+                    pubkey: target_pubkey.into(),
+                    recommended_relay_url: None,
+                    petname: None,
+                },
+                Tag::Other {
+                    tag: "relays".to_owned(),
+                    data: relays,
+                },
+                Tag::Other {
+                    tag: "amount".to_owned(),
+                    data: vec![msats_string.clone()],
+                },
+                Tag::Other {
+                    tag: "lnurl".to_owned(),
+                    data: vec![lnurl.as_str().to_owned()],
+                },
+            ],
+            content: comment,
+            ots: None,
+        };
+
+        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+        let serialized_event = serde_json::to_string(&event)?;
+
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::new(15, 0))
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            .build()?;
+
+        let mut url = match url::Url::parse(&callback.0) {
+            Ok(url) => url,
+            Err(e) => {
+                tracing::error!("{}", e);
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Ok(());
+            }
+        };
+
+        url.query_pairs_mut()
+            .clear()
+            .append_pair("nostr", &serialized_event)
+            .append_pair("amount", &msats_string);
+
+        let response = client.get(url).send().await?;
+        let text = response.text().await?;
+
+        let value: serde_json::Value = serde_json::from_str(&text)?;
+        if let Value::Object(map) = value {
+            if let Some(Value::String(s)) = map.get("pr") {
+                tracing::debug!("Zap Invoice = {}", s);
+                *GLOBALS.current_zap.write() = ZapState::ReadyToPay(id, s.to_owned());
+                return Ok(());
+            }
+        }
+
+        *GLOBALS.current_zap.write() = ZapState::None;
+        tracing::warn!("Zap invoice data not recognized: {}", text);
+        *GLOBALS.status_message.write().await = "Zap invoice data not recognized.".to_string();
 
         Ok(())
     }

@@ -1,4 +1,6 @@
-use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, Tag};
+use nostr_types::{
+    Event, Id, IdHex, Metadata, MilliSatoshi, PublicKey, PublicKeyHex, RelayUrl, Tag, UncheckedUrl,
+};
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
@@ -46,6 +48,8 @@ pub enum ToOverlordMessage {
     UpdateMetadata(PublicKeyHex),
     UpdateMetadataInBulk(Vec<PublicKeyHex>),
     VisibleNotesChanged(Vec<Id>),
+    ZapStart(Id, PublicKey, UncheckedUrl),
+    Zap(Id, PublicKey, MilliSatoshi, String),
 }
 
 /// This is a message sent to the minions

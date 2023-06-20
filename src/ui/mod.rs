@@ -27,7 +27,7 @@ use crate::about::About;
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::feed::FeedKind;
-use crate::globals::GLOBALS;
+use crate::globals::{ZapState, GLOBALS};
 use crate::people::DbPerson;
 use crate::settings::Settings;
 pub use crate::ui::theme::{Theme, ThemeVariant};
@@ -42,7 +42,7 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, UncheckedUrl, Url};
+use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, PublicKeyHex, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -259,6 +259,12 @@ struct GossipUi {
     // This one is built up as rendering happens, then compared
     next_visible_note_ids: Vec<Id>,
     last_visible_update: Instant,
+
+    // Zap state, computed once per frame instead of per note
+    // zap_state and note_being_zapped are computed from GLOBALS.current_zap and are
+    //   not authoratative.
+    zap_state: ZapState,
+    note_being_zapped: Option<Id>,
 }
 
 impl Drop for GossipUi {
@@ -453,6 +459,8 @@ impl GossipUi {
             visible_note_ids: vec![],
             next_visible_note_ids: vec![],
             last_visible_update: Instant::now(),
+            zap_state: ZapState::None,
+            note_being_zapped: None,
         }
     }
 
@@ -805,6 +813,16 @@ impl eframe::App for GossipUi {
                     feed::post::posting_area(self, ctx, frame, ui);
                 }
             });
+
+        // Prepare local zap data once per frame for easier compute at render time
+        self.zap_state = (*GLOBALS.current_zap.read()).clone();
+        self.note_being_zapped = match self.zap_state {
+            ZapState::None => None,
+            ZapState::CheckingLnurl(id, _, _) => Some(id),
+            ZapState::SeekingAmount(id, _, _, _) => Some(id),
+            ZapState::LoadingInvoice(id, _) => Some(id),
+            ZapState::ReadyToPay(id, _) => Some(id),
+        };
 
         egui::CentralPanel::default()
             .frame({
@@ -1203,6 +1221,87 @@ impl GossipUi {
                 .send(ToOverlordMessage::VisibleNotesChanged(
                     self.visible_note_ids.clone(),
                 ));
+        }
+    }
+
+    // Zap In Progress Area
+    fn render_zap_area(&mut self, ui: &mut Ui, ctx: &Context) {
+        let mut qr_string: Option<String> = None;
+
+        match self.zap_state {
+            ZapState::None => return, // should not occur
+            ZapState::CheckingLnurl(_id, _pubkey, ref _lnurl) => {
+                ui.label("Loaindg lnurl...");
+            }
+            ZapState::SeekingAmount(id, pubkey, ref _prd, ref _lnurl) => {
+                let mut amt = 0;
+                ui.label("Zap Amount:");
+                if ui.button("1").clicked() {
+                    amt = 1;
+                }
+                if ui.button("2").clicked() {
+                    amt = 2;
+                }
+                if ui.button("5").clicked() {
+                    amt = 5;
+                }
+                if ui.button("10").clicked() {
+                    amt = 10;
+                }
+                if ui.button("21").clicked() {
+                    amt = 21;
+                }
+                if ui.button("46").clicked() {
+                    amt = 46;
+                }
+                if ui.button("100").clicked() {
+                    amt = 100;
+                }
+                if ui.button("215").clicked() {
+                    amt = 215;
+                }
+                if ui.button("464").clicked() {
+                    amt = 464;
+                }
+                if ui.button("1000").clicked() {
+                    amt = 1000;
+                }
+                if ui.button("2154").clicked() {
+                    amt = 2154;
+                }
+                if ui.button("4642").clicked() {
+                    amt = 4642;
+                }
+                if ui.button("10000").clicked() {
+                    amt = 10000;
+                }
+                if amt > 0 {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Zap(
+                        id,
+                        pubkey,
+                        MilliSatoshi(amt * 1_000),
+                        "".to_owned(),
+                    ));
+                }
+                if ui.button("Cancel").clicked() {
+                    *GLOBALS.current_zap.write() = ZapState::None;
+                }
+            }
+            ZapState::LoadingInvoice(_id, _pubkey) => {
+                ui.label("Loading zap invoice...");
+            }
+            ZapState::ReadyToPay(_id, ref invoice) => {
+                // we have to copy it and get out of the borrow first
+                qr_string = Some(invoice.to_owned());
+            }
+        };
+
+        if let Some(qr) = qr_string {
+            // Show the QR code and a close button
+            self.render_qr(ui, ctx, "zap", &qr);
+            if ui.button("Close").clicked() {
+                *GLOBALS.current_zap.write() = ZapState::None;
+            }
         }
     }
 }

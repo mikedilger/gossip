@@ -19,7 +19,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex};
+use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, UncheckedUrl};
 
 pub struct NoteRenderData {
     /// Available height for post
@@ -659,7 +659,59 @@ fn render_note_inner(
                                 if app.settings.enable_zap_receipts {
                                     ui.add_space(24.0);
 
-                                    ui.add(Label::new(RichText::new("⚡").size(20.0)));
+                                    // To zap, the user must have a lnurl, and the event must have been
+                                    // seen on some relays
+                                    let mut zap_lnurl = None;
+                                    if let Some(ref metadata) = note.author.metadata {
+                                        if let Some(lnurl) = metadata.lnurl() {
+                                            zap_lnurl = Some(lnurl);
+                                        }
+                                    }
+
+                                    let mut has_seen_on_relays = false;
+                                    if let Some(seen_on) =
+                                        GLOBALS.events.get_seen_on(&note.event.id)
+                                    {
+                                        if !seen_on.is_empty() {
+                                            has_seen_on_relays = true;
+                                        }
+                                    }
+
+                                    if let Some(lnurl) = zap_lnurl {
+                                        if has_seen_on_relays {
+                                            if ui
+                                                .add(
+                                                    Label::new(RichText::new("⚡").size(18.0))
+                                                        .sense(Sense::click()),
+                                                )
+                                                .on_hover_text("ZAP")
+                                                .clicked()
+                                            {
+                                                if GLOBALS.signer.is_ready() {
+                                                    let _ = GLOBALS.to_overlord.send(
+                                                        ToOverlordMessage::ZapStart(
+                                                            note.event.id,
+                                                            note.event.pubkey,
+                                                            UncheckedUrl(lnurl),
+                                                        ),
+                                                    );
+                                                } else {
+                                                    *GLOBALS.status_message.blocking_write() =
+                                                        "Your key is not setup.".to_string();
+                                                }
+                                            }
+                                        } else {
+                                            ui.add(Label::new(
+                                                RichText::new("⚡").weak().size(18.0),
+                                            ))
+                                            .on_hover_text("Note is not zappable (no relays)");
+                                        }
+                                    } else {
+                                        ui.add(Label::new(RichText::new("⚡").weak().size(18.0)))
+                                            .on_hover_text("Note is not zappable (no lnurl)");
+                                    }
+
+                                    // Show the zap total
                                     ui.add(Label::new(format!("{}", note.zaptotal.0 / 1000)));
                                 }
 
@@ -706,6 +758,15 @@ fn render_note_inner(
                                     }
                                 }
                             });
+
+                            // Below the note zap area
+                            if let Some(zapnoteid) = app.note_being_zapped {
+                                if zapnoteid == note.event.id {
+                                    ui.horizontal_wrapped(|ui| {
+                                        app.render_zap_area(ui, ctx);
+                                    });
+                                }
+                            }
                         });
                 }
             }

@@ -12,12 +12,24 @@ use crate::settings::Settings;
 use crate::signer::Signer;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
-use nostr_types::{Event, Id, MilliSatoshi, Profile, PublicKeyHex, RelayUrl};
+use nostr_types::{
+    Event, Id, MilliSatoshi, PayRequestData, Profile, PublicKey, PublicKeyHex, RelayUrl,
+    UncheckedUrl,
+};
 use parking_lot::RwLock as PRwLock;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
+
+#[derive(Debug, Clone)]
+pub enum ZapState {
+    None,
+    CheckingLnurl(Id, PublicKey, UncheckedUrl),
+    SeekingAmount(Id, PublicKey, PayRequestData, UncheckedUrl),
+    LoadingInvoice(Id, PublicKey),
+    ReadyToPay(Id, String), // String is the Zap Invoice as a string, to be shown as a QR code
+}
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -118,6 +130,9 @@ pub struct Globals {
     /// UI note cache invalidation per person
     // when we update a DbPerson, the UI must recompute all notes by them
     pub ui_people_to_invalidate: PRwLock<Vec<PublicKeyHex>>,
+
+    /// Current zap data, for UI
+    pub current_zap: PRwLock<ZapState>,
 }
 
 lazy_static! {
@@ -160,6 +175,7 @@ lazy_static! {
             note_search_results: PRwLock::new(Vec::new()),
             ui_notes_to_invalidate: PRwLock::new(Vec::new()),
             ui_people_to_invalidate: PRwLock::new(Vec::new()),
+            current_zap: PRwLock::new(ZapState::None),
         }
     };
 }
