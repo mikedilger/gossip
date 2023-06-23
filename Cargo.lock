@@ -1806,7 +1806,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=fd971b97c535788043a87ae812ddd885ccc11675#fd971b97c535788043a87ae812ddd885ccc11675"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=c12d2e858bf90389b58cb63fee433c0f6bc11195#c12d2e858bf90389b58cb63fee433c0f6bc11195"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2287,20 +2287,21 @@ dependencies = [
 
 [[package]]
 name = "lightning"
-version = "0.0.114"
+version = "0.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "800ec68a160529ba3ca12c5db629867c4a8de2df272792c1246602966a5b789b"
+checksum = "e009e1c0c21f66378b491bb40f548682138c63e09db6f3a05af59f8804bb9f4a"
 dependencies = [
  "bitcoin",
 ]
 
 [[package]]
 name = "lightning-invoice"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adfb59c6d13e130aece30fc72a7c17d74b201aed0ffb201b740f36e07aaece32"
+checksum = "c4e44b0e2822c8811470137d2339fdfe67a699b3248bb1606d1d02eb6a1e9f0a"
 dependencies = [
  "bech32",
+ "bitcoin",
  "bitcoin_hashes",
  "lightning",
  "num-traits",
@@ -2576,8 +2577,8 @@ dependencies = [
 
 [[package]]
 name = "nostr-types"
-version = "0.6.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=b1ff9ca4b62edefd22da035934648aa7518d0026#b1ff9ca4b62edefd22da035934648aa7518d0026"
+version = "0.7.0-unstable"
+source = "git+https://github.com/mikedilger/nostr-types?rev=3941da5782ceac4f2a1c567f1caf5ab7cdec6005#3941da5782ceac4f2a1c567f1caf5ab7cdec6005"
 dependencies = [
  "aes",
  "base64 0.21.2",
