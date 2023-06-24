@@ -26,6 +26,8 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
 use zeroize::Zeroize;
 
+type MinionResult = Result<(), Error>;
+
 pub struct Overlord {
     to_minions: Sender<ToMinionMessage>,
     inbox: UnboundedReceiver<ToOverlordMessage>,
@@ -460,7 +462,7 @@ impl Overlord {
 
     async fn handle_task_nextjoined(
         &mut self,
-        task_nextjoined: Option<Result<(task::Id, Result<(), Error>), task::JoinError>>,
+        task_nextjoined: Option<Result<(task::Id, MinionResult), task::JoinError>>,
     ) {
         if task_nextjoined.is_none() {
             return; // rare but possible
