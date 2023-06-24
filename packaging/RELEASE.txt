@@ -12,6 +12,7 @@ gossip
 ├── egui_extras
 ├── gossip-relay-picker
 │   └── nostr-types
+│       └-- speedy
 ├── nostr-types
 └── qrcode
 
