@@ -130,6 +130,7 @@ fn content(
     }
 
     let mut lud06 = "unable to get lud06".to_owned();
+    let mut lud16 = "unable to get lud16".to_owned();
     if let Some(md) = &person.metadata {
         for (key, value) in &md.other {
             let svalue = if let Value::String(s) = value {
@@ -155,6 +156,13 @@ fn content(
                         app.person_qr = Some("lud06");
                     }
                 }
+                if key == "lud16" {
+                    lud16 = svalue.to_owned();
+                    if ui.button("⚃").on_hover_text("Show as QR code").clicked() {
+                        app.qr_codes.remove("person_qr");
+                        app.person_qr = Some("lud16");
+                    }
+                }
             });
         }
     }
@@ -172,6 +180,12 @@ fn content(
             ui.heading("Lightning Network Address (lud06)");
             app.render_qr(ui, ctx, "person_qr", &lud06);
             ui.label(&lud06);
+        }
+        Some("lud16") => {
+            ui.separator();
+            ui.heading("Lightning Network Address (lud16)");
+            app.render_qr(ui, ctx, "person_qr", &lud16);
+            ui.label(&lud16);
         }
         _ => {}
     }
