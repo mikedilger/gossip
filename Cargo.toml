@@ -63,7 +63,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
 tokio-tungstenite = { version = "0.19", default-features = false, features = [ "connect", "handshake" ] }
 tungstenite = { version = "0.19", default-features = false }
-url = "2.3"
+url = "2.4"
 vecmap-rs = "0.1"
 zeroize = "1.6"
 
