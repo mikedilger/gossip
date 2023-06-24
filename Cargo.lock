@@ -1132,12 +1132,6 @@ dependencies = [
 
 [[package]]
 name = "ecolor"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f99fe3cac305af9d6d92971af60d0f7ea4d783201ef1673571567b6699964d9"
-
-[[package]]
-name = "ecolor"
 version = "0.22.0"
 source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
@@ -1153,7 +1147,7 @@ dependencies = [
  "bytemuck",
  "cocoa",
  "directories-next",
- "egui 0.22.0",
+ "egui",
  "egui-winit",
  "egui_glow",
  "glow",
@@ -1178,23 +1172,12 @@ dependencies = [
 
 [[package]]
 name = "egui"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6412a21e0bde7c0918f7fb44bbbb86b5e1f88e63c026a4e747cc7af02f76dfbe"
-dependencies = [
- "ahash 0.8.3",
- "epaint 0.21.0",
- "nohash-hasher",
-]
-
-[[package]]
-name = "egui"
 version = "0.22.0"
 source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "accesskit",
  "ahash 0.8.3",
- "epaint 0.22.0",
+ "epaint",
  "log",
  "nohash-hasher",
  "ron",
@@ -1204,11 +1187,11 @@ dependencies = [
 [[package]]
 name = "egui-video"
 version = "0.1.0"
-source = "git+https://github.com/n00kii/egui-video?rev=50b4efd6d8250b555a85f966deca737c161ee6df#50b4efd6d8250b555a85f966deca737c161ee6df"
+source = "git+https://github.com/mikedilger/egui-video?rev=5a7297138dce16425c7dc7a8eab4d39d79088aba#5a7297138dce16425c7dc7a8eab4d39d79088aba"
 dependencies = [
  "anyhow",
  "chrono",
- "egui 0.21.0",
+ "egui",
  "ffmpeg-next",
  "itertools",
  "parking_lot",
@@ -1225,7 +1208,7 @@ source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab8
 dependencies = [
  "accesskit_winit",
  "arboard",
- "egui 0.22.0",
+ "egui",
  "instant",
  "log",
  "raw-window-handle",
@@ -1240,7 +1223,7 @@ name = "egui_extras"
 version = "0.22.0"
 source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
- "egui 0.22.0",
+ "egui",
  "image",
  "resvg",
  "serde",
@@ -1254,7 +1237,7 @@ version = "0.22.0"
 source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "bytemuck",
- "egui 0.22.0",
+ "egui",
  "glow",
  "log",
  "memoffset 0.6.5",
@@ -1287,12 +1270,6 @@ dependencies = [
  "subtle",
  "zeroize",
 ]
-
-[[package]]
-name = "emath"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8ecd80612937e0267909d5351770fe150004e24dab93954f69ca62eecd3f77e"
 
 [[package]]
 name = "emath"
@@ -1346,21 +1323,6 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12e78b5c58a1f7f621f9d546add2adce20636422c9b251e29f749e8a2f713c95"
-dependencies = [
- "ab_glyph",
- "ahash 0.8.3",
- "atomic_refcell",
- "ecolor 0.21.0",
- "emath 0.21.0",
- "nohash-hasher",
- "parking_lot",
-]
-
-[[package]]
-name = "epaint"
 version = "0.22.0"
 source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
@@ -1368,8 +1330,8 @@ dependencies = [
  "ahash 0.8.3",
  "atomic_refcell",
  "bytemuck",
- "ecolor 0.22.0",
- "emath 0.22.0",
+ "ecolor",
+ "emath",
  "log",
  "nohash-hasher",
  "parking_lot",
@@ -1472,7 +1434,7 @@ dependencies = [
 [[package]]
 name = "ffmpeg-next"
 version = "6.0.0"
-source = "git+https://github.com/bu5hm4nn/rust-ffmpeg?rev=a08d9f86c2d2fb05fcf6ceb65ae68ef788964f18#a08d9f86c2d2fb05fcf6ceb65ae68ef788964f18"
+source = "git+https://github.com/n00kii/rust-ffmpeg.git?rev=0baa201878d3b4ca9fe9e118df87c66d36292b91#0baa201878d3b4ca9fe9e118df87c66d36292b91"
 dependencies = [
  "bitflags 1.3.2",
  "ffmpeg-sys-next",

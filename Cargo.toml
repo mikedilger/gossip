@@ -23,10 +23,6 @@ egui = { git =  "https://github.com/mikedilger/egui", rev = "538088439c7c507fe49
 # Use the master branch of SDL2 to include a fix related to clang (and XCode after 14.2)
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "27cd1fd67c811e06b9d997a77bb6089a1b65070d" }
 
-[patch.'https://github.com/n00kii/rust-ffmpeg']
-# Use upstream which is newer
-ffmpeg-next = { git = "https://github.com/bu5hm4nn/rust-ffmpeg", rev = "a08d9f86c2d2fb05fcf6ceb65ae68ef788964f18" }
-
 [dependencies]
 async-recursion = "1.0"
 async-trait = "0.1"
@@ -36,7 +32,7 @@ dirs = "5.0"
 eframe = { git = "https://github.com/mikedilger/egui", rev = "538088439c7c507fe49c730eab84ddd85e147391", features = [ "persistence" ] }
 egui-winit = { git = "https://github.com/mikedilger/egui", rev = "538088439c7c507fe49c730eab84ddd85e147391", features = [ "default" ] }
 egui_extras = { git = "https://github.com/mikedilger/egui", rev = "538088439c7c507fe49c730eab84ddd85e147391", features = [ "image", "svg" ] }
-egui-video = { git = "https://github.com/n00kii/egui-video", rev = "50b4efd6d8250b555a85f966deca737c161ee6df",  features = [ "from_bytes" ], optional = true }
+egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "5a7297138dce16425c7dc7a8eab4d39d79088aba",  features = [ "from_bytes" ], optional = true }
 encoding_rs = "0.8"
 fallible-iterator = "0.2"
 futures = "0.3"
