@@ -194,7 +194,7 @@ impl Minion {
 
             let (websocket_stream, _response) = tokio::time::timeout(
                 std::time::Duration::new(15, 0),
-                tokio_tungstenite::connect_async_with_config(req, Some(config)),
+                tokio_tungstenite::connect_async_with_config(req, Some(config), false),
             )
             .await??;
 
