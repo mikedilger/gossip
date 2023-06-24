@@ -10,6 +10,7 @@ use crate::relationship::Relationship;
 use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
 use crate::signer::Signer;
+use crate::status::StatusQueue;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
 use nostr_types::{
@@ -108,8 +109,8 @@ pub struct Globals {
 
     pub pixels_per_point_times_100: AtomicU32,
 
-    /// UI status message
-    pub status_message: RwLock<String>,
+    /// UI status messages
+    pub status_queue: PRwLock<StatusQueue>,
 
     pub bytes_read: AtomicUsize,
 
@@ -167,7 +168,9 @@ lazy_static! {
             fetcher: Fetcher::new(),
             failed_avatars: RwLock::new(HashSet::new()),
             pixels_per_point_times_100: AtomicU32::new(139), // 100 dpi, 1/72th inch => 1.38888
-            status_message: RwLock::new("Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()),
+            status_queue: PRwLock::new(StatusQueue::new(
+                "Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()
+            )),
             bytes_read: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),

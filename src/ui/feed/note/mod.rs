@@ -696,8 +696,9 @@ fn render_note_inner(
                                                         ),
                                                     );
                                                 } else {
-                                                    *GLOBALS.status_message.blocking_write() =
-                                                        "Your key is not setup.".to_string();
+                                                    GLOBALS.status_queue.write().write(
+                                                        "Your key is not setup.".to_string(),
+                                                    );
                                                 }
                                             }
                                         } else {
@@ -733,8 +734,10 @@ fn render_note_inner(
                                         .clicked()
                                     {
                                         if !render_data.can_post {
-                                            *GLOBALS.status_message.blocking_write() =
-                                                "Your key is not setup.".to_string();
+                                            GLOBALS
+                                                .status_queue
+                                                .write()
+                                                .write("Your key is not setup.".to_string());
                                         } else {
                                             let _ =
                                                 GLOBALS.to_overlord.send(ToOverlordMessage::Like(

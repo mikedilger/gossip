@@ -42,6 +42,7 @@ mod relationship;
 mod relay_picker_hooks;
 mod settings;
 mod signer;
+mod status;
 mod tags;
 mod ui;
 

@@ -63,8 +63,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             if !app.delegatee_tag_str.is_empty() {
                 match GLOBALS.delegation.set(&app.delegatee_tag_str) {
                     Err(e) => {
-                        *GLOBALS.status_message.blocking_write() =
-                            format!("Could not parse tag {e}")
+                        GLOBALS
+                            .status_queue
+                            .write()
+                            .write(format!("Could not parse tag {e}"));
                     }
                     Ok(_) => {
                         // reset entry field
@@ -74,13 +76,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                             if let Err(e) = GLOBALS.delegation.save_through_settings().await {
                                 tracing::error!("{}", e);
                             }
-                            *GLOBALS.status_message.write().await = format!(
+                            GLOBALS.status_queue.write().write(format!(
                                 "Delegation tag set, delegator: {}",
                                 GLOBALS
                                     .delegation
                                     .get_delegator_pubkey_as_bech32_str()
                                     .unwrap_or("?".to_string())
-                            );
+                            ));
                         });
                     }
                 };

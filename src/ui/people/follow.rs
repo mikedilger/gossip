@@ -75,7 +75,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             app.follow_pubkey = "".to_owned();
             app.follow_pubkey_at_relay = "".to_owned();
         } else {
-            *GLOBALS.status_message.blocking_write() = "Invalid Relay Url".to_string();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Invalid Relay Url".to_string());
         }
     }
 

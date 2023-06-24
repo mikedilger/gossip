@@ -243,7 +243,10 @@ fn offer_change_password(app: &mut GossipUi, ui: &mut Ui) {
 
     if ui.button("Change Passphrase").clicked() {
         if app.password2 != app.password3 {
-            *GLOBALS.status_message.blocking_write() = "Passphrases do not match.".to_owned();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Passphrases do not match.".to_owned());
             app.password2.zeroize();
             app.password2 = "".to_owned();
             app.password3.zeroize();
@@ -284,10 +287,11 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
             Ok(mut bech32) => {
                 println!("Exported private key (bech32): {}", bech32);
                 bech32.zeroize();
-                *GLOBALS.status_message.blocking_write() =
-                    "Exported key has been printed to the console standard output.".to_owned();
+                GLOBALS.status_queue.write().write(
+                    "Exported key has been printed to the console standard output.".to_owned(),
+                );
             }
-            Err(e) => *GLOBALS.status_message.blocking_write() = format!("{}", e),
+            Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
         }
         app.password.zeroize();
         app.password = "".to_owned();
@@ -297,10 +301,11 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
             Ok(mut hex) => {
                 println!("Exported private key (hex): {}", hex);
                 hex.zeroize();
-                *GLOBALS.status_message.blocking_write() =
-                    "Exported key has been printed to the console standard output.".to_owned();
+                GLOBALS.status_queue.write().write(
+                    "Exported key has been printed to the console standard output.".to_owned(),
+                );
             }
-            Err(e) => *GLOBALS.status_message.blocking_write() = format!("{}", e),
+            Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
         }
         app.password.zeroize();
         app.password = "".to_owned();
@@ -329,7 +334,10 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     });
     if ui.button("import").clicked() {
         if app.password != app.password2 {
-            *GLOBALS.status_message.blocking_write() = "Passwords do not match".to_owned();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Passwords do not match".to_owned());
         } else {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
                 app.import_priv.clone(),
@@ -452,7 +460,10 @@ fn offer_generate(app: &mut GossipUi, ui: &mut Ui) {
     });
     if ui.button("Generate Now").clicked() {
         if app.password != app.password2 {
-            *GLOBALS.status_message.blocking_write() = "Passwords do not match".to_owned();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Passwords do not match".to_owned());
         } else {
             let _ = GLOBALS
                 .to_overlord

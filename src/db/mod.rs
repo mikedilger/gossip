@@ -151,7 +151,10 @@ pub async fn prune() -> Result<(), Error> {
     })
     .await??;
 
-    *GLOBALS.status_message.write().await = "Database prune has completed.".to_owned();
+    GLOBALS
+        .status_queue
+        .write()
+        .write("Database prune has completed.".to_owned());
 
     Ok(())
 }

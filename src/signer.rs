@@ -46,8 +46,10 @@ impl Signer {
 
     pub fn set_public_key(&self, pk: PublicKey) {
         if self.private.read().is_some() {
-            *GLOBALS.status_message.blocking_write() =
-                "Ignored setting of public key (private key supercedes)".to_string();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Ignored setting of public key (private key supercedes)".to_string());
         } else {
             *self.public.write() = Some(pk);
         }
@@ -55,8 +57,10 @@ impl Signer {
 
     pub fn clear_public_key(&self) {
         if self.private.read().is_some() {
-            *GLOBALS.status_message.blocking_write() =
-                "Ignored clearing of public key (private key supercedes)".to_string();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Ignored clearing of public key (private key supercedes)".to_string());
         } else {
             *self.public.write() = None;
         }
@@ -121,7 +125,10 @@ impl Signer {
                     if let Err(e) = GLOBALS.signer.save_through_settings().await {
                         tracing::error!("{}", e);
                     }
-                    *GLOBALS.status_message.write().await = "Passphrase changed.".to_owned()
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Passphrase changed.".to_owned())
                 });
                 Ok(())
             }

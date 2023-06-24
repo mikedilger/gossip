@@ -25,14 +25,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         if ui.button("Add").clicked() {
             if let Ok(url) = RelayUrl::try_from_str(&app.new_relay_url) {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url));
-                *GLOBALS.status_message.blocking_write() = format!(
+                GLOBALS.status_queue.write().write(format!(
                     "I asked the overlord to add relay {}. Check for it below.",
                     &app.new_relay_url
-                );
+                ));
                 app.new_relay_url = "".to_owned();
             } else {
-                *GLOBALS.status_message.blocking_write() =
-                    "That's not a valid relay URL.".to_owned();
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("That's not a valid relay URL.".to_owned());
             }
         }
         ui.separator();

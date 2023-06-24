@@ -629,7 +629,10 @@ impl Overlord {
             ToOverlordMessage::DeletePriv => {
                 GLOBALS.signer.delete_identity();
                 Self::delegation_reset().await?;
-                *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Identity deleted.".to_string());
             }
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
@@ -675,7 +678,7 @@ impl Overlord {
             ToOverlordMessage::FollowNprofile(nprofile) => {
                 match Profile::try_from_bech32_string(&nprofile) {
                     Ok(np) => self.follow_nprofile(np).await?,
-                    Err(e) => *GLOBALS.status_message.write().await = format!("{}", e),
+                    Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
                 }
             }
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
@@ -702,8 +705,10 @@ impl Overlord {
                     import_priv.zeroize();
                     if maybe_pk1.is_err() && maybe_pk2.is_err() {
                         password.zeroize();
-                        *GLOBALS.status_message.write().await =
-                            "Private key not recognized.".to_owned();
+                        GLOBALS
+                            .status_queue
+                            .write()
+                            .write("Private key not recognized.".to_owned());
                     } else {
                         let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                         GLOBALS.signer.set_private_key(privkey, &password)?;
@@ -716,7 +721,10 @@ impl Overlord {
                 let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
                 let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
                 if maybe_pk1.is_err() && maybe_pk2.is_err() {
-                    *GLOBALS.status_message.write().await = "Public key not recognized.".to_owned();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Public key not recognized.".to_owned());
                 } else {
                     let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                     GLOBALS.signer.set_public_key(pubkey);
@@ -837,8 +845,10 @@ impl Overlord {
             ToOverlordMessage::UnlockKey(mut password) => {
                 if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
                     tracing::error!("{}", e);
-                    *GLOBALS.status_message.write().await =
-                        "Could not decrypt key with that password.".to_owned();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Could not decrypt key with that password.".to_owned());
                 };
                 password.zeroize();
 
@@ -1479,8 +1489,10 @@ impl Overlord {
         let reposted_event = match GLOBALS.events.get(&id) {
             Some(event) => event,
             None => {
-                *GLOBALS.status_message.write().await =
-                    "Cannot repost - cannot find event.".to_owned();
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Cannot repost - cannot find event.".to_owned());
                 return Ok(());
             }
         };
@@ -1696,8 +1708,10 @@ impl Overlord {
 
         // Subscribe on relays
         if relays.is_empty() {
-            *GLOBALS.status_message.write().await =
-                "Could not find any relays for that event".to_owned();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Could not find any relays for that event".to_owned());
             return Ok(());
         } else {
             // Clean up relays
@@ -1760,8 +1774,10 @@ impl Overlord {
             }
         }
 
-        *GLOBALS.status_message.write().await =
-            format!("Followed user at {} relays", nprofile.relays.len());
+        GLOBALS
+            .status_queue
+            .write()
+            .write(format!("Followed user at {} relays", nprofile.relays.len()));
 
         // async_follow added them to the relay tracker.
         // Pick relays to start tracking them now
@@ -1774,7 +1790,10 @@ impl Overlord {
         if GLOBALS.delegation.reset() {
             // save and statusmsg
             GLOBALS.delegation.save_through_settings().await?;
-            *GLOBALS.status_message.write().await = "Delegation tag removed".to_string();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Delegation tag removed".to_string());
         }
         Ok(())
     }
@@ -1968,8 +1987,10 @@ impl Overlord {
     ) -> Result<(), Error> {
         if GLOBALS.signer.public_key().is_none() {
             tracing::warn!("You need to setup your identity to zap.");
-            *GLOBALS.status_message.write().await =
-                "You need to setup your identity to zap.".to_string();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("You need to setup your identity to zap.".to_string());
             *GLOBALS.current_zap.write() = ZapState::None;
             return Ok(());
         }
@@ -1993,8 +2014,10 @@ impl Overlord {
             Ok(prd) => prd,
             Err(e) => {
                 tracing::error!("Zap pay request data invalid: {}, {}", text, e);
-                *GLOBALS.status_message.write().await =
-                    format!("Zap pay request data invalid: {}, {}", text, e);
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write(format!("Zap pay request data invalid: {}, {}", text, e));
                 *GLOBALS.current_zap.write() = ZapState::None;
                 return Ok(());
             }
@@ -2003,8 +2026,10 @@ impl Overlord {
         // Verify it supports nostr
         if prd.allows_nostr != Some(true) {
             tracing::warn!("Zap wallet does not support nostr");
-            *GLOBALS.status_message.write().await =
-                "Zap wallet does not support nostr.".to_string();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Zap wallet does not support nostr.".to_string());
             *GLOBALS.current_zap.write() = ZapState::None;
             return Ok(());
         }
@@ -2027,8 +2052,10 @@ impl Overlord {
             Some(pk) => pk,
             None => {
                 tracing::warn!("You need to setup your identity to zap.");
-                *GLOBALS.status_message.write().await =
-                    "You need to setup your identity to zap.".to_string();
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("You need to setup your identity to zap.".to_string());
                 *GLOBALS.current_zap.write() = ZapState::None;
                 return Ok(());
             }
@@ -2058,7 +2085,10 @@ impl Overlord {
             if let Some(u) = n.as_u64() {
                 if msats.0 < u {
                     tracing::warn!("Zap amount too low. Min is {}", u);
-                    *GLOBALS.status_message.write().await = "Zap amount is too low.".to_string();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Zap amount is too low.".to_string());
                     // leave zap state as is.
                     return Ok(());
                 }
@@ -2068,7 +2098,10 @@ impl Overlord {
             if let Some(u) = n.as_u64() {
                 if msats.0 > u {
                     tracing::warn!("Zap amount too high. Max is {}", u);
-                    *GLOBALS.status_message.write().await = "Zap amount is too high.".to_string();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Zap amount is too high.".to_string());
                     // leave zap state as is.
                     return Ok(());
                 }
@@ -2188,7 +2221,10 @@ impl Overlord {
 
         *GLOBALS.current_zap.write() = ZapState::None;
         tracing::warn!("Zap invoice data not recognized: {}", text);
-        *GLOBALS.status_message.write().await = "Zap invoice data not recognized.".to_string();
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Zap invoice data not recognized.".to_string());
 
         Ok(())
     }
@@ -2198,11 +2234,16 @@ fn work_logger(work_receiver: mpsc::Receiver<u8>, powint: u8) {
     while let Ok(work) = work_receiver.recv() {
         if work >= powint {
             // Even if work > powint, it doesn't count since we declared our target.
-            *GLOBALS.status_message.blocking_write() =
-                format!("Message sent with {powint} bits of work computed.");
+            GLOBALS
+                .status_queue
+                .write()
+                .write(format!("Message sent with {powint} bits of work computed."));
             break;
         } else {
-            *GLOBALS.status_message.blocking_write() = format!("PoW: {work}/{powint}");
+            GLOBALS
+                .status_queue
+                .write()
+                .write(format!("PoW: {work}/{powint}"));
         }
     }
 }

@@ -163,15 +163,19 @@ pub(super) fn render_event_link(
 
 pub(super) fn render_hashtag(ui: &mut Ui, s: &String) {
     if ui.link(format!("#{}", s)).clicked() {
-        *GLOBALS.status_message.blocking_write() =
-            "Gossip doesn't have a hashtag feed yet.".to_owned();
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Gossip doesn't have a hashtag feed yet.".to_owned());
     }
 }
 
 pub(super) fn render_unknown_reference(ui: &mut Ui, num: usize) {
     if ui.link(format!("#[{}]", num)).clicked() {
-        *GLOBALS.status_message.blocking_write() =
-            "Gossip can't handle this kind of tag link yet.".to_owned();
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Gossip can't handle this kind of tag link yet.".to_owned());
     }
 }
 
@@ -228,7 +232,9 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                 app.media_show_list.insert(url.clone());
             }
             if !app.settings.load_media {
-                *GLOBALS.status_message.blocking_write() = "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned();
+                GLOBALS.status_queue.write().write(
+                    "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned()
+                );
             }
         }
         // context menu
@@ -334,7 +340,9 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                 app.media_show_list.insert(url.clone());
             }
             if !app.settings.load_media {
-                *GLOBALS.status_message.blocking_write() = "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned();
+                GLOBALS.status_queue.write().write(
+                    "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned()
+                );
             }
         }
         // context menu

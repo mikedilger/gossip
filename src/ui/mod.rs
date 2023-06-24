@@ -706,14 +706,23 @@ impl eframe::App for GossipUi {
                         self.after_openable_menu(ui, &submenu);
                     }
 
+                    // -- Status Area
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui|{
+                        let messages = GLOBALS.status_queue.read().read_all();
                         if ui.add(
-                            Label::new(GLOBALS.status_message.blocking_read().clone())
-                                .sense(Sense::click()),
-                        )
-                            .clicked()
-                        {
-                            *GLOBALS.status_message.blocking_write() = "".to_string();
+                            Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click())
+                        ).clicked() {
+                            GLOBALS.status_queue.write().dismiss(0);
+                        }
+                        if ui.add(
+                            Label::new(RichText::new(&messages[1]).small()).sense(Sense::click())
+                        ).clicked() {
+                            GLOBALS.status_queue.write().dismiss(1);
+                        }
+                        if ui.add(
+                            Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click())
+                        ).clicked() {
+                            GLOBALS.status_queue.write().dismiss(2);
                         }
                     });
 
