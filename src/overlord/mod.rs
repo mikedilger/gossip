@@ -1993,6 +1993,9 @@ impl Overlord {
             Ok(prd) => prd,
             Err(e) => {
                 tracing::error!("Zap pay request data invalid: {}, {}", text, e);
+                *GLOBALS.status_message.write().await = format!(
+                    "Zap pay request data invalid: {}, {}", text, e
+                );
                 *GLOBALS.current_zap.write() = ZapState::None;
                 return Ok(());
             }

@@ -1231,7 +1231,7 @@ impl GossipUi {
         match self.zap_state {
             ZapState::None => return, // should not occur
             ZapState::CheckingLnurl(_id, _pubkey, ref _lnurl) => {
-                ui.label("Loaindg lnurl...");
+                ui.label("Loading lnurl...");
             }
             ZapState::SeekingAmount(id, pubkey, ref _prd, ref _lnurl) => {
                 let mut amt = 0;
