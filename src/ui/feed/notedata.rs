@@ -120,8 +120,8 @@ impl NoteData {
                     NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
                         has_nostr_event_reference = true;
                     }
-                    _ => (),
-                },
+                    _ => ()
+                }
                 ContentSegment::TagReference(_) => {
                     has_tag_reference = true;
                 }
@@ -136,23 +136,19 @@ impl NoteData {
             if event.kind == EventKind::Repost && embedded_event.is_some() {
                 Some(RepostType::Kind6Embedded)
             } else if has_tag_reference || has_nostr_event_reference || content_trim.is_empty() {
-                if !mentions.is_empty() {
-                    if content_trim.is_empty() {
-                        // handle NIP-18 conform kind:6 with 'e' tag but no content
-                        shattered_content
-                            .segments
-                            .push(ContentSegment::TagReference(0));
+                if content_trim.is_empty() {
+                    // handle NIP-18 conform kind:6 with 'e' tag but no content
+                    shattered_content
+                        .segments
+                        .push(ContentSegment::TagReference(0));
 
-                        if event.kind == EventKind::Repost {
-                            Some(RepostType::Kind6Mention)
-                        } else {
-                            Some(RepostType::MentionOnly)
-                        }
+                    if event.kind == EventKind::Repost {
+                        Some(RepostType::Kind6Mention)
                     } else {
-                        Some(RepostType::CommentMention)
+                        Some(RepostType::MentionOnly)
                     }
                 } else {
-                    None
+                    Some(RepostType::CommentMention)
                 }
             } else {
                 None

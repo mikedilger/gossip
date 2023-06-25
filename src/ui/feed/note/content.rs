@@ -7,7 +7,7 @@ use eframe::{
     epaint::Vec2,
 };
 use egui::{RichText, Ui};
-use nostr_types::{ContentSegment, Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Span, Tag, Url};
+use nostr_types::{ContentSegment, Id, IdHex, NostrBech32, PublicKeyHex, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -27,7 +27,72 @@ pub(super) fn render_content(
     if let Ok(note) = note_ref.try_borrow() {
         for segment in note.shattered_content.segments.iter() {
             match segment {
-                ContentSegment::NostrUrl(nurl) => render_nostr_url(app, ui, &note, nurl),
+                ContentSegment::NostrUrl(nurl) => {
+                    match &nurl.0 {
+                        NostrBech32::Pubkey(pk) => {
+                            render_profile_link(app, ui, &(*pk).into());
+                        }
+                        NostrBech32::Profile(prof) => {
+                            render_profile_link(app, ui, &prof.pubkey.into());
+                        }
+                        NostrBech32::Id(id) => {
+                            let mut render_link = true;
+                            if app.settings.show_mentions {
+                                match note.repost {
+                                    Some(RepostType::MentionOnly)
+                                        | Some(RepostType::CommentMention)
+                                        | Some(RepostType::Kind6Mention) => {
+                                            if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                                // TODO block additional repost recursion
+                                                super::render_repost(
+                                                    app,
+                                                    ui,
+                                                    ctx,
+                                                    &note.repost,
+                                                    note_data,
+                                                    content_margin_left,
+                                                    bottom_of_avatar,
+                                                );
+                                                render_link = false;
+                                            }
+                                        }
+                                    _ => (),
+                                }
+                            }
+                            if render_link {
+                                render_event_link(app, ui, note.event.id, *id);
+                            }
+                        }
+                        NostrBech32::EventPointer(ep) => {
+                            let mut render_link = true;
+                            if app.settings.show_mentions {
+                                match note.repost {
+                                    Some(RepostType::MentionOnly)
+                                        | Some(RepostType::CommentMention)
+                                        | Some(RepostType::Kind6Mention) => {
+                                            if let Some(note_data) = app.notes.try_update_and_get(&ep.id) {
+                                                // TODO block additional repost recursion
+                                                super::render_repost(
+                                                    app,
+                                                    ui,
+                                                    ctx,
+                                                    &note.repost,
+                                                    note_data,
+                                                    content_margin_left,
+                                                    bottom_of_avatar,
+                                                );
+                                                render_link = false;
+                                            }
+                                        }
+                                    _ => (),
+                                }
+                            }
+                            if render_link {
+                                render_event_link(app, ui, note.event.id, ep.id);
+                            }
+                        }
+                    }
+                }
                 ContentSegment::TagReference(num) => {
                     if let Some(tag) = note.event.tags.get(*num) {
                         match tag {
@@ -84,28 +149,6 @@ pub(super) fn render_content(
     }
 
     ui.reset_style();
-}
-
-pub(super) fn render_nostr_url(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    note: &Ref<NoteData>,
-    nurl: &NostrUrl,
-) {
-    match &nurl.0 {
-        NostrBech32::Pubkey(pk) => {
-            render_profile_link(app, ui, &(*pk).into());
-        }
-        NostrBech32::Profile(prof) => {
-            render_profile_link(app, ui, &prof.pubkey.into());
-        }
-        NostrBech32::Id(id) => {
-            render_event_link(app, ui, note.event.id, *id);
-        }
-        NostrBech32::EventPointer(ep) => {
-            render_event_link(app, ui, note.event.id, ep.id);
-        }
-    }
 }
 
 pub(super) fn render_hyperlink(
