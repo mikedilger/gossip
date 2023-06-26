@@ -1972,6 +1972,14 @@ impl Overlord {
     }
 
     async fn search(text: String) -> Result<(), Error> {
+        if text.len() < 2 {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("You must enter at least 2 characters to search.".to_string());
+            return Ok(());
+        }
+
         // If npub, convert to hex so we can find it in the database
         // (This will only work with full npubs)
         let mut pubkeytext = text.clone();
