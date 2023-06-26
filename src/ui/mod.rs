@@ -496,8 +496,14 @@ impl GossipUi {
             Page::Feed(FeedKind::Inbox(indirect)) => {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
             }
-            Page::Feed(FeedKind::Thread { id, referenced_by }) => {
-                GLOBALS.feed.set_feed_to_thread(*id, *referenced_by, vec![]);
+            Page::Feed(FeedKind::Thread {
+                id,
+                referenced_by,
+                author,
+            }) => {
+                GLOBALS
+                    .feed
+                    .set_feed_to_thread(*id, *referenced_by, vec![], author.clone());
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());

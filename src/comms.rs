@@ -41,7 +41,7 @@ pub enum ToOverlordMessage {
     Search(String),
     SetActivePerson(PublicKeyHex),
     AdjustRelayUsageBit(RelayUrl, u64, bool),
-    SetThreadFeed(Id, Id, Vec<RelayUrl>),
+    SetThreadFeed(Id, Id, Vec<RelayUrl>, Option<PublicKeyHex>),
     Shutdown,
     UnlockKey(String),
     UpdateFollowing(bool),

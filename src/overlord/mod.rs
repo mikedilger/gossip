@@ -835,8 +835,9 @@ impl Overlord {
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 GLOBALS.people.set_active_person(pubkey).await?;
             }
-            ToOverlordMessage::SetThreadFeed(id, referenced_by, relays) => {
-                self.set_thread_feed(id, referenced_by, relays).await?;
+            ToOverlordMessage::SetThreadFeed(id, referenced_by, relays, author) => {
+                self.set_thread_feed(id, referenced_by, relays, author)
+                    .await?;
             }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
@@ -1593,6 +1594,7 @@ impl Overlord {
         id: Id,
         referenced_by: Id,
         mut relays: Vec<RelayUrl>,
+        author: Option<PublicKeyHex>,
     ) -> Result<(), Error> {
         // We are responsible for loading all the ancestors and all the replies, and
         // process.rs is responsible for building the relationships.
@@ -1612,6 +1614,19 @@ impl Overlord {
         // Include the relays where the referenced_by event was seen
         relays.extend(DbEventRelay::get_relays_for_event(referenced_by).await?);
         relays.extend(DbEventRelay::get_relays_for_event(id).await?);
+
+        // If we have less than 2 relays, include the write relays of the author
+        if relays.len() < 2 {
+            if let Some(pkh) = author {
+                let author_relays: Vec<RelayUrl> =
+                    DbPersonRelay::get_best_relays(pkh, Direction::Write)
+                        .await?
+                        .drain(..)
+                        .map(|pair| pair.0)
+                        .collect();
+                relays.extend(author_relays);
+            }
+        }
 
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription

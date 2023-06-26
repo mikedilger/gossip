@@ -40,22 +40,22 @@ pub(super) fn render_content(
                             if app.settings.show_mentions {
                                 match note.repost {
                                     Some(RepostType::MentionOnly)
-                                        | Some(RepostType::CommentMention)
-                                        | Some(RepostType::Kind6Mention) => {
-                                            if let Some(note_data) = app.notes.try_update_and_get(id) {
-                                                // TODO block additional repost recursion
-                                                super::render_repost(
-                                                    app,
-                                                    ui,
-                                                    ctx,
-                                                    &note.repost,
-                                                    note_data,
-                                                    content_margin_left,
-                                                    bottom_of_avatar,
-                                                );
-                                                render_link = false;
-                                            }
+                                    | Some(RepostType::CommentMention)
+                                    | Some(RepostType::Kind6Mention) => {
+                                        if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                            // TODO block additional repost recursion
+                                            super::render_repost(
+                                                app,
+                                                ui,
+                                                ctx,
+                                                &note.repost,
+                                                note_data,
+                                                content_margin_left,
+                                                bottom_of_avatar,
+                                            );
+                                            render_link = false;
                                         }
+                                    }
                                     _ => (),
                                 }
                             }
@@ -68,22 +68,24 @@ pub(super) fn render_content(
                             if app.settings.show_mentions {
                                 match note.repost {
                                     Some(RepostType::MentionOnly)
-                                        | Some(RepostType::CommentMention)
-                                        | Some(RepostType::Kind6Mention) => {
-                                            if let Some(note_data) = app.notes.try_update_and_get(&ep.id) {
-                                                // TODO block additional repost recursion
-                                                super::render_repost(
-                                                    app,
-                                                    ui,
-                                                    ctx,
-                                                    &note.repost,
-                                                    note_data,
-                                                    content_margin_left,
-                                                    bottom_of_avatar,
-                                                );
-                                                render_link = false;
-                                            }
+                                    | Some(RepostType::CommentMention)
+                                    | Some(RepostType::Kind6Mention) => {
+                                        if let Some(note_data) =
+                                            app.notes.try_update_and_get(&ep.id)
+                                        {
+                                            // TODO block additional repost recursion
+                                            super::render_repost(
+                                                app,
+                                                ui,
+                                                ctx,
+                                                &note.repost,
+                                                note_data,
+                                                content_margin_left,
+                                                bottom_of_avatar,
+                                            );
+                                            render_link = false;
                                         }
+                                    }
                                     _ => (),
                                 }
                             }
@@ -200,6 +202,7 @@ pub(super) fn render_event_link(
         app.set_page(Page::Feed(FeedKind::Thread {
             id: link_to_id,
             referenced_by: referenced_by_id,
+            author: None,
         }));
     };
 }

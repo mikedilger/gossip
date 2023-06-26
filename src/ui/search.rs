@@ -122,6 +122,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                         app.set_page(Page::Feed(FeedKind::Thread {
                             id: event.id,
                             referenced_by: event.id,
+                            author: Some(event.pubkey.into()),
                         }));
                     }
                 }

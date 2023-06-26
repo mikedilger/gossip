@@ -120,8 +120,8 @@ impl NoteData {
                     NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
                         has_nostr_event_reference = true;
                     }
-                    _ => ()
-                }
+                    _ => (),
+                },
                 ContentSegment::TagReference(_) => {
                     has_tag_reference = true;
                 }

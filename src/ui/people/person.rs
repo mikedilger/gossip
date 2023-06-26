@@ -76,7 +76,11 @@ fn content(
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new("Public Key: ").strong());
             ui.label(&npub);
-            if ui.add(CopyButton {}).on_hover_text("Copy Public Key").clicked() {
+            if ui
+                .add(CopyButton {})
+                .on_hover_text("Copy Public Key")
+                .clicked()
+            {
                 ui.output_mut(|o| o.copied_text = npub.to_owned());
             }
             if ui.button("⚃").on_hover_text("Show as QR code").clicked() {

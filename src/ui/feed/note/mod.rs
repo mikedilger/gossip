@@ -290,6 +290,7 @@ fn render_note_inner(
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: irt,
                                 referenced_by: note.event.id,
+                                author: Some(note.event.pubkey.into()),
                             }));
                         };
                         ui.reset_style();
@@ -339,6 +340,7 @@ fn render_note_inner(
                                 app.set_page(Page::Feed(FeedKind::Thread {
                                     id: note.event.id,
                                     referenced_by: note.event.id,
+                                    author: Some(note.event.pubkey.into()),
                                 }));
                             }
                         }
@@ -423,6 +425,7 @@ fn render_note_inner(
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: note.event.id,
                                 referenced_by: note.event.id,
+                                author: Some(note.event.pubkey.into()),
                             }));
                         }
                     }
