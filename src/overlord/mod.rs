@@ -2048,13 +2048,11 @@ impl Overlord {
 
         // Verify it supports nostr
         if prd.allows_nostr != Some(true) {
-            tracing::warn!("Zap wallet does not support nostr");
+            tracing::warn!("Zap wallet does not support nostr, trying anyways...");
             GLOBALS
                 .status_queue
                 .write()
-                .write("Zap wallet does not support nostr.".to_string());
-            *GLOBALS.current_zap.write() = ZapState::None;
-            return Ok(());
+                .write("Zap wallet does not support nostr, trying anyways...".to_string());
         }
 
         *GLOBALS.current_zap.write() = ZapState::SeekingAmount(id, target_pubkey, prd, lnurl);
