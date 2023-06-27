@@ -29,39 +29,9 @@ pub(super) fn render_content(
             match segment {
                 ContentSegment::NostrUrl(nurl) => {
                     match &nurl.0 {
-                        NostrBech32::Pubkey(pk) => {
-                            render_profile_link(app, ui, &(*pk).into());
-                        }
-                        NostrBech32::Profile(prof) => {
-                            render_profile_link(app, ui, &prof.pubkey.into());
-                        }
-                        NostrBech32::Id(id) => {
-                            let mut render_link = true;
-                            if app.settings.show_mentions {
-                                match note.repost {
-                                    Some(RepostType::MentionOnly)
-                                    | Some(RepostType::CommentMention)
-                                    | Some(RepostType::Kind6Mention) => {
-                                        if let Some(note_data) = app.notes.try_update_and_get(id) {
-                                            // TODO block additional repost recursion
-                                            super::render_repost(
-                                                app,
-                                                ui,
-                                                ctx,
-                                                &note.repost,
-                                                note_data,
-                                                content_margin_left,
-                                                bottom_of_avatar,
-                                            );
-                                            render_link = false;
-                                        }
-                                    }
-                                    _ => (),
-                                }
-                            }
-                            if render_link {
-                                render_event_link(app, ui, note.event.id, *id);
-                            }
+                        NostrBech32::EventAddr(ea) => {
+                            // FIXME
+                            ui.label(ea.as_bech32_string());
                         }
                         NostrBech32::EventPointer(ep) => {
                             let mut render_link = true;
@@ -92,6 +62,44 @@ pub(super) fn render_content(
                             if render_link {
                                 render_event_link(app, ui, note.event.id, ep.id);
                             }
+                        }
+                        NostrBech32::Id(id) => {
+                            let mut render_link = true;
+                            if app.settings.show_mentions {
+                                match note.repost {
+                                    Some(RepostType::MentionOnly)
+                                    | Some(RepostType::CommentMention)
+                                    | Some(RepostType::Kind6Mention) => {
+                                        if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                            // TODO block additional repost recursion
+                                            super::render_repost(
+                                                app,
+                                                ui,
+                                                ctx,
+                                                &note.repost,
+                                                note_data,
+                                                content_margin_left,
+                                                bottom_of_avatar,
+                                            );
+                                            render_link = false;
+                                        }
+                                    }
+                                    _ => (),
+                                }
+                            }
+                            if render_link {
+                                render_event_link(app, ui, note.event.id, *id);
+                            }
+                        }
+                        NostrBech32::Profile(prof) => {
+                            render_profile_link(app, ui, &prof.pubkey.into());
+                        }
+                        NostrBech32::Pubkey(pk) => {
+                            render_profile_link(app, ui, &(*pk).into());
+                        }
+                        NostrBech32::Relay(url) => {
+                            // FIXME
+                            ui.label(url.as_bech32_string());
                         }
                     }
                 }

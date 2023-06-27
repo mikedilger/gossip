@@ -1,5 +1,5 @@
 use crate::db::DbRelay;
-use nostr_types::{Id, PublicKey, PublicKeyHex, Tag};
+use nostr_types::{EventKind, Id, PublicKey, PublicKeyHex, Tag, UncheckedUrl};
 
 pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKeyHex) -> usize {
     let newtag = Tag::Pubkey {
@@ -46,6 +46,32 @@ pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: 
     }) {
         None => {
             existing_tags.push(newtag);
+            existing_tags.len() - 1
+        }
+        Some(idx) => idx,
+    }
+}
+
+pub async fn add_addr_to_tags(
+    existing_tags: &mut Vec<Tag>,
+    kind: EventKind,
+    pubkey: PublicKeyHex,
+    d: String,
+    relay_url: Option<UncheckedUrl>,
+) -> usize {
+    match existing_tags.iter().position(|existing_tag| {
+        matches!(
+            existing_tag,
+            Tag::Address { kind: k, pubkey: p, d: md, .. } if *k==kind && *p==pubkey && *md==d
+        )
+    }) {
+        None => {
+            existing_tags.push(Tag::Address {
+                kind,
+                pubkey,
+                d,
+                relay_url,
+            });
             existing_tags.len() - 1
         }
         Some(idx) => idx,

@@ -358,6 +358,12 @@ impl ThemeDef for ClassicTheme {
                 color: red,
                 ..Default::default()
             },
+            HighlightType::Relay => TextFormat {
+                font_id: FontId::new(12.5, FontFamily::Monospace),
+                background: grey,
+                color: red,
+                ..Default::default()
+            },
         }
     }
 

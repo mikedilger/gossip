@@ -8,7 +8,8 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
 use crate::people::People;
 use crate::tags::{
-    add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
+    add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
+    add_subject_to_tags_if_missing,
 };
 use dashmap::mapref::entry::Entry;
 use gossip_relay_picker::{Direction, RelayAssignment};
@@ -1048,19 +1049,32 @@ impl Overlord {
             // and use the new NostrBech32 parsing.
             for bech32 in NostrBech32::find_all_in_string(&content).iter() {
                 match bech32 {
-                    NostrBech32::Pubkey(pk) => {
-                        add_pubkey_to_tags(&mut tags, pk).await;
+                    NostrBech32::EventAddr(ea) => {
+                        add_addr_to_tags(
+                            &mut tags,
+                            ea.kind,
+                            ea.author.into(),
+                            ea.d.clone(),
+                            ea.relays.get(0).cloned(),
+                        )
+                        .await;
                     }
-                    NostrBech32::Profile(prof) => {
-                        add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
+                    NostrBech32::EventPointer(ep) => {
+                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                        add_event_to_tags(&mut tags, ep.id, "mention").await;
                     }
                     NostrBech32::Id(id) => {
                         // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
                         add_event_to_tags(&mut tags, *id, "mention").await;
                     }
-                    NostrBech32::EventPointer(ep) => {
-                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                        add_event_to_tags(&mut tags, ep.id, "mention").await;
+                    NostrBech32::Profile(prof) => {
+                        add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
+                    }
+                    NostrBech32::Pubkey(pk) => {
+                        add_pubkey_to_tags(&mut tags, pk).await;
+                    }
+                    NostrBech32::Relay(_) => {
+                        // we don't need to add this to tags I don't think.
                     }
                 }
             }

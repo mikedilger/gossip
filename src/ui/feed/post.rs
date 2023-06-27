@@ -31,9 +31,10 @@ pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
                 NostrBech32::Pubkey(_) | NostrBech32::Profile(_) => {
                     indices.push((offset + end, HighlightType::PublicKey))
                 }
-                NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
+                NostrBech32::EventAddr(_) | NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
                     indices.push((offset + end, HighlightType::Event))
                 }
+                NostrBech32::Relay(_) => indices.push((offset + end, HighlightType::Relay)),
             }
         }
         offset += end;

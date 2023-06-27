@@ -356,6 +356,11 @@ impl ThemeDef for DefaultTheme {
         } else {
             Color32::DARK_RED
         };
+        let purple = if dark_mode {
+            Color32::from_rgb(0xA0, 0x40, 0xA0)
+        } else {
+            Color32::from_rgb(0x80, 0, 0x80)
+        };
 
         match highlight_type {
             HighlightType::Nothing => TextFormat {
@@ -373,6 +378,12 @@ impl ThemeDef for DefaultTheme {
                 font_id: FontId::new(12.5, FontFamily::Monospace),
                 background: grey,
                 color: red,
+                ..Default::default()
+            },
+            HighlightType::Relay => TextFormat {
+                font_id: FontId::new(12.5, FontFamily::Monospace),
+                background: grey,
+                color: purple,
                 ..Default::default()
             },
         }

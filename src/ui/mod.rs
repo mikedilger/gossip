@@ -158,6 +158,7 @@ pub enum HighlightType {
     Nothing,
     PublicKey,
     Event,
+    Relay,
 }
 
 struct GossipUi {
