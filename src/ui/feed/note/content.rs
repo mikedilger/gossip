@@ -143,8 +143,8 @@ pub(super) fn render_content(
                                     render_event_link(app, ui, note.event.id, *id);
                                 }
                             }
-                            Tag::Hashtag(s) => {
-                                render_hashtag(ui, s);
+                            Tag::Hashtag { hashtag, .. } => {
+                                render_hashtag(ui, hashtag);
                             }
                             _ => {
                                 render_unknown_reference(ui, *num);

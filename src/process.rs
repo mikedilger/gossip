@@ -152,9 +152,8 @@ pub async fn process_new_event(
 
             match tag {
                 Tag::Event {
-                    id: _,
                     recommended_relay_url: Some(should_be_url),
-                    marker: _,
+                    ..
                 } => {
                     if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
                         // Insert (or ignore) into relays table
@@ -165,7 +164,7 @@ pub async fn process_new_event(
                 Tag::Pubkey {
                     pubkey,
                     recommended_relay_url: Some(should_be_url),
-                    petname: _,
+                    ..
                 } => {
                     if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
                         // Insert (or ignore) into relays table
@@ -380,7 +379,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
     let mut inbox_relays: Vec<RelayUrl> = Vec::new();
     let mut outbox_relays: Vec<RelayUrl> = Vec::new();
     for tag in event.tags.iter() {
-        if let Tag::Reference { url, marker } = tag {
+        if let Tag::Reference { url, marker, .. } = tag {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if let Some(m) = marker {
                     match &*m.trim().to_lowercase() {

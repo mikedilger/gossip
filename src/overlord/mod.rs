@@ -1118,7 +1118,7 @@ impl Overlord {
 
                 // Possibly propagate a subject tag
                 for tag in &parent.tags {
-                    if let Tag::Subject(subject) = tag {
+                    if let Tag::Subject { subject, .. } = tag {
                         let mut subject = subject.to_owned();
                         if !subject.starts_with("Re: ") {
                             subject = format!("Re: {}", subject);
@@ -1239,6 +1239,7 @@ impl Overlord {
                 } else {
                     unreachable!()
                 },
+                trailing: Vec::new(),
             });
         }
 
@@ -1294,11 +1295,13 @@ impl Overlord {
                         .await?
                         .map(|rr| rr.to_unchecked_url()),
                     marker: None,
+                    trailing: Vec::new(),
                 },
                 Tag::Pubkey {
                     pubkey: pubkey.into(),
                     recommended_relay_url: None,
                     petname: None,
+                    trailing: Vec::new(),
                 },
             ];
 
@@ -1522,11 +1525,13 @@ impl Overlord {
                     Some(vec) => vec.get(0).map(|rurl| rurl.to_unchecked_url()),
                 },
                 marker: None,
+                trailing: Vec::new(),
             },
             Tag::Pubkey {
                 pubkey: reposted_event.pubkey.into(),
                 recommended_relay_url: None,
                 petname: None,
+                trailing: Vec::new(),
             },
         ];
 
@@ -1832,6 +1837,7 @@ impl Overlord {
             id,
             recommended_relay_url: None,
             marker: None,
+            trailing: Vec::new(),
         }];
 
         let event = {
@@ -1915,7 +1921,7 @@ impl Overlord {
             if let Tag::Pubkey {
                 pubkey,
                 recommended_relay_url,
-                petname: _,
+                ..
             } = tag
             {
                 // Make sure we have that person
@@ -2195,11 +2201,13 @@ impl Overlord {
                     id,
                     recommended_relay_url: None,
                     marker: None,
+                    trailing: Vec::new(),
                 },
                 Tag::Pubkey {
                     pubkey: target_pubkey.into(),
                     recommended_relay_url: None,
                     petname: None,
+                    trailing: Vec::new(),
                 },
                 Tag::Other {
                     tag: "relays".to_owned(),

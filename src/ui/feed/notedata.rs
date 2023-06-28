@@ -63,12 +63,7 @@ impl NoteData {
         let mentions = {
             let mut mentions = Vec::<(usize, Id)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
-                if let Tag::Event {
-                    id,
-                    recommended_relay_url: _,
-                    marker: _,
-                } = tag
-                {
+                if let Tag::Event { id, .. } = tag {
                     mentions.push((i, *id));
                 }
             }

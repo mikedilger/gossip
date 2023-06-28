@@ -800,6 +800,7 @@ impl People {
                 pubkey: pubkey.clone(),
                 recommended_relay_url: maybeurl.map(|(u, _)| u.to_unchecked_url()),
                 petname: None,
+                trailing: Vec::new(),
             });
         }
 
