@@ -37,6 +37,7 @@ impl Profile {
                 base_dir
             }
         };
+        let base_dir = fs::canonicalize(base_dir)?;
 
         // optional profile name, if specified the the user data is stored in a subdirectory
         let profile_dir = match env::var("GOSSIP_PROFILE") {
@@ -66,12 +67,14 @@ impl Profile {
             }
             Err(_) => base_dir.clone(),
         };
+        let profile_dir = fs::canonicalize(profile_dir)?;
 
         let cache_dir = {
             let mut base_dir = base_dir.clone();
             base_dir.push("cache");
             base_dir
         };
+        let cache_dir = fs::canonicalize(cache_dir)?;
 
         fs::create_dir_all(&base_dir)?;
         fs::create_dir_all(&profile_dir)?;
