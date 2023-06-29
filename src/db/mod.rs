@@ -28,13 +28,14 @@ use crate::profile::Profile;
 use fallible_iterator::FallibleIterator;
 use rusqlite::Connection;
 use std::sync::atomic::Ordering;
+use std::fs;
 use tokio::task;
 
 pub fn init_database() -> Result<Connection, Error> {
     let profile_dir = Profile::current()?.profile_dir;
 
     // Connect to (or create) our database
-    let mut db_path = profile_dir;
+    let mut db_path = fs::canonicalize(profile_dir)?;
     db_path.push("gossip.sqlite");
     let connection = Connection::open_with_flags(
         &db_path,
