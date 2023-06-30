@@ -1911,7 +1911,7 @@ impl Overlord {
     // from the last ContactList received
     async fn update_following(&mut self, merge: bool) -> Result<(), Error> {
         // Load the latest contact list from the database
-        let event = {
+        let our_contact_list = {
             let pubkey = match GLOBALS.signer.public_key() {
                 Some(pk) => pk,
                 None => return Ok(()), // we cannot do anything without an identity setup first
@@ -1927,7 +1927,7 @@ impl Overlord {
         let now = Unixtime::now().unwrap();
 
         // 'p' tags represent the author's contacts
-        for tag in &event.tags {
+        for tag in &our_contact_list.tags {
             if let Tag::Pubkey {
                 pubkey,
                 recommended_relay_url,
@@ -1975,7 +1975,7 @@ impl Overlord {
         let last_edit = if merge {
             Unixtime::now().unwrap() // now, since superior to the last event
         } else {
-            event.created_at
+            our_contact_list.created_at
         };
         GLOBALS
             .people
