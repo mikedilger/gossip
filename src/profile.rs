@@ -24,20 +24,26 @@ pub struct Profile {
 
 impl Profile {
     fn new() -> Result<Profile, Error> {
+        // Get system standard directory for user data
+        let data_dir = dirs::data_dir()
+            .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
+
+        // Canonicalize (follow symlinks, resolve ".." paths)
+        let data_dir = fs::canonicalize(data_dir)?;
+
         // By default it's what `dirs::data_dir()` gives, but we allow overriding the base directory via env vars
         let base_dir = match env::var("GOSSIP_DIR") {
             Ok(dir) => {
                 tracing::info!("Using GOSSIP_DIR: {}", dir);
-                PathBuf::from(dir)
+                // Note, this must pre-exist
+                fs::canonicalize(PathBuf::from(dir))?
             }
             Err(_) => {
-                let mut base_dir = dirs::data_dir()
-                    .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
+                let mut base_dir = data_dir.clone();
                 base_dir.push("gossip");
                 base_dir
             }
         };
-        let base_dir = fs::canonicalize(base_dir)?;
 
         // optional profile name, if specified the the user data is stored in a subdirectory
         let profile_dir = match env::var("GOSSIP_PROFILE") {
@@ -67,14 +73,12 @@ impl Profile {
             }
             Err(_) => base_dir.clone(),
         };
-        let profile_dir = fs::canonicalize(profile_dir)?;
 
         let cache_dir = {
             let mut base_dir = base_dir.clone();
             base_dir.push("cache");
             base_dir
         };
-        let cache_dir = fs::canonicalize(cache_dir)?;
 
         fs::create_dir_all(&base_dir)?;
         fs::create_dir_all(&profile_dir)?;
