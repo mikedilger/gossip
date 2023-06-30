@@ -30,8 +30,12 @@ pub(super) fn render_content(
                 ContentSegment::NostrUrl(nurl) => {
                     match &nurl.0 {
                         NostrBech32::EventAddr(ea) => {
-                            // FIXME
-                            ui.label(ea.as_bech32_string());
+                            // FIXME - we should link to the event instead
+                            ui.label(
+                                RichText::new(
+                                    format!("nostr:{}", ea.as_bech32_string())
+                                ).underline()
+                            );
                         }
                         NostrBech32::EventPointer(ep) => {
                             let mut render_link = true;
@@ -98,8 +102,12 @@ pub(super) fn render_content(
                             render_profile_link(app, ui, &(*pk).into());
                         }
                         NostrBech32::Relay(url) => {
-                            // FIXME
-                            ui.label(url.as_bech32_string());
+                            // FIXME - we should link to the relay page once we have those
+                            ui.label(
+                                RichText::new(
+                                    format!("nostr:{}", url.as_bech32_string())
+                                ).underline()
+                            );
                         }
                     }
                 }
