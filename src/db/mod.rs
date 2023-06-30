@@ -239,7 +239,7 @@ fn normalize_urls() -> Result<(), Error> {
     Ok(())
 }
 
-const UPGRADE_SQL: [&str; 36] = [
+const UPGRADE_SQL: [&str; 37] = [
     include_str!("sql/schema1.sql"),
     include_str!("sql/schema2.sql"),
     include_str!("sql/schema3.sql"),
@@ -276,4 +276,5 @@ const UPGRADE_SQL: [&str; 36] = [
     include_str!("sql/schema34.sql"),
     include_str!("sql/schema35.sql"),
     include_str!("sql/schema36.sql"),
+    include_str!("sql/schema37.sql"),
 ];
