@@ -101,12 +101,10 @@ pub(super) fn render_content(
                         NostrBech32::Pubkey(pk) => {
                             render_profile_link(app, ui, &(*pk).into());
                         }
-                        NostrBech32::Relay(url) => {
-                            // FIXME - we should link to the relay page once we have those
+                        NostrBech32::Relay(urls) => {
+                            let s = urls.iter().map(|url| &*url.0).collect::<Vec<&str>>().join(", ");
                             ui.label(
-                                RichText::new(
-                                    format!("nostr:{}", url.as_bech32_string())
-                                ).underline()
+                                RichText::new(s).underline()
                             );
                         }
                     }
