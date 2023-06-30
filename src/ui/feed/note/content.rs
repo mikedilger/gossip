@@ -101,11 +101,8 @@ pub(super) fn render_content(
                         NostrBech32::Pubkey(pk) => {
                             render_profile_link(app, ui, &(*pk).into());
                         }
-                        NostrBech32::Relay(urls) => {
-                            let s = urls.iter().map(|url| &*url.0).collect::<Vec<&str>>().join(", ");
-                            ui.label(
-                                RichText::new(s).underline()
-                            );
+                        NostrBech32::Relay(url) => {
+                            ui.label(RichText::new(&url.0).underline());
                         }
                     }
                 }
