@@ -124,8 +124,8 @@ pub struct People {
     // might simply not be loaded from the database yet.
     need_metadata: DashSet<PublicKeyHex>,
 
-    // People who we already tried to get their metadata (we do not retry
-    // until client restart)
+    // People who we already tried to get their metadata. We only try once
+    // per gossip run (this set only grows)
     tried_metadata: DashSet<PublicKeyHex>,
 
     // Date of the last self-owned contact list we have an event for
@@ -163,11 +163,13 @@ impl People {
     pub fn start() {
         task::spawn(async {
             loop {
-                tokio::time::sleep(Duration::from_millis(1500)).await;
+                // Every 3 seconds...
+                tokio::time::sleep(Duration::from_millis(3000)).await;
 
+                // We fetch needed metadata
                 GLOBALS.people.maybe_fetch_metadata().await;
 
-                // check for shutdown condition
+                // And we check for shutdown condition
                 if GLOBALS.shutting_down.load(Ordering::Relaxed) {
                     break;
                 }
@@ -262,37 +264,53 @@ impl People {
     // If this person doesn't have metadata, and we are automatically fetching
     // metadata, then add this person to the list of people that need metadata.
     pub fn person_of_interest(&self, pubkeyhex: PublicKeyHex) {
+        // Don't get metadata if disabled
         if !GLOBALS.settings.read().automatically_fetch_metadata {
             return;
         }
 
+        // Don't try over and over. We try just once per gossip run.
         if self.tried_metadata.contains(&pubkeyhex) {
             return;
         }
 
         match self.people.get(&pubkeyhex) {
             Some(person) => {
-                if person.loaded {
-                    if person.metadata_created_at.is_none() {
-                        if !self.need_metadata.contains(&pubkeyhex) {
-                            self.need_metadata.insert(pubkeyhex.clone());
-                        }
-                        //} else {
-                        // TBD check if it needs update
-                    }
-                } else {
-                    // create/load them
+                // If we haven't loaded the person from the database yet
+                if !person.loaded {
+                    // Trigger a future load
                     self.create_if_missing_sync(pubkeyhex.clone());
-                    if !self.need_metadata.contains(&pubkeyhex) {
-                        self.need_metadata.insert(pubkeyhex.clone());
-                    }
+
+                    // Don't load metadata now, we may have it on disk and get
+                    // it from the future load.
+                    return;
                 }
-            }
-            None => {
-                self.create_if_missing_sync(pubkeyhex.clone());
+
+                // We need metadata if it is missing or old
+                let need = {
+                    // Metadata refresh interval
+                    let now = Unixtime::now().unwrap();
+                    let eight_hours = Duration::from_secs(60 * 60 * 8);
+                    person.metadata_created_at.is_none()
+                        || person.metadata_last_received < (now - eight_hours).0
+                };
+                if !need {
+                    return;
+                }
+
+                // Record that we need it.
+                // the periodic task will take care of it.
                 if !self.need_metadata.contains(&pubkeyhex) {
                     self.need_metadata.insert(pubkeyhex.clone());
                 }
+            }
+            None => {
+                // Trigger a future create and load
+                self.create_if_missing_sync(pubkeyhex.clone());
+
+                // Don't load metadata now, we may have it on disk and get
+                // it from the future load.
+                return;
             }
         }
     }
@@ -310,40 +328,21 @@ impl People {
             .collect();
         self.need_metadata.clear();
 
+        tracing::debug!("Periodic metadata fetch for {} people", need_metadata.len());
+
         for pubkey in need_metadata.drain(..) {
-            self.need_metadata.remove(&pubkey);
-            if self.truly_lacks_metadata(&pubkey).await {
-                verified_need.push(pubkey.clone());
-                self.tried_metadata.insert(pubkey);
+            if let Some(person) = self.people.get(&pubkey) {
+                if person.loaded {
+                    tracing::debug!("Seeking metadata for {}", &pubkey);
+                    verified_need.push(pubkey.clone());
+                    self.tried_metadata.insert(pubkey);
+                }
             }
         }
 
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::UpdateMetadataInBulk(verified_need));
-    }
-
-    async fn truly_lacks_metadata(&self, pubkey: &PublicKeyHex) -> bool {
-        if let Some(person) = self.people.get(pubkey) {
-            if person.metadata_created_at.is_some() {
-                return false; // we have it
-            } else if person.loaded {
-                return true; // they are loaded but don't have it
-            }
-        }
-
-        // They weren't loaded. Let's load them.
-        match People::fetch_one(pubkey).await {
-            Ok(Some(person)) => {
-                let retval = person.metadata_created_at.is_none();
-                let _ = self.people.insert(pubkey.clone(), person);
-                return retval;
-            }
-            Err(e) => tracing::error!("{}", e),
-            _ => {}
-        }
-
-        false // we couldn't load them, just give up
     }
 
     pub fn recheck_nip05_on_update_metadata(&self, pubkeyhex: &PublicKeyHex) {
@@ -359,34 +358,51 @@ impl People {
         // Sync in from database first
         self.create_all_if_missing(&[pubkeyhex.to_owned()]).await?;
 
-        let mut person = self.people.get(pubkeyhex).unwrap().to_owned();
+        let now = Unixtime::now().unwrap();
 
-        // Remove from list of people that need metadata
-        self.need_metadata.remove(pubkeyhex);
-
-        // Determine whether to update it
-        let mut doit = person.metadata_created_at.is_none();
-        if let Some(metadata_created_at) = person.metadata_created_at {
-            if asof.0 > metadata_created_at {
-                doit = true;
+        // Update metadata_last_received, even if we don't update the metadata
+        {
+            // Update in memory
+            if let Some(mut person) = self.people.get_mut(&pubkeyhex) {
+                person.metadata_last_received = now.0;
             }
+
+            // Update in database
+            let pkh = pubkeyhex.as_str().to_owned();
+            task::spawn_blocking(move || {
+                let db = GLOBALS.db.blocking_lock();
+                let mut stmt =
+                    db.prepare("UPDATE person SET metadata_last_received=? WHERE pubkey=?")?;
+                stmt.execute((&now.0, pkh))?;
+                Ok::<(), Error>(())
+            })
+            .await??;
         }
 
-        if doit {
+        // Copy the person
+        let mut person = self.people.get(pubkeyhex).unwrap().to_owned();
+
+        // Remove from the list of people that need metadata
+        self.need_metadata.remove(pubkeyhex);
+
+        // Determine whether it is fresh
+        let fresh = match person.metadata_created_at {
+            Some(metadata_created_at) => asof.0 > metadata_created_at,
+            None => true,
+        };
+
+        if fresh {
             let nip05_changed = if let Some(md) = &person.metadata {
                 metadata.nip05 != md.nip05.clone()
             } else {
                 metadata.nip05.is_some()
             };
 
-            let now = Unixtime::now().unwrap();
-
             // Update person in the map, and the local variable
             person = {
                 let mut person_mut = self.people.get_mut(pubkeyhex).unwrap();
                 person_mut.metadata = Some(metadata);
                 person_mut.metadata_created_at = Some(asof.0);
-                person_mut.metadata_last_received = now.0;
                 if nip05_changed {
                     person_mut.nip05_valid = 0; // changed, so reset to invalid
                     person_mut.nip05_last_checked = None; // we haven't checked this one yet
@@ -406,20 +422,19 @@ impl People {
                 };
 
                 let mut stmt = db.prepare(
-                    "UPDATE person SET metadata=?, metadata_created_at=?, metadata_last_received=?, \
-                     nip05_valid=?, nip05_last_checked=? WHERE pubkey=?"
+                    "UPDATE person SET metadata=?, metadata_created_at=?, \
+                     nip05_valid=?, nip05_last_checked=? WHERE pubkey=?",
                 )?;
                 stmt.execute((
                     &metadata_json,
                     &person_inner.metadata_created_at,
-                    &person_inner.metadata_last_received,
                     &person_inner.nip05_valid,
                     &person_inner.nip05_last_checked,
                     pubkeyhex2.as_str(),
                 ))?;
                 Ok::<(), Error>(())
             })
-                .await??;
+            .await??;
 
             // UI cache invalidation (so notes of the person get rerendered)
             GLOBALS
