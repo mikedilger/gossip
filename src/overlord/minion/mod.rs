@@ -224,6 +224,8 @@ impl Minion {
                     }
                 }
                 Err(e) => {
+                    tracing::error!("{}", e);
+
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
                     }
