@@ -29,7 +29,7 @@ pub struct DbPerson {
     pub followed_last_updated: i64,
     pub muted: u8,
     pub relay_list_last_received: i64,
-    pub relay_list_created_at: i64,
+    pub relay_list_created_at: Option<i64>,
     pub loaded: bool, // if this record came from the database
 }
 
@@ -45,7 +45,7 @@ impl DbPerson {
             followed_last_updated: 0,
             muted: 0,
             relay_list_last_received: 0,
-            relay_list_created_at: 0,
+            relay_list_created_at: None,
             loaded: false,
         }
     }
@@ -1073,11 +1073,16 @@ impl People {
 
         if let Some(mut person) = self.people.get_mut(&pubkeyhex) {
             person.relay_list_last_received = now;
-            if created_at > person.relay_list_created_at {
-                retval = true;
-                person.relay_list_created_at = created_at;
+
+            if let Some(old_at) = person.relay_list_created_at {
+                if created_at < old_at {
+                    created_at = old_at; // use the latest one
+                    retval = false;
+                } else {
+                    person.relay_list_created_at = Some(created_at);
+                }
             } else {
-                created_at = person.relay_list_created_at; // for the update below
+                person.relay_list_created_at = Some(created_at);
             }
         } else {
             tracing::warn!("FIXME: RelayList for person we don't have. We should create them.");
