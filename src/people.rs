@@ -23,6 +23,7 @@ pub struct DbPerson {
     pub pubkey: PublicKeyHex,
     pub metadata: Option<Metadata>,
     pub metadata_created_at: Option<i64>,
+    pub metadata_last_received: i64,
     pub nip05_valid: u8,
     pub nip05_last_checked: Option<u64>,
     pub followed: u8,
@@ -39,6 +40,7 @@ impl DbPerson {
             pubkey,
             metadata: None,
             metadata_created_at: None,
+            metadata_last_received: 0,
             nip05_valid: 0,
             nip05_last_checked: None,
             followed: 0,
@@ -375,11 +377,14 @@ impl People {
                 metadata.nip05.is_some()
             };
 
+            let now = Unixtime::now().unwrap();
+
             // Update person in the map, and the local variable
             person = {
                 let mut person_mut = self.people.get_mut(pubkeyhex).unwrap();
                 person_mut.metadata = Some(metadata);
                 person_mut.metadata_created_at = Some(asof.0);
+                person_mut.metadata_last_received = now.0;
                 if nip05_changed {
                     person_mut.nip05_valid = 0; // changed, so reset to invalid
                     person_mut.nip05_last_checked = None; // we haven't checked this one yet
@@ -399,11 +404,13 @@ impl People {
                 };
 
                 let mut stmt = db.prepare(
-                    "UPDATE person SET metadata=?, metadata_created_at=?, nip05_valid=?, nip05_last_checked=? WHERE pubkey=?"
+                    "UPDATE person SET metadata=?, metadata_created_at=?, metadata_last_received=?, \
+                     nip05_valid=?, nip05_last_checked=? WHERE pubkey=?"
                 )?;
                 stmt.execute((
                     &metadata_json,
                     &person_inner.metadata_created_at,
+                    &person_inner.metadata_last_received,
                     &person_inner.nip05_valid,
                     &person_inner.nip05_last_checked,
                     pubkeyhex2.as_str(),
@@ -479,7 +486,8 @@ impl People {
         // NOTE: We also load all muted people, so that we can render the list of people
         //       who are muted, so they can be found and unmuted as necessary.
 
-        let sql = "SELECT pubkey, metadata, metadata_created_at, nip05_valid, nip05_last_checked, \
+        let sql = "SELECT pubkey, metadata, metadata_created_at, metadata_last_received, \
+                   nip05_valid, nip05_last_checked, \
                    followed, followed_last_updated, muted, relay_list_last_received, \
                    relay_list_created_at \
                    FROM person WHERE followed=1 OR muted=1"
@@ -501,13 +509,14 @@ impl People {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
                     metadata_created_at: row.get(2)?,
-                    nip05_valid: row.get(3)?,
-                    nip05_last_checked: row.get(4)?,
-                    followed: row.get(5)?,
-                    followed_last_updated: row.get(6)?,
-                    muted: row.get(7)?,
-                    relay_list_last_received: row.get(8)?,
-                    relay_list_created_at: row.get(9)?,
+                    metadata_last_received: row.get(3)?,
+                    nip05_valid: row.get(4)?,
+                    nip05_last_checked: row.get(5)?,
+                    followed: row.get(6)?,
+                    followed_last_updated: row.get(7)?,
+                    muted: row.get(8)?,
+                    relay_list_last_received: row.get(9)?,
+                    relay_list_created_at: row.get(10)?,
                     loaded: true,
                 });
             }
@@ -1178,7 +1187,7 @@ impl People {
     }
 
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
-        let sql = "SELECT pubkey, metadata, metadata_created_at, \
+        let sql = "SELECT pubkey, metadata, metadata_created_at, metadata_last_received, \
              nip05_valid, nip05_last_checked, \
              followed, followed_last_updated, muted, \
              relay_list_last_received, relay_list_created_at \
@@ -1205,13 +1214,14 @@ impl People {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
                     metadata_created_at: row.get(2)?,
-                    nip05_valid: row.get(3)?,
-                    nip05_last_checked: row.get(4)?,
-                    followed: row.get(5)?,
-                    followed_last_updated: row.get(6)?,
-                    muted: row.get(7)?,
-                    relay_list_last_received: row.get(8)?,
-                    relay_list_created_at: row.get(9)?,
+                    metadata_last_received: row.get(3)?,
+                    nip05_valid: row.get(4)?,
+                    nip05_last_checked: row.get(5)?,
+                    followed: row.get(6)?,
+                    followed_last_updated: row.get(7)?,
+                    muted: row.get(8)?,
+                    relay_list_last_received: row.get(9)?,
+                    relay_list_created_at: row.get(10)?,
                     loaded: true,
                 });
             }
@@ -1234,7 +1244,8 @@ impl People {
 
     async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<DbPerson>, Error> {
         let sql = format!(
-            "SELECT pubkey, metadata, metadata_created_at, nip05_valid, nip05_last_checked, \
+            "SELECT pubkey, metadata, metadata_created_at, metadata_last_received, \
+             nip05_valid, nip05_last_checked, \
              followed, followed_last_updated, muted, relay_list_last_received, \
              relay_list_created_at FROM person WHERE pubkey IN ({})",
             repeat_vars(pubkeys.len())
@@ -1264,13 +1275,14 @@ impl People {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
                     metadata_created_at: row.get(2)?,
-                    nip05_valid: row.get(3)?,
-                    nip05_last_checked: row.get(4)?,
-                    followed: row.get(5)?,
-                    followed_last_updated: row.get(6)?,
-                    muted: row.get(7)?,
-                    relay_list_last_received: row.get(8)?,
-                    relay_list_created_at: row.get(9)?,
+                    metadata_last_received: row.get(3)?,
+                    nip05_valid: row.get(4)?,
+                    nip05_last_checked: row.get(5)?,
+                    followed: row.get(6)?,
+                    followed_last_updated: row.get(7)?,
+                    muted: row.get(8)?,
+                    relay_list_last_received: row.get(9)?,
+                    relay_list_created_at: row.get(10)?,
                     loaded: true,
                 });
             }
