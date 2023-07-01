@@ -22,7 +22,7 @@ use tokio::task;
 pub struct DbPerson {
     pub pubkey: PublicKeyHex,
     pub metadata: Option<Metadata>,
-    pub metadata_at: Option<i64>,
+    pub metadata_created_at: Option<i64>,
     pub nip05_valid: u8,
     pub nip05_last_checked: Option<u64>,
     pub followed: u8,
@@ -38,7 +38,7 @@ impl DbPerson {
         DbPerson {
             pubkey,
             metadata: None,
-            metadata_at: None,
+            metadata_created_at: None,
             nip05_valid: 0,
             nip05_last_checked: None,
             followed: 0,
@@ -269,7 +269,7 @@ impl People {
         match self.people.get(&pubkeyhex) {
             Some(person) => {
                 if person.loaded {
-                    if person.metadata_at.is_none() {
+                    if person.metadata_created_at.is_none() {
                         if !self.need_metadata.contains(&pubkeyhex) {
                             self.need_metadata.insert(pubkeyhex.clone());
                         }
@@ -321,7 +321,7 @@ impl People {
 
     async fn truly_lacks_metadata(&self, pubkey: &PublicKeyHex) -> bool {
         if let Some(person) = self.people.get(pubkey) {
-            if person.metadata_at.is_some() {
+            if person.metadata_created_at.is_some() {
                 return false; // we have it
             } else if person.loaded {
                 return true; // they are loaded but don't have it
@@ -331,7 +331,7 @@ impl People {
         // They weren't loaded. Let's load them.
         match People::fetch_one(pubkey).await {
             Ok(Some(person)) => {
-                let retval = person.metadata_at.is_none();
+                let retval = person.metadata_created_at.is_none();
                 let _ = self.people.insert(pubkey.clone(), person);
                 return retval;
             }
@@ -361,9 +361,9 @@ impl People {
         self.need_metadata.remove(pubkeyhex);
 
         // Determine whether to update it
-        let mut doit = person.metadata_at.is_none();
-        if let Some(metadata_at) = person.metadata_at {
-            if asof.0 > metadata_at {
+        let mut doit = person.metadata_created_at.is_none();
+        if let Some(metadata_created_at) = person.metadata_created_at {
+            if asof.0 > metadata_created_at {
                 doit = true;
             }
         }
@@ -379,7 +379,7 @@ impl People {
             person = {
                 let mut person_mut = self.people.get_mut(pubkeyhex).unwrap();
                 person_mut.metadata = Some(metadata);
-                person_mut.metadata_at = Some(asof.0);
+                person_mut.metadata_created_at = Some(asof.0);
                 if nip05_changed {
                     person_mut.nip05_valid = 0; // changed, so reset to invalid
                     person_mut.nip05_last_checked = None; // we haven't checked this one yet
@@ -399,11 +399,11 @@ impl People {
                 };
 
                 let mut stmt = db.prepare(
-                    "UPDATE person SET metadata=?, metadata_at=?, nip05_valid=?, nip05_last_checked=? WHERE pubkey=?"
+                    "UPDATE person SET metadata=?, metadata_created_at=?, nip05_valid=?, nip05_last_checked=? WHERE pubkey=?"
                 )?;
                 stmt.execute((
                     &metadata_json,
-                    &person_inner.metadata_at,
+                    &person_inner.metadata_created_at,
                     &person_inner.nip05_valid,
                     &person_inner.nip05_last_checked,
                     pubkeyhex2.as_str(),
@@ -479,7 +479,7 @@ impl People {
         // NOTE: We also load all muted people, so that we can render the list of people
         //       who are muted, so they can be found and unmuted as necessary.
 
-        let sql = "SELECT pubkey, metadata, metadata_at, nip05_valid, nip05_last_checked, \
+        let sql = "SELECT pubkey, metadata, metadata_created_at, nip05_valid, nip05_last_checked, \
                    followed, followed_last_updated, muted, relay_list_last_received, \
                    relay_list_created_at \
                    FROM person WHERE followed=1 OR muted=1"
@@ -500,7 +500,7 @@ impl People {
                 output.push(DbPerson {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
-                    metadata_at: row.get(2)?,
+                    metadata_created_at: row.get(2)?,
                     nip05_valid: row.get(3)?,
                     nip05_last_checked: row.get(4)?,
                     followed: row.get(5)?,
@@ -1173,7 +1173,7 @@ impl People {
     }
 
     pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
-        let sql = "SELECT pubkey, metadata, metadata_at, \
+        let sql = "SELECT pubkey, metadata, metadata_created_at, \
              nip05_valid, nip05_last_checked, \
              followed, followed_last_updated, muted, \
              relay_list_last_received, relay_list_created_at \
@@ -1199,7 +1199,7 @@ impl People {
                 output.push(DbPerson {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
-                    metadata_at: row.get(2)?,
+                    metadata_created_at: row.get(2)?,
                     nip05_valid: row.get(3)?,
                     nip05_last_checked: row.get(4)?,
                     followed: row.get(5)?,
@@ -1229,7 +1229,7 @@ impl People {
 
     async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<DbPerson>, Error> {
         let sql = format!(
-            "SELECT pubkey, metadata, metadata_at, nip05_valid, nip05_last_checked, \
+            "SELECT pubkey, metadata, metadata_created_at, nip05_valid, nip05_last_checked, \
              followed, followed_last_updated, muted, relay_list_last_received, \
              relay_list_created_at FROM person WHERE pubkey IN ({})",
             repeat_vars(pubkeys.len())
@@ -1258,7 +1258,7 @@ impl People {
                 people.push(DbPerson {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     metadata,
-                    metadata_at: row.get(2)?,
+                    metadata_created_at: row.get(2)?,
                     nip05_valid: row.get(3)?,
                     nip05_last_checked: row.get(4)?,
                     followed: row.get(5)?,
@@ -1305,7 +1305,7 @@ impl People {
 
     /*
     async fn insert(person: DbPerson) -> Result<(), Error> {
-        let sql = "INSERT OR IGNORE INTO person (pubkey, metadata, metadata_at, \
+        let sql = "INSERT OR IGNORE INTO person (pubkey, metadata, metadata_created_at, \
              nip05_valid, nip05_last_checked, followed, followed_last_updated, muted) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
@@ -1321,7 +1321,7 @@ impl People {
             stmt.execute((
                 &person.pubkey.0,
                 &metadata_json,
-                &person.metadata_at,
+                &person.metadata_created_at,
                 &person.nip05_valid,
                 &person.nip05_last_checked,
                 &person.followed,
