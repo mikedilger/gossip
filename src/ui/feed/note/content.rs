@@ -32,9 +32,8 @@ pub(super) fn render_content(
                         NostrBech32::EventAddr(ea) => {
                             // FIXME - we should link to the event instead
                             ui.label(
-                                RichText::new(
-                                    format!("nostr:{}", ea.as_bech32_string())
-                                ).underline()
+                                RichText::new(format!("nostr:{}", ea.as_bech32_string()))
+                                    .underline(),
                             );
                         }
                         NostrBech32::EventPointer(ep) => {

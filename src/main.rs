@@ -50,7 +50,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use std::ops::DerefMut;
-use std::{env, mem, thread};
+use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 pub const AVATAR_SIZE: u32 = 48; // points, not pixels
@@ -118,7 +118,7 @@ async fn tokio_main() {
     // Steal `tmp_overlord_receiver` from the GLOBALS, and give it to a new Overlord
     let overlord_receiver = {
         let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
-        mem::replace(mutex_option.deref_mut(), None)
+        mutex_option.deref_mut().take()
     }
     .unwrap();
 

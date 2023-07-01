@@ -39,7 +39,7 @@ impl Profile {
                 fs::canonicalize(PathBuf::from(dir))?
             }
             Err(_) => {
-                let mut base_dir = data_dir.clone();
+                let mut base_dir = data_dir;
                 base_dir.push("gossip");
                 base_dir
             }
