@@ -1111,18 +1111,14 @@ impl Overlord {
                     // Add an 'e' tag for the note we are replying to
                     add_event_to_tags(&mut tags, parent_id, "reply").await;
                 } else {
-                    match parent.replies_to() {
-                        None => {
-                            // If the parent doesn't have any e-tags, then it is the root
-                            // NIP-10: "A direct reply to the root of a thread should have a single marked "e" tag of type "root"."
-                            add_event_to_tags(&mut tags, parent_id, "root").await;
-                        },
-                        Some((_id, _mayberelay)) => {
-                            // FIXME: we could try to climb up events until we find the root.
-
-                            // We don't know the root. We are a reply.
-                            add_event_to_tags(&mut tags, parent_id, "reply").await;
-                        }
+                    let ancestors = parent.referred_events();
+                    if ancestors.is_empty() {
+                        // parent is the root
+                        add_event_to_tags(&mut tags, parent_id, "root").await;
+                    } else {
+                        // Add an 'e' tag for the note we are replying to
+                        // (and we don't know about the root, the parent is malformed).
+                        add_event_to_tags(&mut tags, parent_id, "reply").await;
                     }
                 }
 
@@ -1675,7 +1671,7 @@ impl Overlord {
         // Collect missing ancestors and potential relays further up the chain
         if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
             // Use relays in 'e' tags
-            for (id, opturl) in highest_parent.referred_events() {
+            for (id, opturl, _marker) in highest_parent.referred_events() {
                 missing_ancestors.push(id);
                 if let Some(url) = opturl {
                     relays.push(url);
