@@ -95,6 +95,16 @@ pub async fn process_new_event(
                     e
                 );
             }
+
+            // Create the person if missing in the database
+            GLOBALS
+                .people
+                .create_all_if_missing(&[event.pubkey.into()])
+                .await?;
+
+            // Update person_relay.last_fetched
+            DbPersonRelay::upsert_last_fetched(event.pubkey.as_hex_string(), url.to_owned(), now)
+                .await?;
         }
     }
 
@@ -119,18 +129,6 @@ pub async fn process_new_event(
     }
 
     if from_relay {
-        if let Some(ref url) = seen_on {
-            // Create the person if missing in the database
-            GLOBALS
-                .people
-                .create_all_if_missing(&[event.pubkey.into()])
-                .await?;
-
-            // Update person_relay.last_fetched
-            DbPersonRelay::upsert_last_fetched(event.pubkey.as_hex_string(), url.to_owned(), now)
-                .await?;
-        }
-
         // Save the tags into event_tag table
         for (seq, tag) in event.tags.iter().enumerate() {
             // Save into database
