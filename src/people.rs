@@ -411,6 +411,12 @@ impl People {
                 Ok::<(), Error>(())
             })
                 .await??;
+
+            // UI cache invalidation (so notes of the person get rerendered)
+            GLOBALS
+                .ui_people_to_invalidate
+                .write()
+                .push(pubkeyhex.to_owned());
         }
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
@@ -794,6 +800,7 @@ impl People {
                 pubkey: pubkey.clone(),
                 recommended_relay_url: maybeurl.map(|(u, _)| u.to_unchecked_url()),
                 petname: None,
+                trailing: Vec::new(),
             });
         }
 
@@ -865,6 +872,12 @@ impl People {
                 self.people.insert(pubkeyhex.to_owned(), person);
             }
         }
+
+        // UI cache invalidation (so notes of the person get rerendered)
+        GLOBALS
+            .ui_people_to_invalidate
+            .write()
+            .push(pubkeyhex.to_owned());
 
         if follow > 0 {
             // Add the person to the relay_picker for picking
@@ -1039,6 +1052,12 @@ impl People {
             }
         }
 
+        // UI cache invalidation (so notes of the person get rerendered)
+        GLOBALS
+            .ui_people_to_invalidate
+            .write()
+            .push(pubkeyhex.to_owned());
+
         Ok(())
     }
 
@@ -1143,6 +1162,12 @@ impl People {
             Ok::<(), Error>(())
         })
         .await??;
+
+        // UI cache invalidation (so notes of the person get rerendered)
+        GLOBALS
+            .ui_people_to_invalidate
+            .write()
+            .push(pubkeyhex.to_owned());
 
         Ok(())
     }

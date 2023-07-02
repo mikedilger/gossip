@@ -1,11 +1,10 @@
 mod content;
-mod notedata;
 
-pub use notedata::Notes;
+pub use super::Notes;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use notedata::{NoteData, RepostType};
+use super::notedata::{NoteData, RepostType};
 
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
@@ -20,7 +19,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex};
+use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, UncheckedUrl};
 
 pub struct NoteRenderData {
     /// Available height for post
@@ -66,87 +65,96 @@ pub(super) fn render_note(
         // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
-            // Completely eliminate muted posts if not viewing a thread
-            if note_data.author.muted > 0 && !threaded {
-                return;
-            }
+            // Render if not muted
+            if note_data.author.muted == 0 {
+                let is_new = app.settings.highlight_unread_events
+                    && !GLOBALS.viewed_events.contains(&note_data.event.id);
 
-            let is_new = app.settings.highlight_unread_events
-                && !GLOBALS.viewed_events.contains(&note_data.event.id);
+                let is_main_event: bool = {
+                    let feed_kind = GLOBALS.feed.get_feed_kind();
+                    match feed_kind {
+                        FeedKind::Thread { id, .. } => id == note_data.event.id,
+                        _ => false,
+                    }
+                };
 
-            let is_main_event: bool = {
-                let feed_kind = GLOBALS.feed.get_feed_kind();
-                match feed_kind {
-                    FeedKind::Thread { id, .. } => id == note_data.event.id,
-                    _ => false,
-                }
-            };
+                let height = if let Some(height) = app.height.get(&id) {
+                    height
+                } else {
+                    &0.0
+                };
 
-            let height = if let Some(height) = app.height.get(&id) {
-                height
-            } else {
-                &0.0
-            };
+                let render_data = NoteRenderData {
+                    height: *height,
+                    has_repost: note_data.repost.is_some(),
+                    is_comment_mention: false,
+                    is_new,
+                    is_thread: threaded,
+                    is_first,
+                    is_last,
+                    is_main_event,
+                    thread_position: indent as i32,
+                    can_post: GLOBALS.signer.is_ready(),
+                };
 
-            let render_data = NoteRenderData {
-                height: *height,
-                has_repost: note_data.repost.is_some(),
-                is_comment_mention: false,
-                is_new,
-                is_thread: threaded,
-                is_first,
-                is_last,
-                is_main_event,
-                thread_position: indent as i32,
-                can_post: GLOBALS.signer.is_ready(),
-            };
+                let top = ui.next_widget_position();
 
-            let top = ui.next_widget_position();
+                let inner_response = ui.horizontal(|ui| {
+                    // Outer indents first
+                    app.settings.theme.feed_post_outer_indent(ui, &render_data);
 
-            ui.horizontal(|ui| {
-                // Outer indents first
-                app.settings.theme.feed_post_outer_indent(ui, &render_data);
+                    Frame::none()
+                        .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
+                        .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
+                        .rounding(app.settings.theme.feed_frame_rounding(&render_data))
+                        .shadow(app.settings.theme.feed_frame_shadow(&render_data))
+                        .fill(app.settings.theme.feed_frame_fill(&render_data))
+                        .stroke(app.settings.theme.feed_frame_stroke(&render_data))
+                        .show(ui, |ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                // Inner indents first
+                                app.settings.theme.feed_post_inner_indent(ui, &render_data);
 
-                let inner_response = Frame::none()
-                    .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
-                    .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
-                    .rounding(app.settings.theme.feed_frame_rounding(&render_data))
-                    .shadow(app.settings.theme.feed_frame_shadow(&render_data))
-                    .fill(app.settings.theme.feed_frame_fill(&render_data))
-                    .stroke(app.settings.theme.feed_frame_stroke(&render_data))
-                    .show(ui, |ui| {
-                        ui.horizontal_wrapped(|ui| {
-                            // Inner indents first
-                            app.settings.theme.feed_post_inner_indent(ui, &render_data);
+                                render_note_inner(
+                                    app,
+                                    ctx,
+                                    ui,
+                                    note_ref.clone(),
+                                    &render_data,
+                                    as_reply_to,
+                                    &None,
+                                );
+                            });
+                        })
+                });
 
-                            render_note_inner(
-                                app,
-                                ctx,
-                                ui,
-                                note_ref.clone(),
-                                &render_data,
-                                as_reply_to,
-                                &None,
-                            );
-                        });
-                    });
+                // Store actual rendered height for future reference
+                let bottom = ui.next_widget_position();
+                app.height.insert(id, bottom.y - top.y);
 
                 // Mark post as viewed if hovered AND we are not scrolling
                 if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
                     GLOBALS.viewed_events.insert(id);
                     GLOBALS.new_viewed_events.blocking_write().insert(id);
                 }
-            });
 
-            // Store actual rendered height for future reference
-            let bottom = ui.next_widget_position();
-            app.height.insert(id, bottom.y - top.y);
+                // Record if the rendered note was visible
+                {
+                    let screen_rect = ctx.input(|i| i.screen_rect); // Rect
+                    let offscreen = bottom.y < 0.0 || top.y > screen_rect.max.y;
+                    if !offscreen {
+                        // Record that this note was visibly rendered
+                        app.next_visible_note_ids.push(id);
+                    }
+                }
 
-            thin_separator(
-                ui,
-                app.settings.theme.feed_post_separator_stroke(&render_data),
-            );
+                thin_separator(
+                    ui,
+                    app.settings.theme.feed_post_separator_stroke(&render_data),
+                );
+            }
 
+            // even if muted, continue rendering thread children
             if threaded && !as_reply_to {
                 let replies = Globals::get_replies_sync(id);
                 let iter = replies.iter();
@@ -187,14 +195,10 @@ fn render_note_inner(
         let collapsed = app.collapsed.contains(&note.event.id);
 
         // Load avatar texture
-        let avatar = if note.author.muted > 0 {
-            app.placeholder_avatar.clone()
+        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
+            avatar
         } else {
-            if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
-                avatar
-            } else {
-                app.placeholder_avatar.clone()
-            }
+            app.placeholder_avatar.clone()
         };
 
         // Determine avatar size
@@ -226,7 +230,7 @@ fn render_note_inner(
             }
         };
 
-        let hide_footer = if hide_footer || note.author.muted > 0 {
+        let hide_footer = if hide_footer {
             true
         } else if parent_repost.is_none() {
             match note.repost {
@@ -286,6 +290,7 @@ fn render_note_inner(
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: irt,
                                 referenced_by: note.event.id,
+                                author: Some(note.event.pubkey.into()),
                             }));
                         };
                         ui.reset_style();
@@ -335,6 +340,7 @@ fn render_note_inner(
                                 app.set_page(Page::Feed(FeedKind::Thread {
                                     id: note.event.id,
                                     referenced_by: note.event.id,
+                                    author: Some(note.event.pubkey.into()),
                                 }));
                             }
                         }
@@ -347,6 +353,8 @@ fn render_note_inner(
                                         vec.iter().map(|url| url.to_unchecked_url()).collect()
                                     }
                                 },
+                                author: None,
+                                kind: None,
                             };
                             ui.output_mut(|o| o.copied_text = event_pointer.as_bech32_string());
                         }
@@ -417,6 +425,7 @@ fn render_note_inner(
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: note.event.id,
                                 referenced_by: note.event.id,
+                                author: Some(note.event.pubkey.into()),
                             }));
                         }
                     }
@@ -480,19 +489,15 @@ fn render_note_inner(
 
             // MAIN CONTENT
             if !collapsed {
-                if note.author.muted > 0 {
-                    ui.label(RichText::new("MUTED POST").monospace().italics());
-                } else {
-                    render_content(
-                        app,
-                        ui,
-                        ctx,
-                        note_ref.clone(),
-                        note.deletion.is_some(),
-                        content_margin_left,
-                        content_pull_top,
-                    );
-                }
+                render_content(
+                    app,
+                    ui,
+                    ctx,
+                    note_ref.clone(),
+                    note.deletion.is_some(),
+                    content_margin_left,
+                    content_pull_top,
+                );
 
                 // deleted?
                 if let Some(delete_reason) = &note.deletion {
@@ -588,6 +593,8 @@ fn render_note_inner(
                                                     .map(|url| url.to_unchecked_url())
                                                     .collect(),
                                             },
+                                            author: None,
+                                            kind: None,
                                         };
                                         app.draft.push_str(&event_pointer.as_bech32_string());
                                         app.draft_repost = None;
@@ -652,6 +659,66 @@ fn render_note_inner(
                                     }
                                 }
 
+                                if app.settings.enable_zap_receipts {
+                                    ui.add_space(24.0);
+
+                                    // To zap, the user must have a lnurl, and the event must have been
+                                    // seen on some relays
+                                    let mut zap_lnurl = None;
+                                    if let Some(ref metadata) = note.author.metadata {
+                                        if let Some(lnurl) = metadata.lnurl() {
+                                            zap_lnurl = Some(lnurl);
+                                        }
+                                    }
+
+                                    let mut has_seen_on_relays = false;
+                                    if let Some(seen_on) =
+                                        GLOBALS.events.get_seen_on(&note.event.id)
+                                    {
+                                        if !seen_on.is_empty() {
+                                            has_seen_on_relays = true;
+                                        }
+                                    }
+
+                                    if let Some(lnurl) = zap_lnurl {
+                                        if has_seen_on_relays {
+                                            if ui
+                                                .add(
+                                                    Label::new(RichText::new("⚡").size(18.0))
+                                                        .sense(Sense::click()),
+                                                )
+                                                .on_hover_text("ZAP")
+                                                .clicked()
+                                            {
+                                                if GLOBALS.signer.is_ready() {
+                                                    let _ = GLOBALS.to_overlord.send(
+                                                        ToOverlordMessage::ZapStart(
+                                                            note.event.id,
+                                                            note.event.pubkey,
+                                                            UncheckedUrl(lnurl),
+                                                        ),
+                                                    );
+                                                } else {
+                                                    GLOBALS.status_queue.write().write(
+                                                        "Your key is not setup.".to_string(),
+                                                    );
+                                                }
+                                            }
+                                        } else {
+                                            ui.add(Label::new(
+                                                RichText::new("⚡").weak().size(18.0),
+                                            ))
+                                            .on_hover_text("Note is not zappable (no relays)");
+                                        }
+                                    } else {
+                                        ui.add(Label::new(RichText::new("⚡").weak().size(18.0)))
+                                            .on_hover_text("Note is not zappable (no lnurl)");
+                                    }
+
+                                    // Show the zap total
+                                    ui.add(Label::new(format!("{}", note.zaptotal.0 / 1000)));
+                                }
+
                                 ui.add_space(24.0);
 
                                 // Buttons to react and reaction counts
@@ -670,8 +737,10 @@ fn render_note_inner(
                                         .clicked()
                                     {
                                         if !render_data.can_post {
-                                            *GLOBALS.status_message.blocking_write() =
-                                                "Your key is not setup.".to_string();
+                                            GLOBALS
+                                                .status_queue
+                                                .write()
+                                                .write("Your key is not setup.".to_string());
                                         } else {
                                             let _ =
                                                 GLOBALS.to_overlord.send(ToOverlordMessage::Like(
@@ -695,6 +764,15 @@ fn render_note_inner(
                                     }
                                 }
                             });
+
+                            // Below the note zap area
+                            if let Some(zapnoteid) = app.note_being_zapped {
+                                if zapnoteid == note.event.id {
+                                    ui.horizontal_wrapped(|ui| {
+                                        app.render_zap_area(ui, ctx);
+                                    });
+                                }
+                            }
                         });
                 }
             }
@@ -869,6 +947,8 @@ fn render_repost(
                             .repost_space_below_separator_before(&render_data),
                     );
                     ui.horizontal_wrapped(|ui| {
+                        let top = ui.next_widget_position();
+
                         // FIXME: don't recurse forever
                         render_note_inner(
                             app,
@@ -879,6 +959,18 @@ fn render_repost(
                             false,
                             parent_repost,
                         );
+
+                        let bottom = ui.next_widget_position();
+
+                        // Record if the rendered repost was visible
+                        {
+                            let screen_rect = ctx.input(|i| i.screen_rect); // Rect
+                            let offscreen = bottom.y < 0.0 || top.y > screen_rect.max.y;
+                            if !offscreen {
+                                // Record that this note was visibly rendered
+                                app.next_visible_note_ids.push(repost_data.event.id);
+                            }
+                        }
                     });
                     ui.add_space(
                         app.settings

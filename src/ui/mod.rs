@@ -27,7 +27,7 @@ use crate::about::About;
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::feed::FeedKind;
-use crate::globals::GLOBALS;
+use crate::globals::{ZapState, GLOBALS};
 use crate::people::DbPerson;
 use crate::settings::Settings;
 pub use crate::ui::theme::{Theme, ThemeVariant};
@@ -42,7 +42,7 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, PublicKey, PublicKeyHex, UncheckedUrl, Url};
+use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, PublicKeyHex, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -159,6 +159,7 @@ pub enum HighlightType {
     Nothing,
     PublicKey,
     Event,
+    Relay,
 }
 
 struct GossipUi {
@@ -256,6 +257,19 @@ struct GossipUi {
 
     // Collapsed threads
     collapsed: Vec<Id>,
+
+    // Visisble Note IDs
+    // (we resubscribe to reactions/zaps/deletes when this changes)
+    visible_note_ids: Vec<Id>,
+    // This one is built up as rendering happens, then compared
+    next_visible_note_ids: Vec<Id>,
+    last_visible_update: Instant,
+
+    // Zap state, computed once per frame instead of per note
+    // zap_state and note_being_zapped are computed from GLOBALS.current_zap and are
+    //   not authoratative.
+    zap_state: ZapState,
+    note_being_zapped: Option<Id>,
 }
 
 impl Drop for GossipUi {
@@ -450,6 +464,11 @@ impl GossipUi {
             search: "".to_owned(),
             entering_search_page: false,
             collapsed: vec![],
+            visible_note_ids: vec![],
+            next_visible_note_ids: vec![],
+            last_visible_update: Instant::now(),
+            zap_state: ZapState::None,
+            note_being_zapped: None,
         }
     }
 
@@ -485,8 +504,14 @@ impl GossipUi {
             Page::Feed(FeedKind::Inbox(indirect)) => {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
             }
-            Page::Feed(FeedKind::Thread { id, referenced_by }) => {
-                GLOBALS.feed.set_feed_to_thread(*id, *referenced_by, vec![]);
+            Page::Feed(FeedKind::Thread {
+                id,
+                referenced_by,
+                author,
+            }) => {
+                GLOBALS
+                    .feed
+                    .set_feed_to_thread(*id, *referenced_by, vec![], author.clone());
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
@@ -536,7 +561,7 @@ impl eframe::App for GossipUi {
         {
             // Add the amount of scroll requested to the future
             let mut requested_scroll: f32 = 0.0;
-            ctx.input_mut(|i| {
+            ctx.input(|i| {
                 requested_scroll = i.scroll_delta.y;
             });
             self.future_scroll_offset += requested_scroll;
@@ -713,14 +738,23 @@ impl eframe::App for GossipUi {
                         self.after_openable_menu(ui, &submenu);
                     }
 
+                    // -- Status Area
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui|{
+                        let messages = GLOBALS.status_queue.read().read_all();
                         if ui.add(
-                            Label::new(GLOBALS.status_message.blocking_read().clone())
-                                .sense(Sense::click()),
-                        )
-                            .clicked()
-                        {
-                            *GLOBALS.status_message.blocking_write() = "".to_string();
+                            Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click())
+                        ).clicked() {
+                            GLOBALS.status_queue.write().dismiss(0);
+                        }
+                        if ui.add(
+                            Label::new(RichText::new(&messages[1]).small()).sense(Sense::click())
+                        ).clicked() {
+                            GLOBALS.status_queue.write().dismiss(1);
+                        }
+                        if ui.add(
+                            Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click())
+                        ).clicked() {
+                            GLOBALS.status_queue.write().dismiss(2);
                         }
                     });
 
@@ -798,7 +832,7 @@ impl eframe::App for GossipUi {
         egui::TopBottomPanel::bottom("status")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
-                let frame = frame.inner_margin(if !self.settings.posting_area_at_top {
+                frame.inner_margin(if !self.settings.posting_area_at_top {
                     egui::Margin {
                         left: 20.0,
                         right: 18.0,
@@ -812,8 +846,7 @@ impl eframe::App for GossipUi {
                         top: 1.0,
                         bottom: 5.0,
                     }
-                });
-                frame
+                })
             })
             .resizable(resizable)
             .show_separator_line(false)
@@ -825,17 +858,25 @@ impl eframe::App for GossipUi {
                 }
             });
 
+        // Prepare local zap data once per frame for easier compute at render time
+        self.zap_state = (*GLOBALS.current_zap.read()).clone();
+        self.note_being_zapped = match self.zap_state {
+            ZapState::None => None,
+            ZapState::CheckingLnurl(id, _, _) => Some(id),
+            ZapState::SeekingAmount(id, _, _, _) => Some(id),
+            ZapState::LoadingInvoice(id, _) => Some(id),
+            ZapState::ReadyToPay(id, _) => Some(id),
+        };
+
         egui::CentralPanel::default()
             .frame({
                 let frame = egui::Frame::central_panel(&self.settings.theme.get_style());
-                let frame = frame.inner_margin(egui::Margin {
+                frame.inner_margin(egui::Margin {
                     left: 20.0,
                     right: 10.0,
                     top: 10.0,
                     bottom: 0.0,
-                });
-
-                frame
+                })
             })
             .show(ctx, |ui| {
                 self.begin_ui(ui);
@@ -897,13 +938,9 @@ impl GossipUi {
 
     /// A display name for a `DbPerson`
     pub fn display_name_from_dbperson(dbperson: &DbPerson) -> String {
-        if dbperson.muted == 1 {
-            "{MUTED PERSON}".to_owned()
-        } else {
-            match dbperson.display_name() {
-                Some(name) => name.to_owned(),
-                None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
-            }
+        match dbperson.display_name() {
+            Some(name) => name.to_owned(),
+            None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
         }
     }
 
@@ -1126,9 +1163,7 @@ impl GossipUi {
             }
         }
     }
-}
 
-impl GossipUi {
     fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
         if self
             .add_selected_label(ui, self.page == page, text)
@@ -1201,5 +1236,123 @@ impl GossipUi {
         let response = ui.add(label);
         ui.add_space(2.0);
         response
+    }
+
+    fn handle_visible_note_changes(&mut self) {
+        let no_change = self.visible_note_ids == self.next_visible_note_ids;
+        let scrolling = self.current_scroll_offset != 0.0;
+        let too_rapid = Instant::now() - self.last_visible_update < Duration::from_secs(3);
+        let empty = self.next_visible_note_ids.is_empty();
+
+        if no_change || scrolling || too_rapid || empty {
+            // Clear the accumulator
+            // It will fill up again next frame and be tested again.
+            self.next_visible_note_ids.clear();
+            return;
+        }
+
+        // Update when this happened, so we don't accept again too rapidly
+        self.last_visible_update = Instant::now();
+
+        // Save to self.visibile_note_ids
+        self.visible_note_ids = std::mem::take(&mut self.next_visible_note_ids);
+
+        if !self.visible_note_ids.is_empty() {
+            tracing::trace!(
+                "VISIBLE = {:?}",
+                self.visible_note_ids
+                    .iter()
+                    .map(|id| Into::<IdHex>::into(*id).prefix(10).into_string())
+                    .collect::<Vec<_>>()
+            );
+
+            // Tell the overlord
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::VisibleNotesChanged(
+                    self.visible_note_ids.clone(),
+                ));
+        }
+    }
+
+    // Zap In Progress Area
+    fn render_zap_area(&mut self, ui: &mut Ui, ctx: &Context) {
+        let mut qr_string: Option<String> = None;
+
+        match self.zap_state {
+            ZapState::None => return, // should not occur
+            ZapState::CheckingLnurl(_id, _pubkey, ref _lnurl) => {
+                ui.label("Loading lnurl...");
+            }
+            ZapState::SeekingAmount(id, pubkey, ref _prd, ref _lnurl) => {
+                let mut amt = 0;
+                ui.label("Zap Amount:");
+                if ui.button("1").clicked() {
+                    amt = 1;
+                }
+                if ui.button("2").clicked() {
+                    amt = 2;
+                }
+                if ui.button("5").clicked() {
+                    amt = 5;
+                }
+                if ui.button("10").clicked() {
+                    amt = 10;
+                }
+                if ui.button("21").clicked() {
+                    amt = 21;
+                }
+                if ui.button("46").clicked() {
+                    amt = 46;
+                }
+                if ui.button("100").clicked() {
+                    amt = 100;
+                }
+                if ui.button("215").clicked() {
+                    amt = 215;
+                }
+                if ui.button("464").clicked() {
+                    amt = 464;
+                }
+                if ui.button("1000").clicked() {
+                    amt = 1000;
+                }
+                if ui.button("2154").clicked() {
+                    amt = 2154;
+                }
+                if ui.button("4642").clicked() {
+                    amt = 4642;
+                }
+                if ui.button("10000").clicked() {
+                    amt = 10000;
+                }
+                if amt > 0 {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Zap(
+                        id,
+                        pubkey,
+                        MilliSatoshi(amt * 1_000),
+                        "".to_owned(),
+                    ));
+                }
+                if ui.button("Cancel").clicked() {
+                    *GLOBALS.current_zap.write() = ZapState::None;
+                }
+            }
+            ZapState::LoadingInvoice(_id, _pubkey) => {
+                ui.label("Loading zap invoice...");
+            }
+            ZapState::ReadyToPay(_id, ref invoice) => {
+                // we have to copy it and get out of the borrow first
+                qr_string = Some(invoice.to_owned());
+            }
+        };
+
+        if let Some(qr) = qr_string {
+            // Show the QR code and a close button
+            self.render_qr(ui, ctx, "zap", &qr);
+            if ui.button("Close").clicked() {
+                *GLOBALS.current_zap.write() = ZapState::None;
+            }
+        }
     }
 }

@@ -99,12 +99,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         "Enable reactions (show and react)",
                     );
 
-                    /*
                     ui.checkbox(
                         &mut app.settings.enable_zap_receipts,
                         "Enable zap receipts",
-                );
-                    */
+                    );
 
                     ui.checkbox(
                         &mut app.settings.reposts,
@@ -294,8 +292,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     if ui.button("Prune Database")
                         .on_hover_text("This will delete overridden events, events older than a week, and related data while keeping everything important. It can take MANY MINUTES to complete, and when complete there will be a status message indicating so. Also, because the database will be very busy, best not to use gossip while pruning, just wait.")
                         .clicked() {
-                            *GLOBALS.status_message.blocking_write() = "Pruning database, please wait (this takes a long time)...".to_owned();
-
+                            GLOBALS.status_queue.write().write(
+                                "Pruning database, please wait (this takes a long time)...".to_owned()
+                            );
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase);
                         }
 

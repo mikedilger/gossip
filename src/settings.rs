@@ -195,7 +195,7 @@ impl Settings {
                     settings.highlight_unread_events = numstr_to_bool(row.1)
                 }
                 "posting_area_at_top" => settings.posting_area_at_top = numstr_to_bool(row.1),
-                "enable_zap_receipts" => settings.enable_zap_receipts = false, //numstr_to_bool(row.1),
+                "enable_zap_receipts" => settings.enable_zap_receipts = numstr_to_bool(row.1),
                 _ => {}
             }
         }
@@ -275,7 +275,7 @@ impl Settings {
             self.delegatee_tag,
             bool_to_numstr(self.highlight_unread_events),
             bool_to_numstr(self.posting_area_at_top),
-            "0" // bool_to_numstr(self.enable_zap_receipts),
+            bool_to_numstr(self.enable_zap_receipts),
         ])?;
 
         // Settings which are Options should not even exist when None.  We don't accept null valued

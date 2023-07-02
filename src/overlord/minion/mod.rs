@@ -1,9 +1,10 @@
 mod handle_websocket;
 mod subscription;
+mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::db::DbRelay;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::USER_AGENT;
 use base64::Engine;
@@ -22,7 +23,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use subscription::Subscriptions;
+use subscription_map::SubscriptionMap;
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio::sync::broadcast::Receiver;
@@ -37,7 +38,7 @@ pub struct Minion {
     dbrelay: DbRelay,
     nip11: Option<RelayInformationDocument>,
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    subscriptions: Subscriptions,
+    subscription_map: SubscriptionMap,
     next_events_subscription_id: u32,
     keepgoing: bool,
     postings: HashSet<Id>,
@@ -63,7 +64,7 @@ impl Minion {
             dbrelay,
             nip11: None,
             stream: None,
-            subscriptions: Subscriptions::new(),
+            subscription_map: SubscriptionMap::new(),
             next_events_subscription_id: 0,
             keepgoing: true,
             postings: HashSet::new(),
@@ -72,18 +73,9 @@ impl Minion {
 }
 
 impl Minion {
-    pub async fn handle(&mut self, messages: Vec<ToMinionPayload>) {
-        // Catch errors, Return nothing.
-        if let Err(e) = self.handle_inner(messages).await {
-            tracing::error!("{}: ERROR: {}", &self.url, e);
-            self.bump_failure_count().await;
-        }
-
-        tracing::info!("{}: minion exiting", self.url);
-    }
-
-    async fn handle_inner(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
-        tracing::trace!("{}: Minion handling started", &self.url); // minion will log when it connects
+    pub async fn handle(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
+        // minion will log when it connects
+        tracing::trace!("{}: Minion handling started", &self.url);
 
         // Connect to the relay
         let websocket_stream = {
@@ -125,7 +117,7 @@ impl Minion {
                     } else {
                         match serde_json::from_str::<RelayInformationDocument>(&text) {
                             Ok(nip11) => {
-                                tracing::info!("{}: {}", &self.url, nip11);
+                                tracing::debug!("{}: {}", &self.url, nip11);
                                 self.nip11 = Some(nip11);
                                 self.dbrelay.nip11 = self.nip11.clone();
                             }
@@ -202,10 +194,11 @@ impl Minion {
 
             let (websocket_stream, _response) = tokio::time::timeout(
                 std::time::Duration::new(15, 0),
-                tokio_tungstenite::connect_async_with_config(req, Some(config)),
+                tokio_tungstenite::connect_async_with_config(req, Some(config), false),
             )
             .await??;
-            tracing::info!("{}: Connected", &self.url);
+
+            tracing::debug!("{}: Connected", &self.url);
 
             websocket_stream
         };
@@ -231,8 +224,11 @@ impl Minion {
                     }
                 }
                 Err(e) => {
-                    // Log them and keep going
-                    tracing::error!("{}: {}", &self.url, e);
+                    if let ErrorKind::Websocket(_) = e.kind {
+                        return Err(e);
+                    }
+
+                    // for other errors, keep going
                 }
             }
         }
@@ -306,7 +302,7 @@ impl Minion {
         }
 
         // Don't continue if we have no more subscriptions
-        if self.subscriptions.is_empty() {
+        if self.subscription_map.is_empty() {
             self.keepgoing = false;
         }
 
@@ -335,8 +331,11 @@ impl Minion {
                 self.pull_following(message.job_id).await?;
             }
             ToMinionPayloadDetail::Shutdown => {
-                tracing::info!("{}: Websocket listener shutting down", &self.url);
+                tracing::debug!("{}: Websocket listener shutting down", &self.url);
                 self.keepgoing = false;
+            }
+            ToMinionPayloadDetail::SubscribeAugments(ids) => {
+                self.subscribe_augments(message.job_id, ids).await?;
             }
             ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys) => {
                 self.subscribe_general_feed(message.job_id, pubkeys).await?;
@@ -378,6 +377,33 @@ impl Minion {
         Ok(())
     }
 
+    async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
+        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        event_kinds.retain(|f| f.augments_feed_related());
+
+        let filter = Filter {
+            e: ids,
+            kinds: event_kinds,
+            ..Default::default()
+        };
+
+        self.subscribe(vec![filter], "augments", job_id).await?;
+
+        if let Some(sub) = self.subscription_map.get_mut("augments") {
+            if let Some(nip11) = &self.nip11 {
+                if !nip11.supports_nip(15) {
+                    // Does not support EOSE.  Set subscription to EOSE now.
+                    sub.set_eose();
+                }
+            } else {
+                // Does not support EOSE.  Set subscription to EOSE now.
+                sub.set_eose();
+            }
+        }
+
+        Ok(())
+    }
+
     // Subscribe to the user's followers on the relays they write to
     async fn subscribe_general_feed(
         &mut self,
@@ -403,7 +429,7 @@ impl Minion {
         let feed_since = {
             let now = Unixtime::now().unwrap();
 
-            if self.subscriptions.has("general_feed") {
+            if self.subscription_map.has("general_feed") {
                 // don't lookback if we are just adding more people
                 now
             } else {
@@ -499,7 +525,7 @@ impl Minion {
         } else {
             self.subscribe(filters, "general_feed", job_id).await?;
 
-            if let Some(sub) = self.subscriptions.get_mut("general_feed") {
+            if let Some(sub) = self.subscription_map.get_mut("general_feed") {
                 if let Some(nip11) = &self.nip11 {
                     if !nip11.supports_nip(15) {
                         // Does not support EOSE.  Set subscription to EOSE now.
@@ -568,7 +594,7 @@ impl Minion {
 
         self.subscribe(filters, "mentions_feed", job_id).await?;
 
-        if let Some(sub) = self.subscriptions.get_mut("mentions_feed") {
+        if let Some(sub) = self.subscription_map.get_mut("mentions_feed") {
             if let Some(nip11) = &self.nip11 {
                 if !nip11.supports_nip(15) {
                     // Does not support EOSE.  Set subscription to EOSE now.
@@ -754,13 +780,13 @@ impl Minion {
         let websocket_stream = self.stream.as_mut().unwrap();
 
         if pubkeys.is_empty() {
-            if let Some(sub) = self.subscriptions.get("following") {
+            if let Some(sub) = self.subscription_map.get("following") {
                 // Close the subscription
                 let wire = serde_json::to_string(&sub.close_message())?;
                 websocket_stream.send(WsMessage::Text(wire.clone())).await?;
 
                 // Remove the subscription from the map
-                self.subscriptions.remove("following");
+                self.subscription_map.remove("following");
             }
 
             // Since pubkeys is empty, nothing to subscribe to.
@@ -839,17 +865,17 @@ impl Minion {
         );
 
         // Get the subscription
-        let req_message = if self.subscriptions.has("following") {
-            let sub = self.subscriptions.get_mut("following").unwrap();
+        let req_message = if self.subscription_map.has("following") {
+            let sub = self.subscription_map.get_mut("following").unwrap();
             let vec: &mut Vec<Filter> = sub.get_mut();
             vec.clear();
             vec.push(feed_filter);
             vec.push(special_filter);
             sub.req_message()
         } else {
-            self.subscriptions
+            self.subscription_map
                 .add("following", vec![feed_filter, special_filter]);
-            self.subscriptions.get("following").unwrap().req_message()
+            self.subscription_map.get("following").unwrap().req_message()
         };
 
         // Subscribe (or resubscribe) to the subscription
@@ -874,7 +900,7 @@ impl Minion {
         self.next_events_subscription_id += 1;
 
         // save the subscription
-        let id = self.subscriptions.add(&handle, job_id, vec![filter]);
+        let id = self.subscription_map.add(&handle, job_id, vec![filter]);
         tracing::debug!(
             "NEW SUBSCRIPTION on {} handle={}, id={}",
             &self.url,
@@ -883,7 +909,7 @@ impl Minion {
         );
 
         // get the request message
-        let req_message = self.subscriptions.get(&handle).unwrap().req_message();
+        let req_message = self.subscription_map.get(&handle).unwrap().req_message();
 
         // Subscribe on the relay
         let websocket_stream = self.stream.as_mut().unwrap();
@@ -939,25 +965,39 @@ impl Minion {
         handle: &str,
         job_id: u64,
     ) -> Result<(), Error> {
-        if self.subscriptions.has(handle) {
-            // Unsubscribe. will resubscribe under a new handle.
-            self.unsubscribe(handle).await?;
-
+        if let Some(sub) = self.subscription_map.get_mut(handle) {
             // Gratitously bump the EOSE as if the relay was finished, since it was
             // our fault the subscription is getting cut off.  This way we will pick up
             // where we left off instead of potentially loading a bunch of events
             // yet again.
             let now = Unixtime::now().unwrap();
             DbRelay::update_general_eose(self.dbrelay.url.clone(), now.0 as u64).await?;
+
+            sub.set_filters(filters);
+            let old_job_id = sub.change_job_id(job_id);
+            let id = sub.get_id();
+            tracing::debug!(
+                "UPDATED SUBSCRIPTION on {} handle={}, id={}",
+                &self.url,
+                handle,
+                id
+            );
+            self.to_overlord.send(ToOverlordMessage::MinionJobUpdated(
+                self.url.clone(),
+                old_job_id,
+                job_id,
+            ))?;
+        } else {
+            let id = self.subscription_map.add(handle, job_id, filters);
+            tracing::debug!(
+                "NEW SUBSCRIPTION on {} handle={}, id={}",
+                &self.url,
+                handle,
+                &id
+            );
         }
-        let id = self.subscriptions.add(handle, job_id, filters);
-        tracing::debug!(
-            "NEW SUBSCRIPTION on {} handle={}, id={}",
-            &self.url,
-            handle,
-            &id
-        );
-        let req_message = self.subscriptions.get(handle).unwrap().req_message();
+
+        let req_message = self.subscription_map.get(handle).unwrap().req_message();
         let wire = serde_json::to_string(&req_message)?;
         let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
@@ -966,15 +1006,15 @@ impl Minion {
     }
 
     async fn unsubscribe(&mut self, handle: &str) -> Result<(), Error> {
-        if !self.subscriptions.has(handle) {
+        if !self.subscription_map.has(handle) {
             return Ok(());
         }
-        let subscription = self.subscriptions.get(handle).unwrap();
+        let subscription = self.subscription_map.get(handle).unwrap();
         let wire = serde_json::to_string(&subscription.close_message())?;
         let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
         websocket_stream.send(WsMessage::Text(wire.clone())).await?;
-        let id = self.subscriptions.remove(handle);
+        let id = self.subscription_map.remove(handle);
         if let Some(id) = id {
             tracing::debug!(
                 "END SUBSCRIPTION on {} handle={}, id={}",

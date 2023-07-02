@@ -5,7 +5,8 @@ Prerequisite for packaging:
 
 Compile:
 
-  $ cargo build --release
+  $ rustup update
+  $ cargo build --features=lang-cjk --release
 
 Copy the binary to the packaging diretory
 
@@ -16,18 +17,14 @@ Copy the gossip.png here
   $ cp ..\..\gossip.png .
 
 For new versions of gossip, update gossip.wxs
-    * UPDATE the Package.Version
+    * UPDATE the Package.Version, SummaryInformation.Description
 	* UPDATE the Package.ProductCode GUID to a new one
     * KEEP the UpgradeCode GUID (it should never change, it ties different versions together)
     * Change a component GUID ONLY IF the absolute path changes.
 
 Packaging:
 
-  $ wix build gossip.wxs
-
-Move to a versioned filename:
-
-  $ mv gossip.msi gossip.VERSION.msi
+  $ wix build gossip.VERSION.wxs
 
 Upload to github releases.
 

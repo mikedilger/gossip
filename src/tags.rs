@@ -1,11 +1,12 @@
 use crate::db::DbRelay;
-use nostr_types::{Id, PublicKey, PublicKeyHex, Tag};
+use nostr_types::{EventKind, Id, PublicKey, PublicKeyHex, Tag, UncheckedUrl};
 
 pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKeyHex) -> usize {
     let newtag = Tag::Pubkey {
         pubkey: hex.to_owned(),
         recommended_relay_url: None,
         petname: None,
+        trailing: Vec::new(),
     };
 
     match existing_tags.iter().position(|existing_tag| {
@@ -36,6 +37,7 @@ pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: 
             .flatten()
             .map(|rr| rr.to_unchecked_url()),
         marker: Some(marker.to_string()),
+        trailing: Vec::new(),
     };
 
     match existing_tags.iter().position(|existing_tag| {
@@ -52,9 +54,42 @@ pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: 
     }
 }
 
+pub async fn add_addr_to_tags(
+    existing_tags: &mut Vec<Tag>,
+    kind: EventKind,
+    pubkey: PublicKeyHex,
+    d: String,
+    relay_url: Option<UncheckedUrl>,
+) -> usize {
+    match existing_tags.iter().position(|existing_tag| {
+        matches!(
+            existing_tag,
+            Tag::Address { kind: k, pubkey: p, d: md, .. } if *k==kind && *p==pubkey && *md==d
+        )
+    }) {
+        None => {
+            existing_tags.push(Tag::Address {
+                kind,
+                pubkey,
+                d,
+                relay_url,
+                trailing: Vec::new(),
+            });
+            existing_tags.len() - 1
+        }
+        Some(idx) => idx,
+    }
+}
+
 pub fn add_subject_to_tags_if_missing(existing_tags: &mut Vec<Tag>, subject: String) {
-    if !existing_tags.iter().any(|t| matches!(t, Tag::Subject(_))) {
-        existing_tags.push(Tag::Subject(subject));
+    if !existing_tags
+        .iter()
+        .any(|t| matches!(t, Tag::Subject { .. }))
+    {
+        existing_tags.push(Tag::Subject {
+            subject,
+            trailing: Vec::new(),
+        });
     }
 }
 

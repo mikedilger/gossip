@@ -7,7 +7,7 @@ use eframe::{
     epaint::Vec2,
 };
 use egui::{RichText, Ui};
-use nostr_types::{ContentSegment, Id, IdHex, NostrBech32, NostrUrl, PublicKeyHex, Span, Tag, Url};
+use nostr_types::{ContentSegment, Id, IdHex, NostrBech32, PublicKeyHex, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -27,7 +27,85 @@ pub(super) fn render_content(
     if let Ok(note) = note_ref.try_borrow() {
         for segment in note.shattered_content.segments.iter() {
             match segment {
-                ContentSegment::NostrUrl(nurl) => render_nostr_url(app, ui, &note, nurl),
+                ContentSegment::NostrUrl(nurl) => {
+                    match &nurl.0 {
+                        NostrBech32::EventAddr(ea) => {
+                            // FIXME - we should link to the event instead
+                            ui.label(
+                                RichText::new(
+                                    format!("nostr:{}", ea.as_bech32_string())
+                                ).underline()
+                            );
+                        }
+                        NostrBech32::EventPointer(ep) => {
+                            let mut render_link = true;
+                            if app.settings.show_mentions {
+                                match note.repost {
+                                    Some(RepostType::MentionOnly)
+                                    | Some(RepostType::CommentMention)
+                                    | Some(RepostType::Kind6Mention) => {
+                                        if let Some(note_data) =
+                                            app.notes.try_update_and_get(&ep.id)
+                                        {
+                                            // TODO block additional repost recursion
+                                            super::render_repost(
+                                                app,
+                                                ui,
+                                                ctx,
+                                                &note.repost,
+                                                note_data,
+                                                content_margin_left,
+                                                bottom_of_avatar,
+                                            );
+                                            render_link = false;
+                                        }
+                                    }
+                                    _ => (),
+                                }
+                            }
+                            if render_link {
+                                render_event_link(app, ui, note.event.id, ep.id);
+                            }
+                        }
+                        NostrBech32::Id(id) => {
+                            let mut render_link = true;
+                            if app.settings.show_mentions {
+                                match note.repost {
+                                    Some(RepostType::MentionOnly)
+                                    | Some(RepostType::CommentMention)
+                                    | Some(RepostType::Kind6Mention) => {
+                                        if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                            // TODO block additional repost recursion
+                                            super::render_repost(
+                                                app,
+                                                ui,
+                                                ctx,
+                                                &note.repost,
+                                                note_data,
+                                                content_margin_left,
+                                                bottom_of_avatar,
+                                            );
+                                            render_link = false;
+                                        }
+                                    }
+                                    _ => (),
+                                }
+                            }
+                            if render_link {
+                                render_event_link(app, ui, note.event.id, *id);
+                            }
+                        }
+                        NostrBech32::Profile(prof) => {
+                            render_profile_link(app, ui, &prof.pubkey.into());
+                        }
+                        NostrBech32::Pubkey(pk) => {
+                            render_profile_link(app, ui, &(*pk).into());
+                        }
+                        NostrBech32::Relay(url) => {
+                            ui.label(RichText::new(&url.0).underline());
+                        }
+                    }
+                }
                 ContentSegment::TagReference(num) => {
                     if let Some(tag) = note.event.tags.get(*num) {
                         match tag {
@@ -68,8 +146,8 @@ pub(super) fn render_content(
                                     render_event_link(app, ui, note.event.id, *id);
                                 }
                             }
-                            Tag::Hashtag(s) => {
-                                render_hashtag(ui, s);
+                            Tag::Hashtag { hashtag, .. } => {
+                                render_hashtag(ui, hashtag);
                             }
                             _ => {
                                 render_unknown_reference(ui, *num);
@@ -84,28 +162,6 @@ pub(super) fn render_content(
     }
 
     ui.reset_style();
-}
-
-pub(super) fn render_nostr_url(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    note: &Ref<NoteData>,
-    nurl: &NostrUrl,
-) {
-    match &nurl.0 {
-        NostrBech32::Pubkey(pk) => {
-            render_profile_link(app, ui, &(*pk).into());
-        }
-        NostrBech32::Profile(prof) => {
-            render_profile_link(app, ui, &prof.pubkey.into());
-        }
-        NostrBech32::Id(id) => {
-            render_event_link(app, ui, note.event.id, *id);
-        }
-        NostrBech32::EventPointer(ep) => {
-            render_event_link(app, ui, note.event.id, ep.id);
-        }
-    }
 }
 
 pub(super) fn render_hyperlink(
@@ -157,21 +213,26 @@ pub(super) fn render_event_link(
         app.set_page(Page::Feed(FeedKind::Thread {
             id: link_to_id,
             referenced_by: referenced_by_id,
+            author: None,
         }));
     };
 }
 
 pub(super) fn render_hashtag(ui: &mut Ui, s: &String) {
     if ui.link(format!("#{}", s)).clicked() {
-        *GLOBALS.status_message.blocking_write() =
-            "Gossip doesn't have a hashtag feed yet.".to_owned();
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Gossip doesn't have a hashtag feed yet.".to_owned());
     }
 }
 
 pub(super) fn render_unknown_reference(ui: &mut Ui, num: usize) {
     if ui.link(format!("#[{}]", num)).clicked() {
-        *GLOBALS.status_message.blocking_write() =
-            "Gossip can't handle this kind of tag link yet.".to_owned();
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Gossip can't handle this kind of tag link yet.".to_owned());
     }
 }
 
@@ -227,7 +288,9 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                 app.media_show_list.insert(url.clone());
             }
             if !app.settings.load_media {
-                *GLOBALS.status_message.blocking_write() = "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned();
+                GLOBALS.status_queue.write().write(
+                    "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned()
+                );
             }
         }
         // context menu
@@ -332,7 +395,9 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                 app.media_show_list.insert(url.clone());
             }
             if !app.settings.load_media {
-                *GLOBALS.status_message.blocking_write() = "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned();
+                GLOBALS.status_queue.write().write(
+                    "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned()
+                );
             }
         }
         // context menu

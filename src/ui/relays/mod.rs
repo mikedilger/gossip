@@ -171,10 +171,10 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
                         if ui.add(egui::Button::new(text)).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                             if let Ok(url) = RelayUrl::try_from_str(&app.relays.new_relay_url) {
                                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url.clone()));
-                                *GLOBALS.status_message.blocking_write() = format!(
+                                GLOBALS.status_queue.write().write( format!(
                                     "I asked the overlord to add relay {}. Check for it below.",
                                     &app.relays.new_relay_url
-                                );
+                                ).to_owned());
 
                                 // send user to known relays page (where the new entry should show up)
                                 app.set_page( Page::RelaysKnownNetwork );
@@ -189,8 +189,9 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
                                 app.relays.add_dialog_active = false;
                                 app.relays.new_relay_url = "".to_owned();
                             } else {
-                                *GLOBALS.status_message.blocking_write() =
-                                    "That's not a valid relay URL.".to_owned();
+                                GLOBALS.status_queue.write().write(
+                                    "That's not a valid relay URL.".to_owned()
+                                );
                             }
                         }
                     });

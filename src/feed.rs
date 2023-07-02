@@ -12,7 +12,11 @@ use tokio::task;
 pub enum FeedKind {
     Followed(bool), // with replies
     Inbox(bool),    // indirect
-    Thread { id: Id, referenced_by: Id },
+    Thread {
+        id: Id,
+        referenced_by: Id,
+        author: Option<PublicKeyHex>,
+    },
     Person(PublicKeyHex),
 }
 
@@ -106,8 +110,18 @@ impl Feed {
         });
     }
 
-    pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id, relays: Vec<RelayUrl>) {
-        *self.current_feed_kind.write() = FeedKind::Thread { id, referenced_by };
+    pub fn set_feed_to_thread(
+        &self,
+        id: Id,
+        referenced_by: Id,
+        relays: Vec<RelayUrl>,
+        author: Option<PublicKeyHex>,
+    ) {
+        *self.current_feed_kind.write() = FeedKind::Thread {
+            id,
+            referenced_by,
+            author: author.clone(),
+        };
 
         // Parent starts with the post itself
         // Overlord will climb it, and recompute will climb it
@@ -123,10 +137,12 @@ impl Feed {
                 detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
             },
         });
-        let _ =
-            GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::SetThreadFeed(id, referenced_by, relays));
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed(
+            id,
+            referenced_by,
+            relays,
+            author,
+        ));
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {

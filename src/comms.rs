@@ -1,4 +1,6 @@
-use nostr_types::{Event, Id, IdHex, Metadata, PublicKey, PublicKeyHex, RelayUrl, Tag};
+use nostr_types::{
+    Event, Id, IdHex, Metadata, MilliSatoshi, PublicKey, PublicKeyHex, RelayUrl, Tag, UncheckedUrl,
+};
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
@@ -23,6 +25,7 @@ pub enum ToOverlordMessage {
     Like(Id, PublicKey),
     MinionIsReady,
     MinionJobComplete(RelayUrl, u64),
+    MinionJobUpdated(RelayUrl, u64, u64),
     PickRelays,
     ProcessIncomingEvents,
     Post(String, Vec<Tag>, Option<Id>),
@@ -38,12 +41,15 @@ pub enum ToOverlordMessage {
     Search(String),
     SetActivePerson(PublicKeyHex),
     AdjustRelayUsageBit(RelayUrl, u64, bool),
-    SetThreadFeed(Id, Id, Vec<RelayUrl>),
+    SetThreadFeed(Id, Id, Vec<RelayUrl>, Option<PublicKeyHex>),
     Shutdown,
     UnlockKey(String),
     UpdateFollowing(bool),
     UpdateMetadata(PublicKeyHex),
     UpdateMetadataInBulk(Vec<PublicKeyHex>),
+    VisibleNotesChanged(Vec<Id>),
+    ZapStart(Id, PublicKey, UncheckedUrl),
+    Zap(Id, PublicKey, MilliSatoshi, String),
 }
 
 /// This is a message sent to the minions
@@ -70,6 +76,7 @@ pub enum ToMinionPayloadDetail {
     PostEvent(Box<Event>),
     PullFollowing,
     Shutdown,
+    SubscribeAugments(Vec<IdHex>),
     SubscribeConfig,
     SubscribeDiscover(Vec<PublicKeyHex>),
     SubscribeGeneralFeed(Vec<PublicKeyHex>),

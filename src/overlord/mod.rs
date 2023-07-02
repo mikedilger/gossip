@@ -5,17 +5,20 @@ use crate::comms::{
 };
 use crate::db::{DbEvent, DbEventFlags, DbEventRelay, DbPersonRelay, DbRelay};
 use crate::error::{Error, ErrorKind};
-use crate::globals::GLOBALS;
+use crate::globals::{ZapState, GLOBALS};
 use crate::people::People;
 use crate::tags::{
-    add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
+    add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
+    add_subject_to_tags_if_missing,
 };
 use dashmap::mapref::entry::Entry;
 use gossip_relay_picker::{Direction, RelayAssignment};
+use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, NostrBech32,
-    NostrUrl, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, MilliSatoshi,
+    NostrBech32, NostrUrl, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -25,12 +28,14 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
 use zeroize::Zeroize;
 
+type MinionResult = Result<(), Error>;
+
 pub struct Overlord {
     to_minions: Sender<ToMinionMessage>,
     inbox: UnboundedReceiver<ToOverlordMessage>,
 
     // All the minion tasks running.
-    minions: task::JoinSet<()>,
+    minions: task::JoinSet<Result<(), Error>>,
 
     // Map from minion task::Id to Url
     minions_task_url: HashMap<task::Id, RelayUrl>,
@@ -52,11 +57,11 @@ impl Overlord {
             tracing::error!("{}", e);
         }
 
-        tracing::info!("Overlord signalling UI to shutdown");
+        tracing::debug!("Overlord signalling UI to shutdown");
 
         GLOBALS.shutting_down.store(true, Ordering::Relaxed);
 
-        tracing::info!("Overlord signalling minions to shutdown");
+        tracing::debug!("Overlord signalling minions to shutdown");
 
         // Send shutdown message to all minions (and ui)
         // If this fails, it's probably because there are no more listeners
@@ -172,7 +177,7 @@ impl Overlord {
                 .read()
                 .feed_related_event_kinds()
                 .iter()
-                .map(|e| <EventKind as Into<u64>>::into(*e))
+                .map(|e| <EventKind as Into<u32>>::into(*e))
                 .map(|e| e.to_string())
                 .collect::<Vec<String>>()
                 .join(",");
@@ -343,7 +348,7 @@ impl Overlord {
                         if let Err(e) = self.apply_relay_assignment(ra.to_owned()).await {
                             tracing::error!("{}", e);
                             // On failure, return it
-                            GLOBALS.relay_picker.relay_disconnected(&relay_url);
+                            GLOBALS.relay_picker.relay_disconnected(&relay_url, 120);
                         }
                     } else {
                         tracing::warn!("Relay Picker just picked {} but it is already no longer part of it's relay assignments!", &relay_url);
@@ -459,65 +464,97 @@ impl Overlord {
 
     async fn handle_task_nextjoined(
         &mut self,
-        task_nextjoined: Option<Result<(task::Id, ()), task::JoinError>>,
+        task_nextjoined: Option<Result<(task::Id, MinionResult), task::JoinError>>,
     ) {
         if task_nextjoined.is_none() {
             return; // rare but possible
         }
-        match task_nextjoined.unwrap() {
+
+        let join_result = task_nextjoined.unwrap();
+        let id = match join_result {
+            Err(ref join_error) => join_error.id(),
+            Ok((id, _)) => id,
+        };
+        let url = match self.minions_task_url.get(&id).cloned() {
+            Some(url) => url,
+            None => return, // unknown minion!
+        };
+
+        // Remove from our hashmap
+        self.minions_task_url.remove(&id);
+
+        // Set to not connected
+        let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
+
+        let mut exclusion: u64 = 0;
+
+        match join_result {
             Err(join_error) => {
-                let id = join_error.id();
-                let maybe_url = self.minions_task_url.get(&id).cloned();
-                match maybe_url {
-                    Some(url) => {
-                        // JoinError also has is_cancelled, is_panic, into_panic, try_into_panic
-                        // Minion probably alreaedy logged, this may be redundant.
-                        tracing::error!("Minion {} completed with error: {}", &url, join_error);
-
-                        // Minion probably already logged failure in relay table
-
-                        // Set to not connected
-                        let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
-
-                        // Remove from our hashmap
-                        self.minions_task_url.remove(&id);
-
-                        // We might need to act upon this minion exiting
-                        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                            self.recover_from_minion_exit(url, relayjobs).await;
+                tracing::error!("Minion {} completed with join error: {}", &url, join_error);
+                Self::bump_failure_count(&url).await;
+                exclusion = 60;
+            }
+            Ok((_id, result)) => match result {
+                Ok(_) => {
+                    tracing::debug!("Minion {} completed", &url);
+                    // no exclusion
+                }
+                Err(e) => {
+                    Self::bump_failure_count(&url).await;
+                    tracing::error!("Minion {} completed with error: {}", &url, e);
+                    exclusion = 60;
+                    if let ErrorKind::Websocket(wserror) = e.kind {
+                        if let tungstenite::error::Error::Http(response) = wserror {
+                            exclusion = match response.status() {
+                                StatusCode::MOVED_PERMANENTLY => 60 * 60 * 24,
+                                StatusCode::PERMANENT_REDIRECT => 60 * 60 * 24,
+                                StatusCode::UNAUTHORIZED => 60 * 60 * 24,
+                                StatusCode::PAYMENT_REQUIRED => 60 * 60 * 24,
+                                StatusCode::FORBIDDEN => 60 * 60 * 24,
+                                StatusCode::NOT_FOUND => 60 * 60 * 24,
+                                StatusCode::PROXY_AUTHENTICATION_REQUIRED => 60 * 60 * 24,
+                                StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => 60 * 60 * 24,
+                                StatusCode::NOT_IMPLEMENTED => 60 * 60 * 24,
+                                StatusCode::BAD_GATEWAY => 60 * 60 * 24,
+                                s if s.as_u16() >= 400 => 90,
+                                _ => 60,
+                            };
+                        } else if let tungstenite::error::Error::ConnectionClosed = wserror {
+                            tracing::debug!("Minion {} completed", &url);
+                            exclusion = 0; // was not actually an error
+                        } else if let tungstenite::error::Error::Protocol(protocol_error) = wserror
+                        {
+                            exclusion = match protocol_error {
+                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake => {
+                                    30
+                                }
+                                _ => 120,
+                            }
                         }
                     }
-                    None => {
-                        tracing::error!("Minion UNKNOWN completed with error: {}", join_error);
-                    }
                 }
-            }
-            Ok((id, _)) => {
-                let maybe_url = self.minions_task_url.get(&id).cloned();
-                match maybe_url {
-                    Some(url) => {
-                        tracing::info!("Relay Task {} completed", &url);
+            },
+        };
 
-                        // Set to not connected
-                        let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
+        // Let the relay picker know it disconnected
+        GLOBALS
+            .relay_picker
+            .relay_disconnected(&url, exclusion as i64);
 
-                        // Remove from our hashmap
-                        self.minions_task_url.remove(&id);
-
-                        // We might need to act upon this minion exiting
-                        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                            self.recover_from_minion_exit(url, relayjobs).await;
-                        }
-                    }
-                    None => tracing::error!("Relay Task UNKNOWN completed"),
-                }
-            }
+        // We might need to act upon this minion exiting
+        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
+            self.recover_from_minion_exit(url, relayjobs, exclusion)
+                .await;
         }
     }
 
-    async fn recover_from_minion_exit(&mut self, url: RelayUrl, jobs: Option<Vec<RelayJob>>) {
+    async fn recover_from_minion_exit(
+        &mut self,
+        url: RelayUrl,
+        jobs: Option<Vec<RelayJob>>,
+        exclusion: u64,
+    ) {
         // For people we are following, pick relays
-        GLOBALS.relay_picker.relay_disconnected(&url);
         if let Err(e) = GLOBALS.relay_picker.refresh_person_relay_scores().await {
             tracing::error!("Error: {}", e);
         }
@@ -531,16 +568,29 @@ impl Overlord {
             if !persistent_jobs.is_empty() {
                 // Do it after a delay
                 std::mem::drop(tokio::spawn(async move {
-                    // Delay 30 seconds first
+                    // Delay for exclusion first
                     tracing::info!(
-                        "Minion {} will restart in 30 seconds to continue persistent jobs",
-                        &url
+                        "Minion {} will restart in {} seconds to continue persistent jobs",
+                        &url,
+                        exclusion
                     );
-                    tokio::time::sleep(std::time::Duration::new(30, 0)).await;
+                    tokio::time::sleep(std::time::Duration::new(exclusion, 0)).await;
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::ReengageMinion(url, persistent_jobs));
                 }));
+            }
+        }
+    }
+
+    async fn bump_failure_count(url: &RelayUrl) {
+        // Update in globals
+        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(url) {
+            dbrelay.failure_count += 1;
+
+            // Save to database
+            if let Err(e) = DbRelay::update(dbrelay.clone()).await {
+                tracing::error!("{}: ERROR bumping relay failure count: {}", url, e);
             }
         }
     }
@@ -580,7 +630,10 @@ impl Overlord {
             ToOverlordMessage::DeletePriv => {
                 GLOBALS.signer.delete_identity();
                 Self::delegation_reset().await?;
-                *GLOBALS.status_message.write().await = "Identity deleted.".to_string()
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Identity deleted.".to_string());
             }
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
@@ -626,7 +679,7 @@ impl Overlord {
             ToOverlordMessage::FollowNprofile(nprofile) => {
                 match Profile::try_from_bech32_string(&nprofile) {
                     Ok(np) => self.follow_nprofile(np).await?,
-                    Err(e) => *GLOBALS.status_message.write().await = format!("{}", e),
+                    Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
                 }
             }
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
@@ -653,8 +706,10 @@ impl Overlord {
                     import_priv.zeroize();
                     if maybe_pk1.is_err() && maybe_pk2.is_err() {
                         password.zeroize();
-                        *GLOBALS.status_message.write().await =
-                            "Private key not recognized.".to_owned();
+                        GLOBALS
+                            .status_queue
+                            .write()
+                            .write("Private key not recognized.".to_owned());
                     } else {
                         let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                         GLOBALS.signer.set_private_key(privkey, &password)?;
@@ -667,7 +722,10 @@ impl Overlord {
                 let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
                 let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
                 if maybe_pk1.is_err() && maybe_pk2.is_err() {
-                    *GLOBALS.status_message.write().await = "Public key not recognized.".to_owned();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Public key not recognized.".to_owned());
                 } else {
                     let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                     GLOBALS.signer.set_public_key(pubkey);
@@ -686,7 +744,34 @@ impl Overlord {
                     if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
                         refmut
                             .value_mut()
-                            .retain(|job| job.payload.job_id != job_id || job.persistent)
+                            .retain(|job| job.payload.job_id != job_id || job.persistent);
+
+                        // If only one 'augments' job remains, disconnect the relay
+                        if refmut.value().len() == 1 && refmut.value()[0].reason == "augments" {
+                            let _ = self.to_minions.send(ToMinionMessage {
+                                target: url.0,
+                                payload: ToMinionPayload {
+                                    job_id: 0,
+                                    detail: ToMinionPayloadDetail::Shutdown,
+                                },
+                            });
+                        }
+                    }
+                }
+            }
+            ToOverlordMessage::MinionJobUpdated(url, old_job_id, new_job_id) => {
+                if old_job_id != 0 && new_job_id != 0 {
+                    if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
+                        refmut.value_mut().retain_mut(|job| {
+                            if job.payload.job_id == new_job_id {
+                                false // remove the new job
+                            } else if job.payload.job_id == old_job_id {
+                                job.payload.job_id = new_job_id;
+                                true // keep the old job, with modified job id
+                            } else {
+                                true // keep the rest
+                            }
+                        })
                     }
                 }
             }
@@ -751,8 +836,9 @@ impl Overlord {
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 GLOBALS.people.set_active_person(pubkey).await?;
             }
-            ToOverlordMessage::SetThreadFeed(id, referenced_by, relays) => {
-                self.set_thread_feed(id, referenced_by, relays).await?;
+            ToOverlordMessage::SetThreadFeed(id, referenced_by, relays, author) => {
+                self.set_thread_feed(id, referenced_by, relays, author)
+                    .await?;
             }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
@@ -761,8 +847,10 @@ impl Overlord {
             ToOverlordMessage::UnlockKey(mut password) => {
                 if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
                     tracing::error!("{}", e);
-                    *GLOBALS.status_message.write().await =
-                        "Could not decrypt key with that password.".to_owned();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Could not decrypt key with that password.".to_owned());
                 };
                 password.zeroize();
 
@@ -834,6 +922,49 @@ impl Overlord {
                     )
                     .await?;
                 }
+            }
+            ToOverlordMessage::VisibleNotesChanged(visible) => {
+                let visible: Vec<IdHex> = visible.iter().map(|i| (*i).into()).collect();
+
+                let mut relay_urls: Vec<RelayUrl> = GLOBALS
+                    .connected_relays
+                    .iter()
+                    .filter_map(|r| {
+                        for job in r.value() {
+                            if job.reason == "follow"
+                                || job.reason == "mentions"
+                                || job.reason == "fetch-event"
+                                || job.reason == "read-thread"
+                            {
+                                return Some(r.key().clone());
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+
+                // Resubscribe to augments
+                // On all currently connected relays
+                for url in relay_urls.drain(..) {
+                    self.engage_minion(
+                        url,
+                        vec![RelayJob {
+                            reason: "augments",
+                            payload: ToMinionPayload {
+                                job_id: rand::random::<u64>(),
+                                detail: ToMinionPayloadDetail::SubscribeAugments(visible.clone()),
+                            },
+                            persistent: false,
+                        }],
+                    )
+                    .await?;
+                }
+            }
+            ToOverlordMessage::ZapStart(id, pubkey, lnurl) => {
+                self.zap_start(id, pubkey, lnurl).await?;
+            }
+            ToOverlordMessage::Zap(id, pubkey, msats, comment) => {
+                self.zap(id, pubkey, msats, comment).await?;
             }
         }
 
@@ -918,19 +1049,32 @@ impl Overlord {
             // and use the new NostrBech32 parsing.
             for bech32 in NostrBech32::find_all_in_string(&content).iter() {
                 match bech32 {
-                    NostrBech32::Pubkey(pk) => {
-                        add_pubkey_to_tags(&mut tags, pk).await;
+                    NostrBech32::EventAddr(ea) => {
+                        add_addr_to_tags(
+                            &mut tags,
+                            ea.kind,
+                            ea.author.into(),
+                            ea.d.clone(),
+                            ea.relays.get(0).cloned(),
+                        )
+                        .await;
                     }
-                    NostrBech32::Profile(prof) => {
-                        add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
+                    NostrBech32::EventPointer(ep) => {
+                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                        add_event_to_tags(&mut tags, ep.id, "mention").await;
                     }
                     NostrBech32::Id(id) => {
                         // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
                         add_event_to_tags(&mut tags, *id, "mention").await;
                     }
-                    NostrBech32::EventPointer(ep) => {
-                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                        add_event_to_tags(&mut tags, ep.id, "mention").await;
+                    NostrBech32::Profile(prof) => {
+                        add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
+                    }
+                    NostrBech32::Pubkey(pk) => {
+                        add_pubkey_to_tags(&mut tags, pk).await;
+                    }
+                    NostrBech32::Relay(_) => {
+                        // we don't need to add this to tags I don't think.
                     }
                 }
             }
@@ -967,14 +1111,24 @@ impl Overlord {
                     // Add an 'e' tag for the note we are replying to
                     add_event_to_tags(&mut tags, parent_id, "reply").await;
                 } else {
-                    // We are replying to the root.
-                    // NIP-10: "A direct reply to the root of a thread should have a single marked "e" tag of type "root"."
-                    add_event_to_tags(&mut tags, parent_id, "root").await;
+                    match parent.replies_to() {
+                        None => {
+                            // If the parent doesn't have any e-tags, then it is the root
+                            // NIP-10: "A direct reply to the root of a thread should have a single marked "e" tag of type "root"."
+                            add_event_to_tags(&mut tags, parent_id, "root").await;
+                        },
+                        Some((_id, _mayberelay)) => {
+                            // FIXME: we could try to climb up events until we find the root.
+
+                            // We don't know the root. We are a reply.
+                            add_event_to_tags(&mut tags, parent_id, "reply").await;
+                        }
+                    }
                 }
 
                 // Possibly propagate a subject tag
                 for tag in &parent.tags {
-                    if let Tag::Subject(subject) = tag {
+                    if let Tag::Subject { subject, .. } = tag {
                         let mut subject = subject.to_owned();
                         if !subject.starts_with("Re: ") {
                             subject = format!("Re: {}", subject);
@@ -1095,6 +1249,7 @@ impl Overlord {
                 } else {
                     unreachable!()
                 },
+                trailing: Vec::new(),
             });
         }
 
@@ -1150,11 +1305,13 @@ impl Overlord {
                         .await?
                         .map(|rr| rr.to_unchecked_url()),
                     marker: None,
+                    trailing: Vec::new(),
                 },
                 Tag::Pubkey {
                     pubkey: pubkey.into(),
                     recommended_relay_url: None,
                     petname: None,
+                    trailing: Vec::new(),
                 },
             ];
 
@@ -1360,8 +1517,10 @@ impl Overlord {
         let reposted_event = match GLOBALS.events.get(&id) {
             Some(event) => event,
             None => {
-                *GLOBALS.status_message.write().await =
-                    "Cannot repost - cannot find event.".to_owned();
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Cannot repost - cannot find event.".to_owned());
                 return Ok(());
             }
         };
@@ -1376,11 +1535,13 @@ impl Overlord {
                     Some(vec) => vec.get(0).map(|rurl| rurl.to_unchecked_url()),
                 },
                 marker: None,
+                trailing: Vec::new(),
             },
             Tag::Pubkey {
                 pubkey: reposted_event.pubkey.into(),
                 recommended_relay_url: None,
                 petname: None,
+                trailing: Vec::new(),
             },
         ];
 
@@ -1462,6 +1623,7 @@ impl Overlord {
         id: Id,
         referenced_by: Id,
         mut relays: Vec<RelayUrl>,
+        author: Option<PublicKeyHex>,
     ) -> Result<(), Error> {
         // We are responsible for loading all the ancestors and all the replies, and
         // process.rs is responsible for building the relationships.
@@ -1481,6 +1643,19 @@ impl Overlord {
         // Include the relays where the referenced_by event was seen
         relays.extend(DbEventRelay::get_relays_for_event(referenced_by).await?);
         relays.extend(DbEventRelay::get_relays_for_event(id).await?);
+
+        // If we have less than 2 relays, include the write relays of the author
+        if relays.len() < 2 {
+            if let Some(pkh) = author {
+                let author_relays: Vec<RelayUrl> =
+                    DbPersonRelay::get_best_relays(pkh, Direction::Write)
+                        .await?
+                        .drain(..)
+                        .map(|pair| pair.0)
+                        .collect();
+                relays.extend(author_relays);
+            }
+        }
 
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription
@@ -1577,8 +1752,10 @@ impl Overlord {
 
         // Subscribe on relays
         if relays.is_empty() {
-            *GLOBALS.status_message.write().await =
-                "Could not find any relays for that event".to_owned();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Could not find any relays for that event".to_owned());
             return Ok(());
         } else {
             // Clean up relays
@@ -1641,8 +1818,10 @@ impl Overlord {
             }
         }
 
-        *GLOBALS.status_message.write().await =
-            format!("Followed user at {} relays", nprofile.relays.len());
+        GLOBALS
+            .status_queue
+            .write()
+            .write(format!("Followed user at {} relays", nprofile.relays.len()));
 
         // async_follow added them to the relay tracker.
         // Pick relays to start tracking them now
@@ -1655,7 +1834,10 @@ impl Overlord {
         if GLOBALS.delegation.reset() {
             // save and statusmsg
             GLOBALS.delegation.save_through_settings().await?;
-            *GLOBALS.status_message.write().await = "Delegation tag removed".to_string();
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Delegation tag removed".to_string());
         }
         Ok(())
     }
@@ -1665,6 +1847,7 @@ impl Overlord {
             id,
             recommended_relay_url: None,
             marker: None,
+            trailing: Vec::new(),
         }];
 
         let event = {
@@ -1748,7 +1931,7 @@ impl Overlord {
             if let Tag::Pubkey {
                 pubkey,
                 recommended_relay_url,
-                petname: _,
+                ..
             } = tag
             {
                 // Make sure we have that person
@@ -1819,6 +2002,14 @@ impl Overlord {
     }
 
     async fn search(text: String) -> Result<(), Error> {
+        if text.len() < 2 {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("You must enter at least 2 characters to search.".to_string());
+            return Ok(());
+        }
+
         // If npub, convert to hex so we can find it in the database
         // (This will only work with full npubs)
         let mut pubkeytext = text.clone();
@@ -1840,17 +2031,272 @@ impl Overlord {
 
         Ok(())
     }
+
+    async fn zap_start(
+        &mut self,
+        id: Id,
+        target_pubkey: PublicKey,
+        lnurl: UncheckedUrl,
+    ) -> Result<(), Error> {
+        if GLOBALS.signer.public_key().is_none() {
+            tracing::warn!("You need to setup your identity to zap.");
+            GLOBALS
+                .status_queue
+                .write()
+                .write("You need to setup your identity to zap.".to_string());
+            *GLOBALS.current_zap.write() = ZapState::None;
+            return Ok(());
+        }
+
+        *GLOBALS.current_zap.write() = ZapState::CheckingLnurl(id, target_pubkey, lnurl.clone());
+
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::new(15, 0))
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            .build()?;
+
+        // Convert the lnurl UncheckedUrl to a Url
+        let url = nostr_types::Url::try_from_unchecked_url(&lnurl)?;
+
+        // Read the PayRequestData from the lnurl
+        let response = client.get(url.as_str()).send().await?;
+        let text = response.text().await?;
+        let prd: PayRequestData = match serde_json::from_str(&text) {
+            Ok(prd) => prd,
+            Err(e) => {
+                tracing::error!("Zap pay request data invalid: {}, {}", text, e);
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write(format!("Zap pay request data invalid: {}, {}", text, e));
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Ok(());
+            }
+        };
+
+        // Verify it supports nostr
+        if prd.allows_nostr != Some(true) {
+            tracing::warn!("Zap wallet does not support nostr, trying anyways...");
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Zap wallet does not support nostr, trying anyways...".to_string());
+        }
+
+        *GLOBALS.current_zap.write() = ZapState::SeekingAmount(id, target_pubkey, prd, lnurl);
+
+        Ok(())
+    }
+
+    async fn zap(
+        &mut self,
+        id: Id,
+        target_pubkey: PublicKey,
+        msats: MilliSatoshi,
+        comment: String,
+    ) -> Result<(), Error> {
+        use serde_json::Value;
+
+        let user_pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("You need to setup your identity to zap.");
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("You need to setup your identity to zap.".to_string());
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Ok(());
+            }
+        };
+
+        // Make sure we are in the right zap state, and destructure it
+        let (state_id, state_pubkey, prd, lnurl) = match *GLOBALS.current_zap.read() {
+            ZapState::SeekingAmount(state_id, state_pubkey, ref prd, ref lnurl) => {
+                (state_id, state_pubkey, prd.clone(), lnurl.clone())
+            }
+            _ => {
+                tracing::warn!("Wrong zap state. Resetting zap state.");
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Ok(());
+            }
+        };
+
+        // Make sure the zap we are doing matches the zap we setup previously
+        if id != state_id || target_pubkey != state_pubkey {
+            tracing::warn!("Zap mismatch. Resetting zap state.");
+            *GLOBALS.current_zap.write() = ZapState::None;
+            return Ok(());
+        }
+
+        // Validate amount bounds
+        if let Some(Value::Number(n)) = prd.other.get("minSendable") {
+            if let Some(u) = n.as_u64() {
+                if msats.0 < u {
+                    tracing::warn!("Zap amount too low. Min is {}", u);
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Zap amount is too low.".to_string());
+                    // leave zap state as is.
+                    return Ok(());
+                }
+            }
+        }
+        if let Some(Value::Number(n)) = prd.other.get("maxSendable") {
+            if let Some(u) = n.as_u64() {
+                if msats.0 > u {
+                    tracing::warn!("Zap amount too high. Max is {}", u);
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Zap amount is too high.".to_string());
+                    // leave zap state as is.
+                    return Ok(());
+                }
+            }
+        }
+
+        // Bump the state
+        *GLOBALS.current_zap.write() = ZapState::LoadingInvoice(id, target_pubkey);
+
+        let msats_string: String = format!("{}", msats.0);
+
+        // Convert the callback UncheckedUrl to a Url
+        let callback = nostr_types::Url::try_from_unchecked_url(&prd.callback)?;
+
+        // Get the relays to have the receipt posted to
+        let relays = {
+            // Start with the relays the event was seen on
+            let mut relays = match GLOBALS.events.get_seen_on(&id) {
+                Some(vec) => vec,
+                None => Vec::new(),
+            };
+
+            // Add the read relays of the target person
+            let mut target_read_relays =
+                DbPersonRelay::get_best_relays(target_pubkey.into(), Direction::Read).await?;
+            let target_read_relays: Vec<RelayUrl> =
+                target_read_relays.drain(..).map(|pair| pair.0).collect();
+            relays.extend(target_read_relays);
+
+            // Add all my write relays
+            let write_relay_urls: Vec<RelayUrl> =
+                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+            relays.extend(write_relay_urls);
+
+            if relays.is_empty() {
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Err(ErrorKind::NoRelay.into());
+            }
+
+            // Deduplicate
+            relays.sort();
+            relays.dedup();
+
+            // Turn relays into strings for the event tag
+            let relays: Vec<String> = relays.iter().map(|r| r.as_str().to_owned()).collect();
+            relays
+        };
+
+        // Generate the zap request event
+        let pre_event = PreEvent {
+            pubkey: user_pubkey,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::ZapRequest,
+            tags: vec![
+                Tag::Event {
+                    id,
+                    recommended_relay_url: None,
+                    marker: None,
+                    trailing: Vec::new(),
+                },
+                Tag::Pubkey {
+                    pubkey: target_pubkey.into(),
+                    recommended_relay_url: None,
+                    petname: None,
+                    trailing: Vec::new(),
+                },
+                Tag::Other {
+                    tag: "relays".to_owned(),
+                    data: relays,
+                },
+                Tag::Other {
+                    tag: "amount".to_owned(),
+                    data: vec![msats_string.clone()],
+                },
+                Tag::Other {
+                    tag: "lnurl".to_owned(),
+                    data: vec![lnurl.as_str().to_owned()],
+                },
+            ],
+            content: comment,
+            ots: None,
+        };
+
+        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+        let serialized_event = serde_json::to_string(&event)?;
+
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::new(15, 0))
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            .build()?;
+
+        let mut url = match url::Url::parse(&callback.0) {
+            Ok(url) => url,
+            Err(e) => {
+                tracing::error!("{}", e);
+                *GLOBALS.current_zap.write() = ZapState::None;
+                return Ok(());
+            }
+        };
+
+        url.query_pairs_mut()
+            .clear()
+            .append_pair("nostr", &serialized_event)
+            .append_pair("amount", &msats_string);
+
+        let response = client.get(url).send().await?;
+        let text = response.text().await?;
+
+        let value: serde_json::Value = serde_json::from_str(&text)?;
+        if let Value::Object(map) = value {
+            if let Some(Value::String(s)) = map.get("pr") {
+                tracing::debug!("Zap Invoice = {}", s);
+                *GLOBALS.current_zap.write() = ZapState::ReadyToPay(id, s.to_owned());
+                return Ok(());
+            }
+        }
+
+        *GLOBALS.current_zap.write() = ZapState::None;
+        tracing::warn!("Zap invoice data not recognized: {}", text);
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Zap invoice data not recognized.".to_string());
+
+        Ok(())
+    }
 }
 
 fn work_logger(work_receiver: mpsc::Receiver<u8>, powint: u8) {
     while let Ok(work) = work_receiver.recv() {
         if work >= powint {
             // Even if work > powint, it doesn't count since we declared our target.
-            *GLOBALS.status_message.blocking_write() =
-                format!("Message sent with {powint} bits of work computed.");
+            GLOBALS
+                .status_queue
+                .write()
+                .write(format!("Message sent with {powint} bits of work computed."));
             break;
         } else {
-            *GLOBALS.status_message.blocking_write() = format!("PoW: {work}/{powint}");
+            GLOBALS
+                .status_queue
+                .write()
+                .write(format!("PoW: {work}/{powint}"));
         }
     }
 }

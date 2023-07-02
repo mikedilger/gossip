@@ -31,9 +31,10 @@ pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
                 NostrBech32::Pubkey(_) | NostrBech32::Profile(_) => {
                     indices.push((offset + end, HighlightType::PublicKey))
                 }
-                NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
+                NostrBech32::EventAddr(_) | NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
                     indices.push((offset + end, HighlightType::Event))
                 }
+                NostrBech32::Relay(_) => indices.push((offset + end, HighlightType::Relay)),
             }
         }
         offset += end;
@@ -268,13 +269,19 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     if send_now {
         let mut tags: Vec<Tag> = Vec::new();
         if app.include_content_warning {
-            tags.push(Tag::ContentWarning(app.content_warning.clone()));
+            tags.push(Tag::ContentWarning {
+                warning: app.content_warning.clone(),
+                trailing: Vec::new(),
+            });
         }
         if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
             tags.push(delegatee_tag);
         }
         if app.include_subject {
-            tags.push(Tag::Subject(app.subject.clone()));
+            tags.push(Tag::Subject {
+                subject: app.subject.clone(),
+                trailing: Vec::new(),
+            });
         }
         match app.replying_to {
             Some(replying_to_id) => {

@@ -10,14 +10,27 @@ use crate::relationship::Relationship;
 use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
 use crate::signer::Signer;
+use crate::status::StatusQueue;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
-use nostr_types::{Event, Id, Profile, PublicKeyHex, RelayUrl};
+use nostr_types::{
+    Event, Id, MilliSatoshi, PayRequestData, Profile, PublicKey, PublicKeyHex, RelayUrl,
+    UncheckedUrl,
+};
 use parking_lot::RwLock as PRwLock;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
+
+#[derive(Debug, Clone)]
+pub enum ZapState {
+    None,
+    CheckingLnurl(Id, PublicKey, UncheckedUrl),
+    SeekingAmount(Id, PublicKey, PayRequestData, UncheckedUrl),
+    LoadingInvoice(Id, PublicKey),
+    ReadyToPay(Id, String), // String is the Zap Invoice as a string, to be shown as a QR code
+}
 
 /// Only one of these is ever created, via lazy_static!, and represents
 /// global state for the rust application
@@ -96,8 +109,8 @@ pub struct Globals {
 
     pub pixels_per_point_times_100: AtomicU32,
 
-    /// UI status message
-    pub status_message: RwLock<String>,
+    /// UI status messages
+    pub status_queue: PRwLock<StatusQueue>,
 
     pub bytes_read: AtomicUsize,
 
@@ -110,6 +123,17 @@ pub struct Globals {
     /// Search results
     pub people_search_results: PRwLock<Vec<DbPerson>>,
     pub note_search_results: PRwLock<Vec<Event>>,
+
+    /// UI note cache invalidation per note
+    // when we update an augment (deletion/reaction/zap) the UI must recompute
+    pub ui_notes_to_invalidate: PRwLock<Vec<Id>>,
+
+    /// UI note cache invalidation per person
+    // when we update a DbPerson, the UI must recompute all notes by them
+    pub ui_people_to_invalidate: PRwLock<Vec<PublicKeyHex>>,
+
+    /// Current zap data, for UI
+    pub current_zap: PRwLock<ZapState>,
 }
 
 lazy_static! {
@@ -144,12 +168,17 @@ lazy_static! {
             fetcher: Fetcher::new(),
             failed_avatars: RwLock::new(HashSet::new()),
             pixels_per_point_times_100: AtomicU32::new(139), // 100 dpi, 1/72th inch => 1.38888
-            status_message: RwLock::new("Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()),
+            status_queue: PRwLock::new(StatusQueue::new(
+                "Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()
+            )),
             bytes_read: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),
             people_search_results: PRwLock::new(Vec::new()),
             note_search_results: PRwLock::new(Vec::new()),
+            ui_notes_to_invalidate: PRwLock::new(Vec::new()),
+            ui_people_to_invalidate: PRwLock::new(Vec::new()),
+            current_zap: PRwLock::new(ZapState::None),
         }
     };
 }
@@ -235,6 +264,18 @@ impl Globals {
         let mut v: Vec<(char, usize)> = output.iter().map(|(c, u)| (*c, u.len())).collect();
         v.sort();
         (v, self_already_reacted)
+    }
+
+    pub fn get_zap_total_sync(id: Id) -> MilliSatoshi {
+        let mut total = MilliSatoshi(0);
+        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
+            for (_other_id, relationship) in relationships.iter() {
+                if let Relationship::ZapReceipt(millisats) = relationship {
+                    total = total + *millisats;
+                }
+            }
+        }
+        total
     }
 
     pub fn get_deletion_sync(id: Id) -> Option<String> {

@@ -502,7 +502,7 @@ impl RelayEntry {
                 if response.clicked() {
                     ui.output_mut(|o| {
                         o.copied_text = contact.to_string();
-                        *GLOBALS.status_message.blocking_write() = "copied to clipboard".into();
+                        GLOBALS.status_queue.write().write( "copied to clipboard".to_owned() );
                     });
                 }
                 response.on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -532,7 +532,7 @@ impl RelayEntry {
                     if response.clicked() {
                         ui.output_mut(|o| {
                             o.copied_text = npub;
-                            *GLOBALS.status_message.blocking_write() = "copied to clipboard".into();
+                            GLOBALS.status_queue.write().write( "copied to clipboard".into() );
                         });
                     }
                     response.on_hover_cursor(egui::CursorIcon::PointingHand);

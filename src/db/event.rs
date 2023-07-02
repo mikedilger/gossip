@@ -101,7 +101,7 @@ impl DbEvent {
             .read()
             .feed_related_event_kinds()
             .iter()
-            .map(|e| <EventKind as Into<u64>>::into(*e))
+            .map(|e| <EventKind as Into<u32>>::into(*e))
             .map(|e| e.to_string())
             .collect::<Vec<String>>()
             .join(",");
@@ -159,7 +159,10 @@ impl DbEvent {
             let mut output: Vec<Event> = Vec::new();
             while let Some(row) = rows.next()? {
                 let raw: String = row.get(0)?;
-                let event: Event = serde_json::from_str(&raw)?;
+                let event: Event = match serde_json::from_str(&raw) {
+                    Ok(e) => e,
+                    Err(_) => continue, // ignore the error, keep searching
+                };
                 output.push(event);
             }
             Ok(output)

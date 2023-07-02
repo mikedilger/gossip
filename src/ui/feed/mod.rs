@@ -6,7 +6,10 @@ use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
 use nostr_types::Id;
 
-pub use note::Notes;
+mod notedata;
+
+mod notes;
+pub use notes::Notes;
 
 mod note;
 pub use note::NoteRenderData;
@@ -22,6 +25,22 @@ struct FeedNoteParams {
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
+    // Do cache invalidations
+    if !GLOBALS.ui_notes_to_invalidate.read().is_empty() {
+        let mut handle = GLOBALS.ui_notes_to_invalidate.write();
+        for id in handle.iter() {
+            app.notes.cache_invalidate_note(id);
+        }
+        *handle = Vec::new();
+    }
+    if !GLOBALS.ui_people_to_invalidate.read().is_empty() {
+        let mut handle = GLOBALS.ui_people_to_invalidate.write();
+        for pkh in handle.iter() {
+            app.notes.cache_invalidate_person(pkh);
+        }
+        *handle = Vec::new();
+    }
+
     let feed_kind = GLOBALS.feed.get_feed_kind();
 
     match feed_kind {
@@ -127,6 +146,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
         }
     }
+
+    // Handle any changes due to changes in which notes are visible
+    app.handle_visible_note_changes();
 }
 
 fn render_a_feed(
@@ -217,7 +239,7 @@ fn render_note_maybe_fake(
         Some(h) => *h,
         None => {
             // render the actual post and return
-            // The first frame will be very slow, but it will only need to do this
+            // The first frame will be slow, but it will only need to do this
             // once per post.
             note::render_note(
                 app,

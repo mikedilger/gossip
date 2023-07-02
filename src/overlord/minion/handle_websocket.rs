@@ -36,13 +36,13 @@ impl Minion {
                     )
                 } else {
                     let handle = self
-                        .subscriptions
+                        .subscription_map
                         .get_handle_by_id(&subid.0)
                         .unwrap_or_else(|| "_".to_owned());
 
                     // Events that come in after EOSE on the general feed bump the last_general_eose
                     // timestamp for that relay, so we don't query before them next time we run.
-                    if let Some(sub) = self.subscriptions.get_mut_by_id(&subid.0) {
+                    if let Some(sub) = self.subscription_map.get_mut_by_id(&subid.0) {
                         if handle == "general_feed" && sub.eose() {
                             // set in database
                             DbRelay::update_general_eose(
@@ -69,11 +69,11 @@ impl Minion {
                 }
             }
             RelayMessage::Notice(msg) => {
-                tracing::info!("{}: NOTICE: {}", &self.url, msg);
+                tracing::warn!("{}: NOTICE: {}", &self.url, msg);
             }
             RelayMessage::Eose(subid) => {
                 let handle = self
-                    .subscriptions
+                    .subscription_map
                     .get_handle_by_id(&subid.0)
                     .unwrap_or_else(|| "_".to_owned());
 
@@ -81,7 +81,7 @@ impl Minion {
                 let close: bool = handle.starts_with("temp_");
 
                 // Update the matching subscription
-                match self.subscriptions.get_mut_by_id(&subid.0) {
+                match self.subscription_map.get_mut_by_id(&subid.0) {
                     Some(sub) => {
                         tracing::debug!("{}: {}: EOSE: {:?}", &self.url, handle, subid);
                         if close {

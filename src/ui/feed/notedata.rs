@@ -3,10 +3,9 @@ use crate::{
     people::DbPerson,
 };
 use nostr_types::{
-    ContentSegment, Event, EventDelegation, EventKind, Id, NostrBech32, PublicKeyHex,
+    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKeyHex,
     ShatteredContent, Tag,
 };
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(PartialEq)]
 pub(super) enum RepostType {
@@ -38,6 +37,8 @@ pub(super) struct NoteData {
     pub(super) mentions: Vec<(usize, Id)>,
     /// Known reactions to this post
     pub(super) reactions: Vec<(char, usize)>,
+    /// The total amount of MilliSatoshi zapped to this note
+    pub(super) zaptotal: MilliSatoshi,
     /// Has the current user reacted to this post?
     pub(super) self_already_reacted: bool,
     /// The content shattered into renderable elements
@@ -55,17 +56,14 @@ impl NoteData {
 
         let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
 
+        let zaptotal = Globals::get_zap_total_sync(event.id);
+
         // build a list of all cached mentions and their index
         // only notes that are in the cache will be rendered as reposts
         let mentions = {
             let mut mentions = Vec::<(usize, Id)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
-                if let Tag::Event {
-                    id,
-                    recommended_relay_url: _,
-                    marker: _,
-                } = tag
-                {
+                if let Tag::Event { id, .. } = tag {
                     mentions.push((i, *id));
                 }
             }
@@ -133,23 +131,19 @@ impl NoteData {
             if event.kind == EventKind::Repost && embedded_event.is_some() {
                 Some(RepostType::Kind6Embedded)
             } else if has_tag_reference || has_nostr_event_reference || content_trim.is_empty() {
-                if !mentions.is_empty() {
-                    if content_trim.is_empty() {
-                        // handle NIP-18 conform kind:6 with 'e' tag but no content
-                        shattered_content
-                            .segments
-                            .push(ContentSegment::TagReference(0));
+                if content_trim.is_empty() {
+                    // handle NIP-18 conform kind:6 with 'e' tag but no content
+                    shattered_content
+                        .segments
+                        .push(ContentSegment::TagReference(0));
 
-                        if event.kind == EventKind::Repost {
-                            Some(RepostType::Kind6Mention)
-                        } else {
-                            Some(RepostType::MentionOnly)
-                        }
+                    if event.kind == EventKind::Repost {
+                        Some(RepostType::Kind6Mention)
                     } else {
-                        Some(RepostType::CommentMention)
+                        Some(RepostType::MentionOnly)
                     }
                 } else {
-                    None
+                    Some(RepostType::CommentMention)
                 }
             } else {
                 None
@@ -177,6 +171,7 @@ impl NoteData {
             embedded_event,
             mentions,
             reactions,
+            zaptotal,
             self_already_reacted,
             shattered_content,
         }
@@ -189,108 +184,5 @@ impl NoteData {
         self.reactions.append(&mut reactions);
 
         self.self_already_reacted = self_already_reacted;
-    }
-}
-
-/// a 'note' is a processed event
-pub struct Notes {
-    notes: HashMap<Id, Rc<RefCell<NoteData>>>,
-}
-
-impl Notes {
-    pub fn new() -> Notes {
-        Notes {
-            notes: HashMap::new(),
-        }
-    }
-
-    /*
-    /// Drop NoteData objects that do not have a
-    /// correlated event in the event cache
-    pub(super) fn cache_invalidate_missing_events(&mut self) {
-        self.notes.retain(|id,_| GLOBALS.events.contains_key(id));
-    }
-     */
-
-    /// Drop NoteData for a specific note
-    pub(super) fn cache_invalidate_note(&mut self, id: &Id) {
-        self.notes.remove(id);
-    }
-
-    /// Drop all NoteData for a given person
-    pub(in crate::ui) fn cache_invalidate_person(&mut self, pubkey: &PublicKeyHex) {
-        self.notes
-            .retain(|_, note| note.borrow().author.pubkey != *pubkey);
-    }
-
-    pub(super) fn try_update_and_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
-        if self.notes.contains_key(id) {
-            // get a mutable reference to update reactions, then give it back
-            if let Some(pair) = self.notes.get(id) {
-                if let Ok(mut mut_ref) = pair.try_borrow_mut() {
-                    mut_ref.update_reactions();
-                }
-            }
-            // return from cache
-            return self._try_get_and_borrow(id);
-        } else {
-            // otherwise try to create new and add to cache
-            if let Some(event) = GLOBALS.events.get(id) {
-                let note = NoteData::new(event);
-                // add to cache
-                let ref_note = Rc::new(RefCell::new(note));
-                self.notes.insert(*id, ref_note);
-                return self._try_get_and_borrow(id);
-            } else {
-                // send a worker to try and load it from the database
-                // if it's in the db it will go into the cache and be
-                // available on a future UI update
-                let id_copy = id.to_owned();
-                tokio::spawn(async move {
-                    if let Err(e) = GLOBALS.events.get_local(id_copy).await {
-                        tracing::error!("{}", e);
-                    }
-                });
-            }
-        }
-
-        None
-    }
-
-    /*
-    pub(super) fn try_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
-        if self.notes.contains_key(id) {
-            // return from cache
-            return self._try_get_and_borrow(id)
-        } else {
-            // otherwise try to create new and add to cache
-            if let Some(event) = GLOBALS.events.get(id) {
-                if let Some(note) = NoteData::new(event) {
-                    // add to cache
-                    let ref_note = Rc::new(RefCell::new(note));
-                    self.notes.insert(*id, ref_note);
-                    return self._try_get_and_borrow(id);
-                }
-            } else {
-                // send a worker to try and load it from the database
-                // if it's in the db it will go into the cache and be
-                // available on the next UI update
-                let id_copy = id.to_owned();
-                tokio::spawn(async move {
-                    if let Err(e) = GLOBALS.events.get_local(id_copy).await {
-                        tracing::error!("{}", e);
-                    }
-                });
-            }
-        }
-        None
-    }
-     */
-
-    fn _try_get_and_borrow(&self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
-        if let Some(value) = self.notes.get(id) {
-            return Some(value.clone());
-        }
-        None
     }
 }

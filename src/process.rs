@@ -1,7 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{
-    DbEvent, DbEventHashtag, DbEventRelationship, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay,
-};
+use crate::db::{DbEvent, DbEventHashtag, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
@@ -29,7 +27,10 @@ pub async fn process_new_event(
             raw: serde_json::to_string(&event)?,
             pubkey: event.pubkey.into(),
             created_at: event.created_at.0,
-            kind: event.kind.into(),
+            kind: {
+                let k: u32 = event.kind.into();
+                k.into()
+            },
             content: event.content.clone(),
             ots: event.ots.clone(),
         };
@@ -151,9 +152,8 @@ pub async fn process_new_event(
 
             match tag {
                 Tag::Event {
-                    id: _,
                     recommended_relay_url: Some(should_be_url),
-                    marker: _,
+                    ..
                 } => {
                     if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
                         // Insert (or ignore) into relays table
@@ -164,7 +164,7 @@ pub async fn process_new_event(
                 Tag::Pubkey {
                     pubkey,
                     recommended_relay_url: Some(should_be_url),
-                    petname: _,
+                    ..
                 } => {
                     if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
                         // Insert (or ignore) into relays table
@@ -196,88 +196,61 @@ pub async fn process_new_event(
     {
         // replies to
         if let Some((id, _)) = event.replies_to() {
-            if from_relay {
-                let db_event_relationship = DbEventRelationship {
-                    original: event.id.as_hex_string(),
-                    refers_to: id.as_hex_string(),
-                    relationship: "reply".to_string(),
-                    content: None,
-                };
-                db_event_relationship.insert().await?;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Reply).await;
         }
 
         // replies to root
         if let Some((id, _)) = event.replies_to_root() {
-            if from_relay {
-                let db_event_relationship = DbEventRelationship {
-                    original: event.id.as_hex_string(),
-                    refers_to: id.as_hex_string(),
-                    relationship: "root".to_string(),
-                    content: None,
-                };
-                db_event_relationship.insert().await?;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Root).await;
         }
 
         // mentions
         for (id, _) in event.mentions() {
-            if from_relay {
-                let db_event_relationship = DbEventRelationship {
-                    original: event.id.as_hex_string(),
-                    refers_to: id.as_hex_string(),
-                    relationship: "mention".to_string(),
-                    content: None,
-                };
-                db_event_relationship.insert().await?;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Mention).await;
         }
 
         // reacts to
         if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-            if from_relay {
-                let db_event_relationship = DbEventRelationship {
-                    original: event.id.as_hex_string(),
-                    refers_to: id.as_hex_string(),
-                    relationship: "reaction".to_string(),
-                    content: Some(reaction.clone()),
-                };
-                db_event_relationship.insert().await?;
-            }
-
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Reaction(reaction)).await;
+
+            // UI cache invalidation (so the note get rerendered)
+            GLOBALS.ui_notes_to_invalidate.write().push(id);
         }
 
         // deletes
         if let Some((ids, reason)) = event.deletes() {
-            for id in ids {
-                if from_relay {
-                    let db_event_relationship = DbEventRelationship {
-                        original: event.id.as_hex_string(),
-                        refers_to: id.as_hex_string(),
-                        relationship: "deletion".to_string(),
-                        content: Some(reason.clone()),
-                        // FIXME: this table should have one more column for optional data
-                    };
-                    db_event_relationship.insert().await?;
-                }
+            // UI cache invalidation (so the notes get rerendered)
+            GLOBALS.ui_notes_to_invalidate.write().extend(&ids);
 
+            for id in ids {
                 // since it is a delete, we don't actually desire the event.
 
                 // Insert into relationships
                 Globals::add_relationship(id, event.id, Relationship::Deletion(reason.clone()))
                     .await;
             }
+        }
+
+        // zaps
+        match event.zaps() {
+            Ok(Some(zapdata)) => {
+                // Insert into relationships
+                Globals::add_relationship(
+                    zapdata.id,
+                    event.id,
+                    Relationship::ZapReceipt(zapdata.amount),
+                )
+                .await;
+
+                // UI cache invalidation (so the note gets rerendered)
+                GLOBALS.ui_notes_to_invalidate.write().push(zapdata.id);
+            }
+            Err(e) => tracing::error!("Invalid zap receipt: {}", e),
+            _ => {}
         }
     }
 
@@ -406,7 +379,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
     let mut inbox_relays: Vec<RelayUrl> = Vec::new();
     let mut outbox_relays: Vec<RelayUrl> = Vec::new();
     for tag in event.tags.iter() {
-        if let Tag::Reference { url, marker } = tag {
+        if let Tag::Reference { url, marker, .. } = tag {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if let Some(m) = marker {
                     match &*m.trim().to_lowercase() {
