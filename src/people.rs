@@ -310,7 +310,6 @@ impl People {
 
                 // Don't load metadata now, we may have it on disk and get
                 // it from the future load.
-                return;
             }
         }
     }
@@ -363,7 +362,7 @@ impl People {
         // Update metadata_last_received, even if we don't update the metadata
         {
             // Update in memory
-            if let Some(mut person) = self.people.get_mut(&pubkeyhex) {
+            if let Some(mut person) = self.people.get_mut(pubkeyhex) {
                 person.metadata_last_received = now.0;
             }
 
