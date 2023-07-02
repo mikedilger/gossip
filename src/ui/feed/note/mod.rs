@@ -781,7 +781,7 @@ fn render_note_inner(
 }
 
 fn thin_separator(ui: &mut Ui, stroke: Stroke) {
-    let mut style = ui.style_mut();
+    let style = ui.style_mut();
     style.visuals.widgets.noninteractive.bg_stroke = stroke;
     ui.add(Separator::default().spacing(0.0));
     ui.reset_style();

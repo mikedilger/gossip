@@ -1009,7 +1009,7 @@ impl People {
         // Make sure memory matches
         for mut elem in self.people.iter_mut() {
             let pkh = elem.key().clone();
-            let mut person = elem.value_mut();
+            let person = elem.value_mut();
             if pubkeys.contains(&pkh) {
                 person.followed = 1;
             } else if !merge {
@@ -1038,7 +1038,7 @@ impl People {
         .await??;
 
         for mut elem in self.people.iter_mut() {
-            let mut person = elem.value_mut();
+            let person = elem.value_mut();
             person.followed = 0;
         }
 
