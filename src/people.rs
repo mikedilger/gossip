@@ -327,7 +327,9 @@ impl People {
             .collect();
         self.need_metadata.clear();
 
-        tracing::debug!("Periodic metadata fetch for {} people", need_metadata.len());
+        if ! need_metadata.is_empty() {
+            tracing::debug!("Periodic metadata fetch for {} people", need_metadata.len());
+        }
 
         for pubkey in need_metadata.drain(..) {
             if let Some(person) = self.people.get(&pubkey) {
