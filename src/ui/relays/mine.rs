@@ -36,9 +36,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     let scroll_size = ui.available_size_before_wrap();
     let id_source: Id = "MyRelaysScroll".into();
+    let enable_scroll = !is_editing && !egui::ScrollArea::is_scrolling(ui, id_source);
 
     egui::ScrollArea::vertical()
         .id_source(id_source)
+        .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
             let mut pos_last_entry = ui.cursor().left_top();
             let mut has_edit_target = false;
