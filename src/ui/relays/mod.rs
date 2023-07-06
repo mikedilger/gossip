@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, ScrollArea, Ui, Vec2};
 use egui_extras::{Column, TableBuilder};
-use nostr_types::RelayUrl;
+use nostr_types::{RelayUrl, Unixtime};
 
 mod all;
 
@@ -112,6 +112,44 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 } else {
                     ui.label("All followed people are fully covered.".to_owned());
                 }
+
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
+
+                ui.heading("Penalty Box");
+                ui.add_space(10.0);
+
+                let now = Unixtime::now().unwrap().0;
+
+                let excluded: Vec<(String, i64)> = GLOBALS.relay_picker.excluded_relays_iter().map(|refmulti| {
+                    (refmulti.key().as_str().to_owned(),
+                     *refmulti.value() - now)
+                }).collect();
+
+                TableBuilder::new(ui)
+                    .striped(true)
+                    .column(Column::auto().resizable(true))
+                    .column(Column::auto().resizable(true))
+                    .header(20.0, |mut header| {
+                        header.col(|ui| {
+                            ui.heading("Relay URL");
+                        });
+                        header.col(|ui| {
+                            ui.heading("Time Remaining");
+                        });
+                    })
+                    .body(|body| {
+                        body.rows(24.0, excluded.len(), |row_index, mut row| {
+                            let data = &excluded[row_index];
+                            row.col(|ui| {
+                                ui.label(&data.0);
+                            });
+                            row.col(|ui| {
+                                ui.label(format!("{}", data.1));
+                            });
+                        });
+                    });
             });
     } else if app.page == Page::RelaysAll {
         all::update(app, ctx, frame, ui);
