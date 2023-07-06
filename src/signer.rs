@@ -2,7 +2,9 @@ use std::sync::mpsc::Sender;
 
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use nostr_types::{EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent, PrivateKey, PublicKey};
+use nostr_types::{
+    EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent, PrivateKey, PublicKey,
+};
 use parking_lot::RwLock;
 use tokio::task;
 
@@ -107,7 +109,9 @@ impl Signer {
                 }
 
                 // Invalidate DMs so they rerender decrypted
-                let dms: Vec<Id> = GLOBALS.events.iter()
+                let dms: Vec<Id> = GLOBALS
+                    .events
+                    .iter()
                     .filter(|e| e.kind == EventKind::EncryptedDirectMessage)
                     .map(|e| e.value().id)
                     .collect();

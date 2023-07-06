@@ -327,7 +327,7 @@ impl People {
             .collect();
         self.need_metadata.clear();
 
-        if ! need_metadata.is_empty() {
+        if !need_metadata.is_empty() {
             tracing::debug!("Periodic metadata fetch for {} people", need_metadata.len());
         }
 
