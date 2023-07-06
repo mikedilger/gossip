@@ -59,6 +59,7 @@ sdl2 = { version = "0.35.2", features = ["bundled"], optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
+speedy = { git = "https://github.com/mikedilger/speedy", rev = "b8b713a7006958616dd3ef3ba63217740b4b09c2" }
 time = { version = "0.3", features = [ "formatting", "macros" ] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
