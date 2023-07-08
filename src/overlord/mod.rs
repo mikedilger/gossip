@@ -1080,7 +1080,9 @@ impl Overlord {
             }
 
             // Standardize nostr links (prepend 'nostr:' where missing)
-            content = NostrUrl::urlize(&content);
+            // (This was a bad idea to do this late in the process, it breaks links that contain
+            //  nostr urls)
+            // content = NostrUrl::urlize(&content);
 
             if let Some(parent_id) = reply_to {
                 // Get the event we are replying to
