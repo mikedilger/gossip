@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::{db::DbRelay, globals::GLOBALS, comms::ToOverlordMessage};
 
-use super::{GossipUi, Page};
+use super::{GossipUi, Page, widgets::RelayEntry};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{Id, vec2, Rect, RichText, TextBuffer};
@@ -19,8 +19,12 @@ pub(super) struct RelayUi {
     sort: RelaySorting,
     /// which relays to include in the list
     filter: RelayFilter,
-    /// an optional relay url
+    /// to edit, add the relay url here
     edit: Option<RelayUrl>,
+    /// did we just finish editing an entry, add it here
+    edit_done: Option<RelayUrl>,
+    /// do we still need to scroll to the edit
+    edit_needs_scroll: bool,
 
     /// Add Relay dialog
     pub(super) add_dialog_active: bool,
@@ -34,6 +38,8 @@ impl RelayUi {
             sort: RelaySorting::default(),
             filter: RelayFilter::default(),
             edit: None,
+            edit_done: None,
+            edit_needs_scroll: false,
             add_dialog_active: false,
             new_relay_url: "".to_string(),
         }
@@ -97,6 +103,76 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     } else if app.page == Page::RelaysKnownNetwork {
         known::update(app, ctx, frame, ui);
     }
+}
+
+pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbRelay>, id_source: Id) {
+    let scroll_size = ui.available_size_before_wrap();
+    let is_editing = app.relays.edit.is_some();
+    let enable_scroll = !is_editing && !egui::ScrollArea::is_scrolling(ui, id_source);
+
+    egui::ScrollArea::vertical()
+        .id_source(id_source)
+        .enable_scrolling(enable_scroll)
+        .show(ui, |ui| {
+        let mut pos_last_entry = ui.cursor().left_top();
+        let mut has_edit_target = false;
+
+        for db_relay in relays {
+            let db_url = db_relay.url.clone();
+            // is THIS entry being edited?
+            let edit = if let Some(edit_url) = &app.relays.edit {
+                if edit_url == &db_url {
+                    has_edit_target = true;
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            let enabled = edit || !is_editing;
+            let mut widget = RelayEntry::new(db_relay, app);
+            widget.set_edit(edit);
+            widget.set_enabled(enabled);
+            if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
+                widget.set_user_count(assignment.pubkeys.len());
+            }
+            let response = ui.add_enabled(enabled, widget.clone());
+            if response.clicked() {
+                if !edit {
+                    app.relays.edit = Some(db_url);
+                    app.relays.edit_needs_scroll = true;
+                    has_edit_target = true;
+                } else {
+                    app.relays.edit_done = Some(db_url);
+                    app.relays.edit = None;
+                }
+            } else {
+                if edit && has_edit_target && app.relays.edit_needs_scroll {
+                    // on the start of an edit, scroll to the entry (after fixed sorting)
+                    response.scroll_to_me(Some(egui::Align::Center));
+                    app.relays.edit_needs_scroll = false;
+                } else if Some(db_url) == app.relays.edit_done {
+                    // on the end of an edit, scroll to the entry (after sorting has reverted)
+                    response.scroll_to_me(Some(egui::Align::Center));
+                    app.relays.edit_done = None;
+                }
+            }
+            pos_last_entry = response.rect.left_top();
+        }
+
+        if !has_edit_target {
+            // the relay we wanted to edit was not in the list anymore
+            // -> release edit modal
+            app.relays.edit = None;
+        }
+
+        // add enough space to show the last relay entry at the top when editing
+        if app.relays.edit.is_some() {
+            let desired_size = scroll_size - vec2(0.0, ui.cursor().top() - pos_last_entry.y);
+            ui.allocate_exact_size(desired_size, egui::Sense::hover());
+        }
+    });
 }
 
 pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
