@@ -2,9 +2,10 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::Id;
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 use tokio::task::spawn_blocking;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Readable, Writable)]
 pub struct DbEventFlags {
     pub event: Id,
     pub viewed: bool,

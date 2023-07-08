@@ -1,9 +1,10 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{Id, RelayInformationDocument, RelayUrl};
+use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbRelay {
     pub url: RelayUrl,
     pub success_count: u64,

@@ -4,8 +4,9 @@ use crate::ui::{Theme, ThemeVariant};
 use nostr_types::{EventKind, PublicKey};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable)]
 pub struct Settings {
     pub feed_chunk: u64,
     pub replies_chunk: u64,

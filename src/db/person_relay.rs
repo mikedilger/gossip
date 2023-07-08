@@ -3,9 +3,10 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use gossip_relay_picker::Direction;
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
+use speedy::{Readable, Writable};
 use tokio::task::spawn_blocking;
 
-#[derive(Debug)]
+#[derive(Debug, Readable, Writable)]
 pub struct DbPersonRelay {
     // The person
     pub person: String,
