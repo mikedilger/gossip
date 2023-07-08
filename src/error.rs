@@ -27,11 +27,13 @@ pub enum ErrorKind {
     ReqwestHttpError(reqwest::Error),
     Sql(rusqlite::Error),
     SerdeJson(serde_json::Error),
+    SliceError(std::array::TryFromSliceError),
     Speedy(speedy::Error),
     Timeout(tokio::time::error::Elapsed),
     UrlHasEmptyHostname,
     UrlHasNoHostname,
     UrlParse(url::ParseError),
+    Utf8Error(std::str::Utf8Error),
     Websocket(tungstenite::Error),
 }
 
@@ -80,11 +82,13 @@ impl std::fmt::Display for Error {
             ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
             Sql(e) => write!(f, "SQL: {e}"),
             SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
+            SliceError(e) => write!(f, "Slice: {e}"),
             Speedy(e) => write!(f, "Speedy: {e}"),
             Timeout(e) => write!(f, "Timeout: {e}"),
             UrlHasEmptyHostname => write!(f, "URL has empty hostname"),
             UrlHasNoHostname => write!(f, "URL has no hostname"),
             UrlParse(e) => write!(f, "URL parse: {e}"),
+            Utf8Error(e) => write!(f, "UTF-8 error: {e}"),
             Websocket(e) => write!(f, "Websocket: {e}"),
         }
     }
@@ -224,6 +228,12 @@ impl From<serde_json::Error> for ErrorKind {
     }
 }
 
+impl From<std::array::TryFromSliceError> for ErrorKind {
+    fn from(e: std::array::TryFromSliceError) -> ErrorKind {
+        ErrorKind::SliceError(e)
+    }
+}
+
 impl From<speedy::Error> for ErrorKind {
     fn from(e: speedy::Error) -> ErrorKind {
         ErrorKind::Speedy(e)
@@ -233,6 +243,12 @@ impl From<speedy::Error> for ErrorKind {
 impl From<tokio::time::error::Elapsed> for ErrorKind {
     fn from(e: tokio::time::error::Elapsed) -> ErrorKind {
         ErrorKind::Timeout(e)
+    }
+}
+
+impl From<std::str::Utf8Error> for ErrorKind {
+    fn from(e: std::str::Utf8Error) -> ErrorKind {
+        ErrorKind::Utf8Error(e)
     }
 }
 
