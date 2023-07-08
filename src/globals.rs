@@ -11,6 +11,7 @@ use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
 use crate::signer::Signer;
 use crate::status::StatusQueue;
+use crate::storage::Storage;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
 use nostr_types::{
@@ -138,6 +139,9 @@ pub struct Globals {
 
     /// Hashtag regex
     pub hashtag_regex: Regex,
+
+    /// LMDB storage
+    pub storage: Storage,
 }
 
 lazy_static! {
@@ -148,6 +152,11 @@ lazy_static! {
 
         // Setup a communications channel from the Minions to the Overlord.
         let (to_overlord, tmp_overlord_receiver) = mpsc::unbounded_channel();
+
+        let storage = match Storage::new() {
+            Ok(s) => s,
+            Err(e) => panic!("{e}")
+        };
 
         Globals {
             first_run: AtomicBool::new(false),
@@ -184,6 +193,7 @@ lazy_static! {
             ui_people_to_invalidate: PRwLock::new(Vec::new()),
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
+            storage,
         }
     };
 }
