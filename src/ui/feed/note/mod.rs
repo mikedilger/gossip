@@ -19,7 +19,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, UncheckedUrl};
+use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl};
 
 pub struct NoteRenderData {
     /// Available height for post
@@ -356,10 +356,12 @@ fn render_note_inner(
                                 author: None,
                                 kind: None,
                             };
-                            ui.output_mut(|o| o.copied_text = event_pointer.as_bech32_string());
+                            let nostr_url: NostrUrl = event_pointer.into();
+                            ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                         }
                         if ui.button("Copy note1 Id").clicked() {
-                            ui.output_mut(|o| o.copied_text = note.event.id.as_bech32_string());
+                            let nostr_url: NostrUrl = note.event.id.into();
+                            ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                         }
                         if ui.button("Copy hex Id").clicked() {
                             ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
@@ -596,7 +598,8 @@ fn render_note_inner(
                                             author: None,
                                             kind: None,
                                         };
-                                        app.draft.push_str(&event_pointer.as_bech32_string());
+                                        let nostr_url: NostrUrl = event_pointer.into();
+                                        app.draft.push_str(&format!("{}", nostr_url));
                                         app.draft_repost = None;
                                         app.replying_to = None;
                                         app.show_post_area = true;

@@ -17,8 +17,8 @@ use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, MilliSatoshi,
-    NostrBech32, NostrUrl, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl,
+    Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -1017,7 +1017,7 @@ impl Overlord {
 
     async fn post(
         &mut self,
-        mut content: String,
+        content: String,
         mut tags: Vec<Tag>,
         reply_to: Option<Id>,
     ) -> Result<(), Error> {

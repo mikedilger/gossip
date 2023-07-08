@@ -7,7 +7,7 @@ use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, ScrollArea, Ui, Vec2};
 use memoize::memoize;
-use nostr_types::{find_nostr_bech32_pos, NostrBech32, Tag};
+use nostr_types::{find_nostr_bech32_pos, NostrBech32, NostrUrl, Tag};
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
@@ -230,7 +230,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                     if !app.draft.ends_with(' ') && !app.draft.is_empty() {
                                         app.draft.push(' ');
                                     }
-                                    app.draft.push_str(&pair.1.as_bech32_string());
+                                    let nostr_url: NostrUrl = pair.1.into();
+                                    app.draft.push_str(&format!("{}", nostr_url));
                                     app.tag_someone = "".to_owned();
                                 }
                             }
