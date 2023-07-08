@@ -8,6 +8,7 @@ pub enum ErrorKind {
     General(String),
     HttpError(http::Error),
     JoinError(tokio::task::JoinError),
+    Lmdb(lmdb::Error),
     MaxRelaysReached,
     MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
     Nip05KeyNotFound,
@@ -26,6 +27,7 @@ pub enum ErrorKind {
     ReqwestHttpError(reqwest::Error),
     Sql(rusqlite::Error),
     SerdeJson(serde_json::Error),
+    Speedy(speedy::Error),
     Timeout(tokio::time::error::Elapsed),
     UrlHasEmptyHostname,
     UrlHasNoHostname,
@@ -56,6 +58,7 @@ impl std::fmt::Display for Error {
             General(s) => write!(f, "{s}"),
             HttpError(e) => write!(f, "HTTP error: {e}"),
             JoinError(e) => write!(f, "Task join error: {e}"),
+            Lmdb(e) => write!(f, "LMDB: {e}"),
             MaxRelaysReached => write!(
                 f,
                 "Maximum relay connections reached, will not connect to another"
@@ -77,6 +80,7 @@ impl std::fmt::Display for Error {
             ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
             Sql(e) => write!(f, "SQL: {e}"),
             SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
+            Speedy(e) => write!(f, "Speedy: {e}"),
             Timeout(e) => write!(f, "Timeout: {e}"),
             UrlHasEmptyHostname => write!(f, "URL has empty hostname"),
             UrlHasNoHostname => write!(f, "URL has no hostname"),
@@ -184,6 +188,12 @@ impl From<http::uri::InvalidUri> for ErrorKind {
     }
 }
 
+impl From<lmdb::Error> for ErrorKind {
+    fn from(e: lmdb::Error) -> ErrorKind {
+        ErrorKind::Lmdb(e)
+    }
+}
+
 impl From<std::num::ParseIntError> for ErrorKind {
     fn from(e: std::num::ParseIntError) -> ErrorKind {
         ErrorKind::ParseInt(e)
@@ -211,6 +221,12 @@ impl From<reqwest::Error> for ErrorKind {
 impl From<serde_json::Error> for ErrorKind {
     fn from(e: serde_json::Error) -> ErrorKind {
         ErrorKind::SerdeJson(e)
+    }
+}
+
+impl From<speedy::Error> for ErrorKind {
+    fn from(e: speedy::Error) -> ErrorKind {
+        ErrorKind::Speedy(e)
     }
 }
 
