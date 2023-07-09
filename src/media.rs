@@ -71,7 +71,20 @@ impl Media {
                             .load(Ordering::Relaxed)
                         / 100;
                     if let Ok(color_image) = egui_extras::image::load_image_bytes(&bytes) {
-                        GLOBALS.media.image_temp.insert(aurl, color_image);
+                        // Check for max size
+                        if color_image.size[0] > 16384 || color_image.size[1] > 16384 {
+                            tracing::warn!(
+                                "Image ignored (a dimension is greater than 16384 pixels)"
+                            );
+                            GLOBALS
+                                .media
+                                .failed_media
+                                .write()
+                                .await
+                                .insert(aurl.to_unchecked_url());
+                        } else {
+                            GLOBALS.media.image_temp.insert(aurl, color_image);
+                        }
                     } else if let Ok(color_image) = egui_extras::image::load_svg_bytes_with_size(
                         &bytes,
                         FitTo::Size(size, size),
