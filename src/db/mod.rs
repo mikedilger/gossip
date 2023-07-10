@@ -59,11 +59,16 @@ pub fn setup_database() -> Result<(), Error> {
     // Normalize URLs
     normalize_urls()?;
 
+    let db = GLOBALS.db.blocking_lock();
+
     // Enforce foreign key relationships
-    {
-        let db = GLOBALS.db.blocking_lock();
-        db.pragma_update(None, "foreign_keys", "ON")?;
-    }
+    db.pragma_update(None, "foreign_keys", "ON")?;
+
+    // Performance:
+    db.pragma_update(None, "journal_mode", "WAL")?;
+    db.pragma_update(None, "synchronous", "normal")?;
+    db.pragma_update(None, "temp_store", "memory")?;
+    db.pragma_update(None, "mmap_size", "268435456")?; // 1024 * 1024 * 256
 
     Ok(())
 }
