@@ -1,16 +1,18 @@
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::profile::Profile;
 use crate::USER_AGENT;
 use nostr_types::Url;
-use reqwest::Client;
+use rand::Rng;
+use reqwest::header::ETAG;
+use reqwest::{Client, StatusCode};
 use sha2::Digest;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::RwLock;
+use std::time::Duration;
 use tokio::task;
 
 #[derive(Debug, Default)]
@@ -82,33 +84,59 @@ impl Fetcher {
         cache_file
     }
 
-    pub fn try_get(&self, url: Url) -> Result<Option<Vec<u8>>, Error> {
+    fn etag_file(&self, url: &Url) -> PathBuf {
+        self.cache_file(url).with_extension("etag")
+    }
+
+    // This is used so that all the previously fetched data doesn't expire
+    // at the same time (actually, after a few days it does anyways)
+    pub fn random_age(min_secs: u64, max_secs: u64) -> Duration {
+        let mut rng = rand::thread_rng();
+        let range = rand::distributions::Uniform::new(min_secs, max_secs);
+        Duration::from_secs(rng.sample(range))
+    }
+
+    pub fn try_get(&self, url: Url, max_age: Duration) -> Result<Option<Vec<u8>>, Error> {
+        // FIXME - this function is called synchronously, but it makes several
+        //         file system calls. This might be pushing the limits of what we should
+        //         be blocking on.
+
         // Error if we are dead
         if let Some(reason) = &self.dead {
             return Err((format!("Fetcher is dead: {}", reason), file!(), line!()).into());
         }
 
-        // Error if we couldn't fetch this item
+        // Error if we already couldn't fetch this item (we don't try again until restart)
         if let Some(error) = self.failed.read().unwrap().get(&url) {
             return Err((format!("{}", error), file!(), line!()).into());
         }
 
-        // Pending if we are trying to fetch this item
+        // Pending if we are already trying to fetch this item
         if self.pending.read().unwrap().contains(&url) {
             return Ok(None);
         }
 
-        // Try to get it from the cache file
-        // FIXME - even this can be time consuming and should be synced instead of tried
-        //         directly, especially on spinning hard drives.
+        // Check if a cached file exists and is fresh enough
         let cache_file = self.cache_file(&url);
-        match fs::read(cache_file) {
-            Ok(contents) => {
-                return Ok(Some(contents));
+        match fs::metadata(cache_file.as_path()) {
+            Ok(md) => {
+                if let Ok(modified) = md.modified() {
+                    if let Ok(dur) = modified.elapsed() {
+                        if dur < max_age {
+                            match fs::read(cache_file) {
+                                Ok(contents) => {
+                                    return Ok(Some(contents));
+                                }
+                                Err(e) => return Err(e.into()),
+                            }
+                        }
+                    }
+                }
+                // fall through
             }
             Err(e) => {
-                // Any error other than this falls through
-                if e.kind() != ErrorKind::NotFound {
+                // Probably NotFound, fail otherwise
+                if e.kind() != std::io::ErrorKind::NotFound {
                     return Err(e.into());
                 }
             }
@@ -147,6 +175,12 @@ impl Fetcher {
             return Err((format!("Fetcher is dead: {}", reason), file!(), line!()).into());
         }
 
+        let etag_file = GLOBALS.fetcher.etag_file(&url);
+        let etag: Option<Vec<u8>> = match fs::read(etag_file.as_path()) {
+            Ok(contents) => Some(contents),
+            Err(_) => None,
+        };
+
         let client = GLOBALS.fetcher.client.clone();
 
         GLOBALS
@@ -154,45 +188,60 @@ impl Fetcher {
             .requests_in_flight
             .fetch_add(1, Ordering::SeqCst);
 
+        let mut req = client.get(&url.0);
+        if let Some(ref etag) = etag {
+            req = req.header("if-none-match", etag.to_owned());
+        }
+        if GLOBALS.settings.read().set_user_agent {
+            req = req.header("User-Agent", USER_AGENT);
+        };
+
         // Fetch the resource
-        let req = client.get(&url.0);
-
-        let req = if GLOBALS.settings.read().set_user_agent {
-            req.header("User-Agent", USER_AGENT)
-        } else {
-            req
-        };
-
         let maybe_response = req.send().await;
-
-        // Deal with response errors
-        let response = match maybe_response {
-            Ok(r) => r,
-            Err(e) => {
-                GLOBALS
-                    .fetcher
-                    .requests_in_flight
-                    .fetch_sub(1, Ordering::SeqCst);
-                return Err(e.into());
-            }
-        };
-
-        // Convert to bytes
-        let maybe_bytes = response.bytes().await;
 
         GLOBALS
             .fetcher
             .requests_in_flight
             .fetch_sub(1, Ordering::SeqCst);
 
-        let bytes = maybe_bytes?;
+        // Deal with response errors
+        let response = maybe_response?;
 
+        if etag.is_some() && response.status() == StatusCode::NOT_MODIFIED {
+            // It is already in the cache file, the etag matched
+
+            // Update the file time to now, so we don't check again for a while
+            filetime::set_file_mtime(etag_file.as_path(), filetime::FileTime::now())?;
+
+            return Ok(());
+        }
+
+        if !response.status().is_success() {
+            return Err(ErrorKind::General(format!(
+                "Failed to fetch HTTP resource: {}",
+                response.status()
+            ))
+            .into());
+        }
+
+        let maybe_etag = response
+            .headers()
+            .get(ETAG)
+            .map(|e| e.as_bytes().to_owned());
+
+        // Convert to bytes
+        let maybe_bytes = response.bytes().await;
+        let bytes = maybe_bytes?;
         GLOBALS.bytes_read.fetch_add(bytes.len(), Ordering::Relaxed);
 
-        let cache_file = GLOBALS.fetcher.cache_file(&url);
-
         // Write to the file
+        let cache_file = GLOBALS.fetcher.cache_file(&url);
         fs::write(cache_file, bytes)?;
+
+        // If there was an etag, save it
+        if let Some(etag) = maybe_etag {
+            fs::write(etag_file, etag)?;
+        }
 
         Ok(())
     }

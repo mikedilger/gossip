@@ -35,6 +35,7 @@ egui_extras = { git = "https://github.com/mikedilger/egui", rev = "538088439c7c5
 egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "5a7297138dce16425c7dc7a8eab4d39d79088aba",  features = [ "from_bytes" ], optional = true }
 encoding_rs = "0.8"
 fallible-iterator = "0.2"
+filetime = "0.2"
 futures = "0.3"
 futures-util = "0.3"
 gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "cc147ab5ae1ef568435f60399a56ea3fa190fee2" }
