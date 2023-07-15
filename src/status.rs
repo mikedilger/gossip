@@ -33,7 +33,6 @@ impl StatusQueue {
     }
 
     pub fn dismiss(&mut self, offset: usize) {
-        tracing::warn!("DEBUG: dismissing {}", offset);
         self.messages[(self.head + offset) % 3] = "".to_owned();
     }
 }
