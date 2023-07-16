@@ -18,6 +18,7 @@ use nostr_types::{
     UncheckedUrl,
 };
 use parking_lot::RwLock as PRwLock;
+use regex::Regex;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
@@ -134,6 +135,9 @@ pub struct Globals {
 
     /// Current zap data, for UI
     pub current_zap: PRwLock<ZapState>,
+
+    /// Hashtag regex
+    pub hashtag_regex: Regex,
 }
 
 lazy_static! {
@@ -179,6 +183,7 @@ lazy_static! {
             ui_notes_to_invalidate: PRwLock::new(Vec::new()),
             ui_people_to_invalidate: PRwLock::new(Vec::new()),
             current_zap: PRwLock::new(ZapState::None),
+            hashtag_regex: Regex::new(r"(?:^|\W)(#\w+)(?:$|\W)").unwrap(),
         }
     };
 }

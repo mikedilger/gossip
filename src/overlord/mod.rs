@@ -1084,6 +1084,14 @@ impl Overlord {
             //  nostr urls)
             // content = NostrUrl::urlize(&content);
 
+            // Find and tag all hashtags
+            for capture in GLOBALS.hashtag_regex.captures_iter(&content) {
+                tags.push(Tag::Hashtag {
+                    hashtag: capture[1][1..].to_string(),
+                    trailing: Vec::new(),
+                });
+            }
+
             if let Some(parent_id) = reply_to {
                 // Get the event we are replying to
                 let parent = match GLOBALS.events.get(&parent_id) {
