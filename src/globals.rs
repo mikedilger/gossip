@@ -183,7 +183,7 @@ lazy_static! {
             ui_notes_to_invalidate: PRwLock::new(Vec::new()),
             ui_people_to_invalidate: PRwLock::new(Vec::new()),
             current_zap: PRwLock::new(ZapState::None),
-            hashtag_regex: Regex::new(r"(?:^|\W)(#\w+)(?:$|\W)").unwrap(),
+            hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
         }
     };
 }
