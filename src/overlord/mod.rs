@@ -1,4 +1,5 @@
 mod minion;
+mod follow;
 
 use crate::comms::{
     RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
@@ -17,7 +18,7 @@ use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, MilliSatoshi,
-    NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl,
+    NostrBech32, PayRequestData, PreEvent, PrivateKey, PublicKey, PublicKeyHex, RelayUrl,
     Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
@@ -666,21 +667,8 @@ impl Overlord {
                     .await?;
                 }
             }
-            ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
-                self.follow_pubkey_and_relay(pubkeystr, relay).await?;
-            }
-            ToOverlordMessage::FollowNip05(nip05) => {
-                std::mem::drop(tokio::spawn(async move {
-                    if let Err(e) = crate::nip05::get_and_follow_nip05(nip05).await {
-                        tracing::error!("{}", e);
-                    }
-                }));
-            }
-            ToOverlordMessage::FollowNprofile(nprofile) => {
-                match Profile::try_from_bech32_string(&nprofile) {
-                    Ok(np) => self.follow_nprofile(np).await?,
-                    Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
-                }
+            ToOverlordMessage::FollowAuto(query, relay) => {
+                self.follow_auto(query, relay).await?;
             }
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
                 GLOBALS.signer.generate_private_key(&password)?;
@@ -969,50 +957,6 @@ impl Overlord {
         }
 
         Ok(true)
-    }
-
-    async fn follow_pubkey_and_relay(
-        &mut self,
-        pubkeystr: String,
-        relay: RelayUrl,
-    ) -> Result<(), Error> {
-        let pk = match PublicKey::try_from_bech32_string(&pubkeystr) {
-            Ok(pk) => pk,
-            Err(_) => PublicKey::try_from_hex_string(&pubkeystr)?,
-        };
-        let pkhex: PublicKeyHex = pk.into();
-        GLOBALS.people.async_follow(&pkhex, true).await?;
-
-        tracing::debug!("Followed {}", &pkhex);
-
-        // Save relay
-        let db_relay = DbRelay::new(relay.clone());
-        DbRelay::insert(db_relay).await?;
-
-        let now = Unixtime::now().unwrap().0 as u64;
-
-        // Save person_relay
-        DbPersonRelay::insert(DbPersonRelay {
-            person: pkhex.to_string(),
-            relay,
-            last_fetched: None,
-            last_suggested_kind3: Some(now), // consider it our claim in our contact list
-            last_suggested_nip05: None,
-            last_suggested_bytag: None,
-            read: false,
-            write: false,
-            manually_paired_read: true,
-            manually_paired_write: true,
-        })
-        .await?;
-
-        // async_follow added them to the relay tracker.
-        // Pick relays to start tracking them now
-        self.pick_relays().await;
-
-        tracing::info!("Setup 1 relay for {}", &pkhex);
-
-        Ok(())
     }
 
     async fn post(
@@ -1796,42 +1740,6 @@ impl Overlord {
                 .await?;
             }
         }
-
-        Ok(())
-    }
-
-    async fn follow_nprofile(&mut self, nprofile: Profile) -> Result<(), Error> {
-        let pubkey = nprofile.pubkey.into();
-        GLOBALS.people.async_follow(&pubkey, true).await?;
-
-        // Set their relays
-        for relay in nprofile.relays.iter() {
-            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
-                // Save relay
-                let db_relay = DbRelay::new(relay_url.clone());
-                DbRelay::insert(db_relay.clone()).await?;
-                if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(relay_url.clone()) {
-                    entry.insert(db_relay);
-                }
-
-                // Save person_relay
-                DbPersonRelay::upsert_last_suggested_nip05(
-                    pubkey.to_owned(),
-                    relay_url,
-                    Unixtime::now().unwrap().0 as u64,
-                )
-                .await?;
-            }
-        }
-
-        GLOBALS
-            .status_queue
-            .write()
-            .write(format!("Followed user at {} relays", nprofile.relays.len()));
-
-        // async_follow added them to the relay tracker.
-        // Pick relays to start tracking them now
-        self.pick_relays().await;
 
         Ok(())
     }

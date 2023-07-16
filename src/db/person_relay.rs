@@ -5,7 +5,7 @@ use gossip_relay_picker::Direction;
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use tokio::task::spawn_blocking;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DbPersonRelay {
     // The person
     pub person: String,
@@ -35,6 +35,24 @@ pub struct DbPersonRelay {
 
     // When we follow someone at a relay, this is set true
     pub manually_paired_write: bool,
+}
+
+impl Default for DbPersonRelay {
+    fn default() -> Self {
+        DbPersonRelay {
+            person: "".to_string(),
+            // struct requires a valid URL and a localhost and similar are not accepted
+            relay: RelayUrl::try_from_str("wss://gossip.github.com").unwrap(),
+            last_fetched: None,
+            last_suggested_kind3: None,
+            last_suggested_nip05: None,
+            last_suggested_bytag: None,
+            read: false,
+            write: false,
+            manually_paired_read: false,
+            manually_paired_write: false,
+        }
+    }
 }
 
 impl DbPersonRelay {
@@ -527,4 +545,17 @@ fn repeat_vars(count: usize) -> String {
     // Remove trailing comma
     s.pop();
     s
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::db::DbPersonRelay;
+
+    #[test]
+    fn creates_default_relay() {
+        // make sure it doesn't panic on creation a default instance
+        let _relay = DbPersonRelay::default();
+        // not really required, but exist just to keep in mind that the code is a test
+        assert!(true);
+    }
 }

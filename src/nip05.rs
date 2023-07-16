@@ -82,40 +82,6 @@ pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
-    // Split their DNS ID
-    let (user, domain) = parse_nip05(&nip05)?;
-
-    // Fetch NIP-05
-    let nip05file = fetch_nip05(&user, &domain).await?;
-
-    // Get their pubkey
-    let pubkey = match nip05file.names.get(&user) {
-        Some(pk) => pk.to_owned(),
-        None => return Err((ErrorKind::Nip05KeyNotFound, file!(), line!()).into()),
-    };
-
-    // Save person
-    GLOBALS
-        .people
-        .upsert_nip05_validity(
-            &pubkey,
-            Some(nip05.clone()),
-            true,
-            Unixtime::now().unwrap().0 as u64,
-        )
-        .await?;
-
-    // Mark as followed
-    GLOBALS.people.async_follow(&pubkey, true).await?;
-
-    tracing::info!("Followed {}", &nip05);
-
-    update_relays(nip05, nip05file, &pubkey).await?;
-
-    Ok(())
-}
-
 async fn update_relays(
     nip05: String,
     nip05file: Nip05,
@@ -152,7 +118,7 @@ async fn update_relays(
 }
 
 // returns user and domain
-fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
+pub fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
     let mut parts: Vec<&str> = nip05.split('@').collect();
 
     // Add the underscore as a username if they just specified a domain name.
@@ -174,7 +140,7 @@ fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
     }
 }
 
-async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
+pub async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
     // FIXME add user-agent if configured
 
     let nip05_future = reqwest::Client::builder()
