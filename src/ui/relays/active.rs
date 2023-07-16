@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 
-use super::{
-    filter_relay, relay_filter_combo, relay_sort_combo, GossipUi,
-};
+use super::GossipUi;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets;
@@ -22,9 +20,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
-            relay_filter_combo(app, ui);
+            super::relay_filter_combo(app, ui);
             ui.add_space(20.0);
-            relay_sort_combo(app, ui);
+            super::relay_sort_combo(app, ui);
         });
     });
     ui.add_space(10.0);
@@ -52,6 +50,27 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.separator();
     ui.add_space(10.0);
 
+    let relays = if !is_editing {
+        // clear edit cache if present
+        if !app.relays.edit_relays.is_empty() {
+            app.relays.edit_relays.clear()
+        }
+        get_relays(app)
+    } else {
+        // when editing, use cached list
+        // build list if still empty
+        if app.relays.edit_relays.is_empty() {
+            app.relays.edit_relays = get_relays(app);
+        }
+        app.relays.edit_relays.clone()
+    };
+
+    let id_source: Id = "RelayActivityMonitorScroll".into();
+
+    super::relay_scroll_list(app, ui, relays, id_source);
+}
+
+fn get_relays(app: &mut GossipUi) -> Vec<DbRelay> {
     let connected_relays: HashSet<RelayUrl> = GLOBALS
         .connected_relays
         .iter()
@@ -62,17 +81,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .all_relays
         .iter()
         .map(|ri| ri.value().clone())
-        .filter(|ri| connected_relays.contains(&ri.url) && filter_relay(&app.relays, ri))
+        .filter(|ri| connected_relays.contains(&ri.url) && super::filter_relay(&app.relays, ri))
         .collect();
 
-    if !is_editing {
-        relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
-    } else {
-        // when editing, use constant sorting by url so the sorting doesn't change on edit
-        relays.sort_by(|a, b| a.url.cmp(&b.url));
-    }
-
-    let id_source: Id = "RelayActivityMonitorScroll".into();
-
-    super::relay_scroll_list(app, ui, relays, id_source);
+    relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
+    relays
 }

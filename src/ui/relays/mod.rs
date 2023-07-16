@@ -21,6 +21,8 @@ pub(super) struct RelayUi {
     filter: RelayFilter,
     /// to edit, add the relay url here
     edit: Option<RelayUrl>,
+    /// cache relay list for editing
+    edit_relays: Vec<DbRelay>,
     /// did we just finish editing an entry, add it here
     edit_done: Option<RelayUrl>,
     /// do we still need to scroll to the edit
@@ -38,6 +40,7 @@ impl RelayUi {
             sort: RelaySorting::default(),
             filter: RelayFilter::default(),
             edit: None,
+            edit_relays: Vec::new(),
             edit_done: None,
             edit_needs_scroll: false,
             add_dialog_active: false,
@@ -129,6 +132,15 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
                 }
             } else {
                 false
+            };
+            let db_relay = if has_edit_target {
+                if let Some(entry) = GLOBALS.all_relays.get(&db_url) {
+                    entry.clone() // update
+                } else {
+                    db_relay // can't update
+                }
+            } else {
+                db_relay // don't update
             };
             let enabled = edit || !is_editing;
             let mut widget = RelayEntry::new(db_relay, app);
