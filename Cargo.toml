@@ -47,7 +47,7 @@ lazy_static = "1.4"
 linkify = "0.9"
 memoize = "0.4"
 mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "ddee909844124a5b63e01f2644dc0de0e782f346" }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "ddee909844124a5b63e01f2644dc0de0e782f346", features = [ "speedy" ] }
 parking_lot = "0.12"
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust", rev = "519b77b3efa3f84961169b47d3de08c5ddd86548" }
 rand = "0.8"
