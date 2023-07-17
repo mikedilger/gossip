@@ -41,9 +41,9 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
-            feed_chunk: 60 * 60 * 12, // 12 hours
+            feed_chunk: 60 * 60 * 12,        // 12 hours
             replies_chunk: 60 * 60 * 24 * 7, // 1 week
-            overlap: 300, // 5 minutes
+            overlap: 300,                    // 5 minutes
             num_relays_per_person: 2,
             max_relays: 50,
             public_key: None,
@@ -161,8 +161,7 @@ impl Settings {
                 "override_dpi" => {
                     if row.1.is_empty() {
                         settings.override_dpi = None;
-                    }
-                    else if let Ok(x) = row.1.parse::<u32>() {
+                    } else if let Ok(x) = row.1.parse::<u32>() {
                         settings.override_dpi = Some(x);
                     }
                 }
