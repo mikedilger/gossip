@@ -60,8 +60,8 @@ impl Delegation {
 
     pub async fn save_through_settings(&self) -> Result<(), Error> {
         GLOBALS.settings.write().delegatee_tag = self.get_delegatee_tag_as_str();
-        let settings = GLOBALS.settings.read().clone();
-        settings.save().await?;
+        let settings = GLOBALS.settings.read();
+        GLOBALS.storage.write_settings(&settings)?;
         Ok(())
     }
 }

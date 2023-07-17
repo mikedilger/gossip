@@ -81,7 +81,7 @@ fn main() -> Result<(), Error> {
     crate::db::setup_database()?;
 
     // Load settings
-    let settings = crate::settings::Settings::blocking_load()?;
+    let settings = GLOBALS.storage.read_settings()?.unwrap();
     *GLOBALS.settings.write() = settings;
 
     // We create and enter the runtime on the main thread so that

@@ -31,7 +31,7 @@ impl Signer {
     pub async fn save_through_settings(&self) -> Result<(), Error> {
         GLOBALS.settings.write().public_key = *self.public.read();
         let settings = GLOBALS.settings.read().clone();
-        settings.save().await?;
+        GLOBALS.storage.write_settings(&settings)?;
 
         let epk = self.encrypted.read().clone();
         GLOBALS.storage.write_encrypted_private_key(&epk)?;
