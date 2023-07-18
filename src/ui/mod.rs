@@ -1311,7 +1311,7 @@ impl GossipUi {
 
         if let Some(qr) = qr_string {
             // Show the QR code and a close button
-            self.render_qr(ui, ctx, "zap", &qr);
+            self.render_qr(ui, ctx, "zap", &qr.to_uppercase());
             if ui.button("Close").clicked() {
                 *GLOBALS.current_zap.write() = ZapState::None;
             }

@@ -9,7 +9,7 @@ use super::notedata::{NoteData, RepostType};
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
-use crate::globals::{Globals, GLOBALS};
+use crate::globals::{Globals, ZapState, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
@@ -774,6 +774,18 @@ fn render_note_inner(
                                     ui.horizontal_wrapped(|ui| {
                                         app.render_zap_area(ui, ctx);
                                     });
+                                    if ui
+                                        .add(CopyButton {})
+                                        .on_hover_text("Copy Invoice")
+                                        .clicked()
+                                    {
+                                        ui.output_mut(|o| match app.zap_state {
+                                            ZapState::ReadyToPay(_id, ref invoice) => {
+                                                o.copied_text = invoice.to_owned();
+                                            }
+                                            _ => {}
+                                        });
+                                    }
                                 }
                             }
                         });
