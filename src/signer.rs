@@ -18,18 +18,14 @@ pub struct Signer {
 }
 
 impl Signer {
-    pub async fn load_from_settings(&self) {
+    pub fn load_from_settings(&self) -> Result<(), Error> {
         *self.public.write() = GLOBALS.settings.read().public_key;
         *self.private.write() = None;
 
-        let db = GLOBALS.db.lock().await;
-        if let Ok(epk) = db.query_row(
-            "SELECT encrypted_private_key FROM local_settings LIMIT 1",
-            [],
-            |row| row.get::<usize, String>(0),
-        ) {
-            *self.encrypted.write() = Some(EncryptedPrivateKey(epk));
-        }
+        let epk = GLOBALS.storage.read_encrypted_private_key()?;
+        *self.encrypted.write() = epk;
+
+        Ok(())
     }
 
     pub async fn save_through_settings(&self) -> Result<(), Error> {
@@ -38,11 +34,8 @@ impl Signer {
         settings.save().await?;
 
         let epk = self.encrypted.read().clone();
-        let db = GLOBALS.db.lock().await;
-        db.execute(
-            "UPDATE local_settings SET encrypted_private_key=?",
-            (epk.map(|e| e.0),),
-        )?;
+        GLOBALS.storage.write_encrypted_private_key(&epk)?;
+
         Ok(())
     }
 

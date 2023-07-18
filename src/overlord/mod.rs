@@ -91,7 +91,7 @@ impl Overlord {
         crate::fetcher::Fetcher::start();
 
         // Load signer from settings
-        GLOBALS.signer.load_from_settings().await;
+        GLOBALS.signer.load_from_settings()?;
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
