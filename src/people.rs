@@ -133,9 +133,6 @@ pub struct People {
 
     // Size of the last self-owned contact list we have an event for
     pub last_contact_list_size: AtomicUsize,
-
-    // Date of the last contact edit (not the ContactList event, the flags themselves)
-    pub last_contact_list_edit: AtomicI64,
 }
 
 impl People {
@@ -151,7 +148,6 @@ impl People {
             tried_metadata: DashSet::new(),
             last_contact_list_asof: AtomicI64::new(0),
             last_contact_list_size: AtomicUsize::new(0),
-            last_contact_list_edit: AtomicI64::new(0),
         }
     }
 
@@ -921,16 +917,7 @@ impl People {
 
         // Update last_contact_list_edit
         let now = Unixtime::now().unwrap();
-        self.last_contact_list_edit.store(now.0, Ordering::Relaxed);
-        // And save it in local settings
-        task::spawn_blocking(move || {
-            let db = GLOBALS.db.blocking_lock();
-            db.execute(
-                "UPDATE local_settings SET last_contact_list_edit=?",
-                (now.0,),
-            )?;
-            Ok::<(), Error>(())
-        });
+        GLOBALS.storage.write_last_contact_list_edit(now.0)?;
 
         Ok(())
     }

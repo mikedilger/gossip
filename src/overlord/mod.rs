@@ -123,21 +123,6 @@ impl Overlord {
             }
         }
 
-        // Load last_contact_list_edit
-        {
-            let db = GLOBALS.db.lock().await;
-            if let Ok(last_edit) = db.query_row(
-                "SELECT last_contact_list_edit FROM local_settings LIMIT 1",
-                [],
-                |row| row.get::<usize, i64>(0),
-            ) {
-                GLOBALS
-                    .people
-                    .last_contact_list_edit
-                    .store(last_edit, Ordering::Relaxed);
-            }
-        }
-
         // Load delegation tag
         GLOBALS.delegation.load_through_settings()?;
 
@@ -1986,17 +1971,7 @@ impl Overlord {
         } else {
             our_contact_list.created_at
         };
-        GLOBALS
-            .people
-            .last_contact_list_edit
-            .store(last_edit.0, Ordering::Relaxed);
-        {
-            let db = GLOBALS.db.lock().await;
-            db.execute(
-                "UPDATE local_settings SET last_contact_list_edit=?",
-                (last_edit.0,),
-            )?;
-        }
+        GLOBALS.storage.write_last_contact_list_edit(last_edit.0)?;
 
         // Pick relays again
         {

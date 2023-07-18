@@ -112,10 +112,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ui.add_space(10.0);
 
-    let last_contact_list_edit = GLOBALS
-        .people
-        .last_contact_list_edit
-        .load(Ordering::Relaxed);
+    let last_contact_list_edit = match GLOBALS.storage.read_last_contact_list_edit() {
+        Ok(Some(date)) => date,
+        Ok(None) => 0,
+        Err(e) => {
+            tracing::error!("{}", e);
+            0
+        }
+    };
+
     let mut ledit = "unknown".to_owned();
     if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_contact_list_edit) {
         if let Ok(formatted) = stamp.format(time::macros::format_description!(
