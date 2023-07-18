@@ -67,8 +67,12 @@ pub(super) fn render_note(
         if let Ok(note_data) = note_ref.try_borrow() {
             // Render if not muted
             if note_data.author.muted == 0 {
-                let is_new = app.settings.highlight_unread_events
-                    && !GLOBALS.viewed_events.contains(&note_data.event.id);
+                let viewed = match GLOBALS.storage.is_event_viewed(note_data.event.id) {
+                    Ok(answer) => answer,
+                    _ => false,
+                };
+
+                let is_new = app.settings.highlight_unread_events && !viewed;
 
                 let is_main_event: bool = {
                     let feed_kind = GLOBALS.feed.get_feed_kind();
@@ -134,8 +138,7 @@ pub(super) fn render_note(
 
                 // Mark post as viewed if hovered AND we are not scrolling
                 if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
-                    GLOBALS.viewed_events.insert(id);
-                    GLOBALS.new_viewed_events.blocking_write().insert(id);
+                    let _ = GLOBALS.storage.mark_event_viewed(id);
                 }
 
                 // Record if the rendered note was visible

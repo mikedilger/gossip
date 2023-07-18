@@ -12,7 +12,7 @@ use crate::settings::Settings;
 use crate::signer::Signer;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
-use dashmap::{DashMap, DashSet};
+use dashmap::DashMap;
 use gossip_relay_picker::RelayPicker;
 use nostr_types::{
     Event, Id, MilliSatoshi, PayRequestData, Profile, PublicKey, PublicKeyHex, RelayUrl,
@@ -62,13 +62,6 @@ pub struct Globals {
     /// Events coming in from relays that are not processed yet
     /// stored with Url they came from and Subscription they came in on
     pub incoming_events: RwLock<Vec<(Event, RelayUrl, Option<String>)>>,
-
-    /// Viewed events
-    pub viewed_events: DashSet<Id>,
-
-    /// Periodically this flushes to the database and clears.
-    /// We need the rwlock to drain it properly
-    pub new_viewed_events: RwLock<DashSet<Id>>,
 
     /// All relationships between events
     pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
@@ -166,8 +159,6 @@ lazy_static! {
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
             events: Events::new(),
             incoming_events: RwLock::new(Vec::new()),
-            viewed_events: DashSet::new(),
-            new_viewed_events: RwLock::new(DashSet::new()),
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
             all_relays: DashMap::new(),

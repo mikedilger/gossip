@@ -1,9 +1,6 @@
 mod event;
 pub use event::DbEvent;
 
-mod event_flags;
-pub use event_flags::DbEventFlags;
-
 mod event_relay;
 pub use event_relay::DbEventRelay;
 
