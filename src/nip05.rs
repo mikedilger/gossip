@@ -1,8 +1,7 @@
-use crate::db::{DbPersonRelay, DbRelay};
+use crate::db::DbPersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::DbPerson;
-use dashmap::mapref::entry::Entry;
 use nostr_types::{Metadata, Nip05, PublicKeyHex, RelayUrl, Unixtime};
 use std::sync::atomic::Ordering;
 
@@ -129,12 +128,7 @@ async fn update_relays(
     for relay in relays.iter() {
         // Save relay
         if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
-            let db_relay = DbRelay::new(relay_url.clone());
-            DbRelay::insert(db_relay.clone()).await?;
-
-            if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(relay_url.clone()) {
-                entry.insert(db_relay);
-            }
+            GLOBALS.storage.write_relay_if_missing(&relay_url)?;
 
             // Save person_relay
             DbPersonRelay::upsert_last_suggested_nip05(

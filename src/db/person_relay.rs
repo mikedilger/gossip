@@ -369,37 +369,33 @@ impl DbPersonRelay {
                 Direction::Write => {
                     // substitute our read relays
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
-                        .all_relays
+                        .storage
+                        .filter_relays(|r| {
+                            // not already in their list
+                            !ranked_relays.iter().any(|(url, _)| *url == r.url)
+                                && r.has_usage_bits(DbRelay::READ)
+                        })?
                         .iter()
-                        .filter_map(|r| {
-                            if ranked_relays.iter().any(|(url, _)| url == r.key()) {
-                                None // already in their list
-                            } else if r.value().has_usage_bits(DbRelay::READ) {
-                                Some((r.key().clone(), last_score))
-                            } else {
-                                None
-                            }
-                        })
+                        .map(|r| (r.url.clone(), last_score))
                         .take(how_many_more)
                         .collect();
+
                     ranked_relays.extend(additional);
                 }
                 Direction::Read => {
                     // substitute our write relays???
                     let additional: Vec<(RelayUrl, u64)> = GLOBALS
-                        .all_relays
+                        .storage
+                        .filter_relays(|r| {
+                            // not already in their list
+                            !ranked_relays.iter().any(|(url, _)| *url == r.url)
+                                && r.has_usage_bits(DbRelay::WRITE)
+                        })?
                         .iter()
-                        .filter_map(|r| {
-                            if ranked_relays.iter().any(|(url, _)| url == r.key()) {
-                                None // already in their list
-                            } else if r.value().has_usage_bits(DbRelay::WRITE) {
-                                Some((r.key().clone(), last_score))
-                            } else {
-                                None
-                            }
-                        })
+                        .map(|r| (r.url.clone(), last_score))
                         .take(how_many_more)
                         .collect();
+
                     ranked_relays.extend(additional);
                 }
             }

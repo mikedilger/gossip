@@ -48,11 +48,11 @@ impl Minion {
     pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
-        let dbrelay = match DbRelay::fetch_one(&url).await? {
+        let dbrelay = match GLOBALS.storage.read_relay(&url)? {
             Some(dbrelay) => dbrelay,
             None => {
                 let dbrelay = DbRelay::new(url.clone());
-                DbRelay::insert(dbrelay.clone()).await?;
+                GLOBALS.storage.write_relay(&dbrelay)?;
                 dbrelay
             }
         };
@@ -138,12 +138,7 @@ impl Minion {
             }
 
             // Save updated NIP-11 data (even if it failed)
-            // in memory...
-            let _ = GLOBALS
-                .all_relays
-                .insert(self.url.clone(), self.dbrelay.clone());
-            // and in the database...
-            DbRelay::update(self.dbrelay.clone()).await?;
+            GLOBALS.storage.write_relay(&self.dbrelay)?;
 
             let key: [u8; 16] = rand::random();
 
@@ -974,7 +969,12 @@ impl Minion {
             // where we left off instead of potentially loading a bunch of events
             // yet again.
             let now = Unixtime::now().unwrap();
-            DbRelay::update_general_eose(self.dbrelay.url.clone(), now.0 as u64).await?;
+
+            // Update last general EOSE
+            self.dbrelay.last_general_eose_at = Some(match self.dbrelay.last_general_eose_at {
+                Some(old) => old.max(now.0 as u64),
+                None => now.0 as u64,
+            });
 
             sub.set_filters(filters);
             let old_job_id = sub.change_job_id(job_id);
@@ -1072,14 +1072,9 @@ impl Minion {
         // Update in self
         self.dbrelay.failure_count += 1;
 
-        // Save to database
-        if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+        // Save to storage
+        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay) {
             tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
-        }
-
-        // Update in globals
-        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url) {
-            dbrelay.failure_count += 1;
         }
     }
 
@@ -1092,17 +1087,9 @@ impl Minion {
             self.dbrelay.last_connected_at = Some(now);
         }
 
-        // Save to database
-        if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+        // Save to storage
+        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay) {
             tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
-        }
-
-        // Update in globals
-        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url) {
-            dbrelay.success_count += 1;
-            if also_bump_last_connected {
-                dbrelay.last_connected_at = Some(now);
-            }
         }
     }
 }

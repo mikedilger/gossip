@@ -81,10 +81,11 @@ pub(in crate::ui) fn posting_area(
                     ui.label(" to post.");
                 }
             });
-        } else if !GLOBALS
-            .all_relays
-            .iter()
-            .any(|r| r.value().has_usage_bits(DbRelay::WRITE))
+        } else if GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))
+            .unwrap_or(vec![])
+            .is_empty()
         {
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");

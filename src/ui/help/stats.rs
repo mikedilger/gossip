@@ -45,7 +45,13 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
 
         ui.label(format!(
             "Number of known relays: {}",
-            GLOBALS.all_relays.len()
+            match GLOBALS.storage.filter_relays(|_| true) {
+                Err(e) => {
+                    tracing::error!("{}", e);
+                    0
+                }
+                Ok(vec) => vec.len(),
+            }
         ));
     });
 }

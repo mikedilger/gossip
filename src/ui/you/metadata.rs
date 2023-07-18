@@ -121,9 +121,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     ui.label("to edit/save metadata.");
                 });
             } else if !GLOBALS
-                .all_relays
-                .iter()
-                .any(|r| r.value().has_usage_bits(DbRelay::WRITE))
+                .storage
+                .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))
+                .unwrap_or(vec![])
+                .is_empty()
             {
                 ui.horizontal(|ui| {
                     ui.label("You need to");

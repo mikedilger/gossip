@@ -14,11 +14,10 @@ impl RelayPickerHooks for Hooks {
 
     /// Returns all relays available to be connected to
     fn get_all_relays(&self) -> Vec<RelayUrl> {
-        GLOBALS
-            .all_relays
-            .iter()
-            .map(|elem| elem.key().to_owned())
-            .collect()
+        match GLOBALS.storage.filter_relays(|_| true) {
+            Err(_) => vec![],
+            Ok(vec) => vec.iter().map(|elem| elem.url.to_owned()).collect(),
+        }
     }
 
     /// Returns all relays that this public key uses in the given Direction
@@ -52,13 +51,15 @@ impl RelayPickerHooks for Hooks {
     }
 
     /// Adjusts the score for a given relay, perhaps based on relay-specific metrics
-    fn adjust_score(&self, relay: RelayUrl, score: u64) -> u64 {
-        if let Some(relay) = GLOBALS.all_relays.get(&relay) {
-            let success_rate = relay.success_rate();
-            let rank = (relay.rank as f32 * (1.3 * success_rate)) as u64;
-            score * rank
-        } else {
-            score
+    fn adjust_score(&self, url: RelayUrl, score: u64) -> u64 {
+        match GLOBALS.storage.read_relay(&url) {
+            Err(_) => 0,
+            Ok(Some(relay)) => {
+                let success_rate = relay.success_rate();
+                let rank = (relay.rank as f32 * (1.3 * success_rate)) as u64;
+                score * rank
+            }
+            Ok(None) => score,
         }
     }
 }

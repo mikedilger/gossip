@@ -69,9 +69,6 @@ pub struct Globals {
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
 
-    /// All the relays we know about
-    pub all_relays: DashMap<RelayUrl, DbRelay>,
-
     /// The relays currently connected to
     pub connected_relays: DashMap<RelayUrl, Vec<RelayJob>>,
 
@@ -161,7 +158,6 @@ lazy_static! {
             incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
-            all_relays: DashMap::new(),
             connected_relays: DashMap::new(),
             relay_picker: Default::default(),
             shutting_down: AtomicBool::new(false),
@@ -306,46 +302,21 @@ impl Globals {
             relays: Vec::new(),
         };
 
-        for ri in GLOBALS
-            .all_relays
-            .iter()
-            .filter(|ri| ri.value().has_usage_bits(DbRelay::OUTBOX))
+        match GLOBALS
+            .storage
+            .filter_relays(|ri| ri.has_usage_bits(DbRelay::OUTBOX))
         {
-            profile.relays.push(ri.key().to_unchecked_url())
+            Err(e) => {
+                tracing::error!("{}", e);
+                return None;
+            }
+            Ok(relays) => {
+                for relay in relays {
+                    profile.relays.push(relay.url.to_unchecked_url());
+                }
+            }
         }
 
         Some(profile)
-    }
-
-    pub fn relays_filtered<F>(&self, mut f: F) -> Vec<DbRelay>
-    where
-        F: FnMut(&DbRelay) -> bool,
-    {
-        self.all_relays
-            .iter()
-            .filter_map(|r| {
-                if f(r.value()) {
-                    Some(r.value().clone())
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
-    pub fn relays_url_filtered<F>(&self, mut f: F) -> Vec<RelayUrl>
-    where
-        F: FnMut(&DbRelay) -> bool,
-    {
-        self.all_relays
-            .iter()
-            .filter_map(|r| {
-                if f(r.value()) {
-                    Some(r.key().clone())
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 }
