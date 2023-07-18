@@ -4,9 +4,6 @@ pub use event::DbEvent;
 mod event_relay;
 pub use event_relay::DbEventRelay;
 
-mod event_hashtag;
-pub use event_hashtag::DbEventHashtag;
-
 mod event_tag;
 pub use event_tag::DbEventTag;
 

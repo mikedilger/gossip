@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{DbEvent, DbEventHashtag, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
@@ -261,11 +261,7 @@ pub async fn process_new_event(
     if from_relay {
         let hashtags = event.hashtags();
         for hashtag in hashtags {
-            let db_event_hashtag = DbEventHashtag {
-                event: event.id.as_hex_string(),
-                hashtag: hashtag.clone(),
-            };
-            db_event_hashtag.insert().await?;
+            GLOBALS.storage.add_hashtag(&hashtag, event.id)?;
         }
     }
 
