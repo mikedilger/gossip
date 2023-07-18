@@ -224,7 +224,7 @@ impl Events {
         tracing::info!("Loading event seen-on data...");
         for dashref in self.events.iter() {
             let id = dashref.key();
-            let vecurl = DbEventRelay::get_relays_for_event(*id).await?;
+            let vecurl = DbEventRelay::get_relays_for_event(*id)?;
             for url in vecurl.iter() {
                 self.add_seen_on(*id, url);
             }

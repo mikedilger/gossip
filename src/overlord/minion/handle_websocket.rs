@@ -123,11 +123,11 @@ impl Minion {
 
                         // save seen_on data in database
                         let event_relay = DbEventRelay {
-                            event: idhex,
-                            relay: url.0.to_owned(),
-                            when_seen: Unixtime::now()?.0 as u64,
+                            id,
+                            relay: url.clone(),
+                            when_seen: Unixtime::now()?,
                         };
-                        DbEventRelay::insert(event_relay, true).await?;
+                        event_relay.save()?;
                     } else {
                         // demerit the relay
                         self.bump_failure_count().await;

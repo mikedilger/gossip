@@ -16,7 +16,7 @@ pub async fn process_new_event(
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
 ) -> Result<(), Error> {
-    let now = Unixtime::now()?.0 as u64;
+    let now = Unixtime::now()?;
 
     // If it was from a relay,
     // Insert into database; bail if event is an already-replaced replaceable event.
@@ -83,11 +83,11 @@ pub async fn process_new_event(
         // Insert into event_relay "seen" relationship (database)
         if from_relay {
             let db_event_relay = DbEventRelay {
-                event: event.id.as_hex_string(),
-                relay: url.0.to_owned(),
+                id: event.id,
+                relay: url.to_owned(),
                 when_seen: now,
             };
-            if let Err(e) = DbEventRelay::insert(db_event_relay, true).await {
+            if let Err(e) = db_event_relay.save() {
                 tracing::error!(
                     "Error saving relay of old-event {} {}: {}",
                     event.id.as_hex_string(),
@@ -103,8 +103,12 @@ pub async fn process_new_event(
                 .await?;
 
             // Update person_relay.last_fetched
-            DbPersonRelay::upsert_last_fetched(event.pubkey.as_hex_string(), url.to_owned(), now)
-                .await?;
+            DbPersonRelay::upsert_last_fetched(
+                event.pubkey.as_hex_string(),
+                url.to_owned(),
+                now.0 as u64,
+            )
+            .await?;
         }
     }
 
@@ -176,11 +180,10 @@ pub async fn process_new_event(
                             .await?;
 
                         // upsert person_relay.last_suggested_bytag
-                        let now = Unixtime::now()?.0 as u64;
                         DbPersonRelay::upsert_last_suggested_bytag(
                             pubkey.to_string(),
                             url.clone(),
-                            now,
+                            now.0 as u64,
                         )
                         .await?;
                     }

@@ -1635,8 +1635,8 @@ impl Overlord {
         let mut missing_ancestors: Vec<Id> = Vec::new();
 
         // Include the relays where the referenced_by event was seen
-        relays.extend(DbEventRelay::get_relays_for_event(referenced_by).await?);
-        relays.extend(DbEventRelay::get_relays_for_event(id).await?);
+        relays.extend(DbEventRelay::get_relays_for_event(referenced_by)?);
+        relays.extend(DbEventRelay::get_relays_for_event(id)?);
 
         // If we have less than 2 relays, include the write relays of the author
         if relays.len() < 2 {
