@@ -10,6 +10,15 @@ use nostr_types::{EncryptedPrivateKey, Id, RelayUrl, Unixtime};
 use speedy::{Readable, Writable};
 
 const MAX_LMDB_KEY: usize = 511;
+macro_rules! key {
+    ($slice:expr) => {
+        if $slice.len() > 511 {
+            &$slice[..511]
+        } else {
+            $slice
+        }
+    };
+}
 
 pub struct Storage {
     env: Environment,
