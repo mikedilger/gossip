@@ -3,7 +3,7 @@ use super::Storage;
 use crate::error::Error;
 use crate::settings::Settings;
 use crate::ui::ThemeVariant;
-use nostr_types::{EncryptedPrivateKey, PublicKey};
+use nostr_types::{EncryptedPrivateKey, Id, PublicKey, RelayUrl, Unixtime};
 use rusqlite::Connection;
 
 impl Storage {
@@ -24,6 +24,15 @@ impl Storage {
         // old table "settings"
         // Copy settings (including local_settings)
         import_settings(&db, |settings: &Settings| self.write_settings(settings))?;
+
+        // old table "event_relay"
+        // Copy events_seen
+        import_event_seen_on_relay(&db, |id: String, url: String, seen: u64| {
+            let id = Id::try_from_hex_string(&id)?;
+            let relay_url = RelayUrl(url);
+            let time = Unixtime(seen as i64);
+            self.add_event_seen_on_relay(id, &relay_url, time)
+        })?;
 
         // Mark migration level
         // TBD: self.write_migration_level(0)?;
@@ -158,5 +167,21 @@ where
 
     f(&settings)?;
 
+    Ok(())
+}
+
+fn import_event_seen_on_relay<F>(db: &Connection, mut f: F) -> Result<(), Error>
+where
+    F: FnMut(String, String, u64) -> Result<(), Error>,
+{
+    let sql = "SELECT event, relay, when_seen FROM event_relay ORDER BY event, relay";
+    let mut stmt = db.prepare(sql)?;
+    let mut rows = stmt.raw_query();
+    while let Some(row) = rows.next()? {
+        let event: String = row.get(0)?;
+        let relay: String = row.get(1)?;
+        let seen: u64 = row.get(2)?;
+        f(event, relay, seen)?;
+    }
     Ok(())
 }

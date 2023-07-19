@@ -3,8 +3,10 @@ mod import;
 use crate::error::Error;
 use crate::profile::Profile;
 use crate::settings::Settings;
-use lmdb::{Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags};
-use nostr_types::EncryptedPrivateKey;
+use lmdb::{
+    Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags,
+};
+use nostr_types::{EncryptedPrivateKey, Id, RelayUrl, Unixtime};
 use speedy::{Readable, Writable};
 
 const MAX_LMDB_KEY: usize = 511;
@@ -14,6 +16,9 @@ pub struct Storage {
 
     // General database (settings, local_settings)
     general: Database,
+
+    // Id:Url -> Unixtime
+    event_seen_on_relay: Database,
 }
 
 impl Storage {
@@ -37,7 +42,14 @@ impl Storage {
 
         let general = env.create_db(None, DatabaseFlags::empty())?;
 
-        let storage = Storage { env, general };
+        let event_seen_on_relay =
+            env.create_db(Some("event_seen_on_relay"), DatabaseFlags::empty())?;
+
+        let storage = Storage {
+            env,
+            general,
+            event_seen_on_relay,
+        };
 
         // If migration level is missing, we need to import from legacy sqlite
         match storage.read_migration_level()? {
@@ -140,5 +152,45 @@ impl Storage {
             Err(lmdb::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),
         }
+    }
+
+    pub fn add_event_seen_on_relay(
+        &self,
+        id: Id,
+        url: &RelayUrl,
+        when: Unixtime,
+    ) -> Result<(), Error> {
+        let bytes = &when.0.to_be_bytes();
+        let mut key: Vec<u8> = id.as_slice().to_owned();
+        let mut txn = self.env.begin_rw_txn()?;
+        key.extend(url.0.as_bytes());
+        key.truncate(MAX_LMDB_KEY);
+        txn.put(self.event_seen_on_relay, &key, &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
+        let start_key: Vec<u8> = id.as_slice().to_owned();
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.event_seen_on_relay)?;
+        let iter = cursor.iter_from(start_key.clone());
+        let mut output: Vec<(RelayUrl, Unixtime)> = Vec::new();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((key, val)) => {
+                    // Stop once we get to a different Id
+                    if !key.starts_with(&start_key) {
+                        break;
+                    }
+                    // Extract off the Url
+                    let url = RelayUrl(std::str::from_utf8(&key[32..])?.to_owned());
+                    let time = Unixtime(i64::from_be_bytes(val[..8].try_into()?));
+                    output.push((url, time));
+                }
+            }
+        }
+        Ok(output)
     }
 }
