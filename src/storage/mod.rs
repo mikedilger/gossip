@@ -7,6 +7,8 @@ use lmdb::{Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, 
 use nostr_types::EncryptedPrivateKey;
 use speedy::{Readable, Writable};
 
+const MAX_LMDB_KEY: usize = 511;
+
 pub struct Storage {
     env: Environment,
 
