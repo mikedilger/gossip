@@ -1,9 +1,14 @@
+mod import;
+
 use crate::error::Error;
 use crate::profile::Profile;
-use lmdb::{Environment, EnvironmentFlags};
+use lmdb::{Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags};
 
 pub struct Storage {
     env: Environment,
+
+    // General database (settings, local_settings)
+    general: Database,
 }
 
 impl Storage {
@@ -25,6 +30,43 @@ impl Storage {
 
         let env = builder.open(&Profile::current()?.lmdb_dir)?;
 
-        Ok(Storage { env })
+        let general = env.create_db(None, DatabaseFlags::empty())?;
+
+        let storage = Storage { env, general };
+
+        // If migration level is missing, we need to import from legacy sqlite
+        match storage.read_migration_level()? {
+            None => {
+                // Import from sqlite
+                storage.import()?;
+            }
+            Some(_level) => {
+                // migrations happen here
+            }
+        }
+
+        Ok(storage)
+    }
+
+    pub fn write_migration_level(&self, migration_level: u32) -> Result<(), Error> {
+        let bytes = &migration_level.to_be_bytes();
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(
+            self.general,
+            b"migration_level",
+            &bytes,
+            WriteFlags::empty(),
+        )?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn read_migration_level(&self) -> Result<Option<u32>, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        match txn.get(self.general, b"migration_level") {
+            Ok(bytes) => Ok(Some(u32::from_be_bytes(bytes[..4].try_into()?))),
+            Err(lmdb::Error::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }
