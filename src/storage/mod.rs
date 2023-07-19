@@ -2,6 +2,7 @@ mod import;
 
 use crate::error::Error;
 use crate::profile::Profile;
+use crate::settings::Settings;
 use lmdb::{Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags};
 use nostr_types::EncryptedPrivateKey;
 use speedy::{Readable, Writable};
@@ -117,6 +118,23 @@ impl Storage {
         let txn = self.env.begin_ro_txn()?;
         match txn.get(self.general, b"last_contact_list_edit") {
             Ok(bytes) => Ok(Some(i64::from_be_bytes(bytes[..8].try_into()?))),
+            Err(lmdb::Error::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn write_settings(&self, settings: &Settings) -> Result<(), Error> {
+        let bytes = settings.write_to_vec()?;
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.general, b"settings", &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn read_settings(&self) -> Result<Option<Settings>, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        match txn.get(self.general, b"settings") {
+            Ok(bytes) => Ok(Some(Settings::read_from_buffer(bytes)?)),
             Err(lmdb::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),
         }
