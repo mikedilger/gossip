@@ -7,7 +7,7 @@ use crate::settings::Settings;
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags,
 };
-use nostr_types::{EncryptedPrivateKey, Id, RelayUrl, Unixtime};
+use nostr_types::{EncryptedPrivateKey, Event, Id, RelayUrl, Tag, Unixtime};
 use speedy::{Readable, Writable};
 
 const MAX_LMDB_KEY: usize = 511;
@@ -39,6 +39,10 @@ pub struct Storage {
 
     // Url -> DbRelay
     relays: Database,
+
+    // Tag -> Id
+    // (dup keys, so multiple Ids per tag)
+    event_tags: Database,
 }
 
 impl Storage {
@@ -74,6 +78,11 @@ impl Storage {
 
         let relays = env.create_db(Some("relays"), DatabaseFlags::empty())?;
 
+        let event_tags = env.create_db(
+            Some("event_tags"),
+            DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED,
+        )?;
+
         let storage = Storage {
             env,
             general,
@@ -81,6 +90,7 @@ impl Storage {
             event_viewed,
             hashtags,
             relays,
+            event_tags,
         };
 
         // If migration level is missing, we need to import from legacy sqlite
@@ -346,6 +356,50 @@ impl Storage {
                     if f(&relay) {
                         output.push(relay);
                     }
+                }
+            }
+        }
+        Ok(output)
+    }
+
+    pub fn write_event_tags(&self, event: &Event) -> Result<(), Error> {
+        let mut txn = self.env.begin_rw_txn()?;
+        for tag in &event.tags {
+            let mut tagbytes = serde_json::to_vec(&tag)?;
+            tagbytes.truncate(MAX_LMDB_KEY);
+            let bytes = event.id.write_to_vec()?;
+            txn.put(self.event_tags, &tagbytes, &bytes, WriteFlags::empty())?;
+        }
+        txn.commit()?;
+        Ok(())
+    }
+
+    /// This finds events that have a tag starting with the values in the
+    /// passed in tag, and potentially having more tag fields.
+    pub fn find_events_with_tags(&self, tag: Tag) -> Result<Vec<Id>, Error> {
+        let mut start_key = serde_json::to_vec(&tag)?;
+        // remove trailing bracket so we match tags with addl fields
+        let _ = start_key.pop();
+        // remove any trailing empty fields
+        while start_key.ends_with(b",\"\"") {
+            start_key.truncate(start_key.len() - 3);
+        }
+        start_key.truncate(MAX_LMDB_KEY);
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.event_tags)?;
+        let iter = cursor.iter_from(start_key.clone());
+        let mut output: Vec<Id> = Vec::new();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((key, val)) => {
+                    // Stop once we get to a non-matching tag
+                    if !key.starts_with(&start_key) {
+                        break;
+                    }
+                    // Add the event
+                    let id = Id::read_from_buffer(val)?;
+                    output.push(id);
                 }
             }
         }

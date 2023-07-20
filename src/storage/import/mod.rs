@@ -4,7 +4,7 @@ use crate::db::DbRelay;
 use crate::error::Error;
 use crate::settings::Settings;
 use crate::ui::ThemeVariant;
-use nostr_types::{EncryptedPrivateKey, Id, PublicKey, RelayUrl, Unixtime};
+use nostr_types::{EncryptedPrivateKey, Event, Id, PublicKey, RelayUrl, Unixtime};
 use rusqlite::Connection;
 
 impl Storage {
@@ -55,6 +55,14 @@ impl Storage {
         // old table "relay"
         // Copy relays
         import_relays(&db, |dbrelay: &DbRelay| self.write_relay(dbrelay))?;
+
+        // old table "event" (used for event_tags only so far)
+        // old table "event_tag"
+        // WILL BE Copy events (and regenerate event_tags)
+        import_events(&db, |event: &Event| {
+            //self.write_event(event)?;
+            self.write_event_tags(event)
+        })?;
 
         // Mark migration level
         // TBD: self.write_migration_level(0)?;
@@ -277,6 +285,28 @@ where
             };
             f(&dbrelay)?;
         }
+    }
+    Ok(())
+}
+
+fn import_events<F>(db: &Connection, mut f: F) -> Result<(), Error>
+where
+    F: FnMut(&Event) -> Result<(), Error>,
+{
+    let sql = "SELECT raw FROM event ORDER BY id";
+    let mut stmt = db.prepare(sql)?;
+    let mut rows = stmt.raw_query();
+    while let Some(row) = rows.next()? {
+        let raw: String = row.get(0)?;
+        let event: Event = match serde_json::from_str(&raw) {
+            Ok(event) => event,
+            Err(e) => {
+                tracing::error!("{}", e);
+                // don't process the broken event
+                continue;
+            }
+        };
+        f(&event)?;
     }
     Ok(())
 }
