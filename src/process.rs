@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{DbEvent, DbEventRelay, DbEventTag, DbPersonRelay, DbRelay};
+use crate::db::{DbEvent, DbEventRelay, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
@@ -134,24 +134,9 @@ pub async fn process_new_event(
 
     if from_relay {
         // Save the tags into event_tag table
-        for (seq, tag) in event.tags.iter().enumerate() {
-            // Save into database
-            {
-                // convert to vec of strings
-                let v: Vec<String> = serde_json::from_str(&serde_json::to_string(&tag)?)?;
+        GLOBALS.storage.write_event_tags(event)?;
 
-                let db_event_tag = DbEventTag {
-                    event: event.id.as_hex_string(),
-                    seq: seq as u64,
-                    label: v.get(0).cloned(),
-                    field0: v.get(1).cloned(),
-                    field1: v.get(2).cloned(),
-                    field2: v.get(3).cloned(),
-                    field3: v.get(4).cloned(),
-                };
-                DbEventTag::insert(db_event_tag).await?;
-            }
-
+        for tag in event.tags.iter() {
             match tag {
                 Tag::Event {
                     recommended_relay_url: Some(should_be_url),
