@@ -43,6 +43,9 @@ pub struct Storage {
     // Tag -> Id
     // (dup keys, so multiple Ids per tag)
     event_tags: Database,
+
+    // Id -> Event
+    events: Database,
 }
 
 impl Storage {
@@ -83,6 +86,8 @@ impl Storage {
             DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED,
         )?;
 
+        let events = env.create_db(Some("events"), DatabaseFlags::empty())?;
+
         let storage = Storage {
             env,
             general,
@@ -91,6 +96,7 @@ impl Storage {
             hashtags,
             relays,
             event_tags,
+            events,
         };
 
         // If migration level is missing, we need to import from legacy sqlite
@@ -400,6 +406,45 @@ impl Storage {
                     // Add the event
                     let id = Id::read_from_buffer(val)?;
                     output.push(id);
+                }
+            }
+        }
+        Ok(output)
+    }
+
+    pub fn write_event(&self, event: &Event) -> Result<(), Error> {
+        let bytes = event.write_to_vec()?;
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.events, &event.id.as_ref(), &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn read_event(&self, id: Id) -> Result<Option<Event>, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        match txn.get(self.events, &id.as_ref()) {
+            Ok(bytes) => Ok(Some(Event::read_from_buffer(bytes)?)),
+            Err(lmdb::Error::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn filter_events<F>(&self, f: F) -> Result<Vec<Event>, Error>
+    where
+        F: Fn(&Event) -> bool,
+    {
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.events)?;
+        let iter = cursor.iter_start();
+        let mut output: Vec<Event> = Vec::new();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((_key, val)) => {
+                    let event = Event::read_from_buffer(val)?;
+                    if f(&event) {
+                        output.push(event);
+                    }
                 }
             }
         }

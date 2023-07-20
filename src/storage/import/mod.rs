@@ -56,11 +56,11 @@ impl Storage {
         // Copy relays
         import_relays(&db, |dbrelay: &DbRelay| self.write_relay(dbrelay))?;
 
-        // old table "event" (used for event_tags only so far)
+        // old table "event"
         // old table "event_tag"
-        // WILL BE Copy events (and regenerate event_tags)
+        // Copy events (and regenerate event_tags)
         import_events(&db, |event: &Event| {
-            //self.write_event(event)?;
+            self.write_event(event)?;
             self.write_event_tags(event)
         })?;
 
