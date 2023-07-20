@@ -28,6 +28,9 @@ pub struct Storage {
 
     // Id:Url -> Unixtime
     event_seen_on_relay: Database,
+
+    // Id -> ()
+    event_viewed: Database,
 }
 
 impl Storage {
@@ -54,10 +57,13 @@ impl Storage {
         let event_seen_on_relay =
             env.create_db(Some("event_seen_on_relay"), DatabaseFlags::empty())?;
 
+        let event_viewed = env.create_db(Some("event_viewed"), DatabaseFlags::empty())?;
+
         let storage = Storage {
             env,
             general,
             event_seen_on_relay,
+            event_viewed,
         };
 
         // If migration level is missing, we need to import from legacy sqlite
@@ -201,5 +207,22 @@ impl Storage {
             }
         }
         Ok(output)
+    }
+
+    pub fn mark_event_viewed(&self, id: Id) -> Result<(), Error> {
+        let bytes = vec![];
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.event_viewed, &id.as_ref(), &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn is_event_viewed(&self, id: Id) -> Result<bool, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        match txn.get(self.event_viewed, &id.as_ref()) {
+            Ok(_bytes) => Ok(true),
+            Err(lmdb::Error::NotFound) => Ok(false),
+            Err(e) => Err(e.into()),
+        }
     }
 }

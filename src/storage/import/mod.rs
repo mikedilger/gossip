@@ -34,6 +34,16 @@ impl Storage {
             self.add_event_seen_on_relay(id, &relay_url, time)
         })?;
 
+        // old table "event_flags"
+        // Copy event_flags
+        import_event_flags(&db, |id: Id, viewed: bool| {
+            if viewed {
+                self.mark_event_viewed(id)
+            } else {
+                Ok(())
+            }
+        })?;
+
         // Mark migration level
         // TBD: self.write_migration_level(0)?;
 
@@ -182,6 +192,29 @@ where
         let relay: String = row.get(1)?;
         let seen: u64 = row.get(2)?;
         f(event, relay, seen)?;
+    }
+    Ok(())
+}
+
+fn import_event_flags<F>(db: &Connection, mut f: F) -> Result<(), Error>
+where
+    F: FnMut(Id, bool) -> Result<(), Error>,
+{
+    let sql = "SELECT event, viewed FROM event_flags ORDER BY event";
+    let mut stmt = db.prepare(sql)?;
+    let mut rows = stmt.raw_query();
+    while let Some(row) = rows.next()? {
+        let idstr: String = row.get(0)?;
+        let viewed: bool = row.get(1)?;
+        let id: Id = match Id::try_from_hex_string(&idstr) {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::error!("{}", e);
+                // don't process the broken one
+                continue;
+            }
+        };
+        f(id, viewed)?;
     }
     Ok(())
 }
