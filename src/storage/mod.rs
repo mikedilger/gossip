@@ -1,5 +1,6 @@
 mod import;
 
+use crate::db::DbRelay;
 use crate::error::Error;
 use crate::profile::Profile;
 use crate::settings::Settings;
@@ -35,6 +36,9 @@ pub struct Storage {
     // Hashtag -> Id
     // (dup keys, so multiple Ids per hashtag)
     hashtags: Database,
+
+    // Url -> DbRelay
+    relays: Database
 }
 
 impl Storage {
@@ -68,12 +72,15 @@ impl Storage {
             DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED,
         )?;
 
+        let relays = env.create_db(Some("relays"), DatabaseFlags::empty())?;
+
         let storage = Storage {
             env,
             general,
             event_seen_on_relay,
             event_viewed,
             hashtags,
+            relays,
         };
 
         // If migration level is missing, we need to import from legacy sqlite
@@ -265,5 +272,30 @@ impl Storage {
             }
         }
         Ok(output)
+    }
+
+    pub fn write_relay(&self, relay: &DbRelay) -> Result<(), Error> {
+        // Note that we use serde instead of speedy because the complexity of the
+        // serde_json::Value type makes it difficult. Any other serde serialization
+        // should work though: Consider bincode.
+        let key = key!(relay.url.0.as_bytes());
+        let bytes = serde_json::to_vec(relay)?;
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.relays, &key, &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<DbRelay>, Error> {
+        // Note that we use serde instead of speedy because the complexity of the
+        // serde_json::Value type makes it difficult. Any other serde serialization
+        // should work though: Consider bincode.
+        let key = key!(url.0.as_bytes());
+        let txn = self.env.begin_ro_txn()?;
+        match txn.get(self.relays, &key) {
+            Ok(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
+            Err(lmdb::Error::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }

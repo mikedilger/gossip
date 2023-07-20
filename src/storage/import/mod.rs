@@ -1,5 +1,6 @@
 mod legacy;
 use super::Storage;
+use crate::db::DbRelay;
 use crate::error::Error;
 use crate::settings::Settings;
 use crate::ui::ThemeVariant;
@@ -50,6 +51,10 @@ impl Storage {
             let id = Id::try_from_hex_string(&event)?;
             self.add_hashtag(&hashtag, id)
         })?;
+
+        // old table "relay"
+        // Copy relays
+        import_relays(&db, |dbrelay: &DbRelay| self.write_relay(dbrelay))?;
 
         // Mark migration level
         // TBD: self.write_migration_level(0)?;
@@ -237,6 +242,41 @@ where
         let hashtag: String = row.get(0)?;
         let event: String = row.get(1)?;
         f(hashtag, event)?;
+    }
+    Ok(())
+}
+
+fn import_relays<F>(db: &Connection, mut f: F) -> Result<(), Error>
+where
+    F: FnMut(&DbRelay) -> Result<(), Error>,
+{
+    let sql = "SELECT url, success_count, failure_count, last_connected_at, \
+               last_general_eose_at, rank, hidden, usage_bits, \
+               nip11, last_attempt_nip11 FROM relay ORDER BY url"
+        .to_owned();
+    let mut stmt = db.prepare(&sql)?;
+    let mut rows = stmt.raw_query();
+    while let Some(row) = rows.next()? {
+        let urlstring: String = row.get(0)?;
+        let nip11: Option<String> = row.get(8)?;
+        if let Ok(url) = RelayUrl::try_from_str(&urlstring) {
+            let dbrelay = DbRelay {
+                url,
+                success_count: row.get(1)?,
+                failure_count: row.get(2)?,
+                last_connected_at: row.get(3)?,
+                last_general_eose_at: row.get(4)?,
+                rank: row.get(5)?,
+                hidden: row.get(6)?,
+                usage_bits: row.get(7)?,
+                nip11: match nip11 {
+                    None => None,
+                    Some(s) => serde_json::from_str(&s)?,
+                },
+                last_attempt_nip11: row.get(9)?,
+            };
+            f(&dbrelay)?;
+        }
     }
     Ok(())
 }
