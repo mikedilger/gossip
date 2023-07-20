@@ -7,7 +7,7 @@ use crate::settings::Settings;
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags,
 };
-use nostr_types::{EncryptedPrivateKey, Event, Id, RelayUrl, Tag, Unixtime};
+use nostr_types::{EncryptedPrivateKey, Event, EventKind, Id, PublicKey, RelayUrl, Tag, Unixtime};
 use speedy::{Readable, Writable};
 
 const MAX_LMDB_KEY: usize = 511;
@@ -449,5 +449,15 @@ impl Storage {
             }
         }
         Ok(output)
+    }
+
+    // TBD: optimize this by storing better event indexes
+    // currently we stupidly scan every event (just to get LMDB up and running first)
+    pub fn fetch_contact_list(&self, pubkey: &PublicKey) -> Result<Option<Event>, Error> {
+        Ok(self
+            .filter_events(|event| event.kind == EventKind::ContactList && event.pubkey == *pubkey)?
+            .iter()
+            .max_by(|x, y| x.created_at.cmp(&y.created_at))
+            .cloned())
     }
 }

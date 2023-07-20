@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{DbEvent, DbPersonRelay};
+use crate::db::DbPersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
@@ -840,8 +840,9 @@ impl People {
 
         // Get the content from our latest ContactList.
         // We don't use the data, but we shouldn't clobber it.
-        let content = match DbEvent::fetch_last_contact_list(public_key.into()).await? {
-            Some(c) => c.content,
+
+        let content = match GLOBALS.storage.fetch_contact_list(&public_key)? {
+            Some(c) => c.content.clone(),
             None => "".to_owned(),
         };
 

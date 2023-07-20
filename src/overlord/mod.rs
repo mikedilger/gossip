@@ -103,7 +103,7 @@ impl Overlord {
 
         // Load contact list from the database
         if let Some(pk) = GLOBALS.signer.public_key() {
-            if let Some(event) = DbEvent::fetch_last_contact_list(pk.into()).await? {
+            if let Some(event) = GLOBALS.storage.fetch_contact_list(&pk)? {
                 crate::process::process_new_event(&event, false, None, None).await?;
             }
         }
@@ -143,31 +143,14 @@ impl Overlord {
         // Load feed-related events from database and process
         {
             let feed_chunk = GLOBALS.settings.read().feed_chunk;
-            let then = now.0 - feed_chunk as i64;
+            let then = Unixtime(now.0 - (feed_chunk as i64));
 
-            let where_kind = GLOBALS
-                .settings
-                .read()
-                .feed_related_event_kinds()
-                .iter()
-                .map(|e| <EventKind as Into<u32>>::into(*e))
-                .map(|e| e.to_string())
-                .collect::<Vec<String>>()
-                .join(",");
+            let feed_related_event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
 
-            let cond = format!(
-                " kind in ({}) AND created_at > {} ORDER BY created_at ASC",
-                where_kind, then
-            );
-
-            let db_events = DbEvent::fetch(Some(&cond)).await?;
-
-            // Map db events into Events
-            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
-            for dbevent in db_events.iter() {
-                let e = serde_json::from_str(&dbevent.raw)?;
-                events.push(e);
-            }
+            let mut events = GLOBALS.storage.filter_events(|event| {
+                feed_related_event_kinds.contains(&event.kind) && event.created_at > then
+            })?;
+            events.sort_unstable_by(|a, b| a.created_at.cmp(&b.created_at));
 
             // Process these events
             let mut count = 0;
@@ -1896,9 +1879,11 @@ impl Overlord {
                 Some(pk) => pk,
                 None => return Ok(()), // we cannot do anything without an identity setup first
             };
-            match DbEvent::fetch_last_contact_list(pubkey.into()).await? {
-                Some(event) => event,
-                None => return Ok(()), // we have no contact list to update from
+
+            if let Some(event) = GLOBALS.storage.fetch_contact_list(&pubkey)? {
+                event.clone()
+            } else {
+                return Ok(()); // we have no contact list to update from
             }
         };
 
