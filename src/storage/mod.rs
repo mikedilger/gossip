@@ -31,6 +31,10 @@ pub struct Storage {
 
     // Id -> ()
     event_viewed: Database,
+
+    // Hashtag -> Id
+    // (dup keys, so multiple Ids per hashtag)
+    hashtags: Database,
 }
 
 impl Storage {
@@ -59,11 +63,17 @@ impl Storage {
 
         let event_viewed = env.create_db(Some("event_viewed"), DatabaseFlags::empty())?;
 
+        let hashtags = env.create_db(
+            Some("hashtags"),
+            DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED,
+        )?;
+
         let storage = Storage {
             env,
             general,
             event_seen_on_relay,
             event_viewed,
+            hashtags,
         };
 
         // If migration level is missing, we need to import from legacy sqlite
@@ -224,5 +234,36 @@ impl Storage {
             Err(lmdb::Error::NotFound) => Ok(false),
             Err(e) => Err(e.into()),
         }
+    }
+
+    pub fn add_hashtag(&self, hashtag: &String, id: Id) -> Result<(), Error> {
+        let key = key!(hashtag.as_bytes());
+        let bytes = id.as_slice().to_owned();
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.hashtags, &key, &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn get_event_ids_with_hashtag(&self, hashtag: &String) -> Result<Vec<Id>, Error> {
+        let key = key!(hashtag.as_bytes());
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.hashtags)?;
+        let iter = cursor.iter_from(key);
+        let mut output: Vec<Id> = Vec::new();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((thiskey, val)) => {
+                    // Stop once we get to a different key
+                    if thiskey != key {
+                        break;
+                    }
+                    let id = Id::read_from_buffer(val)?;
+                    output.push(id);
+                }
+            }
+        }
+        Ok(output)
     }
 }

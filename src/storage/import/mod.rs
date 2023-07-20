@@ -44,6 +44,13 @@ impl Storage {
             }
         })?;
 
+        // old table "event_hashtag"
+        // Copy event_hashtags
+        import_hashtags(&db, |hashtag: String, event: String| {
+            let id = Id::try_from_hex_string(&event)?;
+            self.add_hashtag(&hashtag, id)
+        })?;
+
         // Mark migration level
         // TBD: self.write_migration_level(0)?;
 
@@ -215,6 +222,21 @@ where
             }
         };
         f(id, viewed)?;
+    }
+    Ok(())
+}
+
+fn import_hashtags<F>(db: &Connection, mut f: F) -> Result<(), Error>
+where
+    F: FnMut(String, String) -> Result<(), Error>,
+{
+    let sql = "SELECT hashtag, event FROM event_hashtag ORDER BY hashtag, event";
+    let mut stmt = db.prepare(sql)?;
+    let mut rows = stmt.raw_query();
+    while let Some(row) = rows.next()? {
+        let hashtag: String = row.get(0)?;
+        let event: String = row.get(1)?;
+        f(hashtag, event)?;
     }
     Ok(())
 }
