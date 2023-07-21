@@ -122,14 +122,7 @@ impl Overlord {
             let replies_chunk = GLOBALS.settings.read().replies_chunk;
             let then = now.0 - replies_chunk as i64;
 
-            let db_events = DbEvent::fetch_reply_related(then).await?;
-
-            // Map db events into Events
-            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
-            for dbevent in db_events.iter() {
-                let e = serde_json::from_str(&dbevent.raw)?;
-                events.push(e);
-            }
+            let events = GLOBALS.storage.fetch_reply_related_events(Unixtime(then))?;
 
             // Process these events
             let mut count = 0;
@@ -170,7 +163,7 @@ impl Overlord {
 
         // Load relay lists from the database and process
         {
-            let events: Vec<Event> = DbEvent::fetch_relay_lists().await?;
+            let events: Vec<Event> = GLOBALS.storage.fetch_relay_lists()?;
 
             // Process these events
             let mut count = 0;

@@ -1,13 +1,11 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, EventKind, IdHex, PublicKeyHex};
+use nostr_types::{Event, IdHex, PublicKeyHex};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
 /*
 overlord:
-    fetch_reply_related
-    fetch_relay_lists
     search
 
 process:
@@ -31,81 +29,6 @@ pub struct DbEvent {
 }
 
 impl DbEvent {
-    pub async fn fetch_relay_lists() -> Result<Vec<Event>, Error> {
-        // FIXME, only get the last per pubkey
-        let sql = "SELECT raw FROM event WHERE event.kind=10002";
-
-        let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
-            let db = GLOBALS.db.blocking_lock();
-            let mut stmt = db.prepare(sql)?;
-            let mut rows = stmt.raw_query();
-            let mut events: Vec<Event> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let raw: String = row.get(0)?;
-                let event: Event = serde_json::from_str(&raw)?;
-                events.push(event);
-            }
-            Ok(events)
-        })
-        .await?;
-
-        output
-    }
-
-    pub async fn fetch_reply_related(since: i64) -> Result<Vec<DbEvent>, Error> {
-        let public_key: PublicKeyHex = match GLOBALS.signer.public_key() {
-            None => return Ok(vec![]),
-            Some(pk) => pk.into(),
-        };
-
-        let kinds: String = GLOBALS
-            .settings
-            .read()
-            .feed_related_event_kinds()
-            .iter()
-            .map(|e| <EventKind as Into<u32>>::into(*e))
-            .map(|e| e.to_string())
-            .collect::<Vec<String>>()
-            .join(",");
-
-        let sql = format!(
-            "SELECT id, raw, pubkey, created_at, kind, content, ots FROM event \
-             LEFT JOIN event_tag ON event.id=event_tag.event \
-             WHERE event.kind IN ({}) \
-             AND event_tag.label='p' AND event_tag.field0=? \
-             AND created_at > ? \
-             ORDER BY created_at ASC",
-            kinds
-        );
-
-        let output: Result<Vec<DbEvent>, Error> = spawn_blocking(move || {
-            let db = GLOBALS.db.blocking_lock();
-            let mut stmt = db.prepare(&sql)?;
-            stmt.raw_bind_parameter(1, public_key.as_str())?;
-            stmt.raw_bind_parameter(2, since)?;
-            let mut rows = stmt.raw_query();
-            let mut events: Vec<DbEvent> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let id: String = row.get(0)?;
-                let pk: String = row.get(2)?;
-                let event = DbEvent {
-                    id: IdHex::try_from_str(&id)?,
-                    raw: row.get(1)?,
-                    pubkey: PublicKeyHex::try_from_str(&pk)?,
-                    created_at: row.get(3)?,
-                    kind: row.get(4)?,
-                    content: row.get(5)?,
-                    ots: row.get(6)?,
-                };
-                events.push(event);
-            }
-            Ok(events)
-        })
-        .await?;
-
-        output
-    }
-
     pub async fn search(text: &str) -> Result<Vec<Event>, Error> {
         let sql = format!("SELECT raw FROM event WHERE (kind=1 OR kind=30023) AND (\
                            content LIKE '%{text}%' \

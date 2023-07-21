@@ -2,12 +2,15 @@ mod import;
 
 use crate::db::DbRelay;
 use crate::error::Error;
+use crate::globals::GLOBALS;
 use crate::profile::Profile;
 use crate::settings::Settings;
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags,
 };
-use nostr_types::{EncryptedPrivateKey, Event, EventKind, Id, PublicKey, RelayUrl, Tag, Unixtime};
+use nostr_types::{
+    EncryptedPrivateKey, Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
+};
 use speedy::{Readable, Writable};
 
 const MAX_LMDB_KEY: usize = 511;
@@ -459,5 +462,61 @@ impl Storage {
             .iter()
             .max_by(|x, y| x.created_at.cmp(&y.created_at))
             .cloned())
+    }
+
+    // This is temporary to feed src/events.rs which will be going away in a future
+    // code pass
+    pub fn fetch_reply_related_events(&self, since: Unixtime) -> Result<Vec<Event>, Error> {
+        let public_key: PublicKeyHex = match GLOBALS.signer.public_key() {
+            None => return Ok(vec![]),
+            Some(pk) => pk.into(),
+        };
+
+        let reply_related_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+
+        let tag = Tag::Pubkey {
+            pubkey: public_key,
+            recommended_relay_url: None,
+            petname: None,
+            trailing: vec![],
+        };
+
+        let tagged_event_ids = self.find_events_with_tags(tag)?;
+
+        let events: Vec<Event> = tagged_event_ids
+            .iter()
+            .filter_map(|id| match self.read_event(*id) {
+                Ok(Some(event)) => {
+                    if event.created_at > since && reply_related_kinds.contains(&event.kind) {
+                        Some(event)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .collect();
+
+        Ok(events)
+    }
+
+    // This is temporary to feed src/events.rs which will be going away in a future
+    // code pass
+    pub fn fetch_relay_lists(&self) -> Result<Vec<Event>, Error> {
+        use std::collections::HashMap;
+
+        let mut relay_lists = self.filter_events(|event| event.kind == EventKind::RelayList)?;
+
+        let mut latest: HashMap<PublicKey, Event> = HashMap::new();
+        for event in relay_lists.drain(..) {
+            if let Some(current_best) = latest.get(&event.pubkey) {
+                if current_best.created_at >= event.created_at {
+                    continue;
+                }
+            }
+            let _ = latest.insert(event.pubkey, event);
+        }
+
+        Ok(latest.values().map(|v| v.to_owned()).collect())
     }
 }
