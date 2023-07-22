@@ -1,12 +1,11 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, IdHex, PublicKeyHex};
+use nostr_types::{IdHex, PublicKeyHex};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 
 /*
 overlord:
-    search
 
 process:
     replace
@@ -29,34 +28,6 @@ pub struct DbEvent {
 }
 
 impl DbEvent {
-    pub async fn search(text: &str) -> Result<Vec<Event>, Error> {
-        let sql = format!("SELECT raw FROM event WHERE (kind=1 OR kind=30023) AND (\
-                           content LIKE '%{text}%' \
-                           OR \
-                           id IN (SELECT event FROM event_tag WHERE label IN ('t', 'subject', 'summary', 'title') AND field0 like '%{text}%') \
-                           ) \
-                           ORDER BY created_at DESC");
-
-        let output: Result<Vec<Event>, Error> = spawn_blocking(move || {
-            let db = GLOBALS.db.blocking_lock();
-            let mut stmt = db.prepare(&sql)?;
-            let mut rows = stmt.query([])?;
-            let mut output: Vec<Event> = Vec::new();
-            while let Some(row) = rows.next()? {
-                let raw: String = row.get(0)?;
-                let event: Event = match serde_json::from_str(&raw) {
-                    Ok(e) => e,
-                    Err(_) => continue, // ignore the error, keep searching
-                };
-                output.push(event);
-            }
-            Ok(output)
-        })
-        .await?;
-
-        output
-    }
-
     pub async fn insert(event: DbEvent) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO event (id, raw, pubkey, created_at, kind, content, ots) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";

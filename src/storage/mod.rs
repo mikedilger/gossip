@@ -454,6 +454,64 @@ impl Storage {
         Ok(output)
     }
 
+    pub fn search_events(&self, text: &str) -> Result<Vec<Event>, Error> {
+        let event_kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
+
+        let needle = regex::escape(text.to_lowercase().as_str());
+        let re = regex::RegexBuilder::new(needle.as_str())
+            .unicode(true)
+            .case_insensitive(true)
+            .build()?;
+
+        let mut events = self.filter_events(|event| {
+            // Only feed displayable events please
+            if !event_kinds.contains(&event.kind) {
+                return false;
+            }
+
+            // Match contents
+            if re.is_match(event.content.as_ref()) {
+                return true;
+            }
+
+            // Match human readable tags
+            for tag in &event.tags {
+                match tag {
+                    Tag::Hashtag { hashtag, .. } => {
+                        if re.is_match(hashtag.as_ref()) {
+                            return true;
+                        }
+                    }
+                    Tag::Subject { subject, .. } => {
+                        if re.is_match(subject.as_ref()) {
+                            return true;
+                        }
+                    }
+                    Tag::Title { title, .. } => {
+                        if re.is_match(title.as_ref()) {
+                            return true;
+                        }
+                    }
+                    Tag::Other { tag, data } => {
+                        if tag == "summary" && !data.is_empty() && re.is_match(data[0].as_ref()) {
+                            return true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            false
+        })?;
+
+        events.sort_unstable_by(|a, b| {
+            // ORDER created_at desc
+            b.created_at.cmp(&a.created_at)
+        });
+
+        Ok(events)
+    }
+
     // TBD: optimize this by storing better event indexes
     // currently we stupidly scan every event (just to get LMDB up and running first)
     pub fn fetch_contact_list(&self, pubkey: &PublicKey) -> Result<Option<Event>, Error> {

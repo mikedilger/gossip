@@ -3,7 +3,7 @@ mod minion;
 use crate::comms::{
     RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
 };
-use crate::db::{DbEvent, DbEventRelay, DbPersonRelay, DbRelay};
+use crate::db::{DbEventRelay, DbPersonRelay, DbRelay};
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
 use crate::people::People;
@@ -1970,7 +1970,7 @@ impl Overlord {
         let people_search_results = People::fetch(Some(&clause)).await?;
         *GLOBALS.people_search_results.write() = people_search_results;
 
-        let note_search_results = DbEvent::search(&text).await?;
+        let note_search_results = GLOBALS.storage.search_events(&text)?;
         *GLOBALS.note_search_results.write() = note_search_results;
 
         Ok(())
