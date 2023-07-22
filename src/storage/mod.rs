@@ -463,46 +463,38 @@ impl Storage {
             .case_insensitive(true)
             .build()?;
 
-        let mut events = self.filter_events(|event| {
-            // Only feed displayable events please
-            if !event_kinds.contains(&event.kind) {
-                return false;
-            }
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.events)?;
+        let iter = cursor.iter_start();
+        let mut events: Vec<Event> = Vec::new();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((_key, val)) => {
+                    // event kind must match
+                    if let Some(kind) = Event::get_kind_from_speedy_bytes(val) {
+                        if !event_kinds.contains(&kind) {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
 
-            // Match contents
-            if re.is_match(event.content.as_ref()) {
-                return true;
-            }
+                    if let Some(content) = Event::get_content_from_speedy_bytes(val) {
+                        if re.is_match(content.as_ref()) {
+                            let event = Event::read_from_buffer(val)?;
+                            events.push(event);
+                            continue;
+                        }
+                    }
 
-            // Match human readable tags
-            for tag in &event.tags {
-                match tag {
-                    Tag::Hashtag { hashtag, .. } => {
-                        if re.is_match(hashtag.as_ref()) {
-                            return true;
-                        }
+                    if Event::tag_search_in_speedy_bytes(val, &re)? {
+                        let event = Event::read_from_buffer(val)?;
+                        events.push(event);
                     }
-                    Tag::Subject { subject, .. } => {
-                        if re.is_match(subject.as_ref()) {
-                            return true;
-                        }
-                    }
-                    Tag::Title { title, .. } => {
-                        if re.is_match(title.as_ref()) {
-                            return true;
-                        }
-                    }
-                    Tag::Other { tag, data } => {
-                        if tag == "summary" && !data.is_empty() && re.is_match(data[0].as_ref()) {
-                            return true;
-                        }
-                    }
-                    _ => {}
                 }
             }
-
-            false
-        })?;
+        }
 
         events.sort_unstable_by(|a, b| {
             // ORDER created_at desc
