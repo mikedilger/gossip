@@ -23,6 +23,7 @@ pub enum ErrorKind {
     InvalidUri(http::uri::InvalidUri),
     InvalidUrl(String),
     ParseInt(std::num::ParseIntError),
+    Regex(regex::Error),
     RelayPickerError(gossip_relay_picker::Error),
     ReqwestHttpError(reqwest::Error),
     Sql(rusqlite::Error),
@@ -78,6 +79,7 @@ impl std::fmt::Display for Error {
             InvalidUri(e) => write!(f, "Invalid URI: {e}"),
             InvalidUrl(s) => write!(f, "Invalid URL: {s}"),
             ParseInt(e) => write!(f, "Bad integer: {e}"),
+            Regex(e) => write!(f, "Regex: {e}"),
             RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
             ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
             Sql(e) => write!(f, "SQL: {e}"),
@@ -201,6 +203,12 @@ impl From<lmdb::Error> for ErrorKind {
 impl From<std::num::ParseIntError> for ErrorKind {
     fn from(e: std::num::ParseIntError) -> ErrorKind {
         ErrorKind::ParseInt(e)
+    }
+}
+
+impl From<regex::Error> for ErrorKind {
+    fn from(e: regex::Error) -> ErrorKind {
+        ErrorKind::Regex(e)
     }
 }
 
