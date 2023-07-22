@@ -1,7 +1,7 @@
 mod import;
 
 use crate::db::DbRelay;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::profile::Profile;
 use crate::settings::Settings;
@@ -430,6 +430,77 @@ impl Storage {
             Err(lmdb::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),
         }
+    }
+
+    pub fn delete_event(&self, id: Id) -> Result<(), Error> {
+        let mut txn = self.env.begin_rw_txn()?;
+        let _ = txn.del(self.events, &id.as_ref(), None);
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn replace_event(&self, event: &Event) -> Result<bool, Error> {
+        if !event.kind.is_replaceable() {
+            return Err(ErrorKind::General("Event is not replaceable.".to_owned()).into());
+        }
+
+        let existing = self.filter_events(|e| e.kind == event.kind && e.pubkey == event.pubkey)?;
+
+        let mut found_newer = false;
+        for old in existing {
+            if old.created_at < event.created_at {
+                self.delete_event(old.id)?;
+            } else {
+                found_newer = true;
+            }
+        }
+
+        if found_newer {
+            return Ok(false); // this event is not the latest one.
+        }
+
+        self.write_event(event)?;
+        Ok(true)
+    }
+
+    pub fn replace_parameterized_event(&self, event: &Event) -> Result<bool, Error> {
+        if !event.kind.is_parameterized_replaceable() {
+            return Err(
+                ErrorKind::General("Event is not parameterized replaceable.".to_owned()).into(),
+            );
+        }
+
+        let param = match event.parameter() {
+            None => {
+                return Err(ErrorKind::General(
+                    "Event of parameterized type does not have a parameter.".to_owned(),
+                )
+                .into())
+            }
+            Some(param) => param,
+        };
+
+        let existing = self.filter_events(|e| {
+            e.kind == event.kind
+                && e.pubkey == event.pubkey
+                && event.parameter().as_ref() == Some(&param)
+        })?;
+
+        let mut found_newer = false;
+        for old in existing {
+            if old.created_at < event.created_at {
+                self.delete_event(old.id)?;
+            } else {
+                found_newer = true;
+            }
+        }
+
+        if found_newer {
+            return Ok(false); // this event is not the latest one.
+        }
+
+        self.write_event(event)?;
+        Ok(true)
     }
 
     pub fn filter_events<F>(&self, f: F) -> Result<Vec<Event>, Error>

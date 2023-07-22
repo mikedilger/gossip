@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{DbEvent, DbEventRelay, DbPersonRelay, DbRelay};
+use crate::db::{DbEventRelay, DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
@@ -21,22 +21,8 @@ pub async fn process_new_event(
     // If it was from a relay,
     // Insert into database; bail if event is an already-replaced replaceable event.
     if from_relay {
-        // Convert a nostr Event into a DbEvent
-        let db_event = DbEvent {
-            id: event.id.into(),
-            raw: serde_json::to_string(&event)?,
-            pubkey: event.pubkey.into(),
-            created_at: event.created_at.0,
-            kind: {
-                let k: u32 = event.kind.into();
-                k.into()
-            },
-            content: event.content.clone(),
-            ots: event.ots.clone(),
-        };
-
         if event.kind.is_replaceable() {
-            if !DbEvent::replace(db_event).await? {
+            if !GLOBALS.storage.replace_event(event)? {
                 tracing::trace!(
                     "{}: Old Event: {} {:?} @{}",
                     seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
@@ -47,22 +33,19 @@ pub async fn process_new_event(
                 return Ok(()); // This did not replace anything.
             }
         } else if event.kind.is_parameterized_replaceable() {
-            match event.parameter() {
-                Some(param) => if ! DbEvent::replace_parameterized(db_event, param).await? {
-                    tracing::trace!(
-                        "{}: Old Event: {} {:?} @{}",
-                        seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-                        subscription.unwrap_or("_".to_string()),
-                        event.kind,
-                        event.created_at
-                    );
-                    return Ok(()); // This did not replace anything.
-                },
-                None => return Err("Parameterized event must have a parameter. This is a code issue, not a data issue".into()),
+            if !GLOBALS.storage.replace_parameterized_event(event)? {
+                tracing::trace!(
+                    "{}: Old Event: {} {:?} @{}",
+                    seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                    subscription.unwrap_or("_".to_string()),
+                    event.kind,
+                    event.created_at
+                );
+                return Ok(()); // This did not replace anything.
             }
         } else {
             // This will ignore if it is already there
-            DbEvent::insert(db_event).await?;
+            GLOBALS.storage.write_event(event)?;
         }
     }
 
