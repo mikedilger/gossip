@@ -1,2 +1,0 @@
-ALTER TABLE person ADD COLUMN
-    muted INTEGER DEFAULT 0;
