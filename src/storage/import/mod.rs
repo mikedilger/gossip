@@ -86,7 +86,7 @@ impl Storage {
         tracing::info!("LMDB: import person_relays");
 
         // Mark migration level
-        // TBD: self.write_migration_level(0)?;
+        self.write_migration_level(0)?;
 
         tracing::info!("Importing SQLITE data into LMDB: Done.");
 
