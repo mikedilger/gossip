@@ -95,4 +95,11 @@ impl Settings {
             .filter(|k| k.is_feed_related())
             .collect()
     }
+
+    pub fn feed_displayable_event_kinds(&self) -> Vec<EventKind> {
+        self.enabled_event_kinds()
+            .drain(..)
+            .filter(|k| k.is_feed_displayable())
+            .collect()
+    }
 }
