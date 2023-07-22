@@ -145,11 +145,7 @@ impl SubMenuState {
     }
     fn set_active(&mut self, item: &SubMenu) {
         for entry in self.submenu_states.iter_mut() {
-            if entry.0 == item {
-                *entry.1 = true;
-            } else {
-                *entry.1 = false;
-            }
+            *entry.1 = entry.0 == item;
         }
     }
 }

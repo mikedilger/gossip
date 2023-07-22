@@ -779,11 +779,12 @@ fn render_note_inner(
                                         .on_hover_text("Copy Invoice")
                                         .clicked()
                                     {
-                                        ui.output_mut(|o| match app.zap_state {
-                                            ZapState::ReadyToPay(_id, ref invoice) => {
+                                        ui.output_mut(|o| {
+                                            if let ZapState::ReadyToPay(_id, ref invoice) =
+                                                app.zap_state
+                                            {
                                                 o.copied_text = invoice.to_owned();
                                             }
-                                            _ => {}
                                         });
                                     }
                                 }
