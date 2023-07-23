@@ -1,8 +1,7 @@
 use crate::comms::ToOverlordMessage;
 use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
-use crate::globals::{Globals, GLOBALS};
-use crate::relationship::Relationship;
+use crate::globals::GLOBALS;
 use nostr_types::{
     Event, EventKind, Metadata, NostrBech32, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
@@ -138,69 +137,11 @@ pub async fn process_new_event(
         }
     }
 
-    // Save event relationships (whether from relay or not)
-    {
-        // replies to
-        if let Some((id, _)) = event.replies_to() {
-            // Insert into relationships
-            Globals::add_relationship(id, event.id, Relationship::Reply).await;
-        }
+    // Save event relationships (whether from a relay or not)
+    let invalid_ids = GLOBALS.storage.process_relationships_of_event(&event)?;
 
-        /*
-        // replies to root
-        if let Some((id, _)) = event.replies_to_root() {
-            // Insert into relationships
-            Globals::add_relationship(id, event.id, Relationship::Root).await;
-        }
-
-        // mentions
-        for (id, _) in event.mentions() {
-            // Insert into relationships
-            Globals::add_relationship(id, event.id, Relationship::Mention).await;
-        }
-         */
-
-        // reacts to
-        if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-            // Insert into relationships
-            Globals::add_relationship(id, event.id, Relationship::Reaction(reaction)).await;
-
-            // UI cache invalidation (so the note get rerendered)
-            GLOBALS.ui_notes_to_invalidate.write().push(id);
-        }
-
-        // deletes
-        if let Some((ids, reason)) = event.deletes() {
-            // UI cache invalidation (so the notes get rerendered)
-            GLOBALS.ui_notes_to_invalidate.write().extend(&ids);
-
-            for id in ids {
-                // since it is a delete, we don't actually desire the event.
-
-                // Insert into relationships
-                Globals::add_relationship(id, event.id, Relationship::Deletion(reason.clone()))
-                    .await;
-            }
-        }
-
-        // zaps
-        match event.zaps() {
-            Ok(Some(zapdata)) => {
-                // Insert into relationships
-                Globals::add_relationship(
-                    zapdata.id,
-                    event.id,
-                    Relationship::ZapReceipt(zapdata.amount),
-                )
-                .await;
-
-                // UI cache invalidation (so the note gets rerendered)
-                GLOBALS.ui_notes_to_invalidate.write().push(zapdata.id);
-            }
-            Err(e) => tracing::error!("Invalid zap receipt: {}", e),
-            _ => {}
-        }
-    }
+    // Invalidate UI events indicated by those relationships
+    GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
 
     // Save event_hashtags
     if from_relay {

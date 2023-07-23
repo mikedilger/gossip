@@ -5,7 +5,6 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::media::Media;
 use crate::people::{DbPerson, People};
-use crate::relationship::Relationship;
 use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
 use crate::signer::Signer;
@@ -14,13 +13,12 @@ use crate::storage::Storage;
 use dashmap::DashMap;
 use gossip_relay_picker::RelayPicker;
 use nostr_types::{
-    Event, Id, MilliSatoshi, PayRequestData, Profile, PublicKey, PublicKeyHex, RelayUrl,
-    UncheckedUrl,
+    Event, Id, PayRequestData, Profile, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl,
 };
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rusqlite::Connection;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
@@ -53,9 +51,6 @@ pub struct Globals {
     /// This is ephemeral. It is filled during lazy_static initialization,
     /// and stolen away when the Overlord is created.
     pub tmp_overlord_receiver: Mutex<Option<mpsc::UnboundedReceiver<ToOverlordMessage>>>,
-
-    /// All relationships between events
-    pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
@@ -145,7 +140,6 @@ lazy_static! {
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
-            relationships: RwLock::new(HashMap::new()),
             people: People::new(),
             connected_relays: DashMap::new(),
             relay_picker: Default::default(),
@@ -175,99 +169,6 @@ lazy_static! {
 }
 
 impl Globals {
-    pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {
-        let r = (related, relationship);
-        let mut relationships = GLOBALS.relationships.write().await;
-        relationships
-            .entry(id)
-            .and_modify(|vec| {
-                if !vec.contains(&r) {
-                    vec.push(r.clone());
-                }
-            })
-            .or_insert_with(|| vec![r]);
-    }
-
-    pub fn get_replies_sync(id: Id) -> Vec<Id> {
-        let mut output: Vec<Id> = Vec::new();
-        if let Some(vec) = GLOBALS.relationships.blocking_read().get(&id) {
-            for (id, relationship) in vec.iter() {
-                if *relationship == Relationship::Reply {
-                    output.push(*id);
-                }
-            }
-        }
-
-        output
-    }
-
-    // FIXME - this allows people to react many times to the same event, and
-    //         it counts them all!
-    /// Returns the list of reactions and whether or not this account has already reacted to this event
-    pub fn get_reactions_sync(id: Id) -> (Vec<(char, usize)>, bool) {
-        let mut output: HashMap<char, HashSet<PublicKeyHex>> = HashMap::new();
-
-        // Whether or not the Gossip user already reacted to this event
-        let mut self_already_reacted = false;
-
-        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
-            for (other_id, relationship) in relationships.iter() {
-                // get the reacting event to make sure publickeys are unique
-                if let Ok(Some(e)) = GLOBALS.storage.read_event(*other_id) {
-                    if let Relationship::Reaction(reaction) = relationship {
-                        if Some(e.pubkey) == GLOBALS.signer.public_key() {
-                            self_already_reacted = true;
-                        }
-
-                        let symbol: char = if let Some(ch) = reaction.chars().next() {
-                            ch
-                        } else {
-                            '+'
-                        };
-
-                        output
-                            .entry(symbol)
-                            .and_modify(|pubkeys| {
-                                let _ = pubkeys.insert(e.pubkey.into());
-                            })
-                            .or_insert_with(|| {
-                                let mut set = HashSet::new();
-                                set.insert(e.pubkey.into());
-                                set
-                            });
-                    }
-                }
-            }
-        }
-
-        let mut v: Vec<(char, usize)> = output.iter().map(|(c, u)| (*c, u.len())).collect();
-        v.sort();
-        (v, self_already_reacted)
-    }
-
-    pub fn get_zap_total_sync(id: Id) -> MilliSatoshi {
-        let mut total = MilliSatoshi(0);
-        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
-            for (_other_id, relationship) in relationships.iter() {
-                if let Relationship::ZapReceipt(millisats) = relationship {
-                    total = total + *millisats;
-                }
-            }
-        }
-        total
-    }
-
-    pub fn get_deletion_sync(id: Id) -> Option<String> {
-        if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
-            for (_id, relationship) in relationships.iter() {
-                if let Relationship::Deletion(deletion) = relationship {
-                    return Some(deletion.clone());
-                }
-            }
-        }
-        None
-    }
-
     pub fn get_your_nprofile() -> Option<Profile> {
         let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,

@@ -9,7 +9,7 @@ use super::notedata::{NoteData, RepostType};
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
-use crate::globals::{Globals, ZapState, GLOBALS};
+use crate::globals::{ZapState, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
@@ -159,7 +159,7 @@ pub(super) fn render_note(
 
             // even if muted, continue rendering thread children
             if threaded && !as_reply_to {
-                let replies = Globals::get_replies_sync(id);
+                let replies = GLOBALS.storage.get_replies(id).unwrap_or(vec![]);
                 let iter = replies.iter();
                 let first = replies.first();
                 let last = replies.last();

@@ -37,7 +37,9 @@ impl Storage {
 
     // Load and process every event in order to generate the relationships data
     fn compute_relationships(&self) -> Result<(), Error> {
-        panic!("Not yet properly implemented");
+        // track progress
+        let total = self.get_event_stats()?.entries();
+        let mut count = 0;
 
         let txn = self.env.begin_ro_txn()?;
         let mut cursor = txn.open_ro_cursor(self.events)?;
@@ -47,9 +49,14 @@ impl Storage {
                 Err(e) => return Err(e.into()),
                 Ok((_key, val)) => {
                     let event = Event::read_from_buffer(val)?;
-                    // FIXME we can't do this async
-                    // crate::process::process_new_event(&event, false, None, None).await?;
+                    let _ = self.process_relationships_of_event(&event)?;
                 }
+            }
+
+            // track progress
+            count += 1;
+            if count % 1000 == 0 {
+                tracing::info!("{}/{}", count, total);
             }
         }
 

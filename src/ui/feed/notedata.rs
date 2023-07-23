@@ -1,7 +1,4 @@
-use crate::{
-    globals::{Globals, GLOBALS},
-    people::DbPerson,
-};
+use crate::{globals::GLOBALS, people::DbPerson};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKeyHex,
     ShatteredContent, Tag,
@@ -52,11 +49,17 @@ impl NoteData {
 
         let delegation = event.delegation();
 
-        let deletion = Globals::get_deletion_sync(event.id);
+        let deletion = GLOBALS.storage.get_deletion(event.id).unwrap_or(None);
 
-        let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
+        let (reactions, self_already_reacted) = GLOBALS
+            .storage
+            .get_reactions(event.id)
+            .unwrap_or((vec![], false));
 
-        let zaptotal = Globals::get_zap_total_sync(event.id);
+        let zaptotal = GLOBALS
+            .storage
+            .get_zap_total(event.id)
+            .unwrap_or(MilliSatoshi(0));
 
         // build a list of all cached mentions and their index
         // only notes that are in the cache will be rendered as reposts
@@ -178,7 +181,10 @@ impl NoteData {
     }
 
     pub(super) fn update_reactions(&mut self) {
-        let (mut reactions, self_already_reacted) = Globals::get_reactions_sync(self.event.id);
+        let (mut reactions, self_already_reacted) = GLOBALS
+            .storage
+            .get_reactions(self.event.id)
+            .unwrap_or((vec![], false));
 
         self.reactions.clear();
         self.reactions.append(&mut reactions);

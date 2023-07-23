@@ -1,7 +1,7 @@
 use super::theme::FeedProperties;
 use super::{GossipUi, Page};
 use crate::feed::FeedKind;
-use crate::globals::{Globals, GLOBALS};
+use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
 use nostr_types::Id;
@@ -266,7 +266,7 @@ fn render_note_maybe_fake(
 
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to {
-            let replies = Globals::get_replies_sync(event.id);
+            let replies = GLOBALS.storage.get_replies(event.id).unwrap_or(vec![]);
             let iter = replies.iter();
             let first = replies.first();
             let last = replies.last();

@@ -1,13 +1,11 @@
-use nostr_types::MilliSatoshi;
+use nostr_types::{MilliSatoshi, PublicKey};
 use speedy::{Readable, Writable};
 
 /// A relationship between events
 #[derive(Clone, Debug, PartialEq, Eq, Readable, Writable)]
 pub enum Relationship {
-    //Root,
     Reply,
-    //Mention,
-    Reaction(String),
+    Reaction(PublicKey, String),
     Deletion(String),
-    ZapReceipt(MilliSatoshi),
+    ZapReceipt(PublicKey, MilliSatoshi),
 }

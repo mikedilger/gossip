@@ -11,9 +11,11 @@ use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Stat, Transaction, WriteFlags,
 };
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Id, MilliSatoshi, PublicKey, PublicKeyHex, RelayUrl,
+    Tag, Unixtime,
 };
 use speedy::{Readable, Writable};
+use std::collections::HashMap;
 
 const MAX_LMDB_KEY: usize = 511;
 macro_rules! key {
@@ -71,7 +73,7 @@ impl Storage {
         // This has to be big enough for all the data.
         // Note that it is the size of the map in VIRTUAL address space,
         //   and that it doesn't all have to be paged in at the same time.
-        builder.set_map_size(1048576 * 1024 * 2); // 2 GB (probably too small)
+        builder.set_map_size(1048576 * 1024 * 128); // 128 GB
 
         let env = builder.open(&Profile::current()?.lmdb_dir)?;
 
@@ -115,6 +117,7 @@ impl Storage {
             None => {
                 // Import from sqlite
                 storage.import()?;
+                storage.migrate(0)?;
             }
             Some(level) => {
                 storage.migrate(level)?;
@@ -692,8 +695,6 @@ impl Storage {
     // This is temporary to feed src/events.rs which will be going away in a future
     // code pass
     pub fn fetch_relay_lists(&self) -> Result<Vec<Event>, Error> {
-        use std::collections::HashMap;
-
         let mut relay_lists =
             self.find_events(&[], &[EventKind::RelayList], None, |_| true, false)?;
 
@@ -758,5 +759,127 @@ impl Storage {
             }
         }
         Ok(output)
+    }
+
+    pub fn get_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
+        Ok(self
+            .find_relationships(id)?
+            .iter()
+            .filter_map(|(id, rel)| {
+                if *rel == Relationship::Reply {
+                    Some(*id)
+                } else {
+                    None
+                }
+            })
+            .collect())
+    }
+
+    /// Returns the list of reactions and whether or not this account has already reacted to this event
+    pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, bool), Error> {
+        // Whether or not the Gossip user already reacted to this event
+        let mut self_already_reacted = false;
+
+        // Collect up to one reaction per pubkey
+        let mut phase1: HashMap<PublicKey, char> = HashMap::new();
+        for (_, rel) in self.find_relationships(id)? {
+            if let Relationship::Reaction(pubkey, reaction) = rel {
+                let symbol: char = if let Some(ch) = reaction.chars().next() {
+                    ch
+                } else {
+                    '+'
+                };
+                phase1.insert(pubkey, symbol);
+                if Some(pubkey) == GLOBALS.signer.public_key() {
+                    self_already_reacted = true;
+                }
+            }
+        }
+
+        // Collate by char
+        let mut output: HashMap<char, usize> = HashMap::new();
+        for (_, symbol) in phase1 {
+            output
+                .entry(symbol)
+                .and_modify(|count| *count += 1)
+                .or_insert_with(|| 1);
+        }
+
+        let mut v: Vec<(char, usize)> = output.drain().collect();
+        v.sort();
+        Ok((v, self_already_reacted))
+    }
+
+    pub fn get_zap_total(&self, id: Id) -> Result<MilliSatoshi, Error> {
+        let mut total = MilliSatoshi(0);
+        for (_, rel) in self.find_relationships(id)? {
+            if let Relationship::ZapReceipt(_pk, millisats) = rel {
+                total = total + millisats;
+            }
+        }
+        Ok(total)
+    }
+
+    pub fn get_deletion(&self, id: Id) -> Result<Option<String>, Error> {
+        for (_, rel) in self.find_relationships(id)? {
+            if let Relationship::Deletion(deletion) = rel {
+                return Ok(Some(deletion.clone()));
+            }
+        }
+        Ok(None)
+    }
+
+    // This returns IDs that should be UI invalidated
+    pub fn process_relationships_of_event(&self, event: &Event) -> Result<Vec<Id>, Error> {
+
+        let mut invalidate: Vec<Id> = Vec::new();
+
+        // replies to
+        if let Some((id, _)) = event.replies_to() {
+            self.write_relationship(id, event.id, Relationship::Reply)?;
+        }
+
+        // reacts to
+        if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
+            self.write_relationship(
+                id,
+                event.id,
+                Relationship::Reaction(event.pubkey, reaction),
+            )?;
+
+            invalidate.push(id);
+        }
+
+        // deletes
+        if let Some((ids, reason)) = event.deletes() {
+            invalidate.extend(&ids);
+
+            for id in ids {
+                // since it is a delete, we don't actually desire the event.
+
+                self.write_relationship(
+                    id,
+                    event.id,
+                    Relationship::Deletion(reason.clone()),
+                )?;
+            }
+        }
+
+        // zaps
+        match event.zaps() {
+            Ok(Some(zapdata)) => {
+                self.write_relationship(
+                    zapdata.id,
+                    event.id,
+                    Relationship::ZapReceipt(event.pubkey, zapdata.amount),
+                )?;
+
+                invalidate.push(zapdata.id);
+            }
+            Err(e) => tracing::error!("Invalid zap receipt: {}", e),
+            _ => {}
+        }
+
+        Ok(invalidate)
     }
 }
