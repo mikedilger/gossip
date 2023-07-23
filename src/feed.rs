@@ -21,14 +21,6 @@ pub enum FeedKind {
 }
 
 pub struct Feed {
-    /// Indicates that feed events have been loaded from the DB into [GLOBALS.events], and therefore
-    /// [Feed] rendering methods have data on which they can work.
-    ///
-    /// Calling [Feed::sync_maybe_periodic_recompute] when this is false will simply return.
-    ///
-    /// Calling [Feed::recompute] when this is false with throw an error.
-    pub ready: AtomicBool,
-
     pub recompute_lock: AtomicBool,
 
     current_feed_kind: RwLock<FeedKind>,
@@ -47,7 +39,6 @@ pub struct Feed {
 impl Feed {
     pub fn new() -> Feed {
         Feed {
-            ready: AtomicBool::new(false),
             recompute_lock: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::Followed(false)),
             followed_feed: RwLock::new(Vec::new()),
@@ -205,10 +196,6 @@ impl Feed {
             return;
         }
 
-        if !self.ready.load(Ordering::Relaxed) {
-            return;
-        }
-
         let now = Instant::now();
         let recompute = self
             .last_computed
@@ -231,10 +218,6 @@ impl Feed {
     }
 
     pub async fn recompute(&self) -> Result<(), Error> {
-        if !self.ready.load(Ordering::Relaxed) {
-            return Err("Feed is not yet ready")?;
-        }
-
         // If some other process is already recomputing, just return as if
         // the recompute was successful.  Otherwise set to true.
         if self.recompute_lock.fetch_or(true, Ordering::Relaxed) {

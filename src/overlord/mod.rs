@@ -15,7 +15,7 @@ use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32,
+    EncryptedPrivateKey, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32,
     PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag,
     UncheckedUrl, Unixtime,
 };
@@ -101,78 +101,11 @@ impl Overlord {
         // Load followed people from the database
         GLOBALS.people.load_all_followed().await?;
 
-        // Load contact list from the database
-        if let Some(pk) = GLOBALS.signer.public_key() {
-            if let Some(event) = GLOBALS.storage.fetch_contact_list(&pk)? {
-                crate::process::process_new_event(&event, false, None, None).await?;
-            }
-        }
-
         // Load delegation tag
         GLOBALS.delegation.load_through_settings()?;
 
         // Initialize the relay picker
         GLOBALS.relay_picker.init().await?;
-
-        let now = Unixtime::now().unwrap();
-
-        // Load reply-related events from database and process
-        // (where you are tagged)
-        {
-            let replies_chunk = GLOBALS.settings.read().replies_chunk;
-            let then = now.0 - replies_chunk as i64;
-
-            let events = GLOBALS.storage.fetch_reply_related_events(Unixtime(then))?;
-
-            // Process these events
-            let mut count = 0;
-            for event in events.iter() {
-                count += 1;
-                crate::process::process_new_event(event, false, None, None).await?;
-            }
-            tracing::info!("Loaded {} reply related events from the database", count);
-        }
-
-        // Load feed-related events from database and process
-        {
-            let feed_chunk = GLOBALS.settings.read().feed_chunk;
-            let then = Unixtime(now.0 - (feed_chunk as i64));
-
-            let feed_related_event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
-
-            let events = GLOBALS.storage.find_events(
-                &[],
-                &feed_related_event_kinds,
-                Some(then),
-                |_| true,
-                true,
-            )?;
-
-            // Process these events
-            let mut count = 0;
-            for event in events.iter() {
-                count += 1;
-                crate::process::process_new_event(event, false, None, None).await?;
-            }
-            tracing::info!("Loaded {} feed related events from the database", count);
-
-            // As soon as we have the feed events loaded, we trigger a feed recompute
-            GLOBALS.feed.ready.store(true, Ordering::Relaxed);
-            GLOBALS.feed.recompute().await?;
-        }
-
-        // Load relay lists from the database and process
-        {
-            let events: Vec<Event> = GLOBALS.storage.fetch_relay_lists()?;
-
-            // Process these events
-            let mut count = 0;
-            for event in events.iter() {
-                count += 1;
-                crate::process::process_new_event(event, false, None, None).await?;
-            }
-            tracing::info!("Loaded {} relay list events from the database", count);
-        }
 
         // Pick Relays and start Minions
         if !GLOBALS.settings.read().offline {
