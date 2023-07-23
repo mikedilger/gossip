@@ -449,7 +449,7 @@ impl Storage {
             return Err(ErrorKind::General("Event is not replaceable.".to_owned()).into());
         }
 
-        let existing = self.filter_events(|e| e.kind == event.kind && e.pubkey == event.pubkey)?;
+        let existing = self.find_events(&[event.pubkey], &[event.kind], None, |_| true, false)?;
 
         let mut found_newer = false;
         for old in existing {
@@ -485,11 +485,13 @@ impl Storage {
             Some(param) => param,
         };
 
-        let existing = self.filter_events(|e| {
-            e.kind == event.kind
-                && e.pubkey == event.pubkey
-                && event.parameter().as_ref() == Some(&param)
-        })?;
+        let existing = self.find_events(
+            &[event.pubkey],
+            &[event.kind],
+            None,
+            |e| e.parameter().as_ref() == Some(&param),
+            false,
+        )?;
 
         let mut found_newer = false;
         for old in existing {
@@ -508,7 +510,21 @@ impl Storage {
         Ok(true)
     }
 
-    pub fn filter_events<F>(&self, f: F) -> Result<Vec<Event>, Error>
+    // Find events of interest.
+    //
+    // If any of `pubkeys`, or `kinds` is not empty, the events must match
+    // one of the values in the array. If empty, no match is performed.
+    //
+    // The function f is run after the matching-so-far events have been deserialized
+    // to finish filtering.
+    pub fn find_events<F>(
+        &self,
+        pubkeys: &[PublicKey],
+        kinds: &[EventKind],
+        since: Option<Unixtime>,
+        f: F,
+        sort: bool,
+    ) -> Result<Vec<Event>, Error>
     where
         F: Fn(&Event) -> bool,
     {
@@ -520,6 +536,40 @@ impl Storage {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((_key, val)) => {
+                    // Keep only matching `PublicKey`s
+                    if !pubkeys.is_empty() {
+                        if let Some(pubkey) = Event::get_pubkey_from_speedy_bytes(val) {
+                            if !pubkeys.contains(&pubkey) {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    // Keep only matching `EventKind`s
+                    if !kinds.is_empty() {
+                        if let Some(kind) = Event::get_kind_from_speedy_bytes(val) {
+                            if !kinds.contains(&kind) {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    // Enforce since
+                    if let Some(time) = since {
+                        if let Some(created_at) = Event::get_created_at_from_speedy_bytes(val) {
+                            if created_at < time {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    // Passed all of that? Deserialize and apply user function
                     let event = Event::read_from_buffer(val)?;
                     if f(&event) {
                         output.push(event);
@@ -527,6 +577,11 @@ impl Storage {
                 }
             }
         }
+
+        if sort {
+            output.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        }
+
         Ok(output)
     }
 
@@ -584,7 +639,7 @@ impl Storage {
     // currently we stupidly scan every event (just to get LMDB up and running first)
     pub fn fetch_contact_list(&self, pubkey: &PublicKey) -> Result<Option<Event>, Error> {
         Ok(self
-            .filter_events(|event| event.kind == EventKind::ContactList && event.pubkey == *pubkey)?
+            .find_events(&[*pubkey], &[EventKind::ContactList], None, |_| true, false)?
             .iter()
             .max_by(|x, y| x.created_at.cmp(&y.created_at))
             .cloned())
@@ -631,7 +686,8 @@ impl Storage {
     pub fn fetch_relay_lists(&self) -> Result<Vec<Event>, Error> {
         use std::collections::HashMap;
 
-        let mut relay_lists = self.filter_events(|event| event.kind == EventKind::RelayList)?;
+        let mut relay_lists =
+            self.find_events(&[], &[EventKind::RelayList], None, |_| true, false)?;
 
         let mut latest: HashMap<PublicKey, Event> = HashMap::new();
         for event in relay_lists.drain(..) {

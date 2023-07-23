@@ -140,10 +140,13 @@ impl Overlord {
 
             let feed_related_event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
 
-            let mut events = GLOBALS.storage.filter_events(|event| {
-                feed_related_event_kinds.contains(&event.kind) && event.created_at > then
-            })?;
-            events.sort_unstable_by(|a, b| a.created_at.cmp(&b.created_at));
+            let events = GLOBALS.storage.find_events(
+                &[],
+                &feed_related_event_kinds,
+                Some(then),
+                |_| true,
+                true,
+            )?;
 
             // Process these events
             let mut count = 0;
