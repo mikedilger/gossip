@@ -198,6 +198,7 @@ pub async fn process_new_event(
             Globals::add_relationship(id, event.id, Relationship::Reply).await;
         }
 
+        /*
         // replies to root
         if let Some((id, _)) = event.replies_to_root() {
             // Insert into relationships
@@ -209,6 +210,7 @@ pub async fn process_new_event(
             // Insert into relationships
             Globals::add_relationship(id, event.id, Relationship::Mention).await;
         }
+         */
 
         // reacts to
         if let Some((id, reaction, _maybe_url)) = event.reacts_to() {

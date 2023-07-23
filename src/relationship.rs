@@ -3,9 +3,9 @@ use nostr_types::MilliSatoshi;
 /// A relationship between events
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Relationship {
-    Root,
+    //Root,
     Reply,
-    Mention,
+    //Mention,
     Reaction(String),
     Deletion(String),
     ZapReceipt(MilliSatoshi),
