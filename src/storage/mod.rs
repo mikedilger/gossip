@@ -1,9 +1,11 @@
 mod import;
+mod migrations;
 
 use crate::db::DbRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::profile::Profile;
+use crate::relationship::Relationship;
 use crate::settings::Settings;
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Stat, Transaction, WriteFlags,
@@ -49,6 +51,9 @@ pub struct Storage {
 
     // Id -> Event
     events: Database,
+
+    // Id:Id -> Relationship
+    relationships: Database,
 }
 
 impl Storage {
@@ -91,6 +96,8 @@ impl Storage {
 
         let events = env.create_db(Some("events"), DatabaseFlags::empty())?;
 
+        let relationships = env.create_db(Some("relationships"), DatabaseFlags::empty())?;
+
         let storage = Storage {
             env,
             general,
@@ -100,6 +107,7 @@ impl Storage {
             relays,
             event_tags,
             events,
+            relationships,
         };
 
         // If migration level is missing, we need to import from legacy sqlite
@@ -108,8 +116,8 @@ impl Storage {
                 // Import from sqlite
                 storage.import()?;
             }
-            Some(_level) => {
-                // migrations happen here
+            Some(level) => {
+                storage.migrate(level)?;
             }
         }
 
@@ -713,5 +721,42 @@ impl Storage {
         } else {
             Ok(Some(event.id))
         }
+    }
+
+    pub fn write_relationship(
+        &self,
+        id: Id,
+        related: Id,
+        relationship: Relationship,
+    ) -> Result<(), Error> {
+        let mut key = id.as_ref().as_slice().to_owned();
+        key.extend(related.as_ref());
+        let value = relationship.write_to_vec()?;
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.relationships, &key, &value, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn find_relationships(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
+        let start_key = id.as_ref().to_owned();
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.relationships)?;
+        let iter = cursor.iter_from(start_key);
+        let mut output: Vec<(Id, Relationship)> = Vec::new();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((key, val)) => {
+                    if !key.starts_with(&start_key) {
+                        break;
+                    }
+                    let id2 = Id(key[32..64].try_into().unwrap());
+                    let relationship = Relationship::read_from_buffer(val)?;
+                    output.push((id2, relationship));
+                }
+            }
+        }
+        Ok(output)
     }
 }
