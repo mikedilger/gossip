@@ -1,7 +1,7 @@
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{EventDelegation, EventKind, Id, PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{EventDelegation, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -260,86 +260,105 @@ impl Feed {
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
             FeedKind::Followed(with_replies) => {
-                let mut followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
+                let mut followed_pubkeys: Vec<PublicKey> = GLOBALS
+                    .people
+                    .get_followed_pubkeys()
+                    .iter()
+                    .map(|pk| PublicKey::try_from_hex_string(pk).unwrap())
+                    .collect();
+
                 if let Some(pubkey) = GLOBALS.signer.public_key() {
-                    followed_pubkeys.push(pubkey.into()); // add the user
+                    followed_pubkeys.push(pubkey); // add the user
                 }
 
-                let mut followed_events: Vec<(Unixtime, Id)> = GLOBALS
-                    .events
+                let since = now - Duration::from_secs(GLOBALS.settings.read().feed_chunk);
+
+                let followed_events: Vec<Id> = GLOBALS
+                    .storage
+                    .find_events(
+                        &followed_pubkeys, // pubkeys
+                        &kinds,            // kinds
+                        Some(since),
+                        |e| {
+                            e.created_at <= now // no future events
+                                && e.kind != EventKind::EncryptedDirectMessage // no DMs
+                                && !e.kind.augments_feed_related() // no augments
+                                && !dismissed.contains(&e.id) // not dismissed
+                                && if !with_replies {
+                                    !matches!(e.replies_to(), Some((_id, _))) // is not a reply
+                                } else {
+                                    true
+                                }
+                        },
+                        true,
+                    )?
                     .iter()
-                    .map(|r| r.value().to_owned())
-                    .filter(|e| e.created_at <= now) // no future events
-                    .filter(|e| kinds.contains(&e.kind)) // feed related
-                    .filter(|e| e.kind != EventKind::EncryptedDirectMessage) // except DMs
-                    .filter(|e| !e.kind.augments_feed_related()) // not augmenting another event
-                    .filter(|e| !dismissed.contains(&e.id)) // not dismissed
-                    .filter(|e| {
-                        if !with_replies {
-                            !matches!(e.replies_to(), Some((_id, _))) // is not a reply
-                        } else {
-                            true
-                        }
-                    })
-                    .filter(|e| followed_pubkeys.contains(&e.pubkey.into())) // someone we follow
-                    .map(|e| (e.created_at, e.id))
+                    .map(|e| e.id)
                     .collect();
-                followed_events.sort_by(|a, b| b.0.cmp(&a.0));
-                *self.followed_feed.write() = followed_events.iter().map(|e| e.1).collect();
+
+                *self.followed_feed.write() = followed_events;
             }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.signer.public_key() {
                     let my_event_ids: HashSet<Id> = GLOBALS
-                        .events
+                        .storage
+                        .find_events(
+                            &[my_pubkey],
+                            &kinds, // kinds
+                            None,   // since
+                            |_| true,
+                            false,
+                        )?
                         .iter()
-                        .filter_map(|e| {
-                            if e.value().pubkey == my_pubkey {
-                                Some(e.value().id)
-                            } else {
-                                None
-                            }
-                        })
+                        .map(|e| e.id)
                         .collect();
 
-                    let mut inbox_events: Vec<(Unixtime, Id)> = GLOBALS
-                        .events
-                        .iter()
-                        .filter(|e| e.value().created_at <= now) // no future events
-                        .filter(|e| kinds.contains(&e.kind)) // feed related
-                        .filter(|e| !e.kind.augments_feed_related()) // not augmenting another event
-                        .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
-                        .filter(|e| e.value().pubkey != my_pubkey) // not self-authored
-                        .filter(|e| {
-                            // Include if it directly replies to one of my events
-                            if let Some((id, _)) = e.value().replies_to() {
-                                if my_event_ids.contains(&id) {
-                                    return true;
-                                }
-                            }
+                    let inbox_events: Vec<(Unixtime, Id)> = GLOBALS
+                        .storage
+                        .find_events(
+                            &[],    // pubkeys
+                            &kinds, // kinds
+                            None,   // since
+                            |e| {
+                                if e.created_at > now {
+                                    return false;
+                                } // no future events
+                                if e.kind.augments_feed_related() {
+                                    return false;
+                                } // no augments
+                                if dismissed.contains(&e.id) {
+                                    return false;
+                                } // not dismissed
+                                if e.pubkey == my_pubkey {
+                                    return false;
+                                } // not self-authored
 
-                            if indirect {
-                                // Include if it tags me
-                                e.value()
-                                    .people()
-                                    .iter()
-                                    .any(|(p, _, _)| *p == my_pubkey.into())
-                            } else {
-                                if e.value().kind == EventKind::EncryptedDirectMessage {
-                                    true
+                                // Include if it directly replies to one of my events
+                                if let Some((id, _)) = e.replies_to() {
+                                    if my_event_ids.contains(&id) {
+                                        return true;
+                                    }
+                                }
+
+                                if indirect {
+                                    // Include if it tags me
+                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
                                 } else {
-                                    // Include if it directly references me in the content
-                                    e.value()
-                                        .referenced_people()
-                                        .iter()
-                                        .any(|(p, _, _)| *p == my_pubkey.into())
+                                    if e.kind == EventKind::EncryptedDirectMessage {
+                                        true
+                                    } else {
+                                        // Include if it directly references me in the content
+                                        e.referenced_people()
+                                            .iter()
+                                            .any(|(p, _, _)| *p == my_pubkey.into())
+                                    }
                                 }
-                            }
-                        })
-                        .map(|e| (e.value().created_at, e.value().id))
+                            },
+                            true,
+                        )?
+                        .iter()
+                        .map(|e| (e.created_at, e.id))
                         .collect();
-
-                    // Sort
-                    inbox_events.sort_unstable_by(|a, b| b.0.cmp(&a.0));
 
                     *self.inbox_feed.write() = inbox_events.iter().map(|e| e.1).collect();
                 }
@@ -356,28 +375,34 @@ impl Feed {
                 }
             }
             FeedKind::Person(person_pubkey) => {
-                let mut events: Vec<(Unixtime, Id)> = GLOBALS
-                    .events
-                    .iter()
-                    .filter(|e| kinds.contains(&e.kind)) // feed related
-                    .filter(|e| !e.kind.augments_feed_related()) // not augmenting another event
-                    .filter(|e| {
-                        if e.value().pubkey.as_hex_string() == person_pubkey.as_str() {
-                            true
-                        } else {
-                            if let EventDelegation::DelegatedBy(pk) = e.value().delegation() {
-                                pk.as_hex_string() == person_pubkey.as_str()
+                let events: Vec<(Unixtime, Id)> = GLOBALS
+                    .storage
+                    .find_events(
+                        &[],    // any person (due to delegation condition)
+                        &kinds, // feed kinds
+                        None,   // all the way back
+                        |e| {
+                            if e.kind.augments_feed_related() {
+                                return false;
+                            } // not augments
+                            if dismissed.contains(&e.id) {
+                                return false;
+                            } // not dismissed
+                            if e.pubkey.as_hex_string() == person_pubkey.as_str() {
+                                true
                             } else {
-                                false
+                                if let EventDelegation::DelegatedBy(pk) = e.delegation() {
+                                    pk.as_hex_string() == person_pubkey.as_str()
+                                } else {
+                                    false
+                                }
                             }
-                        }
-                    })
-                    .filter(|e| !dismissed.contains(&e.value().id)) // not dismissed
-                    .map(|e| (e.value().created_at, e.value().id))
+                        },
+                        true,
+                    )?
+                    .iter()
+                    .map(|e| (e.created_at, e.id))
                     .collect();
-
-                // Sort
-                events.sort_unstable_by(|a, b| b.0.cmp(&a.0));
 
                 *self.person_feed.write() = events.iter().map(|e| e.1).collect();
             }

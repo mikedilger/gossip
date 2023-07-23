@@ -15,9 +15,9 @@ use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, MilliSatoshi,
-    NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl,
-    Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32,
+    PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag,
+    UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -712,20 +712,8 @@ impl Overlord {
                 // Then pick
                 self.pick_relays().await;
             }
-            ToOverlordMessage::ProcessIncomingEvents => {
-                std::mem::drop(tokio::spawn(async move {
-                    for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
-                        let _ =
-                            crate::process::process_new_event(&event, true, Some(url), sub).await;
-                    }
-                }));
-            }
             ToOverlordMessage::PruneDatabase => {
-                std::mem::drop(tokio::spawn(async move {
-                    if let Err(e) = crate::db::prune().await {
-                        tracing::error!("{}", e);
-                    }
-                }));
+                tracing::warn!("Prune Database not yet implemented for LMDB");
             }
             ToOverlordMessage::Post(content, tags, reply_to) => {
                 self.post(content, tags, reply_to).await?;
@@ -1653,61 +1641,6 @@ impl Overlord {
 
         let missing_ancestors_hex: Vec<IdHex> =
             missing_ancestors.iter().map(|id| (*id).into()).collect();
-
-        // Load events from local database
-        // FIXME: This replicates filters that the minion also builds. We should
-        //        instead build the filters, then both send them to the minion and
-        //        also query them locally.
-        {
-            if !missing_ancestors_hex.is_empty() {
-                let idhp: Vec<IdHexPrefix> = missing_ancestors_hex
-                    .iter()
-                    .map(|id| id.to_owned().into())
-                    .collect();
-                let _ = GLOBALS
-                    .events
-                    .get_local_events_by_filter(Filter {
-                        ids: idhp,
-                        ..Default::default()
-                    })
-                    .await?;
-
-                let kinds = GLOBALS
-                    .settings
-                    .read()
-                    .feed_related_event_kinds()
-                    .drain(..)
-                    .filter(|k| k.augments_feed_related())
-                    .collect();
-
-                let e = GLOBALS
-                    .events
-                    .get_local_events_by_filter(Filter {
-                        e: missing_ancestors_hex.clone(),
-                        kinds,
-                        ..Default::default()
-                    })
-                    .await?;
-                if !e.is_empty() {
-                    tracing::debug!("Loaded {} local ancestor events", e.len());
-                }
-            }
-
-            let mut kinds = GLOBALS.settings.read().feed_related_event_kinds();
-            kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
-
-            let e = GLOBALS
-                .events
-                .get_local_events_by_filter(Filter {
-                    e: vec![id.into()],
-                    kinds,
-                    ..Default::default()
-                })
-                .await?;
-            if !e.is_empty() {
-                tracing::debug!("Loaded {} local reply events", e.len());
-            }
-        }
 
         // Subscribe on relays
         if relays.is_empty() {

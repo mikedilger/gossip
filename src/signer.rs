@@ -103,11 +103,18 @@ impl Signer {
 
                 // Invalidate DMs so they rerender decrypted
                 let dms: Vec<Id> = GLOBALS
-                    .events
+                    .storage
+                    .find_events(
+                        &[],
+                        &[EventKind::EncryptedDirectMessage],
+                        None,
+                        |_| true,
+                        false,
+                    )?
                     .iter()
-                    .filter(|e| e.kind == EventKind::EncryptedDirectMessage)
-                    .map(|e| e.value().id)
+                    .map(|e| e.id)
                     .collect();
+
                 GLOBALS.ui_notes_to_invalidate.write().extend(dms);
             }
 

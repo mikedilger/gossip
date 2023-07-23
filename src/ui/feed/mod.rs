@@ -217,11 +217,10 @@ fn render_note_maybe_fake(
     } = feed_note_params;
 
     // We always get the event even offscreen so we can estimate its height
-    let maybe_event = GLOBALS.events.get(&id);
-    if maybe_event.is_none() {
-        return;
-    }
-    let event = maybe_event.unwrap();
+    let event = match GLOBALS.storage.read_event(id) {
+        Ok(Some(event)) => event,
+        _ => return,
+    };
 
     // Stop rendering if the note is included in a collapsed thread
     if let Some((id, _)) = event.replies_to() {

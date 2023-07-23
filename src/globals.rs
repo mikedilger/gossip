@@ -1,7 +1,6 @@
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::db::DbRelay;
 use crate::delegation::Delegation;
-use crate::events::Events;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::media::Media;
@@ -54,14 +53,6 @@ pub struct Globals {
     /// This is ephemeral. It is filled during lazy_static initialization,
     /// and stolen away when the Overlord is created.
     pub tmp_overlord_receiver: Mutex<Option<mpsc::UnboundedReceiver<ToOverlordMessage>>>,
-
-    /// All nostr events currently in memory, keyed by the event Id, as well as
-    /// information about if they are new or not, and functions
-    pub events: Events,
-
-    /// Events coming in from relays that are not processed yet
-    /// stored with Url they came from and Subscription they came in on
-    pub incoming_events: RwLock<Vec<(Event, RelayUrl, Option<String>)>>,
 
     /// All relationships between events
     pub relationships: RwLock<HashMap<Id, Vec<(Id, Relationship)>>>,
@@ -154,8 +145,6 @@ lazy_static! {
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
-            events: Events::new(),
-            incoming_events: RwLock::new(Vec::new()),
             relationships: RwLock::new(HashMap::new()),
             people: People::new(),
             connected_relays: DashMap::new(),
@@ -224,7 +213,7 @@ impl Globals {
         if let Some(relationships) = GLOBALS.relationships.blocking_read().get(&id) {
             for (other_id, relationship) in relationships.iter() {
                 // get the reacting event to make sure publickeys are unique
-                if let Some(e) = GLOBALS.events.get(other_id) {
+                if let Ok(Some(e)) = GLOBALS.storage.read_event(*other_id) {
                     if let Relationship::Reaction(reaction) = relationship {
                         if Some(e.pubkey) == GLOBALS.signer.public_key() {
                             self_already_reacted = true;

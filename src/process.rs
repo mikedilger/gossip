@@ -264,7 +264,7 @@ pub async fn process_new_event(
     // If the content contains an nevent and we don't have it, fetch it from those relays
     for bech32 in NostrBech32::find_all_in_string(&event.content) {
         if let NostrBech32::EventPointer(ep) = bech32 {
-            if GLOBALS.events.get(&ep.id).is_none() {
+            if GLOBALS.storage.read_event(ep.id)?.is_none() {
                 let relay_urls: Vec<RelayUrl> = ep
                     .relays
                     .iter()

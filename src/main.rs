@@ -28,7 +28,6 @@ mod date_ago;
 mod db;
 mod delegation;
 mod error;
-mod events;
 mod feed;
 mod fetcher;
 mod globals;
