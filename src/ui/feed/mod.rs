@@ -323,5 +323,7 @@ fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
     {
         ui.separator();
         ui.label("RECOMPUTING...");
+    } else {
+        ui.label(" "); // consume the same vertical space
     }
 }
