@@ -1,5 +1,4 @@
 use super::Minion;
-use crate::db::DbEventRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use futures_util::sink::SinkExt;
@@ -116,18 +115,14 @@ impl Minion {
                 // If we are waiting for a response for this id, process
                 if self.postings.contains(&id) {
                     if ok {
-                        // Save seen_on data in GLOBALS.events
+                        // Save seen_on data
                         // (it was already processed by the overlord before the minion got it,
                         //  but with None for seen_on.)
-                        GLOBALS.events.add_seen_on(id, &self.url);
-
-                        // save seen_on data in database
-                        let event_relay = DbEventRelay {
+                        GLOBALS.storage.add_event_seen_on_relay(
                             id,
-                            relay: url.clone(),
-                            when_seen: Unixtime::now()?,
-                        };
-                        event_relay.save()?;
+                            &self.url,
+                            Unixtime::now().unwrap(),
+                        )?;
                     } else {
                         // demerit the relay
                         self.bump_failure_count().await;

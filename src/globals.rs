@@ -186,18 +186,6 @@ lazy_static! {
 }
 
 impl Globals {
-    /*
-    pub async fn get_local_event(id: Id) -> Option<Event> {
-        // Try memory
-        if let Some(e) = GLOBALS.events.get(&id) {
-            return Some(e.to_owned())
-        }
-
-        // Try the database
-
-    }
-     */
-
     pub async fn add_relationship(id: Id, related: Id, relationship: Relationship) {
         let r = (related, relationship);
         let mut relationships = GLOBALS.relationships.write().await;

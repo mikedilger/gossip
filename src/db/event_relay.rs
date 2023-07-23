@@ -19,10 +19,4 @@ impl DbEventRelay {
             .map(|(url, _time)| url)
             .collect())
     }
-
-    pub fn save(&self) -> Result<(), Error> {
-        GLOBALS
-            .storage
-            .add_event_seen_on_relay(self.id, &self.relay, self.when_seen)
-    }
 }

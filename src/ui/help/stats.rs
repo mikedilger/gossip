@@ -35,7 +35,14 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
 
         ui.add_space(6.0);
 
-        ui.label(format!("Events in memory: {}", GLOBALS.events.len()));
+        ui.label(format!(
+            "Events in memory: {}",
+            GLOBALS
+                .storage
+                .get_event_stats()
+                .map(|s| s.entries())
+                .unwrap_or(0)
+        ));
 
         ui.add_space(6.0);
 

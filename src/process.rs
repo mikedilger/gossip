@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{DbEventRelay, DbPersonRelay, DbRelay};
+use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::{Globals, GLOBALS};
 use crate::relationship::Relationship;
@@ -18,8 +18,30 @@ pub async fn process_new_event(
 ) -> Result<(), Error> {
     let now = Unixtime::now()?;
 
-    // If it was from a relay,
-    // Insert into database; bail if event is an already-replaced replaceable event.
+    // Save seen-on-relay information
+    if let Some(url) = &seen_on {
+        if from_relay {
+            GLOBALS
+                .storage
+                .add_event_seen_on_relay(event.id, url, now)?;
+        }
+    }
+
+    // Determine if we already had this event
+    let duplicate = GLOBALS.storage.read_event(event.id)?.is_some();
+    if duplicate {
+        tracing::trace!(
+            "{}: Old Event: {} {:?} @{}",
+            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+            subscription.unwrap_or("_".to_string()),
+            event.kind,
+            event.created_at
+        );
+        return Ok(()); // No more processing needed for existing event.
+    }
+
+    // Save event
+    // Bail if the event is an already-replaced replaceable event
     if from_relay {
         if event.kind.is_replaceable() {
             if !GLOBALS.storage.replace_event(event)? {
@@ -49,42 +71,23 @@ pub async fn process_new_event(
         }
     }
 
-    let old = GLOBALS.events.get(&event.id).is_some();
-    // If we don't already have it
-    if !old {
-        // Insert into map (memory only)
-        // This also inserts the 'seen_on' relay information
-        GLOBALS.events.insert(event.clone(), seen_on.clone());
-    } else {
-        // Just insert the new seen_on information (memory only)
-        if let Some(url) = &seen_on {
-            GLOBALS.events.add_seen_on(event.id, url);
-        }
-    }
+    // Log
+    tracing::debug!(
+        "{}: New Event: {} {:?} @{}",
+        seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+        subscription.unwrap_or("_".to_string()),
+        event.kind,
+        event.created_at
+    );
 
-    if let Some(ref url) = seen_on {
-        // Insert into event_relay "seen" relationship (database)
-        if from_relay {
-            let db_event_relay = DbEventRelay {
-                id: event.id,
-                relay: url.to_owned(),
-                when_seen: now,
-            };
-            if let Err(e) = db_event_relay.save() {
-                tracing::error!(
-                    "Error saving relay of old-event {} {}: {}",
-                    event.id.as_hex_string(),
-                    url.0,
-                    e
-                );
-            }
+    if from_relay {
+        // Create the person if missing in the database
+        GLOBALS
+            .people
+            .create_all_if_missing(&[event.pubkey.into()])
+            .await?;
 
-            // Create the person if missing in the database
-            GLOBALS
-                .people
-                .create_all_if_missing(&[event.pubkey.into()])
-                .await?;
-
+        if let Some(ref url) = seen_on {
             // Update person_relay.last_fetched
             DbPersonRelay::upsert_last_fetched(
                 event.pubkey.as_hex_string(),
@@ -93,29 +96,7 @@ pub async fn process_new_event(
             )
             .await?;
         }
-    }
 
-    // Log
-    if old {
-        tracing::trace!(
-            "{}: Old Event: {} {:?} @{}",
-            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-            subscription.unwrap_or("_".to_string()),
-            event.kind,
-            event.created_at
-        );
-        return Ok(()); // No more processing needed for existing event.
-    } else {
-        tracing::debug!(
-            "{}: New Event: {} {:?} @{}",
-            seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-            subscription.unwrap_or("_".to_string()),
-            event.kind,
-            event.created_at
-        );
-    }
-
-    if from_relay {
         // Save the tags into event_tag table
         GLOBALS.storage.write_event_tags(event)?;
 

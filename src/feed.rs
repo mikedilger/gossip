@@ -348,7 +348,7 @@ impl Feed {
                 // Potentially update thread parent to a higher parent
                 let maybe_tp = *self.thread_parent.read();
                 if let Some(tp) = maybe_tp {
-                    if let Some(new_tp) = GLOBALS.events.get_highest_local_parent(&tp).await? {
+                    if let Some(new_tp) = GLOBALS.storage.get_highest_local_parent_event_id(tp)? {
                         if new_tp != tp {
                             *self.thread_parent.write() = Some(new_tp);
                         }

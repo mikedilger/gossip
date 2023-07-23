@@ -158,9 +158,6 @@ impl Overlord {
             GLOBALS.feed.recompute().await?;
         }
 
-        // Load event-seen data into memory
-        GLOBALS.events.load_event_seen_data().await?;
-
         // Load relay lists from the database and process
         {
             let events: Vec<Event> = GLOBALS.storage.fetch_relay_lists()?;
@@ -579,7 +576,7 @@ impl Overlord {
                 });
             }
             ToOverlordMessage::FetchEvent(id, relay_urls) => {
-                // We presume the caller already checked GLOBALS.events.get() and it was not there
+                // We presume the caller already checked GLOBALS.storage.read_event() and it was not there
                 for url in relay_urls.iter() {
                     self.engage_minion(
                         url.to_owned(),
@@ -1023,7 +1020,7 @@ impl Overlord {
 
             if let Some(parent_id) = reply_to {
                 // Get the event we are replying to
-                let parent = match GLOBALS.events.get(&parent_id) {
+                let parent = match GLOBALS.storage.read_event(parent_id)? {
                     Some(e) => e,
                     None => return Err("Cannot find event we are replying to.".into()),
                 };
@@ -1465,7 +1462,7 @@ impl Overlord {
     }
 
     async fn repost(&mut self, id: Id) -> Result<(), Error> {
-        let reposted_event = match GLOBALS.events.get(&id) {
+        let reposted_event = match GLOBALS.storage.read_event(id)? {
             Some(event) => event,
             None => {
                 GLOBALS
@@ -1479,11 +1476,15 @@ impl Overlord {
         let mut tags: Vec<Tag> = vec![
             Tag::Event {
                 id,
-                recommended_relay_url: match GLOBALS.events.get_seen_on(&reposted_event.id) {
-                    None => DbRelay::recommended_relay_for_reply(id)
-                        .await?
-                        .map(|rr| rr.to_unchecked_url()),
-                    Some(vec) => vec.get(0).map(|rurl| rurl.to_unchecked_url()),
+                recommended_relay_url: {
+                    let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
+                    if seen_on.is_empty() {
+                        DbRelay::recommended_relay_for_reply(id)
+                            .await?
+                            .map(|rr| rr.to_unchecked_url())
+                    } else {
+                        seen_on.get(0).map(|(rurl, _)| rurl.to_unchecked_url())
+                    }
                 },
                 marker: None,
                 trailing: Vec::new(),
@@ -1615,7 +1616,7 @@ impl Overlord {
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription
         let highest_parent_id =
-            if let Some(hpid) = GLOBALS.events.get_highest_local_parent(&id).await? {
+            if let Some(hpid) = GLOBALS.storage.get_highest_local_parent_event_id(id)? {
                 hpid
             } else {
                 // we don't have the event itself!
@@ -1628,7 +1629,7 @@ impl Overlord {
         GLOBALS.feed.set_thread_parent(highest_parent_id);
 
         // Collect missing ancestors and potential relays further up the chain
-        if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
+        if let Some(highest_parent) = GLOBALS.storage.read_event(highest_parent_id)? {
             // Use relays in 'e' tags
             for (id, opturl, _marker) in highest_parent.referred_events() {
                 missing_ancestors.push(id);
@@ -2114,10 +2115,12 @@ impl Overlord {
         // Get the relays to have the receipt posted to
         let relays = {
             // Start with the relays the event was seen on
-            let mut relays = match GLOBALS.events.get_seen_on(&id) {
-                Some(vec) => vec,
-                None => Vec::new(),
-            };
+            let mut relays: Vec<RelayUrl> = GLOBALS
+                .storage
+                .get_event_seen_on_relay(id)?
+                .drain(..)
+                .map(|(url, _)| url)
+                .collect();
 
             // Add the read relays of the target person
             let mut target_read_relays =

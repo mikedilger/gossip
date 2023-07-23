@@ -6,7 +6,7 @@ use crate::globals::GLOBALS;
 use crate::profile::Profile;
 use crate::settings::Settings;
 use lmdb::{
-    Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags,
+    Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Stat, Transaction, WriteFlags,
 };
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Tag, Unixtime,
@@ -432,6 +432,11 @@ impl Storage {
         }
     }
 
+    pub fn get_event_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.events)?)
+    }
+
     pub fn delete_event(&self, id: Id) -> Result<(), Error> {
         let mut txn = self.env.begin_rw_txn()?;
         let _ = txn.del(self.events, &id.as_ref(), None);
@@ -639,5 +644,18 @@ impl Storage {
         }
 
         Ok(latest.values().map(|v| v.to_owned()).collect())
+    }
+
+    pub fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {
+        let event = match self.read_event(id)? {
+            Some(event) => event,
+            None => return Ok(None),
+        };
+
+        if let Some((parent_id, _opturl)) = event.replies_to() {
+            self.get_highest_local_parent_event_id(parent_id)
+        } else {
+            Ok(Some(event.id))
+        }
     }
 }

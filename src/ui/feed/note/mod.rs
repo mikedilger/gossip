@@ -350,11 +350,12 @@ fn render_note_inner(
                         if ui.button("Copy nevent").clicked() {
                             let event_pointer = EventPointer {
                                 id: note.event.id,
-                                relays: match GLOBALS.events.get_seen_on(&note.event.id) {
-                                    None => vec![],
-                                    Some(vec) => {
-                                        vec.iter().map(|url| url.to_unchecked_url()).collect()
+                                relays: match GLOBALS.storage.get_event_seen_on_relay(note.event.id)
+                                {
+                                    Ok(vec) => {
+                                        vec.iter().map(|(url, _)| url.to_unchecked_url()).collect()
                                     }
+                                    Err(_) => vec![],
                                 },
                                 author: None,
                                 kind: None,
@@ -457,10 +458,10 @@ fn render_note_inner(
                                 egui::Frame::popup(&app.settings.theme.get_style()).show(
                                     ui,
                                     |ui| {
-                                        if let Some(urls) =
-                                            GLOBALS.events.get_seen_on(&note.event.id)
+                                        if let Ok(seen_on) =
+                                            GLOBALS.storage.get_event_seen_on_relay(note.event.id)
                                         {
-                                            for url in urls.iter() {
+                                            for (url, _) in seen_on.iter() {
                                                 ui.label(url.as_str());
                                             }
                                         } else {
@@ -590,12 +591,14 @@ fn render_note_inner(
                                         }
                                         let event_pointer = EventPointer {
                                             id: note.event.id,
-                                            relays: match GLOBALS.events.get_seen_on(&note.event.id)
+                                            relays: match GLOBALS
+                                                .storage
+                                                .get_event_seen_on_relay(note.event.id)
                                             {
-                                                None => vec![],
-                                                Some(vec) => vec
+                                                Err(_) => vec![],
+                                                Ok(vec) => vec
                                                     .iter()
-                                                    .map(|url| url.to_unchecked_url())
+                                                    .map(|(url, _)| url.to_unchecked_url())
                                                     .collect(),
                                             },
                                             author: None,
@@ -678,8 +681,8 @@ fn render_note_inner(
                                     }
 
                                     let mut has_seen_on_relays = false;
-                                    if let Some(seen_on) =
-                                        GLOBALS.events.get_seen_on(&note.event.id)
+                                    if let Ok(seen_on) =
+                                        GLOBALS.storage.get_event_seen_on_relay(note.event.id)
                                     {
                                         if !seen_on.is_empty() {
                                             has_seen_on_relays = true;
