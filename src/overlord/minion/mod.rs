@@ -803,7 +803,7 @@ impl Minion {
             // Find the oldest 'last_fetched' among the 'person_relay' table.
             // Null values will come through as 0.
             let mut special_since: i64 =
-                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
+                PersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
             */
 
             // Start with where we left off, the time we last got something from

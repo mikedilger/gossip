@@ -4,7 +4,7 @@ use crate::delegation::Delegation;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::media::Media;
-use crate::people::{DbPerson, People};
+use crate::people::{Person, People};
 use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
 use crate::signer::Signer;
@@ -99,7 +99,7 @@ pub struct Globals {
     pub media: Media,
 
     /// Search results
-    pub people_search_results: PRwLock<Vec<DbPerson>>,
+    pub people_search_results: PRwLock<Vec<Person>>,
     pub note_search_results: PRwLock<Vec<Event>>,
 
     /// UI note cache invalidation per note
@@ -107,7 +107,7 @@ pub struct Globals {
     pub ui_notes_to_invalidate: PRwLock<Vec<Id>>,
 
     /// UI note cache invalidation per person
-    // when we update a DbPerson, the UI must recompute all notes by them
+    // when we update a Person, the UI must recompute all notes by them
     pub ui_people_to_invalidate: PRwLock<Vec<PublicKeyHex>>,
 
     /// Current zap data, for UI

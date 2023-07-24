@@ -7,7 +7,7 @@ use speedy::{Readable, Writable};
 use tokio::task::spawn_blocking;
 
 #[derive(Debug, Readable, Writable)]
-pub struct DbPersonRelay {
+pub struct PersonRelay {
     // The person
     pub person: String,
 
@@ -38,8 +38,8 @@ pub struct DbPersonRelay {
     pub manually_paired_write: bool,
 }
 
-impl DbPersonRelay {
-    pub async fn insert(person_relay: DbPersonRelay) -> Result<(), Error> {
+impl PersonRelay {
+    pub async fn insert(person_relay: PersonRelay) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person_relay (person, relay, last_fetched, \
                    last_suggested_kind3, \
                    last_suggested_nip05, last_suggested_bytag, read, write, \
@@ -324,12 +324,12 @@ impl DbPersonRelay {
             stmt.raw_bind_parameter(1, pubkey.as_str())?;
             let mut rows = stmt.raw_query();
 
-            let mut dbprs: Vec<DbPersonRelay> = Vec::new();
+            let mut dbprs: Vec<PersonRelay> = Vec::new();
             while let Some(row) = rows.next()? {
                 let s: String = row.get(1)?;
                 // Just skip over bad relay URLs
                 if let Ok(url) = RelayUrl::try_from_str(&s) {
-                    let dbpr = DbPersonRelay {
+                    let dbpr = PersonRelay {
                         person: row.get(0)?,
                         relay: url,
                         last_fetched: row.get(2)?,
@@ -346,8 +346,8 @@ impl DbPersonRelay {
             }
 
             match dir {
-                Direction::Write => Ok(DbPersonRelay::write_rank(dbprs)),
-                Direction::Read => Ok(DbPersonRelay::read_rank(dbprs)),
+                Direction::Write => Ok(PersonRelay::write_rank(dbprs)),
+                Direction::Read => Ok(PersonRelay::read_rank(dbprs)),
             }
         })
         .await?;
@@ -405,7 +405,7 @@ impl DbPersonRelay {
     }
 
     // This ranks the relays that a person writes to
-    pub fn write_rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
+    pub fn write_rank(mut dbprs: Vec<PersonRelay>) -> Vec<(RelayUrl, u64)> {
         let now = Unixtime::now().unwrap().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
 
@@ -462,7 +462,7 @@ impl DbPersonRelay {
     }
 
     // This ranks the relays that a person reads from
-    pub fn read_rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
+    pub fn read_rank(mut dbprs: Vec<PersonRelay>) -> Vec<(RelayUrl, u64)> {
         let now = Unixtime::now().unwrap().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
 

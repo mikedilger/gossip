@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
-use crate::people::DbPerson;
+use crate::people::Person;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
@@ -14,7 +14,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         Page::Person(pubkeyhex) => {
             let person = match GLOBALS.people.get(pubkeyhex) {
                 Some(p) => p,
-                None => DbPerson::new(pubkeyhex.to_owned()),
+                None => Person::new(pubkeyhex.to_owned()),
             };
             (pubkeyhex.to_owned(), person)
         }
@@ -42,7 +42,7 @@ fn content(
     ctx: &Context,
     ui: &mut Ui,
     pubkeyhex: PublicKeyHex,
-    person: DbPerson,
+    person: Person,
 ) {
     ui.add_space(24.0);
 

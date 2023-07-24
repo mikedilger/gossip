@@ -1,14 +1,14 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
-use crate::people::DbPerson;
+use crate::people::Person;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let people: Vec<DbPerson> = GLOBALS
+    let people: Vec<Person> = GLOBALS
         .people
         .get_all()
         .drain(..)

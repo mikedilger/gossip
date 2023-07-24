@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{DbPersonRelay, DbRelay};
+use crate::db::{PersonRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{
@@ -88,7 +88,7 @@ pub async fn process_new_event(
 
         if let Some(ref url) = seen_on {
             // Update person_relay.last_fetched
-            DbPersonRelay::upsert_last_fetched(
+            PersonRelay::upsert_last_fetched(
                 event.pubkey.as_hex_string(),
                 url.to_owned(),
                 now.0 as u64,
@@ -124,7 +124,7 @@ pub async fn process_new_event(
                             .await?;
 
                         // upsert person_relay.last_suggested_bytag
-                        DbPersonRelay::upsert_last_suggested_bytag(
+                        PersonRelay::upsert_last_suggested_bytag(
                             pubkey.to_string(),
                             url,
                             now.0 as u64,
@@ -324,7 +324,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
         }
     }
 
-    DbPersonRelay::set_relay_list(event.pubkey.into(), inbox_relays, outbox_relays).await?;
+    PersonRelay::set_relay_list(event.pubkey.into(), inbox_relays, outbox_relays).await?;
 
     Ok(())
 }
@@ -358,7 +358,7 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
                 }
             }
         }
-        DbPersonRelay::set_relay_list(event.pubkey.into(), inbox_relays, outbox_relays).await?;
+        PersonRelay::set_relay_list(event.pubkey.into(), inbox_relays, outbox_relays).await?;
     }
 
     Ok(())

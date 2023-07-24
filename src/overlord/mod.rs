@@ -3,7 +3,7 @@ mod minion;
 use crate::comms::{
     RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
 };
-use crate::db::{DbPersonRelay, DbRelay};
+use crate::db::{PersonRelay, DbRelay};
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
 use crate::people::People;
@@ -715,7 +715,7 @@ impl Overlord {
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let best_relays =
-                    DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
+                    PersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
                 let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
                 // we do 1 more than num_relays_per_person, which is really for main posts,
@@ -749,7 +749,7 @@ impl Overlord {
                 let mut map: HashMap<RelayUrl, Vec<PublicKeyHex>> = HashMap::new();
                 for pubkey in pubkeys.drain(..) {
                     let best_relays =
-                        DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
+                        PersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
                     for (relay_url, _score) in
                         best_relays.iter().take(num_relays_per_person as usize + 1)
                     {
@@ -842,7 +842,7 @@ impl Overlord {
         let now = Unixtime::now().unwrap().0 as u64;
 
         // Save person_relay
-        DbPersonRelay::insert(DbPersonRelay {
+        PersonRelay::insert(PersonRelay {
             person: pkhex.to_string(),
             relay,
             last_fetched: None,
@@ -1039,7 +1039,7 @@ impl Overlord {
             // Currently we take the 2 best read relays per person
             for pubkey in tagged_pubkeys.drain(..) {
                 let best_relays: Vec<RelayUrl> =
-                    DbPersonRelay::get_best_relays(pubkey, Direction::Read)
+                    PersonRelay::get_best_relays(pubkey, Direction::Read)
                         .await?
                         .drain(..)
                         .take(2)
@@ -1356,7 +1356,7 @@ impl Overlord {
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
-            for relayscore in DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
+            for relayscore in PersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
                 .await?
                 .drain(..)
                 .take(num_relays_per_person as usize)
@@ -1534,7 +1534,7 @@ impl Overlord {
         if relays.len() < 2 {
             if let Some(pkh) = author {
                 let author_relays: Vec<RelayUrl> =
-                    DbPersonRelay::get_best_relays(pkh, Direction::Write)
+                    PersonRelay::get_best_relays(pkh, Direction::Write)
                         .await?
                         .drain(..)
                         .map(|pair| pair.0)
@@ -1637,7 +1637,7 @@ impl Overlord {
                 GLOBALS.storage.write_relay(&db_relay)?;
 
                 // Save person_relay
-                DbPersonRelay::upsert_last_suggested_nip05(
+                PersonRelay::upsert_last_suggested_nip05(
                     pubkey.to_owned(),
                     relay_url,
                     Unixtime::now().unwrap().0 as u64,
@@ -1786,7 +1786,7 @@ impl Overlord {
                     GLOBALS.storage.write_relay_if_missing(&url)?;
 
                     // create or update person_relay last_suggested_kind3
-                    DbPersonRelay::upsert_last_suggested_kind3(
+                    PersonRelay::upsert_last_suggested_kind3(
                         pubkey.to_string(),
                         url,
                         now.0 as u64,
@@ -1999,7 +1999,7 @@ impl Overlord {
 
             // Add the read relays of the target person
             let mut target_read_relays =
-                DbPersonRelay::get_best_relays(target_pubkey.into(), Direction::Read).await?;
+                PersonRelay::get_best_relays(target_pubkey.into(), Direction::Read).await?;
             let target_read_relays: Vec<RelayUrl> =
                 target_read_relays.drain(..).map(|pair| pair.0).collect();
             relays.extend(target_read_relays);

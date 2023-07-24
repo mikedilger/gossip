@@ -1,4 +1,4 @@
-use crate::db::DbPersonRelay;
+use crate::db::PersonRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use gossip_relay_picker::Direction;
@@ -88,7 +88,7 @@ impl DbRelay {
         let maybepubkey = GLOBALS.settings.read().public_key;
         if let Some(pubkey) = maybepubkey {
             let my_inbox_relays: Vec<(RelayUrl, u64)> =
-                DbPersonRelay::get_best_relays(pubkey.into(), Direction::Read).await?;
+                PersonRelay::get_best_relays(pubkey.into(), Direction::Read).await?;
 
             // Find the first-best intersection
             for mir in &my_inbox_relays {

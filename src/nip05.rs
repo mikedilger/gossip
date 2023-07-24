@@ -1,12 +1,12 @@
-use crate::db::DbPersonRelay;
+use crate::db::PersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::people::DbPerson;
+use crate::people::Person;
 use nostr_types::{Metadata, Nip05, PublicKeyHex, RelayUrl, Unixtime};
 use std::sync::atomic::Ordering;
 
 // This updates the people map and the database with the result
-pub async fn validate_nip05(person: DbPerson) -> Result<(), Error> {
+pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     if !GLOBALS.settings.read().check_nip05 {
         return Ok(());
     }
@@ -131,7 +131,7 @@ async fn update_relays(
             GLOBALS.storage.write_relay_if_missing(&relay_url)?;
 
             // Save person_relay
-            DbPersonRelay::upsert_last_suggested_nip05(
+            PersonRelay::upsert_last_suggested_nip05(
                 pubkey.to_owned(),
                 relay_url,
                 Unixtime::now().unwrap().0 as u64,

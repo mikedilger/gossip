@@ -28,7 +28,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
-use crate::people::DbPerson;
+use crate::people::Person;
 use crate::settings::Settings;
 pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::ui::widgets::CopyButton;
@@ -894,8 +894,8 @@ impl GossipUi {
         idhex.as_str()[0..8].to_string()
     }
 
-    /// A display name for a `DbPerson`
-    pub fn display_name_from_dbperson(dbperson: &DbPerson) -> String {
+    /// A display name for a `Person`
+    pub fn display_name_from_dbperson(dbperson: &Person) -> String {
         match dbperson.display_name() {
             Some(name) => name.to_owned(),
             None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
@@ -910,7 +910,7 @@ impl GossipUi {
         }
     }
 
-    pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
+    pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &Person) {
         // Let the 'People' manager know that we are interested in displaying this person.
         // It will take all actions necessary to make the data eventually available.
         GLOBALS.people.person_of_interest(person.pubkey.clone());

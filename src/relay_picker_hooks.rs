@@ -1,4 +1,4 @@
-use crate::db::DbPersonRelay;
+use crate::db::PersonRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_trait::async_trait;
@@ -26,7 +26,7 @@ impl RelayPickerHooks for Hooks {
         pubkey: PublicKeyHex,
         direction: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        DbPersonRelay::get_best_relays(pubkey, direction).await
+        PersonRelay::get_best_relays(pubkey, direction).await
     }
 
     /// Is the relay currently connected?

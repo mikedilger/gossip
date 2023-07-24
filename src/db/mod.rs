@@ -2,7 +2,7 @@ mod relay;
 pub use relay::DbRelay;
 
 mod person_relay;
-pub use person_relay::DbPersonRelay;
+pub use person_relay::PersonRelay;
 
 use crate::error::Error;
 use crate::globals::GLOBALS;

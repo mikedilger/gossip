@@ -1,4 +1,4 @@
-use crate::{globals::GLOBALS, people::DbPerson};
+use crate::{globals::GLOBALS, people::Person};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKeyHex,
     ShatteredContent, Tag,
@@ -23,7 +23,7 @@ pub(super) struct NoteData {
     /// Delegation status of this event
     pub(super) delegation: EventDelegation,
     /// Author of this note (considers delegation)
-    pub(super) author: DbPerson,
+    pub(super) author: Person,
     /// Deletion reason if any
     pub(super) deletion: Option<String>,
     /// Do we consider this note as being a repost of another?
@@ -162,7 +162,7 @@ impl NoteData {
 
         let author = match GLOBALS.people.get(&author_pubkey) {
             Some(p) => p,
-            None => DbPerson::new(author_pubkey),
+            None => Person::new(author_pubkey),
         };
 
         NoteData {

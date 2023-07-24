@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::DbPersonRelay;
+use crate::db::PersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
@@ -19,7 +19,7 @@ use tokio::sync::RwLock;
 use tokio::task;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DbPerson {
+pub struct Person {
     pub pubkey: PublicKeyHex,
     pub petname: Option<String>,
     pub followed: u8,
@@ -35,9 +35,9 @@ pub struct DbPerson {
     pub loaded: bool, // if this record came from the database
 }
 
-impl DbPerson {
-    pub fn new(pubkey: PublicKeyHex) -> DbPerson {
-        DbPerson {
+impl Person {
+    pub fn new(pubkey: PublicKeyHex) -> Person {
+        Person {
             pubkey,
             petname: None,
             followed: 0,
@@ -103,7 +103,7 @@ impl DbPerson {
 }
 
 pub struct People {
-    people: DashMap<PublicKeyHex, DbPerson>,
+    people: DashMap<PublicKeyHex, Person>,
 
     // active person's relays (pull from db as needed)
     active_person: RwLock<Option<PublicKeyHex>>,
@@ -446,7 +446,7 @@ impl People {
         // Only if they have a nip05 dns id set
         if matches!(
             person,
-            DbPerson {
+            Person {
                 metadata: Some(Metadata { nip05: Some(_), .. }),
                 ..
             }
@@ -508,11 +508,11 @@ impl People {
                    FROM person WHERE followed=1 OR muted=1"
             .to_owned();
 
-        let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
+        let output: Result<Vec<Person>, Error> = task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let mut rows = stmt.query([])?;
-            let mut output: Vec<DbPerson> = Vec::new();
+            let mut output: Vec<Person> = Vec::new();
             while let Some(row) = rows.next()? {
                 let metadata_json: Option<String> = row.get(5)?;
                 let metadata = match metadata_json {
@@ -520,7 +520,7 @@ impl People {
                     None => None,
                 };
                 let pk: String = row.get(0)?;
-                output.push(DbPerson {
+                output.push(Person {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     petname: row.get(1)?,
                     followed: row.get(2)?,
@@ -548,7 +548,7 @@ impl People {
     }
 
     // Get from our memory map. If missing, eventually load from the database
-    pub fn get(&self, pubkeyhex: &PublicKeyHex) -> Option<DbPerson> {
+    pub fn get(&self, pubkeyhex: &PublicKeyHex) -> Option<Person> {
         if self.people.contains_key(pubkeyhex) {
             self.people.get(pubkeyhex).map(|o| o.value().to_owned())
         } else {
@@ -570,8 +570,8 @@ impl People {
         }
     }
 
-    pub fn get_all(&self) -> Vec<DbPerson> {
-        let mut v: Vec<DbPerson> = self.people.iter().map(|e| e.value().to_owned()).collect();
+    pub fn get_all(&self) -> Vec<Person> {
+        let mut v: Vec<Person> = self.people.iter().map(|e| e.value().to_owned()).collect();
         v.sort_by(|a, b| {
             let c = a
                 .display_name()
@@ -823,7 +823,7 @@ impl People {
         let pubkeys = self.get_followed_pubkeys();
         for pubkey in &pubkeys {
             // Get their best relay
-            let relays = DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
+            let relays = PersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
             let maybeurl = relays.get(0);
             p_tags.push(Tag::Pubkey {
                 pubkey: pubkey.clone(),
@@ -1198,7 +1198,7 @@ impl People {
         Ok(())
     }
 
-    pub async fn fetch(criteria: Option<&str>) -> Result<Vec<DbPerson>, Error> {
+    pub async fn fetch(criteria: Option<&str>) -> Result<Vec<Person>, Error> {
         let sql = "SELECT pubkey, petname, \
                    followed, followed_last_updated, muted, \
                    metadata, metadata_created_at, metadata_last_received, \
@@ -1211,11 +1211,11 @@ impl People {
             Some(crit) => format!("{} WHERE {}", sql, crit),
         };
 
-        let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
+        let output: Result<Vec<Person>, Error> = task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let mut rows = stmt.query([])?;
-            let mut output: Vec<DbPerson> = Vec::new();
+            let mut output: Vec<Person> = Vec::new();
             while let Some(row) = rows.next()? {
                 let metadata_json: Option<String> = row.get(5)?;
                 let metadata = match metadata_json {
@@ -1223,7 +1223,7 @@ impl People {
                     None => None,
                 };
                 let pk: String = row.get(0)?;
-                output.push(DbPerson {
+                output.push(Person {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     petname: row.get(1)?,
                     followed: row.get(2)?,
@@ -1246,7 +1246,7 @@ impl People {
         output
     }
 
-    async fn fetch_one(pubkeyhex: &PublicKeyHex) -> Result<Option<DbPerson>, Error> {
+    async fn fetch_one(pubkeyhex: &PublicKeyHex) -> Result<Option<Person>, Error> {
         let people = Self::fetch(Some(&format!("pubkey='{}'", pubkeyhex))).await?;
 
         if people.is_empty() {
@@ -1256,7 +1256,7 @@ impl People {
         }
     }
 
-    async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<DbPerson>, Error> {
+    async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<Person>, Error> {
         let sql = format!(
             "SELECT pubkey, petname, \
              followed, followed_last_updated, muted, \
@@ -1269,7 +1269,7 @@ impl People {
 
         let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
 
-        let output: Result<Vec<DbPerson>, Error> = task::spawn_blocking(move || {
+        let output: Result<Vec<Person>, Error> = task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(&sql)?;
             let mut pos = 1;
@@ -1279,7 +1279,7 @@ impl People {
             }
 
             let mut rows = stmt.raw_query();
-            let mut people: Vec<DbPerson> = Vec::new();
+            let mut people: Vec<Person> = Vec::new();
             while let Some(row) = rows.next()? {
                 let metadata_json: Option<String> = row.get(5)?;
                 let metadata = match metadata_json {
@@ -1287,7 +1287,7 @@ impl People {
                     None => None,
                 };
                 let pk: String = row.get(0)?;
-                people.push(DbPerson {
+                people.push(Person {
                     pubkey: PublicKeyHex::try_from_string(pk)?,
                     petname: row.get(1)?,
                     followed: row.get(2)?,
@@ -1323,7 +1323,7 @@ impl People {
         *self.active_person.write().await = Some(pubkey.clone());
 
         // Load their relays
-        let best_relays = DbPersonRelay::get_best_relays(pubkey, Direction::Write).await?;
+        let best_relays = PersonRelay::get_best_relays(pubkey, Direction::Write).await?;
         *self.active_persons_write_relays.write().await = best_relays;
 
         Ok(())
@@ -1338,7 +1338,7 @@ impl People {
     }
 
     /*
-    async fn insert(person: DbPerson) -> Result<(), Error> {
+    async fn insert(person: Person) -> Result<(), Error> {
         let sql = "INSERT OR IGNORE INTO person (pubkey, metadata, metadata_created_at, \
              nip05_valid, nip05_last_checked, followed, followed_last_updated, muted) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
