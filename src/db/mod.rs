@@ -1,6 +1,3 @@
-mod event_relay;
-pub use event_relay::DbEventRelay;
-
 mod relay;
 pub use relay::DbRelay;
 

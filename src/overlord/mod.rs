@@ -3,7 +3,7 @@ mod minion;
 use crate::comms::{
     RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
 };
-use crate::db::{DbEventRelay, DbPersonRelay, DbRelay};
+use crate::db::{DbPersonRelay, DbRelay};
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
 use crate::people::People;
@@ -1521,8 +1521,14 @@ impl Overlord {
         let mut missing_ancestors: Vec<Id> = Vec::new();
 
         // Include the relays where the referenced_by event was seen
-        relays.extend(DbEventRelay::get_relays_for_event(referenced_by)?);
-        relays.extend(DbEventRelay::get_relays_for_event(id)?);
+        relays.extend(
+            GLOBALS.storage.get_event_seen_on_relay(referenced_by)?
+                .drain(..)
+                .map(|(url, _time)| url));
+        relays.extend(
+            GLOBALS.storage.get_event_seen_on_relay(id)?
+                .drain(..)
+                .map(|(url, _time)| url));
 
         // If we have less than 2 relays, include the write relays of the author
         if relays.len() < 2 {
