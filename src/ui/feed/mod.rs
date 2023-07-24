@@ -137,13 +137,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string());
             }
         }
-        FeedKind::Person(pubkeyhex) => {
+        FeedKind::Person(pubkey) => {
             ui.horizontal(|ui| {
                 recompute_btn(app, ui);
             });
 
             let feed = GLOBALS.feed.get_person_feed();
-            render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
+            render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string());
         }
     }
 

@@ -831,7 +831,6 @@ impl Storage {
 
     // This returns IDs that should be UI invalidated
     pub fn process_relationships_of_event(&self, event: &Event) -> Result<Vec<Id>, Error> {
-
         let mut invalidate: Vec<Id> = Vec::new();
 
         // replies to
@@ -841,11 +840,7 @@ impl Storage {
 
         // reacts to
         if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-            self.write_relationship(
-                id,
-                event.id,
-                Relationship::Reaction(event.pubkey, reaction),
-            )?;
+            self.write_relationship(id, event.id, Relationship::Reaction(event.pubkey, reaction))?;
 
             invalidate.push(id);
         }
@@ -857,11 +852,7 @@ impl Storage {
             for id in ids {
                 // since it is a delete, we don't actually desire the event.
 
-                self.write_relationship(
-                    id,
-                    event.id,
-                    Relationship::Deletion(reason.clone()),
-                )?;
+                self.write_relationship(id, event.id, Relationship::Deletion(reason.clone()))?;
             }
         }
 

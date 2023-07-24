@@ -44,17 +44,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
                         .clicked()
                     {
-                        app.set_page(Page::Person(person.pubkey.clone()));
+                        app.set_page(Page::Person(person.pubkey));
                     };
 
                     ui.vertical(|ui| {
-                        ui.label(
-                            RichText::new(GossipUi::pubkeyhex_convert_short(&person.pubkey)).weak(),
-                        );
+                        ui.label(RichText::new(GossipUi::pubkey_short(&person.pubkey)).weak());
                         GossipUi::render_person_name_line(app, ui, person);
 
                         if ui.button("UNMUTE").clicked() {
-                            GLOBALS.people.mute(&person.pubkey, false);
+                            GLOBALS.people.mute(person.pubkey, false);
                         }
                     });
                 });

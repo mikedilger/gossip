@@ -322,7 +322,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             NostrBech32::Profile(prof) => &prof.pubkey,
             _ => continue,
         };
-        let rendered = if let Some(person) = GLOBALS.people.get(&pk.as_hex_string().into()) {
+        let rendered = if let Some(person) = GLOBALS.people.get(pk) {
             match person.name() {
                 Some(name) => name.to_owned(),
                 None => format!("{}", bech32),

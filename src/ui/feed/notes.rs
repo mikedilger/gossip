@@ -1,6 +1,6 @@
 use super::notedata::NoteData;
 use crate::globals::GLOBALS;
-use nostr_types::{Id, PublicKeyHex};
+use nostr_types::{Id, PublicKey};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 /// a 'note' is a processed event
@@ -29,7 +29,7 @@ impl Notes {
     }
 
     /// Drop all NoteData for a given person
-    pub(in crate::ui) fn cache_invalidate_person(&mut self, pubkey: &PublicKeyHex) {
+    pub(in crate::ui) fn cache_invalidate_person(&mut self, pubkey: &PublicKey) {
         self.notes
             .retain(|_, note| note.borrow().author.pubkey != *pubkey);
     }

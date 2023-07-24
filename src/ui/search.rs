@@ -77,14 +77,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                             )
                             .clicked()
                         {
-                            app.set_page(Page::Person(person.pubkey.clone()));
+                            app.set_page(Page::Person(person.pubkey));
                         };
 
                         ui.vertical(|ui| {
-                            ui.label(
-                                RichText::new(GossipUi::pubkeyhex_convert_short(&person.pubkey))
-                                    .weak(),
-                            );
+                            ui.label(RichText::new(GossipUi::pubkey_short(&person.pubkey)).weak());
                             GossipUi::render_person_name_line(app, ui, person);
                         });
                     });
@@ -104,8 +101,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                                 .weak(),
                         );
 
-                        let pubkeyhex = event.pubkey.into();
-                        if let Some(person) = GLOBALS.people.get(&pubkeyhex) {
+                        if let Some(person) = GLOBALS.people.get(&event.pubkey) {
                             GossipUi::render_person_name_line(app, ui, &person);
                         } else {
                             ui.label(event.pubkey.as_bech32_string());
@@ -122,7 +118,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                         app.set_page(Page::Feed(FeedKind::Thread {
                             id: event.id,
                             referenced_by: event.id,
-                            author: Some(event.pubkey.into()),
+                            author: Some(event.pubkey),
                         }));
                     }
                 }

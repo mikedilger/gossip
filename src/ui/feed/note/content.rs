@@ -7,7 +7,7 @@ use eframe::{
     epaint::Vec2,
 };
 use egui::{RichText, Ui};
-use nostr_types::{ContentSegment, Id, IdHex, NostrBech32, PublicKeyHex, Span, Tag, Url};
+use nostr_types::{ContentSegment, Id, IdHex, NostrBech32, PublicKey, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -95,10 +95,10 @@ pub(super) fn render_content(
                             }
                         }
                         NostrBech32::Profile(prof) => {
-                            render_profile_link(app, ui, &prof.pubkey.into());
+                            render_profile_link(app, ui, &prof.pubkey);
                         }
-                        NostrBech32::Pubkey(pk) => {
-                            render_profile_link(app, ui, &(*pk).into());
+                        NostrBech32::Pubkey(pubkey) => {
+                            render_profile_link(app, ui, pubkey);
                         }
                         NostrBech32::Relay(url) => {
                             ui.label(RichText::new(&url.0).underline());
@@ -109,7 +109,10 @@ pub(super) fn render_content(
                     if let Some(tag) = note.event.tags.get(*num) {
                         match tag {
                             Tag::Pubkey { pubkey, .. } => {
-                                render_profile_link(app, ui, pubkey);
+                                if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey.as_str())
+                                {
+                                    render_profile_link(app, ui, &pubkey);
+                                }
                             }
                             Tag::Event { id, .. } => {
                                 let mut render_link = true;
@@ -192,8 +195,8 @@ pub(super) fn render_plain(ui: &mut Ui, note: &Ref<NoteData>, textspan: &Span, a
     }
 }
 
-pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKeyHex) {
-    let nam = GossipUi::display_name_from_pubkeyhex_lookup(pubkey);
+pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
+    let nam = GossipUi::display_name_from_pubkey_lookup(pubkey);
     let nam = format!("@{}", nam);
     if ui.link(&nam).clicked() {
         app.set_page(Page::Person(pubkey.to_owned()));

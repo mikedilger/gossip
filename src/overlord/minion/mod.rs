@@ -15,8 +15,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKeyHex, PublicKeyHexPrefix,
-    RelayInformationDocument, RelayUrl, Unixtime,
+    ClientMessage, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKey, PublicKeyHex,
+    PublicKeyHexPrefix, RelayInformationDocument, RelayUrl, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -347,16 +347,15 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
             }
-            ToMinionPayloadDetail::SubscribePersonFeed(pubkeyhex) => {
-                self.subscribe_person_feed(message.job_id, pubkeyhex)
-                    .await?;
+            ToMinionPayloadDetail::SubscribePersonFeed(pubkey) => {
+                self.subscribe_person_feed(message.job_id, pubkey).await?;
             }
             ToMinionPayloadDetail::SubscribeThreadFeed(main, parents) => {
                 self.subscribe_thread_feed(message.job_id, main, parents)
                     .await?;
             }
-            ToMinionPayloadDetail::TempSubscribeMetadata(pubkeyhexs) => {
-                self.temp_subscribe_metadata(message.job_id, pubkeyhexs)
+            ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
+                self.temp_subscribe_metadata(message.job_id, pubkeys)
                     .await?;
             }
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
@@ -406,7 +405,7 @@ impl Minion {
     async fn subscribe_general_feed(
         &mut self,
         job_id: u64,
-        followed_pubkeys: Vec<PublicKeyHex>,
+        followed_pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
         let (overlap, feed_chunk) = {
@@ -472,7 +471,7 @@ impl Minion {
         if !followed_pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
                 .iter()
-                .map(|pk| pk.prefix(16)) // quarter-size
+                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(16)) // quarter-size
                 .collect();
 
             // feed related by people followed
@@ -493,7 +492,7 @@ impl Minion {
                 .people
                 .get_followed_pubkeys_needing_relay_lists(&followed_pubkeys)
                 .drain(..)
-                .map(|pk| pk.prefix(16)) // quarter-size
+                .map(|pk| Into::<PublicKeyHex>::into(pk).prefix(16)) // quarter-size
                 .collect();
 
             if !keys_needing_relay_lists.is_empty() {
@@ -634,10 +633,13 @@ impl Minion {
     async fn subscribe_discover(
         &mut self,
         job_id: u64,
-        pubkeys: Vec<PublicKeyHex>,
+        pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         if !pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHexPrefix> = pubkeys.iter().map(|pk| pk.prefix(16)).collect(); // quarter-size prefix
+            let pkp: Vec<PublicKeyHexPrefix> = pubkeys
+                .iter()
+                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(16))
+                .collect(); // quarter-size prefix
 
             let filters: Vec<Filter> = vec![Filter {
                 authors: pkp,
@@ -653,11 +655,7 @@ impl Minion {
     }
 
     // Subscribe to the posts a person generates on the relays they write to
-    async fn subscribe_person_feed(
-        &mut self,
-        job_id: u64,
-        pubkey: PublicKeyHex,
-    ) -> Result<(), Error> {
+    async fn subscribe_person_feed(&mut self, job_id: u64, pubkey: PublicKey) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
         // Allow all feed related event kinds
@@ -667,7 +665,7 @@ impl Minion {
             .retain(|f| *f != EventKind::EncryptedDirectMessage && *f != EventKind::Reaction);
 
         let filters: Vec<Filter> = vec![Filter {
-            authors: vec![pubkey.clone().into()],
+            authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(16)],
             kinds: event_kinds,
             // No since, just a limit on quantity of posts
             limit: Some(25),
@@ -922,12 +920,12 @@ impl Minion {
     async fn temp_subscribe_metadata(
         &mut self,
         job_id: u64,
-        mut pubkeyhexs: Vec<PublicKeyHex>,
+        mut pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
-        let pkhp: Vec<PublicKeyHexPrefix> = pubkeyhexs
+        let pkhp: Vec<PublicKeyHexPrefix> = pubkeys
             .drain(..)
             .map(
-                |pk| pk.prefix(16), // quarter-size
+                |pk| Into::<PublicKeyHex>::into(pk).prefix(16), // quarter-size
             )
             .collect();
 

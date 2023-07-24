@@ -1,9 +1,9 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{PersonRelay, DbRelay};
+use crate::db::{DbRelay, PersonRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{
-    Event, EventKind, Metadata, NostrBech32, RelayUrl, SimpleRelayList, Tag, Unixtime,
+    Event, EventKind, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -83,7 +83,7 @@ pub async fn process_new_event(
         // Create the person if missing in the database
         GLOBALS
             .people
-            .create_all_if_missing(&[event.pubkey.into()])
+            .create_all_if_missing(&[event.pubkey])
             .await?;
 
         if let Some(ref url) = seen_on {
@@ -114,22 +114,21 @@ pub async fn process_new_event(
                     recommended_relay_url: Some(should_be_url),
                     ..
                 } => {
-                    if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
-                        GLOBALS.storage.write_relay_if_missing(&url)?;
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey) {
+                        if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
+                            GLOBALS.storage.write_relay_if_missing(&url)?;
 
-                        // Add person if missing
-                        GLOBALS
-                            .people
-                            .create_all_if_missing(&[pubkey.clone()])
+                            // Add person if missing
+                            GLOBALS.people.create_all_if_missing(&[pubkey]).await?;
+
+                            // upsert person_relay.last_suggested_bytag
+                            PersonRelay::upsert_last_suggested_bytag(
+                                pubkey.as_hex_string(),
+                                url,
+                                now.0 as u64,
+                            )
                             .await?;
-
-                        // upsert person_relay.last_suggested_bytag
-                        PersonRelay::upsert_last_suggested_bytag(
-                            pubkey.to_string(),
-                            url,
-                            now.0 as u64,
-                        )
-                        .await?;
+                        }
                     }
                 }
                 _ => {}
@@ -138,7 +137,7 @@ pub async fn process_new_event(
     }
 
     // Save event relationships (whether from a relay or not)
-    let invalid_ids = GLOBALS.storage.process_relationships_of_event(&event)?;
+    let invalid_ids = GLOBALS.storage.process_relationships_of_event(event)?;
 
     // Invalidate UI events indicated by those relationships
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
@@ -157,7 +156,7 @@ pub async fn process_new_event(
 
         GLOBALS
             .people
-            .update_metadata(&event.pubkey.into(), metadata, event.created_at)
+            .update_metadata(&event.pubkey, metadata, event.created_at)
             .await?;
     }
 
@@ -235,7 +234,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
     // if this relay list happens to be newer)
     let newer = GLOBALS
         .people
-        .update_relay_list_stamps(event.pubkey.into(), event.created_at.0)
+        .update_relay_list_stamps(event.pubkey, event.created_at.0)
         .await?;
 
     if !newer {
@@ -339,7 +338,7 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
         // if this relay list happens to be newer)
         let newer = GLOBALS
             .people
-            .update_relay_list_stamps(event.pubkey.into(), event.created_at.0)
+            .update_relay_list_stamps(event.pubkey, event.created_at.0)
             .await?;
 
         if !newer {

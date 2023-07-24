@@ -273,7 +273,7 @@ fn render_note_inner(
                     )
                     .clicked()
                 {
-                    app.set_page(Page::Person(note.author.pubkey.clone()));
+                    app.set_page(Page::Person(note.author.pubkey));
                 };
 
                 ui.add_space(avatar_margin_left);
@@ -293,7 +293,7 @@ fn render_note_inner(
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: irt,
                                 referenced_by: note.event.id,
-                                author: Some(note.event.pubkey.into()),
+                                author: Some(note.event.pubkey),
                             }));
                         };
                         ui.reset_style();
@@ -343,7 +343,7 @@ fn render_note_inner(
                                 app.set_page(Page::Feed(FeedKind::Thread {
                                     id: note.event.id,
                                     referenced_by: note.event.id,
-                                    author: Some(note.event.pubkey.into()),
+                                    author: Some(note.event.pubkey),
                                 }));
                             }
                         }
@@ -431,7 +431,7 @@ fn render_note_inner(
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: note.event.id,
                                 referenced_by: note.event.id,
-                                author: Some(note.event.pubkey.into()),
+                                author: Some(note.event.pubkey),
                             }));
                         }
                     }

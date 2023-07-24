@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_trait::async_trait;
 use gossip_relay_picker::{Direction, RelayPickerHooks};
-use nostr_types::{PublicKeyHex, RelayUrl};
+use nostr_types::{PublicKey, RelayUrl};
 
 #[derive(Default)]
 pub struct Hooks {}
@@ -23,10 +23,10 @@ impl RelayPickerHooks for Hooks {
     /// Returns all relays that this public key uses in the given Direction
     async fn get_relays_for_pubkey(
         &self,
-        pubkey: PublicKeyHex,
+        pubkey: PublicKey,
         direction: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        PersonRelay::get_best_relays(pubkey, direction).await
+        PersonRelay::get_best_relays(pubkey.into(), direction).await
     }
 
     /// Is the relay currently connected?
@@ -46,7 +46,7 @@ impl RelayPickerHooks for Hooks {
     }
 
     /// Returns the public keys of all the people followed
-    fn get_followed_pubkeys(&self) -> Vec<PublicKeyHex> {
+    fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
         GLOBALS.people.get_followed_pubkeys()
     }
 

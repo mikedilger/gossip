@@ -20,7 +20,7 @@ use tokio::task;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Person {
-    pub pubkey: PublicKeyHex,
+    pub pubkey: PublicKey,
     pub petname: Option<String>,
     pub followed: u8,
     pub followed_last_updated: i64,
@@ -36,7 +36,7 @@ pub struct Person {
 }
 
 impl Person {
-    pub fn new(pubkey: PublicKeyHex) -> Person {
+    pub fn new(pubkey: PublicKey) -> Person {
         Person {
             pubkey,
             petname: None,
@@ -103,30 +103,30 @@ impl Person {
 }
 
 pub struct People {
-    people: DashMap<PublicKeyHex, Person>,
+    people: DashMap<PublicKey, Person>,
 
     // active person's relays (pull from db as needed)
-    active_person: RwLock<Option<PublicKeyHex>>,
+    active_person: RwLock<Option<PublicKey>>,
     active_persons_write_relays: RwLock<Vec<(RelayUrl, u64)>>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
     // and hand them over. This way we can do the work that takes
     // longer and the UI can do as little work as possible.
-    avatars_temp: DashMap<PublicKeyHex, ColorImage>,
-    avatars_pending_processing: DashSet<PublicKeyHex>,
+    avatars_temp: DashMap<PublicKey, ColorImage>,
+    avatars_pending_processing: DashSet<PublicKey>,
 
     // When we manually ask for updating metadata, we want to recheck
     // the person's NIP-05 when that metadata come in. We remember this here.
-    recheck_nip05: DashSet<PublicKeyHex>,
+    recheck_nip05: DashSet<PublicKey>,
 
     // People that need metadata, which the UI has asked for. These people
     // might simply not be loaded from the database yet.
-    need_metadata: DashSet<PublicKeyHex>,
+    need_metadata: DashSet<PublicKey>,
 
     // People who we already tried to get their metadata. We only try once
     // per gossip run (this set only grows)
-    tried_metadata: DashSet<PublicKeyHex>,
+    tried_metadata: DashSet<PublicKey>,
 
     // Date of the last self-owned contact list we have an event for
     pub last_contact_list_asof: AtomicI64,
@@ -173,25 +173,25 @@ impl People {
         });
     }
 
-    pub fn get_followed_pubkeys(&self) -> Vec<PublicKeyHex> {
-        let mut output: Vec<PublicKeyHex> = Vec::new();
+    pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
+        let mut output: Vec<PublicKey> = Vec::new();
         for person in self
             .people
             .iter()
             .filter_map(|p| if p.followed == 1 { Some(p) } else { None })
         {
-            output.push(person.pubkey.clone());
+            output.push(person.pubkey);
         }
         output
     }
 
     pub fn get_followed_pubkeys_needing_relay_lists(
         &self,
-        among_these: &[PublicKeyHex],
-    ) -> Vec<PublicKeyHex> {
+        among_these: &[PublicKey],
+    ) -> Vec<PublicKey> {
         // FIXME make this a setting (8 hours)
         let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 8);
-        let mut output: Vec<PublicKeyHex> = Vec::new();
+        let mut output: Vec<PublicKey> = Vec::new();
         for person in self.people.iter().filter_map(|p| {
             if p.followed == 1
                 && p.relay_list_last_received < one_day_ago
@@ -202,22 +202,22 @@ impl People {
                 None
             }
         }) {
-            output.push(person.pubkey.clone());
+            output.push(person.pubkey);
         }
         output
     }
 
-    pub fn create_if_missing_sync(&self, pubkey: PublicKeyHex) {
-        task::spawn(async {
+    pub fn create_if_missing_sync(&self, pubkey: PublicKey) {
+        task::spawn(async move {
             if let Err(e) = GLOBALS.people.create_all_if_missing(&[pubkey]).await {
                 tracing::error!("{}", e);
             }
         });
     }
 
-    pub async fn create_all_if_missing(&self, pubkeys: &[PublicKeyHex]) -> Result<(), Error> {
+    pub async fn create_all_if_missing(&self, pubkeys: &[PublicKey]) -> Result<(), Error> {
         // Collect the public keys that we don't have already (by checking in memory).
-        let pubkeys: Vec<&PublicKeyHex> = pubkeys
+        let pubkeys: Vec<&PublicKey> = pubkeys
             .iter()
             .filter(|pk| !self.people.contains_key(pk))
             .collect();
@@ -231,7 +231,7 @@ impl People {
         sql.push_str(&"(?),".repeat(pubkeys.len()));
         sql.pop(); // remove trailing comma
 
-        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.as_hex_string()).collect();
 
         task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
@@ -249,9 +249,7 @@ impl People {
         // Now load them from the database (some of them may have had records already)
         let mut loaded_people = Self::fetch_many(&pubkeys).await?;
         for loaded_person in loaded_people.drain(..) {
-            let _ = self
-                .people
-                .insert(loaded_person.pubkey.clone(), loaded_person);
+            let _ = self.people.insert(loaded_person.pubkey, loaded_person);
         }
 
         Ok(())
@@ -259,23 +257,23 @@ impl People {
 
     // If this person doesn't have metadata, and we are automatically fetching
     // metadata, then add this person to the list of people that need metadata.
-    pub fn person_of_interest(&self, pubkeyhex: PublicKeyHex) {
+    pub fn person_of_interest(&self, pubkey: PublicKey) {
         // Don't get metadata if disabled
         if !GLOBALS.settings.read().automatically_fetch_metadata {
             return;
         }
 
         // Don't try over and over. We try just once per gossip run.
-        if self.tried_metadata.contains(&pubkeyhex) {
+        if self.tried_metadata.contains(&pubkey) {
             return;
         }
 
-        match self.people.get(&pubkeyhex) {
+        match self.people.get(&pubkey) {
             Some(person) => {
                 // If we haven't loaded the person from the database yet
                 if !person.loaded {
                     // Trigger a future load
-                    self.create_if_missing_sync(pubkeyhex.clone());
+                    self.create_if_missing_sync(pubkey);
 
                     // Don't load metadata now, we may have it on disk and get
                     // it from the future load.
@@ -296,13 +294,13 @@ impl People {
 
                 // Record that we need it.
                 // the periodic task will take care of it.
-                if !self.need_metadata.contains(&pubkeyhex) {
-                    self.need_metadata.insert(pubkeyhex.clone());
+                if !self.need_metadata.contains(&pubkey) {
+                    self.need_metadata.insert(pubkey);
                 }
             }
             None => {
                 // Trigger a future create and load
-                self.create_if_missing_sync(pubkeyhex.clone());
+                self.create_if_missing_sync(pubkey);
 
                 // Don't load metadata now, we may have it on disk and get
                 // it from the future load.
@@ -313,10 +311,10 @@ impl People {
     // This is run periodically. It checks the database first, only then does it
     // ask the overlord to update the metadata from the relays.
     async fn maybe_fetch_metadata(&self) {
-        let mut verified_need: Vec<PublicKeyHex> = Vec::new();
+        let mut verified_need: Vec<PublicKey> = Vec::new();
 
         // Take from self.need_metadata;
-        let mut need_metadata: Vec<PublicKeyHex> = self
+        let mut need_metadata: Vec<PublicKey> = self
             .need_metadata
             .iter()
             .map(|refmulti| refmulti.key().to_owned())
@@ -330,8 +328,8 @@ impl People {
         for pubkey in need_metadata.drain(..) {
             if let Some(person) = self.people.get(&pubkey) {
                 if person.loaded {
-                    tracing::debug!("Seeking metadata for {}", &pubkey);
-                    verified_need.push(pubkey.clone());
+                    tracing::debug!("Seeking metadata for {}", pubkey.as_hex_string());
+                    verified_need.push(pubkey);
                     self.tried_metadata.insert(pubkey);
                 }
             }
@@ -342,30 +340,30 @@ impl People {
             .send(ToOverlordMessage::UpdateMetadataInBulk(verified_need));
     }
 
-    pub fn recheck_nip05_on_update_metadata(&self, pubkeyhex: &PublicKeyHex) {
-        self.recheck_nip05.insert(pubkeyhex.to_owned());
+    pub fn recheck_nip05_on_update_metadata(&self, pubkey: &PublicKey) {
+        self.recheck_nip05.insert(pubkey.to_owned());
     }
 
     pub async fn update_metadata(
         &self,
-        pubkeyhex: &PublicKeyHex,
+        pubkey: &PublicKey,
         metadata: Metadata,
         asof: Unixtime,
     ) -> Result<(), Error> {
         // Sync in from database first
-        self.create_all_if_missing(&[pubkeyhex.to_owned()]).await?;
+        self.create_all_if_missing(&[*pubkey]).await?;
 
         let now = Unixtime::now().unwrap();
 
         // Update metadata_last_received, even if we don't update the metadata
         {
             // Update in memory
-            if let Some(mut person) = self.people.get_mut(pubkeyhex) {
+            if let Some(mut person) = self.people.get_mut(pubkey) {
                 person.metadata_last_received = now.0;
             }
 
             // Update in database
-            let pkh = pubkeyhex.as_str().to_owned();
+            let pkh: String = pubkey.as_hex_string();
             task::spawn_blocking(move || {
                 let db = GLOBALS.db.blocking_lock();
                 let mut stmt =
@@ -377,10 +375,10 @@ impl People {
         }
 
         // Copy the person
-        let mut person = self.people.get(pubkeyhex).unwrap().to_owned();
+        let mut person = self.people.get(pubkey).unwrap().to_owned();
 
         // Remove from the list of people that need metadata
-        self.need_metadata.remove(pubkeyhex);
+        self.need_metadata.remove(pubkey);
 
         // Determine whether it is fresh
         let fresh = match person.metadata_created_at {
@@ -397,7 +395,7 @@ impl People {
 
             // Update person in the map, and the local variable
             person = {
-                let mut person_mut = self.people.get_mut(pubkeyhex).unwrap();
+                let mut person_mut = self.people.get_mut(pubkey).unwrap();
                 person_mut.metadata = Some(metadata);
                 person_mut.metadata_created_at = Some(asof.0);
                 if nip05_changed {
@@ -408,7 +406,7 @@ impl People {
             };
 
             // Update the database
-            let pubkeyhex2 = pubkeyhex.to_owned();
+            let pubkeyhex2: PublicKeyHex = (*pubkey).into();
             let person_inner = person.clone();
             task::spawn_blocking(move || {
                 let db = GLOBALS.db.blocking_lock();
@@ -434,14 +432,11 @@ impl People {
             .await??;
 
             // UI cache invalidation (so notes of the person get rerendered)
-            GLOBALS
-                .ui_people_to_invalidate
-                .write()
-                .push(pubkeyhex.to_owned());
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
-        GLOBALS.failed_avatars.write().await.remove(pubkeyhex);
+        GLOBALS.failed_avatars.write().await.remove(pubkey);
 
         // Only if they have a nip05 dns id set
         if matches!(
@@ -454,8 +449,8 @@ impl People {
             // Recheck nip05 every day if invalid, and every two weeks if valid
 
             let recheck = {
-                if self.recheck_nip05.contains(pubkeyhex) {
-                    self.recheck_nip05.remove(pubkeyhex);
+                if self.recheck_nip05.contains(pubkey) {
+                    self.recheck_nip05.remove(pubkey);
                     true
                 } else if let Some(last) = person.nip05_last_checked {
                     // FIXME make these settings
@@ -471,8 +466,7 @@ impl People {
             };
 
             if recheck {
-                self.update_nip05_last_checked(person.pubkey.clone())
-                    .await?;
+                self.update_nip05_last_checked(person.pubkey).await?;
                 task::spawn(async move {
                     if let Err(e) = crate::nip05::validate_nip05(person).await {
                         tracing::error!("{}", e);
@@ -521,7 +515,7 @@ impl People {
                 };
                 let pk: String = row.get(0)?;
                 output.push(Person {
-                    pubkey: PublicKeyHex::try_from_string(pk)?,
+                    pubkey: PublicKey::try_from_hex_string(&pk)?,
                     petname: row.get(1)?,
                     followed: row.get(2)?,
                     followed_last_updated: row.get(3)?,
@@ -541,25 +535,25 @@ impl People {
         .await?;
 
         for person in output? {
-            self.people.insert(person.pubkey.clone(), person);
+            self.people.insert(person.pubkey, person);
         }
 
         Ok(())
     }
 
     // Get from our memory map. If missing, eventually load from the database
-    pub fn get(&self, pubkeyhex: &PublicKeyHex) -> Option<Person> {
-        if self.people.contains_key(pubkeyhex) {
-            self.people.get(pubkeyhex).map(|o| o.value().to_owned())
+    pub fn get(&self, pubkey: &PublicKey) -> Option<Person> {
+        if self.people.contains_key(pubkey) {
+            self.people.get(pubkey).map(|o| o.value().to_owned())
         } else {
             // We can't get it now, but we can setup a task to do it soon
-            let pubkeyhex = pubkeyhex.to_owned();
+            let pubkey = pubkey.to_owned();
             tokio::spawn(async move {
                 #[allow(clippy::map_entry)]
-                if !GLOBALS.people.people.contains_key(&pubkeyhex) {
-                    match People::fetch_one(&pubkeyhex).await {
+                if !GLOBALS.people.people.contains_key(&pubkey) {
+                    match People::fetch_one(&pubkey).await {
                         Ok(Some(person)) => {
-                            let _ = GLOBALS.people.people.insert(pubkeyhex, person);
+                            let _ = GLOBALS.people.people.insert(pubkey, person);
                         }
                         Err(e) => tracing::error!("{}", e),
                         _ => {}
@@ -578,7 +572,7 @@ impl People {
                 .map(|s| s.to_lowercase())
                 .cmp(&b.display_name().map(|s| s.to_lowercase()));
             if c == std::cmp::Ordering::Equal {
-                a.pubkey.cmp(&b.pubkey)
+                a.pubkey.as_hex_string().cmp(&b.pubkey.as_hex_string())
             } else {
                 c
             }
@@ -586,19 +580,19 @@ impl People {
         v
     }
 
-    pub fn get_avatar(&self, pubkeyhex: &PublicKeyHex) -> Option<ColorImage> {
+    pub fn get_avatar(&self, pubkey: &PublicKey) -> Option<ColorImage> {
         // If we have it, hand it over (we won't need a copy anymore)
-        if let Some(th) = self.avatars_temp.remove(pubkeyhex) {
+        if let Some(th) = self.avatars_temp.remove(pubkey) {
             return Some(th.1);
         }
 
         // If it failed before, error out now
-        if GLOBALS.failed_avatars.blocking_read().contains(pubkeyhex) {
+        if GLOBALS.failed_avatars.blocking_read().contains(pubkey) {
             return None; // cannot recover.
         }
 
         // If it is pending processing, respond now
-        if self.avatars_pending_processing.contains(pubkeyhex) {
+        if self.avatars_pending_processing.contains(pubkey) {
             return None; // will recover after processing completes
         }
 
@@ -608,7 +602,7 @@ impl People {
         }
 
         // Get the person this is about
-        let person = match self.people.get(pubkeyhex) {
+        let person = match self.people.get(pubkey) {
             Some(person) => person,
             None => {
                 return None; // can recover once the person is loaded
@@ -618,10 +612,7 @@ impl People {
         // Fail permanently if they don't have a picture url
         if person.picture().is_none() {
             // this cannot recover without new metadata
-            GLOBALS
-                .failed_avatars
-                .blocking_write()
-                .insert(pubkeyhex.to_owned());
+            GLOBALS.failed_avatars.blocking_write().insert(*pubkey);
 
             return None;
         }
@@ -632,10 +623,7 @@ impl People {
             Ok(url) => url,
             Err(_) => {
                 // this cannot recover without new metadata
-                GLOBALS
-                    .failed_avatars
-                    .blocking_write()
-                    .insert(pubkeyhex.to_owned());
+                GLOBALS.failed_avatars.blocking_write().insert(*pubkey);
 
                 return None;
             }
@@ -649,7 +637,7 @@ impl People {
             Ok(None) => None,
             Ok(Some(bytes)) => {
                 // Finish this later (spawn)
-                let apubkeyhex = pubkeyhex.to_owned();
+                let apubkey = *pubkey;
                 tokio::spawn(async move {
                     let size = AVATAR_SIZE * 3 // 3x feed size, 1x people page size
                         * GLOBALS
@@ -691,7 +679,7 @@ impl People {
                         if GLOBALS.settings.read().theme.round_image() {
                             round_image(&mut color_image);
                         }
-                        GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
+                        GLOBALS.people.avatars_temp.insert(apubkey, color_image);
                     } else if let Ok(mut color_image) = egui_extras::image::load_svg_bytes_with_size(
                         &bytes,
                         FitTo::Size(size, size),
@@ -699,26 +687,19 @@ impl People {
                         if GLOBALS.settings.read().theme.round_image() {
                             round_image(&mut color_image);
                         }
-                        GLOBALS.people.avatars_temp.insert(apubkeyhex, color_image);
+                        GLOBALS.people.avatars_temp.insert(apubkey, color_image);
                     } else {
                         // this cannot recover without new metadata
-                        GLOBALS
-                            .failed_avatars
-                            .write()
-                            .await
-                            .insert(apubkeyhex.to_owned());
+                        GLOBALS.failed_avatars.write().await.insert(apubkey);
                     };
                 });
-                self.avatars_pending_processing.insert(pubkeyhex.to_owned());
+                self.avatars_pending_processing.insert(pubkey.to_owned());
                 None
             }
             Err(e) => {
                 tracing::error!("{}", e);
                 // this cannot recover without new metadata
-                GLOBALS
-                    .failed_avatars
-                    .blocking_write()
-                    .insert(pubkeyhex.to_owned());
+                GLOBALS.failed_avatars.blocking_write().insert(*pubkey);
                 None
             }
         }
@@ -735,7 +716,7 @@ impl People {
         let search = String::from(text).to_lowercase();
 
         // grab all results then sort by score
-        let mut results: Vec<(u16, String, PublicKeyHex)> = self
+        let mut results: Vec<(u16, String, PublicKey)> = self
             .people
             .iter()
             .filter_map(|person| {
@@ -773,13 +754,13 @@ impl People {
                     // if there is not a name, fallback to showing the initial chars of the pubkey,
                     // but this is probably unnecessary and will never happen
                     if result_name.is_empty() {
-                        result_name = person.pubkey.to_string();
+                        result_name = person.pubkey.as_hex_string();
                     }
 
                     // bigger names have a higher match chance, but they should be scored lower
                     score -= result_name.len() as u16;
 
-                    return Some((score, result_name, person.pubkey.clone()));
+                    return Some((score, result_name, person.pubkey));
                 }
 
                 None
@@ -794,12 +775,7 @@ impl People {
         };
         results[0..max]
             .iter()
-            .map(|r| {
-                (
-                    r.1.to_owned(),
-                    PublicKey::try_from_hex_string(&r.2).unwrap(),
-                )
-            })
+            .map(|r| (r.1.to_owned(), r.2.to_owned()))
             .collect()
     }
 
@@ -823,10 +799,10 @@ impl People {
         let pubkeys = self.get_followed_pubkeys();
         for pubkey in &pubkeys {
             // Get their best relay
-            let relays = PersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
+            let relays = PersonRelay::get_best_relays((*pubkey).into(), Direction::Write).await?;
             let maybeurl = relays.get(0);
             p_tags.push(Tag::Pubkey {
-                pubkey: pubkey.clone(),
+                pubkey: (*pubkey).into(),
                 recommended_relay_url: maybeurl.map(|(u, _)| u.to_unchecked_url()),
                 petname: None,
                 trailing: Vec::new(),
@@ -862,19 +838,19 @@ impl People {
         GLOBALS.signer.sign_preevent(pre_event, None, None)
     }
 
-    pub fn follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) {
+    pub fn follow(&self, pubkey: &PublicKey, follow: bool) {
         // We can't do it now, but we spawn a task to do it soon
-        let pubkeyhex = pubkeyhex.to_owned();
+        let pubkey = pubkey.to_owned();
         tokio::spawn(async move {
-            if let Err(e) = GLOBALS.people.async_follow(&pubkeyhex, follow).await {
+            if let Err(e) = GLOBALS.people.async_follow(&pubkey, follow).await {
                 tracing::error!("{}", e);
             }
         });
     }
 
-    pub async fn async_follow(&self, pubkeyhex: &PublicKeyHex, follow: bool) -> Result<(), Error> {
+    pub async fn async_follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
         // Skip if they are already followed (or already not followed)
-        let already_followed = self.get_followed_pubkeys().contains(pubkeyhex);
+        let already_followed = self.get_followed_pubkeys().contains(pubkey);
         if follow == already_followed {
             return Ok(());
         }
@@ -884,22 +860,22 @@ impl People {
         // Follow in database
         let sql = "INSERT INTO PERSON (pubkey, followed) values (?, ?) \
                    ON CONFLICT(pubkey) DO UPDATE SET followed=?";
-        let pubkeyhex2 = pubkeyhex.to_owned();
+        let pubkeyhexstr = pubkey.as_hex_string();
         task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((pubkeyhex2.as_str(), &follow, &follow))?;
+            stmt.execute((pubkeyhexstr, &follow, &follow))?;
             Ok::<(), Error>(())
         })
         .await??;
 
         // Make sure memory matches
-        if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
+        if let Some(mut dbperson) = self.people.get_mut(pubkey) {
             dbperson.followed = follow;
         } else {
             // load
-            if let Some(person) = Self::fetch_one(pubkeyhex).await? {
-                self.people.insert(pubkeyhex.to_owned(), person);
+            if let Some(person) = Self::fetch_one(pubkey).await? {
+                self.people.insert(pubkey.to_owned(), person);
             }
         }
 
@@ -907,13 +883,13 @@ impl People {
         GLOBALS
             .ui_people_to_invalidate
             .write()
-            .push(pubkeyhex.to_owned());
+            .push(pubkey.to_owned());
 
         if follow > 0 {
             // Add the person to the relay_picker for picking
-            GLOBALS.relay_picker.add_someone(pubkeyhex.to_owned())?;
+            GLOBALS.relay_picker.add_someone(pubkey.to_owned())?;
         } else {
-            GLOBALS.relay_picker.remove_someone(pubkeyhex.to_owned());
+            GLOBALS.relay_picker.remove_someone(pubkey.to_owned());
         }
 
         // Update last_contact_list_edit
@@ -923,7 +899,7 @@ impl People {
         Ok(())
     }
 
-    pub async fn follow_all(&self, pubkeys: &[PublicKeyHex], merge: bool) -> Result<(), Error> {
+    pub async fn follow_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
         // If merging, and we already follow all these keys,
         // then just bail out
         if merge {
@@ -956,7 +932,8 @@ impl People {
             repeat_vars(pubkeys.len())
         );
 
-        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.as_hex_string()).collect();
+        let pubkey_strings2 = pubkey_strings.clone();
 
         let now = Unixtime::now().unwrap();
 
@@ -982,14 +959,12 @@ impl People {
                 repeat_vars(pubkeys.len())
             );
 
-            let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
-
             task::spawn_blocking(move || {
                 let db = GLOBALS.db.blocking_lock();
                 let mut stmt = db.prepare(&sql)?;
                 stmt.raw_bind_parameter(1, now.0)?;
                 let mut pos = 2;
-                for pk in pubkey_strings.iter() {
+                for pk in pubkey_strings2.iter() {
                     stmt.raw_bind_parameter(pos, pk)?;
                     pos += 1;
                 }
@@ -1001,9 +976,9 @@ impl People {
 
         // Make sure memory matches
         for mut elem in self.people.iter_mut() {
-            let pkh = elem.key().clone();
+            let pk = *elem.key();
             let person = elem.value_mut();
-            if pubkeys.contains(&pkh) {
+            if pubkeys.contains(&pk) {
                 person.followed = 1;
             } else if !merge {
                 person.followed = 0;
@@ -1038,38 +1013,37 @@ impl People {
         Ok(())
     }
 
-    pub fn mute(&self, pubkeyhex: &PublicKeyHex, mute: bool) {
+    pub fn mute(&self, pubkey: PublicKey, mute: bool) {
         // We can't do it now, but we spawn a task to do it soon
-        let pubkeyhex = pubkeyhex.to_owned();
         tokio::spawn(async move {
-            if let Err(e) = GLOBALS.people.async_mute(&pubkeyhex, mute).await {
+            if let Err(e) = GLOBALS.people.async_mute(&pubkey, mute).await {
                 tracing::error!("{}", e);
             }
         });
     }
 
-    pub async fn async_mute(&self, pubkeyhex: &PublicKeyHex, mute: bool) -> Result<(), Error> {
+    pub async fn async_mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
         let mute: u8 = u8::from(mute);
 
         // Mute in database
         let sql = "INSERT INTO PERSON (pubkey, muted) values (?, ?) \
                    ON CONFLICT(pubkey) DO UPDATE SET muted=?";
-        let pubkeyhex2 = pubkeyhex.to_owned();
+        let pubkeyhexstr = pubkey.as_hex_string();
         task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
-            stmt.execute((pubkeyhex2.as_str(), &mute, &mute))?;
+            stmt.execute((pubkeyhexstr, &mute, &mute))?;
             Ok::<(), Error>(())
         })
         .await??;
 
         // Make sure memory matches
-        if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
+        if let Some(mut dbperson) = self.people.get_mut(pubkey) {
             dbperson.muted = mute;
         } else {
             // load
-            if let Some(person) = Self::fetch_one(pubkeyhex).await? {
-                self.people.insert(pubkeyhex.to_owned(), person);
+            if let Some(person) = Self::fetch_one(pubkey).await? {
+                self.people.insert(pubkey.to_owned(), person);
             }
         }
 
@@ -1077,7 +1051,7 @@ impl People {
         GLOBALS
             .ui_people_to_invalidate
             .write()
-            .push(pubkeyhex.to_owned());
+            .push(pubkey.to_owned());
 
         Ok(())
     }
@@ -1085,14 +1059,14 @@ impl People {
     // Returns true if the date passed in is newer than what we already had
     pub async fn update_relay_list_stamps(
         &self,
-        pubkeyhex: PublicKeyHex,
+        pubkey: PublicKey,
         mut created_at: i64,
     ) -> Result<bool, Error> {
         let now = Unixtime::now().unwrap().0;
 
         let mut retval = false;
 
-        if let Some(mut person) = self.people.get_mut(&pubkeyhex) {
+        if let Some(mut person) = self.people.get_mut(&pubkey) {
             person.relay_list_last_received = now;
 
             if let Some(old_at) = person.relay_list_created_at {
@@ -1116,7 +1090,7 @@ impl People {
                 "UPDATE person SET relay_list_last_received=?, \
                             relay_list_created_at=? WHERE pubkey=?",
             )?;
-            stmt.execute((&now, &created_at, pubkeyhex.as_str()))?;
+            stmt.execute((&now, &created_at, pubkey.as_hex_string()))?;
             Ok::<(), Error>(())
         })
         .await??;
@@ -1124,17 +1098,17 @@ impl People {
         Ok(retval)
     }
 
-    pub async fn update_nip05_last_checked(&self, pubkeyhex: PublicKeyHex) -> Result<(), Error> {
+    pub async fn update_nip05_last_checked(&self, pubkey: PublicKey) -> Result<(), Error> {
         let now = Unixtime::now().unwrap().0;
 
-        if let Some(mut person) = self.people.get_mut(&pubkeyhex) {
+        if let Some(mut person) = self.people.get_mut(&pubkey) {
             person.nip05_last_checked = Some(now as u64);
         }
 
         task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare("UPDATE person SET nip05_last_checked=? WHERE pubkey=?")?;
-            stmt.execute((&now, pubkeyhex.as_str()))?;
+            stmt.execute((&now, pubkey.as_hex_string()))?;
             Ok(())
         })
         .await?
@@ -1142,13 +1116,13 @@ impl People {
 
     pub async fn upsert_nip05_validity(
         &self,
-        pubkeyhex: &PublicKeyHex,
+        pubkey: &PublicKey,
         nip05: Option<String>,
         nip05_valid: bool,
         nip05_last_checked: u64,
     ) -> Result<(), Error> {
         // Update memory
-        if let Some(mut dbperson) = self.people.get_mut(pubkeyhex) {
+        if let Some(mut dbperson) = self.people.get_mut(pubkey) {
             if let Some(metadata) = &mut dbperson.metadata {
                 metadata.nip05 = nip05.clone()
             } else {
@@ -1166,7 +1140,7 @@ impl People {
                    ON CONFLICT(pubkey) DO \
                    UPDATE SET metadata=json_patch(metadata, ?), nip05_valid=?, nip05_last_checked=?";
 
-        let pubkeyhex2 = pubkeyhex.to_owned();
+        let pubkey2 = pubkey.to_owned();
         task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut metadata = Metadata::new();
@@ -1177,7 +1151,7 @@ impl People {
 
             let mut stmt = db.prepare(sql)?;
             stmt.execute((
-                pubkeyhex2.as_str(),
+                pubkey2.as_hex_string(),
                 &metadata_json,
                 &nip05_valid,
                 &nip05_last_checked,
@@ -1193,7 +1167,7 @@ impl People {
         GLOBALS
             .ui_people_to_invalidate
             .write()
-            .push(pubkeyhex.to_owned());
+            .push(pubkey.to_owned());
 
         Ok(())
     }
@@ -1224,7 +1198,7 @@ impl People {
                 };
                 let pk: String = row.get(0)?;
                 output.push(Person {
-                    pubkey: PublicKeyHex::try_from_string(pk)?,
+                    pubkey: PublicKey::try_from_hex_string(&pk)?,
                     petname: row.get(1)?,
                     followed: row.get(2)?,
                     followed_last_updated: row.get(3)?,
@@ -1246,8 +1220,8 @@ impl People {
         output
     }
 
-    async fn fetch_one(pubkeyhex: &PublicKeyHex) -> Result<Option<Person>, Error> {
-        let people = Self::fetch(Some(&format!("pubkey='{}'", pubkeyhex))).await?;
+    async fn fetch_one(pubkey: &PublicKey) -> Result<Option<Person>, Error> {
+        let people = Self::fetch(Some(&format!("pubkey='{}'", pubkey.as_hex_string()))).await?;
 
         if people.is_empty() {
             Ok(None)
@@ -1256,7 +1230,7 @@ impl People {
         }
     }
 
-    async fn fetch_many(pubkeys: &[&PublicKeyHex]) -> Result<Vec<Person>, Error> {
+    async fn fetch_many(pubkeys: &[&PublicKey]) -> Result<Vec<Person>, Error> {
         let sql = format!(
             "SELECT pubkey, petname, \
              followed, followed_last_updated, muted, \
@@ -1267,7 +1241,7 @@ impl People {
             repeat_vars(pubkeys.len())
         );
 
-        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.to_string()).collect();
+        let pubkey_strings: Vec<String> = pubkeys.iter().map(|p| p.as_hex_string()).collect();
 
         let output: Result<Vec<Person>, Error> = task::spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
@@ -1288,7 +1262,7 @@ impl People {
                 };
                 let pk: String = row.get(0)?;
                 people.push(Person {
-                    pubkey: PublicKeyHex::try_from_string(pk)?,
+                    pubkey: PublicKey::try_from_hex_string(&pk)?,
                     petname: row.get(1)?,
                     followed: row.get(2)?,
                     followed_last_updated: row.get(3)?,
@@ -1318,19 +1292,19 @@ impl People {
     }
         */
 
-    pub async fn set_active_person(&self, pubkey: PublicKeyHex) -> Result<(), Error> {
+    pub async fn set_active_person(&self, pubkey: PublicKey) -> Result<(), Error> {
         // Set the active person
-        *self.active_person.write().await = Some(pubkey.clone());
+        *self.active_person.write().await = Some(pubkey);
 
         // Load their relays
-        let best_relays = PersonRelay::get_best_relays(pubkey, Direction::Write).await?;
+        let best_relays = PersonRelay::get_best_relays(pubkey.into(), Direction::Write).await?;
         *self.active_persons_write_relays.write().await = best_relays;
 
         Ok(())
     }
 
-    pub fn get_active_person(&self) -> Option<PublicKeyHex> {
-        self.active_person.blocking_read().clone()
+    pub fn get_active_person(&self) -> Option<PublicKey> {
+        *self.active_person.blocking_read()
     }
 
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {

@@ -1,7 +1,7 @@
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{EventDelegation, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{EventDelegation, EventKind, Id, PublicKey, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,9 +15,9 @@ pub enum FeedKind {
     Thread {
         id: Id,
         referenced_by: Id,
-        author: Option<PublicKeyHex>,
+        author: Option<PublicKey>,
     },
-    Person(PublicKeyHex),
+    Person(PublicKey),
 }
 
 pub struct Feed {
@@ -106,12 +106,12 @@ impl Feed {
         id: Id,
         referenced_by: Id,
         relays: Vec<RelayUrl>,
-        author: Option<PublicKeyHex>,
+        author: Option<PublicKey>,
     ) {
         *self.current_feed_kind.write() = FeedKind::Thread {
             id,
             referenced_by,
-            author: author.clone(),
+            author,
         };
 
         // Parent starts with the post itself
@@ -136,8 +136,8 @@ impl Feed {
         ));
     }
 
-    pub fn set_feed_to_person(&self, pubkey: PublicKeyHex) {
-        *self.current_feed_kind.write() = FeedKind::Person(pubkey.clone());
+    pub fn set_feed_to_person(&self, pubkey: PublicKey) {
+        *self.current_feed_kind.write() = FeedKind::Person(pubkey);
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
@@ -243,12 +243,7 @@ impl Feed {
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
             FeedKind::Followed(with_replies) => {
-                let mut followed_pubkeys: Vec<PublicKey> = GLOBALS
-                    .people
-                    .get_followed_pubkeys()
-                    .iter()
-                    .map(|pk| PublicKey::try_from_hex_string(pk).unwrap())
-                    .collect();
+                let mut followed_pubkeys: Vec<PublicKey> = GLOBALS.people.get_followed_pubkeys();
 
                 if let Some(pubkey) = GLOBALS.signer.public_key() {
                     followed_pubkeys.push(pubkey); // add the user
@@ -371,11 +366,11 @@ impl Feed {
                             if dismissed.contains(&e.id) {
                                 return false;
                             } // not dismissed
-                            if e.pubkey.as_hex_string() == person_pubkey.as_str() {
+                            if e.pubkey == person_pubkey {
                                 true
                             } else {
                                 if let EventDelegation::DelegatedBy(pk) = e.delegation() {
-                                    pk.as_hex_string() == person_pubkey.as_str()
+                                    pk == person_pubkey
                                 } else {
                                     false
                                 }

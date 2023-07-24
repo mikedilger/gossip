@@ -2,7 +2,7 @@ use crate::db::PersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::Person;
-use nostr_types::{Metadata, Nip05, PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{Metadata, Nip05, PublicKey, RelayUrl, Unixtime};
 use std::sync::atomic::Ordering;
 
 // This updates the people map and the database with the result
@@ -50,13 +50,26 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     let mut valid = false;
     match nip05file.names.get(&user) {
         Some(pk) => {
-            if *pk == person.pubkey {
-                // Validated
+            if let Ok(pubkey) = PublicKey::try_from_hex_string(pk) {
+                if pubkey == person.pubkey {
+                    // Validated
+                    GLOBALS
+                        .people
+                        .upsert_nip05_validity(
+                            &person.pubkey,
+                            Some(nip05.clone()),
+                            true,
+                            now.0 as u64,
+                        )
+                        .await?;
+                    valid = true;
+                }
+            } else {
+                // Failed
                 GLOBALS
                     .people
-                    .upsert_nip05_validity(&person.pubkey, Some(nip05.clone()), true, now.0 as u64)
+                    .upsert_nip05_validity(&person.pubkey, Some(nip05.clone()), false, now.0 as u64)
                     .await?;
-                valid = true;
             }
         }
         None => {
@@ -69,10 +82,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     }
 
     // UI cache invalidation (so notes of the person get rerendered)
-    GLOBALS
-        .ui_people_to_invalidate
-        .write()
-        .push(person.pubkey.clone());
+    GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
 
     if valid {
         update_relays(nip05, nip05file, &person.pubkey).await?;
@@ -90,7 +100,7 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
 
     // Get their pubkey
     let pubkey = match nip05file.names.get(&user) {
-        Some(pk) => pk.to_owned(),
+        Some(pk) => PublicKey::try_from_hex_string(pk)?,
         None => return Err((ErrorKind::Nip05KeyNotFound, file!(), line!()).into()),
     };
 
@@ -115,13 +125,9 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
     Ok(())
 }
 
-async fn update_relays(
-    nip05: String,
-    nip05file: Nip05,
-    pubkey: &PublicKeyHex,
-) -> Result<(), Error> {
+async fn update_relays(nip05: String, nip05file: Nip05, pubkey: &PublicKey) -> Result<(), Error> {
     // Set their relays
-    let relays = match nip05file.relays.get(pubkey) {
+    let relays = match nip05file.relays.get(&(*pubkey).into()) {
         Some(relays) => relays,
         None => return Ok(()),
     };
@@ -132,7 +138,7 @@ async fn update_relays(
 
             // Save person_relay
             PersonRelay::upsert_last_suggested_nip05(
-                pubkey.to_owned(),
+                (*pubkey).into(),
                 relay_url,
                 Unixtime::now().unwrap().0 as u64,
             )

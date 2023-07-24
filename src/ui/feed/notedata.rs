@@ -1,6 +1,6 @@
 use crate::{globals::GLOBALS, people::Person};
 use nostr_types::{
-    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKeyHex,
+    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
     ShatteredContent, Tag,
 };
 
@@ -154,10 +154,10 @@ impl NoteData {
         };
 
         // If delegated, use the delegated person
-        let author_pubkey: PublicKeyHex = if let EventDelegation::DelegatedBy(pubkey) = delegation {
-            pubkey.into()
+        let author_pubkey: PublicKey = if let EventDelegation::DelegatedBy(pubkey) = delegation {
+            pubkey
         } else {
-            event.pubkey.into()
+            event.pubkey
         };
 
         let author = match GLOBALS.people.get(&author_pubkey) {

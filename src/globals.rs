@@ -4,7 +4,7 @@ use crate::delegation::Delegation;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::media::Media;
-use crate::people::{Person, People};
+use crate::people::{People, Person};
 use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
 use crate::signer::Signer;
@@ -12,9 +12,7 @@ use crate::status::StatusQueue;
 use crate::storage::Storage;
 use dashmap::DashMap;
 use gossip_relay_picker::RelayPicker;
-use nostr_types::{
-    Event, Id, PayRequestData, Profile, PublicKey, PublicKeyHex, RelayUrl, UncheckedUrl,
-};
+use nostr_types::{Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rusqlite::Connection;
@@ -83,7 +81,7 @@ pub struct Globals {
     /// Failed Avatars
     /// If in this map, the avatar failed to load or process and is unrecoverable
     /// (but we will take them out and try again if new metadata flows in)
-    pub failed_avatars: RwLock<HashSet<PublicKeyHex>>,
+    pub failed_avatars: RwLock<HashSet<PublicKey>>,
 
     pub pixels_per_point_times_100: AtomicU32,
 
@@ -108,7 +106,7 @@ pub struct Globals {
 
     /// UI note cache invalidation per person
     // when we update a Person, the UI must recompute all notes by them
-    pub ui_people_to_invalidate: PRwLock<Vec<PublicKeyHex>>,
+    pub ui_people_to_invalidate: PRwLock<Vec<PublicKey>>,
 
     /// Current zap data, for UI
     pub current_zap: PRwLock<ZapState>,

@@ -12,7 +12,8 @@ impl Storage {
             return Err(ErrorKind::General(format!(
                 "Migration level {} unknown: This client is older than your data.",
                 level
-            )).into());
+            ))
+            .into());
         }
 
         while level < Self::MIGRATION_LEVEL {

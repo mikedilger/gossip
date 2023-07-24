@@ -1,5 +1,5 @@
 use nostr_types::{
-    Event, Id, IdHex, Metadata, MilliSatoshi, PublicKey, PublicKeyHex, RelayUrl, Tag, UncheckedUrl,
+    Event, Id, IdHex, Metadata, MilliSatoshi, PublicKey, RelayUrl, Tag, UncheckedUrl,
 };
 
 /// This is a message sent to the Overlord
@@ -38,14 +38,14 @@ pub enum ToOverlordMessage {
     RankRelay(RelayUrl, u8),
     SaveSettings,
     Search(String),
-    SetActivePerson(PublicKeyHex),
+    SetActivePerson(PublicKey),
     AdjustRelayUsageBit(RelayUrl, u64, bool),
-    SetThreadFeed(Id, Id, Vec<RelayUrl>, Option<PublicKeyHex>),
+    SetThreadFeed(Id, Id, Vec<RelayUrl>, Option<PublicKey>),
     Shutdown,
     UnlockKey(String),
     UpdateFollowing(bool),
-    UpdateMetadata(PublicKeyHex),
-    UpdateMetadataInBulk(Vec<PublicKeyHex>),
+    UpdateMetadata(PublicKey),
+    UpdateMetadataInBulk(Vec<PublicKey>),
     VisibleNotesChanged(Vec<Id>),
     ZapStart(Id, PublicKey, UncheckedUrl),
     Zap(Id, PublicKey, MilliSatoshi, String),
@@ -77,12 +77,12 @@ pub enum ToMinionPayloadDetail {
     Shutdown,
     SubscribeAugments(Vec<IdHex>),
     SubscribeConfig,
-    SubscribeDiscover(Vec<PublicKeyHex>),
-    SubscribeGeneralFeed(Vec<PublicKeyHex>),
+    SubscribeDiscover(Vec<PublicKey>),
+    SubscribeGeneralFeed(Vec<PublicKey>),
     SubscribeMentions,
-    SubscribePersonFeed(PublicKeyHex),
+    SubscribePersonFeed(PublicKey),
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
-    TempSubscribeMetadata(Vec<PublicKeyHex>),
+    TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribePersonFeed,
     UnsubscribeThreadFeed,
 }
