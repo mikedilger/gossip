@@ -147,6 +147,33 @@ impl People {
 
     // Start the periodic task management
     pub fn start() {
+        // Load our contact list from the database in order to populate
+        // last_contact_list_asof and last_contact_list_size
+        if let Some(pk) = GLOBALS.signer.public_key() {
+            if let Ok(Some(event)) = GLOBALS.storage.fetch_contact_list(&pk) {
+                if event.created_at.0
+                    > GLOBALS
+                        .people
+                        .last_contact_list_asof
+                        .load(Ordering::Relaxed)
+                {
+                    GLOBALS
+                        .people
+                        .last_contact_list_asof
+                        .store(event.created_at.0, Ordering::Relaxed);
+                    let size = event
+                        .tags
+                        .iter()
+                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                        .count();
+                    GLOBALS
+                        .people
+                        .last_contact_list_size
+                        .store(size, Ordering::Relaxed);
+                }
+            }
+        }
+
         task::spawn(async {
             loop {
                 // Every 3 seconds...
@@ -178,8 +205,9 @@ impl People {
         let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 8);
 
         if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
-            p.followed &&
-            p.relay_list_last_received < one_day_ago && among_these.contains(&p.pubkey)
+            p.followed
+                && p.relay_list_last_received < one_day_ago
+                && among_these.contains(&p.pubkey)
         }) {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
