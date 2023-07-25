@@ -138,7 +138,7 @@ async fn update_relays(nip05: String, nip05file: Nip05, pubkey: &PublicKey) -> R
 
             // Save person_relay
             PersonRelay::upsert_last_suggested_nip05(
-                (*pubkey).into(),
+                *pubkey,
                 relay_url,
                 Unixtime::now().unwrap().0 as u64,
             )

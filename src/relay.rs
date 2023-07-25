@@ -88,7 +88,7 @@ impl Relay {
         let maybepubkey = GLOBALS.settings.read().public_key;
         if let Some(pubkey) = maybepubkey {
             let my_inbox_relays: Vec<(RelayUrl, u64)> =
-                PersonRelay::get_best_relays(pubkey.into(), Direction::Read).await?;
+                PersonRelay::get_best_relays(pubkey, Direction::Read).await?;
 
             // Find the first-best intersection
             for mir in &my_inbox_relays {

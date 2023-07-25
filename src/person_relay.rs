@@ -2,17 +2,17 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use gossip_relay_picker::Direction;
-use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{PublicKey, PublicKeyHex, RelayUrl, Unixtime};
 use speedy::{Readable, Writable};
 use tokio::task::spawn_blocking;
 
 #[derive(Debug, Readable, Writable)]
 pub struct PersonRelay {
     // The person
-    pub person: String,
+    pub pubkey: PublicKey,
 
     // The relay associated with that person
-    pub relay: RelayUrl,
+    pub url: RelayUrl,
 
     // The last time we fetched one of the person's events from this relay
     pub last_fetched: Option<u64>,
@@ -46,12 +46,14 @@ impl PersonRelay {
                    manually_paired_read, manually_paired_write) \
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
+        let pubkeyhex: PublicKeyHex = person_relay.pubkey.into();
+
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
-                &person_relay.person,
-                &person_relay.relay.0,
+                pubkeyhex.as_str(),
+                &person_relay.url.0,
                 &person_relay.last_fetched,
                 &person_relay.last_suggested_kind3,
                 &person_relay.last_suggested_nip05,
@@ -69,18 +71,19 @@ impl PersonRelay {
     }
 
     pub async fn upsert_last_fetched(
-        person: String,
-        relay: RelayUrl,
+        pubkey: PublicKey,
+        url: RelayUrl,
         last_fetched: u64,
     ) -> Result<(), Error> {
         let sql = "INSERT INTO person_relay (person, relay, last_fetched) \
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_fetched=?";
 
+        let pubkeyhex: PublicKeyHex = pubkey.into();
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
-            rtry!(stmt.execute((&person, &relay.0, &last_fetched, &last_fetched)));
+            rtry!(stmt.execute((pubkeyhex.as_str(), &url.0, &last_fetched, &last_fetched)));
             Ok::<(), Error>(())
         })
         .await??;
@@ -89,20 +92,21 @@ impl PersonRelay {
     }
 
     pub async fn upsert_last_suggested_kind3(
-        person: String,
-        relay: RelayUrl,
+        pubkey: PublicKey,
+        url: RelayUrl,
         last_suggested_kind3: u64,
     ) -> Result<(), Error> {
         let sql = "INSERT INTO person_relay (person, relay, last_suggested_kind3) \
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_kind3=?";
 
+        let pubkeyhex: PublicKeyHex = pubkey.into();
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
-                &person,
-                &relay.0,
+                pubkeyhex.as_str(),
+                &url.0,
                 &last_suggested_kind3,
                 &last_suggested_kind3,
             )));
@@ -114,20 +118,21 @@ impl PersonRelay {
     }
 
     pub async fn upsert_last_suggested_bytag(
-        person: String,
-        relay: RelayUrl,
+        pubkey: PublicKey,
+        url: RelayUrl,
         last_suggested_bytag: u64,
     ) -> Result<(), Error> {
         let sql = "INSERT INTO person_relay (person, relay, last_suggested_bytag) \
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_bytag=?";
 
+        let pubkeyhex: PublicKeyHex = pubkey.into();
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
-                &person,
-                &relay.0,
+                pubkeyhex.as_str(),
+                &url.0,
                 &last_suggested_bytag,
                 &last_suggested_bytag,
             )));
@@ -139,20 +144,21 @@ impl PersonRelay {
     }
 
     pub async fn upsert_last_suggested_nip05(
-        person: PublicKeyHex,
-        relay: RelayUrl,
+        pubkey: PublicKey,
+        url: RelayUrl,
         last_suggested_nip05: u64,
     ) -> Result<(), Error> {
         let sql = "INSERT INTO person_relay (person, relay, last_suggested_nip05) \
                    VALUES (?, ?, ?) \
                    ON CONFLICT(person, relay) DO UPDATE SET last_suggested_nip05=?";
 
+        let pubkeyhex: PublicKeyHex = pubkey.into();
         spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
             rtry!(stmt.execute((
-                person.as_str(),
-                &relay.0,
+                pubkeyhex.as_str(),
+                &url.0,
                 &last_suggested_nip05,
                 &last_suggested_nip05,
             )));
@@ -164,16 +170,18 @@ impl PersonRelay {
     }
 
     pub async fn set_relay_list(
-        person: PublicKeyHex,
+        pubkey: PublicKey,
         read_relays: Vec<RelayUrl>,
         write_relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
+        let pubkeyhex: PublicKeyHex = pubkey.into();
+
         // Clear the current ones
         let sql1 = "UPDATE person_relay SET read=0, write=0 WHERE person=?";
 
         // Set the reads
         let mut sql2: String = "".to_owned();
-        let mut params2: Vec<String> = vec![person.to_string()];
+        let mut params2: Vec<String> = vec![pubkeyhex.to_string()];
         if !read_relays.is_empty() {
             sql2 = format!(
                 "UPDATE person_relay SET read=1 WHERE person=? AND relay IN ({})",
@@ -186,7 +194,7 @@ impl PersonRelay {
 
         // Set the writes
         let mut sql3: String = "".to_owned();
-        let mut params3: Vec<String> = vec![person.to_string()];
+        let mut params3: Vec<String> = vec![pubkeyhex.to_string()];
         if !write_relays.is_empty() {
             sql3 = format!(
                 "UPDATE person_relay SET write=1 WHERE person=? AND relay IN ({})",
@@ -204,7 +212,7 @@ impl PersonRelay {
                 rtry!(stmt.execute(()));
 
                 let mut stmt = db.prepare(sql1)?;
-                rtry!(stmt.execute((person.as_str(),)));
+                rtry!(stmt.execute((pubkeyhex.as_str(),)));
 
                 if !read_relays.is_empty() {
                     let mut stmt = db.prepare(&sql2)?;
@@ -237,16 +245,18 @@ impl PersonRelay {
 
     #[allow(dead_code)]
     pub async fn set_manual_pairing(
-        person: PublicKeyHex,
+        pubkey: PublicKey,
         read_relays: Vec<RelayUrl>,
         write_relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
+        let pubkeyhex: PublicKeyHex = pubkey.into();
+
         // Clear the current ones
         let sql1 = "UPDATE person_relay SET manually_paired_read=0, manually_paired_write=0 WHERE person=?";
 
         // Set the reads
         let mut sql2: String = "".to_owned();
-        let mut params2: Vec<String> = vec![person.to_string()];
+        let mut params2: Vec<String> = vec![pubkeyhex.to_string()];
         if !read_relays.is_empty() {
             sql2 = format!(
                 "UPDATE person_relay SET manually_paired_read=1 WHERE person=? AND relay IN ({})",
@@ -259,7 +269,7 @@ impl PersonRelay {
 
         // Set the writes
         let mut sql3: String = "".to_owned();
-        let mut params3: Vec<String> = vec![person.to_string()];
+        let mut params3: Vec<String> = vec![pubkeyhex.to_string()];
         if !write_relays.is_empty() {
             sql3 = format!(
                 "UPDATE person_relay SET manually_paired_write=1 WHERE person=? AND relay IN ({})",
@@ -277,7 +287,7 @@ impl PersonRelay {
                 rtry!(stmt.execute(()));
 
                 let mut stmt = db.prepare(sql1)?;
-                rtry!(stmt.execute((person.as_str(),)));
+                rtry!(stmt.execute((pubkeyhex.as_str(),)));
 
                 if !read_relays.is_empty() {
                     let mut stmt = db.prepare(&sql2)?;
@@ -310,7 +320,7 @@ impl PersonRelay {
 
     /// This returns the relays for a person, along with a score, in order of score
     pub async fn get_best_relays(
-        pubkey: PublicKeyHex,
+        pubkey: PublicKey,
         dir: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let sql = "SELECT person, relay, last_fetched, last_suggested_kind3, \
@@ -318,30 +328,33 @@ impl PersonRelay {
                    manually_paired_read, manually_paired_write \
                    FROM person_relay WHERE person=?";
 
+        let pubkeyhex: PublicKeyHex = pubkey.into();
         let ranked_relays: Result<Vec<(RelayUrl, u64)>, Error> = spawn_blocking(move || {
             let db = GLOBALS.db.blocking_lock();
             let mut stmt = db.prepare(sql)?;
-            stmt.raw_bind_parameter(1, pubkey.as_str())?;
+            stmt.raw_bind_parameter(1, pubkeyhex.as_str())?;
             let mut rows = stmt.raw_query();
 
             let mut dbprs: Vec<PersonRelay> = Vec::new();
             while let Some(row) = rows.next()? {
+                let pk: String = row.get(0)?;
                 let s: String = row.get(1)?;
-                // Just skip over bad relay URLs
-                if let Ok(url) = RelayUrl::try_from_str(&s) {
-                    let dbpr = PersonRelay {
-                        person: row.get(0)?,
-                        relay: url,
-                        last_fetched: row.get(2)?,
-                        last_suggested_kind3: row.get(3)?,
-                        last_suggested_nip05: row.get(4)?,
-                        last_suggested_bytag: row.get(5)?,
-                        read: row.get(6)?,
-                        write: row.get(7)?,
-                        manually_paired_read: row.get(8)?,
-                        manually_paired_write: row.get(9)?,
-                    };
-                    dbprs.push(dbpr);
+                if let Ok(pubkey) = PublicKey::try_from_hex_string(&pk) {
+                    if let Ok(url) = RelayUrl::try_from_str(&s) {
+                        let dbpr = PersonRelay {
+                            pubkey,
+                            url,
+                            last_fetched: row.get(2)?,
+                            last_suggested_kind3: row.get(3)?,
+                            last_suggested_nip05: row.get(4)?,
+                            last_suggested_bytag: row.get(5)?,
+                            read: row.get(6)?,
+                            write: row.get(7)?,
+                            manually_paired_read: row.get(8)?,
+                            manually_paired_write: row.get(9)?,
+                        };
+                        dbprs.push(dbpr);
+                    }
                 }
             }
 
@@ -448,7 +461,7 @@ impl PersonRelay {
                 continue;
             }
 
-            output.push((dbpr.relay, score));
+            output.push((dbpr.url, score));
         }
 
         output.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
@@ -505,7 +518,7 @@ impl PersonRelay {
                 continue;
             }
 
-            output.push((dbpr.relay, score));
+            output.push((dbpr.url, score));
         }
 
         output.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));

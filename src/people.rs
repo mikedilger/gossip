@@ -602,7 +602,7 @@ impl People {
         let pubkeys = self.get_followed_pubkeys();
         for pubkey in &pubkeys {
             // Get their best relay
-            let relays = PersonRelay::get_best_relays((*pubkey).into(), Direction::Write).await?;
+            let relays = PersonRelay::get_best_relays(*pubkey, Direction::Write).await?;
             let maybeurl = relays.get(0);
             p_tags.push(Tag::Pubkey {
                 pubkey: (*pubkey).into(),
@@ -779,7 +779,7 @@ impl People {
         *self.active_person.write().await = Some(pubkey);
 
         // Load their relays
-        let best_relays = PersonRelay::get_best_relays(pubkey.into(), Direction::Write).await?;
+        let best_relays = PersonRelay::get_best_relays(pubkey, Direction::Write).await?;
         *self.active_persons_write_relays.write().await = best_relays;
 
         Ok(())

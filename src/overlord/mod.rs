@@ -16,7 +16,7 @@ use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
     EncryptedPrivateKey, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData,
-    PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -708,8 +708,7 @@ impl Overlord {
                 self.update_following(merge).await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
-                let best_relays =
-                    PersonRelay::get_best_relays(pubkey.into(), Direction::Write).await?;
+                let best_relays = PersonRelay::get_best_relays(pubkey, Direction::Write).await?;
                 let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
                 // we do 1 more than num_relays_per_person, which is really for main posts,
@@ -741,7 +740,7 @@ impl Overlord {
                 let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
                 for pubkey in pubkeys.drain(..) {
                     let best_relays =
-                        PersonRelay::get_best_relays(pubkey.into(), Direction::Write).await?;
+                        PersonRelay::get_best_relays(pubkey, Direction::Write).await?;
                     for (relay_url, _score) in
                         best_relays.iter().take(num_relays_per_person as usize + 1)
                     {
@@ -834,8 +833,8 @@ impl Overlord {
 
         // Save person_relay
         PersonRelay::insert(PersonRelay {
-            person: pubkey.as_hex_string(),
-            relay,
+            pubkey,
+            url: relay,
             last_fetched: None,
             last_suggested_kind3: Some(now), // consider it our claim in our contact list
             last_suggested_nip05: None,
@@ -863,7 +862,7 @@ impl Overlord {
         reply_to: Option<Id>,
     ) -> Result<(), Error> {
         // We will fill this just before we create the event
-        let mut tagged_pubkeys: Vec<PublicKeyHex>;
+        let mut tagged_pubkeys: Vec<PublicKey>;
 
         let event = {
             let public_key = match GLOBALS.signer.public_key() {
@@ -991,7 +990,10 @@ impl Overlord {
                 .iter()
                 .filter_map(|t| {
                     if let Tag::Pubkey { pubkey, .. } = t {
-                        Some(pubkey.clone())
+                        match PublicKey::try_from_hex_string(pubkey) {
+                            Ok(pk) => Some(pk),
+                            _ => None,
+                        }
                     } else {
                         None
                     }
@@ -1346,7 +1348,7 @@ impl Overlord {
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
-            for relayscore in PersonRelay::get_best_relays((*pubkey).into(), Direction::Write)
+            for relayscore in PersonRelay::get_best_relays(*pubkey, Direction::Write)
                 .await?
                 .drain(..)
                 .take(num_relays_per_person as usize)
@@ -1530,7 +1532,7 @@ impl Overlord {
         if relays.len() < 2 {
             if let Some(pk) = author {
                 let author_relays: Vec<RelayUrl> =
-                    PersonRelay::get_best_relays(pk.into(), Direction::Write)
+                    PersonRelay::get_best_relays(pk, Direction::Write)
                         .await?
                         .drain(..)
                         .map(|pair| pair.0)
@@ -1633,7 +1635,7 @@ impl Overlord {
 
                 // Save person_relay
                 PersonRelay::upsert_last_suggested_nip05(
-                    nprofile.pubkey.into(),
+                    nprofile.pubkey,
                     relay_url,
                     Unixtime::now().unwrap().0 as u64,
                 )
@@ -1779,12 +1781,7 @@ impl Overlord {
                         GLOBALS.storage.write_relay_if_missing(&url)?;
 
                         // create or update person_relay last_suggested_kind3
-                        PersonRelay::upsert_last_suggested_kind3(
-                            pubkey.as_hex_string(),
-                            url,
-                            now.0 as u64,
-                        )
-                        .await?;
+                        PersonRelay::upsert_last_suggested_kind3(pubkey, url, now.0 as u64).await?;
                     }
                     // TBD: do something with the petname
                 }
@@ -1838,13 +1835,10 @@ impl Overlord {
             }
 
             if let Some(metadata) = &p.metadata {
-                match serde_json::to_string(&metadata) {
-                    Ok(s) => {
-                        if s.to_lowercase().contains(&text) {
-                            return true;
-                        }
+                if let Ok(s) = serde_json::to_string(&metadata) {
+                    if s.to_lowercase().contains(&text) {
+                        return true;
                     }
-                    _ => {}
                 }
             }
 
@@ -1854,7 +1848,7 @@ impl Overlord {
                 }
             }
 
-            return false;
+            false
         })?;
 
         let note_search_results = GLOBALS.storage.search_events(&text)?;
@@ -2010,7 +2004,7 @@ impl Overlord {
 
             // Add the read relays of the target person
             let mut target_read_relays =
-                PersonRelay::get_best_relays(target_pubkey.into(), Direction::Read).await?;
+                PersonRelay::get_best_relays(target_pubkey, Direction::Read).await?;
             let target_read_relays: Vec<RelayUrl> =
                 target_read_relays.drain(..).map(|pair| pair.0).collect();
             relays.extend(target_read_relays);

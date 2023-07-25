@@ -26,7 +26,7 @@ impl RelayPickerHooks for Hooks {
         pubkey: PublicKey,
         direction: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        PersonRelay::get_best_relays(pubkey.into(), direction).await
+        PersonRelay::get_best_relays(pubkey, direction).await
     }
 
     /// Is the relay currently connected?
