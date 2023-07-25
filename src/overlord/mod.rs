@@ -3,9 +3,9 @@ mod minion;
 use crate::comms::{
     RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
 };
-use crate::db::PersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
+use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,

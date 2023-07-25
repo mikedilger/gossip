@@ -1,6 +1,6 @@
-use crate::db::PersonRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::person_relay::PersonRelay;
 use gossip_relay_picker::Direction;
 use nostr_types::{Id, RelayInformationDocument, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};

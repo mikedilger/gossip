@@ -1,7 +1,7 @@
-use crate::db::PersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::Person;
+use crate::person_relay::PersonRelay;
 use nostr_types::{Metadata, Nip05, PublicKey, RelayUrl, Unixtime};
 use std::sync::atomic::Ordering;
 

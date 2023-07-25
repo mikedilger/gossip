@@ -1,6 +1,6 @@
-use crate::db::PersonRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::person_relay::PersonRelay;
 use async_trait::async_trait;
 use gossip_relay_picker::{Direction, RelayPickerHooks};
 use nostr_types::{PublicKey, RelayUrl};

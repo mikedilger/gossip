@@ -1,7 +1,7 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::PersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::person_relay::PersonRelay;
 use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
 use eframe::egui::{Color32, ColorImage};

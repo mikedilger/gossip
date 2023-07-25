@@ -870,7 +870,9 @@ impl GossipUi {
         format!(
             "{}...{}",
             &npub.get(0..10).unwrap_or("??????????"),
-            &npub.get(npub.len()-10..npub.len()).unwrap_or("??????????")
+            &npub
+                .get(npub.len() - 10..npub.len())
+                .unwrap_or("??????????")
         )
     }
 

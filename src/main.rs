@@ -35,6 +35,7 @@ mod media;
 mod nip05;
 mod overlord;
 mod people;
+mod person_relay;
 mod process;
 mod profile;
 mod relationship;
