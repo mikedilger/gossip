@@ -2,6 +2,7 @@ mod legacy;
 use super::Storage;
 use crate::error::Error;
 use crate::people::Person;
+use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::settings::Settings;
 use crate::ui::ThemeVariant;
@@ -68,6 +69,13 @@ impl Storage {
         // old table "person"
         // Copy people
         import_people(&db, |person: &Person| self.write_person(person))?;
+
+        // old table "person_relay"
+        // Copy person relay
+        import_person_relays(&db, |person_relay: &PersonRelay| {
+            self.write_person_relay(person_relay)
+        })?;
+        tracing::info!("LMDB: import person_relays");
 
         // Mark migration level
         // TBD: self.write_migration_level(0)?;
@@ -371,5 +379,54 @@ where
         };
         f(&person)?;
     }
+    Ok(())
+}
+
+fn import_person_relays<F>(db: &Connection, mut f: F) -> Result<(), Error>
+where
+    F: FnMut(&PersonRelay) -> Result<(), Error>,
+{
+    let sql = "SELECT person, relay, last_fetched, last_suggested_kind3, last_suggested_nip05, \
+               last_suggested_bytag, read, write, manually_paired_read, manually_paired_write \
+               FROM person_relay"
+        .to_owned();
+    let mut stmt = db.prepare(&sql)?;
+    let mut rows = stmt.raw_query();
+    while let Some(row) = rows.next()? {
+        let pkstr: String = row.get(0)?;
+        let pubkey = match PublicKey::try_from_hex_string(&pkstr) {
+            Ok(pk) => pk,
+            Err(e) => {
+                tracing::error!("{}", e);
+                // don't process the broken person
+                continue;
+            }
+        };
+
+        let urlstr: String = row.get(1)?;
+        let url = match RelayUrl::try_from_str(&urlstr) {
+            Ok(url) => url,
+            Err(e) => {
+                tracing::error!("{}", e);
+                // don't process the broken person
+                continue;
+            }
+        };
+
+        let person_relay = PersonRelay {
+            pubkey,
+            url,
+            last_fetched: row.get(2)?,
+            last_suggested_kind3: row.get(3)?,
+            last_suggested_nip05: row.get(4)?,
+            last_suggested_bytag: row.get(5)?,
+            read: row.get(6)?,
+            write: row.get(7)?,
+            manually_paired_read: row.get(8)?,
+            manually_paired_write: row.get(9)?,
+        };
+        f(&person_relay)?;
+    }
+
     Ok(())
 }

@@ -4,6 +4,7 @@ mod migrations;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::Person;
+use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::Relationship;
 use crate::relay::Relay;
@@ -58,8 +59,11 @@ pub struct Storage {
     // Id:Id -> Relationship
     relationships: Database,
 
-    // pubkey - Person
+    // PublicKey -> Person
     people: Database,
+
+    // PublicKey:Url -> PersonRelay
+    person_relays: Database,
 }
 
 impl Storage {
@@ -106,6 +110,8 @@ impl Storage {
 
         let people = env.create_db(Some("people"), DatabaseFlags::empty())?;
 
+        let person_relays = env.create_db(Some("person_relays"), DatabaseFlags::empty())?;
+
         let storage = Storage {
             env,
             general,
@@ -117,6 +123,7 @@ impl Storage {
             events,
             relationships,
             people,
+            person_relays,
         };
 
         // If migration level is missing, we need to import from legacy sqlite
@@ -939,5 +946,30 @@ impl Storage {
     pub fn get_people_stats(&self) -> Result<Stat, Error> {
         let txn = self.env.begin_ro_txn()?;
         Ok(txn.stat(self.people)?)
+    }
+
+    pub fn write_person_relay(&self, person_relay: &PersonRelay) -> Result<(), Error> {
+        let mut key = person_relay.pubkey.as_bytes();
+        key.extend(person_relay.url.0.as_bytes());
+        let bytes = person_relay.write_to_vec()?;
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.person_relays, &key, &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn read_person_relay(
+        &self,
+        pubkey: PublicKey,
+        url: &RelayUrl,
+    ) -> Result<Option<PersonRelay>, Error> {
+        let mut key = pubkey.as_bytes();
+        key.extend(url.0.as_bytes());
+        let txn = self.env.begin_ro_txn()?;
+        match txn.get(self.person_relays, &key) {
+            Ok(bytes) => Ok(Some(PersonRelay::read_from_buffer(bytes)?)),
+            Err(lmdb::Error::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }
