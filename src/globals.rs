@@ -1,10 +1,10 @@
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
-use crate::db::Relay;
 use crate::delegation::Delegation;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::media::Media;
 use crate::people::{People, Person};
+use crate::relay::Relay;
 use crate::relay_picker_hooks::Hooks;
 use crate::settings::Settings;
 use crate::signer::Signer;

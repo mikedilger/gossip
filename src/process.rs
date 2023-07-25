@@ -1,7 +1,8 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{Relay, PersonRelay};
+use crate::db::PersonRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use nostr_types::{
     Event, EventKind, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };

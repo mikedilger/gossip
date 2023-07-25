@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
-use crate::db::Relay;
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, TextEdit, Ui};
 use nostr_types::Metadata;

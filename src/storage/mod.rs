@@ -1,12 +1,12 @@
 mod import;
 mod migrations;
 
-use crate::db::Relay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::Person;
 use crate::profile::Profile;
 use crate::relationship::Relationship;
+use crate::relay::Relay;
 use crate::settings::Settings;
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Stat, Transaction, WriteFlags,

@@ -1,4 +1,4 @@
-use crate::db::Relay;
+use crate::relay::Relay;
 use nostr_types::{EventKind, Id, PublicKey, PublicKeyHex, Tag, UncheckedUrl};
 
 pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKeyHex) -> usize {

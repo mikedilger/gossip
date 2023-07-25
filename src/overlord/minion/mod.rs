@@ -3,9 +3,9 @@ mod subscription;
 mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::db::Relay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use crate::USER_AGENT;
 use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};

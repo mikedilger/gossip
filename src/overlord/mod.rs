@@ -3,9 +3,10 @@ mod minion;
 use crate::comms::{
     RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
 };
-use crate::db::{Relay, PersonRelay};
+use crate::db::PersonRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
+use crate::relay::Relay;
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
     add_subject_to_tags_if_missing,
@@ -1081,15 +1082,14 @@ impl Overlord {
             }
         };
 
-        let inbox_or_outbox_relays: Vec<Relay> = GLOBALS.storage.filter_relays(|r| {
-            r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX)
-        })?;
+        let inbox_or_outbox_relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX))?;
         let mut tags: Vec<Tag> = Vec::new();
         for relay in inbox_or_outbox_relays.iter() {
             tags.push(Tag::Reference {
                 url: relay.url.to_unchecked_url(),
-                marker: if relay.has_usage_bits(Relay::INBOX)
-                    && relay.has_usage_bits(Relay::OUTBOX)
+                marker: if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX)
                 {
                     None
                 } else if relay.has_usage_bits(Relay::INBOX) {

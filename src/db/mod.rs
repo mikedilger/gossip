@@ -1,6 +1,3 @@
-mod relay;
-pub use relay::Relay;
-
 mod person_relay;
 pub use person_relay::PersonRelay;
 

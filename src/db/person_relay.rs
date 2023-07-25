@@ -1,6 +1,6 @@
-use super::Relay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use gossip_relay_picker::Direction;
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use speedy::{Readable, Writable};

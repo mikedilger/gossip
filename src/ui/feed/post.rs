@@ -1,7 +1,7 @@
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
-use crate::db::Relay;
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use crate::ui::{you, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;

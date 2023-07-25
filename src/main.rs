@@ -38,6 +38,7 @@ mod people;
 mod process;
 mod profile;
 mod relationship;
+mod relay;
 mod relay_picker_hooks;
 mod settings;
 mod signer;

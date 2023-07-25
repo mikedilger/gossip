@@ -1,8 +1,8 @@
 mod legacy;
 use super::Storage;
-use crate::db::Relay;
 use crate::error::Error;
 use crate::people::Person;
+use crate::relay::Relay;
 use crate::settings::Settings;
 use crate::ui::ThemeVariant;
 use nostr_types::{EncryptedPrivateKey, Event, Id, PublicKey, RelayUrl, Unixtime};
