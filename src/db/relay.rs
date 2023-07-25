@@ -6,7 +6,7 @@ use nostr_types::{Id, RelayInformationDocument, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DbRelay {
+pub struct Relay {
     pub url: RelayUrl,
     pub success_count: u64,
     pub failure_count: u64,
@@ -19,7 +19,7 @@ pub struct DbRelay {
     pub last_attempt_nip11: Option<u64>,
 }
 
-impl DbRelay {
+impl Relay {
     pub const READ: u64 = 1 << 0; // 1
     pub const WRITE: u64 = 1 << 1; // 2
     pub const ADVERTISE: u64 = 1 << 2; // 4
@@ -27,8 +27,8 @@ impl DbRelay {
     pub const OUTBOX: u64 = 1 << 4; // 16
     pub const DISCOVER: u64 = 1 << 5; // 32
 
-    pub fn new(url: RelayUrl) -> DbRelay {
-        DbRelay {
+    pub fn new(url: RelayUrl) -> Relay {
+        Relay {
             url,
             success_count: 0,
             failure_count: 0,

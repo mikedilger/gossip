@@ -1,4 +1,4 @@
-use crate::db::DbRelay;
+use crate::db::Relay;
 use nostr_types::{EventKind, Id, PublicKey, PublicKeyHex, Tag, UncheckedUrl};
 
 pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKeyHex) -> usize {
@@ -31,7 +31,7 @@ pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: &PublicKey)
 pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: &str) -> usize {
     let newtag = Tag::Event {
         id: added,
-        recommended_relay_url: DbRelay::recommended_relay_for_reply(added)
+        recommended_relay_url: Relay::recommended_relay_for_reply(added)
             .await
             .ok()
             .flatten()

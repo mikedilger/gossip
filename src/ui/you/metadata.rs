@@ -1,6 +1,6 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
-use crate::db::DbRelay;
+use crate::db::Relay;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, TextEdit, Ui};
@@ -122,7 +122,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 });
             } else if !GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
                 .unwrap_or(vec![])
                 .is_empty()
             {

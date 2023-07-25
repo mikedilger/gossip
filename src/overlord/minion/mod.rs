@@ -3,7 +3,7 @@ mod subscription;
 mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::db::DbRelay;
+use crate::db::Relay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::USER_AGENT;
@@ -35,7 +35,7 @@ pub struct Minion {
     url: RelayUrl,
     to_overlord: UnboundedSender<ToOverlordMessage>,
     from_overlord: Receiver<ToMinionMessage>,
-    dbrelay: DbRelay,
+    dbrelay: Relay,
     nip11: Option<RelayInformationDocument>,
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     subscription_map: SubscriptionMap,
@@ -51,7 +51,7 @@ impl Minion {
         let dbrelay = match GLOBALS.storage.read_relay(&url)? {
             Some(dbrelay) => dbrelay,
             None => {
-                let dbrelay = DbRelay::new(url.clone());
+                let dbrelay = Relay::new(url.clone());
                 GLOBALS.storage.write_relay(&dbrelay)?;
                 dbrelay
             }

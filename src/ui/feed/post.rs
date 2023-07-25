@@ -1,6 +1,6 @@
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
-use crate::db::DbRelay;
+use crate::db::Relay;
 use crate::globals::GLOBALS;
 use crate::ui::{you, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
@@ -83,7 +83,7 @@ pub(in crate::ui) fn posting_area(
             });
         } else if GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
             .unwrap_or(vec![])
             .is_empty()
         {

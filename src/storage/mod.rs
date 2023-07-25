@@ -1,7 +1,7 @@
 mod import;
 mod migrations;
 
-use crate::db::DbRelay;
+use crate::db::Relay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::Person;
@@ -45,7 +45,7 @@ pub struct Storage {
     // (dup keys, so multiple Ids per hashtag)
     hashtags: Database,
 
-    // Url -> DbRelay
+    // Url -> Relay
     relays: Database,
 
     // Tag -> Id
@@ -311,7 +311,7 @@ impl Storage {
         Ok(output)
     }
 
-    pub fn write_relay(&self, relay: &DbRelay) -> Result<(), Error> {
+    pub fn write_relay(&self, relay: &Relay) -> Result<(), Error> {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
@@ -325,7 +325,7 @@ impl Storage {
 
     pub fn write_relay_if_missing(&self, url: &RelayUrl) -> Result<(), Error> {
         if self.read_relay(url)?.is_none() {
-            let dbrelay = DbRelay::new(url.to_owned());
+            let dbrelay = Relay::new(url.to_owned());
             self.write_relay(&dbrelay)?;
         }
         Ok(())
@@ -333,7 +333,7 @@ impl Storage {
 
     pub fn modify_all_relays<M>(&self, mut modify: M) -> Result<(), Error>
     where
-        M: FnMut(&mut DbRelay),
+        M: FnMut(&mut Relay),
     {
         let mut txn = self.env.begin_rw_txn()?;
         let mut cursor = txn.open_rw_cursor(self.relays)?;
@@ -342,7 +342,7 @@ impl Storage {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((key, val)) => {
-                    let mut dbrelay: DbRelay = serde_json::from_slice(val)?;
+                    let mut dbrelay: Relay = serde_json::from_slice(val)?;
                     modify(&mut dbrelay);
                     let bytes = serde_json::to_vec(&dbrelay)?;
                     cursor.put(&key, &bytes, WriteFlags::empty())?;
@@ -354,7 +354,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<DbRelay>, Error> {
+    pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
@@ -367,19 +367,19 @@ impl Storage {
         }
     }
 
-    pub fn filter_relays<F>(&self, f: F) -> Result<Vec<DbRelay>, Error>
+    pub fn filter_relays<F>(&self, f: F) -> Result<Vec<Relay>, Error>
     where
-        F: Fn(&DbRelay) -> bool,
+        F: Fn(&Relay) -> bool,
     {
         let txn = self.env.begin_ro_txn()?;
         let mut cursor = txn.open_ro_cursor(self.relays)?;
         let iter = cursor.iter_start();
-        let mut output: Vec<DbRelay> = Vec::new();
+        let mut output: Vec<Relay> = Vec::new();
         for result in iter {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((_key, val)) => {
-                    let relay: DbRelay = serde_json::from_slice(val)?;
+                    let relay: Relay = serde_json::from_slice(val)?;
                     if f(&relay) {
                         output.push(relay);
                     }

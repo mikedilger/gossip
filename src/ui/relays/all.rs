@@ -1,6 +1,6 @@
 use super::GossipUi;
 use crate::comms::ToOverlordMessage;
-use crate::db::DbRelay;
+use crate::db::Relay;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Align, Context, Layout, Ui};
@@ -52,14 +52,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     // TBD time how long this takes. We don't want expensive code in the UI
     // FIXME keep more relay info and display it
-    let mut relays: Vec<DbRelay> = GLOBALS
+    let mut relays: Vec<Relay> = GLOBALS
         .storage
         .filter_relays(|relay| app.show_hidden_relays || !relay.hidden)
         .unwrap_or(vec![]);
 
     relays.sort_by(|a, b| {
-        b.has_usage_bits(DbRelay::WRITE)
-            .cmp(&a.has_usage_bits(DbRelay::WRITE))
+        b.has_usage_bits(Relay::WRITE)
+            .cmp(&a.has_usage_bits(Relay::WRITE))
             .then(a.url.cmp(&b.url))
     });
 
@@ -73,7 +73,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 }
 
-fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
+fn relay_table(ui: &mut Ui, relays: &mut [Relay], id: &'static str) {
     ui.push_id(id, |ui| {
         TableBuilder::new(ui)
             .striped(true)
@@ -158,69 +158,69 @@ fn relay_table(ui: &mut Ui, relays: &mut [DbRelay], id: &'static str) {
                         }
                     });
                     row.col(|ui| {
-                        let mut read = relay.has_usage_bits(DbRelay::READ); // checkbox needs a mutable state variable.
+                        let mut read = relay.has_usage_bits(Relay::READ); // checkbox needs a mutable state variable.
                         if ui.checkbox(&mut read, "")
                             .on_hover_text(READ_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::READ, read));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), Relay::READ, read));
                         }
                     });
                     row.col(|ui| {
-                        let mut inbox = relay.has_usage_bits(DbRelay::INBOX); // checkbox needs a mutable state variable.
+                        let mut inbox = relay.has_usage_bits(Relay::INBOX); // checkbox needs a mutable state variable.
                         if ui.checkbox(&mut inbox, "")
                             .on_hover_text(INBOX_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::INBOX, inbox));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), Relay::INBOX, inbox));
                         }
                     });
                     row.col(|ui| {
-                        let mut discover = relay.has_usage_bits(DbRelay::DISCOVER); // checkbox needs a mutable state variable.
+                        let mut discover = relay.has_usage_bits(Relay::DISCOVER); // checkbox needs a mutable state variable.
                         if ui.checkbox(&mut discover, "")
                             .on_hover_text(DISCOVER_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::DISCOVER, discover));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), Relay::DISCOVER, discover));
                         }
                     });
                     row.col(|ui| {
-                        let mut write = relay.has_usage_bits(DbRelay::WRITE); // checkbox needs a mutable state variable.
+                        let mut write = relay.has_usage_bits(Relay::WRITE); // checkbox needs a mutable state variable.
                         if ui.checkbox(&mut write, "")
                             .on_hover_text(WRITE_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::WRITE, write));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), Relay::WRITE, write));
                         }
                     });
                     row.col(|ui| {
-                        let mut outbox = relay.has_usage_bits(DbRelay::OUTBOX); // checkbox needs a mutable state variable.
+                        let mut outbox = relay.has_usage_bits(Relay::OUTBOX); // checkbox needs a mutable state variable.
                         if ui.checkbox(&mut outbox, "")
                             .on_hover_text(OUTBOX_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::OUTBOX, outbox));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), Relay::OUTBOX, outbox));
                         }
                     });
                     row.col(|ui| {
-                        let mut advertise = relay.has_usage_bits(DbRelay::ADVERTISE); // checkbox needs a mutable state variable.
+                        let mut advertise = relay.has_usage_bits(Relay::ADVERTISE); // checkbox needs a mutable state variable.
                         if ui.checkbox(&mut advertise, "")
                             .on_hover_text(ADVERTISE_HOVER_TEXT)
                             .clicked()
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), DbRelay::ADVERTISE, advertise));
+                                .send(ToOverlordMessage::AdjustRelayUsageBit(relay.url.clone(), Relay::ADVERTISE, advertise));
                         }
                     });
                     row.col(|ui| {

@@ -3,7 +3,7 @@ mod minion;
 use crate::comms::{
     RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
 };
-use crate::db::{DbRelay, PersonRelay};
+use crate::db::{Relay, PersonRelay};
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
 use crate::tags::{
@@ -108,7 +108,7 @@ impl Overlord {
         // Separately subscribe to RelayList discovery for everyone we follow
         let discover_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::DISCOVER))?
+            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER))?
             .iter()
             .map(|dbrelay| dbrelay.url.clone())
             .collect();
@@ -131,7 +131,7 @@ impl Overlord {
         // Separately subscribe to our config on our write relays
         let write_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
             .iter()
             .map(|dbrelay| dbrelay.url.clone())
             .collect();
@@ -155,7 +155,7 @@ impl Overlord {
         //       not in widespread usage.
         let read_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::READ))?
+            .filter_relays(|r| r.has_usage_bits(Relay::READ))?
             .iter()
             .map(|dbrelay| dbrelay.url.clone())
             .collect();
@@ -454,7 +454,7 @@ impl Overlord {
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
             ToOverlordMessage::AddRelay(relay_str) => {
-                let dbrelay = DbRelay::new(relay_str.clone());
+                let dbrelay = Relay::new(relay_str.clone());
                 GLOBALS.storage.write_relay(&dbrelay)?;
             }
             ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
@@ -826,7 +826,7 @@ impl Overlord {
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
 
         // Save relay
-        let db_relay = DbRelay::new(relay.clone());
+        let db_relay = Relay::new(relay.clone());
         GLOBALS.storage.write_relay(&db_relay)?;
 
         let now = Unixtime::now().unwrap().0 as u64;
@@ -1041,7 +1041,7 @@ impl Overlord {
             // Get all of the relays that we write to
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
                 .iter()
                 .map(|dbrelay| dbrelay.url.clone())
                 .collect();
@@ -1081,20 +1081,20 @@ impl Overlord {
             }
         };
 
-        let inbox_or_outbox_relays: Vec<DbRelay> = GLOBALS.storage.filter_relays(|r| {
-            r.has_usage_bits(DbRelay::INBOX) || r.has_usage_bits(DbRelay::OUTBOX)
+        let inbox_or_outbox_relays: Vec<Relay> = GLOBALS.storage.filter_relays(|r| {
+            r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX)
         })?;
         let mut tags: Vec<Tag> = Vec::new();
         for relay in inbox_or_outbox_relays.iter() {
             tags.push(Tag::Reference {
                 url: relay.url.to_unchecked_url(),
-                marker: if relay.has_usage_bits(DbRelay::INBOX)
-                    && relay.has_usage_bits(DbRelay::OUTBOX)
+                marker: if relay.has_usage_bits(Relay::INBOX)
+                    && relay.has_usage_bits(Relay::OUTBOX)
                 {
                     None
-                } else if relay.has_usage_bits(DbRelay::INBOX) {
+                } else if relay.has_usage_bits(Relay::INBOX) {
                     Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
-                } else if relay.has_usage_bits(DbRelay::OUTBOX) {
+                } else if relay.has_usage_bits(Relay::OUTBOX) {
                     Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
                 } else {
                     unreachable!()
@@ -1116,7 +1116,7 @@ impl Overlord {
 
         let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::ADVERTISE))?
+            .filter_relays(|r| r.has_usage_bits(Relay::ADVERTISE))?
             .iter()
             .map(|dbrelay| dbrelay.url.clone())
             .collect();
@@ -1155,7 +1155,7 @@ impl Overlord {
             let mut tags: Vec<Tag> = vec![
                 Tag::Event {
                     id,
-                    recommended_relay_url: DbRelay::recommended_relay_for_reply(id)
+                    recommended_relay_url: Relay::recommended_relay_for_reply(id)
                         .await?
                         .map(|rr| rr.to_unchecked_url()),
                     marker: None,
@@ -1198,9 +1198,9 @@ impl Overlord {
                 .sign_preevent(pre_event, pow, Some(work_sender))?
         };
 
-        let relays: Vec<DbRelay> = GLOBALS
+        let relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?;
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
         // FIXME - post it to relays we have seen it on.
 
         for relay in relays {
@@ -1229,9 +1229,9 @@ impl Overlord {
 
     async fn pull_following(&mut self) -> Result<(), Error> {
         // Pull our list from all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS
+        let relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?;
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1258,9 +1258,9 @@ impl Overlord {
         let event = GLOBALS.people.generate_contact_list_event().await?;
 
         // Push to all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS
+        let relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?;
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1306,9 +1306,9 @@ impl Overlord {
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
 
         // Push to all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS
+        let relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?;
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1393,7 +1393,7 @@ impl Overlord {
                 recommended_relay_url: {
                     let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
                     if seen_on.is_empty() {
-                        DbRelay::recommended_relay_for_reply(id)
+                        Relay::recommended_relay_for_reply(id)
                             .await?
                             .map(|rr| rr.to_unchecked_url())
                     } else {
@@ -1458,7 +1458,7 @@ impl Overlord {
             // Get all of the relays that we write to
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
                 .iter()
                 .map(|dbrelay| dbrelay.url.clone())
                 .collect();
@@ -1628,7 +1628,7 @@ impl Overlord {
         for relay in nprofile.relays.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
                 // Save relay
-                let db_relay = DbRelay::new(relay_url.clone());
+                let db_relay = Relay::new(relay_url.clone());
                 GLOBALS.storage.write_relay(&db_relay)?;
 
                 // Save person_relay
@@ -1704,7 +1704,7 @@ impl Overlord {
             // Get all of the relays that we write to
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
                 .iter()
                 .map(|dbrelay| dbrelay.url.clone())
                 .collect();
@@ -2018,7 +2018,7 @@ impl Overlord {
             // Add all my write relays
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(DbRelay::WRITE))?
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
                 .iter()
                 .map(|dbrelay| dbrelay.url.clone())
                 .collect();

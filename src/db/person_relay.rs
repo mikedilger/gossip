@@ -1,4 +1,4 @@
-use super::DbRelay;
+use super::Relay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use gossip_relay_picker::Direction;
@@ -373,7 +373,7 @@ impl PersonRelay {
                         .filter_relays(|r| {
                             // not already in their list
                             !ranked_relays.iter().any(|(url, _)| *url == r.url)
-                                && r.has_usage_bits(DbRelay::READ)
+                                && r.has_usage_bits(Relay::READ)
                         })?
                         .iter()
                         .map(|r| (r.url.clone(), last_score))
@@ -389,7 +389,7 @@ impl PersonRelay {
                         .filter_relays(|r| {
                             // not already in their list
                             !ranked_relays.iter().any(|(url, _)| *url == r.url)
-                                && r.has_usage_bits(DbRelay::WRITE)
+                                && r.has_usage_bits(Relay::WRITE)
                         })?
                         .iter()
                         .map(|r| (r.url.clone(), last_score))

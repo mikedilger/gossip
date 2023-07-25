@@ -1,6 +1,6 @@
 mod legacy;
 use super::Storage;
-use crate::db::DbRelay;
+use crate::db::Relay;
 use crate::error::Error;
 use crate::people::Person;
 use crate::settings::Settings;
@@ -55,7 +55,7 @@ impl Storage {
 
         // old table "relay"
         // Copy relays
-        import_relays(&db, |dbrelay: &DbRelay| self.write_relay(dbrelay))?;
+        import_relays(&db, |dbrelay: &Relay| self.write_relay(dbrelay))?;
 
         // old table "event"
         // old table "event_tag"
@@ -266,7 +266,7 @@ where
 
 fn import_relays<F>(db: &Connection, mut f: F) -> Result<(), Error>
 where
-    F: FnMut(&DbRelay) -> Result<(), Error>,
+    F: FnMut(&Relay) -> Result<(), Error>,
 {
     let sql = "SELECT url, success_count, failure_count, last_connected_at, \
                last_general_eose_at, rank, hidden, usage_bits, \
@@ -278,7 +278,7 @@ where
         let urlstring: String = row.get(0)?;
         let nip11: Option<String> = row.get(8)?;
         if let Ok(url) = RelayUrl::try_from_str(&urlstring) {
-            let dbrelay = DbRelay {
+            let dbrelay = Relay {
                 url,
                 success_count: row.get(1)?,
                 failure_count: row.get(2)?,

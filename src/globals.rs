@@ -1,5 +1,5 @@
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
-use crate::db::DbRelay;
+use crate::db::Relay;
 use crate::delegation::Delegation;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
@@ -180,7 +180,7 @@ impl Globals {
 
         match GLOBALS
             .storage
-            .filter_relays(|ri| ri.has_usage_bits(DbRelay::OUTBOX))
+            .filter_relays(|ri| ri.has_usage_bits(Relay::OUTBOX))
         {
             Err(e) => {
                 tracing::error!("{}", e);

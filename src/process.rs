@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::db::{DbRelay, PersonRelay};
+use crate::db::{Relay, PersonRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{
@@ -247,7 +247,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
             tracing::info!("Processing our own relay list");
 
             // clear all read/write flags from relays (will be added back below)
-            DbRelay::clear_all_relay_list_usage_bits()?;
+            Relay::clear_all_relay_list_usage_bits()?;
         }
     }
 
@@ -264,14 +264,14 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                             if ours {
                                 if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                                     // Update
-                                    dbrelay.set_usage_bits(DbRelay::INBOX);
-                                    dbrelay.clear_usage_bits(DbRelay::OUTBOX);
+                                    dbrelay.set_usage_bits(Relay::INBOX);
+                                    dbrelay.clear_usage_bits(Relay::OUTBOX);
                                     GLOBALS.storage.write_relay(&dbrelay)?;
                                 } else {
                                     // Insert missing relay
-                                    let mut dbrelay = DbRelay::new(relay_url.to_owned());
+                                    let mut dbrelay = Relay::new(relay_url.to_owned());
                                     // Since we are creating, we add READ
-                                    dbrelay.set_usage_bits(DbRelay::INBOX | DbRelay::READ);
+                                    dbrelay.set_usage_bits(Relay::INBOX | Relay::READ);
                                     GLOBALS.storage.write_relay(&dbrelay)?;
                                 }
                             }
@@ -282,14 +282,14 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                             if ours {
                                 if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                                     // Update
-                                    dbrelay.set_usage_bits(DbRelay::OUTBOX);
-                                    dbrelay.clear_usage_bits(DbRelay::INBOX);
+                                    dbrelay.set_usage_bits(Relay::OUTBOX);
+                                    dbrelay.clear_usage_bits(Relay::INBOX);
                                     GLOBALS.storage.write_relay(&dbrelay)?;
                                 } else {
                                     // Create
-                                    let mut dbrelay = DbRelay::new(relay_url.to_owned());
+                                    let mut dbrelay = Relay::new(relay_url.to_owned());
                                     // Since we are creating, we add WRITE
-                                    dbrelay.set_usage_bits(DbRelay::OUTBOX | DbRelay::WRITE);
+                                    dbrelay.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
                                     GLOBALS.storage.write_relay(&dbrelay)?;
                                 }
                             }
@@ -303,14 +303,14 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                     if ours {
                         if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                             // Update
-                            dbrelay.set_usage_bits(DbRelay::INBOX | DbRelay::OUTBOX);
+                            dbrelay.set_usage_bits(Relay::INBOX | Relay::OUTBOX);
                             GLOBALS.storage.write_relay(&dbrelay)?;
                         } else {
                             // Create
-                            let mut dbrelay = DbRelay::new(relay_url.to_owned());
+                            let mut dbrelay = Relay::new(relay_url.to_owned());
                             // Since we are creating, we add READ and WRITE
                             dbrelay.set_usage_bits(
-                                DbRelay::INBOX | DbRelay::OUTBOX | DbRelay::READ | DbRelay::WRITE,
+                                Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
                             );
                             GLOBALS.storage.write_relay(&dbrelay)?;
                         }
