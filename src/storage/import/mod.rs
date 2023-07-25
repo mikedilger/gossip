@@ -23,10 +23,12 @@ impl Storage {
             self.write_encrypted_private_key(&epk)?;
             self.write_last_contact_list_edit(lcle)
         })?;
+        tracing::info!("LMDB: imported local settings.");
 
         // old table "settings"
         // Copy settings (including local_settings)
         import_settings(&db, |settings: &Settings| self.write_settings(settings))?;
+        tracing::info!("LMDB: imported settings.");
 
         // old table "event_relay"
         // Copy events_seen
@@ -36,6 +38,7 @@ impl Storage {
             let time = Unixtime(seen as i64);
             self.add_event_seen_on_relay(id, &relay_url, time)
         })?;
+        tracing::info!("LMDB: imported event-seen-on-relay data.");
 
         // old table "event_flags"
         // Copy event_flags
@@ -46,6 +49,7 @@ impl Storage {
                 Ok(())
             }
         })?;
+        tracing::info!("LMDB: imported event-viewed data.");
 
         // old table "event_hashtag"
         // Copy event_hashtags
@@ -53,10 +57,12 @@ impl Storage {
             let id = Id::try_from_hex_string(&event)?;
             self.add_hashtag(&hashtag, id)
         })?;
+        tracing::info!("LMDB: imported event hashtag index.");
 
         // old table "relay"
         // Copy relays
         import_relays(&db, |dbrelay: &Relay| self.write_relay(dbrelay))?;
+        tracing::info!("LMDB: imported relays.");
 
         // old table "event"
         // old table "event_tag"
@@ -65,10 +71,12 @@ impl Storage {
             self.write_event(event)?;
             self.write_event_tags(event)
         })?;
+        tracing::info!("LMDB: imported events and tag index");
 
         // old table "person"
         // Copy people
         import_people(&db, |person: &Person| self.write_person(person))?;
+        tracing::info!("LMDB: imported people");
 
         // old table "person_relay"
         // Copy person relay
