@@ -4,6 +4,7 @@
 // TEMPORARILY
 #![allow(clippy::uninlined_format_args)]
 
+/*
 macro_rules! rtry {
     ($expr:expr $(,)?) => {
         match $expr {
@@ -18,6 +19,7 @@ macro_rules! rtry {
         }
     };
 }
+ */
 
 #[macro_use]
 extern crate lazy_static;

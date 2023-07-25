@@ -708,7 +708,7 @@ impl Overlord {
                 self.update_following(merge).await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
-                let best_relays = PersonRelay::get_best_relays(pubkey, Direction::Write).await?;
+                let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
                 let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
                 // we do 1 more than num_relays_per_person, which is really for main posts,
@@ -739,8 +739,7 @@ impl Overlord {
                 let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
                 let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
                 for pubkey in pubkeys.drain(..) {
-                    let best_relays =
-                        PersonRelay::get_best_relays(pubkey, Direction::Write).await?;
+                    let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
                     for (relay_url, _score) in
                         best_relays.iter().take(num_relays_per_person as usize + 1)
                     {
@@ -832,19 +831,14 @@ impl Overlord {
         let now = Unixtime::now().unwrap().0 as u64;
 
         // Save person_relay
-        PersonRelay::insert(PersonRelay {
-            pubkey,
-            url: relay,
-            last_fetched: None,
-            last_suggested_kind3: Some(now), // consider it our claim in our contact list
-            last_suggested_nip05: None,
-            last_suggested_bytag: None,
-            read: false,
-            write: false,
-            manually_paired_read: true,
-            manually_paired_write: true,
-        })
-        .await?;
+        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
+            Some(pr) => pr,
+            None => PersonRelay::new(pubkey, relay.clone()),
+        };
+        pr.last_suggested_kind3 = Some(now);
+        pr.manually_paired_read = true;
+        pr.manually_paired_write = true;
+        GLOBALS.storage.write_person_relay(&pr)?;
 
         // async_follow added them to the relay tracker.
         // Pick relays to start tracking them now
@@ -1031,13 +1025,13 @@ impl Overlord {
             // Get 'read' relays for everybody tagged in the event.
             // Currently we take the 2 best read relays per person
             for pubkey in tagged_pubkeys.drain(..) {
-                let best_relays: Vec<RelayUrl> =
-                    PersonRelay::get_best_relays(pubkey, Direction::Read)
-                        .await?
-                        .drain(..)
-                        .take(2)
-                        .map(|(u, _)| u)
-                        .collect();
+                let best_relays: Vec<RelayUrl> = GLOBALS
+                    .storage
+                    .get_best_relays(pubkey, Direction::Read)?
+                    .drain(..)
+                    .take(2)
+                    .map(|(u, _)| u)
+                    .collect();
                 relay_urls.extend(best_relays);
             }
 
@@ -1348,8 +1342,9 @@ impl Overlord {
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
-            for relayscore in PersonRelay::get_best_relays(*pubkey, Direction::Write)
-                .await?
+            for relayscore in GLOBALS
+                .storage
+                .get_best_relays(*pubkey, Direction::Write)?
                 .drain(..)
                 .take(num_relays_per_person as usize)
             {
@@ -1531,12 +1526,12 @@ impl Overlord {
         // If we have less than 2 relays, include the write relays of the author
         if relays.len() < 2 {
             if let Some(pk) = author {
-                let author_relays: Vec<RelayUrl> =
-                    PersonRelay::get_best_relays(pk, Direction::Write)
-                        .await?
-                        .drain(..)
-                        .map(|pair| pair.0)
-                        .collect();
+                let author_relays: Vec<RelayUrl> = GLOBALS
+                    .storage
+                    .get_best_relays(pk, Direction::Write)?
+                    .drain(..)
+                    .map(|pair| pair.0)
+                    .collect();
                 relays.extend(author_relays);
             }
         }
@@ -1634,12 +1629,15 @@ impl Overlord {
                 GLOBALS.storage.write_relay(&db_relay)?;
 
                 // Save person_relay
-                PersonRelay::upsert_last_suggested_nip05(
-                    nprofile.pubkey,
-                    relay_url,
-                    Unixtime::now().unwrap().0 as u64,
-                )
-                .await?;
+                let mut pr = match GLOBALS
+                    .storage
+                    .read_person_relay(nprofile.pubkey, &relay_url)?
+                {
+                    Some(pr) => pr,
+                    None => PersonRelay::new(nprofile.pubkey, relay_url.clone()),
+                };
+                pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
+                GLOBALS.storage.write_person_relay(&pr)?;
             }
         }
 
@@ -1781,7 +1779,12 @@ impl Overlord {
                         GLOBALS.storage.write_relay_if_missing(&url)?;
 
                         // create or update person_relay last_suggested_kind3
-                        PersonRelay::upsert_last_suggested_kind3(pubkey, url, now.0 as u64).await?;
+                        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
+                            Some(pr) => pr,
+                            None => PersonRelay::new(pubkey, url.clone()),
+                        };
+                        pr.last_suggested_kind3 = Some(now.0 as u64);
+                        GLOBALS.storage.write_person_relay(&pr)?;
                     }
                     // TBD: do something with the petname
                 }
@@ -2003,8 +2006,9 @@ impl Overlord {
                 .collect();
 
             // Add the read relays of the target person
-            let mut target_read_relays =
-                PersonRelay::get_best_relays(target_pubkey, Direction::Read).await?;
+            let mut target_read_relays = GLOBALS
+                .storage
+                .get_best_relays(target_pubkey, Direction::Read)?;
             let target_read_relays: Vec<RelayUrl> =
                 target_read_relays.drain(..).map(|pair| pair.0).collect();
             relays.extend(target_read_relays);

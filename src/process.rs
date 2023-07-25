@@ -86,7 +86,12 @@ pub async fn process_new_event(
 
         if let Some(ref url) = seen_on {
             // Update person_relay.last_fetched
-            PersonRelay::upsert_last_fetched(event.pubkey, url.to_owned(), now.0 as u64).await?;
+            let mut pr = match GLOBALS.storage.read_person_relay(event.pubkey, url)? {
+                Some(pr) => pr,
+                None => PersonRelay::new(event.pubkey, url.clone()),
+            };
+            pr.last_fetched = Some(now.0 as u64);
+            GLOBALS.storage.write_person_relay(&pr)?;
         }
 
         // Save the tags into event_tag table
@@ -115,8 +120,12 @@ pub async fn process_new_event(
                             GLOBALS.people.create_all_if_missing(&[pubkey])?;
 
                             // upsert person_relay.last_suggested_bytag
-                            PersonRelay::upsert_last_suggested_bytag(pubkey, url, now.0 as u64)
-                                .await?;
+                            let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
+                                Some(pr) => pr,
+                                None => PersonRelay::new(pubkey, url.clone()),
+                            };
+                            pr.last_suggested_bytag = Some(now.0 as u64);
+                            GLOBALS.storage.write_person_relay(&pr)?;
                         }
                     }
                 }
@@ -312,7 +321,9 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
         }
     }
 
-    PersonRelay::set_relay_list(event.pubkey, inbox_relays, outbox_relays).await?;
+    GLOBALS
+        .storage
+        .set_relay_list(event.pubkey, inbox_relays, outbox_relays)?;
 
     Ok(())
 }
@@ -346,7 +357,9 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
                 }
             }
         }
-        PersonRelay::set_relay_list(event.pubkey, inbox_relays, outbox_relays).await?;
+        GLOBALS
+            .storage
+            .set_relay_list(event.pubkey, inbox_relays, outbox_relays)?;
     }
 
     Ok(())

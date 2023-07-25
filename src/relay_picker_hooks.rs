@@ -1,6 +1,5 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use crate::person_relay::PersonRelay;
 use async_trait::async_trait;
 use gossip_relay_picker::{Direction, RelayPickerHooks};
 use nostr_types::{PublicKey, RelayUrl};
@@ -26,7 +25,7 @@ impl RelayPickerHooks for Hooks {
         pubkey: PublicKey,
         direction: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        PersonRelay::get_best_relays(pubkey, direction).await
+        GLOBALS.storage.get_best_relays(pubkey, direction)
     }
 
     /// Is the relay currently connected?

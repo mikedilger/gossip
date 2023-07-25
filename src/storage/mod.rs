@@ -9,6 +9,7 @@ use crate::profile::Profile;
 use crate::relationship::Relationship;
 use crate::relay::Relay;
 use crate::settings::Settings;
+use gossip_relay_picker::Direction;
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Stat, Transaction, WriteFlags,
 };
@@ -971,5 +972,127 @@ impl Storage {
             Err(lmdb::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),
         }
+    }
+
+    pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
+        let start_key = pubkey.as_bytes();
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.person_relays)?;
+        let iter = cursor.iter_from(start_key.clone());
+        let mut output: Vec<PersonRelay> = Vec::new();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((key, val)) => {
+                    // Stop once we get to a different pubkey
+                    if !key.starts_with(&start_key) {
+                        break;
+                    }
+                    let person_relay = PersonRelay::read_from_buffer(val)?;
+                    output.push(person_relay);
+                }
+            }
+        }
+        Ok(output)
+    }
+
+    pub fn set_relay_list(
+        &self,
+        pubkey: PublicKey,
+        read_relays: Vec<RelayUrl>,
+        write_relays: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        let mut person_relays = self.get_person_relays(pubkey)?;
+        for mut pr in person_relays.drain(..) {
+            let orig_read = pr.read;
+            let orig_write = pr.write;
+            pr.read = read_relays.contains(&pr.url);
+            pr.write = write_relays.contains(&pr.url);
+            if pr.read != orig_read || pr.write != orig_write {
+                self.write_person_relay(&pr)?;
+            }
+        }
+        Ok(())
+    }
+
+    /*
+    pub fn set_person_relay_manual_pairing(
+        &self,
+        pubkey: PublicKey,
+        read_relays: Vec<RelayUrl>,
+        write_relays: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        let mut person_relays = self.get_person_relays(pubkey)?;
+        for mut pr in person_relays.drain(..) {
+            let orig_read = pr.manually_paired_read;
+            let orig_write = pr.manually_paired_write;
+            pr.manually_paired_read = read_relays.contains(&pr.url);
+            pr.manually_paired_write = write_relays.contains(&pr.url);
+            if pr.manually_paired_read != orig_read || pr.manually_paired_write != orig_write {
+                self.write_person_relay(&pr)?;
+            }
+        }
+        Ok(())
+    }
+     */
+
+    /// This returns the relays for a person, along with a score, in order of score
+    pub fn get_best_relays(
+        &self,
+        pubkey: PublicKey,
+        dir: Direction,
+    ) -> Result<Vec<(RelayUrl, u64)>, Error> {
+        let person_relays = self.get_person_relays(pubkey)?;
+        let mut ranked_relays = match dir {
+            Direction::Write => PersonRelay::write_rank(person_relays),
+            Direction::Read => PersonRelay::read_rank(person_relays),
+        };
+
+        let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person as usize;
+
+        // If we can't get enough of them, extend with some of our relays
+        // at whatever the lowest score of their last one was
+        if ranked_relays.len() < (num_relays_per_person + 1) {
+            let how_many_more = (num_relays_per_person + 1) - ranked_relays.len();
+            let last_score = if ranked_relays.is_empty() {
+                20
+            } else {
+                ranked_relays[ranked_relays.len() - 1].1
+            };
+            match dir {
+                Direction::Write => {
+                    // substitute our read relays
+                    let additional: Vec<(RelayUrl, u64)> = self
+                        .filter_relays(|r| {
+                            // not already in their list
+                            !ranked_relays.iter().any(|(url, _)| *url == r.url)
+                                && r.has_usage_bits(Relay::READ)
+                        })?
+                        .iter()
+                        .map(|r| (r.url.clone(), last_score))
+                        .take(how_many_more)
+                        .collect();
+
+                    ranked_relays.extend(additional);
+                }
+                Direction::Read => {
+                    // substitute our write relays???
+                    let additional: Vec<(RelayUrl, u64)> = self
+                        .filter_relays(|r| {
+                            // not already in their list
+                            !ranked_relays.iter().any(|(url, _)| *url == r.url)
+                                && r.has_usage_bits(Relay::WRITE)
+                        })?
+                        .iter()
+                        .map(|r| (r.url.clone(), last_score))
+                        .take(how_many_more)
+                        .collect();
+
+                    ranked_relays.extend(additional);
+                }
+            }
+        }
+
+        Ok(ranked_relays)
     }
 }
