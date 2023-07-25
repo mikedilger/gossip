@@ -2,6 +2,7 @@ mod legacy;
 use super::Storage;
 use crate::db::DbRelay;
 use crate::error::Error;
+use crate::people::Person;
 use crate::settings::Settings;
 use crate::ui::ThemeVariant;
 use nostr_types::{EncryptedPrivateKey, Event, Id, PublicKey, RelayUrl, Unixtime};
@@ -63,6 +64,10 @@ impl Storage {
             self.write_event(event)?;
             self.write_event_tags(event)
         })?;
+
+        // old table "person"
+        // Copy people
+        import_people(&db, |person: &Person| self.write_person(person))?;
 
         // Mark migration level
         // TBD: self.write_migration_level(0)?;
@@ -307,6 +312,59 @@ where
             }
         };
         f(&event)?;
+    }
+    Ok(())
+}
+
+fn import_people<F>(db: &Connection, mut f: F) -> Result<(), Error>
+where
+    F: FnMut(&Person) -> Result<(), Error>,
+{
+    let sql = "SELECT pubkey, petname, \
+               followed, followed_last_updated, muted, \
+               metadata, metadata_created_at, metadata_last_received, \
+               nip05_valid, nip05_last_checked, \
+               relay_list_created_at, relay_list_last_received \
+               FROM person"
+        .to_owned();
+    let mut stmt = db.prepare(&sql)?;
+    let mut rows = stmt.raw_query();
+    while let Some(row) = rows.next()? {
+        let metadata_json: Option<String> = row.get(5)?;
+        let metadata = match metadata_json {
+            Some(s) => match serde_json::from_str(&s) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!("{}", e);
+                    // don't process the broken person
+                    continue;
+                }
+            },
+            None => None,
+        };
+        let pk: String = row.get(0)?;
+        let person = Person {
+            pubkey: match PublicKey::try_from_hex_string(&pk) {
+                Ok(pk) => pk,
+                Err(e) => {
+                    tracing::error!("{}", e);
+                    // don't process the broken person
+                    continue;
+                }
+            },
+            petname: row.get(1)?,
+            followed: row.get(2)?,
+            followed_last_updated: row.get(3)?,
+            muted: row.get(4)?,
+            metadata,
+            metadata_created_at: row.get(6)?,
+            metadata_last_received: row.get(7)?,
+            nip05_valid: row.get(8)?,
+            nip05_last_checked: row.get(9)?,
+            relay_list_created_at: row.get(10)?,
+            relay_list_last_received: row.get(11)?,
+        };
+        f(&person)?;
     }
     Ok(())
 }

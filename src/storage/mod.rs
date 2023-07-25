@@ -4,6 +4,7 @@ mod migrations;
 use crate::db::DbRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::people::Person;
 use crate::profile::Profile;
 use crate::relationship::Relationship;
 use crate::settings::Settings;
@@ -56,6 +57,9 @@ pub struct Storage {
 
     // Id:Id -> Relationship
     relationships: Database,
+
+    // pubkey - Person
+    people: Database,
 }
 
 impl Storage {
@@ -100,6 +104,8 @@ impl Storage {
 
         let relationships = env.create_db(Some("relationships"), DatabaseFlags::empty())?;
 
+        let people = env.create_db(Some("people"), DatabaseFlags::empty())?;
+
         let storage = Storage {
             env,
             general,
@@ -110,6 +116,7 @@ impl Storage {
             event_tags,
             events,
             relationships,
+            people,
         };
 
         // If migration level is missing, we need to import from legacy sqlite
@@ -872,5 +879,65 @@ impl Storage {
         }
 
         Ok(invalidate)
+    }
+
+    pub fn write_person(&self, person: &Person) -> Result<(), Error> {
+        // Note that we use serde instead of speedy because the complexity of the
+        // serde_json::Value type makes it difficult. Any other serde serialization
+        // should work though: Consider bincode.
+        let key: Vec<u8> = person.pubkey.as_bytes();
+        let bytes = serde_json::to_vec(person)?;
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.people, &key, &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
+        // Note that we use serde instead of speedy because the complexity of the
+        // serde_json::Value type makes it difficult. Any other serde serialization
+        // should work though: Consider bincode.
+        let key: Vec<u8> = pubkey.as_bytes();
+        let txn = self.env.begin_ro_txn()?;
+        match txn.get(self.people, &key) {
+            Ok(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
+            Err(lmdb::Error::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn write_person_if_missing(&self, pubkey: &PublicKey) -> Result<(), Error> {
+        if self.read_person(pubkey)?.is_none() {
+            let person = Person::new(pubkey.to_owned());
+            self.write_person(&person)?;
+        }
+        Ok(())
+    }
+
+    pub fn filter_people<F>(&self, f: F) -> Result<Vec<Person>, Error>
+    where
+        F: Fn(&Person) -> bool,
+    {
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.people)?;
+        let iter = cursor.iter_start();
+        let mut output: Vec<Person> = Vec::new();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((_key, val)) => {
+                    let person: Person = serde_json::from_slice(val)?;
+                    if f(&person) {
+                        output.push(person);
+                    }
+                }
+            }
+        }
+        Ok(output)
+    }
+
+    pub fn get_people_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.people)?)
     }
 }
