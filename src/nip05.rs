@@ -116,7 +116,7 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
         .await?;
 
     // Mark as followed
-    GLOBALS.people.async_follow(&pubkey, true).await?;
+    GLOBALS.people.follow(&pubkey, true)?;
 
     tracing::info!("Followed {}", &nip05);
 

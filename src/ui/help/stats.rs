@@ -46,7 +46,14 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
 
         ui.add_space(6.0);
 
-        ui.label(format!("People in memory: {}", GLOBALS.people.len()));
+        ui.label(format!(
+            "People in memory: {}",
+            GLOBALS
+                .storage
+                .get_people_stats()
+                .map(|s| s.entries())
+                .unwrap_or(0)
+        ));
 
         ui.add_space(6.0);
 

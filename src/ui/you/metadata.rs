@@ -29,11 +29,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     };
 
-    let you = match GLOBALS.people.get(&public_key) {
-        Some(dbp) => dbp,
-        None => {
+    let you = match GLOBALS.storage.read_person(&public_key) {
+        Ok(Some(dbp)) => dbp,
+        _ => {
             ui.label("I cannot find you.");
-            GLOBALS.people.create_if_missing_sync(public_key);
+            GLOBALS.people.create_if_missing(public_key);
             return;
         }
     };

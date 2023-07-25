@@ -8,12 +8,10 @@ use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let people: Vec<Person> = GLOBALS
-        .people
-        .get_all()
-        .drain(..)
-        .filter(|p| p.followed)
-        .collect();
+    let people: Vec<Person> = match GLOBALS.storage.filter_people(|p| p.followed) {
+        Ok(people) => people,
+        Err(_) => return,
+    };
 
     ui.add_space(12.0);
 

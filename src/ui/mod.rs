@@ -889,9 +889,9 @@ impl GossipUi {
     }
 
     pub fn display_name_from_pubkey_lookup(pubkey: &PublicKey) -> String {
-        match GLOBALS.people.get(pubkey) {
-            Some(dbperson) => Self::display_name_from_dbperson(&dbperson),
-            None => Self::pubkey_short(pubkey),
+        match GLOBALS.storage.read_person(pubkey) {
+            Ok(Some(dbperson)) => Self::display_name_from_dbperson(&dbperson),
+            _ => Self::pubkey_short(pubkey),
         }
     }
 
@@ -906,13 +906,13 @@ impl GossipUi {
             ui.menu_button(&name, |ui| {
                 let mute_label = if person.muted { "Unmute" } else { "Mute" };
                 if ui.button(mute_label).clicked() {
-                    GLOBALS.people.mute(person.pubkey, !person.muted);
+                    let _ = GLOBALS.people.mute(&person.pubkey, !person.muted);
                     app.notes.cache_invalidate_person(&person.pubkey);
                 }
                 if !person.followed && ui.button("Follow").clicked() {
-                    GLOBALS.people.follow(&person.pubkey, true);
+                    let _ = GLOBALS.people.follow(&person.pubkey, true);
                 } else if person.followed && ui.button("Unfollow").clicked() {
-                    GLOBALS.people.follow(&person.pubkey, false);
+                    let _ = GLOBALS.people.follow(&person.pubkey, false);
                 }
                 if ui.button("Update Metadata").clicked() {
                     let _ = GLOBALS

@@ -9,12 +9,10 @@ use std::sync::atomic::Ordering;
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(30.0);
 
-    let people: Vec<Person> = GLOBALS
-        .people
-        .get_all()
-        .drain(..)
-        .filter(|p| p.muted)
-        .collect();
+    let people: Vec<Person> = match GLOBALS.storage.filter_people(|p| p.muted) {
+        Ok(people) => people,
+        Err(_) => return,
+    };
 
     ui.heading(format!("People who are Muted ({})", people.len()));
     ui.add_space(10.0);
@@ -52,7 +50,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         GossipUi::render_person_name_line(app, ui, person);
 
                         if ui.button("UNMUTE").clicked() {
-                            GLOBALS.people.mute(person.pubkey, false);
+                            let _ = GLOBALS.people.mute(&person.pubkey, false);
                         }
                     });
                 });

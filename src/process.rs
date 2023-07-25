@@ -81,10 +81,7 @@ pub async fn process_new_event(
 
     if from_relay {
         // Create the person if missing in the database
-        GLOBALS
-            .people
-            .create_all_if_missing(&[event.pubkey])
-            .await?;
+        GLOBALS.people.create_all_if_missing(&[event.pubkey])?;
 
         if let Some(ref url) = seen_on {
             // Update person_relay.last_fetched
@@ -119,7 +116,7 @@ pub async fn process_new_event(
                             GLOBALS.storage.write_relay_if_missing(&url)?;
 
                             // Add person if missing
-                            GLOBALS.people.create_all_if_missing(&[pubkey]).await?;
+                            GLOBALS.people.create_all_if_missing(&[pubkey])?;
 
                             // upsert person_relay.last_suggested_bytag
                             PersonRelay::upsert_last_suggested_bytag(

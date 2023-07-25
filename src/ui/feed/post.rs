@@ -223,7 +223,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 );
 
                 if !app.tag_someone.is_empty() {
-                    let pairs = GLOBALS.people.search_people_to_tag(&app.tag_someone);
+                    let pairs = GLOBALS
+                        .people
+                        .search_people_to_tag(&app.tag_someone)
+                        .unwrap_or(vec![]);
                     if !pairs.is_empty() {
                         ui.menu_button("@", |ui| {
                             for pair in pairs {
@@ -322,7 +325,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             NostrBech32::Profile(prof) => &prof.pubkey,
             _ => continue,
         };
-        let rendered = if let Some(person) = GLOBALS.people.get(pk) {
+        let rendered = if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
             match person.name() {
                 Some(name) => name.to_owned(),
                 None => format!("{}", bech32),

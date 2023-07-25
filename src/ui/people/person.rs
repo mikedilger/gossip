@@ -12,9 +12,9 @@ use serde_json::Value;
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let (pubkey, person) = match &app.page {
         Page::Person(pubkey) => {
-            let person = match GLOBALS.people.get(pubkey) {
-                Some(p) => p,
-                None => Person::new(pubkey.to_owned()),
+            let person = match GLOBALS.storage.read_person(pubkey) {
+                Ok(Some(p)) => p,
+                _ => Person::new(pubkey.to_owned()),
             };
             (pubkey.to_owned(), person)
         }

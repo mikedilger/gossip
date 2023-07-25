@@ -160,9 +160,9 @@ impl NoteData {
             event.pubkey
         };
 
-        let author = match GLOBALS.people.get(&author_pubkey) {
-            Some(p) => p,
-            None => Person::new(author_pubkey),
+        let author = match GLOBALS.storage.read_person(&author_pubkey) {
+            Ok(Some(p)) => p,
+            _ => Person::new(author_pubkey),
         };
 
         NoteData {

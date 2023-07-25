@@ -6,7 +6,6 @@ use crate::comms::{
 use crate::db::{DbRelay, PersonRelay};
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
-use crate::people::People;
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
     add_subject_to_tags_if_missing,
@@ -94,11 +93,6 @@ impl Overlord {
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen
-
-        People::populate_new_people().await?;
-
-        // Load followed people from the database
-        GLOBALS.people.load_all_followed().await?;
 
         // Load delegation tag
         GLOBALS.delegation.load_through_settings()?;
@@ -827,7 +821,7 @@ impl Overlord {
             Ok(pk) => pk,
             Err(_) => PublicKey::try_from_hex_string(&pubkeystr)?,
         };
-        GLOBALS.people.async_follow(&pubkey, true).await?;
+        GLOBALS.people.follow(&pubkey, true)?;
 
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
 
@@ -1290,7 +1284,7 @@ impl Overlord {
     }
 
     async fn clear_following(&mut self) -> Result<(), Error> {
-        GLOBALS.people.async_follow_none().await?;
+        GLOBALS.people.follow_none()?;
         Ok(())
     }
 
@@ -1628,7 +1622,7 @@ impl Overlord {
     }
 
     async fn follow_nprofile(&mut self, nprofile: Profile) -> Result<(), Error> {
-        GLOBALS.people.async_follow(&nprofile.pubkey, true).await?;
+        GLOBALS.people.follow(&nprofile.pubkey, true)?;
 
         // Set their relays
         for relay in nprofile.relays.iter() {
@@ -1771,10 +1765,7 @@ impl Overlord {
             {
                 if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey) {
                     // Make sure we have that person
-                    GLOBALS
-                        .people
-                        .create_all_if_missing(&[pubkey.to_owned()])
-                        .await?;
+                    GLOBALS.people.create_all_if_missing(&[pubkey.to_owned()])?;
 
                     // Save the pubkey for actual following them (outside of the loop in a batch)
                     pubkeys.push(pubkey.to_owned());
@@ -1801,7 +1792,7 @@ impl Overlord {
         }
 
         // Follow all those pubkeys, and unfollow everbody else if merge=false
-        GLOBALS.people.follow_all(&pubkeys, merge).await?;
+        GLOBALS.people.follow_all(&pubkeys, merge)?;
 
         // Update last_contact_list_edit
         let last_edit = if merge {
@@ -1823,7 +1814,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn search(text: String) -> Result<(), Error> {
+    async fn search(mut text: String) -> Result<(), Error> {
         if text.len() < 2 {
             GLOBALS
                 .status_queue
@@ -1832,6 +1823,8 @@ impl Overlord {
             return Ok(());
         }
 
+        text = text.to_lowercase();
+
         // If npub, convert to hex so we can find it in the database
         // (This will only work with full npubs)
         let mut pubkeytext = text.clone();
@@ -1839,14 +1832,30 @@ impl Overlord {
             pubkeytext = pk.as_hex_string();
         }
 
-        let clause = format!(
-            "pubkey like '%{pubkeytext}%' \
-                              OR metadata like '%{text}%' \
-                              OR petname like '%{text}%'"
-        );
+        *GLOBALS.people_search_results.write() = GLOBALS.storage.filter_people(|p| {
+            if p.pubkey.as_hex_string().contains(&pubkeytext) {
+                return true;
+            }
 
-        let people_search_results = People::fetch(Some(&clause)).await?;
-        *GLOBALS.people_search_results.write() = people_search_results;
+            if let Some(metadata) = &p.metadata {
+                match serde_json::to_string(&metadata) {
+                    Ok(s) => {
+                        if s.to_lowercase().contains(&text) {
+                            return true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if let Some(petname) = &p.petname {
+                if petname.to_lowercase().contains(&text) {
+                    return true;
+                }
+            }
+
+            return false;
+        })?;
 
         let note_search_results = GLOBALS.storage.search_events(&text)?;
         *GLOBALS.note_search_results.write() = note_search_results;
