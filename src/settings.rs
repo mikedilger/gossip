@@ -47,7 +47,7 @@ impl Default for Settings {
             public_key: None,
             max_fps: 12,
             recompute_feed_periodically: true,
-            feed_recompute_interval_ms: 2000,
+            feed_recompute_interval_ms: 8000,
             pow: 0,
             offline: false,
             theme: Theme {

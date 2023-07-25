@@ -152,6 +152,9 @@ where
             }
             "feed_recompute_interval_ms" => {
                 if let Ok(x) = value.parse::<u32>() {
+                    // Force longer intervals for currently slower LMDB:
+                    if x<5000 { x = 5000; }
+
                     settings.feed_recompute_interval_ms = x;
                 }
             }
