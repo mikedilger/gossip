@@ -22,13 +22,13 @@ use tokio::task;
 pub struct Person {
     pub pubkey: PublicKey,
     pub petname: Option<String>,
-    pub followed: u8,
+    pub followed: bool,
     pub followed_last_updated: i64,
-    pub muted: u8,
+    pub muted: bool,
     pub metadata: Option<Metadata>,
     pub metadata_created_at: Option<i64>,
     pub metadata_last_received: i64,
-    pub nip05_valid: u8,
+    pub nip05_valid: bool,
     pub nip05_last_checked: Option<u64>,
     pub relay_list_created_at: Option<i64>,
     pub relay_list_last_received: i64,
@@ -40,13 +40,13 @@ impl Person {
         Person {
             pubkey,
             petname: None,
-            followed: 0,
+            followed: false,
             followed_last_updated: 0,
-            muted: 0,
+            muted: false,
             metadata: None,
             metadata_created_at: None,
             metadata_last_received: 0,
-            nip05_valid: 0,
+            nip05_valid: false,
             nip05_last_checked: None,
             relay_list_created_at: None,
             relay_list_last_received: 0,
@@ -178,7 +178,7 @@ impl People {
         for person in self
             .people
             .iter()
-            .filter_map(|p| if p.followed == 1 { Some(p) } else { None })
+            .filter_map(|p| if p.followed { Some(p) } else { None })
         {
             output.push(person.pubkey);
         }
@@ -193,7 +193,7 @@ impl People {
         let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 8);
         let mut output: Vec<PublicKey> = Vec::new();
         for person in self.people.iter().filter_map(|p| {
-            if p.followed == 1
+            if p.followed
                 && p.relay_list_last_received < one_day_ago
                 && among_these.contains(&p.pubkey)
             {
@@ -399,7 +399,7 @@ impl People {
                 person_mut.metadata = Some(metadata);
                 person_mut.metadata_created_at = Some(asof.0);
                 if nip05_changed {
-                    person_mut.nip05_valid = 0; // changed, so reset to invalid
+                    person_mut.nip05_valid = false; // changed, so reset to invalid
                     person_mut.nip05_last_checked = None; // we haven't checked this one yet
                 }
                 person_mut.clone()
@@ -454,7 +454,7 @@ impl People {
                     true
                 } else if let Some(last) = person.nip05_last_checked {
                     // FIXME make these settings
-                    let recheck_duration = if person.nip05_valid > 0 {
+                    let recheck_duration = if person.nip05_valid {
                         Duration::from_secs(60 * 60 * 24 * 14)
                     } else {
                         Duration::from_secs(60 * 60 * 24)
@@ -737,7 +737,7 @@ impl People {
                 }
 
                 // search for users by nip05 id
-                if score == 0 && person.nip05_valid > 0 {
+                if score == 0 && person.nip05_valid {
                     if let Some(nip05) = &person.nip05().map(|n| n.to_lowercase()) {
                         if nip05.starts_with(&search) {
                             score = 400;
@@ -855,8 +855,6 @@ impl People {
             return Ok(());
         }
 
-        let follow: u8 = u8::from(follow);
-
         // Follow in database
         let sql = "INSERT INTO PERSON (pubkey, followed) values (?, ?) \
                    ON CONFLICT(pubkey) DO UPDATE SET followed=?";
@@ -885,7 +883,7 @@ impl People {
             .write()
             .push(pubkey.to_owned());
 
-        if follow > 0 {
+        if follow {
             // Add the person to the relay_picker for picking
             GLOBALS.relay_picker.add_someone(pubkey.to_owned())?;
         } else {
@@ -979,9 +977,9 @@ impl People {
             let pk = *elem.key();
             let person = elem.value_mut();
             if pubkeys.contains(&pk) {
-                person.followed = 1;
+                person.followed = true;
             } else if !merge {
-                person.followed = 0;
+                person.followed = false;
             }
         }
 
@@ -1007,7 +1005,7 @@ impl People {
 
         for mut elem in self.people.iter_mut() {
             let person = elem.value_mut();
-            person.followed = 0;
+            person.followed = false;
         }
 
         Ok(())
@@ -1023,8 +1021,6 @@ impl People {
     }
 
     pub async fn async_mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
-        let mute: u8 = u8::from(mute);
-
         // Mute in database
         let sql = "INSERT INTO PERSON (pubkey, muted) values (?, ?) \
                    ON CONFLICT(pubkey) DO UPDATE SET muted=?";
@@ -1130,7 +1126,7 @@ impl People {
                 metadata.nip05 = nip05.clone();
                 dbperson.metadata = Some(metadata);
             }
-            dbperson.nip05_valid = u8::from(nip05_valid);
+            dbperson.nip05_valid = nip05_valid;
             dbperson.nip05_last_checked = Some(nip05_last_checked);
         }
 

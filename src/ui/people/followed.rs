@@ -12,7 +12,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .people
         .get_all()
         .drain(..)
-        .filter(|p| p.followed == 1)
+        .filter(|p| p.followed)
         .collect();
 
     ui.add_space(12.0);
@@ -157,7 +157,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         })
         .show(ui, |ui| {
             for person in people.iter() {
-                if person.followed != 1 {
+                if !person.followed {
                     continue;
                 }
 

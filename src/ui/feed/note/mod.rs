@@ -66,7 +66,7 @@ pub(super) fn render_note(
 
         if let Ok(note_data) = note_ref.try_borrow() {
             // Render if not muted
-            if note_data.author.muted == 0 {
+            if !note_data.author.muted {
                 let viewed = match GLOBALS.storage.is_event_viewed(note_data.event.id) {
                     Ok(answer) => answer,
                     _ => false,

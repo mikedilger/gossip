@@ -13,7 +13,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .people
         .get_all()
         .drain(..)
-        .filter(|p| p.muted == 1)
+        .filter(|p| p.muted)
         .collect();
 
     ui.heading(format!("People who are Muted ({})", people.len()));
@@ -26,7 +26,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         })
         .show(ui, |ui| {
             for person in people.iter() {
-                if person.muted != 1 {
+                if !person.muted {
                     continue;
                 }
 

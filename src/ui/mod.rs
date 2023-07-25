@@ -904,14 +904,14 @@ impl GossipUi {
             let name = GossipUi::display_name_from_dbperson(person);
 
             ui.menu_button(&name, |ui| {
-                let mute_label = if person.muted == 1 { "Unmute" } else { "Mute" };
+                let mute_label = if person.muted { "Unmute" } else { "Mute" };
                 if ui.button(mute_label).clicked() {
-                    GLOBALS.people.mute(person.pubkey, person.muted == 0);
+                    GLOBALS.people.mute(person.pubkey, !person.muted);
                     app.notes.cache_invalidate_person(&person.pubkey);
                 }
-                if person.followed == 0 && ui.button("Follow").clicked() {
+                if !person.followed && ui.button("Follow").clicked() {
                     GLOBALS.people.follow(&person.pubkey, true);
-                } else if person.followed == 1 && ui.button("Unfollow").clicked() {
+                } else if person.followed && ui.button("Unfollow").clicked() {
                     GLOBALS.people.follow(&person.pubkey, false);
                 }
                 if ui.button("Update Metadata").clicked() {
@@ -924,7 +924,7 @@ impl GossipUi {
                 }
             });
 
-            if person.followed > 0 {
+            if person.followed {
                 ui.label("🚶");
             }
 
@@ -933,7 +933,7 @@ impl GossipUi {
                     nip05 = nip05.get(2..).unwrap().to_string();
                 }
 
-                if person.nip05_valid > 0 {
+                if person.nip05_valid {
                     ui.label(RichText::new(nip05).monospace().small());
                 } else {
                     ui.label(RichText::new(nip05).monospace().small().strikethrough());
