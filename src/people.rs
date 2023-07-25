@@ -32,7 +32,6 @@ pub struct Person {
     pub nip05_last_checked: Option<u64>,
     pub relay_list_created_at: Option<i64>,
     pub relay_list_last_received: i64,
-    pub loaded: bool, // if this record came from the database
 }
 
 impl Person {
@@ -50,7 +49,6 @@ impl Person {
             nip05_last_checked: None,
             relay_list_created_at: None,
             relay_list_last_received: 0,
-            loaded: false,
         }
     }
 
@@ -270,16 +268,6 @@ impl People {
 
         match self.people.get(&pubkey) {
             Some(person) => {
-                // If we haven't loaded the person from the database yet
-                if !person.loaded {
-                    // Trigger a future load
-                    self.create_if_missing_sync(pubkey);
-
-                    // Don't load metadata now, we may have it on disk and get
-                    // it from the future load.
-                    return;
-                }
-
                 // We need metadata if it is missing or old
                 let need = {
                     // Metadata refresh interval
@@ -326,13 +314,9 @@ impl People {
         }
 
         for pubkey in need_metadata.drain(..) {
-            if let Some(person) = self.people.get(&pubkey) {
-                if person.loaded {
-                    tracing::debug!("Seeking metadata for {}", pubkey.as_hex_string());
-                    verified_need.push(pubkey);
-                    self.tried_metadata.insert(pubkey);
-                }
-            }
+            tracing::debug!("Seeking metadata for {}", pubkey.as_hex_string());
+            verified_need.push(pubkey);
+            self.tried_metadata.insert(pubkey);
         }
 
         let _ = GLOBALS
@@ -527,7 +511,6 @@ impl People {
                     nip05_last_checked: row.get(9)?,
                     relay_list_created_at: row.get(10)?,
                     relay_list_last_received: row.get(11)?,
-                    loaded: true,
                 });
             }
             Ok(output)
@@ -1206,7 +1189,6 @@ impl People {
                     nip05_last_checked: row.get(9)?,
                     relay_list_created_at: row.get(10)?,
                     relay_list_last_received: row.get(11)?,
-                    loaded: true,
                 });
             }
             Ok(output)
@@ -1270,7 +1252,6 @@ impl People {
                     nip05_last_checked: row.get(9)?,
                     relay_list_created_at: row.get(10)?,
                     relay_list_last_received: row.get(11)?,
-                    loaded: true,
                 });
             }
 
