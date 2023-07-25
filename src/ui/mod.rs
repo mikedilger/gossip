@@ -868,11 +868,9 @@ impl GossipUi {
     pub fn pubkey_short(pk: &PublicKey) -> String {
         let npub = pk.as_bech32_string();
         format!(
-            "{}_{}...{}_{}",
-            &npub.get(0..4).unwrap_or("????"),
-            &npub.get(4..8).unwrap_or("????"),
-            &npub.get(56..60).unwrap_or("????"),
-            &npub.get(60..64).unwrap_or("????")
+            "{}...{}",
+            &npub.get(0..10).unwrap_or("??????????"),
+            &npub.get(npub.len()-10..npub.len()).unwrap_or("??????????")
         )
     }
 
