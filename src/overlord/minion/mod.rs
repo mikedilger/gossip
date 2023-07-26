@@ -240,6 +240,7 @@ impl Minion {
         if !ws_stream.is_terminated() {
             if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
                 tracing::error!("websocket close error: {}", e);
+                return Err(e.into());
             }
         }
 
