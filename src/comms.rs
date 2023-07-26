@@ -29,7 +29,7 @@ pub enum ToOverlordMessage {
     PickRelays,
     ProcessIncomingEvents,
     Post(String, Vec<Tag>, Option<Id>),
-    PruneDatabase,
+    PruneDatabase(u32),
     PullFollow,
     PushFollow,
     PushMetadata(Metadata),

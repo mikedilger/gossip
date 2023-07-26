@@ -148,10 +148,12 @@ fn upgrade(db: &Connection, mut version: usize) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn prune() -> Result<(), Error> {
+pub async fn prune(prune_days: u32) -> Result<(), Error> {
     task::spawn_blocking(move || {
         let db = GLOBALS.db.blocking_lock();
-        db.execute_batch(include_str!("sql/prune.sql"))?;
+        let prune_sql_command = include_str!("sql/prune.sql")
+            .replace("SECONDS_TO_PRUNE", &(prune_days * 60 * 60 * 24).to_string());
+        db.execute_batch(&prune_sql_command)?;
         Ok::<(), Error>(())
     })
     .await??;
@@ -159,7 +161,7 @@ pub async fn prune() -> Result<(), Error> {
     GLOBALS
         .status_queue
         .write()
-        .write("Database prune has completed.".to_owned());
+        .write(format!("Database prune for {prune_days} has completed.").to_owned());
 
     Ok(())
 }

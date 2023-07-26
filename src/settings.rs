@@ -36,6 +36,7 @@ pub struct Settings {
     pub highlight_unread_events: bool,
     pub posting_area_at_top: bool,
     pub enable_zap_receipts: bool,
+    pub prune_days: u32,
 }
 
 impl Default for Settings {
@@ -74,6 +75,7 @@ impl Default for Settings {
             highlight_unread_events: true,
             posting_area_at_top: true,
             enable_zap_receipts: true,
+            prune_days: 7,
         }
     }
 }
@@ -183,6 +185,11 @@ impl Settings {
                 }
                 "posting_area_at_top" => settings.posting_area_at_top = numstr_to_bool(row.1),
                 "enable_zap_receipts" => settings.enable_zap_receipts = numstr_to_bool(row.1),
+                "prune_days" => {
+                    if let Ok(x) = row.1.parse::<u32>() {
+                        settings.prune_days = x;
+                    }
+                }
                 _ => {}
             }
         }
@@ -231,7 +238,8 @@ impl Settings {
              ('delegatee_tag', ?),\
              ('highlight_unread_events', ?),\
              ('posting_area_at_top', ?),\
-             ('enable_zap_receipts', ?)",
+             ('enable_zap_receipts', ?),\
+             ('prune_days', ?)",
         )?;
         stmt.execute(params![
             self.feed_chunk,
@@ -263,6 +271,7 @@ impl Settings {
             bool_to_numstr(self.highlight_unread_events),
             bool_to_numstr(self.posting_area_at_top),
             bool_to_numstr(self.enable_zap_receipts),
+            self.prune_days,
         ])?;
 
         // Settings which are Options should not even exist when None.  We don't accept null valued

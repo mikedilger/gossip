@@ -290,14 +290,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(12.0);
 
                     if ui.button("Prune Database")
-                        .on_hover_text("This will delete overridden events, events older than a week, and related data while keeping everything important. It can take MANY MINUTES to complete, and when complete there will be a status message indicating so. Also, because the database will be very busy, best not to use gossip while pruning, just wait.")
+                        .on_hover_text("This will delete overridden events, events older than a specified date below, and related data while keeping everything important. It can take MANY MINUTES to complete, and when complete there will be a status message indicating so. Also, because the database will be very busy, best not to use gossip while pruning, just wait.")
                         .clicked() {
                             GLOBALS.status_queue.write().write(
                                 "Pruning database, please wait (this takes a long time)...".to_owned()
                             );
-                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase);
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase(app.settings.prune_days));
                         }
-
+                    ui.horizontal(|ui| {
+                        ui.label("Prune Days: ")
+                            .on_hover_text("Events older than this will be pruned");
+                        ui.add(Slider::new(&mut app.settings.prune_days, 7..=90).text("Days"));
+                    });
                     ui.add_space(12.0);
                 });
         });

@@ -11,7 +11,7 @@ DELETE FROM event WHERE kind>=10000 and kind<20000 AND created_at != (SELECT max
 DELETE FROM event WHERE kind>=20000 and kind<30000;
 
 -- Delete kind=1 events older than 1 week
-DELETE FROM event WHERE kind!=0 AND kind!=3 AND kind!=10001 AND created_at < strftime('%s', 'now') - 60*60*24*7;
+DELETE FROM event WHERE kind!=0 AND kind!=3 AND kind!=10001 AND created_at < strftime('%s', 'now') - SECONDS_TO_PRUNE;
 
 -- Due to foreign keys and cascades, the following will also be cleaned up
 --   event_relationship

@@ -791,9 +791,9 @@ impl Overlord {
                     }
                 }));
             }
-            ToOverlordMessage::PruneDatabase => {
+            ToOverlordMessage::PruneDatabase(prune_days) => {
                 std::mem::drop(tokio::spawn(async move {
-                    if let Err(e) = crate::db::prune().await {
+                    if let Err(e) = crate::db::prune(prune_days).await {
                         tracing::error!("{}", e);
                     }
                 }));
