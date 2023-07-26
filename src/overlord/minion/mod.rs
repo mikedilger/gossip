@@ -123,10 +123,14 @@ impl Minion {
                             }
                             Err(e) => {
                                 tracing::warn!(
-                                    "{}: Unable to parse response as NIP-11 ({}): {}",
+                                    "{}: Unable to parse response as NIP-11 ({}): {}\n",
                                     &self.url,
                                     e,
                                     text
+                                    .lines()
+                                    .take(10)
+                                    .collect::<Vec<_>>()
+                                    .join("\n")
                                 );
                             }
                         }
