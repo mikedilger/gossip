@@ -5,6 +5,7 @@ use egui_extras::image::FitTo;
 use nostr_types::{UncheckedUrl, Url};
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 use tokio::sync::RwLock;
 
 pub struct Media {
@@ -127,7 +128,11 @@ impl Media {
             return None; // can recover if the setting is switched
         }
 
-        match GLOBALS.fetcher.try_get(url.clone()) {
+        match GLOBALS
+            .fetcher
+            .try_get(url, Duration::from_secs(60 * 60 * 24 * 3))
+        {
+            // cache expires in 3 days
             Ok(None) => None,
             Ok(Some(bytes)) => {
                 self.data_temp.insert(url.clone(), bytes);

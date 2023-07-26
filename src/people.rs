@@ -645,7 +645,11 @@ impl People {
             }
         };
 
-        match GLOBALS.fetcher.try_get(url) {
+        match GLOBALS
+            .fetcher
+            .try_get(&url, Duration::from_secs(60 * 60 * 24 * 3))
+        {
+            // cache expires in 3 days
             Ok(None) => None,
             Ok(Some(bytes)) => {
                 // Finish this later (spawn)

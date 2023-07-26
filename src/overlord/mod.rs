@@ -87,6 +87,9 @@ impl Overlord {
     }
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
+        // Start the fetcher
+        crate::fetcher::Fetcher::start();
+
         // Load signer from settings
         GLOBALS.signer.load_from_settings().await;
 
