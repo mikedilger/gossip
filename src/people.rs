@@ -645,10 +645,7 @@ impl People {
             }
         };
 
-        match GLOBALS.fetcher.try_get(
-            url,
-            crate::fetcher::Fetcher::random_age(60 * 60 * 8, 60 * 60 * 48),
-        ) {
+        match GLOBALS.fetcher.try_get(url) {
             Ok(None) => None,
             Ok(Some(bytes)) => {
                 // Finish this later (spawn)

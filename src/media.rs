@@ -127,10 +127,7 @@ impl Media {
             return None; // can recover if the setting is switched
         }
 
-        match GLOBALS.fetcher.try_get(
-            url.clone(),
-            crate::fetcher::Fetcher::random_age(60 * 60 * 8, 60 * 60 * 48),
-        ) {
+        match GLOBALS.fetcher.try_get(url.clone()) {
             Ok(None) => None,
             Ok(Some(bytes)) => {
                 self.data_temp.insert(url.clone(), bytes);
