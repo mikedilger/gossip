@@ -69,6 +69,16 @@ pub struct Storage {
     //   val: event.write_to_vec() | Event::read_from_buffer(val)
     events: Database,
 
+    // EventKind:PublicKey -> Id
+    // (dup keys, so multiple Ids per key)
+    //   val: id.as_slice() | Id(val[0..32].try_into()?)
+    event_ek_pk_index: Database,
+
+    // EventKind::ReverseUnixtime -> Id
+    // (dup keys, so multiple Ids per key)
+    //   val: id.as_slice() | Id(val[0..32].try_into()?)
+    event_ek_c_index: Database,
+
     // Id:Id -> Relationship
     //   key: id.as_slice(), id.as_slice() | Id(val[32..64].try_into()?)
     //   val:  relationship.write_to_vec() | Relationship::read_from_buffer(val)
@@ -124,6 +134,16 @@ impl Storage {
 
         let events = env.create_db(Some("events"), DatabaseFlags::empty())?;
 
+        let event_ek_pk_index = env.create_db(
+            Some("event_ek_pk_index"),
+            DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED,
+        )?;
+
+        let event_ek_c_index = env.create_db(
+            Some("event_ek_c_index"),
+            DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED,
+        )?;
+
         let relationships = env.create_db(Some("relationships"), DatabaseFlags::empty())?;
 
         let people = env.create_db(Some("people"), DatabaseFlags::empty())?;
@@ -139,6 +159,8 @@ impl Storage {
             relays,
             event_tags,
             events,
+            event_ek_pk_index,
+            event_ek_c_index,
             relationships,
             people,
             person_relays,
@@ -623,6 +645,7 @@ impl Storage {
     }
 
     pub fn write_event(&self, event: &Event) -> Result<(), Error> {
+        // write to lmdb 'events'
         let bytes = event.write_to_vec()?;
         let mut txn = self.env.begin_rw_txn()?;
         txn.put(
@@ -632,6 +655,10 @@ impl Storage {
             WriteFlags::empty(),
         )?;
         txn.commit()?;
+
+        // also index the event
+        self.write_event_ek_pk_index(event)?;
+        self.write_event_ek_c_index(event)?;
         Ok(())
     }
 
@@ -661,7 +688,7 @@ impl Storage {
             return Err(ErrorKind::General("Event is not replaceable.".to_owned()).into());
         }
 
-        let existing = self.find_events(&[event.pubkey], &[event.kind], None, |_| true, false)?;
+        let existing = self.find_events(&[event.kind], &[event.pubkey], None, |_| true, false)?;
 
         let mut found_newer = false;
         for old in existing {
@@ -698,8 +725,8 @@ impl Storage {
         };
 
         let existing = self.find_events(
-            &[event.pubkey],
             &[event.kind],
+            &[event.pubkey],
             None,
             |e| e.parameter().as_ref() == Some(&param),
             false,
@@ -722,17 +749,141 @@ impl Storage {
         Ok(true)
     }
 
+    // You must supply kinds.
+    // You can skip the pubkeys and then only kinds will matter.
+    fn find_ek_pk_events(
+        &self,
+        kinds: &[EventKind],
+        pubkeys: &[PublicKey],
+    ) -> Result<HashSet<Id>, Error> {
+        if kinds.is_empty() {
+            return Err(ErrorKind::General(
+                "find_ek_pk_events() requires some event kinds to be specified.".to_string(),
+            )
+            .into());
+        }
+
+        let mut ids: HashSet<Id> = HashSet::new();
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.event_ek_pk_index)?;
+
+        'kindloop: for kind in kinds {
+            let ek: u32 = (*kind).into();
+            if pubkeys.is_empty() {
+                let start_key = ek.to_be_bytes().as_slice().to_owned();
+                let iter = cursor.iter_from(start_key);
+                for result in iter {
+                    match result {
+                        Err(e) => return Err(e.into()),
+                        Ok((key, val)) => {
+                            // Break if we moved to a different event kind
+                            let this_ek = u32::from_be_bytes(key[0..4].try_into().unwrap());
+                            if this_ek != ek {
+                                continue 'kindloop;
+                            }
+
+                            // Take the event
+                            let id = Id(val[0..32].try_into()?);
+                            ids.insert(id);
+                        }
+                    }
+                }
+            } else {
+                'pubkeyloop: for pubkey in pubkeys {
+                    let mut start_key = ek.to_be_bytes().as_slice().to_owned();
+                    start_key.extend(pubkey.as_bytes());
+                    let iter = cursor.iter_from(start_key);
+                    for result in iter {
+                        match result {
+                            Err(e) => return Err(e.into()),
+                            Ok((key, val)) => {
+                                // Break if we moved to a different event kind
+                                let this_ek = u32::from_be_bytes(key[0..4].try_into().unwrap());
+                                if this_ek != ek {
+                                    continue 'kindloop;
+                                }
+
+                                // Break if we moved to a different public key
+                                let this_pubkey = match PublicKey::from_bytes(&key[4..4 + 32]) {
+                                    Err(_) => continue 'pubkeyloop,
+                                    Ok(pk) => pk,
+                                };
+                                if this_pubkey != *pubkey {
+                                    continue 'pubkeyloop;
+                                }
+
+                                // Take the event
+                                let id = Id(val[0..32].try_into()?);
+                                ids.insert(id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(ids)
+    }
+
+    // You must supply kinds and since
+    fn find_ek_c_events(&self, kinds: &[EventKind], since: Unixtime) -> Result<HashSet<Id>, Error> {
+        if kinds.is_empty() {
+            return Err(ErrorKind::General(
+                "find_ek_c_events() requires some event kinds to be specified.".to_string(),
+            )
+            .into());
+        }
+
+        let now = Unixtime::now().unwrap();
+        let mut ids: HashSet<Id> = HashSet::new();
+        let txn = self.env.begin_ro_txn()?;
+        let mut cursor = txn.open_ro_cursor(self.event_ek_c_index)?;
+
+        'kindloop: for kind in kinds {
+            let ek: u32 = (*kind).into();
+            let mut start_key = ek.to_be_bytes().as_slice().to_owned();
+            start_key.extend((i64::MAX - now.0).to_be_bytes().as_slice()); // work back from now
+            let iter = cursor.iter_from(start_key);
+            for result in iter {
+                match result {
+                    Err(e) => return Err(e.into()),
+                    Ok((key, val)) => {
+                        // Break if we moved to a different event kind
+                        let this_ek = u32::from_be_bytes(key[0..4].try_into().unwrap());
+                        if this_ek != ek {
+                            continue 'kindloop;
+                        }
+
+                        // Break if these events are getting to old
+                        let this_time = i64::from_be_bytes(key[4..4 + 8].try_into().unwrap());
+                        if this_time > (i64::MAX - since.0) {
+                            continue 'kindloop;
+                        }
+
+                        // Take the event
+                        let id = Id(val[0..32].try_into()?);
+                        ids.insert(id);
+                    }
+                }
+            }
+        }
+
+        Ok(ids)
+    }
+
     // Find events of interest.
     //
-    // If any of `pubkeys`, or `kinds` is not empty, the events must match
-    // one of the values in the array. If empty, no match is performed.
+    // You must specify some event kinds.
+    // If pubkeys is empty, they won't matter.
+    // If since is None, it won't matter.
     //
     // The function f is run after the matching-so-far events have been deserialized
-    // to finish filtering.
+    // to finish filtering, and optionally they are sorted in reverse chronological
+    // order.
     pub fn find_events<F>(
         &self,
-        pubkeys: &[PublicKey],
         kinds: &[EventKind],
+        pubkeys: &[PublicKey],
         since: Option<Unixtime>,
         f: F,
         sort: bool,
@@ -740,61 +891,47 @@ impl Storage {
     where
         F: Fn(&Event) -> bool,
     {
+        if kinds.is_empty() {
+            return Err(ErrorKind::General(
+                "find_events() requires some event kinds to be specified.".to_string(),
+            )
+            .into());
+        }
+
+        // Get the Ids
+        let ids = match (pubkeys.is_empty(), since) {
+            (true, None) => self.find_ek_pk_events(kinds, pubkeys)?,
+            (true, Some(when)) => self.find_ek_c_events(kinds, when)?,
+            (false, None) => self.find_ek_pk_events(kinds, pubkeys)?,
+            (false, Some(when)) => {
+                let group1 = self.find_ek_pk_events(kinds, pubkeys)?;
+                let group2 = self.find_ek_c_events(kinds, when)?;
+                group1.intersection(&group2).copied().collect()
+            }
+        };
+
+        // Now that we have that Ids, fetch the events
         let txn = self.env.begin_ro_txn()?;
-        let mut cursor = txn.open_ro_cursor(self.events)?;
-        let iter = cursor.iter_start();
-        let mut output: Vec<Event> = Vec::new();
-        for result in iter {
-            match result {
-                Err(e) => return Err(e.into()),
-                Ok((_key, val)) => {
-                    // Keep only matching `PublicKey`s
-                    if !pubkeys.is_empty() {
-                        if let Some(pubkey) = Event::get_pubkey_from_speedy_bytes(val) {
-                            if !pubkeys.contains(&pubkey) {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                    }
-
-                    // Keep only matching `EventKind`s
-                    if !kinds.is_empty() {
-                        if let Some(kind) = Event::get_kind_from_speedy_bytes(val) {
-                            if !kinds.contains(&kind) {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                    }
-
-                    // Enforce since
-                    if let Some(time) = since {
-                        if let Some(created_at) = Event::get_created_at_from_speedy_bytes(val) {
-                            if created_at < time {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                    }
-
-                    // Passed all of that? Deserialize and apply user function
-                    let event = Event::read_from_buffer(val)?;
+        let mut events: Vec<Event> = Vec::new();
+        for id in ids {
+            // this is like self.read_event(), but we supply our existing transaction
+            match txn.get(self.events, &id.as_slice()) {
+                Ok(bytes) => {
+                    let event = Event::read_from_buffer(bytes)?;
                     if f(&event) {
-                        output.push(event);
+                        events.push(event);
                     }
                 }
+                Err(lmdb::Error::NotFound) => continue,
+                Err(e) => return Err(e.into()),
             }
         }
 
         if sort {
-            output.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            events.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         }
 
-        Ok(output)
+        Ok(events)
     }
 
     pub fn search_events(&self, text: &str) -> Result<Vec<Event>, Error> {
@@ -847,11 +984,35 @@ impl Storage {
         Ok(events)
     }
 
+    // We don't call this externally. Whenever we write an event, we do this.
+    fn write_event_ek_pk_index(&self, event: &Event) -> Result<(), Error> {
+        let ek: u32 = event.kind.into();
+        let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
+        key.extend(event.pubkey.as_bytes()); // pubkey
+        let bytes = event.id.as_slice();
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.event_ek_pk_index, &key, &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    // We don't call this externally. Whenever we write an event, we do this.
+    fn write_event_ek_c_index(&self, event: &Event) -> Result<(), Error> {
+        let ek: u32 = event.kind.into();
+        let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
+        key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
+        let bytes = event.id.as_slice();
+        let mut txn = self.env.begin_rw_txn()?;
+        txn.put(self.event_ek_c_index, &key, &bytes, WriteFlags::empty())?;
+        txn.commit()?;
+        Ok(())
+    }
+
     // TBD: optimize this by storing better event indexes
     // currently we stupidly scan every event (just to get LMDB up and running first)
     pub fn fetch_contact_list(&self, pubkey: &PublicKey) -> Result<Option<Event>, Error> {
         Ok(self
-            .find_events(&[*pubkey], &[EventKind::ContactList], None, |_| true, false)?
+            .find_events(&[EventKind::ContactList], &[*pubkey], None, |_| true, false)?
             .iter()
             .max_by(|x, y| x.created_at.cmp(&y.created_at))
             .cloned())
@@ -897,7 +1058,7 @@ impl Storage {
     // code pass
     pub fn fetch_relay_lists(&self) -> Result<Vec<Event>, Error> {
         let mut relay_lists =
-            self.find_events(&[], &[EventKind::RelayList], None, |_| true, false)?;
+            self.find_events(&[EventKind::RelayList], &[], None, |_| true, false)?;
 
         let mut latest: HashMap<PublicKey, Event> = HashMap::new();
         for event in relay_lists.drain(..) {

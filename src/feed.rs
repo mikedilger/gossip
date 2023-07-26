@@ -239,6 +239,7 @@ impl Feed {
         // Filter further for the general feed
         let dismissed = GLOBALS.dismissed.read().await.clone();
         let now = Unixtime::now().unwrap();
+        let one_year_ago = now - Duration::new(60 * 60 * 24 * 365, 0);
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
@@ -254,8 +255,8 @@ impl Feed {
                 let followed_events: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
-                        &followed_pubkeys, // pubkeys
                         &kinds,            // kinds
+                        &followed_pubkeys, // pubkeys
                         Some(since),
                         |e| {
                             e.created_at <= now // no future events
@@ -281,9 +282,9 @@ impl Feed {
                     let my_event_ids: HashSet<Id> = GLOBALS
                         .storage
                         .find_events(
-                            &[my_pubkey],
-                            &kinds, // kinds
-                            None,   // since
+                            &kinds,       // kinds
+                            &[my_pubkey], // pubkeys
+                            None,         // since
                             |_| true,
                             false,
                         )?
@@ -294,9 +295,9 @@ impl Feed {
                     let inbox_events: Vec<(Unixtime, Id)> = GLOBALS
                         .storage
                         .find_events(
-                            &[],    // pubkeys
-                            &kinds, // kinds
-                            None,   // since
+                            &kinds,             // kinds
+                            &[],                // pubkeys
+                            Some(one_year_ago), // since
                             |e| {
                                 if e.created_at > now {
                                     return false;
@@ -356,9 +357,9 @@ impl Feed {
                 let events: Vec<(Unixtime, Id)> = GLOBALS
                     .storage
                     .find_events(
-                        &[],    // any person (due to delegation condition)
-                        &kinds, // feed kinds
-                        None,   // all the way back
+                        &kinds,             // feed kinds
+                        &[], // any person (due to delegation condition) // FIXME GINA
+                        Some(one_year_ago), // one year ago
                         |e| {
                             if e.kind.augments_feed_related() {
                                 return false;

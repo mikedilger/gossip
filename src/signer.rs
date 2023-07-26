@@ -105,8 +105,8 @@ impl Signer {
                 let dms: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
-                        &[],
                         &[EventKind::EncryptedDirectMessage],
+                        &[],
                         None,
                         |_| true,
                         false,
