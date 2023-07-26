@@ -27,7 +27,6 @@ extern crate lazy_static;
 mod about;
 mod comms;
 mod date_ago;
-mod db;
 mod delegation;
 mod error;
 mod feed;
@@ -79,9 +78,6 @@ fn main() -> Result<(), Error> {
         .with_line_number(show_debug)
         .with_env_filter(env_filter)
         .init();
-
-    // Setup the database (possibly create, possibly upgrade)
-    crate::db::setup_database()?;
 
     // Load settings
     let settings = GLOBALS.storage.read_settings()?.unwrap();

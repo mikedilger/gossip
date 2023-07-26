@@ -15,7 +15,6 @@ use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
-use rusqlite::Connection;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
@@ -34,9 +33,6 @@ pub enum ZapState {
 pub struct Globals {
     /// Is this the first run?
     pub first_run: AtomicBool,
-
-    /// This is our connection to SQLite. Only one thread at a time.
-    pub db: Mutex<Connection>,
 
     /// This is a broadcast channel. All Minions should listen on it.
     /// To create a receiver, just run .subscribe() on it.
@@ -134,7 +130,6 @@ lazy_static! {
 
         Globals {
             first_run: AtomicBool::new(false),
-            db: Mutex::new(crate::db::init_database().expect("Failed to setup database connection")),
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
