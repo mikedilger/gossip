@@ -33,6 +33,9 @@ pub struct Fetcher {
     // Here is where we store the current state of each URL being fetched
     urls: RwLock<HashMap<Url, FetchState>>,
 
+    // Load currently applied to a host
+    host_load: RwLock<HashMap<String, usize>>,
+
     // Here is where we put hosts into a penalty box to time them out
     penalty_box: RwLock<HashMap<String, Unixtime>>,
 }
@@ -133,6 +136,11 @@ impl Fetcher {
                             } else {
                                 continue; // We cannot dequeue this one
                             }
+                        }
+
+                        let load = self.fetch_host_load(&host);
+                        if load >= 3 {
+                            continue; // We cannot overload any given host
                         }
 
                         queued_urls.push(url.to_owned());
@@ -261,6 +269,11 @@ impl Fetcher {
             .unwrap()
             .insert(url.clone(), FetchState::InFlight);
 
+        let host = self.host(&url).unwrap();
+
+        // Add to host load
+        self.increment_host_load(&host);
+
         // Fetch the resource
         let mut req = client.get(&url.0);
         if let Some(ref etag) = etag {
@@ -310,6 +323,7 @@ impl Fetcher {
                             // Touch our cache file
                             let _ = filetime::set_file_mtime(cache_file, filetime::FileTime::now());
                             self.urls.write().unwrap().remove(&url);
+                            self.decrement_host_load(&host);
                             return;
                         } else {
                             // Our client follows up to 10 redirects. This is a failure.
@@ -344,6 +358,7 @@ impl Fetcher {
                     tracing::info!("FETCH {url}: Failed: other: {e}");
                     self.urls.write().unwrap().insert(url, FetchState::Failed);
                 }
+                self.decrement_host_load(&host);
                 return;
             }
         };
@@ -374,6 +389,9 @@ impl Fetcher {
         }
 
         tracing::debug!("FETCH {url}: Cached");
+
+        // Remove from host load
+        self.decrement_host_load(&host);
 
         // If there was an etag, save it
         if let Some(etag) = maybe_etag {
@@ -427,5 +445,34 @@ impl Fetcher {
 
     fn etag_file(&self, url: &Url) -> PathBuf {
         self.cache_file(url).with_extension("etag")
+    }
+
+    fn fetch_host_load(&self, host: &str) -> usize {
+        let hashmap = self.host_load.read().unwrap();
+        if let Some(load) = hashmap.get(host) {
+            *load
+        } else {
+            0
+        }
+    }
+
+    fn increment_host_load(&self, host: &str) {
+        let mut hashmap = self.host_load.write().unwrap();
+        if let Some(load) = hashmap.get_mut(host) {
+            *load += 1;
+        } else {
+            hashmap.insert(host.to_string(), 1);
+        }
+    }
+
+    fn decrement_host_load(&self, host: &str) {
+        let mut hashmap = self.host_load.write().unwrap();
+        if let Some(load) = hashmap.get_mut(host) {
+            if *load == 1 {
+                hashmap.remove(host);
+            } else {
+                *load -= 1;
+            }
+        }
     }
 }
