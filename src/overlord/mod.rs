@@ -334,7 +334,7 @@ impl Overlord {
         loop {
             match GLOBALS.relay_picker.pick().await {
                 Err(failure) => {
-                    tracing::info!("Done picking relays: {}", failure);
+                    tracing::debug!("Done picking relays: {}", failure);
                     break;
                 }
                 Ok(relay_url) => {
