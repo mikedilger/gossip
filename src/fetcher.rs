@@ -256,7 +256,7 @@ impl Fetcher {
         }
 
         let etag_file = GLOBALS.fetcher.etag_file(&url);
-        let etag: Option<Vec<u8>> = match fs::read(etag_file.as_path()) {
+        let etag: Option<Vec<u8>> = match tokio::fs::read(etag_file.as_path()).await {
             Ok(contents) => Some(contents),
             Err(_) => None,
         };
@@ -382,7 +382,7 @@ impl Fetcher {
         GLOBALS.bytes_read.fetch_add(bytes.len(), Ordering::Relaxed);
 
         // Write to the file
-        if let Err(e) = fs::write(cache_file, bytes) {
+        if let Err(e) = tokio::fs::write(cache_file, bytes).await {
             tracing::info!("FETCH {url}: Failed: writing to cache file: {e}");
             self.urls.write().unwrap().insert(url, FetchState::Failed);
             return;
@@ -395,7 +395,7 @@ impl Fetcher {
 
         // If there was an etag, save it
         if let Some(etag) = maybe_etag {
-            let _ = fs::write(etag_file, etag);
+            let _ = tokio::fs::write(etag_file, etag).await;
         }
 
         self.urls.write().unwrap().remove(&url);
