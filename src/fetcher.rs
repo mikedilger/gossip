@@ -2,6 +2,7 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::profile::Profile;
 use crate::USER_AGENT;
+use futures::stream::{FuturesUnordered, StreamExt};
 use nostr_types::{Unixtime, Url};
 use reqwest::header::ETAG;
 use reqwest::Client;
@@ -17,6 +18,7 @@ use std::time::Duration;
 #[derive(Copy, Clone, Debug)]
 pub enum FetchState {
     Queued,
+    QueuedStale, // Queued, only fetching because cache is stale
     InFlight,
     Failed,
     // If it succeeds, it is removed entirely.
@@ -97,7 +99,9 @@ impl Fetcher {
             .read()
             .unwrap()
             .iter()
-            .filter(|(_u, r)| matches!(r, FetchState::Queued))
+            .filter(|(_u, r)| {
+                matches!(r, FetchState::Queued) || matches!(r, FetchState::QueuedStale)
+            })
             .count()
     }
 
@@ -122,12 +126,12 @@ impl Fetcher {
 
         let mut count = 0;
 
-        let mut queued_urls: Vec<Url> = Vec::new();
+        let mut futures = FuturesUnordered::new();
 
-        {
-            for (url, state) in self.urls.read().unwrap().iter() {
-                if matches!(state, FetchState::Queued) {
-                    if let Some(host) = self.host(url) {
+        for (url, state) in self.urls.read().unwrap().iter() {
+            if matches!(state, FetchState::Queued) || matches!(state, FetchState::QueuedStale) {
+                if let Some(host) = self.host(url) {
+                    {
                         let mut penalty_box = self.penalty_box.write().unwrap();
                         if let Some(time) = penalty_box.get(&*host) {
                             if time < &now {
@@ -137,26 +141,26 @@ impl Fetcher {
                                 continue; // We cannot dequeue this one
                             }
                         }
-
-                        let load = self.fetch_host_load(&host);
-                        if load >= 3 {
-                            continue; // We cannot overload any given host
-                        }
-
-                        queued_urls.push(url.to_owned());
                     }
+
+                    let load = self.fetch_host_load(&host);
+                    if load >= 3 {
+                        continue; // We cannot overload any given host
+                    }
+
+                    count += 1;
+                    self.increment_host_load(&host);
+                    futures.push(self.fetch(url.clone()));
                 }
             }
-        }
-
-        for url in queued_urls.drain(..) {
-            count += 1;
-            self.fetch(url).await;
         }
 
         if count > 0 {
             tracing::debug!("Fetcher de-queued {count} requests");
         }
+
+        // Run them all together
+        while let Some(_) = futures.next().await {}
     }
 
     /// This is where external code attempts to get the bytes of a file.
@@ -190,7 +194,7 @@ impl Fetcher {
                 )
                 .into());
             }
-            Some(FetchState::Queued) => {
+            Some(FetchState::Queued) | Some(FetchState::QueuedStale) => {
                 tracing::trace!("FETCH {url}: Already queued.");
                 return Ok(None);
             }
@@ -199,12 +203,13 @@ impl Fetcher {
 
         // Check if a cached file exists and is fresh enough
         let cache_file = self.cache_file(url);
+        let mut stale = false;
         match fs::metadata(cache_file.as_path()) {
             Ok(md) => {
                 if let Ok(modified) = md.modified() {
                     if let Ok(dur) = modified.elapsed() {
                         if dur < max_age {
-                            match fs::read(cache_file) {
+                            match fs::read(cache_file.as_path()) {
                                 Ok(contents) => {
                                     tracing::debug!(
                                         "FETCH {url}: Cache Hit age={}s",
@@ -214,6 +219,8 @@ impl Fetcher {
                                 }
                                 Err(e) => return Err(e.into()),
                             }
+                        } else {
+                            stale = true;
                         }
                     }
                 }
@@ -230,10 +237,13 @@ impl Fetcher {
 
         // We can't fetch as we are not async and we don't want to block the caller.
         // So we queue this request for now.
-        self.urls
-            .write()
-            .unwrap()
-            .insert(url.to_owned(), FetchState::Queued);
+        let state = if stale {
+            FetchState::QueuedStale
+        } else {
+            FetchState::Queued
+        };
+        self.urls.write().unwrap().insert(url.to_owned(), state);
+
         tracing::debug!("FETCH {url}: Queued");
 
         Ok(None)
@@ -261,7 +271,18 @@ impl Fetcher {
             Err(_) => None,
         };
 
-        let client = GLOBALS.fetcher.client.clone(); // it is an Arc internally
+        let stale = matches!(
+            self.urls
+                .read()
+                .unwrap()
+                .get(&url)
+                .unwrap_or(&FetchState::Queued),
+            FetchState::QueuedStale
+        );
+
+        let cache_file = GLOBALS.fetcher.cache_file(&url);
+
+        let host = self.host(&url).unwrap();
 
         // Mark url as in-flight
         self.urls
@@ -269,12 +290,8 @@ impl Fetcher {
             .unwrap()
             .insert(url.clone(), FetchState::InFlight);
 
-        let host = self.host(&url).unwrap();
-
-        // Add to host load
-        self.increment_host_load(&host);
-
         // Fetch the resource
+        let client = GLOBALS.fetcher.client.clone(); // it is an Arc internally
         let mut req = client.get(&url.0);
         if let Some(ref etag) = etag {
             req = req.header("if-none-match", etag.to_owned());
@@ -283,82 +300,100 @@ impl Fetcher {
             req = req.header("User-Agent", USER_AGENT);
         };
 
-        let maybe_response = req.send().await;
+        enum FailOutcome {
+            Fail,
+            NotModified,
+            Requeue,
+        }
 
-        let cache_file = GLOBALS.fetcher.cache_file(&url);
+        // closure to run when finished (if we didn't succeed)
+        let cache_file2 = cache_file.clone();
+        let finish = |outcome, message, e: Error, sinbin_secs| {
+            match outcome {
+                FailOutcome::Fail => {
+                    if stale {
+                        tracing::info!("FETCH {url}: Failed (using stale cache): {message}: {e}");
+                        // FIXME: bumping the mtime might not be the best way to do this.
+                        let _ = filetime::set_file_mtime(cache_file2, filetime::FileTime::now());
+                        self.urls.write().unwrap().remove(&url);
+                    } else {
+                        tracing::info!("FETCH {url}: Failed: {message}: {e}");
+                        self.urls
+                            .write()
+                            .unwrap()
+                            .insert(url.clone(), FetchState::Failed);
+                    }
+                }
+                FailOutcome::NotModified => {
+                    tracing::info!("FETCH {url}: Succeeded: {message}");
+                    let _ = filetime::set_file_mtime(cache_file2, filetime::FileTime::now());
+                    self.urls.write().unwrap().remove(&url);
+                }
+                FailOutcome::Requeue => {
+                    tracing::info!("FETCH {url}: Re-Queued: {message}: {e}");
+                    self.urls
+                        .write()
+                        .unwrap()
+                        .insert(url.clone(), FetchState::Queued);
+                }
+            }
+            if sinbin_secs > 0 {
+                self.sinbin(&url, Duration::from_secs(sinbin_secs));
+            }
+            self.decrement_host_load(&host);
+        };
+
+        let maybe_response = req.send().await;
 
         // Deal with response errors
         let response = match maybe_response {
             Ok(r) => r,
             Err(e) => {
                 if e.is_builder() {
-                    tracing::info!("FETCH {url}: Failed: {e}");
-                    self.urls.write().unwrap().insert(url, FetchState::Failed);
+                    finish(FailOutcome::Fail, "builder error", e.into(), 0);
                 } else if e.is_timeout() {
-                    tracing::info!("FETCH {url}: Re-Queued: timeout: {e}");
-                    self.urls.write().unwrap().insert(url, FetchState::Queued);
+                    finish(FailOutcome::Requeue, "timeout", e.into(), 0);
                 } else if e.is_request() {
-                    tracing::info!("FETCH {url}: Failed: request error: {e}");
-                    self.urls.write().unwrap().insert(url, FetchState::Failed);
+                    finish(FailOutcome::Fail, "request error", e.into(), 0);
                 } else if e.is_connect() {
-                    tracing::info!("FETCH {url}: Failed: connect error: {e}");
-                    self.sinbin(&url, Duration::from_secs(60));
-                    self.urls.write().unwrap().insert(url, FetchState::Failed);
+                    finish(FailOutcome::Fail, "connect error", e.into(), 15);
                 } else if e.is_body() {
-                    tracing::info!("FETCH {url}: Failed: body error: {e}");
-                    self.urls.write().unwrap().insert(url, FetchState::Failed);
+                    finish(FailOutcome::Fail, "body error", e.into(), 0);
                 } else if e.is_decode() {
-                    tracing::info!("FETCH {url}: Failed: decode error: {e}");
-                    self.urls.write().unwrap().insert(url, FetchState::Failed);
+                    finish(FailOutcome::Fail, "decode error", e.into(), 0);
                 } else if let Some(status) = e.status() {
                     if status.is_informational() {
-                        tracing::info!("FETCH {url}: Re-Queued: informational error: {e}");
-                        self.urls.write().unwrap().insert(url, FetchState::Queued);
+                        finish(FailOutcome::Requeue, "informational error", e.into(), 0);
                     } else if status.is_success() {
-                        tracing::info!("FETCH {url}: Re-Queued: success error: {e}");
-                        self.urls.write().unwrap().insert(url, FetchState::Queued);
+                        finish(FailOutcome::Requeue, "success error", e.into(), 0);
                     } else if status.is_redirection() {
                         if status == StatusCode::NOT_MODIFIED {
-                            tracing::info!("FETCH {url}: Succeeded with NOT MODIFIED");
-                            // Touch our cache file
-                            let _ = filetime::set_file_mtime(cache_file, filetime::FileTime::now());
-                            self.urls.write().unwrap().remove(&url);
-                            self.decrement_host_load(&host);
-                            return;
+                            finish(FailOutcome::NotModified, "not modified", e.into(), 0);
                         } else {
                             // Our client follows up to 10 redirects. This is a failure.
-                            tracing::info!("FETCH {url}: Failed: redirection error: {e}");
-                            self.urls.write().unwrap().insert(url, FetchState::Failed);
+                            finish(FailOutcome::Fail, "redirection error", e.into(), 0);
                         }
                     } else if status.is_server_error() {
-                        tracing::info!("FETCH {url}: Re-Queued(600): server error: {e}");
-                        self.sinbin(&url, Duration::from_secs(600)); // 10 minutes
-                        self.urls.write().unwrap().insert(url, FetchState::Queued);
+                        finish(FailOutcome::Requeue, "server error", e.into(), 300);
+                        // give them 5 minutes, maybe the server will recover
                     } else {
                         match status {
                             StatusCode::REQUEST_TIMEOUT => {
-                                tracing::info!("FETCH {url}: Re-Queued(60): request timeout: {e}");
-                                self.sinbin(&url, Duration::from_secs(60)); // 1 minutes
-                                self.urls.write().unwrap().insert(url, FetchState::Queued);
+                                finish(FailOutcome::Requeue, "request timeout", e.into(), 20);
+                                // give 30 seconds and try again
                             }
                             StatusCode::TOO_MANY_REQUESTS => {
-                                tracing::info!(
-                                    "FETCH {url}: Re-Queued(30): too many requests: {e}"
-                                );
-                                self.sinbin(&url, Duration::from_secs(30)); // 30 seconds
-                                self.urls.write().unwrap().insert(url, FetchState::Queued);
+                                finish(FailOutcome::Requeue, "too many requests", e.into(), 10);
+                                // give 15 seconds and try again
                             }
-                            e => {
-                                tracing::info!("FETCH {url}: Failed: other: {e}");
-                                self.urls.write().unwrap().insert(url, FetchState::Failed);
+                            _ => {
+                                finish(FailOutcome::Fail, "other", e.into(), 0);
                             }
                         }
                     }
                 } else {
-                    tracing::info!("FETCH {url}: Failed: other: {e}");
-                    self.urls.write().unwrap().insert(url, FetchState::Failed);
+                    finish(FailOutcome::Fail, "other", e.into(), 0);
                 }
-                self.decrement_host_load(&host);
                 return;
             }
         };
@@ -373,8 +408,7 @@ impl Fetcher {
         let bytes = match maybe_bytes {
             Ok(bytes) => bytes,
             Err(e) => {
-                tracing::info!("FETCH {url}: Failed: response bytes: {e}");
-                self.urls.write().unwrap().insert(url, FetchState::Failed);
+                finish(FailOutcome::Fail, "response bytes", e.into(), 0);
                 return;
             }
         };
@@ -382,9 +416,8 @@ impl Fetcher {
         GLOBALS.bytes_read.fetch_add(bytes.len(), Ordering::Relaxed);
 
         // Write to the file
-        if let Err(e) = tokio::fs::write(cache_file, bytes).await {
-            tracing::info!("FETCH {url}: Failed: writing to cache file: {e}");
-            self.urls.write().unwrap().insert(url, FetchState::Failed);
+        if let Err(e) = tokio::fs::write(cache_file.as_path(), bytes).await {
+            finish(FailOutcome::Fail, "writing to cache file", e.into(), 0);
             return;
         }
 
