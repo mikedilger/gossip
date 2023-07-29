@@ -29,7 +29,7 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
         ));
 
         ui.label(format!(
-            "HTTP Requests in queued: {}",
+            "HTTP Requests queued: {}",
             GLOBALS.fetcher.requests_queued()
         ));
 

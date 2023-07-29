@@ -44,8 +44,8 @@ pub struct Fetcher {
 
 impl Fetcher {
     pub fn new() -> Fetcher {
-        let connect_timeout = std::time::Duration::new(30, 0);
-        let timeout = std::time::Duration::new(300, 0);
+        let connect_timeout = std::time::Duration::new(10, 0);
+        let timeout = std::time::Duration::new(15, 0);
         let client = match Client::builder()
             .gzip(true)
             .brotli(true)
@@ -85,11 +85,17 @@ impl Fetcher {
         // Setup periodic queue management
         tokio::task::spawn(async {
             loop {
-                // Every second...
-                tokio::time::sleep(Duration::from_millis(1000)).await;
+                // Every 1200 milliseconds...
+                tokio::time::sleep(Duration::from_millis(1200)).await;
 
                 // Process the queue
                 GLOBALS.fetcher.process_queue().await;
+
+                // Possibly shut down
+                if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+                    tracing::info!("Fetcher shutting down.");
+                    break;
+                }
             }
         });
     }
@@ -160,7 +166,7 @@ impl Fetcher {
         }
 
         // Run them all together
-        while let Some(_) = futures.next().await {}
+        while (futures.next().await).is_some() {}
     }
 
     /// This is where external code attempts to get the bytes of a file.
