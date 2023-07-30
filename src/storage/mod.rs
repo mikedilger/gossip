@@ -38,32 +38,50 @@ pub struct Storage {
     general: Database,
 
     // Id:Url -> Unixtime
+    //   key: key!(id.as_slice(), url.0.as_bytes())
+    //   val: unixtime.0.to_be_bytes()
     event_seen_on_relay: Database,
 
     // Id -> ()
+    //   key: id.as_slice()
+    //   val: vec![]
     event_viewed: Database,
 
     // Hashtag -> Id
     // (dup keys, so multiple Ids per hashtag)
+    //   key: key!(hashtag.as_bytes())
+    //   val: id.as_slice() | Id(val[0..32].try_into()?)
     hashtags: Database,
 
     // Url -> Relay
+    //   key: key!(url.0.as_bytes())
+    //   val: serde_json::to_vec(relay) | serde_json::from_slice(bytes)
     relays: Database,
 
     // Tag -> Id
     // (dup keys, so multiple Ids per tag)
+    //   key: key!(serde_json::to_vec(&tag)) (and remove trailing empty fields)
+    //   val: id.as_slice() | Id(val[0..32].try_into()?)
     event_tags: Database,
 
     // Id -> Event
+    //   key: id.as_slice() | Id(val[0..32].try_into()?)
+    //   val: event.write_to_vec() | Event::read_from_buffer(val)
     events: Database,
 
     // Id:Id -> Relationship
+    //   key: id.as_slice(), id.as_slice() | Id(val[32..64].try_into()?)
+    //   val:  relationship.write_to_vec() | Relationship::read_from_buffer(val)
     relationships: Database,
 
     // PublicKey -> Person
+    //   key: pubkey.as_bytes()
+    //   val: serde_json::to_vec(person) | serde_json::from_slice(bytes)
     people: Database,
 
     // PublicKey:Url -> PersonRelay
+    //   key: key!(pubkey.as_bytes + url.0.as_bytes)
+    //   val: person_relay.write_to_vec) | PersonRelay::read_from_buffer(bytes)
     person_relays: Database,
 }
 
@@ -177,9 +195,9 @@ impl Storage {
         // Delete from event_seen_on_relay
         let mut deletions: usize = 0;
         for id in &ids {
-            let start_key: Vec<u8> = id.as_slice().to_owned();
+            let start_key: &[u8] = id.as_slice();
             let mut cursor = txn.open_rw_cursor(self.event_seen_on_relay)?;
-            let iter = cursor.iter_from(start_key.clone());
+            let iter = cursor.iter_from(start_key);
             for result in iter {
                 match result {
                     Err(e) => return Err(e.into()),
@@ -200,7 +218,7 @@ impl Storage {
 
         // Delete from event_viewed
         for id in &ids {
-            let _ = txn.del(self.event_viewed, &id.as_ref(), None);
+            let _ = txn.del(self.event_viewed, &id.as_slice(), None);
         }
         tracing::info!("PRUNE: deleted {} records from event_viewed", ids.len());
 
@@ -213,7 +231,7 @@ impl Storage {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((_key, val)) => {
-                    let id = Id::read_from_buffer(val)?;
+                    let id = Id(val[0..32].try_into()?);
                     if ids.contains(&id) {
                         let _ = cursor.del(WriteFlags::empty());
                         deletions += 1;
@@ -236,7 +254,7 @@ impl Storage {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((_key, val)) => {
-                    let id = Id::read_from_buffer(val)?;
+                    let id = Id(val[0..32].try_into()?);
                     if ids.contains(&id) {
                         let _ = cursor.del(WriteFlags::empty());
                         deletions += 1;
@@ -256,13 +274,13 @@ impl Storage {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((key, _val)) => {
-                    let id = Id::read_from_buffer(key)?;
+                    let id = Id(key[0..32].try_into()?);
                     if ids.contains(&id) {
                         let _ = cursor.del(WriteFlags::empty());
                         deletions += 1;
                         continue;
                     }
-                    let id2 = Id::read_from_buffer(&key[32..])?;
+                    let id2 = Id(key[32..64].try_into()?);
                     if ids.contains(&id2) {
                         let _ = cursor.del(WriteFlags::empty());
                         deletions += 1;
@@ -377,11 +395,11 @@ impl Storage {
         url: &RelayUrl,
         when: Unixtime,
     ) -> Result<(), Error> {
-        let bytes = &when.0.to_be_bytes();
         let mut key: Vec<u8> = id.as_slice().to_owned();
-        let mut txn = self.env.begin_rw_txn()?;
         key.extend(url.0.as_bytes());
         key.truncate(MAX_LMDB_KEY);
+        let bytes = &when.0.to_be_bytes();
+        let mut txn = self.env.begin_rw_txn()?;
         txn.put(self.event_seen_on_relay, &key, &bytes, WriteFlags::empty())?;
         txn.commit()?;
         Ok(())
@@ -391,7 +409,7 @@ impl Storage {
         let start_key: Vec<u8> = id.as_slice().to_owned();
         let txn = self.env.begin_ro_txn()?;
         let mut cursor = txn.open_ro_cursor(self.event_seen_on_relay)?;
-        let iter = cursor.iter_from(start_key.clone());
+        let iter = cursor.iter_from(&start_key);
         let mut output: Vec<(RelayUrl, Unixtime)> = Vec::new();
         for result in iter {
             match result {
@@ -414,14 +432,14 @@ impl Storage {
     pub fn mark_event_viewed(&self, id: Id) -> Result<(), Error> {
         let bytes = vec![];
         let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.event_viewed, &id.as_ref(), &bytes, WriteFlags::empty())?;
+        txn.put(self.event_viewed, &id.as_slice(), &bytes, WriteFlags::empty())?;
         txn.commit()?;
         Ok(())
     }
 
     pub fn is_event_viewed(&self, id: Id) -> Result<bool, Error> {
         let txn = self.env.begin_ro_txn()?;
-        match txn.get(self.event_viewed, &id.as_ref()) {
+        match txn.get(self.event_viewed, &id.as_slice()) {
             Ok(_bytes) => Ok(true),
             Err(lmdb::Error::NotFound) => Ok(false),
             Err(e) => Err(e.into()),
@@ -430,7 +448,7 @@ impl Storage {
 
     pub fn add_hashtag(&self, hashtag: &String, id: Id) -> Result<(), Error> {
         let key = key!(hashtag.as_bytes());
-        let bytes = id.as_slice().to_owned();
+        let bytes = id.as_slice();
         let mut txn = self.env.begin_rw_txn()?;
         txn.put(self.hashtags, &key, &bytes, WriteFlags::empty())?;
         txn.commit()?;
@@ -451,7 +469,7 @@ impl Storage {
                     if thiskey != key {
                         break;
                     }
-                    let id = Id::read_from_buffer(val)?;
+                    let id = Id(val[0..32].try_into()?);
                     output.push(id);
                 }
             }
@@ -542,8 +560,7 @@ impl Storage {
         for tag in &event.tags {
             let mut tagbytes = serde_json::to_vec(&tag)?;
             tagbytes.truncate(MAX_LMDB_KEY);
-            let bytes = event.id.write_to_vec()?;
-            txn.put(self.event_tags, &tagbytes, &bytes, WriteFlags::empty())?;
+            txn.put(self.event_tags, &tagbytes, &event.id.as_slice(), WriteFlags::empty())?;
         }
         txn.commit()?;
         Ok(())
@@ -573,7 +590,7 @@ impl Storage {
                         break;
                     }
                     // Add the event
-                    let id = Id::read_from_buffer(val)?;
+                    let id = Id(val[0..32].try_into()?);
                     output.push(id);
                 }
             }
@@ -584,14 +601,14 @@ impl Storage {
     pub fn write_event(&self, event: &Event) -> Result<(), Error> {
         let bytes = event.write_to_vec()?;
         let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.events, &event.id.as_ref(), &bytes, WriteFlags::empty())?;
+        txn.put(self.events, &event.id.as_slice(), &bytes, WriteFlags::empty())?;
         txn.commit()?;
         Ok(())
     }
 
     pub fn read_event(&self, id: Id) -> Result<Option<Event>, Error> {
         let txn = self.env.begin_ro_txn()?;
-        match txn.get(self.events, &id.as_ref()) {
+        match txn.get(self.events, &id.as_slice()) {
             Ok(bytes) => Ok(Some(Event::read_from_buffer(bytes)?)),
             Err(lmdb::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),
@@ -605,7 +622,7 @@ impl Storage {
 
     pub fn delete_event(&self, id: Id) -> Result<(), Error> {
         let mut txn = self.env.begin_rw_txn()?;
-        let _ = txn.del(self.events, &id.as_ref(), None);
+        let _ = txn.del(self.events, &id.as_slice(), None);
         txn.commit()?;
         Ok(())
     }
@@ -895,7 +912,7 @@ impl Storage {
     }
 
     pub fn find_relationships(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
-        let start_key = id.as_ref().to_owned();
+        let start_key = id.as_slice();
         let txn = self.env.begin_ro_txn()?;
         let mut cursor = txn.open_ro_cursor(self.relationships)?;
         let iter = cursor.iter_from(start_key);
@@ -904,7 +921,7 @@ impl Storage {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((key, val)) => {
-                    if !key.starts_with(&start_key) {
+                    if !key.starts_with(start_key) {
                         break;
                     }
                     let id2 = Id(key[32..64].try_into().unwrap());
@@ -1092,6 +1109,7 @@ impl Storage {
     pub fn write_person_relay(&self, person_relay: &PersonRelay) -> Result<(), Error> {
         let mut key = person_relay.pubkey.as_bytes();
         key.extend(person_relay.url.0.as_bytes());
+        key.truncate(MAX_LMDB_KEY);
         let bytes = person_relay.write_to_vec()?;
         let mut txn = self.env.begin_rw_txn()?;
         txn.put(self.person_relays, &key, &bytes, WriteFlags::empty())?;
@@ -1106,6 +1124,7 @@ impl Storage {
     ) -> Result<Option<PersonRelay>, Error> {
         let mut key = pubkey.as_bytes();
         key.extend(url.0.as_bytes());
+        key.truncate(MAX_LMDB_KEY);
         let txn = self.env.begin_ro_txn()?;
         match txn.get(self.person_relays, &key) {
             Ok(bytes) => Ok(Some(PersonRelay::read_from_buffer(bytes)?)),
