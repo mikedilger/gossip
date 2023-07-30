@@ -18,7 +18,7 @@ use nostr_types::{
     Tag, Unixtime,
 };
 use speedy::{Readable, Writable};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const MAX_LMDB_KEY: usize = 511;
 macro_rules! key {
@@ -139,6 +139,147 @@ impl Storage {
         }
 
         Ok(storage)
+    }
+
+    // Remove all events (and related data) with a created_at before `from`
+    pub fn prune(&self, from: Unixtime) -> Result<usize, Error> {
+        let mut txn = self.env.begin_rw_txn()?;
+
+        // Extract the Ids to delete.
+        // We have to extract the Ids and release the cursor on the events database
+        // in order to get a cursor on other databases since cursors mutably borrow
+        // the transaction
+        let mut ids: HashSet<Id> = HashSet::new();
+
+        let mut cursor = txn.open_ro_cursor(self.events)?;
+        let iter = cursor.iter_start();
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((_key, val)) => {
+                    if let Some(created_at) = Event::get_created_at_from_speedy_bytes(val) {
+                        if created_at < from {
+                            if let Some(id) = Event::get_id_from_speedy_bytes(val) {
+                                ids.insert(id);
+                                // Too bad but we can't delete it now, other threads
+                                // might try to access it still. We have to delete it from
+                                // all the other maps first.
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        drop(cursor);
+
+        tracing::info!("PRUNE: deleting {} events", ids.len());
+
+        // Delete from event_seen_on_relay
+        let mut deletions: usize = 0;
+        for id in &ids {
+            let start_key: Vec<u8> = id.as_slice().to_owned();
+            let mut cursor = txn.open_rw_cursor(self.event_seen_on_relay)?;
+            let iter = cursor.iter_from(start_key.clone());
+            for result in iter {
+                match result {
+                    Err(e) => return Err(e.into()),
+                    Ok((key, _val)) => {
+                        if !key.starts_with(&start_key) {
+                            break;
+                        }
+                        let _ = cursor.del(WriteFlags::empty());
+                        deletions += 1;
+                    }
+                }
+            }
+        }
+        tracing::info!(
+            "PRUNE: deleted {} records from event_seen_on_relay",
+            deletions
+        );
+
+        // Delete from event_viewed
+        for id in &ids {
+            let _ = txn.del(self.event_viewed, &id.as_ref(), None);
+        }
+        tracing::info!("PRUNE: deleted {} records from event_viewed", ids.len());
+
+        // Delete from hashtags
+        // (unfortunately since Ids are the values, we have to scan the whole thing)
+        let mut cursor = txn.open_rw_cursor(self.hashtags)?;
+        let iter = cursor.iter_start();
+        let mut deletions: usize = 0;
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((_key, val)) => {
+                    let id = Id::read_from_buffer(val)?;
+                    if ids.contains(&id) {
+                        let _ = cursor.del(WriteFlags::empty());
+                        deletions += 1;
+                    }
+                }
+            }
+        }
+        drop(cursor);
+        tracing::info!(
+            "PRUNE: deleted {} records from hashtags",
+            deletions
+        );
+
+        // Delete from event_tags
+        // (unfortunately since Ids are the values, we have to scan the whole thing)
+        let mut cursor = txn.open_rw_cursor(self.event_tags)?;
+        let iter = cursor.iter_start();
+        let mut deletions: usize = 0;
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((_key, val)) => {
+                    let id = Id::read_from_buffer(val)?;
+                    if ids.contains(&id) {
+                        let _ = cursor.del(WriteFlags::empty());
+                        deletions += 1;
+                    }
+                }
+            }
+        }
+        drop(cursor);
+        tracing::info!("PRUNE: deleted {} records from event_tags", deletions);
+
+        // Delete from relationships
+        // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
+        let mut cursor = txn.open_rw_cursor(self.relationships)?;
+        let iter = cursor.iter_start();
+        let mut deletions: usize = 0;
+        for result in iter {
+            match result {
+                Err(e) => return Err(e.into()),
+                Ok((key, _val)) => {
+                    let id = Id::read_from_buffer(key)?;
+                    if ids.contains(&id) {
+                        let _ = cursor.del(WriteFlags::empty());
+                        deletions += 1;
+                        continue;
+                    }
+                    let id2 = Id::read_from_buffer(&key[32..])?;
+                    if ids.contains(&id2) {
+                        let _ = cursor.del(WriteFlags::empty());
+                        deletions += 1;
+                    }
+                }
+            }
+        }
+        drop(cursor);
+        tracing::info!("PRUNE: deleted {} relationships", deletions);
+
+        // delete from events
+        for id in &ids {
+            let _ = txn.del(self.events, &id.as_ref(), None);
+        }
+        tracing::info!("PRUNE: deleted {} records from events", ids.len());
+
+        Ok(ids.len())
     }
 
     pub fn write_migration_level(&self, migration_level: u32) -> Result<(), Error> {

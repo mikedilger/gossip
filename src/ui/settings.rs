@@ -288,6 +288,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(12.0);
                     ui.separator();
                     ui.add_space(12.0);
+
+                    if ui.button("Prune Database")
+                        .on_hover_text("This will delete events older than six months.")
+                        .clicked() {
+                            GLOBALS.status_queue.write().write(
+                                "Pruning database, please wait (this takes a long time)...".to_owned()
+                            );
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase);
+                        }
+
+                    ui.add_space(12.0);
                 });
         });
     });

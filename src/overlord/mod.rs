@@ -21,6 +21,7 @@ use nostr_types::{
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
+use std::time::Duration;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
@@ -436,7 +437,7 @@ impl Overlord {
                         &url,
                         exclusion
                     );
-                    tokio::time::sleep(std::time::Duration::new(exclusion, 0)).await;
+                    tokio::time::sleep(Duration::new(exclusion, 0)).await;
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::ReengageMinion(url, persistent_jobs));
@@ -640,7 +641,19 @@ impl Overlord {
                 self.pick_relays().await;
             }
             ToOverlordMessage::PruneDatabase => {
-                tracing::warn!("Prune Database not yet implemented for LMDB");
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Pruning database, please be patient..".to_owned());
+
+                let now = Unixtime::now().unwrap();
+                let then = now - Duration::new(60 * 60 * 24 * 180, 0); // 180 days
+                let count = GLOBALS.storage.prune(then)?;
+
+                GLOBALS.status_queue.write().write(format!(
+                    "Database has been pruned. {} events removed.",
+                    count
+                ));
             }
             ToOverlordMessage::Post(content, tags, reply_to) => {
                 self.post(content, tags, reply_to).await?;
