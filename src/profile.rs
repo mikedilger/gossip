@@ -41,7 +41,7 @@ impl Profile {
             Err(_) => {
                 let mut base_dir = data_dir;
                 base_dir.push("gossip");
-                base_dir
+                fs::canonicalize(base_dir)? // because gossip might be a link
             }
         };
 
