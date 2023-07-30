@@ -161,14 +161,13 @@ impl Storage {
 
     // Remove all events (and related data) with a created_at before `from`
     pub fn prune(&self, from: Unixtime) -> Result<usize, Error> {
-        let mut txn = self.env.begin_rw_txn()?;
 
         // Extract the Ids to delete.
         // We have to extract the Ids and release the cursor on the events database
         // in order to get a cursor on other databases since cursors mutably borrow
         // the transaction
+        let txn = self.env.begin_ro_txn()?;
         let mut ids: HashSet<Id> = HashSet::new();
-
         let mut cursor = txn.open_ro_cursor(self.events)?;
         let iter = cursor.iter_start();
         for result in iter {
@@ -189,11 +188,12 @@ impl Storage {
             }
         }
         drop(cursor);
+        txn.commit()?;
 
-        tracing::info!("PRUNE: deleting {} events", ids.len());
 
         // Delete from event_seen_on_relay
-        let mut deletions: usize = 0;
+        let mut txn = self.env.begin_rw_txn()?;
+        let mut deletions: Vec<Vec<u8>> = Vec::new();
         for id in &ids {
             let start_key: &[u8] = id.as_slice();
             let mut cursor = txn.open_rw_cursor(self.event_seen_on_relay)?;
@@ -205,18 +205,23 @@ impl Storage {
                         if !key.starts_with(&start_key) {
                             break;
                         }
-                        let _ = cursor.del(WriteFlags::empty());
-                        deletions += 1;
+                        deletions.push(key.to_owned());
                     }
                 }
             }
         }
         tracing::info!(
-            "PRUNE: deleted {} records from event_seen_on_relay",
-            deletions
+            "PRUNE: deleting {} records from event_seen_on_relay",
+            deletions.len()
         );
+        for deletion in deletions.drain(..) {
+            txn.del(self.event_seen_on_relay, &deletion, None)?;
+        }
+        txn.commit()?;
+
 
         // Delete from event_viewed
+        let mut txn = self.env.begin_rw_txn()?;
         for id in &ids {
             let _ = txn.del(self.event_viewed, &id.as_slice(), None);
         }
@@ -226,76 +231,92 @@ impl Storage {
         // (unfortunately since Ids are the values, we have to scan the whole thing)
         let mut cursor = txn.open_rw_cursor(self.hashtags)?;
         let iter = cursor.iter_start();
-        let mut deletions: usize = 0;
+        let mut deletions: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
         for result in iter {
             match result {
                 Err(e) => return Err(e.into()),
-                Ok((_key, val)) => {
+                Ok((key, val)) => {
                     let id = Id(val[0..32].try_into()?);
                     if ids.contains(&id) {
-                        let _ = cursor.del(WriteFlags::empty());
-                        deletions += 1;
+                        deletions.push((key.to_owned(), val.to_owned()));
                     }
                 }
             }
         }
         drop(cursor);
         tracing::info!(
-            "PRUNE: deleted {} records from hashtags",
-            deletions
+            "PRUNE: deleting {} records from hashtags",
+            deletions.len()
         );
+        for deletion in deletions.drain(..) {
+            txn.del(self.hashtags, &deletion.0, Some(&deletion.1))?;
+        }
+        txn.commit()?;
+
 
         // Delete from event_tags
         // (unfortunately since Ids are the values, we have to scan the whole thing)
+        let mut txn = self.env.begin_rw_txn()?;
         let mut cursor = txn.open_rw_cursor(self.event_tags)?;
         let iter = cursor.iter_start();
-        let mut deletions: usize = 0;
+        let mut deletions: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
         for result in iter {
             match result {
                 Err(e) => return Err(e.into()),
-                Ok((_key, val)) => {
+                Ok((key, val)) => {
                     let id = Id(val[0..32].try_into()?);
                     if ids.contains(&id) {
-                        let _ = cursor.del(WriteFlags::empty());
-                        deletions += 1;
+                        deletions.push((key.to_owned(), val.to_owned()));
                     }
                 }
             }
         }
         drop(cursor);
-        tracing::info!("PRUNE: deleted {} records from event_tags", deletions);
+        tracing::info!("PRUNE: deleting {} records from event_tags", deletions.len());
+        for deletion in deletions.drain(..) {
+            txn.del(self.event_tags, &deletion.0, Some(&deletion.1))?;
+        }
+        txn.commit()?;
+        let mut txn = self.env.begin_rw_txn()?;
+
 
         // Delete from relationships
         // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
         let mut cursor = txn.open_rw_cursor(self.relationships)?;
         let iter = cursor.iter_start();
-        let mut deletions: usize = 0;
+        let mut deletions: Vec<Vec<u8>> = Vec::new();
         for result in iter {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((key, _val)) => {
                     let id = Id(key[0..32].try_into()?);
                     if ids.contains(&id) {
-                        let _ = cursor.del(WriteFlags::empty());
-                        deletions += 1;
+                        deletions.push(key.to_owned());
                         continue;
                     }
                     let id2 = Id(key[32..64].try_into()?);
                     if ids.contains(&id2) {
-                        let _ = cursor.del(WriteFlags::empty());
-                        deletions += 1;
+                        deletions.push(key.to_owned());
                     }
                 }
             }
         }
         drop(cursor);
-        tracing::info!("PRUNE: deleted {} relationships", deletions);
+        tracing::info!("PRUNE: deleting {} relationships", deletions.len());
+        for deletion in deletions.drain(..) {
+            txn.del(self.relationships, &deletion, None)?;
+        }
+        txn.commit()?;
+
 
         // delete from events
+        let mut txn = self.env.begin_rw_txn()?;
         for id in &ids {
             let _ = txn.del(self.events, &id.as_ref(), None);
         }
         tracing::info!("PRUNE: deleted {} records from events", ids.len());
+        txn.commit()?;
+
 
         Ok(ids.len())
     }
