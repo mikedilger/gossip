@@ -45,6 +45,7 @@ image = { version = "0.24.6", features = [ "png", "jpeg" ] }
 lazy_static = "1.4"
 linkify = "0.9"
 lmdb-rkv = "0.14"
+lmdb-rkv-sys = "0.11"
 memoize = "0.4"
 mime = "0.3"
 nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "c63983fc849c26e984ee69b95bae60ea98dbe80a", features = [ "speedy" ] }

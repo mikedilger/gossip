@@ -1798,6 +1798,7 @@ dependencies = [
  "lazy_static",
  "linkify",
  "lmdb-rkv",
+ "lmdb-rkv-sys",
  "memoize",
  "mime",
  "nostr-types",
