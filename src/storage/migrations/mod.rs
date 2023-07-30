@@ -38,6 +38,8 @@ impl Storage {
 
     // Load and process every event in order to generate the relationships data
     fn compute_relationships(&self) -> Result<(), Error> {
+        self.disable_sync()?;
+
         // track progress
         let total = self.get_event_stats()?.entries();
         let mut count = 0;
@@ -60,6 +62,9 @@ impl Storage {
                 tracing::info!("{}/{}", count, total);
             }
         }
+
+        tracing::info!("syncing...");
+        self.enable_sync()?;
 
         Ok(())
     }

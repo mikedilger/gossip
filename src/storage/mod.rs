@@ -72,8 +72,8 @@ impl Storage {
         let mut builder = Environment::new();
 
         builder.set_flags(
-            EnvironmentFlags::WRITE_MAP // no nested transactions!
-            // commits sync. we don't disable any syncing.
+            EnvironmentFlags::WRITE_MAP, // no nested transactions!
+                                         // commits sync. we don't disable any syncing.
         );
         // builder.set_max_readers(126); // this is the default
         builder.set_max_dbs(32);
@@ -1093,5 +1093,33 @@ impl Storage {
         }
 
         Ok(ranked_relays)
+    }
+
+    fn disable_sync(&self) -> Result<(), Error> {
+        self.set_flags(
+            EnvironmentFlags::NO_SYNC | EnvironmentFlags::NO_META_SYNC,
+            true,
+        )
+    }
+
+    fn enable_sync(&self) -> Result<(), Error> {
+        // Sync the data. If we have a system crash before the migration level
+        // is written in the next line, import will start over.
+        self.env.sync(true)?;
+
+        self.set_flags(
+            EnvironmentFlags::NO_SYNC | EnvironmentFlags::NO_META_SYNC,
+            false,
+        )
+    }
+
+    fn set_flags(&self, flags: EnvironmentFlags, on: bool) -> Result<(), Error> {
+        let result = unsafe {
+            lmdb_sys::mdb_env_set_flags(self.env.env(), flags.bits(), if on { 1 } else { 0 })
+        };
+        if result != 0 {
+            return Err(ErrorKind::General("Unable to set LMDB flags".to_owned()).into());
+        }
+        Ok(())
     }
 }

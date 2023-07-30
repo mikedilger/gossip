@@ -13,6 +13,9 @@ impl Storage {
     pub(super) fn import(&self) -> Result<(), Error> {
         tracing::info!("Importing SQLITE data into LMDB...");
 
+        // Disable sync, we will sync when we are done.
+        self.disable_sync()?;
+
         // Progress the legacy database to the endpoint first
         let mut db = legacy::init_database()?;
         legacy::setup_database(&mut db)?;
@@ -84,6 +87,11 @@ impl Storage {
             self.write_person_relay(person_relay)
         })?;
         tracing::info!("LMDB: import person_relays");
+
+        // Re-enable sync (it also syncs the data).
+        // If we have a system crash before the migration level
+        // is written in the next line, import will start over.
+        self.enable_sync()?;
 
         // Mark migration level
         self.write_migration_level(0)?;
