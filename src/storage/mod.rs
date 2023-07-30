@@ -1255,6 +1255,11 @@ impl Storage {
         Ok(ranked_relays)
     }
 
+    pub fn sync(&self) -> Result<(), Error> {
+        self.env.sync(true)?;
+        Ok(())
+    }
+
     fn disable_sync(&self) -> Result<(), Error> {
         self.set_flags(
             EnvironmentFlags::NO_SYNC | EnvironmentFlags::NO_META_SYNC,

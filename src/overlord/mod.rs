@@ -58,6 +58,12 @@ impl Overlord {
 
         tracing::debug!("Overlord signalling UI to shutdown");
 
+        if let Err(e) = GLOBALS.storage.sync() {
+            tracing::error!("{}", e);
+        } else {
+            tracing::info!("LMDB synced.");
+        }
+
         GLOBALS.shutting_down.store(true, Ordering::Relaxed);
 
         tracing::debug!("Overlord signalling minions to shutdown");
