@@ -290,7 +290,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(12.0);
 
                     if ui.button("Prune Database")
-                        .on_hover_text("This will delete events older than six months.")
+                        .on_hover_text("This will delete events older than six months, but the LMDB files will continue consuming disk space. To compact them, copy withem with `mdb_copy -c` when gossip is not running.")
                         .clicked() {
                             GLOBALS.status_queue.write().write(
                                 "Pruning database, please wait (this takes a long time)...".to_owned()
