@@ -161,7 +161,6 @@ impl Storage {
 
     // Remove all events (and related data) with a created_at before `from`
     pub fn prune(&self, from: Unixtime) -> Result<usize, Error> {
-
         // Extract the Ids to delete.
         // We have to extract the Ids and release the cursor on the events database
         // in order to get a cursor on other databases since cursors mutably borrow
@@ -190,7 +189,6 @@ impl Storage {
         drop(cursor);
         txn.commit()?;
 
-
         // Delete from event_seen_on_relay
         let mut txn = self.env.begin_rw_txn()?;
         let mut deletions: Vec<Vec<u8>> = Vec::new();
@@ -202,7 +200,7 @@ impl Storage {
                 match result {
                     Err(e) => return Err(e.into()),
                     Ok((key, _val)) => {
-                        if !key.starts_with(&start_key) {
+                        if !key.starts_with(start_key) {
                             break;
                         }
                         deletions.push(key.to_owned());
@@ -218,7 +216,6 @@ impl Storage {
             txn.del(self.event_seen_on_relay, &deletion, None)?;
         }
         txn.commit()?;
-
 
         // Delete from event_viewed
         let mut txn = self.env.begin_rw_txn()?;
@@ -244,15 +241,11 @@ impl Storage {
             }
         }
         drop(cursor);
-        tracing::info!(
-            "PRUNE: deleting {} records from hashtags",
-            deletions.len()
-        );
+        tracing::info!("PRUNE: deleting {} records from hashtags", deletions.len());
         for deletion in deletions.drain(..) {
             txn.del(self.hashtags, &deletion.0, Some(&deletion.1))?;
         }
         txn.commit()?;
-
 
         // Delete from event_tags
         // (unfortunately since Ids are the values, we have to scan the whole thing)
@@ -272,13 +265,15 @@ impl Storage {
             }
         }
         drop(cursor);
-        tracing::info!("PRUNE: deleting {} records from event_tags", deletions.len());
+        tracing::info!(
+            "PRUNE: deleting {} records from event_tags",
+            deletions.len()
+        );
         for deletion in deletions.drain(..) {
             txn.del(self.event_tags, &deletion.0, Some(&deletion.1))?;
         }
         txn.commit()?;
         let mut txn = self.env.begin_rw_txn()?;
-
 
         // Delete from relationships
         // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
@@ -308,7 +303,6 @@ impl Storage {
         }
         txn.commit()?;
 
-
         // delete from events
         let mut txn = self.env.begin_rw_txn()?;
         for id in &ids {
@@ -316,7 +310,6 @@ impl Storage {
         }
         tracing::info!("PRUNE: deleted {} records from events", ids.len());
         txn.commit()?;
-
 
         Ok(ids.len())
     }
@@ -453,7 +446,12 @@ impl Storage {
     pub fn mark_event_viewed(&self, id: Id) -> Result<(), Error> {
         let bytes = vec![];
         let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.event_viewed, &id.as_slice(), &bytes, WriteFlags::empty())?;
+        txn.put(
+            self.event_viewed,
+            &id.as_slice(),
+            &bytes,
+            WriteFlags::empty(),
+        )?;
         txn.commit()?;
         Ok(())
     }
@@ -581,7 +579,12 @@ impl Storage {
         for tag in &event.tags {
             let mut tagbytes = serde_json::to_vec(&tag)?;
             tagbytes.truncate(MAX_LMDB_KEY);
-            txn.put(self.event_tags, &tagbytes, &event.id.as_slice(), WriteFlags::empty())?;
+            txn.put(
+                self.event_tags,
+                &tagbytes,
+                &event.id.as_slice(),
+                WriteFlags::empty(),
+            )?;
         }
         txn.commit()?;
         Ok(())
@@ -622,7 +625,12 @@ impl Storage {
     pub fn write_event(&self, event: &Event) -> Result<(), Error> {
         let bytes = event.write_to_vec()?;
         let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.events, &event.id.as_slice(), &bytes, WriteFlags::empty())?;
+        txn.put(
+            self.events,
+            &event.id.as_slice(),
+            &bytes,
+            WriteFlags::empty(),
+        )?;
         txn.commit()?;
         Ok(())
     }
