@@ -195,6 +195,71 @@ impl Storage {
         Ok(storage)
     }
 
+    pub fn get_general_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.general)?)
+    }
+
+    pub fn get_event_seen_on_relay_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.event_seen_on_relay)?)
+    }
+
+    pub fn get_event_viewed_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.event_viewed)?)
+    }
+
+    pub fn get_hashtags_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.hashtags)?)
+    }
+
+    pub fn get_relays_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.relays)?)
+    }
+
+    pub fn get_event_tags_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.event_tags)?)
+    }
+
+    pub fn get_event_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.events)?)
+    }
+
+    pub fn get_event_ek_pk_index_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.event_ek_pk_index)?)
+    }
+
+    pub fn get_event_ek_c_index_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.event_ek_c_index)?)
+    }
+
+    pub fn get_event_references_person_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.event_references_person)?)
+    }
+
+    pub fn get_relationships_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.relationships)?)
+    }
+
+    pub fn get_people_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.people)?)
+    }
+
+    pub fn get_person_relays_stats(&self) -> Result<Stat, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(txn.stat(self.person_relays)?)
+    }
+
     // Remove all events (and related data) with a created_at before `from`
     pub fn prune(&self, from: Unixtime) -> Result<usize, Error> {
         // Extract the Ids to delete.
@@ -684,11 +749,6 @@ impl Storage {
             Err(lmdb::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),
         }
-    }
-
-    pub fn get_event_stats(&self) -> Result<Stat, Error> {
-        let txn = self.env.begin_ro_txn()?;
-        Ok(txn.stat(self.events)?)
     }
 
     pub fn delete_event(&self, id: Id) -> Result<(), Error> {
@@ -1416,11 +1476,6 @@ impl Storage {
             }
         }
         Ok(output)
-    }
-
-    pub fn get_people_stats(&self) -> Result<Stat, Error> {
-        let txn = self.env.begin_ro_txn()?;
-        Ok(txn.stat(self.people)?)
     }
 
     pub fn write_person_relay(&self, person_relay: &PersonRelay) -> Result<(), Error> {
