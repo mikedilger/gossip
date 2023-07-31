@@ -327,9 +327,9 @@ impl Feed {
                                         true
                                     } else {
                                         // Include if it directly references me in the content
-                                        e.referenced_people()
+                                        e.people_referenced_in_content()
                                             .iter()
-                                            .any(|(p, _, _)| *p == my_pubkey.into())
+                                            .any(|p| *p == my_pubkey)
                                     }
                                 }
                             },
