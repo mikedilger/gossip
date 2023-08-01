@@ -229,7 +229,7 @@ impl Feed {
         // Copy some values from settings
         let feed_recompute_interval_ms = GLOBALS.settings.read().feed_recompute_interval_ms;
 
-        let kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
@@ -261,7 +261,6 @@ impl Feed {
                         |e| {
                             e.created_at <= now // no future events
                                 && e.kind != EventKind::EncryptedDirectMessage // no DMs
-                                && !e.kind.augments_feed_related() // no augments
                                 && !dismissed.contains(&e.id) // not dismissed
                                 && if !with_replies {
                                     !matches!(e.replies_to(), Some((_id, _))) // is not a reply
@@ -302,9 +301,6 @@ impl Feed {
                                 if e.created_at > now {
                                     return false;
                                 } // no future events
-                                if e.kind.augments_feed_related() {
-                                    return false;
-                                } // no augments
                                 if dismissed.contains(&e.id) {
                                     return false;
                                 } // not dismissed
@@ -361,9 +357,6 @@ impl Feed {
                         &[], // any person (due to delegation condition) // FIXME GINA
                         Some(one_year_ago), // one year ago
                         |e| {
-                            if e.kind.augments_feed_related() {
-                                return false;
-                            } // not augments
                             if dismissed.contains(&e.id) {
                                 return false;
                             } // not dismissed
