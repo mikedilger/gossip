@@ -114,6 +114,7 @@ impl Storage {
         //   and that it doesn't all have to be paged in at the same time.
         // Some filesystem that doesn't handle sparse files may allocate all
         //   of this, so we don't go too crazy big.
+
         builder.set_map_size(1048576 * 1024 * 24); // 24 GB
 
         let env = builder.open(&Profile::current()?.lmdb_dir)?;
@@ -812,6 +813,15 @@ impl Storage {
         match txn.get(self.events, &id.as_slice()) {
             Ok(bytes) => Ok(Some(Event::read_from_buffer(bytes)?)),
             Err(lmdb::Error::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn has_event(&self, id: Id) -> Result<bool, Error> {
+        let txn = self.env.begin_ro_txn()?;
+        match txn.get(self.events, &id.as_slice()) {
+            Ok(_bytes) => Ok(true),
+            Err(lmdb::Error::NotFound) => Ok(false),
             Err(e) => Err(e.into()),
         }
     }

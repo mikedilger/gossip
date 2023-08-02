@@ -28,7 +28,7 @@ pub async fn process_new_event(
     }
 
     // Determine if we already had this event
-    let duplicate = GLOBALS.storage.read_event(event.id)?.is_some();
+    let duplicate = GLOBALS.storage.has_event(event.id)?;
     if duplicate {
         tracing::trace!(
             "{}: Old Event: {} {:?} @{}",
