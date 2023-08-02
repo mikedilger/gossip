@@ -620,7 +620,7 @@ impl People {
         // We don't use the data, but we shouldn't clobber it.
 
         let content = match GLOBALS.storage.fetch_contact_list(&public_key)? {
-            Some(c) => c.content.clone(),
+            Some(c) => c.content,
             None => "".to_owned(),
         };
 
@@ -752,10 +752,10 @@ impl People {
         // Update memory
         if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
             if let Some(metadata) = &mut person.metadata {
-                metadata.nip05 = nip05.clone()
+                metadata.nip05 = nip05
             } else {
                 let mut metadata = Metadata::new();
-                metadata.nip05 = nip05.clone();
+                metadata.nip05 = nip05;
                 person.metadata = Some(metadata);
             }
             person.nip05_valid = nip05_valid;

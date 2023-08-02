@@ -1227,7 +1227,7 @@ impl Storage {
     pub fn get_deletion(&self, id: Id) -> Result<Option<String>, Error> {
         for (_, rel) in self.find_relationships(id)? {
             if let Relationship::Deletion(deletion) = rel {
-                return Ok(Some(deletion.clone()));
+                return Ok(Some(deletion));
             }
         }
         Ok(None)

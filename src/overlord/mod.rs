@@ -475,7 +475,7 @@ impl Overlord {
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
             ToOverlordMessage::AddRelay(relay_str) => {
-                let dbrelay = Relay::new(relay_str.clone());
+                let dbrelay = Relay::new(relay_str);
                 GLOBALS.storage.write_relay(&dbrelay)?;
             }
             ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
