@@ -16,6 +16,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn accent_color(dark_mode: bool) -> Color32 {
+        #[allow(clippy::if_same_then_else)]
         if dark_mode {
             Color32::from_rgb(85, 122, 149)
         } else {

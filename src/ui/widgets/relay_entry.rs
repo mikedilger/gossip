@@ -881,9 +881,7 @@ impl RelayEntry {
                         .interact(rect, self.make_id("rank_sub"), Sense::click())
                         .on_hover_cursor(CursorIcon::PointingHand);
                     if resp.clicked() {
-                        if new_r > 0 {
-                            new_r -= 1;
-                        }
+                        new_r = new_r.saturating_sub(1);
                     }
                     let (fill, txt) = if resp.hovered() {
                         (self.accent_hover, on_text)
