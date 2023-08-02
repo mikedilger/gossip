@@ -879,10 +879,11 @@ impl Storage {
                                 }
 
                                 // Break if we moved to a different public key
-                                let this_pubkey = match PublicKey::from_bytes(&key[4..4 + 32]) {
-                                    Err(_) => continue,
-                                    Ok(pk) => pk,
-                                };
+                                let this_pubkey =
+                                    match PublicKey::from_bytes(&key[4..4 + 32], false) {
+                                        Err(_) => continue,
+                                        Ok(pk) => pk,
+                                    };
                                 if this_pubkey != *pubkey {
                                     continue 'pubkeyloop;
                                 }
@@ -1114,7 +1115,7 @@ impl Storage {
 
         let mut pubkeys: HashSet<PublicKey> = HashSet::new();
         for (pubkeyhex, _, _) in event.people() {
-            let pubkey = match PublicKey::try_from_hex_string(pubkeyhex.as_str()) {
+            let pubkey = match PublicKey::try_from_hex_string(pubkeyhex.as_str(), false) {
                 Ok(pk) => pk,
                 Err(_) => continue,
             };
@@ -1126,7 +1127,7 @@ impl Storage {
         if !pubkeys.is_empty() {
             let mut txn = self.env.begin_rw_txn()?;
             for pubkey in pubkeys.drain() {
-                let mut key: Vec<u8> = pubkey.as_bytes();
+                let mut key: Vec<u8> = pubkey.to_bytes();
                 key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
                 txn.put(
                     self.event_references_person,
@@ -1153,7 +1154,7 @@ impl Storage {
         let txn = self.env.begin_ro_txn()?;
         let mut cursor = txn.open_ro_cursor(self.event_references_person)?;
         let now = Unixtime::now().unwrap();
-        let mut start_key: Vec<u8> = pubkey.as_bytes();
+        let mut start_key: Vec<u8> = pubkey.to_bytes();
         start_key.extend((i64::MAX - now.0).to_be_bytes().as_slice()); // work back from now
         let iter = cursor.iter_from(start_key);
         let mut events: Vec<Event> = Vec::new();
@@ -1162,7 +1163,7 @@ impl Storage {
                 Err(e) => return Err(e.into()),
                 Ok((key, val)) => {
                     // Break if we moved to a different pubkey
-                    let this_pubkey = match PublicKey::from_bytes(&key[..32]) {
+                    let this_pubkey = match PublicKey::from_bytes(&key[..32], false) {
                         Err(_) => continue,
                         Ok(pk) => pk,
                     };
@@ -1427,7 +1428,7 @@ impl Storage {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
-        let key: Vec<u8> = person.pubkey.as_bytes();
+        let key: Vec<u8> = person.pubkey.to_bytes();
         let bytes = serde_json::to_vec(person)?;
         let mut txn = self.env.begin_rw_txn()?;
         txn.put(self.people, &key, &bytes, WriteFlags::empty())?;
@@ -1439,7 +1440,7 @@ impl Storage {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
-        let key: Vec<u8> = pubkey.as_bytes();
+        let key: Vec<u8> = pubkey.to_bytes();
         let txn = self.env.begin_ro_txn()?;
         match txn.get(self.people, &key) {
             Ok(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
@@ -1479,7 +1480,7 @@ impl Storage {
     }
 
     pub fn write_person_relay(&self, person_relay: &PersonRelay) -> Result<(), Error> {
-        let mut key = person_relay.pubkey.as_bytes();
+        let mut key = person_relay.pubkey.to_bytes();
         key.extend(person_relay.url.0.as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let bytes = person_relay.write_to_vec()?;
@@ -1494,7 +1495,7 @@ impl Storage {
         pubkey: PublicKey,
         url: &RelayUrl,
     ) -> Result<Option<PersonRelay>, Error> {
-        let mut key = pubkey.as_bytes();
+        let mut key = pubkey.to_bytes();
         key.extend(url.0.as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let txn = self.env.begin_ro_txn()?;
@@ -1506,7 +1507,7 @@ impl Storage {
     }
 
     pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
-        let start_key = pubkey.as_bytes();
+        let start_key = pubkey.to_bytes();
         let txn = self.env.begin_ro_txn()?;
         let mut cursor = txn.open_ro_cursor(self.person_relays)?;
         let iter = cursor.iter_from(start_key.clone());

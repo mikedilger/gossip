@@ -112,7 +112,7 @@ pub async fn process_new_event(
                     recommended_relay_url: Some(should_be_url),
                     ..
                 } => {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey) {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
                         if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
                             GLOBALS.storage.write_relay_if_missing(&url)?;
 

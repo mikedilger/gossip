@@ -158,7 +158,7 @@ where
                 }
             }
             "public_key" => {
-                settings.public_key = match PublicKey::try_from_hex_string(&value) {
+                settings.public_key = match PublicKey::try_from_hex_string(&value, false) {
                     Ok(pk) => Some(pk),
                     Err(e) => {
                         tracing::error!("Public key in database is invalid or corrupt: {}", e);
@@ -373,7 +373,7 @@ where
         };
         let pk: String = row.get(0)?;
         let person = Person {
-            pubkey: match PublicKey::try_from_hex_string(&pk) {
+            pubkey: match PublicKey::try_from_hex_string(&pk, false) {
                 Ok(pk) => pk,
                 Err(e) => {
                     tracing::error!("{}", e);
@@ -410,7 +410,7 @@ where
     let mut rows = stmt.raw_query();
     while let Some(row) = rows.next()? {
         let pkstr: String = row.get(0)?;
-        let pubkey = match PublicKey::try_from_hex_string(&pkstr) {
+        let pubkey = match PublicKey::try_from_hex_string(&pkstr, false) {
             Ok(pk) => pk,
             Err(e) => {
                 tracing::error!("{}", e);

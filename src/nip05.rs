@@ -50,7 +50,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     let mut valid = false;
     match nip05file.names.get(&user) {
         Some(pk) => {
-            if let Ok(pubkey) = PublicKey::try_from_hex_string(pk) {
+            if let Ok(pubkey) = PublicKey::try_from_hex_string(pk, true) {
                 if pubkey == person.pubkey {
                     // Validated
                     GLOBALS
@@ -100,7 +100,7 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
 
     // Get their pubkey
     let pubkey = match nip05file.names.get(&user) {
-        Some(pk) => PublicKey::try_from_hex_string(pk)?,
+        Some(pk) => PublicKey::try_from_hex_string(pk, true)?,
         None => return Err((ErrorKind::Nip05KeyNotFound, file!(), line!()).into()),
     };
 

@@ -540,7 +540,7 @@ impl Overlord {
                 }));
             }
             ToOverlordMessage::FollowNprofile(nprofile) => {
-                match Profile::try_from_bech32_string(&nprofile) {
+                match Profile::try_from_bech32_string(&nprofile, true) {
                     Ok(np) => self.follow_nprofile(np).await?,
                     Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
                 }
@@ -582,8 +582,8 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::ImportPub(pubstr) => {
-                let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
-                let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
+                let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr, true);
+                let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr, true);
                 if maybe_pk1.is_err() && maybe_pk2.is_err() {
                     GLOBALS
                         .status_queue
@@ -835,9 +835,9 @@ impl Overlord {
         pubkeystr: String,
         relay: RelayUrl,
     ) -> Result<(), Error> {
-        let pubkey = match PublicKey::try_from_bech32_string(&pubkeystr) {
+        let pubkey = match PublicKey::try_from_bech32_string(&pubkeystr, true) {
             Ok(pk) => pk,
-            Err(_) => PublicKey::try_from_hex_string(&pubkeystr)?,
+            Err(_) => PublicKey::try_from_hex_string(&pubkeystr, true)?,
         };
         GLOBALS.people.follow(&pubkey, true)?;
 
@@ -1003,7 +1003,7 @@ impl Overlord {
                 .iter()
                 .filter_map(|t| {
                     if let Tag::Pubkey { pubkey, .. } = t {
-                        match PublicKey::try_from_hex_string(pubkey) {
+                        match PublicKey::try_from_hex_string(pubkey, true) {
                             Ok(pk) => Some(pk),
                             _ => None,
                         }
@@ -1782,7 +1782,7 @@ impl Overlord {
                 ..
             } = tag
             {
-                if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey) {
+                if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
                     // Make sure we have that person
                     GLOBALS.people.create_all_if_missing(&[pubkey.to_owned()])?;
 
@@ -1847,7 +1847,7 @@ impl Overlord {
         // If npub, convert to hex so we can find it in the database
         // (This will only work with full npubs)
         let mut pubkeytext = text.clone();
-        if let Ok(pk) = PublicKey::try_from_bech32_string(&text) {
+        if let Ok(pk) = PublicKey::try_from_bech32_string(&text, true) {
             pubkeytext = pk.as_hex_string();
         }
 

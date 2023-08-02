@@ -347,7 +347,7 @@ impl Feed {
                 let events: Vec<(Unixtime, Id)> = GLOBALS
                     .storage
                     .find_events(
-                        &kinds,             // feed kinds
+                        &kinds,              // feed kinds
                         &[], // any person (due to delegation condition) // FIXME GINA
                         Some(one_month_ago), // one year ago
                         |e| {

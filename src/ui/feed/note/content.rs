@@ -109,7 +109,8 @@ pub(super) fn render_content(
                     if let Some(tag) = note.event.tags.get(*num) {
                         match tag {
                             Tag::Pubkey { pubkey, .. } => {
-                                if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey.as_str())
+                                if let Ok(pubkey) =
+                                    PublicKey::try_from_hex_string(pubkey.as_str(), false)
                                 {
                                     render_profile_link(app, ui, &pubkey);
                                 }
