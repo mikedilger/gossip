@@ -393,7 +393,7 @@ impl Fetcher {
                 } else if e.is_decode() {
                     finish(FailOutcome::Fail, "decode error", Some(e.into()), 0);
                 } else {
-                    finish(FailOutcome::Fail, "other", Some(e.into()), 0);
+                    finish(FailOutcome::Fail, "other response error", Some(e.into()), 0);
                 }
                 return;
             }
@@ -413,6 +413,8 @@ impl Fetcher {
         } else if status.is_server_error() {
             finish(FailOutcome::Requeue, "server error", None, 300);
             // give them 5 minutes, maybe the server will recover
+        } else if status.is_success() {
+            // fall through
         } else {
             match status {
                 StatusCode::REQUEST_TIMEOUT => {
