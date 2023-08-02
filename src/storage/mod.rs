@@ -118,7 +118,9 @@ impl Storage {
         // This has to be big enough for all the data.
         // Note that it is the size of the map in VIRTUAL address space,
         //   and that it doesn't all have to be paged in at the same time.
-        builder.set_map_size(1048576 * 1024 * 128); // 128 GB
+        // Some filesystem that doesn't handle sparse files may allocate all
+        //   of this, so we don't go too crazy big.
+        builder.set_map_size(1048576 * 1024 * 24); // 24 GB
 
         let env = builder.open(&Profile::current()?.lmdb_dir)?;
 
