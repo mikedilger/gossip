@@ -212,21 +212,28 @@ impl Fetcher {
         let mut stale = false;
         match fs::metadata(cache_file.as_path()) {
             Ok(md) => {
-                if let Ok(modified) = md.modified() {
-                    if let Ok(dur) = modified.elapsed() {
-                        if dur < max_age {
-                            match fs::read(cache_file.as_path()) {
-                                Ok(contents) => {
-                                    tracing::debug!(
-                                        "FETCH {url}: Cache Hit age={}s",
-                                        dur.as_secs()
-                                    );
-                                    return Ok(Some(contents));
+                // We had a bug that put empty cache files in place (maybe we still have it).
+                // In any case, if the file is empty, don't honor it and wipe any etag
+                if md.len() == 0 {
+                    let etag_file = GLOBALS.fetcher.etag_file(&url);
+                    let _ = fs::remove_file(etag_file);
+                } else {
+                    if let Ok(modified) = md.modified() {
+                        if let Ok(dur) = modified.elapsed() {
+                            if dur < max_age {
+                                match fs::read(cache_file.as_path()) {
+                                    Ok(contents) => {
+                                        tracing::debug!(
+                                            "FETCH {url}: Cache Hit age={}s",
+                                            dur.as_secs()
+                                        );
+                                        return Ok(Some(contents));
+                                    }
+                                    Err(e) => return Err(e.into()),
                                 }
-                                Err(e) => return Err(e.into()),
+                            } else {
+                                stale = true;
                             }
-                        } else {
-                            stale = true;
                         }
                     }
                 }
