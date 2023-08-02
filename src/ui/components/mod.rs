@@ -98,13 +98,21 @@ pub fn switch_custom_at(
     on_fill: Color32,
     off_fill: Color32,
 ) -> Response {
-    let sense = if enabled { egui::Sense::click() } else { egui::Sense::hover() };
+    let sense = if enabled {
+        egui::Sense::click()
+    } else {
+        egui::Sense::hover()
+    };
     let mut response = ui.interact(rect, id, sense);
     if response.clicked() {
         *value = !*value;
         response.mark_changed();
     }
-    response = if enabled { response.on_hover_cursor(egui::CursorIcon::PointingHand) } else { response };
+    response = if enabled {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        response
+    };
     response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *value, ""));
 
     if ui.is_rect_visible(rect) {
@@ -132,11 +140,16 @@ pub fn switch_custom_at(
         } else {
             visuals.bg_stroke
         };
-        ui.painter().rect(rect.shrink(1.0), radius, bg_fill, visuals.bg_stroke);
+        ui.painter()
+            .rect(rect.shrink(1.0), radius, bg_fill, visuals.bg_stroke);
         let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
         let center = egui::pos2(circle_x, rect.center().y);
-        ui.painter()
-            .circle(center, 0.875 * radius, knob_fill, Stroke::new( 0.7, fg_stroke.color));
+        ui.painter().circle(
+            center,
+            0.875 * radius,
+            knob_fill,
+            Stroke::new(0.7, fg_stroke.color),
+        );
     }
 
     response

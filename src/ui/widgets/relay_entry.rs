@@ -3,7 +3,12 @@ use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
 use nostr_types::{PublicKeyHex, Unixtime};
 
-use crate::{comms::ToOverlordMessage, relay::Relay, globals::GLOBALS, ui::{components, GossipUi}};
+use crate::{
+    comms::ToOverlordMessage,
+    globals::GLOBALS,
+    relay::Relay,
+    ui::{components, GossipUi},
+};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 80.0;
@@ -148,7 +153,7 @@ impl RelayEntry {
     pub(in crate::ui) fn new(db_relay: Relay, app: &mut GossipUi) -> Self {
         let usage = UsageBits::from_usage_bits(db_relay.usage_bits);
         let accent = app.settings.theme.accent_color();
-        let mut hsva: ecolor::HsvaGamma  = accent.into();
+        let mut hsva: ecolor::HsvaGamma = accent.into();
         hsva.v *= 0.8;
         let accent_hover: Color32 = hsva.into();
         Self {
@@ -207,14 +212,7 @@ impl RelayEntry {
         }
         let text = RichText::new(title).size(16.5);
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
-        draw_text_at(
-            ui,
-            pos,
-            text.into(),
-            Align::LEFT,
-            Some(self.accent),
-            None,
-        );
+        draw_text_at(ui, pos, text.into(), Align::LEFT, Some(self.accent), None);
     }
 
     fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
@@ -236,9 +234,10 @@ impl RelayEntry {
         if self.db_relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let text = RichText::new("pick up & configure");
-            let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled,false)
-                .on_hover_cursor(CursorIcon::PointingHand)
-                .on_hover_text("Configure this relay as one of your personal relays");
+            let response =
+                draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled, false)
+                    .on_hover_cursor(CursorIcon::PointingHand)
+                    .on_hover_text("Configure this relay as one of your personal relays");
             if self.enabled && response.clicked() {
                 self.view = RelayEntryView::Edit;
             }
@@ -246,7 +245,8 @@ impl RelayEntry {
         } else {
             let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
-            let response = ui.interact(btn_rect, id, Sense::click())
+            let response = ui
+                .interact(btn_rect, id, Sense::click())
                 .on_hover_cursor(CursorIcon::PointingHand)
                 .on_hover_text("Configure Relay");
             let color = if response.hovered() {
@@ -269,14 +269,16 @@ impl RelayEntry {
         let id = self.make_id("close_btn");
         let button_padding = ui.spacing().button_padding;
         let text = WidgetText::from("Close")
-            .color( ui.visuals().extreme_bg_color )
+            .color(ui.visuals().extreme_bg_color)
             .into_galley(ui, Some(false), 0.0, TextStyle::Button);
         let mut desired_size = text.size() + 4.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
         let pos =
             rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - OUTER_MARGIN_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
-        let response = ui.interact(btn_rect, id, Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand);
+        let response = ui
+            .interact(btn_rect, id, Sense::click())
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
 
         let visuals = ui.style().interact(&response);
@@ -286,7 +288,7 @@ impl RelayEntry {
             } else {
                 self.accent
             };
-            let stroke = Stroke::new( visuals.bg_stroke.width, self.accent );
+            let stroke = Stroke::new(visuals.bg_stroke.width, self.accent);
             let rounding = visuals.rounding;
             ui.painter()
                 .rect(btn_rect.expand(visuals.expansion), rounding, fill, stroke);
@@ -306,10 +308,8 @@ impl RelayEntry {
     }
 
     fn paint_lower_buttons(&self, ui: &mut Ui, rect: &Rect) -> Response {
-        let line_height = ui.fonts(|f| {
-            f.row_height(&FontId::default())
-        });
-        let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 -OUTER_MARGIN_BOTTOM -line_height);
+        let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
+        let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 - OUTER_MARGIN_BOTTOM - line_height);
         let id = self.make_id("remove_button");
         let text = "Remove from personal list";
         let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
@@ -322,9 +322,9 @@ impl RelayEntry {
         let text = "Force disconnect";
         let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
-            let _ = GLOBALS.to_overlord.send(
-                ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
-            );
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()));
         }
         // pass the response back so the page knows the edit view should close
         response
@@ -362,7 +362,14 @@ impl RelayEntry {
             // if response.clicked() {
             //     // TODO go to following page for this relay?
             // }
-            draw_text_at(ui, pos, text.into(), Align::LEFT, Some(ui.visuals().text_color()), None);
+            draw_text_at(
+                ui,
+                pos,
+                text.into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
 
             // ---- Last event ----
             let pos = pos + vec2(STATS_COL_3_X, 0.0);
@@ -402,7 +409,7 @@ impl RelayEntry {
 
             // ---- Rank ----
             let pos = pos + vec2(STATS_COL_5_X, 0.0);
-            let text = RichText::new(format!("Usage Rank: {}", self.db_relay.rank ));
+            let text = RichText::new(format!("Usage Rank: {}", self.db_relay.rank));
             draw_text_at(
                 ui,
                 pos,
@@ -419,12 +426,17 @@ impl RelayEntry {
             let align = Align::Center;
 
             let bg_rect = egui::Rect::from_x_y_ranges(
-                right.x - 150.0 ..= right.x,
-                right.y - 5.0 ..= right.y + 18.0);
+                right.x - 150.0..=right.x,
+                right.y - 5.0..=right.y + 18.0,
+            );
             let bg_radius = bg_rect.height() / 2.0;
-            ui.painter().rect_filled(bg_rect, egui::Rounding::same(bg_radius), ui.visuals().code_bg_color);
+            ui.painter().rect_filled(
+                bg_rect,
+                egui::Rounding::same(bg_radius),
+                ui.visuals().code_bg_color,
+            );
 
-            fn switch( ui: &mut Ui, str: &str, on: bool ) -> (RichText, Color32) {
+            fn switch(ui: &mut Ui, str: &str, on: bool) -> (RichText, Color32) {
                 let active = ui.visuals().text_color();
                 let inactive = ui.visuals().text_color().gamma_multiply(0.4);
                 if on {
@@ -438,52 +450,58 @@ impl RelayEntry {
             const SPACE: f32 = 23.0;
 
             // ---- R ----
-            let pos = right + vec2(RIGHT - 5.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "R", self.usage.read );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
+            let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
+            let (text, color) = switch(ui, "R", self.usage.read);
+            let (galley, response) =
+                allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
             draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(READ_HOVER_TEXT);
 
             // ---- I ----
-            let pos = right + vec2(RIGHT - 4.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "I", self.usage.inbox );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
+            let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
+            let (text, color) = switch(ui, "I", self.usage.inbox);
+            let (galley, response) =
+                allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
             draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(INBOX_HOVER_TEXT);
 
             // ---- + ----
-            let pos = pos - vec2(SPACE/2.0,0.0);
+            let pos = pos - vec2(SPACE / 2.0, 0.0);
             draw_text_at(ui, pos, "+".into(), align, Some(color), None);
 
             // ---- W ----
-            let pos = right + vec2(RIGHT - 3.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "W", self.usage.write );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
+            let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
+            let (text, color) = switch(ui, "W", self.usage.write);
+            let (galley, response) =
+                allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
             draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(WRITE_HOVER_TEXT);
 
             // ---- O ----
-            let pos = right + vec2(RIGHT - 2.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "O", self.usage.outbox );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
+            let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
+            let (text, color) = switch(ui, "O", self.usage.outbox);
+            let (galley, response) =
+                allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
             draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(OUTBOX_HOVER_TEXT);
 
             // ---- + ----
-            let pos = pos - vec2(SPACE/2.0,0.0);
+            let pos = pos - vec2(SPACE / 2.0, 0.0);
             draw_text_at(ui, pos, "+".into(), align, Some(color), None);
 
             // ---- D ----
-            let pos = right + vec2(RIGHT - 1.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "D", self.usage.discover );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
+            let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
+            let (text, color) = switch(ui, "D", self.usage.discover);
+            let (galley, response) =
+                allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
             draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(DISCOVER_HOVER_TEXT);
 
             // ---- A ----
-            let pos = right + vec2(RIGHT - 0.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "A", self.usage.advertise );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
+            let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
+            let (text, color) = switch(ui, "A", self.usage.advertise);
+            let (galley, response) =
+                allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
             draw_text_galley_at(ui, pos, galley, Some(color), None);
             response.on_hover_text(ADVERTISE_HOVER_TEXT);
         }
@@ -502,7 +520,10 @@ impl RelayEntry {
                 if response.clicked() {
                     ui.output_mut(|o| {
                         o.copied_text = contact.to_string();
-                        GLOBALS.status_queue.write().write("copied to clipboard".into());
+                        GLOBALS
+                            .status_queue
+                            .write()
+                            .write("copied to clipboard".into());
                     });
                 }
                 response.on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -513,8 +534,8 @@ impl RelayEntry {
                 let desc_tr = safe_truncate(desc.as_str(), 70); // TODO is this a good number?
                 let rect = draw_text_at(ui, pos, desc_tr.into(), align, None, None);
                 ui.interact(rect, self.make_id("nip11desc"), Sense::hover())
-                    .on_hover_ui(|ui|{
-                        ui.horizontal_wrapped(|ui|{
+                    .on_hover_ui(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             ui.set_max_width(400.0);
                             ui.label(desc);
                         });
@@ -532,7 +553,10 @@ impl RelayEntry {
                     if response.clicked() {
                         ui.output_mut(|o| {
                             o.copied_text = npub;
-                            GLOBALS.status_queue.write().write("copied to clipboard".into());
+                            GLOBALS
+                                .status_queue
+                                .write()
+                                .write("copied to clipboard".into());
                         });
                     }
                     response.on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -603,10 +627,22 @@ impl RelayEntry {
         }
         {
             // ---- connecting line ----
-            let start = pos + vec2(USAGE_SWITCH_X_SPACING + USAGE_LINE_X_START, USAGE_LINE_Y_OFFSET);
-            let end = pos + vec2(USAGE_SWITCH_X_SPACING + USAGE_LINE_X_END, USAGE_LINE_Y_OFFSET);
+            let start = pos
+                + vec2(
+                    USAGE_SWITCH_X_SPACING + USAGE_LINE_X_START,
+                    USAGE_LINE_Y_OFFSET,
+                );
+            let end = pos
+                + vec2(
+                    USAGE_SWITCH_X_SPACING + USAGE_LINE_X_END,
+                    USAGE_LINE_Y_OFFSET,
+                );
             let painter = ui.painter();
-            painter.hline(start.x..=end.x, end.y, Stroke::new(USAGE_LINE_THICKNESS, ui.visuals().panel_fill));
+            painter.hline(
+                start.x..=end.x,
+                end.y,
+                Stroke::new(USAGE_LINE_THICKNESS, ui.visuals().panel_fill),
+            );
         }
         {
             // ---- inbox ----
@@ -690,10 +726,22 @@ impl RelayEntry {
         }
         {
             // ---- connecting line ----
-            let start = pos + vec2(USAGE_SWITCH_X_SPACING + USAGE_LINE_X_START, USAGE_LINE_Y_OFFSET);
-            let end = pos + vec2(USAGE_SWITCH_X_SPACING + USAGE_LINE_X_END, USAGE_LINE_Y_OFFSET);
+            let start = pos
+                + vec2(
+                    USAGE_SWITCH_X_SPACING + USAGE_LINE_X_START,
+                    USAGE_LINE_Y_OFFSET,
+                );
+            let end = pos
+                + vec2(
+                    USAGE_SWITCH_X_SPACING + USAGE_LINE_X_END,
+                    USAGE_LINE_Y_OFFSET,
+                );
             let painter = ui.painter();
-            painter.hline(start.x..=end.x, end.y, Stroke::new(USAGE_LINE_THICKNESS, ui.visuals().panel_fill));
+            painter.hline(
+                start.x..=end.x,
+                end.y,
+                Stroke::new(USAGE_LINE_THICKNESS, ui.visuals().panel_fill),
+            );
         }
         {
             // ---- outbox ----
@@ -805,18 +853,32 @@ impl RelayEntry {
             let txt_color = ui.visuals().text_color();
             let on_text = ui.visuals().extreme_bg_color;
             let btn_height: f32 = ui.spacing().interact_size.y;
-            let btn_round: Rounding = Rounding::same(btn_height/2.0);
+            let btn_round: Rounding = Rounding::same(btn_height / 2.0);
             let font: FontId = Default::default();
             // font.size = 11.0;
             {
                 // -- value display --
-                let rect = Rect::from_min_size(pos + vec2(10.0, -4.0), vec2(40.0 + 8.0,btn_height + 4.0) );
-                ui.painter().rect(rect, btn_round, ui.visuals().extreme_bg_color, Stroke::new(1.0, off_fill));
-                ui.painter().text(pos + vec2(34.0,0.0), Align2::CENTER_TOP, format!( "{}", r), font.clone(), txt_color);
+                let rect =
+                    Rect::from_min_size(pos + vec2(10.0, -4.0), vec2(40.0 + 8.0, btn_height + 4.0));
+                ui.painter().rect(
+                    rect,
+                    btn_round,
+                    ui.visuals().extreme_bg_color,
+                    Stroke::new(1.0, off_fill),
+                );
+                ui.painter().text(
+                    pos + vec2(34.0, 0.0),
+                    Align2::CENTER_TOP,
+                    format!("{}", r),
+                    font.clone(),
+                    txt_color,
+                );
                 {
                     // -- - button --
-                    let rect = Rect::from_min_size( pos + vec2(0.0, -2.0), vec2(btn_height,btn_height) );
-                    let resp = ui.interact(rect, self.make_id("rank_sub"), Sense::click())
+                    let rect =
+                        Rect::from_min_size(pos + vec2(0.0, -2.0), vec2(btn_height, btn_height));
+                    let resp = ui
+                        .interact(rect, self.make_id("rank_sub"), Sense::click())
                         .on_hover_cursor(CursorIcon::PointingHand);
                     if resp.clicked() {
                         if new_r > 0 {
@@ -829,12 +891,20 @@ impl RelayEntry {
                         (self.accent, on_text)
                     };
                     ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
-                    ui.painter().text(rect.center(), Align2::CENTER_CENTER, "\u{2212}", font.clone(), txt);
+                    ui.painter().text(
+                        rect.center(),
+                        Align2::CENTER_CENTER,
+                        "\u{2212}",
+                        font.clone(),
+                        txt,
+                    );
                 }
                 {
                     // -- + button --
-                    let rect = Rect::from_min_size( pos + vec2(48.0, -2.0), vec2(btn_height,btn_height) );
-                    let resp = ui.interact(rect, self.make_id("rank_add"), Sense::click())
+                    let rect =
+                        Rect::from_min_size(pos + vec2(48.0, -2.0), vec2(btn_height, btn_height));
+                    let resp = ui
+                        .interact(rect, self.make_id("rank_add"), Sense::click())
                         .on_hover_cursor(CursorIcon::PointingHand);
                     if resp.clicked() {
                         if new_r < 9 {
@@ -847,23 +917,36 @@ impl RelayEntry {
                         (self.accent, on_text)
                     };
                     ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
-                    ui.painter().text(rect.center(), Align2::CENTER_CENTER, "\u{002B}", font.clone(), txt);
+                    ui.painter().text(
+                        rect.center(),
+                        Align2::CENTER_CENTER,
+                        "\u{002B}",
+                        font.clone(),
+                        txt,
+                    );
                 }
             }
-            let pos = pos+vec2(80.0,0.0);
+            let pos = pos + vec2(80.0, 0.0);
             {
-                ui.painter().text(pos, Align2::LEFT_TOP, "Relay-picker rank", font.clone(), txt_color);
+                ui.painter().text(
+                    pos,
+                    Align2::LEFT_TOP,
+                    "Relay-picker rank",
+                    font.clone(),
+                    txt_color,
+                );
             }
 
             if new_r != self.db_relay.rank {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::RankRelay(self.db_relay.url.clone(), new_r as u8));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::RankRelay(
+                    self.db_relay.url.clone(),
+                    new_r as u8,
+                ));
             }
         }
     }
 
-    fn make_id(&self, str: &str ) -> Id {
+    fn make_id(&self, str: &str) -> Id {
         (self.db_relay.url.to_string() + str).into()
     }
 
@@ -954,11 +1037,7 @@ fn allocate_text_at(
             pos2(pos.x, pos.y + grect.height()),
         )
     };
-    let response = ui.interact(
-        rect,
-        id,
-        Sense::click(),
-    );
+    let response = ui.interact(rect, id, Sense::click());
     (galley, response)
 }
 
@@ -982,18 +1061,17 @@ fn draw_text_galley_at(
     let rect = if halign == Align::LEFT {
         Rect::from_min_size(pos, size)
     } else {
-        Rect::from_x_y_ranges( pos.x - size.x ..= pos.x, pos.y ..= pos.y + size.y)
+        Rect::from_x_y_ranges(pos.x - size.x..=pos.x, pos.y..=pos.y + size.y)
     };
     if let Some(stroke) = underline {
-        let stroke = Stroke::new( stroke.width, stroke.color.gamma_multiply(0.6));
-        let line_height = ui.fonts(|f| {
-            f.row_height(&FontId::default())
-        });
+        let stroke = Stroke::new(stroke.width, stroke.color.gamma_multiply(0.6));
+        let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
         let painter = ui.painter();
         painter.hline(
-           rect.min.x ..= rect.max.x,
-           rect.min.y + line_height - 2.0,
-           stroke);
+            rect.min.x..=rect.max.x,
+            rect.min.y + line_height - 2.0,
+            stroke,
+        );
     }
     rect
 }
@@ -1038,7 +1116,10 @@ fn draw_link_at(
             if response.hovered() {
                 (hover_color, Stroke::NONE)
             } else {
-                (ui.visuals().text_color(), Stroke::new(1.0, ui.visuals().text_color()))
+                (
+                    ui.visuals().text_color(),
+                    Stroke::new(1.0, ui.visuals().text_color()),
+                )
             }
         } else {
             (ui.visuals().weak_text_color(), Stroke::NONE)

@@ -1,8 +1,6 @@
-use super::{
-    filter_relay, relay_filter_combo, relay_sort_combo, GossipUi,
-};
-use crate::relay::Relay;
+use super::{filter_relay, relay_filter_combo, relay_sort_combo, GossipUi};
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use crate::ui::widgets::{self, RelayEntry};
 use eframe::egui;
 use egui::{Context, Ui};
@@ -27,9 +25,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     let mut relays: Vec<Relay> = GLOBALS
         .storage
-        .filter_relays(|relay| {
-            relay.usage_bits != 0 && filter_relay(&app.relays, relay)
-        })
+        .filter_relays(|relay| relay.usage_bits != 0 && filter_relay(&app.relays, relay))
         .unwrap_or(Vec::new());
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));

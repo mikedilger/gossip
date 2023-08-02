@@ -1,12 +1,10 @@
 use std::collections::HashSet;
 
-use super::{
-    filter_relay, relay_filter_combo, relay_sort_combo, GossipUi,
-};
-use crate::relay::Relay;
+use super::{filter_relay, relay_filter_combo, relay_sort_combo, GossipUi};
+use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use crate::ui::widgets::{self, RelayEntry};
-use crate::{comms::ToOverlordMessage};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, Sense};
