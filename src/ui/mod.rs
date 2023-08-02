@@ -835,9 +835,11 @@ impl eframe::App for GossipUi {
                             .get_event_stats()
                             .map(|s| s.entries())
                             .unwrap_or(0);
+                        let relays = GLOBALS.connected_relays.len();
                         let stats_message = format!(
-                            "EVENTS: {}           HTTP: {} / {}",
+                            "EVENTS: {}     RELAYS CONNECTED: {}     HTTP: {} / {}",
                             events,
+                            relays,
                             in_flight,
                             in_flight + queued
                         );
