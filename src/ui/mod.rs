@@ -50,8 +50,8 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
-use self::components::NavItem;
 use self::feed::Notes;
+use self::widgets::NavItem;
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
@@ -102,8 +102,9 @@ enum Page {
     YourKeys,
     YourMetadata,
     YourDelegation,
-    RelaysLive,
-    RelaysAll,
+    RelaysActivityMonitor,
+    RelaysMine,
+    RelaysKnownNetwork,
     Search,
     Settings,
     HelpHelp,
@@ -177,6 +178,9 @@ struct GossipUi {
     // Processed events caching
     notes: Notes,
 
+    // RelayUi
+    relays: relays::RelayUi,
+
     // Post rendering
     render_raw: Option<Id>,
     render_qr: Option<Id>,
@@ -199,6 +203,7 @@ struct GossipUi {
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
+    options_symbol: TextureHandle,
     settings: Settings,
     avatars: HashMap<PublicKey, TextureHandle>,
     images: HashMap<Url, TextureHandle>,
@@ -242,7 +247,6 @@ struct GossipUi {
     new_metadata_fieldname: String,
     import_priv: String,
     import_pub: String,
-    new_relay_url: String,
     show_hidden_relays: bool,
     search: String,
     entering_search_page: bool,
@@ -353,17 +357,19 @@ impl GossipUi {
         };
 
         // how to load an svg
-        // let expand_right_symbol = {
-        //     let bytes = include_bytes!("../../assets/expand-image.svg");
-        //     let color_image = egui_extras::image::load_svg_bytes_with_size(
-        //         bytes,
-        //         egui_extras::image::FitTo::Size(200, 1000),
-        //     ).unwrap();
-        //     cctx.egui_ctx.load_texture(
-        //         "expand_right_symbol",
-        //         color_image,
-        //         TextureOptions::default())
-        // };
+        let options_symbol = {
+            let bytes = include_bytes!("../../assets/option.svg");
+            let color_image = egui_extras::image::load_svg_bytes_with_size(
+                bytes,
+                egui_extras::image::FitTo::Size(
+                    (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
+                    (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
+                ),
+            )
+            .unwrap();
+            cctx.egui_ctx
+                .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
+        };
 
         let current_dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;
         let (override_dpi, override_dpi_value): (bool, u32) = match settings.override_dpi {
@@ -395,6 +401,7 @@ impl GossipUi {
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
             notes: Notes::new(),
+            relays: relays::RelayUi::new(),
             render_raw: None,
             render_qr: None,
             approved: HashSet::new(),
@@ -416,6 +423,7 @@ impl GossipUi {
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
+            options_symbol,
             settings,
             avatars: HashMap::new(),
             images: HashMap::new(),
@@ -448,7 +456,6 @@ impl GossipUi {
             new_metadata_fieldname: String::new(),
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
-            new_relay_url: "".to_owned(),
             show_hidden_relays: false,
             search: "".to_owned(),
             entering_search_page: false,
@@ -575,6 +582,11 @@ impl eframe::App for GossipUi {
             }
         }
 
+        // dialogues first
+        if self.relays.add_dialog_active {
+            relays::entry_dialog(ctx, self);
+        }
+
         egui::SidePanel::left("main-naviation-panel")
             .show_separator_line(false)
             .frame(
@@ -589,6 +601,8 @@ impl eframe::App for GossipUi {
                 .fill(self.settings.theme.navigation_bg_fill())
             )
             .show(ctx, |ui| {
+                    self.begin_ui(ui);
+
                     // cut indentation
                     ui.style_mut().spacing.indent = 0.0;
                     ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.settings.theme.navigation_text_color();
@@ -664,8 +678,19 @@ impl eframe::App for GossipUi {
                         let (mut submenu, header_response) =
                             self.get_openable_menu( ui, SubMenu::Relays, "Relays");
                         submenu.show_body_indented(&header_response, ui, |ui| {
-                                self.add_menu_item_page(ui, Page::RelaysLive, "Live");
-                                self.add_menu_item_page(ui, Page::RelaysAll, "Configure");
+                                self.add_menu_item_page(ui, Page::RelaysActivityMonitor, "Active Relays");
+                                self.add_menu_item_page(ui, Page::RelaysMine, "My Relays");
+                                self.add_menu_item_page(ui, Page::RelaysKnownNetwork, "Known Network");
+                                ui.vertical(|ui| {
+                                    ui.spacing_mut().button_padding *= 2.0;
+                                    ui.visuals_mut().widgets.inactive.weak_bg_fill = self.settings.theme.accent_color().linear_multiply(0.2);
+                                    ui.visuals_mut().widgets.inactive.fg_stroke.width = 1.0;
+                                    ui.visuals_mut().widgets.hovered.weak_bg_fill = self.settings.theme.navigation_text_color();
+                                    ui.visuals_mut().widgets.hovered.fg_stroke.color = self.settings.theme.accent_color();
+                                    if ui.button(RichText::new("Add Relay")).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                                        self.relays.add_dialog_active = true;
+                                    }
+                                });
                             });
                         self.after_openable_menu(ui, &submenu);
                     }
@@ -739,6 +764,7 @@ impl eframe::App for GossipUi {
                             .fixed_pos(pos)
                             .constrain(true)
                             .show(ctx, |ui| {
+                                self.begin_ui(ui);
                                 egui::Frame::popup(&self.settings.theme.get_style())
                                     .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32/2.0)) // need the rounding for the shadow
                                     .stroke(egui::Stroke::NONE)
@@ -790,6 +816,7 @@ impl eframe::App for GossipUi {
                 ctx,
                 self.show_post_area && self.settings.posting_area_at_top,
                 |ui| {
+                    self.begin_ui(ui);
                     feed::post::posting_area(self, ctx, frame, ui);
                 },
             );
@@ -821,6 +848,7 @@ impl eframe::App for GossipUi {
             .resizable(resizable)
             .show_separator_line(false)
             .show_animated(ctx, show_status, |ui| {
+                self.begin_ui(ui);
                 if self.show_post_area && !self.settings.posting_area_at_top {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
@@ -870,25 +898,35 @@ impl eframe::App for GossipUi {
                     bottom: 0.0,
                 })
             })
-            .show(ctx, |ui| match self.page {
-                Page::Feed(_) => feed::update(self, ctx, frame, ui),
-                Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
-                    people::update(self, ctx, frame, ui)
-                }
-                Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
-                    you::update(self, ctx, frame, ui)
-                }
-                Page::RelaysLive | Page::RelaysAll => relays::update(self, ctx, frame, ui),
-                Page::Search => search::update(self, ctx, frame, ui),
-                Page::Settings => settings::update(self, ctx, frame, ui),
-                Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
-                    help::update(self, ctx, frame, ui)
+            .show(ctx, |ui| {
+                self.begin_ui(ui);
+                match self.page {
+                    Page::Feed(_) => feed::update(self, ctx, frame, ui),
+                    Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
+                        people::update(self, ctx, frame, ui)
+                    }
+                    Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
+                        you::update(self, ctx, frame, ui)
+                    }
+                    Page::RelaysActivityMonitor | Page::RelaysMine | Page::RelaysKnownNetwork => {
+                        relays::update(self, ctx, frame, ui)
+                    }
+                    Page::Search => search::update(self, ctx, frame, ui),
+                    Page::Settings => settings::update(self, ctx, frame, ui),
+                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
+                        help::update(self, ctx, frame, ui)
+                    }
                 }
             });
     }
 }
 
 impl GossipUi {
+    fn begin_ui(&self, ui: &mut Ui) {
+        // if a dialog is open, disable the rest of the UI
+        ui.set_enabled(!self.relays.add_dialog_active);
+    }
+
     /// A short rendering of a `PublicKey`
     pub fn pubkey_short(pk: &PublicKey) -> String {
         let npub = pk.as_bech32_string();
@@ -1196,9 +1234,6 @@ impl GossipUi {
         ui.add_space(2.0);
         let response = ui.add(label);
         ui.add_space(2.0);
-        response
-            .clone()
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
         response
     }
 

@@ -129,7 +129,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 ui.horizontal(|ui| {
                     ui.label("You need to");
                     if ui.link("configure write relays").clicked() {
-                        app.set_page(Page::RelaysAll);
+                        app.set_page(Page::RelaysKnownNetwork);
                     }
                     ui.label("to edit/save metadata.");
                 });

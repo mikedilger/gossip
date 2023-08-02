@@ -57,7 +57,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays > Configure").clicked() {
-                        app.set_page(Page::RelaysAll);
+                        app.set_page(Page::RelaysKnownNetwork);
                     }
                     ui.label("page, add a few relays that you post to and read from, and tick the \"Read\" and \"Write\" columns appropriately.\n\nWRITE RELAYS: These are used for writing posts, and for reading back your posts including your RelayList and ContactList, which we will need to get started. You should have published these from a previous client, and you should specify a relay that has these on it.\n\nREAD RELAYS: These are used to find other people's RelayList (including those embedded in ContactList events), as a fallback for users that gossip has not found yet, and more. Once gossip learns where the people you follow post, it will pick up their posts from their write relays rather than from your read relays. The more read relays you configure, the better chance you'll find everybody.");
                 });
@@ -81,7 +81,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays > Live").clicked() {
-                        app.set_page(Page::RelaysLive);
+                        app.set_page(Page::RelaysActivityMonitor);
                     }
                     ui.label("page, watch the live connections. Press [Pick Again] if connections aren't being made. If people aren't being found, you may need to add different relays and try this again. Watch the console output to see if gossip is busy and wait for it to settle down a bit.");
                 });
@@ -153,7 +153,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays > Configure").clicked() {
-                        app.set_page(Page::RelaysAll);
+                        app.set_page(Page::RelaysKnownNetwork);
                     }
                     ui.label("page, add a few relays that you post to and read from, and tick the \"Read\" and \"Write\" columns appropriately. You will need to search the Internet for nostr relays as we don't want to give special mention to any in particular.\n\nWRITE RELAYS: These are used for writing posts, and for reading back your posts including your RelayList and ContactList whenever you move clients.\n\nREAD RELAYS: These are used to find other people's RelayList (including those embedded in ContactList events), as a fallback for users that gossip has not found yet, and more. Once gossip learns where the people you follow post, it will pick up their posts from their write relays rather than from your read relays. The more read relays you configure, the better chance you'll find everybody.");
                 });
@@ -177,7 +177,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays > Live").clicked() {
-                        app.set_page(Page::RelaysLive);
+                        app.set_page(Page::RelaysActivityMonitor);
                     }
                     ui.label("page, watch the live connections. Press [Pick Again] if connections aren't being made. If people aren't being found, you may need to add different relays and try this again. Watch the console output to see if gossip is busy and wait for it to settle down a bit.");
                 });

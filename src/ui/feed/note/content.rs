@@ -281,9 +281,8 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     }
 
     if show_link {
-        let response = ui.link("[ Image ]");
-        // show url on hover
-        response.clone().on_hover_text(url_string.clone());
+        let response = ui.link("[ Image ]")
+            .on_hover_text(url_string.clone()); // show url on hover
         // show media toggle
         if response.clicked() {
             if app.settings.show_media {
@@ -389,9 +388,8 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     }
 
     if show_link {
-        let response = ui.link("[ Video ]");
-        // show url on hover
-        response.clone().on_hover_text(url_string.clone());
+        let response = ui.link("[ Video ]")
+            .on_hover_text(url_string.clone()); // show url on hover
         // show media toggle
         if response.clicked() {
             if app.settings.show_media {
@@ -527,7 +525,7 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
     };
     let extend_area = extend_area.expand(SPACE * 2.0);
     if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-        if extend_area.contains(pointer_pos) {
+        if extend_area.contains(pointer_pos) && ui.is_enabled() {
             ui.add_space(SPACE);
             ui.vertical(|ui| {
                 ui.add_space(SPACE);

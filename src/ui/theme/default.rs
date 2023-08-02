@@ -17,7 +17,7 @@ impl ThemeDef for DefaultTheme {
 
     fn accent_color(dark_mode: bool) -> Color32 {
         if dark_mode {
-            Color32::from_rgb(27, 31, 51)
+            Color32::from_rgb(85, 122, 149)
         } else {
             Color32::from_rgb(85, 122, 149)
         }
@@ -48,7 +48,7 @@ impl ThemeDef for DefaultTheme {
         // pub window_margin: Margin,
 
         // /// Button size is text size plus this on each side
-        // pub button_padding: Vec2,
+        // style.spacing.button_padding = vec2(10.0, 2.0);
 
         // /// Horizontal and vertical margins within a menu frame.
         // pub menu_margin: Margin,
@@ -152,8 +152,8 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(36), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(6),   // panel backgrounds, even-table-rows
+                window_fill: Color32::from_gray(0x1F), // pulldown menus and tooltips
+                panel_fill: Color32::from_gray(0x18),   // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(24), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(64),    // ???
@@ -163,11 +163,7 @@ impl ThemeDef for DefaultTheme {
                 override_text_color: None,
                 warn_fg_color: Self::accent_complementary_color(true),
                 error_fg_color: Self::accent_complementary_color(true),
-                hyperlink_color: {
-                    let mut hsva: ecolor::HsvaGamma = Self::accent_color(true).into();
-                    hsva.v = (hsva.v + 0.5).min(1.0); // lighten
-                    hsva.into()
-                },
+                hyperlink_color: Self::accent_color(true),
 
                 selection: Selection {
                     bg_fill: Color32::from_gray(40),
@@ -409,7 +405,10 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
-        Self::accent_color(dark_mode)
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+        hsva.s *= 0.7;
+        hsva.v = if dark_mode { 0.23 } else { 0.56 };
+        hsva.into()
     }
 
     fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32 {
