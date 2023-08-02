@@ -83,9 +83,22 @@ impl Overlord {
 
         // Listen on self.minions until it is empty
         while !self.minions.is_empty() {
-            let task_nextjoined = self.minions.join_next_with_id().await;
-
-            self.handle_task_nextjoined(task_nextjoined).await;
+            select! {
+                _ = tokio::time::sleep(Duration::from_secs(10)) => {
+                    tracing::info!("Overlord signalling minions to shutdown (again)");
+                    // Send the shutdown message again
+                    let _ = self.to_minions.send(ToMinionMessage {
+                        target: "all".to_string(),
+                        payload: ToMinionPayload {
+                            job_id: 0,
+                            detail: ToMinionPayloadDetail::Shutdown,
+                        },
+                    });
+                },
+                task_nextjoined = self.minions.join_next_with_id() => {
+                    self.handle_task_nextjoined(task_nextjoined).await;
+                }
+            }
         }
 
         tracing::info!("Overlord confirms all minions have shutdown");
