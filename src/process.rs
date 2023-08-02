@@ -132,7 +132,9 @@ pub async fn process_new_event(
     }
 
     // Save event relationships (whether from a relay or not)
-    let invalid_ids = GLOBALS.storage.process_relationships_of_event(event)?;
+    let invalid_ids = GLOBALS
+        .storage
+        .process_relationships_of_event(event, None)?;
 
     // Invalidate UI events indicated by those relationships
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);

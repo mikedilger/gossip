@@ -44,21 +44,23 @@ impl Storage {
         let total = self.get_event_stats()?.entries();
         let mut count = 0;
 
-        let txn = self.env.begin_ro_txn()?;
-        let mut cursor = txn.open_ro_cursor(self.events)?;
+        let event_txn = self.env.begin_ro_txn()?;
+        let mut relationships_txn = self.env.begin_rw_txn()?;
+        let mut cursor = event_txn.open_ro_cursor(self.events)?;
         let iter = cursor.iter_start();
         for result in iter {
             match result {
                 Err(e) => return Err(e.into()),
                 Ok((_key, val)) => {
                     let event = Event::read_from_buffer(val)?;
-                    let _ = self.process_relationships_of_event(&event)?;
+                    let _ =
+                        self.process_relationships_of_event(&event, Some(&mut relationships_txn))?;
                 }
             }
 
             // track progress
             count += 1;
-            if count % 1000 == 0 {
+            if count % 2000 == 0 {
                 tracing::info!("{}/{}", count, total);
             }
         }

@@ -11,7 +11,8 @@ use crate::relay::Relay;
 use crate::settings::Settings;
 use gossip_relay_picker::Direction;
 use lmdb::{
-    Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Stat, Transaction, WriteFlags,
+    Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, RwTransaction, Stat,
+    Transaction, WriteFlags,
 };
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Unixtime,
@@ -1128,18 +1129,28 @@ impl Storage {
         }
     }
 
-    pub fn write_relationship(
-        &self,
+    pub fn write_relationship<'a>(
+        &'a self,
         id: Id,
         related: Id,
         relationship: Relationship,
+        rw_txn: Option<&mut RwTransaction<'a>>,
     ) -> Result<(), Error> {
         let mut key = id.as_ref().as_slice().to_owned();
         key.extend(related.as_ref());
         let value = relationship.write_to_vec()?;
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.relationships, &key, &value, WriteFlags::empty())?;
-        txn.commit()?;
+
+        match rw_txn {
+            Some(txn) => {
+                txn.put(self.relationships, &key, &value, WriteFlags::empty())?;
+            }
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                txn.put(self.relationships, &key, &value, WriteFlags::empty())?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -1234,17 +1245,35 @@ impl Storage {
     }
 
     // This returns IDs that should be UI invalidated
-    pub fn process_relationships_of_event(&self, event: &Event) -> Result<Vec<Id>, Error> {
+    pub fn process_relationships_of_event<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<Vec<Id>, Error> {
+        let mut inner_txn: Option<RwTransaction<'a>> = None;
+        let txn = match rw_txn {
+            Some(txn) => txn,
+            None => {
+                inner_txn = Some(self.env.begin_rw_txn()?);
+                inner_txn.as_mut().unwrap()
+            }
+        };
+
         let mut invalidate: Vec<Id> = Vec::new();
 
         // replies to
         if let Some((id, _)) = event.replies_to() {
-            self.write_relationship(id, event.id, Relationship::Reply)?;
+            self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
         }
 
         // reacts to
         if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-            self.write_relationship(id, event.id, Relationship::Reaction(event.pubkey, reaction))?;
+            self.write_relationship(
+                id,
+                event.id,
+                Relationship::Reaction(event.pubkey, reaction),
+                Some(txn),
+            )?;
 
             invalidate.push(id);
         }
@@ -1256,7 +1285,12 @@ impl Storage {
             for id in ids {
                 // since it is a delete, we don't actually desire the event.
 
-                self.write_relationship(id, event.id, Relationship::Deletion(reason.clone()))?;
+                self.write_relationship(
+                    id,
+                    event.id,
+                    Relationship::Deletion(reason.clone()),
+                    Some(txn),
+                )?;
             }
         }
 
@@ -1267,12 +1301,17 @@ impl Storage {
                     zapdata.id,
                     event.id,
                     Relationship::ZapReceipt(event.pubkey, zapdata.amount),
+                    Some(txn),
                 )?;
 
                 invalidate.push(zapdata.id);
             }
             Err(e) => tracing::error!("Invalid zap receipt: {}", e),
             _ => {}
+        }
+
+        if let Some(txn) = inner_txn {
+            txn.commit()?;
         }
 
         Ok(invalidate)
