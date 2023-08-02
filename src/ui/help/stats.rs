@@ -55,97 +55,15 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
         let general_stats = GLOBALS
             .storage
             .get_general_stats()
-            .map(|s| {
-                format!(
-                    "General storage: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
+            .map(|s| format!("General: {} records, {} pages", s.entries(), s.leaf_pages()))
             .unwrap_or("".to_owned());
         ui.label(general_stats);
-        ui.add_space(6.0);
-
-        let event_seen_on_relay_stats = GLOBALS
-            .storage
-            .get_event_seen_on_relay_stats()
-            .map(|s| {
-                format!(
-                    "Event_Seen_On_Relay storage: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_seen_on_relay_stats);
-        ui.add_space(6.0);
-
-        let event_viewed_stats = GLOBALS
-            .storage
-            .get_event_viewed_stats()
-            .map(|s| {
-                format!(
-                    "Event_Viewed storage: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_viewed_stats);
-        ui.add_space(6.0);
-
-        let hashtags_stats = GLOBALS
-            .storage
-            .get_hashtags_stats()
-            .map(|s| {
-                format!(
-                    "Hashtags storage: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(hashtags_stats);
-        ui.add_space(6.0);
-
-        let relays_stats = GLOBALS
-            .storage
-            .get_relays_stats()
-            .map(|s| {
-                format!(
-                    "Relays storage: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(relays_stats);
-        ui.add_space(6.0);
-
-        let event_tags_stats = GLOBALS
-            .storage
-            .get_event_tags_stats()
-            .map(|s| {
-                format!(
-                    "Event_Tags storage: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_tags_stats);
         ui.add_space(6.0);
 
         let event_stats = GLOBALS
             .storage
             .get_event_stats()
-            .map(|s| {
-                format!(
-                    "Event storage: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
+            .map(|s| format!("Events: {} records, {} pages", s.entries(), s.leaf_pages()))
             .unwrap_or("".to_owned());
         ui.label(event_stats);
         ui.add_space(6.0);
@@ -155,7 +73,7 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
             .get_event_ek_pk_index_stats()
             .map(|s| {
                 format!(
-                    "Event_Ek_Pk_Index storage: {} records, {} pages",
+                    "Event Index (EK-PK): {} records, {} pages",
                     s.entries(),
                     s.leaf_pages()
                 )
@@ -169,7 +87,7 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
             .get_event_ek_c_index_stats()
             .map(|s| {
                 format!(
-                    "Event_Ek_C_Index storage: {} records, {} pages",
+                    "Event Index (EK-C): {} records, {} pages",
                     s.entries(),
                     s.leaf_pages()
                 )
@@ -183,7 +101,7 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
             .get_event_references_person_stats()
             .map(|s| {
                 format!(
-                    "Event_References_Person storage: {} records, {} pages",
+                    "Event Index (References Person): {} records, {} pages",
                     s.entries(),
                     s.leaf_pages()
                 )
@@ -192,12 +110,26 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
         ui.label(event_references_person_stats);
         ui.add_space(6.0);
 
+        let event_tags_stats = GLOBALS
+            .storage
+            .get_event_tags_stats()
+            .map(|s| {
+                format!(
+                    "Event Index (Tags): {} records, {} pages",
+                    s.entries(),
+                    s.leaf_pages()
+                )
+            })
+            .unwrap_or("".to_owned());
+        ui.label(event_tags_stats);
+        ui.add_space(6.0);
+
         let relationships_stats = GLOBALS
             .storage
             .get_relationships_stats()
             .map(|s| {
                 format!(
-                    "Relationships storage: {} records, {} pages",
+                    "Event Relationships: {} records, {} pages",
                     s.entries(),
                     s.leaf_pages()
                 )
@@ -206,16 +138,60 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
         ui.label(relationships_stats);
         ui.add_space(6.0);
 
-        let people_stats = GLOBALS
+        let event_seen_on_relay_stats = GLOBALS
             .storage
-            .get_people_stats()
+            .get_event_seen_on_relay_stats()
             .map(|s| {
                 format!(
-                    "People storage: {} records, {} pages",
+                    "Event Seen-on Relay: {} records, {} pages",
                     s.entries(),
                     s.leaf_pages()
                 )
             })
+            .unwrap_or("".to_owned());
+        ui.label(event_seen_on_relay_stats);
+        ui.add_space(6.0);
+
+        let event_viewed_stats = GLOBALS
+            .storage
+            .get_event_viewed_stats()
+            .map(|s| {
+                format!(
+                    "Event Viewed: {} records, {} pages",
+                    s.entries(),
+                    s.leaf_pages()
+                )
+            })
+            .unwrap_or("".to_owned());
+        ui.label(event_viewed_stats);
+        ui.add_space(6.0);
+
+        let hashtags_stats = GLOBALS
+            .storage
+            .get_hashtags_stats()
+            .map(|s| {
+                format!(
+                    "Hashtags: {} records, {} pages",
+                    s.entries(),
+                    s.leaf_pages()
+                )
+            })
+            .unwrap_or("".to_owned());
+        ui.label(hashtags_stats);
+        ui.add_space(6.0);
+
+        let relays_stats = GLOBALS
+            .storage
+            .get_relays_stats()
+            .map(|s| format!("Relays: {} records, {} pages", s.entries(), s.leaf_pages()))
+            .unwrap_or("".to_owned());
+        ui.label(relays_stats);
+        ui.add_space(6.0);
+
+        let people_stats = GLOBALS
+            .storage
+            .get_people_stats()
+            .map(|s| format!("People: {} records, {} pages", s.entries(), s.leaf_pages()))
             .unwrap_or("".to_owned());
         ui.label(people_stats);
         ui.add_space(6.0);
@@ -225,7 +201,7 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
             .get_person_relays_stats()
             .map(|s| {
                 format!(
-                    "Person_Relays storage: {} records, {} pages",
+                    "Person-Relays: {} records, {} pages",
                     s.entries(),
                     s.leaf_pages()
                 )

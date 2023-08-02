@@ -794,7 +794,9 @@ impl eframe::App for GossipUi {
                 },
             );
 
-        let show_status = self.show_post_area && !self.settings.posting_area_at_top;
+        //let show_status = self.show_post_area && !self.settings.posting_area_at_top;
+        let show_status = true;
+
         let resizable = true;
 
         egui::TopBottomPanel::bottom("status")
@@ -805,7 +807,7 @@ impl eframe::App for GossipUi {
                         left: 20.0,
                         right: 18.0,
                         top: 10.0,
-                        bottom: 10.0,
+                        bottom: 0.0,
                     }
                 } else {
                     egui::Margin {
@@ -823,6 +825,27 @@ impl eframe::App for GossipUi {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                 }
+                ui.vertical(|ui| {
+                    ui.add_space(5.0);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
+                        let in_flight = GLOBALS.fetcher.requests_in_flight();
+                        let queued = GLOBALS.fetcher.requests_queued();
+                        let events = GLOBALS
+                            .storage
+                            .get_event_stats()
+                            .map(|s| s.entries())
+                            .unwrap_or(0);
+                        let stats_message = format!(
+                            "EVENTS: {}           HTTP: {} / {}",
+                            events,
+                            in_flight,
+                            in_flight + queued
+                        );
+                        let stats_message = RichText::new(stats_message)
+                            .color(self.settings.theme.notice_marker_text_color());
+                        ui.add(Label::new(stats_message));
+                    });
+                });
             });
 
         // Prepare local zap data once per frame for easier compute at render time
