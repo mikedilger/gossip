@@ -110,20 +110,6 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
         ui.label(event_references_person_stats);
         ui.add_space(6.0);
 
-        let event_tags_stats = GLOBALS
-            .storage
-            .get_event_tags_stats()
-            .map(|s| {
-                format!(
-                    "Event Index (Tags): {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_tags_stats);
-        ui.add_space(6.0);
-
         let relationships_stats = GLOBALS
             .storage
             .get_relationships_stats()

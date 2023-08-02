@@ -94,9 +94,6 @@ pub async fn process_new_event(
             GLOBALS.storage.write_person_relay(&pr)?;
         }
 
-        // Save the tags into event_tag table
-        GLOBALS.storage.write_event_tags(event)?;
-
         for tag in event.tags.iter() {
             match tag {
                 Tag::Event {

@@ -68,12 +68,8 @@ impl Storage {
         tracing::info!("LMDB: imported relays.");
 
         // old table "event"
-        // old table "event_tag"
-        // Copy events (and regenerate event_tags)
-        import_events(&db, |event: &Event| {
-            self.write_event(event)?;
-            self.write_event_tags(event)
-        })?;
+        // Copy events
+        import_events(&db, |event: &Event| self.write_event(event))?;
         tracing::info!("LMDB: imported events and tag index");
 
         // old table "person"

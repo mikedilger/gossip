@@ -14,8 +14,7 @@ use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Stat, Transaction, WriteFlags,
 };
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, MilliSatoshi, PublicKey, PublicKeyHex, RelayUrl,
-    Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Unixtime,
 };
 use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
@@ -57,12 +56,6 @@ pub struct Storage {
     //   key: key!(url.0.as_bytes())
     //   val: serde_json::to_vec(relay) | serde_json::from_slice(bytes)
     relays: Database,
-
-    // Tag -> Id
-    // (dup keys, so multiple Ids per tag)
-    //   key: key!(serde_json::to_vec(&tag)) (and remove trailing empty fields)
-    //   val: id.as_slice() | Id(val[0..32].try_into()?)
-    event_tags: Database,
 
     // Id -> Event
     //   key: id.as_slice() | Id(val[0..32].try_into()?)
@@ -138,11 +131,6 @@ impl Storage {
 
         let relays = env.create_db(Some("relays"), DatabaseFlags::empty())?;
 
-        let event_tags = env.create_db(
-            Some("event_tags"),
-            DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED,
-        )?;
-
         let events = env.create_db(Some("events"), DatabaseFlags::empty())?;
 
         let event_ek_pk_index = env.create_db(
@@ -172,7 +160,6 @@ impl Storage {
             event_viewed,
             hashtags,
             relays,
-            event_tags,
             events,
             event_ek_pk_index,
             event_ek_c_index,
@@ -220,11 +207,6 @@ impl Storage {
     pub fn get_relays_stats(&self) -> Result<Stat, Error> {
         let txn = self.env.begin_ro_txn()?;
         Ok(txn.stat(self.relays)?)
-    }
-
-    pub fn get_event_tags_stats(&self) -> Result<Stat, Error> {
-        let txn = self.env.begin_ro_txn()?;
-        Ok(txn.stat(self.event_tags)?)
     }
 
     pub fn get_event_stats(&self) -> Result<Stat, Error> {
@@ -350,36 +332,9 @@ impl Storage {
         }
         txn.commit()?;
 
-        // Delete from event_tags
-        // (unfortunately since Ids are the values, we have to scan the whole thing)
-        let mut txn = self.env.begin_rw_txn()?;
-        let mut cursor = txn.open_rw_cursor(self.event_tags)?;
-        let iter = cursor.iter_start();
-        let mut deletions: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
-        for result in iter {
-            match result {
-                Err(e) => return Err(e.into()),
-                Ok((key, val)) => {
-                    let id = Id(val[0..32].try_into()?);
-                    if ids.contains(&id) {
-                        deletions.push((key.to_owned(), val.to_owned()));
-                    }
-                }
-            }
-        }
-        drop(cursor);
-        tracing::info!(
-            "PRUNE: deleting {} records from event_tags",
-            deletions.len()
-        );
-        for deletion in deletions.drain(..) {
-            txn.del(self.event_tags, &deletion.0, Some(&deletion.1))?;
-        }
-        txn.commit()?;
-        let mut txn = self.env.begin_rw_txn()?;
-
         // Delete from relationships
         // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
+        let mut txn = self.env.begin_rw_txn()?;
         let mut cursor = txn.open_rw_cursor(self.relationships)?;
         let iter = cursor.iter_start();
         let mut deletions: Vec<Vec<u8>> = Vec::new();
@@ -671,54 +626,6 @@ impl Storage {
                     if f(&relay) {
                         output.push(relay);
                     }
-                }
-            }
-        }
-        Ok(output)
-    }
-
-    pub fn write_event_tags(&self, event: &Event) -> Result<(), Error> {
-        let mut txn = self.env.begin_rw_txn()?;
-        for tag in &event.tags {
-            let mut tagbytes = serde_json::to_vec(&tag)?;
-            tagbytes.truncate(MAX_LMDB_KEY);
-            txn.put(
-                self.event_tags,
-                &tagbytes,
-                &event.id.as_slice(),
-                WriteFlags::empty(),
-            )?;
-        }
-        txn.commit()?;
-        Ok(())
-    }
-
-    /// This finds events that have a tag starting with the values in the
-    /// passed in tag, and potentially having more tag fields.
-    pub fn find_events_with_tags(&self, tag: Tag) -> Result<Vec<Id>, Error> {
-        let mut start_key = serde_json::to_vec(&tag)?;
-        // remove trailing bracket so we match tags with addl fields
-        let _ = start_key.pop();
-        // remove any trailing empty fields
-        while start_key.ends_with(b",\"\"") {
-            start_key.truncate(start_key.len() - 3);
-        }
-        start_key.truncate(MAX_LMDB_KEY);
-        let txn = self.env.begin_ro_txn()?;
-        let mut cursor = txn.open_ro_cursor(self.event_tags)?;
-        let iter = cursor.iter_from(start_key.clone());
-        let mut output: Vec<Id> = Vec::new();
-        for result in iter {
-            match result {
-                Err(e) => return Err(e.into()),
-                Ok((key, val)) => {
-                    // Stop once we get to a non-matching tag
-                    if !key.starts_with(&start_key) {
-                        break;
-                    }
-                    // Add the event
-                    let id = Id(val[0..32].try_into()?);
-                    output.push(id);
                 }
             }
         }
@@ -1206,61 +1113,6 @@ impl Storage {
             .iter()
             .max_by(|x, y| x.created_at.cmp(&y.created_at))
             .cloned())
-    }
-
-    // This is temporary to feed src/events.rs which will be going away in a future
-    // code pass
-    pub fn fetch_reply_related_events(&self, since: Unixtime) -> Result<Vec<Event>, Error> {
-        let public_key: PublicKeyHex = match GLOBALS.signer.public_key() {
-            None => return Ok(vec![]),
-            Some(pk) => pk.into(),
-        };
-
-        let reply_related_kinds = GLOBALS.settings.read().feed_related_event_kinds();
-
-        let tag = Tag::Pubkey {
-            pubkey: public_key,
-            recommended_relay_url: None,
-            petname: None,
-            trailing: vec![],
-        };
-
-        let tagged_event_ids = self.find_events_with_tags(tag)?;
-
-        let events: Vec<Event> = tagged_event_ids
-            .iter()
-            .filter_map(|id| match self.read_event(*id) {
-                Ok(Some(event)) => {
-                    if event.created_at > since && reply_related_kinds.contains(&event.kind) {
-                        Some(event)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .collect();
-
-        Ok(events)
-    }
-
-    // This is temporary to feed src/events.rs which will be going away in a future
-    // code pass
-    pub fn fetch_relay_lists(&self) -> Result<Vec<Event>, Error> {
-        let mut relay_lists =
-            self.find_events(&[EventKind::RelayList], &[], None, |_| true, false)?;
-
-        let mut latest: HashMap<PublicKey, Event> = HashMap::new();
-        for event in relay_lists.drain(..) {
-            if let Some(current_best) = latest.get(&event.pubkey) {
-                if current_best.created_at >= event.created_at {
-                    continue;
-                }
-            }
-            let _ = latest.insert(event.pubkey, event);
-        }
-
-        Ok(latest.values().map(|v| v.to_owned()).collect())
     }
 
     pub fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {
