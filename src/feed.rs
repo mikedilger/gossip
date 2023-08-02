@@ -278,64 +278,58 @@ impl Feed {
             }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.signer.public_key() {
-                    let my_event_ids: HashSet<Id> = GLOBALS
+                    // Unfortunately it is expensive to find all events referencing
+                    // any of my events, and we don't have such an index.
+                    //
+                    // so for now we rely on the fact that replies are supposed to
+                    // 'p' tag the authors of people up the chain (see last paragraph
+                    // of NIP-10)
+
+                    let my_event_ids: HashSet<Id> = GLOBALS.storage.find_event_ids(
+                        &kinds,       // kinds
+                        &[my_pubkey], // pubkeys
+                        None,         // since
+                    )?;
+
+                    let inbox_events: Vec<Id> = GLOBALS
                         .storage
-                        .find_events(
-                            &kinds,       // kinds
-                            &[my_pubkey], // pubkeys
-                            None,         // since
-                            |_| true,
-                            false,
-                        )?
+                        .read_events_referencing_person(&my_pubkey, one_year_ago, |e| {
+                            if e.created_at > now {
+                                return false;
+                            } // no future events
+                            if dismissed.contains(&e.id) {
+                                return false;
+                            } // not dismissed
+                            if e.pubkey == my_pubkey {
+                                return false;
+                            } // not self-authored
+
+                            // Include if it directly replies to one of my events
+                            if let Some((id, _)) = e.replies_to() {
+                                if my_event_ids.contains(&id) {
+                                    return true;
+                                }
+                            }
+
+                            if indirect {
+                                // Include if it tags me
+                                e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                            } else {
+                                if e.kind == EventKind::EncryptedDirectMessage {
+                                    true
+                                } else {
+                                    // Include if it directly references me in the content
+                                    e.people_referenced_in_content()
+                                        .iter()
+                                        .any(|p| *p == my_pubkey)
+                                }
+                            }
+                        })?
                         .iter()
                         .map(|e| e.id)
                         .collect();
 
-                    let inbox_events: Vec<(Unixtime, Id)> = GLOBALS
-                        .storage
-                        .find_events(
-                            &kinds,             // kinds
-                            &[],                // pubkeys
-                            Some(one_year_ago), // since
-                            |e| {
-                                if e.created_at > now {
-                                    return false;
-                                } // no future events
-                                if dismissed.contains(&e.id) {
-                                    return false;
-                                } // not dismissed
-                                if e.pubkey == my_pubkey {
-                                    return false;
-                                } // not self-authored
-
-                                // Include if it directly replies to one of my events
-                                if let Some((id, _)) = e.replies_to() {
-                                    if my_event_ids.contains(&id) {
-                                        return true;
-                                    }
-                                }
-
-                                if indirect {
-                                    // Include if it tags me
-                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
-                                } else {
-                                    if e.kind == EventKind::EncryptedDirectMessage {
-                                        true
-                                    } else {
-                                        // Include if it directly references me in the content
-                                        e.people_referenced_in_content()
-                                            .iter()
-                                            .any(|p| *p == my_pubkey)
-                                    }
-                                }
-                            },
-                            true,
-                        )?
-                        .iter()
-                        .map(|e| (e.created_at, e.id))
-                        .collect();
-
-                    *self.inbox_feed.write() = inbox_events.iter().map(|e| e.1).collect();
+                    *self.inbox_feed.write() = inbox_events;
                 }
             }
             FeedKind::Thread { .. } => {
