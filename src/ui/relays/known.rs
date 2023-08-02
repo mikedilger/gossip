@@ -1,5 +1,5 @@
 use super::{filter_relay, relay_filter_combo, relay_sort_combo, GossipUi};
-use crate::{db::DbRelay, ui::widgets::RelayEntry};
+use crate::{relay::Relay, ui::widgets::RelayEntry};
 use crate::globals::GLOBALS;
 use crate::ui::widgets;
 use eframe::egui;
@@ -52,12 +52,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     // TBD time how long this takes. We don't want expensive code in the UI
     // FIXME keep more relay info and display it
-    let mut relays: Vec<DbRelay> = GLOBALS
-        .all_relays
-        .iter()
-        .map(|ri| ri.value().clone())
-        .filter(|ri| app.show_hidden_relays || !ri.hidden && filter_relay(&app.relays, ri))
-        .collect();
+    let mut relays: Vec<Relay> = GLOBALS
+        .storage
+        .filter_relays(|relay| {
+            app.show_hidden_relays || !relay.hidden && filter_relay(&app.relays, relay)
+        })
+        .unwrap_or(Vec::new());
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
 

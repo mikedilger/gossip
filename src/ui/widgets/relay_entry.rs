@@ -3,7 +3,7 @@ use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
 use nostr_types::{PublicKeyHex, Unixtime};
 
-use crate::{comms::ToOverlordMessage, db::DbRelay, globals::GLOBALS, ui::{components, GossipUi}};
+use crate::{comms::ToOverlordMessage, relay::Relay, globals::GLOBALS, ui::{components, GossipUi}};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 80.0;
@@ -93,34 +93,34 @@ struct UsageBits {
 impl UsageBits {
     fn from_usage_bits(usage_bits: u64) -> Self {
         Self {
-            read: usage_bits & DbRelay::READ == DbRelay::READ,
-            write: usage_bits & DbRelay::WRITE == DbRelay::WRITE,
-            advertise: usage_bits & DbRelay::ADVERTISE == DbRelay::ADVERTISE,
-            inbox: usage_bits & DbRelay::INBOX == DbRelay::INBOX,
-            outbox: usage_bits & DbRelay::OUTBOX == DbRelay::OUTBOX,
-            discover: usage_bits & DbRelay::DISCOVER == DbRelay::DISCOVER,
+            read: usage_bits & Relay::READ == Relay::READ,
+            write: usage_bits & Relay::WRITE == Relay::WRITE,
+            advertise: usage_bits & Relay::ADVERTISE == Relay::ADVERTISE,
+            inbox: usage_bits & Relay::INBOX == Relay::INBOX,
+            outbox: usage_bits & Relay::OUTBOX == Relay::OUTBOX,
+            discover: usage_bits & Relay::DISCOVER == Relay::DISCOVER,
         }
     }
 
     // fn to_usage_bits(&self) -> u64 {
     //     let mut bits: u64 = 0;
     //     if self.read {
-    //         bits |= DbRelay::READ
+    //         bits |= Relay::READ
     //     }
     //     if self.write {
-    //         bits |= DbRelay::WRITE
+    //         bits |= Relay::WRITE
     //     }
     //     if self.advertise {
-    //         bits |= DbRelay::ADVERTISE
+    //         bits |= Relay::ADVERTISE
     //     }
     //     if self.inbox {
-    //         bits |= DbRelay::INBOX
+    //         bits |= Relay::INBOX
     //     }
     //     if self.outbox {
-    //         bits |= DbRelay::OUTBOX
+    //         bits |= Relay::OUTBOX
     //     }
     //     if self.discover {
-    //         bits |= DbRelay::DISCOVER
+    //         bits |= Relay::DISCOVER
     //     }
     //     bits
     // }
@@ -133,7 +133,7 @@ impl UsageBits {
 ///
 #[derive(Clone)]
 pub struct RelayEntry {
-    db_relay: DbRelay,
+    db_relay: Relay,
     view: RelayEntryView,
     enabled: bool,
     user_count: Option<usize>,
@@ -145,7 +145,7 @@ pub struct RelayEntry {
 }
 
 impl RelayEntry {
-    pub(in crate::ui) fn new(db_relay: DbRelay, app: &mut GossipUi) -> Self {
+    pub(in crate::ui) fn new(db_relay: Relay, app: &mut GossipUi) -> Self {
         let usage = UsageBits::from_usage_bits(db_relay.usage_bits);
         let accent = app.settings.theme.accent_color();
         let mut hsva: ecolor::HsvaGamma  = accent.into();
@@ -502,7 +502,7 @@ impl RelayEntry {
                 if response.clicked() {
                     ui.output_mut(|o| {
                         o.copied_text = contact.to_string();
-                        *GLOBALS.status_message.blocking_write() = "copied to clipboard".into();
+                        GLOBALS.status_queue.write().write("copied to clipboard".into());
                     });
                 }
                 response.on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -532,7 +532,7 @@ impl RelayEntry {
                     if response.clicked() {
                         ui.output_mut(|o| {
                             o.copied_text = npub;
-                            *GLOBALS.status_message.blocking_write() = "copied to clipboard".into();
+                            GLOBALS.status_queue.write().write("copied to clipboard".into());
                         });
                     }
                     response.on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -576,7 +576,7 @@ impl RelayEntry {
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
                         self.db_relay.url.clone(),
-                        DbRelay::READ,
+                        Relay::READ,
                         self.usage.read,
                     ));
                 if !self.usage.read {
@@ -586,7 +586,7 @@ impl RelayEntry {
                         .to_overlord
                         .send(ToOverlordMessage::AdjustRelayUsageBit(
                             self.db_relay.url.clone(),
-                            DbRelay::INBOX,
+                            Relay::INBOX,
                             self.usage.inbox,
                         ));
                 }
@@ -628,7 +628,7 @@ impl RelayEntry {
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
                         self.db_relay.url.clone(),
-                        DbRelay::INBOX,
+                        Relay::INBOX,
                         self.usage.inbox,
                     ));
             }
@@ -662,7 +662,7 @@ impl RelayEntry {
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
                         self.db_relay.url.clone(),
-                        DbRelay::WRITE,
+                        Relay::WRITE,
                         self.usage.write,
                     ));
 
@@ -673,7 +673,7 @@ impl RelayEntry {
                         .to_overlord
                         .send(ToOverlordMessage::AdjustRelayUsageBit(
                             self.db_relay.url.clone(),
-                            DbRelay::OUTBOX,
+                            Relay::OUTBOX,
                             self.usage.outbox,
                         ));
                 }
@@ -715,7 +715,7 @@ impl RelayEntry {
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
                         self.db_relay.url.clone(),
-                        DbRelay::OUTBOX,
+                        Relay::OUTBOX,
                         self.usage.outbox,
                     ));
             }
@@ -749,7 +749,7 @@ impl RelayEntry {
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
                         self.db_relay.url.clone(),
-                        DbRelay::DISCOVER,
+                        Relay::DISCOVER,
                         self.usage.discover,
                     ));
             }
@@ -783,7 +783,7 @@ impl RelayEntry {
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
                         self.db_relay.url.clone(),
-                        DbRelay::ADVERTISE,
+                        Relay::ADVERTISE,
                         self.usage.advertise,
                     ));
             }

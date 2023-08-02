@@ -1,7 +1,7 @@
 use super::{
     filter_relay, relay_filter_combo, relay_sort_combo, GossipUi,
 };
-use crate::db::DbRelay;
+use crate::relay::Relay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets::{self, RelayEntry};
 use eframe::egui;
@@ -25,12 +25,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
     ui.add_space(10.0);
 
-    let mut relays: Vec<DbRelay> = GLOBALS
-        .all_relays
-        .iter()
-        .map(|ri| ri.value().clone())
-        .filter(|ri| ri.usage_bits != 0 && filter_relay(&app.relays, ri))
-        .collect();
+    let mut relays: Vec<Relay> = GLOBALS
+        .storage
+        .filter_relays(|relay| {
+            relay.usage_bits != 0 && filter_relay(&app.relays, relay)
+        })
+        .unwrap_or(Vec::new());
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
 

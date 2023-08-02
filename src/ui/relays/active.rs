@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use super::{
     filter_relay, relay_filter_combo, relay_sort_combo, GossipUi,
 };
-use crate::db::DbRelay;
+use crate::relay::Relay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets::{self, RelayEntry};
 use crate::{comms::ToOverlordMessage};
@@ -37,7 +37,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
             let pk = elem.key();
             let count = elem.value();
-            let name = GossipUi::display_name_from_pubkeyhex_lookup(pk);
+            let name = GossipUi::display_name_from_pubkey_lookup(pk);
             ui.label(format!("{}: coverage short by {} relay(s)", name, count));
         }
         ui.add_space(12.0);
@@ -58,12 +58,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .map(|r| r.key().clone())
         .collect();
 
-    let mut relays: Vec<DbRelay> = GLOBALS
-        .all_relays
-        .iter()
-        .map(|ri| ri.value().clone())
-        .filter(|ri| connected_relays.contains(&ri.url) && filter_relay(&app.relays, ri))
-        .collect();
+    let mut relays: Vec<Relay> = GLOBALS
+        .storage
+        .filter_relays(|relay| {
+            connected_relays.contains(&relay.url) && filter_relay(&app.relays, relay)
+        })
+        .unwrap_or(Vec::new());
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
 

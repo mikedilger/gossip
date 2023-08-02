@@ -1,13 +1,11 @@
 use std::cmp::Ordering;
 
-use crate::{db::DbRelay, globals::GLOBALS, comms::ToOverlordMessage};
-
+use crate::{relay::Relay, globals::GLOBALS, comms::ToOverlordMessage};
 use super::{GossipUi, Page};
 use eframe::egui;
-use egui::{Context, ScrollArea, Ui, Vec2};
-use egui_extras::{Column, TableBuilder};
+use egui::{Context, Ui};
 use egui_winit::egui::{Id, vec2, Rect, RichText, TextBuffer};
-use nostr_types::{RelayUrl, Unixtime};
+use nostr_types::RelayUrl;
 
 mod active;
 mod mine;
@@ -172,10 +170,10 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
                         if ui.add(egui::Button::new(text)).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                             if let Ok(url) = RelayUrl::try_from_str(&app.relays.new_relay_url) {
                                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url.clone()));
-                                *GLOBALS.status_message.blocking_write() = format!(
+                                GLOBALS.status_queue.write().write(format!(
                                     "I asked the overlord to add relay {}. Check for it below.",
                                     &app.relays.new_relay_url
-                                );
+                                ));
 
                                 // send user to known relays page (where the new entry should show up)
                                 app.set_page( Page::RelaysKnownNetwork );
@@ -190,8 +188,9 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
                                 app.relays.add_dialog_active = false;
                                 app.relays.new_relay_url = "".to_owned();
                             } else {
-                                *GLOBALS.status_message.blocking_write() =
-                                    "That's not a valid relay URL.".to_owned();
+                                GLOBALS.status_queue.write().write(
+                                    "That's not a valid relay URL.".to_owned()
+                                );
                             }
                         }
                     });
@@ -284,19 +283,19 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
 /// Filter a relay entry
 /// - return: true if selected
 ///
-pub(super) fn sort_relay(rui: &RelayUi, a: &DbRelay, b: &DbRelay) -> Ordering {
+pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
     match rui.sort {
         RelaySorting::Rank => b
             .rank.cmp(&a.rank)
             .then(b.usage_bits.cmp(&a.usage_bits))
             .then(a.url.cmp(&b.url)),
         RelaySorting::WriteRelays => b
-            .has_usage_bits(DbRelay::WRITE)
-            .cmp(&a.has_usage_bits(DbRelay::WRITE))
+            .has_usage_bits(Relay::WRITE)
+            .cmp(&a.has_usage_bits(Relay::WRITE))
             .then(a.url.cmp(&b.url)),
         RelaySorting::AdvertiseRelays => b
-            .has_usage_bits(DbRelay::ADVERTISE)
-            .cmp(&a.has_usage_bits(DbRelay::ADVERTISE))
+            .has_usage_bits(Relay::ADVERTISE)
+            .cmp(&a.has_usage_bits(Relay::ADVERTISE))
             .then(a.url.cmp(&b.url)),
         RelaySorting::HighestFollowing => a.url.cmp(&b.url), // FIXME need following numbers here
         RelaySorting::HighestSuccessRate => b
@@ -314,7 +313,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &DbRelay, b: &DbRelay) -> Ordering {
 /// Filter a relay entry
 /// - return: true if selected
 ///
-pub(super) fn filter_relay(rui: &RelayUi, ri: &DbRelay) -> bool {
+pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
     let search = if rui.search.len() > 1 {
         ri.url
             .as_str()
@@ -326,10 +325,10 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &DbRelay) -> bool {
 
     let filter = match rui.filter {
         RelayFilter::All => true,
-        RelayFilter::Write => ri.has_usage_bits(DbRelay::WRITE),
-        RelayFilter::Read => ri.has_usage_bits(DbRelay::READ),
-        RelayFilter::Advertise => ri.has_usage_bits(DbRelay::ADVERTISE),
-        RelayFilter::Private => !ri.has_usage_bits(DbRelay::INBOX | DbRelay::OUTBOX),
+        RelayFilter::Write => ri.has_usage_bits(Relay::WRITE),
+        RelayFilter::Read => ri.has_usage_bits(Relay::READ),
+        RelayFilter::Advertise => ri.has_usage_bits(Relay::ADVERTISE),
+        RelayFilter::Private => !ri.has_usage_bits(Relay::INBOX | Relay::OUTBOX),
     };
 
     search && filter
