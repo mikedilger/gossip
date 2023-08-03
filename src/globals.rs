@@ -112,6 +112,9 @@ pub struct Globals {
 
     /// LMDB storage
     pub storage: Storage,
+
+    /// Events Processed
+    pub events_processed: AtomicU32,
 }
 
 lazy_static! {
@@ -157,6 +160,7 @@ lazy_static! {
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
             storage,
+            events_processed: AtomicU32::new(0),
         }
     };
 }

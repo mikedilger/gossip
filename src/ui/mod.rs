@@ -837,8 +837,10 @@ impl eframe::App for GossipUi {
                             .map(|s| s.entries())
                             .unwrap_or(0);
                         let relays = GLOBALS.connected_relays.len();
+                        let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
                         let stats_message = format!(
-                            "EVENTS: {}     RELAYS CONNECTED: {}     HTTP: {} / {}",
+                            "EVENTS PROCESSED: {}   EVENTS: {}   RELAYS CONNECTED: {}   HTTP: {} / {}",
+                            processed,
                             events,
                             relays,
                             in_flight,

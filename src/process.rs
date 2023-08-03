@@ -27,6 +27,8 @@ pub async fn process_new_event(
         }
     }
 
+    GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);
+
     // Determine if we already had this event
     let duplicate = GLOBALS.storage.has_event(event.id)?;
     if duplicate {
