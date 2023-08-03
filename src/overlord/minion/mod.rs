@@ -52,7 +52,7 @@ impl Minion {
             Some(dbrelay) => dbrelay,
             None => {
                 let dbrelay = Relay::new(url.clone());
-                GLOBALS.storage.write_relay(&dbrelay)?;
+                GLOBALS.storage.write_relay(&dbrelay, None)?;
                 dbrelay
             }
         };
@@ -138,7 +138,7 @@ impl Minion {
             }
 
             // Save updated NIP-11 data (even if it failed)
-            GLOBALS.storage.write_relay(&self.dbrelay)?;
+            GLOBALS.storage.write_relay(&self.dbrelay, None)?;
 
             let key: [u8; 16] = rand::random();
 
@@ -1071,7 +1071,7 @@ impl Minion {
         self.dbrelay.failure_count += 1;
 
         // Save to storage
-        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay) {
+        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay, None) {
             tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
         }
     }
@@ -1086,7 +1086,7 @@ impl Minion {
         }
 
         // Save to storage
-        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay) {
+        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay, None) {
             tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
         }
     }

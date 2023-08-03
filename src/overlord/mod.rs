@@ -468,7 +468,7 @@ impl Overlord {
     fn bump_failure_count(url: &RelayUrl) {
         if let Ok(Some(mut dbrelay)) = GLOBALS.storage.read_relay(url) {
             dbrelay.failure_count += 1;
-            let _ = GLOBALS.storage.write_relay(&dbrelay);
+            let _ = GLOBALS.storage.write_relay(&dbrelay, None);
         }
     }
 
@@ -476,12 +476,12 @@ impl Overlord {
         match message {
             ToOverlordMessage::AddRelay(relay_str) => {
                 let dbrelay = Relay::new(relay_str);
-                GLOBALS.storage.write_relay(&dbrelay)?;
+                GLOBALS.storage.write_relay(&dbrelay, None)?;
             }
             ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
                 if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                     dbrelay.adjust_usage_bit(bit, value);
-                    GLOBALS.storage.write_relay(&dbrelay)?;
+                    GLOBALS.storage.write_relay(&dbrelay, None)?;
                 } else {
                     tracing::error!("CODE OVERSIGHT - We are adjusting a relay usage bit for a relay not in memory, how did that happen? It will not be saved.");
                 }
@@ -566,7 +566,7 @@ impl Overlord {
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
                 if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
                     relay.hidden = hidden;
-                    GLOBALS.storage.write_relay(&relay)?;
+                    GLOBALS.storage.write_relay(&relay, None)?;
                 }
             }
             ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
@@ -689,7 +689,7 @@ impl Overlord {
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                     dbrelay.rank = rank as u64;
-                    GLOBALS.storage.write_relay(&dbrelay)?;
+                    GLOBALS.storage.write_relay(&dbrelay, None)?;
                 }
             }
             ToOverlordMessage::ReengageMinion(url, persistent_jobs) => {
@@ -703,7 +703,7 @@ impl Overlord {
             }
             ToOverlordMessage::SaveSettings => {
                 let settings = GLOBALS.settings.read().clone();
-                GLOBALS.storage.write_settings(&settings)?;
+                GLOBALS.storage.write_settings(&settings, None)?;
                 tracing::debug!("Settings saved.");
             }
             ToOverlordMessage::Search(text) => {
@@ -734,7 +734,7 @@ impl Overlord {
                 let public_key = GLOBALS.signer.public_key().unwrap();
                 GLOBALS.settings.write().public_key = Some(public_key);
                 let settings = GLOBALS.settings.read().clone();
-                GLOBALS.storage.write_settings(&settings)?;
+                GLOBALS.storage.write_settings(&settings, None)?;
             }
             ToOverlordMessage::UpdateFollowing(merge) => {
                 self.update_following(merge).await?;
@@ -858,7 +858,7 @@ impl Overlord {
 
         // Save relay
         let db_relay = Relay::new(relay.clone());
-        GLOBALS.storage.write_relay(&db_relay)?;
+        GLOBALS.storage.write_relay(&db_relay, None)?;
 
         let now = Unixtime::now().unwrap().0 as u64;
 
@@ -870,7 +870,7 @@ impl Overlord {
         pr.last_suggested_kind3 = Some(now);
         pr.manually_paired_read = true;
         pr.manually_paired_write = true;
-        GLOBALS.storage.write_person_relay(&pr)?;
+        GLOBALS.storage.write_person_relay(&pr, None)?;
 
         // async_follow added them to the relay tracker.
         // Pick relays to start tracking them now
@@ -1658,7 +1658,7 @@ impl Overlord {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
                 // Save relay
                 let db_relay = Relay::new(relay_url.clone());
-                GLOBALS.storage.write_relay(&db_relay)?;
+                GLOBALS.storage.write_relay(&db_relay, None)?;
 
                 // Save person_relay
                 let mut pr = match GLOBALS
@@ -1669,7 +1669,7 @@ impl Overlord {
                     None => PersonRelay::new(nprofile.pubkey, relay_url.clone()),
                 };
                 pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
-                GLOBALS.storage.write_person_relay(&pr)?;
+                GLOBALS.storage.write_person_relay(&pr, None)?;
             }
         }
 
@@ -1808,7 +1808,7 @@ impl Overlord {
                         .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
                     {
                         // Save relay if missing
-                        GLOBALS.storage.write_relay_if_missing(&url)?;
+                        GLOBALS.storage.write_relay_if_missing(&url, None)?;
 
                         // create or update person_relay last_suggested_kind3
                         let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
@@ -1816,7 +1816,7 @@ impl Overlord {
                             None => PersonRelay::new(pubkey, url.clone()),
                         };
                         pr.last_suggested_kind3 = Some(now.0 as u64);
-                        GLOBALS.storage.write_person_relay(&pr)?;
+                        GLOBALS.storage.write_person_relay(&pr, None)?;
                     }
                     // TBD: do something with the petname
                 }
@@ -1832,7 +1832,9 @@ impl Overlord {
         } else {
             our_contact_list.created_at
         };
-        GLOBALS.storage.write_last_contact_list_edit(last_edit.0)?;
+        GLOBALS
+            .storage
+            .write_last_contact_list_edit(last_edit.0, None)?;
 
         // Pick relays again
         {

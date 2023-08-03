@@ -16,6 +16,8 @@ impl Storage {
         // Disable sync, we will sync when we are done.
         self.disable_sync()?;
 
+        let mut txn = self.env.begin_rw_txn()?;
+
         // Progress the legacy database to the endpoint first
         let mut db = legacy::init_database()?;
         legacy::setup_database(&mut db)?;
@@ -23,14 +25,16 @@ impl Storage {
 
         // local settings
         import_local_settings(&db, |epk: Option<EncryptedPrivateKey>, lcle: i64| {
-            self.write_encrypted_private_key(&epk)?;
-            self.write_last_contact_list_edit(lcle)
+            self.write_encrypted_private_key(&epk, Some(&mut txn))?;
+            self.write_last_contact_list_edit(lcle, Some(&mut txn))
         })?;
         tracing::info!("LMDB: imported local settings.");
 
         // old table "settings"
         // Copy settings (including local_settings)
-        import_settings(&db, |settings: &Settings| self.write_settings(settings))?;
+        import_settings(&db, |settings: &Settings| {
+            self.write_settings(settings, Some(&mut txn))
+        })?;
         tracing::info!("LMDB: imported settings.");
 
         // old table "event_relay"
@@ -39,7 +43,7 @@ impl Storage {
             let id = Id::try_from_hex_string(&id)?;
             let relay_url = RelayUrl(url);
             let time = Unixtime(seen as i64);
-            self.add_event_seen_on_relay(id, &relay_url, time)
+            self.add_event_seen_on_relay(id, &relay_url, time, Some(&mut txn))
         })?;
         tracing::info!("LMDB: imported event-seen-on-relay data.");
 
@@ -47,7 +51,7 @@ impl Storage {
         // Copy event_flags
         import_event_flags(&db, |id: Id, viewed: bool| {
             if viewed {
-                self.mark_event_viewed(id)
+                self.mark_event_viewed(id, Some(&mut txn))
             } else {
                 Ok(())
             }
@@ -58,29 +62,33 @@ impl Storage {
         // Copy event_hashtags
         import_hashtags(&db, |hashtag: String, event: String| {
             let id = Id::try_from_hex_string(&event)?;
-            self.add_hashtag(&hashtag, id)
+            self.add_hashtag(&hashtag, id, Some(&mut txn))
         })?;
         tracing::info!("LMDB: imported event hashtag index.");
 
         // old table "relay"
         // Copy relays
-        import_relays(&db, |dbrelay: &Relay| self.write_relay(dbrelay))?;
+        import_relays(&db, |dbrelay: &Relay| {
+            self.write_relay(dbrelay, Some(&mut txn))
+        })?;
         tracing::info!("LMDB: imported relays.");
 
         // old table "event"
         // Copy events
-        import_events(&db, |event: &Event| self.write_event(event))?;
+        import_events(&db, |event: &Event| self.write_event(event, Some(&mut txn)))?;
         tracing::info!("LMDB: imported events and tag index");
 
         // old table "person"
         // Copy people
-        import_people(&db, |person: &Person| self.write_person(person))?;
+        import_people(&db, |person: &Person| {
+            self.write_person(person, Some(&mut txn))
+        })?;
         tracing::info!("LMDB: imported people");
 
         // old table "person_relay"
         // Copy person relay
         import_person_relays(&db, |person_relay: &PersonRelay| {
-            self.write_person_relay(person_relay)
+            self.write_person_relay(person_relay, Some(&mut txn))
         })?;
         tracing::info!("LMDB: import person_relays");
 
@@ -90,7 +98,7 @@ impl Storage {
         self.enable_sync()?;
 
         // Mark migration level
-        self.write_migration_level(0)?;
+        self.write_migration_level(0, Some(&mut txn))?;
 
         tracing::info!("Importing SQLITE data into LMDB: Done.");
 

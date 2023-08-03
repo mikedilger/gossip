@@ -122,6 +122,7 @@ impl Minion {
                             id,
                             &self.url,
                             Unixtime::now().unwrap(),
+                            None,
                         )?;
                     } else {
                         // demerit the relay

@@ -222,7 +222,7 @@ impl People {
 
     pub fn create_all_if_missing(&self, pubkeys: &[PublicKey]) -> Result<(), Error> {
         for pubkey in pubkeys {
-            GLOBALS.storage.write_person_if_missing(pubkey)?;
+            GLOBALS.storage.write_person_if_missing(pubkey, None)?;
         }
 
         Ok(())
@@ -322,7 +322,7 @@ impl People {
 
         // Update metadata_last_received, even if we don't update the metadata
         person.metadata_last_received = now.0;
-        GLOBALS.storage.write_person(&person)?;
+        GLOBALS.storage.write_person(&person, None)?;
 
         // Remove from the list of people that need metadata
         self.need_metadata.remove(pubkey);
@@ -347,7 +347,7 @@ impl People {
                 person.nip05_valid = false; // changed, so reset to invalid
                 person.nip05_last_checked = None; // we haven't checked this one yet
             }
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
 
             // UI cache invalidation (so notes of the person get rerendered)
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
@@ -643,7 +643,7 @@ impl People {
     pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
         if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
             person.followed = follow;
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
         }
         Ok(())
     }
@@ -654,7 +654,7 @@ impl People {
                 if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
                     if !person.followed {
                         person.followed = true;
-                        GLOBALS.storage.write_person(&person)?;
+                        GLOBALS.storage.write_person(&person, None)?;
                     }
                 }
             }
@@ -663,7 +663,7 @@ impl People {
                 let orig = person.followed;
                 person.followed = pubkeys.contains(&person.pubkey);
                 if person.followed != orig {
-                    GLOBALS.storage.write_person(&person)?;
+                    GLOBALS.storage.write_person(&person, None)?;
                 }
             }
         }
@@ -679,7 +679,7 @@ impl People {
     pub fn follow_none(&self) -> Result<(), Error> {
         for mut person in GLOBALS.storage.filter_people(|_| true)? {
             person.followed = false;
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
         }
 
         Ok(())
@@ -688,7 +688,7 @@ impl People {
     pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
         if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
             person.muted = mute;
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
         }
 
         // UI cache invalidation (so notes of the person get rerendered)
@@ -726,7 +726,7 @@ impl People {
             person.relay_list_created_at = Some(created_at);
         }
 
-        GLOBALS.storage.write_person(&person)?;
+        GLOBALS.storage.write_person(&person, None)?;
 
         Ok(retval)
     }
@@ -736,7 +736,7 @@ impl People {
 
         if let Some(mut person) = GLOBALS.storage.read_person(&pubkey)? {
             person.nip05_last_checked = Some(now as u64);
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
         }
 
         Ok(())
@@ -761,7 +761,7 @@ impl People {
             person.nip05_valid = nip05_valid;
             person.nip05_last_checked = Some(nip05_last_checked);
 
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
         }
 
         // UI cache invalidation (so notes of the person get rerendered)

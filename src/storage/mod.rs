@@ -275,8 +275,9 @@ impl Storage {
         drop(cursor);
         txn.commit()?;
 
-        // Delete from event_seen_on_relay
         let mut txn = self.env.begin_rw_txn()?;
+
+        // Delete from event_seen_on_relay
         let mut deletions: Vec<Vec<u8>> = Vec::new();
         for id in &ids {
             let start_key: &[u8] = id.as_slice();
@@ -301,10 +302,8 @@ impl Storage {
         for deletion in deletions.drain(..) {
             txn.del(self.event_seen_on_relay, &deletion, None)?;
         }
-        txn.commit()?;
 
         // Delete from event_viewed
-        let mut txn = self.env.begin_rw_txn()?;
         for id in &ids {
             let _ = txn.del(self.event_viewed, &id.as_slice(), None);
         }
@@ -331,11 +330,9 @@ impl Storage {
         for deletion in deletions.drain(..) {
             txn.del(self.hashtags, &deletion.0, Some(&deletion.1))?;
         }
-        txn.commit()?;
 
         // Delete from relationships
         // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
-        let mut txn = self.env.begin_rw_txn()?;
         let mut cursor = txn.open_rw_cursor(self.relationships)?;
         let iter = cursor.iter_start();
         let mut deletions: Vec<Vec<u8>> = Vec::new();
@@ -360,29 +357,45 @@ impl Storage {
         for deletion in deletions.drain(..) {
             txn.del(self.relationships, &deletion, None)?;
         }
-        txn.commit()?;
 
         // delete from events
-        let mut txn = self.env.begin_rw_txn()?;
         for id in &ids {
             let _ = txn.del(self.events, &id.as_ref(), None);
         }
         tracing::info!("PRUNE: deleted {} records from events", ids.len());
+
         txn.commit()?;
 
         Ok(ids.len())
     }
 
-    pub fn write_migration_level(&self, migration_level: u32) -> Result<(), Error> {
+    pub fn write_migration_level<'a>(
+        &'a self,
+        migration_level: u32,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         let bytes = &migration_level.to_be_bytes();
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(
-            self.general,
-            b"migration_level",
-            &bytes,
-            WriteFlags::empty(),
-        )?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            Ok(txn.put(
+                self.general,
+                b"migration_level",
+                &bytes,
+                WriteFlags::empty(),
+            )?)
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -395,19 +408,32 @@ impl Storage {
         }
     }
 
-    pub fn write_encrypted_private_key(
-        &self,
+    pub fn write_encrypted_private_key<'a>(
+        &'a self,
         epk: &Option<EncryptedPrivateKey>,
+        rw_txn: Option<&mut RwTransaction<'a>>,
     ) -> Result<(), Error> {
         let bytes = epk.as_ref().map(|e| &e.0).write_to_vec()?;
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(
-            self.general,
-            b"encrypted_private_key",
-            &bytes,
-            WriteFlags::empty(),
-        )?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(
+                self.general,
+                b"encrypted_private_key",
+                &bytes,
+                WriteFlags::empty(),
+            )?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -423,16 +449,32 @@ impl Storage {
         }
     }
 
-    pub fn write_last_contact_list_edit(&self, when: i64) -> Result<(), Error> {
+    pub fn write_last_contact_list_edit<'a>(
+        &'a self,
+        when: i64,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         let bytes = &when.to_be_bytes();
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(
-            self.general,
-            b"last_contact_list_edit",
-            &bytes,
-            WriteFlags::empty(),
-        )?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(
+                self.general,
+                b"last_contact_list_edit",
+                &bytes,
+                WriteFlags::empty(),
+            )?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -445,11 +487,27 @@ impl Storage {
         }
     }
 
-    pub fn write_settings(&self, settings: &Settings) -> Result<(), Error> {
+    pub fn write_settings<'a>(
+        &'a self,
+        settings: &Settings,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         let bytes = settings.write_to_vec()?;
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.general, b"settings", &bytes, WriteFlags::empty())?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(self.general, b"settings", &bytes, WriteFlags::empty())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -462,19 +520,32 @@ impl Storage {
         }
     }
 
-    pub fn add_event_seen_on_relay(
-        &self,
+    pub fn add_event_seen_on_relay<'a>(
+        &'a self,
         id: Id,
         url: &RelayUrl,
         when: Unixtime,
+        rw_txn: Option<&mut RwTransaction<'a>>,
     ) -> Result<(), Error> {
         let mut key: Vec<u8> = id.as_slice().to_owned();
         key.extend(url.0.as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let bytes = &when.0.to_be_bytes();
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.event_seen_on_relay, &key, &bytes, WriteFlags::empty())?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(self.event_seen_on_relay, &key, &bytes, WriteFlags::empty())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -502,16 +573,32 @@ impl Storage {
         Ok(output)
     }
 
-    pub fn mark_event_viewed(&self, id: Id) -> Result<(), Error> {
+    pub fn mark_event_viewed<'a>(
+        &'a self,
+        id: Id,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         let bytes = vec![];
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(
-            self.event_viewed,
-            &id.as_slice(),
-            &bytes,
-            WriteFlags::empty(),
-        )?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(
+                self.event_viewed,
+                &id.as_slice(),
+                &bytes,
+                WriteFlags::empty(),
+            )?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -524,12 +611,29 @@ impl Storage {
         }
     }
 
-    pub fn add_hashtag(&self, hashtag: &String, id: Id) -> Result<(), Error> {
+    pub fn add_hashtag<'a>(
+        &'a self,
+        hashtag: &String,
+        id: Id,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         let key = key!(hashtag.as_bytes());
         let bytes = id.as_slice();
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.hashtags, &key, &bytes, WriteFlags::empty())?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(self.hashtags, &key, &bytes, WriteFlags::empty())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -555,46 +659,81 @@ impl Storage {
         Ok(output)
     }
 
-    pub fn write_relay(&self, relay: &Relay) -> Result<(), Error> {
+    pub fn write_relay<'a>(
+        &'a self,
+        relay: &Relay,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
         let key = key!(relay.url.0.as_bytes());
         let bytes = serde_json::to_vec(relay)?;
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.relays, &key, &bytes, WriteFlags::empty())?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(self.relays, &key, &bytes, WriteFlags::empty())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
-    pub fn write_relay_if_missing(&self, url: &RelayUrl) -> Result<(), Error> {
+    pub fn write_relay_if_missing<'a>(
+        &'a self,
+        url: &RelayUrl,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         if self.read_relay(url)?.is_none() {
             let dbrelay = Relay::new(url.to_owned());
-            self.write_relay(&dbrelay)?;
+            self.write_relay(&dbrelay, rw_txn)?;
         }
         Ok(())
     }
 
-    pub fn modify_all_relays<M>(&self, mut modify: M) -> Result<(), Error>
+    pub fn modify_all_relays<'a, M>(
+        &'a self,
+        mut modify: M,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error>
     where
         M: FnMut(&mut Relay),
     {
-        let mut txn = self.env.begin_rw_txn()?;
-        let mut cursor = txn.open_rw_cursor(self.relays)?;
-        let iter = cursor.iter_start();
-        for result in iter {
-            match result {
-                Err(e) => return Err(e.into()),
-                Ok((key, val)) => {
-                    let mut dbrelay: Relay = serde_json::from_slice(val)?;
-                    modify(&mut dbrelay);
-                    let bytes = serde_json::to_vec(&dbrelay)?;
-                    cursor.put(&key, &bytes, WriteFlags::empty())?;
+        let mut f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            let mut cursor = txn.open_rw_cursor(self.relays)?;
+            let iter = cursor.iter_start();
+            for result in iter {
+                match result {
+                    Err(e) => return Err(e.into()),
+                    Ok((key, val)) => {
+                        let mut dbrelay: Relay = serde_json::from_slice(val)?;
+                        modify(&mut dbrelay);
+                        let bytes = serde_json::to_vec(&dbrelay)?;
+                        cursor.put(&key, &bytes, WriteFlags::empty())?;
+                    }
                 }
             }
-        }
-        drop(cursor);
-        txn.commit()?;
+            drop(cursor);
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -633,22 +772,37 @@ impl Storage {
         Ok(output)
     }
 
-    pub fn write_event(&self, event: &Event) -> Result<(), Error> {
+    pub fn write_event<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         // write to lmdb 'events'
         let bytes = event.write_to_vec()?;
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(
-            self.events,
-            &event.id.as_slice(),
-            &bytes,
-            WriteFlags::empty(),
-        )?;
-        txn.commit()?;
 
-        // also index the event
-        self.write_event_ek_pk_index(event)?;
-        self.write_event_ek_c_index(event)?;
-        self.write_event_references_person(event)?;
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(
+                self.events,
+                &event.id.as_slice(),
+                &bytes,
+                WriteFlags::empty(),
+            )?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                // also index the event
+                self.write_event_ek_pk_index(event, Some(&mut txn))?;
+                self.write_event_ek_c_index(event, Some(&mut txn))?;
+                self.write_event_references_person(event, Some(&mut txn))?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -661,14 +815,33 @@ impl Storage {
         }
     }
 
-    pub fn delete_event(&self, id: Id) -> Result<(), Error> {
-        let mut txn = self.env.begin_rw_txn()?;
-        let _ = txn.del(self.events, &id.as_slice(), None);
-        txn.commit()?;
+    pub fn delete_event<'a>(
+        &'a self,
+        id: Id,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            let _ = txn.del(self.events, &id.as_slice(), None);
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
-    pub fn replace_event(&self, event: &Event) -> Result<bool, Error> {
+    pub fn replace_event<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<bool, Error> {
         if !event.kind.is_replaceable() {
             return Err(ErrorKind::General("Event is not replaceable.".to_owned()).into());
         }
@@ -678,7 +851,12 @@ impl Storage {
         let mut found_newer = false;
         for old in existing {
             if old.created_at < event.created_at {
-                self.delete_event(old.id)?;
+                // here is some reborrow magic we needed to appease the borrow checker
+                if let Some(&mut ref mut v) = rw_txn {
+                    self.delete_event(old.id, Some(v))?;
+                } else {
+                    self.delete_event(old.id, None)?;
+                }
             } else {
                 found_newer = true;
             }
@@ -688,11 +866,16 @@ impl Storage {
             return Ok(false); // this event is not the latest one.
         }
 
-        self.write_event(event)?;
+        self.write_event(event, rw_txn)?;
+
         Ok(true)
     }
 
-    pub fn replace_parameterized_event(&self, event: &Event) -> Result<bool, Error> {
+    pub fn replace_parameterized_event<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<bool, Error> {
         if !event.kind.is_parameterized_replaceable() {
             return Err(
                 ErrorKind::General("Event is not parameterized replaceable.".to_owned()).into(),
@@ -720,7 +903,12 @@ impl Storage {
         let mut found_newer = false;
         for old in existing {
             if old.created_at < event.created_at {
-                self.delete_event(old.id)?;
+                // here is some reborrow magic we needed to appease the borrow checker
+                if let Some(&mut ref mut v) = rw_txn {
+                    self.delete_event(old.id, Some(v))?;
+                } else {
+                    self.delete_event(old.id, None)?;
+                }
             } else {
                 found_newer = true;
             }
@@ -730,7 +918,7 @@ impl Storage {
             return Ok(false); // this event is not the latest one.
         }
 
-        self.write_event(event)?;
+        self.write_event(event, rw_txn)?;
         Ok(true)
     }
 
@@ -992,31 +1180,67 @@ impl Storage {
     }
 
     // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_ek_pk_index(&self, event: &Event) -> Result<(), Error> {
+    fn write_event_ek_pk_index<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         let ek: u32 = event.kind.into();
         let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
         key.extend(event.pubkey.as_bytes()); // pubkey
         let bytes = event.id.as_slice();
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.event_ek_pk_index, &key, &bytes, WriteFlags::empty())?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(self.event_ek_pk_index, &key, &bytes, WriteFlags::empty())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
     // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_ek_c_index(&self, event: &Event) -> Result<(), Error> {
+    fn write_event_ek_c_index<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         let ek: u32 = event.kind.into();
         let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
         key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
         let bytes = event.id.as_slice();
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.event_ek_c_index, &key, &bytes, WriteFlags::empty())?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(self.event_ek_c_index, &key, &bytes, WriteFlags::empty())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
     // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_references_person(&self, event: &Event) -> Result<(), Error> {
+    fn write_event_references_person<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         if !event.kind.is_feed_displayable() {
             return Ok(());
         }
@@ -1035,19 +1259,30 @@ impl Storage {
             pubkeys.insert(pubkey);
         }
         if !pubkeys.is_empty() {
-            let mut txn = self.env.begin_rw_txn()?;
-            for pubkey in pubkeys.drain() {
-                let mut key: Vec<u8> = pubkey.to_bytes();
-                key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
-                txn.put(
-                    self.event_references_person,
-                    &key,
-                    &bytes,
-                    WriteFlags::empty(),
-                )?;
-            }
-            txn.commit()?;
+            let mut f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+                for pubkey in pubkeys.drain() {
+                    let mut key: Vec<u8> = pubkey.to_bytes();
+                    key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
+                    txn.put(
+                        self.event_references_person,
+                        &key,
+                        &bytes,
+                        WriteFlags::empty(),
+                    )?;
+                }
+                Ok(())
+            };
+
+            match rw_txn {
+                Some(txn) => f(txn)?,
+                None => {
+                    let mut txn = self.env.begin_rw_txn()?;
+                    f(&mut txn)?;
+                    txn.commit()?;
+                }
+            };
         }
+
         Ok(())
     }
 
@@ -1250,82 +1485,98 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTransaction<'a>>,
     ) -> Result<Vec<Id>, Error> {
-        let mut inner_txn: Option<RwTransaction<'a>> = None;
-        let txn = match rw_txn {
-            Some(txn) => txn,
-            None => {
-                inner_txn = Some(self.env.begin_rw_txn()?);
-                inner_txn.as_mut().unwrap()
-            }
-        };
-
         let mut invalidate: Vec<Id> = Vec::new();
 
-        // replies to
-        if let Some((id, _)) = event.replies_to() {
-            self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
-        }
+        let mut f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            // replies to
+            if let Some((id, _)) = event.replies_to() {
+                self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
+            }
 
-        // reacts to
-        if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-            self.write_relationship(
-                id,
-                event.id,
-                Relationship::Reaction(event.pubkey, reaction),
-                Some(txn),
-            )?;
-
-            invalidate.push(id);
-        }
-
-        // deletes
-        if let Some((ids, reason)) = event.deletes() {
-            invalidate.extend(&ids);
-
-            for id in ids {
-                // since it is a delete, we don't actually desire the event.
-
+            // reacts to
+            if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
                 self.write_relationship(
                     id,
                     event.id,
-                    Relationship::Deletion(reason.clone()),
-                    Some(txn),
-                )?;
-            }
-        }
-
-        // zaps
-        match event.zaps() {
-            Ok(Some(zapdata)) => {
-                self.write_relationship(
-                    zapdata.id,
-                    event.id,
-                    Relationship::ZapReceipt(event.pubkey, zapdata.amount),
+                    Relationship::Reaction(event.pubkey, reaction),
                     Some(txn),
                 )?;
 
-                invalidate.push(zapdata.id);
+                invalidate.push(id);
             }
-            Err(e) => tracing::error!("Invalid zap receipt: {}", e),
-            _ => {}
-        }
 
-        if let Some(txn) = inner_txn {
-            txn.commit()?;
-        }
+            // deletes
+            if let Some((ids, reason)) = event.deletes() {
+                invalidate.extend(&ids);
+
+                for id in ids {
+                    // since it is a delete, we don't actually desire the event.
+
+                    self.write_relationship(
+                        id,
+                        event.id,
+                        Relationship::Deletion(reason.clone()),
+                        Some(txn),
+                    )?;
+                }
+            }
+
+            // zaps
+            match event.zaps() {
+                Ok(Some(zapdata)) => {
+                    self.write_relationship(
+                        zapdata.id,
+                        event.id,
+                        Relationship::ZapReceipt(event.pubkey, zapdata.amount),
+                        Some(txn),
+                    )?;
+
+                    invalidate.push(zapdata.id);
+                }
+                Err(e) => tracing::error!("Invalid zap receipt: {}", e),
+                _ => {}
+            }
+
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
 
         Ok(invalidate)
     }
 
-    pub fn write_person(&self, person: &Person) -> Result<(), Error> {
+    pub fn write_person<'a>(
+        &'a self,
+        person: &Person,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
         let key: Vec<u8> = person.pubkey.to_bytes();
         let bytes = serde_json::to_vec(person)?;
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.people, &key, &bytes, WriteFlags::empty())?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(self.people, &key, &bytes, WriteFlags::empty())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -1342,10 +1593,14 @@ impl Storage {
         }
     }
 
-    pub fn write_person_if_missing(&self, pubkey: &PublicKey) -> Result<(), Error> {
+    pub fn write_person_if_missing<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         if self.read_person(pubkey)?.is_none() {
             let person = Person::new(pubkey.to_owned());
-            self.write_person(&person)?;
+            self.write_person(&person, rw_txn)?;
         }
         Ok(())
     }
@@ -1372,14 +1627,30 @@ impl Storage {
         Ok(output)
     }
 
-    pub fn write_person_relay(&self, person_relay: &PersonRelay) -> Result<(), Error> {
+    pub fn write_person_relay<'a>(
+        &'a self,
+        person_relay: &PersonRelay,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
         let mut key = person_relay.pubkey.to_bytes();
         key.extend(person_relay.url.0.as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let bytes = person_relay.write_to_vec()?;
-        let mut txn = self.env.begin_rw_txn()?;
-        txn.put(self.person_relays, &key, &bytes, WriteFlags::empty())?;
-        txn.commit()?;
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.put(self.person_relays, &key, &bytes, WriteFlags::empty())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -1421,11 +1692,12 @@ impl Storage {
         Ok(output)
     }
 
-    pub fn set_relay_list(
-        &self,
+    pub fn set_relay_list<'a>(
+        &'a self,
         pubkey: PublicKey,
         read_relays: Vec<RelayUrl>,
         write_relays: Vec<RelayUrl>,
+        rw_txn: Option<&mut RwTransaction<'a>>,
     ) -> Result<(), Error> {
         let mut person_relays = self.get_person_relays(pubkey)?;
         for mut pr in person_relays.drain(..) {
@@ -1434,7 +1706,12 @@ impl Storage {
             pr.read = read_relays.contains(&pr.url);
             pr.write = write_relays.contains(&pr.url);
             if pr.read != orig_read || pr.write != orig_write {
-                self.write_person_relay(&pr)?;
+                // here is some reborrow magic we needed to appease the borrow checker
+                if let Some(&mut ref mut v) = rw_txn {
+                    self.write_person_relay(&pr, Some(v))?;
+                } else {
+                    self.write_person_relay(&pr, None)?;
+                }
             }
         }
         Ok(())

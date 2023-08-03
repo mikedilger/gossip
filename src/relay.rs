@@ -50,9 +50,12 @@ impl Relay {
     }
 
     pub fn clear_all_relay_list_usage_bits() -> Result<(), Error> {
-        GLOBALS.storage.modify_all_relays(|relay| {
-            relay.usage_bits &= Self::INBOX | Self::OUTBOX;
-        })
+        GLOBALS.storage.modify_all_relays(
+            |relay| {
+                relay.usage_bits &= Self::INBOX | Self::OUTBOX;
+            },
+            None,
+        )
     }
 
     pub fn adjust_usage_bit(&mut self, bit: u64, value: bool) {

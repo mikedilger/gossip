@@ -138,7 +138,7 @@ pub(super) fn render_note(
 
                 // Mark post as viewed if hovered AND we are not scrolling
                 if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
-                    let _ = GLOBALS.storage.mark_event_viewed(id);
+                    let _ = GLOBALS.storage.mark_event_viewed(id, None);
                 }
 
                 // Record if the rendered note was visible

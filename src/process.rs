@@ -23,7 +23,7 @@ pub async fn process_new_event(
         if from_relay {
             GLOBALS
                 .storage
-                .add_event_seen_on_relay(event.id, url, now)?;
+                .add_event_seen_on_relay(event.id, url, now, None)?;
         }
     }
 
@@ -44,7 +44,7 @@ pub async fn process_new_event(
     // Bail if the event is an already-replaced replaceable event
     if from_relay {
         if event.kind.is_replaceable() {
-            if !GLOBALS.storage.replace_event(event)? {
+            if !GLOBALS.storage.replace_event(event, None)? {
                 tracing::trace!(
                     "{}: Old Event: {} {:?} @{}",
                     seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
@@ -55,7 +55,7 @@ pub async fn process_new_event(
                 return Ok(()); // This did not replace anything.
             }
         } else if event.kind.is_parameterized_replaceable() {
-            if !GLOBALS.storage.replace_parameterized_event(event)? {
+            if !GLOBALS.storage.replace_parameterized_event(event, None)? {
                 tracing::trace!(
                     "{}: Old Event: {} {:?} @{}",
                     seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
@@ -67,7 +67,7 @@ pub async fn process_new_event(
             }
         } else {
             // This will ignore if it is already there
-            GLOBALS.storage.write_event(event)?;
+            GLOBALS.storage.write_event(event, None)?;
         }
     }
 
@@ -91,7 +91,7 @@ pub async fn process_new_event(
                 None => PersonRelay::new(event.pubkey, url.clone()),
             };
             pr.last_fetched = Some(now.0 as u64);
-            GLOBALS.storage.write_person_relay(&pr)?;
+            GLOBALS.storage.write_person_relay(&pr, None)?;
         }
 
         for tag in event.tags.iter() {
@@ -101,7 +101,7 @@ pub async fn process_new_event(
                     ..
                 } => {
                     if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
-                        GLOBALS.storage.write_relay_if_missing(&url)?;
+                        GLOBALS.storage.write_relay_if_missing(&url, None)?;
                     }
                 }
                 Tag::Pubkey {
@@ -111,7 +111,7 @@ pub async fn process_new_event(
                 } => {
                     if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
                         if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
-                            GLOBALS.storage.write_relay_if_missing(&url)?;
+                            GLOBALS.storage.write_relay_if_missing(&url, None)?;
 
                             // Add person if missing
                             GLOBALS.people.create_all_if_missing(&[pubkey])?;
@@ -122,7 +122,7 @@ pub async fn process_new_event(
                                 None => PersonRelay::new(pubkey, url.clone()),
                             };
                             pr.last_suggested_bytag = Some(now.0 as u64);
-                            GLOBALS.storage.write_person_relay(&pr)?;
+                            GLOBALS.storage.write_person_relay(&pr, None)?;
                         }
                     }
                 }
@@ -143,7 +143,7 @@ pub async fn process_new_event(
     if from_relay {
         let hashtags = event.hashtags();
         for hashtag in hashtags {
-            GLOBALS.storage.add_hashtag(&hashtag, event.id)?;
+            GLOBALS.storage.add_hashtag(&hashtag, event.id, None)?;
         }
     }
 
@@ -266,13 +266,13 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                                     // Update
                                     dbrelay.set_usage_bits(Relay::INBOX);
                                     dbrelay.clear_usage_bits(Relay::OUTBOX);
-                                    GLOBALS.storage.write_relay(&dbrelay)?;
+                                    GLOBALS.storage.write_relay(&dbrelay, None)?;
                                 } else {
                                     // Insert missing relay
                                     let mut dbrelay = Relay::new(relay_url.to_owned());
                                     // Since we are creating, we add READ
                                     dbrelay.set_usage_bits(Relay::INBOX | Relay::READ);
-                                    GLOBALS.storage.write_relay(&dbrelay)?;
+                                    GLOBALS.storage.write_relay(&dbrelay, None)?;
                                 }
                             }
                         }
@@ -284,13 +284,13 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                                     // Update
                                     dbrelay.set_usage_bits(Relay::OUTBOX);
                                     dbrelay.clear_usage_bits(Relay::INBOX);
-                                    GLOBALS.storage.write_relay(&dbrelay)?;
+                                    GLOBALS.storage.write_relay(&dbrelay, None)?;
                                 } else {
                                     // Create
                                     let mut dbrelay = Relay::new(relay_url.to_owned());
                                     // Since we are creating, we add WRITE
                                     dbrelay.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
-                                    GLOBALS.storage.write_relay(&dbrelay)?;
+                                    GLOBALS.storage.write_relay(&dbrelay, None)?;
                                 }
                             }
                         }
@@ -304,7 +304,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                         if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                             // Update
                             dbrelay.set_usage_bits(Relay::INBOX | Relay::OUTBOX);
-                            GLOBALS.storage.write_relay(&dbrelay)?;
+                            GLOBALS.storage.write_relay(&dbrelay, None)?;
                         } else {
                             // Create
                             let mut dbrelay = Relay::new(relay_url.to_owned());
@@ -312,7 +312,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
                             dbrelay.set_usage_bits(
                                 Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
                             );
-                            GLOBALS.storage.write_relay(&dbrelay)?;
+                            GLOBALS.storage.write_relay(&dbrelay, None)?;
                         }
                     }
                 }
@@ -322,7 +322,7 @@ async fn process_relay_list(event: &Event) -> Result<(), Error> {
 
     GLOBALS
         .storage
-        .set_relay_list(event.pubkey, inbox_relays, outbox_relays)?;
+        .set_relay_list(event.pubkey, inbox_relays, outbox_relays, None)?;
 
     Ok(())
 }
@@ -358,7 +358,7 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
         }
         GLOBALS
             .storage
-            .set_relay_list(event.pubkey, inbox_relays, outbox_relays)?;
+            .set_relay_list(event.pubkey, inbox_relays, outbox_relays, None)?;
     }
 
     Ok(())
