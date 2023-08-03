@@ -479,7 +479,7 @@ impl People {
                                 image.height() - excess,
                             );
                         }
-                        let image = image.resize(size, size, FilterType::CatmullRom); // DynamicImage
+                        let image = image.resize(size, size, FilterType::Triangle); // DynamicImage
                         let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
                         let mut color_image = ColorImage::from_rgba_unmultiplied(
                             [
