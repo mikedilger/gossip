@@ -93,15 +93,15 @@ impl Storage {
         })?;
         tracing::info!("LMDB: import person_relays");
 
+        txn.commit()?;
+
         // Re-enable sync (it also syncs the data).
         // If we have a system crash before the migration level
         // is written in the next line, import will start over.
         self.enable_sync()?;
 
         // Mark migration level
-        self.write_migration_level(0, Some(&mut txn))?;
-
-        txn.commit()?;
+        self.write_migration_level(0, None)?;
 
         tracing::info!("Importing SQLITE data into LMDB: Done.");
 

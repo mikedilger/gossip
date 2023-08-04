@@ -787,6 +787,11 @@ impl Storage {
                 &bytes,
                 WriteFlags::empty(),
             )?;
+
+            // also index the event
+            self.write_event_ek_pk_index(event, Some(txn))?;
+            self.write_event_ek_c_index(event, Some(txn))?;
+            self.write_event_references_person(event, Some(txn))?;
             Ok(())
         };
 
@@ -795,10 +800,6 @@ impl Storage {
             None => {
                 let mut txn = self.env.begin_rw_txn()?;
                 f(&mut txn)?;
-                // also index the event
-                self.write_event_ek_pk_index(event, Some(&mut txn))?;
-                self.write_event_ek_c_index(event, Some(&mut txn))?;
-                self.write_event_references_person(event, Some(&mut txn))?;
                 txn.commit()?;
             }
         };
