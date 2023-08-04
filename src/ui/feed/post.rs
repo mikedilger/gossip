@@ -7,55 +7,57 @@ use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, ScrollArea, Ui, Vec2};
 use memoize::memoize;
-use nostr_types::{find_nostr_bech32_pos, NostrBech32, NostrUrl, Tag};
+use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
     let mut job = LayoutJob::default();
 
-    // we will gather indices such that we can split the text in chunks
-    let mut indices: Vec<(usize, HighlightType)> = vec![];
+    // Shatter
+    let shattered_content = ShatteredContent::new(text.clone());
 
-    let mut offset = 0;
-    while let Some((start, end)) = find_nostr_bech32_pos(&text[offset..]) {
-        if let Some(b32) = NostrBech32::try_from_string(&text[offset + start..offset + end]) {
-            // include "nostr:" prefix if found
-            let realstart =
-                if start > 6 && text.get(offset + start - 6..offset + start) == Some("nostr:") {
-                    start - 6
-                } else {
-                    start
+    for segment in shattered_content.segments.iter() {
+        match segment {
+            ContentSegment::NostrUrl(nostr_url) => {
+                let chunk = format!("{}", nostr_url);
+                let highlight = match nostr_url.0 {
+                    NostrBech32::EventAddr(_) => HighlightType::Event,
+                    NostrBech32::EventPointer(_) => HighlightType::Event,
+                    NostrBech32::Id(_) => HighlightType::Event,
+                    NostrBech32::Profile(_) => HighlightType::PublicKey,
+                    NostrBech32::Pubkey(_) => HighlightType::PublicKey,
+                    NostrBech32::Relay(_) => HighlightType::Relay,
                 };
-            indices.push((offset + realstart, HighlightType::Nothing));
-            match b32 {
-                NostrBech32::Pubkey(_) | NostrBech32::Profile(_) => {
-                    indices.push((offset + end, HighlightType::PublicKey))
-                }
-                NostrBech32::EventAddr(_) | NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
-                    indices.push((offset + end, HighlightType::Event))
-                }
-                NostrBech32::Relay(_) => indices.push((offset + end, HighlightType::Relay)),
+                job.append(&chunk, 0.0, theme.highlight_text_format(highlight));
+            }
+            ContentSegment::TagReference(i) => {
+                let chunk = format!("#[{}]", i);
+                // This has been unrecommended, and we have to check if 'i' is in bounds.
+                // So we don't do this anymore
+                // job.append(&chunk, 0.0, theme.highlight_text_format(HighlightType::Event));
+                job.append(
+                    &chunk,
+                    0.0,
+                    theme.highlight_text_format(HighlightType::Nothing),
+                );
+            }
+            ContentSegment::Hyperlink(span) => {
+                let chunk = shattered_content.slice(span).unwrap();
+                job.append(
+                    chunk,
+                    0.0,
+                    theme.highlight_text_format(HighlightType::Hyperlink),
+                );
+            }
+            ContentSegment::Plain(span) => {
+                let chunk = shattered_content.slice(span).unwrap();
+                job.append(
+                    chunk,
+                    0.0,
+                    theme.highlight_text_format(HighlightType::Nothing),
+                );
             }
         }
-        offset += end;
-    }
-
-    indices.sort_by_key(|x| x.0);
-    indices.dedup_by_key(|x| x.0);
-
-    // add a breakpoint at the end if it doesn't exist
-    if indices.is_empty() || indices[indices.len() - 1].0 != text.len() {
-        indices.push((text.len(), HighlightType::Nothing));
-    }
-
-    // now we will add each chunk back to the textarea with custom formatting
-    let mut curr = 0;
-    for (index, highlight) in indices {
-        let chunk = &text[curr..index];
-
-        job.append(chunk, 0.0, theme.highlight_text_format(highlight));
-
-        curr = index;
     }
 
     job
