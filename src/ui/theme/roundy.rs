@@ -375,6 +375,18 @@ impl ThemeDef for RoundyTheme {
                 color: purple,
                 ..Default::default()
             },
+            HighlightType::Hyperlink => TextFormat {
+                font_id: FontId::new(12.5, FontFamily::Proportional),
+                color: {
+                    // This should match get_style() above for hyperlink color.
+                    if dark_mode {
+                        Color32::from_rgb(0x73, 0x95, 0xae)
+                    } else {
+                        Color32::from_rgb(0x55, 0x7a, 0x95)
+                    }
+                },
+                ..Default::default()
+            },
         }
     }
 

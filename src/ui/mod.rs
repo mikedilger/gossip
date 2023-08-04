@@ -155,6 +155,7 @@ pub enum HighlightType {
     PublicKey,
     Event,
     Relay,
+    Hyperlink,
 }
 
 struct GossipUi {
