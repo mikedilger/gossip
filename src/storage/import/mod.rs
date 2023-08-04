@@ -6,6 +6,7 @@ use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::settings::Settings;
 use crate::ui::ThemeVariant;
+use lmdb::Transaction;
 use nostr_types::{EncryptedPrivateKey, Event, Id, PublicKey, RelayUrl, Unixtime};
 use rusqlite::Connection;
 
@@ -99,6 +100,8 @@ impl Storage {
 
         // Mark migration level
         self.write_migration_level(0, Some(&mut txn))?;
+
+        txn.commit()?;
 
         tracing::info!("Importing SQLITE data into LMDB: Done.");
 

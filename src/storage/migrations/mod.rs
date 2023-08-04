@@ -25,6 +25,8 @@ impl Storage {
             self.write_migration_level(level, Some(&mut txn))?;
         }
 
+        txn.commit()?;
+
         Ok(())
     }
 
