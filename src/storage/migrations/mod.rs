@@ -52,6 +52,12 @@ impl Storage {
         let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
             // track progress
             let total = self.get_event_stats()?.entries();
+
+            tracing::info!(
+                "LMDB Migration 1: Computing and storing event relationships for {} events...",
+                total
+            );
+
             let mut count = 0;
 
             let event_txn = self.env.begin_ro_txn()?;
@@ -68,8 +74,10 @@ impl Storage {
 
                 // track progress
                 count += 1;
-                if count % 2000 == 0 {
-                    tracing::info!("{}/{}", count, total);
+                for checkpoint in &[10, 20, 30, 40, 50, 60, 70, 80, 90] {
+                    if count == checkpoint * total / 100 {
+                        tracing::info!("{}% done", checkpoint);
+                    }
                 }
             }
 
