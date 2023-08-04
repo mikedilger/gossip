@@ -946,8 +946,8 @@ impl Overlord {
                     })
                     .collect();
 
-                // Resubscribe to augments
-                // On all currently connected relays
+                // Resubscribe to augments on all relays that have
+                // any feed-event subscriptions (see filter above)
                 for url in relay_urls.drain(..) {
                     self.engage_minion(
                         url,

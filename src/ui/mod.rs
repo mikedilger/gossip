@@ -1199,10 +1199,9 @@ impl GossipUi {
     fn handle_visible_note_changes(&mut self) {
         let no_change = self.visible_note_ids == self.next_visible_note_ids;
         let scrolling = self.current_scroll_offset != 0.0;
-        let too_rapid = Instant::now() - self.last_visible_update < Duration::from_secs(3);
-        let empty = self.next_visible_note_ids.is_empty();
+        let too_rapid = Instant::now() - self.last_visible_update < Duration::from_secs(5);
 
-        if no_change || scrolling || too_rapid || empty {
+        if no_change || scrolling || too_rapid {
             // Clear the accumulator
             // It will fill up again next frame and be tested again.
             self.next_visible_note_ids.clear();
