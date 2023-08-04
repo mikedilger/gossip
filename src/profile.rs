@@ -41,7 +41,9 @@ impl Profile {
             Err(_) => {
                 let mut base_dir = data_dir;
                 base_dir.push("gossip");
-                fs::canonicalize(base_dir)? // because gossip might be a link
+                // We canonicalize here because gossip might be a link, but if it
+                // doesn't exist yet we have to just go with basedir
+                fs::canonicalize(base_dir.as_path()).unwrap_or(base_dir)
             }
         };
 
