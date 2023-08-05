@@ -1051,7 +1051,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, false, None, None).await?;
+        crate::process::process_new_event(&event, None, None).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1252,7 +1252,7 @@ impl Overlord {
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, false, None, None).await?;
+        crate::process::process_new_event(&event, None, None).await?;
 
         Ok(())
     }
@@ -1481,7 +1481,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, false, None, None).await?;
+        crate::process::process_new_event(&event, None, None).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1730,7 +1730,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, false, None, None).await?;
+        crate::process::process_new_event(&event, None, None).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();

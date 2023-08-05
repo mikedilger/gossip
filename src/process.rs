@@ -12,7 +12,6 @@ use std::sync::atomic::Ordering;
 // and also populating the GLOBALS maps.
 pub async fn process_new_event(
     event: &Event,
-    from_relay: bool,
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
 ) -> Result<(), Error> {
@@ -20,7 +19,7 @@ pub async fn process_new_event(
 
     // Save seen-on-relay information
     if let Some(url) = &seen_on {
-        if from_relay {
+        if seen_on.is_some() {
             GLOBALS
                 .storage
                 .add_event_seen_on_relay(event.id, url, now, None)?;
@@ -44,7 +43,20 @@ pub async fn process_new_event(
 
     // Save event
     // Bail if the event is an already-replaced replaceable event
-    if from_relay {
+    if let Some(ref relay_url) = seen_on {
+        // Verify the event
+        let mut maxtime = now;
+        maxtime.0 += 60 * 15; // 15 minutes into the future
+        if let Err(e) = event.verify(Some(maxtime)) {
+            tracing::error!(
+                "{}: VERIFY ERROR: {}, {}",
+                relay_url,
+                e,
+                serde_json::to_string(&event)?
+            );
+            return Ok(());
+        }
+
         if event.kind.is_replaceable() {
             if !GLOBALS.storage.replace_event(event, None)? {
                 tracing::trace!(
@@ -82,7 +94,7 @@ pub async fn process_new_event(
         event.created_at
     );
 
-    if from_relay {
+    if seen_on.is_some() {
         // Create the person if missing in the database
         GLOBALS.people.create_all_if_missing(&[event.pubkey])?;
 
@@ -142,7 +154,7 @@ pub async fn process_new_event(
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
 
     // Save event_hashtags
-    if from_relay {
+    if seen_on.is_some() {
         let hashtags = event.hashtags();
         for hashtag in hashtags {
             GLOBALS.storage.add_hashtag(&hashtag, event.id, None)?;
