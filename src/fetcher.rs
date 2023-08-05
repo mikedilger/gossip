@@ -170,6 +170,14 @@ impl Fetcher {
     }
 
     /// This is where external code attempts to get the bytes of a file.
+    ///
+    /// If it is missing:  You'll get an `Ok(None)` response, but the fetcher will then
+    /// work in the background to try to make it available for a future call.
+    ///
+    /// If it is available: You'll get `Ok(Some(bytes))`. This will read from the file system.
+    /// If you call it over and over rapidly (e.g. from the UI), it will read from the filesystem
+    /// over and over again, which is bad. So the UI caller should have it's own means of
+    /// caching the results from this call.
     pub fn try_get(&self, url: &Url, max_age: Duration) -> Result<Option<Vec<u8>>, Error> {
         // FIXME - this function is called synchronously, but it makes several
         //         file system calls. This might be pushing the limits of what we should
@@ -262,7 +270,7 @@ impl Fetcher {
         Ok(None)
     }
 
-    pub async fn fetch(&self, url: Url) {
+    async fn fetch(&self, url: Url) {
         // Error if we are dead
         if GLOBALS.fetcher.dead.is_some() {
             // mark as failed
