@@ -42,6 +42,7 @@ hex = "0.4"
 http = "0.2"
 humansize = "2.1"
 image = { version = "0.24.6", features = [ "png", "jpeg" ] }
+kamadak-exif = "0.5"
 lazy_static = "1.4"
 linkify = "0.9"
 lmdb-rkv = "0.14"
