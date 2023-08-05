@@ -250,8 +250,22 @@ impl Minion {
         timer.tick().await; // use up the first immediate tick.
 
         select! {
+            biased;
             _ = timer.tick() => {
                 ws_stream.send(WsMessage::Ping(vec![0x1])).await?;
+            },
+            to_minion_message = self.from_overlord.recv() => {
+                let to_minion_message = match to_minion_message {
+                    Ok(m) => m,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        self.keepgoing = false;
+                        return Ok(());
+                    },
+                    Err(e) => return Err(e.into())
+                };
+                if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
+                    self.handle_overlord_message(to_minion_message.payload).await?;
+                }
             },
             ws_message = ws_stream.next() => {
                 let ws_message = match ws_message {
@@ -282,19 +296,6 @@ impl Minion {
                     WsMessage::Pong(_) => { }, // Verify it is 0x1? Nah. It's just for keep-alive.
                     WsMessage::Close(_) => self.keepgoing = false,
                     WsMessage::Frame(_) => tracing::warn!("{}: Unexpected frame message", &self.url),
-                }
-            },
-            to_minion_message = self.from_overlord.recv() => {
-                let to_minion_message = match to_minion_message {
-                    Ok(m) => m,
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        self.keepgoing = false;
-                        return Ok(());
-                    },
-                    Err(e) => return Err(e.into())
-                };
-                if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
-                    self.handle_overlord_message(to_minion_message.payload).await?;
                 }
             },
         }
