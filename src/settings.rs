@@ -102,4 +102,11 @@ impl Settings {
             .filter(|k| k.is_feed_displayable())
             .collect()
     }
+
+    pub fn feed_augment_event_kinds(&self) -> Vec<EventKind> {
+        self.enabled_event_kinds()
+            .drain(..)
+            .filter(|k| k.augments_feed_related())
+            .collect()
+    }
 }

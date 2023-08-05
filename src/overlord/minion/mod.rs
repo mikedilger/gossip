@@ -660,10 +660,9 @@ impl Minion {
         // NOTE we do not unsubscribe to the general feed
 
         // Allow all feed related event kinds
-        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
-        // Exclude DMs and reactions (we wouldn't see the post it reacted to) in person feed
-        event_kinds
-            .retain(|f| *f != EventKind::EncryptedDirectMessage && *f != EventKind::Reaction);
+        let mut event_kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
+        // Exclude DMs
+        event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
         let filters: Vec<Filter> = vec![Filter {
             authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(16)],
@@ -727,8 +726,6 @@ impl Minion {
 
         let mut filters: Vec<Filter> = Vec::new();
 
-        let enable_reactions = GLOBALS.settings.read().reactions;
-
         if !vec_ids.is_empty() {
             let idhp: Vec<IdHexPrefix> = vec_ids
                 .iter()
@@ -744,10 +741,7 @@ impl Minion {
             });
 
             // Get reactions to ancestors, but not replies
-            let mut kinds = vec![EventKind::EventDeletion];
-            if enable_reactions {
-                kinds.push(EventKind::Reaction);
-            }
+            let kinds = GLOBALS.settings.read().feed_augment_event_kinds();
             filters.push(Filter {
                 e: vec_ids,
                 kinds,
