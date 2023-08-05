@@ -84,7 +84,11 @@ pub struct Globals {
     /// UI status messages
     pub status_queue: PRwLock<StatusQueue>,
 
+    /// How many data bytes have been read from the network, not counting overhead
     pub bytes_read: AtomicUsize,
+
+    /// How many subscriptions are open and not yet at EOSE
+    pub open_subscriptions: AtomicUsize,
 
     /// Delegation handling
     pub delegation: Delegation,
@@ -151,6 +155,7 @@ lazy_static! {
                 "Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()
             )),
             bytes_read: AtomicUsize::new(0),
+            open_subscriptions: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),
             people_search_results: PRwLock::new(Vec::new()),

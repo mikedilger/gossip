@@ -1,20 +1,25 @@
+use crate::globals::GLOBALS;
 use nostr_types::{ClientMessage, Filter, SubscriptionId};
+use std::sync::atomic::Ordering;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Subscription {
     id: String,
     job_id: u64,
     filters: Vec<Filter>,
     eose: bool,
+    clone: bool,
 }
 
 impl Subscription {
     pub fn new(id: &str, job_id: u64) -> Subscription {
+        GLOBALS.open_subscriptions.fetch_add(1, Ordering::SeqCst);
         Subscription {
             id: id.to_owned(),
             job_id,
             filters: vec![],
             eose: false,
+            clone: false,
         }
     }
 
@@ -37,6 +42,9 @@ impl Subscription {
     }
 
     pub fn set_eose(&mut self) {
+        if !self.clone && !self.eose {
+            GLOBALS.open_subscriptions.fetch_sub(1, Ordering::SeqCst);
+        }
         self.eose = true;
     }
 
@@ -50,5 +58,25 @@ impl Subscription {
 
     pub fn close_message(&self) -> ClientMessage {
         ClientMessage::Close(SubscriptionId(self.get_id()))
+    }
+}
+
+impl Clone for Subscription {
+    fn clone(&self) -> Self {
+        Subscription {
+            id: self.id.clone(),
+            job_id: self.job_id,
+            filters: self.filters.clone(),
+            eose: self.eose,
+            clone: true,
+        }
+    }
+}
+
+impl Drop for Subscription {
+    fn drop(&mut self) {
+        if !self.clone && !self.eose {
+            GLOBALS.open_subscriptions.fetch_sub(1, Ordering::SeqCst);
+        }
     }
 }

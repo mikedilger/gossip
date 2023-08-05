@@ -838,11 +838,13 @@ impl eframe::App for GossipUi {
                             .unwrap_or(0);
                         let relays = GLOBALS.connected_relays.len();
                         let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
+                        let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
                         let stats_message = format!(
-                            "EVENTS PROCESSED: {}   EVENTS: {}   RELAYS CONNECTED: {}   HTTP: {} / {}",
+                            "EVENTS: PROCESSED={} STORED={}   RELAYS CONNS={} SUBS={}    HTTP: {} / {}",
                             processed,
                             events,
                             relays,
+                            subs,
                             in_flight,
                             in_flight + queued
                         );
