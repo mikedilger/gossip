@@ -429,7 +429,7 @@ impl Fetcher {
                     // give 15 seconds and try again
                 }
                 _ => {
-                    finish(FailOutcome::Fail, "other", None, 0);
+                    finish(FailOutcome::Fail, &format!("{}", status), None, 0);
                 }
             }
             return;
