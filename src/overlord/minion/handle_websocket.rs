@@ -49,6 +49,13 @@ impl Minion {
                                     Some(old) => old.max(event.created_at.0 as u64),
                                     None => event.created_at.0 as u64,
                                 });
+                            GLOBALS.storage.modify_relay(
+                                &self.dbrelay.url,
+                                |relay| {
+                                    relay.last_general_eose_at = self.dbrelay.last_general_eose_at;
+                                },
+                                None,
+                            )?;
                         }
                     }
 
@@ -91,6 +98,13 @@ impl Minion {
                                     Some(old) => old.max(now),
                                     None => now,
                                 });
+                            GLOBALS.storage.modify_relay(
+                                &self.dbrelay.url,
+                                |relay| {
+                                    relay.last_general_eose_at = self.dbrelay.last_general_eose_at;
+                                },
+                                None,
+                            )?;
                         }
                     }
                     None => {

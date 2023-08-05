@@ -700,6 +700,43 @@ impl Storage {
         Ok(())
     }
 
+    pub fn modify_relay<'a, M>(
+        &'a self,
+        url: &RelayUrl,
+        mut modify: M,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Relay),
+    {
+        let key = key!(url.0.as_bytes());
+
+        let mut f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            match txn.get(self.relays, &key) {
+                Ok(bytes) => {
+                    let mut relay = serde_json::from_slice(bytes)?;
+                    modify(&mut relay);
+                    let bytes = serde_json::to_vec(&relay)?;
+                    txn.put(self.relays, &key, &bytes, WriteFlags::empty())?;
+                    Ok(())
+                }
+                Err(lmdb::Error::NotFound) => Ok(()),
+                Err(e) => Err(e.into()),
+            }
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
     pub fn modify_all_relays<'a, M>(
         &'a self,
         mut modify: M,
