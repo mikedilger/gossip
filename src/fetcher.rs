@@ -383,7 +383,7 @@ impl Fetcher {
                 if e.is_builder() {
                     finish(FailOutcome::Fail, "builder error", Some(e.into()), 0);
                 } else if e.is_timeout() {
-                    finish(FailOutcome::Requeue, "timeout", Some(e.into()), 0);
+                    finish(FailOutcome::Requeue, "timeout", Some(e.into()), 30);
                 } else if e.is_request() {
                     finish(FailOutcome::Fail, "request error", Some(e.into()), 0);
                 } else if e.is_connect() {
@@ -402,7 +402,7 @@ impl Fetcher {
         // Deal with status codes
         let status = response.status();
         if status.is_informational() {
-            finish(FailOutcome::Requeue, "informational error", None, 0);
+            finish(FailOutcome::Requeue, "informational error", None, 30);
             return;
         } else if status.is_redirection() {
             if status == StatusCode::NOT_MODIFIED {
@@ -421,11 +421,11 @@ impl Fetcher {
         } else {
             match status {
                 StatusCode::REQUEST_TIMEOUT => {
-                    finish(FailOutcome::Requeue, "request timeout", None, 20);
+                    finish(FailOutcome::Requeue, "request timeout", None, 30);
                     // give 30 seconds and try again
                 }
                 StatusCode::TOO_MANY_REQUESTS => {
-                    finish(FailOutcome::Requeue, "too many requests", None, 10);
+                    finish(FailOutcome::Requeue, "too many requests", None, 30);
                     // give 15 seconds and try again
                 }
                 _ => {
