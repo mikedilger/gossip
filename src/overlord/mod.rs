@@ -5,6 +5,7 @@ use crate::comms::{
 };
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
+use crate::people::Person;
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
@@ -15,8 +16,9 @@ use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData,
-    PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32,
+    PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag, UncheckedUrl,
+    Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -1856,21 +1858,67 @@ impl Overlord {
                 .write("You must enter at least 2 characters to search.".to_string());
             return Ok(());
         }
-
         text = text.to_lowercase();
 
-        // If npub, convert to hex so we can find it in the database
-        // (This will only work with full npubs)
-        let mut pubkeytext = text.clone();
-        if let Ok(pk) = PublicKey::try_from_bech32_string(&text, true) {
-            pubkeytext = pk.as_hex_string();
+        let mut people_search_results: Vec<Person> = Vec::new();
+        let mut note_search_results: Vec<Event> = Vec::new();
+
+        // If a nostr: url, strip the 'nostr:' part
+        if text.len() >= 6 && &text[0..6] == "nostr:" {
+            text = text.split_off(6);
         }
 
-        *GLOBALS.people_search_results.write() = GLOBALS.storage.filter_people(|p| {
-            if p.pubkey.as_hex_string().contains(&pubkeytext) {
-                return true;
+        if let Some(nb32) = NostrBech32::try_from_string(&text) {
+            match nb32 {
+                NostrBech32::EventAddr(ea) => {
+                    if let Some(event) = GLOBALS
+                        .storage
+                        .find_events(
+                            &[ea.kind],
+                            &[ea.author],
+                            None,
+                            |event| {
+                                event.tags.iter().any(|tag| {
+                                    if let Tag::Identifier { d, .. } = tag {
+                                        if *d == ea.d {
+                                            return true;
+                                        }
+                                    }
+                                    false
+                                })
+                            },
+                            true,
+                        )?
+                        .get(1)
+                    {
+                        note_search_results.push(event.clone());
+                    }
+                }
+                NostrBech32::EventPointer(ep) => {
+                    if let Some(event) = GLOBALS.storage.read_event(ep.id)? {
+                        note_search_results.push(event);
+                    }
+                }
+                NostrBech32::Id(id) => {
+                    if let Some(event) = GLOBALS.storage.read_event(id)? {
+                        note_search_results.push(event);
+                    }
+                }
+                NostrBech32::Profile(prof) => {
+                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey)? {
+                        people_search_results.push(person);
+                    }
+                }
+                NostrBech32::Pubkey(pk) => {
+                    if let Some(person) = GLOBALS.storage.read_person(&pk)? {
+                        people_search_results.push(person);
+                    }
+                }
+                NostrBech32::Relay(_relay) => (),
             }
+        }
 
+        people_search_results.extend(GLOBALS.storage.filter_people(|p| {
             if let Some(metadata) = &p.metadata {
                 if let Ok(s) = serde_json::to_string(&metadata) {
                     if s.to_lowercase().contains(&text) {
@@ -1886,9 +1934,11 @@ impl Overlord {
             }
 
             false
-        })?;
+        })?);
 
-        let note_search_results = GLOBALS.storage.search_events(&text)?;
+        note_search_results.extend(GLOBALS.storage.search_events(&text)?);
+
+        *GLOBALS.people_search_results.write() = people_search_results;
         *GLOBALS.note_search_results.write() = note_search_results;
 
         Ok(())
