@@ -403,6 +403,7 @@ impl Fetcher {
         let status = response.status();
         if status.is_informational() {
             finish(FailOutcome::Requeue, "informational error", None, 0);
+            return;
         } else if status.is_redirection() {
             if status == StatusCode::NOT_MODIFIED {
                 finish(FailOutcome::NotModified, "not modified", None, 0);
@@ -410,8 +411,10 @@ impl Fetcher {
                 // Our client follows up to 10 redirects. This is a failure.
                 finish(FailOutcome::Fail, "redirection error", None, 0);
             }
+            return;
         } else if status.is_server_error() {
             finish(FailOutcome::Requeue, "server error", None, 300);
+            return;
             // give them 5 minutes, maybe the server will recover
         } else if status.is_success() {
             // fall through
@@ -429,7 +432,10 @@ impl Fetcher {
                     finish(FailOutcome::Fail, "other", None, 0);
                 }
             }
+            return;
         }
+
+        // Only fall through if we expect a response from the status code
 
         let maybe_etag = response
             .headers()
