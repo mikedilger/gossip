@@ -71,7 +71,7 @@ impl Media {
                             .pixels_per_point_times_100
                             .load(Ordering::Relaxed)
                         / 100;
-                    if let Ok(color_image) = egui_extras::image::load_image_bytes(&bytes) {
+                    if let Ok(color_image) = load_image_bytes(&bytes) {
                         // Check for max size
                         if color_image.size[0] > 16384 || color_image.size[1] > 16384 {
                             tracing::warn!(
@@ -148,4 +148,48 @@ impl Media {
             }
         }
     }
+}
+
+fn load_image_bytes(image_bytes: &[u8]) -> Result<ColorImage, String> {
+    use image::{imageops, DynamicImage};
+
+    let mut image = image::load_from_memory(image_bytes).map_err(|err| err.to_string())?;
+
+    image = match get_orientation(image_bytes) {
+        1 => image,
+        2 => DynamicImage::ImageRgba8(imageops::flip_horizontal(&image)),
+        3 => DynamicImage::ImageRgba8(imageops::rotate180(&image)),
+        4 => DynamicImage::ImageRgba8(imageops::flip_horizontal(&image)),
+        5 => {
+            image = DynamicImage::ImageRgba8(imageops::rotate90(&image));
+            DynamicImage::ImageRgba8(imageops::flip_horizontal(&image))
+        }
+        6 => DynamicImage::ImageRgba8(imageops::rotate90(&image)),
+        7 => {
+            image = DynamicImage::ImageRgba8(imageops::rotate270(&image));
+            DynamicImage::ImageRgba8(imageops::flip_horizontal(&image))
+        }
+        8 => DynamicImage::ImageRgba8(imageops::rotate270(&image)),
+        _ => image,
+    };
+
+    let size = [image.width() as _, image.height() as _];
+    let image_buffer = image.to_rgba8();
+    let pixels = image_buffer.as_flat_samples();
+    Ok(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()))
+}
+
+fn get_orientation(image_bytes: &[u8]) -> u32 {
+    let mut cursor = std::io::Cursor::new(image_bytes);
+    let exifreader = exif::Reader::new();
+    let exif = match exifreader.read_from_container(&mut cursor) {
+        Ok(exif) => exif,
+        Err(_) => return 1,
+    };
+    if let Some(field) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY) {
+        if let Some(orientation) = field.value.get_uint(0) {
+            return orientation;
+        }
+    }
+    1
 }
