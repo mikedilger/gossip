@@ -840,7 +840,7 @@ impl eframe::App for GossipUi {
                         let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
                         let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
                         let stats_message = format!(
-                            "EVENTS: PROCESSED={} STORED={}   RELAYS CONNS={} SUBS={}    HTTP: {} / {}",
+                            "EVENTS PROCESSED={}  STORED={}     RELAYS CONNS={}  SUBS={}     HTTP: {} / {}",
                             processed,
                             events,
                             relays,
@@ -850,7 +850,13 @@ impl eframe::App for GossipUi {
                         );
                         let stats_message = RichText::new(stats_message)
                             .color(self.settings.theme.notice_marker_text_color());
-                        ui.add(Label::new(stats_message));
+                        ui.add(Label::new(stats_message))
+                            .on_hover_text(
+                                "events processed: number of events relays have sent to us, including duplicates.\n\
+                                 events stored: number of unique events in storage\n\
+                                 relay conns: number of relays currently connected\n\
+                                 relay subs: number of subscriptions that have not come to EOSE yet\n\
+                                 http: number of fetches in flight / number of requests queued");
                     });
                 });
             });
