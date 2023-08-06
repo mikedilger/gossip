@@ -211,6 +211,10 @@ Compile with
 
 ## Known Issues
 
+### Performance issues
+
+If you are having performance issues, please see [PERFORMANCE.md](PERFORMANCE.md).
+
 ### Sqlite Constraint Issues (Foreign or Unique Key)
 
 First you need to locate your database file. The gossip directory is under this path: https://docs.rs/dirs/4.0.0/dirs/fn.data_dir.html  The database file is `gossip.sqlite`.  Then you need to install `sqlite3` on your system.
