@@ -92,19 +92,24 @@ impl NoteData {
         // Compute the content to our needs
         let display_content = match event.kind {
             EventKind::TextNote => event.content.trim().to_string(),
-            EventKind::Repost => {
-                if !event.content.trim().is_empty() && embedded_event.is_none() {
-                    "REPOSTED EVENT IS NOT RELEVANT".to_owned()
-                } else {
-                    "".to_owned()
-                }
-            }
+            EventKind::Repost => "".to_owned(),
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
                 Ok(m) => m,
                 Err(_) => "DECRYPTION FAILED".to_owned(),
             },
             EventKind::LongFormContent => event.content.clone(),
-            _ => "NON FEED RELATED EVENT".to_owned(),
+            _ => {
+                let mut dc = "UNSUPPORTED EVENT KIND".to_owned();
+                // support the 'alt' tag of NIP-31:
+                for tag in &event.tags {
+                    if let Tag::Other { tag, data } = tag {
+                        if tag == "alt" && !data.is_empty() {
+                            dc = format!("UNSUPPORTED EVENT KIND, ALT: {}", data[1]);
+                        }
+                    }
+                }
+                dc
+            }
         };
 
         // shatter content here so we can use it in our content analysis
