@@ -6,7 +6,6 @@ use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::settings::Settings;
 use crate::ui::ThemeVariant;
-use lmdb::Transaction;
 use nostr_types::{EncryptedPrivateKey, Event, Id, PublicKey, RelayUrl, Unixtime};
 use rusqlite::Connection;
 
@@ -14,10 +13,7 @@ impl Storage {
     pub(super) fn import(&self) -> Result<(), Error> {
         tracing::info!("Importing SQLITE data into LMDB...");
 
-        // Disable sync, we will sync when we are done.
-        self.disable_sync()?;
-
-        let mut txn = self.env.begin_rw_txn()?;
+        let mut txn = self.env.write_txn()?;
 
         // Progress the legacy database to the endpoint first
         let mut db = legacy::init_database()?;
@@ -98,10 +94,9 @@ impl Storage {
 
         txn.commit()?;
 
-        // Re-enable sync (it also syncs the data).
+        self.sync()?;
         // If we have a system crash before the migration level
         // is written in the next line, import will start over.
-        self.enable_sync()?;
 
         // Mark migration level
         self.write_migration_level(0, None)?;

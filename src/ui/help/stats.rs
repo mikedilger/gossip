@@ -52,148 +52,79 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
         ui.separator();
         ui.add_space(6.0);
 
-        let general_stats = GLOBALS
-            .storage
-            .get_general_stats()
-            .map(|s| format!("General: {} records, {} pages", s.entries(), s.leaf_pages()))
-            .unwrap_or("".to_owned());
-        ui.label(general_stats);
+        ui.label(format!(
+            "General: {} records",
+            GLOBALS.storage.get_general_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let event_stats = GLOBALS
-            .storage
-            .get_event_stats()
-            .map(|s| format!("Events: {} records, {} pages", s.entries(), s.leaf_pages()))
-            .unwrap_or("".to_owned());
-        ui.label(event_stats);
+        ui.label(format!(
+            "Events: {} records",
+            GLOBALS.storage.get_event_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let event_ek_pk_index_stats = GLOBALS
-            .storage
-            .get_event_ek_pk_index_stats()
-            .map(|s| {
-                format!(
-                    "Event Index (EK-PK): {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_ek_pk_index_stats);
+        ui.label(format!(
+            "Event Index (EK-PK): {} records",
+            GLOBALS.storage.get_event_ek_pk_index_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let event_ek_c_index_stats = GLOBALS
-            .storage
-            .get_event_ek_c_index_stats()
-            .map(|s| {
-                format!(
-                    "Event Index (EK-C): {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_ek_c_index_stats);
+        ui.label(format!(
+            "Event Index (EK-C): {} records",
+            GLOBALS.storage.get_event_ek_c_index_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let event_references_person_stats = GLOBALS
-            .storage
-            .get_event_references_person_stats()
-            .map(|s| {
-                format!(
-                    "Event Index (References Person): {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_references_person_stats);
+        ui.label(format!(
+            "Event Index (References Person): {} records",
+            GLOBALS
+                .storage
+                .get_event_references_person_len()
+                .unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let relationships_stats = GLOBALS
-            .storage
-            .get_relationships_stats()
-            .map(|s| {
-                format!(
-                    "Event Relationships: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(relationships_stats);
+        ui.label(format!(
+            "Event Relationships: {} records",
+            GLOBALS.storage.get_relationships_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let event_seen_on_relay_stats = GLOBALS
-            .storage
-            .get_event_seen_on_relay_stats()
-            .map(|s| {
-                format!(
-                    "Event Seen-on Relay: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_seen_on_relay_stats);
+        ui.label(format!(
+            "Event Seen on Relay: {} records",
+            GLOBALS.storage.get_event_seen_on_relay_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let event_viewed_stats = GLOBALS
-            .storage
-            .get_event_viewed_stats()
-            .map(|s| {
-                format!(
-                    "Event Viewed: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(event_viewed_stats);
+        ui.label(format!(
+            "Event Viewed: {} records",
+            GLOBALS.storage.get_event_viewed_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let hashtags_stats = GLOBALS
-            .storage
-            .get_hashtags_stats()
-            .map(|s| {
-                format!(
-                    "Hashtags: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(hashtags_stats);
+        ui.label(format!(
+            "Hashtags: {} records",
+            GLOBALS.storage.get_hashtags_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let relays_stats = GLOBALS
-            .storage
-            .get_relays_stats()
-            .map(|s| format!("Relays: {} records, {} pages", s.entries(), s.leaf_pages()))
-            .unwrap_or("".to_owned());
-        ui.label(relays_stats);
+        ui.label(format!(
+            "Relays: {} records",
+            GLOBALS.storage.get_relays_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let people_stats = GLOBALS
-            .storage
-            .get_people_stats()
-            .map(|s| format!("People: {} records, {} pages", s.entries(), s.leaf_pages()))
-            .unwrap_or("".to_owned());
-        ui.label(people_stats);
+        ui.label(format!(
+            "People: {} records",
+            GLOBALS.storage.get_people_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
 
-        let person_relays_stats = GLOBALS
-            .storage
-            .get_person_relays_stats()
-            .map(|s| {
-                format!(
-                    "Person-Relays: {} records, {} pages",
-                    s.entries(),
-                    s.leaf_pages()
-                )
-            })
-            .unwrap_or("".to_owned());
-        ui.label(person_relays_stats);
+        ui.label(format!(
+            "Person-Relays: {} records",
+            GLOBALS.storage.get_person_relays_len().unwrap_or(0)
+        ));
         ui.add_space(6.0);
     });
 }

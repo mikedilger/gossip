@@ -627,8 +627,7 @@ impl eframe::App for GossipUi {
                             let queued = GLOBALS.fetcher.requests_queued();
                             let events = GLOBALS
                                 .storage
-                                .get_event_stats()
-                                .map(|s| s.entries())
+                                .get_event_len()
                                 .unwrap_or(0);
                             let relays = GLOBALS.connected_relays.len();
                             let processed = GLOBALS.events_processed.load(Ordering::Relaxed);

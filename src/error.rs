@@ -9,7 +9,7 @@ pub enum ErrorKind {
     General(String),
     HttpError(http::Error),
     JoinError(tokio::task::JoinError),
-    Lmdb(lmdb::Error),
+    Lmdb(heed::Error),
     MaxRelaysReached,
     MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
     Nip05KeyNotFound,
@@ -198,8 +198,8 @@ impl From<http::uri::InvalidUri> for ErrorKind {
     }
 }
 
-impl From<lmdb::Error> for ErrorKind {
-    fn from(e: lmdb::Error) -> ErrorKind {
+impl From<heed::Error> for ErrorKind {
+    fn from(e: heed::Error) -> ErrorKind {
         ErrorKind::Lmdb(e)
     }
 }
