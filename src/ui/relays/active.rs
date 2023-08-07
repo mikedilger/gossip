@@ -4,11 +4,12 @@ use super::GossipUi;
 use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets;
-use crate::{comms::ToOverlordMessage};
+use crate::comms::ToOverlordMessage;
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id};
-use nostr_types::RelayUrl;
+use egui_extras::{TableBuilder, Column};
+use egui_winit::egui::Id;
+use nostr_types::{RelayUrl, Unixtime};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
@@ -44,6 +45,45 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     } else {
         ui.label("All followed people are fully covered.".to_owned());
+    }
+
+    { // penalty box
+        ui.add_space(10.0);
+        ui.heading("Penalty Box");
+        ui.add_space(10.0);
+
+        let now = Unixtime::now().unwrap().0;
+
+        let excluded: Vec<(String, i64)> = GLOBALS.relay_picker.excluded_relays_iter().map(|refmulti| {
+            (refmulti.key().as_str().to_owned(),
+                *refmulti.value() - now)
+        }).collect();
+
+        let awidth = ui.available_size_before_wrap().x - 20.0;
+
+        TableBuilder::new(ui)
+            .striped(true)
+            .column(Column::auto().at_least(awidth * 0.7))
+            .column(Column::auto().at_least(awidth * 0.3))
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.heading("Relay URL");
+                });
+                header.col(|ui| {
+                    ui.heading("Time Remaining");
+                });
+            })
+            .body(|body| {
+                body.rows(24.0, excluded.len(), |row_index, mut row| {
+                    let data = &excluded[row_index];
+                    row.col(|ui| {
+                        widgets::break_anywhere_label(ui, &data.0);
+                    });
+                    row.col(|ui| {
+                        ui.label(format!("{}", data.1));
+                    });
+                });
+            });
     }
 
     ui.add_space(10.0);

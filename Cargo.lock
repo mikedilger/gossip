@@ -1462,6 +1462,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "filetime"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cbc844cecaee9d4443931972e1289c8ff485cb4cc2767cb03ca139ed6885153"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "redox_syscall 0.2.16",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1776,6 +1788,7 @@ dependencies = [
  "egui_extras",
  "encoding_rs",
  "fallible-iterator",
+ "filetime",
  "futures",
  "futures-util",
  "gossip-relay-picker",
@@ -1783,6 +1796,7 @@ dependencies = [
  "http",
  "humansize",
  "image",
+ "kamadak-exif",
  "lazy_static",
  "linkify",
  "memoize",
@@ -1812,7 +1826,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=00f660ed3c011dcb0d2b7de2dc82d6d684f8a46a#00f660ed3c011dcb0d2b7de2dc82d6d684f8a46a"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=abb4137295b10282111b9d9a446043f541807f46#abb4137295b10282111b9d9a446043f541807f46"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2216,6 +2230,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kamadak-exif"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef4fc70d0ab7e5b6bafa30216a6b48705ea964cdfc29c050f2412295eba58077"
+dependencies = [
+ "mutate_once",
+]
+
+[[package]]
 name = "khronos_api"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2407,6 +2430,15 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
+name = "memoffset"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
@@ -2470,6 +2502,12 @@ dependencies = [
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "mutate_once"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16cf681a23b4d0a43fc35024c176437f9dcd818db34e0f42ab456a0ee5ad497b"
 
 [[package]]
 name = "nanorand"
@@ -2584,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.7.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=4460c2c646d537cb1d30761b0538e6b5ae4d8321#4460c2c646d537cb1d30761b0538e6b5ae4d8321"
+source = "git+https://github.com/mikedilger/nostr-types?rev=c63983fc849c26e984ee69b95bae60ea98dbe80a#c63983fc849c26e984ee69b95bae60ea98dbe80a"
 dependencies = [
  "aes",
  "base64 0.21.2",
@@ -2609,6 +2647,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "speedy",
  "thiserror",
  "thread-priority",
  "url",
@@ -3747,6 +3786,25 @@ checksum = "64a4a911eed85daf18834cfaa86a79b7d266ff93ff5ba14005426219480ed662"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "speedy"
+version = "0.8.6"
+source = "git+https://github.com/mikedilger/speedy?rev=b8b713a7006958616dd3ef3ba63217740b4b09c2#b8b713a7006958616dd3ef3ba63217740b4b09c2"
+dependencies = [
+ "memoffset 0.8.0",
+ "speedy-derive",
+]
+
+[[package]]
+name = "speedy-derive"
+version = "0.8.6"
+source = "git+https://github.com/mikedilger/speedy?rev=b8b713a7006958616dd3ef3ba63217740b4b09c2#b8b713a7006958616dd3ef3ba63217740b4b09c2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.18",
 ]
 
 [[package]]

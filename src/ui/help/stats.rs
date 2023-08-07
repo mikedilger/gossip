@@ -25,7 +25,12 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
 
         ui.label(format!(
             "HTTP Requests in flight: {}",
-            GLOBALS.fetcher.requests_in_flight.load(Ordering::Relaxed)
+            GLOBALS.fetcher.requests_in_flight()
+        ));
+
+        ui.label(format!(
+            "HTTP Requests queued: {}",
+            GLOBALS.fetcher.requests_queued()
         ));
 
         ui.add_space(6.0);

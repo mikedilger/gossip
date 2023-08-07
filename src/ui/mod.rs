@@ -146,11 +146,7 @@ impl SubMenuState {
     }
     fn set_active(&mut self, item: &SubMenu) {
         for entry in self.submenu_states.iter_mut() {
-            if entry.0 == item {
-                *entry.1 = true;
-            } else {
-                *entry.1 = false;
-            }
+            *entry.1 = entry.0 == item;
         }
     }
 }
@@ -160,6 +156,7 @@ pub enum HighlightType {
     PublicKey,
     Event,
     Relay,
+    Hyperlink,
 }
 
 struct GossipUi {
@@ -954,11 +951,8 @@ impl GossipUi {
 
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
         // Let the 'People' manager know that we are interested in displaying this person.
-        // It will make sure metadata is eventually available if
-        // settings.automatically_fetch_metadata is enabled
-        if person.metadata_at.is_none() {
-            GLOBALS.people.person_of_interest(person.pubkey.clone());
-        }
+        // It will take all actions necessary to make the data eventually available.
+        GLOBALS.people.person_of_interest(person.pubkey.clone());
 
         ui.horizontal_wrapped(|ui| {
             let name = GossipUi::display_name_from_dbperson(person);
@@ -1241,10 +1235,9 @@ impl GossipUi {
     fn handle_visible_note_changes(&mut self) {
         let no_change = self.visible_note_ids == self.next_visible_note_ids;
         let scrolling = self.current_scroll_offset != 0.0;
-        let too_rapid = Instant::now() - self.last_visible_update < Duration::from_secs(3);
-        let empty = self.next_visible_note_ids.is_empty();
+        let too_rapid = Instant::now() - self.last_visible_update < Duration::from_secs(5);
 
-        if no_change || scrolling || too_rapid || empty {
+        if no_change || scrolling || too_rapid {
             // Clear the accumulator
             // It will fill up again next frame and be tested again.
             self.next_visible_note_ids.clear();
@@ -1349,7 +1342,7 @@ impl GossipUi {
 
         if let Some(qr) = qr_string {
             // Show the QR code and a close button
-            self.render_qr(ui, ctx, "zap", &qr);
+            self.render_qr(ui, ctx, "zap", &qr.to_uppercase());
             if ui.button("Close").clicked() {
                 *GLOBALS.current_zap.write() = ZapState::None;
             }

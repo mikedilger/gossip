@@ -123,10 +123,10 @@ impl Minion {
                             }
                             Err(e) => {
                                 tracing::warn!(
-                                    "{}: Unable to parse response as NIP-11 ({}): {}",
+                                    "{}: Unable to parse response as NIP-11 ({}): {}\n",
                                     &self.url,
                                     e,
-                                    text
+                                    text.lines().take(10).collect::<Vec<_>>().join("\n")
                                 );
                             }
                         }
@@ -224,6 +224,8 @@ impl Minion {
                     }
                 }
                 Err(e) => {
+                    tracing::error!("{}", e);
+
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
                     }
@@ -238,6 +240,7 @@ impl Minion {
         if !ws_stream.is_terminated() {
             if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
                 tracing::error!("websocket close error: {}", e);
+                return Err(e.into());
             }
         }
 

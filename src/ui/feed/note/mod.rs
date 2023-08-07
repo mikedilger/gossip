@@ -9,7 +9,7 @@ use super::notedata::{NoteData, RepostType};
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
-use crate::globals::{Globals, GLOBALS};
+use crate::globals::{Globals, ZapState, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
@@ -19,7 +19,7 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, UncheckedUrl};
+use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl};
 
 pub struct NoteRenderData {
     /// Available height for post
@@ -356,10 +356,12 @@ fn render_note_inner(
                                 author: None,
                                 kind: None,
                             };
-                            ui.output_mut(|o| o.copied_text = event_pointer.as_bech32_string());
+                            let nostr_url: NostrUrl = event_pointer.into();
+                            ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                         }
                         if ui.button("Copy note1 Id").clicked() {
-                            ui.output_mut(|o| o.copied_text = note.event.id.as_bech32_string());
+                            let nostr_url: NostrUrl = note.event.id.into();
+                            ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                         }
                         if ui.button("Copy hex Id").clicked() {
                             ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
@@ -596,7 +598,8 @@ fn render_note_inner(
                                             author: None,
                                             kind: None,
                                         };
-                                        app.draft.push_str(&event_pointer.as_bech32_string());
+                                        let nostr_url: NostrUrl = event_pointer.into();
+                                        app.draft.push_str(&format!("{}", nostr_url));
                                         app.draft_repost = None;
                                         app.replying_to = None;
                                         app.show_post_area = true;
@@ -771,6 +774,19 @@ fn render_note_inner(
                                     ui.horizontal_wrapped(|ui| {
                                         app.render_zap_area(ui, ctx);
                                     });
+                                    if ui
+                                        .add(CopyButton {})
+                                        .on_hover_text("Copy Invoice")
+                                        .clicked()
+                                    {
+                                        ui.output_mut(|o| {
+                                            if let ZapState::ReadyToPay(_id, ref invoice) =
+                                                app.zap_state
+                                            {
+                                                o.copied_text = invoice.to_owned();
+                                            }
+                                        });
+                                    }
                                 }
                             }
                         });
@@ -781,7 +797,7 @@ fn render_note_inner(
 }
 
 fn thin_separator(ui: &mut Ui, stroke: Stroke) {
-    let mut style = ui.style_mut();
+    let style = ui.style_mut();
     style.visuals.widgets.noninteractive.bg_stroke = stroke;
     ui.add(Separator::default().spacing(0.0));
     ui.reset_style();

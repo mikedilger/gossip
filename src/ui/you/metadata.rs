@@ -43,8 +43,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         None => &EMPTY_METADATA,
     };
 
-    if let Some(metadata_at) = you.metadata_at {
-        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(metadata_at) {
+    if let Some(metadata_created_at) = you.metadata_created_at {
+        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(metadata_created_at) {
             if let Ok(formatted) = stamp.format(&time::format_description::well_known::Rfc2822) {
                 ui.label(format!("Date Stamp of Fetched Metadata is {}", formatted));
                 ui.add_space(18.0);

@@ -16,9 +16,6 @@ pub use event_tag::DbEventTag;
 mod relay;
 pub use relay::DbRelay;
 
-mod contact;
-pub use contact::DbContact;
-
 mod person_relay;
 pub use person_relay::DbPersonRelay;
 
@@ -59,11 +56,16 @@ pub fn setup_database() -> Result<(), Error> {
     // Normalize URLs
     normalize_urls()?;
 
+    let db = GLOBALS.db.blocking_lock();
+
     // Enforce foreign key relationships
-    {
-        let db = GLOBALS.db.blocking_lock();
-        db.pragma_update(None, "foreign_keys", "ON")?;
-    }
+    db.pragma_update(None, "foreign_keys", "ON")?;
+
+    // Performance:
+    db.pragma_update(None, "journal_mode", "WAL")?;
+    db.pragma_update(None, "synchronous", "normal")?;
+    db.pragma_update(None, "temp_store", "memory")?;
+    db.pragma_update(None, "mmap_size", "268435456")?; // 1024 * 1024 * 256
 
     Ok(())
 }
@@ -239,7 +241,7 @@ fn normalize_urls() -> Result<(), Error> {
     Ok(())
 }
 
-const UPGRADE_SQL: [&str; 36] = [
+const UPGRADE_SQL: [&str; 37] = [
     include_str!("sql/schema1.sql"),
     include_str!("sql/schema2.sql"),
     include_str!("sql/schema3.sql"),
@@ -276,4 +278,5 @@ const UPGRADE_SQL: [&str; 36] = [
     include_str!("sql/schema34.sql"),
     include_str!("sql/schema35.sql"),
     include_str!("sql/schema36.sql"),
+    include_str!("sql/schema37.sql"),
 ];

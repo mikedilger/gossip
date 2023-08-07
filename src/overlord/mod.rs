@@ -17,8 +17,8 @@ use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, MilliSatoshi,
-    NostrBech32, NostrUrl, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl,
+    Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -87,6 +87,9 @@ impl Overlord {
     }
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
+        // Start the fetcher
+        crate::fetcher::Fetcher::start();
+
         // Load signer from settings
         GLOBALS.signer.load_from_settings().await;
 
@@ -334,7 +337,7 @@ impl Overlord {
         loop {
             match GLOBALS.relay_picker.pick().await {
                 Err(failure) => {
-                    tracing::info!("Done picking relays: {}", failure);
+                    tracing::debug!("Done picking relays: {}", failure);
                     break;
                 }
                 Ok(relay_url) => {
@@ -943,8 +946,8 @@ impl Overlord {
                     })
                     .collect();
 
-                // Resubscribe to augments
-                // On all currently connected relays
+                // Resubscribe to augments on all relays that have
+                // any feed-event subscriptions (see filter above)
                 for url in relay_urls.drain(..) {
                     self.engage_minion(
                         url,
@@ -1017,7 +1020,7 @@ impl Overlord {
 
     async fn post(
         &mut self,
-        mut content: String,
+        content: String,
         mut tags: Vec<Tag>,
         reply_to: Option<Id>,
     ) -> Result<(), Error> {
@@ -1080,7 +1083,17 @@ impl Overlord {
             }
 
             // Standardize nostr links (prepend 'nostr:' where missing)
-            content = NostrUrl::urlize(&content);
+            // (This was a bad idea to do this late in the process, it breaks links that contain
+            //  nostr urls)
+            // content = NostrUrl::urlize(&content);
+
+            // Find and tag all hashtags
+            for capture in GLOBALS.hashtag_regex.captures_iter(&content) {
+                tags.push(Tag::Hashtag {
+                    hashtag: capture[1][1..].to_string(),
+                    trailing: Vec::new(),
+                });
+            }
 
             if let Some(parent_id) = reply_to {
                 // Get the event we are replying to
@@ -1111,18 +1124,14 @@ impl Overlord {
                     // Add an 'e' tag for the note we are replying to
                     add_event_to_tags(&mut tags, parent_id, "reply").await;
                 } else {
-                    match parent.replies_to() {
-                        None => {
-                            // If the parent doesn't have any e-tags, then it is the root
-                            // NIP-10: "A direct reply to the root of a thread should have a single marked "e" tag of type "root"."
-                            add_event_to_tags(&mut tags, parent_id, "root").await;
-                        },
-                        Some((_id, _mayberelay)) => {
-                            // FIXME: we could try to climb up events until we find the root.
-
-                            // We don't know the root. We are a reply.
-                            add_event_to_tags(&mut tags, parent_id, "reply").await;
-                        }
+                    let ancestors = parent.referred_events();
+                    if ancestors.is_empty() {
+                        // parent is the root
+                        add_event_to_tags(&mut tags, parent_id, "root").await;
+                    } else {
+                        // Add an 'e' tag for the note we are replying to
+                        // (and we don't know about the root, the parent is malformed).
+                        add_event_to_tags(&mut tags, parent_id, "reply").await;
                     }
                 }
 
@@ -1675,7 +1684,7 @@ impl Overlord {
         // Collect missing ancestors and potential relays further up the chain
         if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
             // Use relays in 'e' tags
-            for (id, opturl) in highest_parent.referred_events() {
+            for (id, opturl, _marker) in highest_parent.referred_events() {
                 missing_ancestors.push(id);
                 if let Some(url) = opturl {
                     relays.push(url);
@@ -1911,7 +1920,7 @@ impl Overlord {
     // from the last ContactList received
     async fn update_following(&mut self, merge: bool) -> Result<(), Error> {
         // Load the latest contact list from the database
-        let event = {
+        let our_contact_list = {
             let pubkey = match GLOBALS.signer.public_key() {
                 Some(pk) => pk,
                 None => return Ok(()), // we cannot do anything without an identity setup first
@@ -1927,7 +1936,7 @@ impl Overlord {
         let now = Unixtime::now().unwrap();
 
         // 'p' tags represent the author's contacts
-        for tag in &event.tags {
+        for tag in &our_contact_list.tags {
             if let Tag::Pubkey {
                 pubkey,
                 recommended_relay_url,
@@ -1975,7 +1984,7 @@ impl Overlord {
         let last_edit = if merge {
             Unixtime::now().unwrap() // now, since superior to the last event
         } else {
-            event.created_at
+            our_contact_list.created_at
         };
         GLOBALS
             .people

@@ -29,6 +29,7 @@ pub enum ErrorKind {
     Timeout(tokio::time::error::Elapsed),
     UrlHasEmptyHostname,
     UrlHasNoHostname,
+    UrlParse(url::ParseError),
     Websocket(tungstenite::Error),
 }
 
@@ -79,6 +80,7 @@ impl std::fmt::Display for Error {
             Timeout(e) => write!(f, "Timeout: {e}"),
             UrlHasEmptyHostname => write!(f, "URL has empty hostname"),
             UrlHasNoHostname => write!(f, "URL has no hostname"),
+            UrlParse(e) => write!(f, "URL parse: {e}"),
             Websocket(e) => write!(f, "Websocket: {e}"),
         }
     }
@@ -221,5 +223,11 @@ impl From<tokio::time::error::Elapsed> for ErrorKind {
 impl From<tungstenite::Error> for ErrorKind {
     fn from(e: tungstenite::Error) -> ErrorKind {
         ErrorKind::Websocket(e)
+    }
+}
+
+impl From<url::ParseError> for ErrorKind {
+    fn from(e: url::ParseError) -> ErrorKind {
+        ErrorKind::UrlParse(e)
     }
 }

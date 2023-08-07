@@ -7,15 +7,33 @@ use tokio::task::spawn_blocking;
 
 #[derive(Debug)]
 pub struct DbPersonRelay {
+    // The person
     pub person: String,
+
+    // The relay associated with that person
     pub relay: RelayUrl,
+
+    // The last time we fetched one of the person's events from this relay
     pub last_fetched: Option<u64>,
+
+    // When we follow someone at a relay
     pub last_suggested_kind3: Option<u64>,
+
+    // When we get their nip05 and it specifies this relay
     pub last_suggested_nip05: Option<u64>,
+
+    // Updated when a 'p' tag on any event associates this person and relay via the
+    // recommended_relay_url field
     pub last_suggested_bytag: Option<u64>,
+
     pub read: bool,
+
     pub write: bool,
+
+    // When we follow someone at a relay, this is set true
     pub manually_paired_read: bool,
+
+    // When we follow someone at a relay, this is set true
     pub manually_paired_write: bool,
 }
 
@@ -391,15 +409,6 @@ impl DbPersonRelay {
 
     // This ranks the relays that a person writes to
     pub fn write_rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
-        // This is the ranking we are using. There might be reasons
-        // for ranking differently.
-        //   write (score=20)    [ they claim (to us) ]
-        //   manually_paired_write (score=20)    [ we claim (to us) ]
-        //   kind3 tag (score=5) [ we say ]
-        //   nip05 (score=4)     [ they claim, unsigned ]
-        //   fetched (score=3)   [ we found ]
-        //   bytag (score=1)     [ someone else mentions ]
-
         let now = Unixtime::now().unwrap().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
 
@@ -457,15 +466,6 @@ impl DbPersonRelay {
 
     // This ranks the relays that a person reads from
     pub fn read_rank(mut dbprs: Vec<DbPersonRelay>) -> Vec<(RelayUrl, u64)> {
-        // This is the ranking we are using. There might be reasons
-        // for ranking differently.
-        //   read (score=20)    [ they claim (to us) ]
-        //   manually_paired_read (score=20)    [ we claim (to us) ]
-        //   kind3 tag (score=5) [ we say ]
-        //   nip05 (score=4)     [ they claim, unsigned ]
-        //   fetched (score=3)   [ we found ]
-        //   bytag (score=1)     [ someone else mentions ]
-
         let now = Unixtime::now().unwrap().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
 

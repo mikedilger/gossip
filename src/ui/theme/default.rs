@@ -382,6 +382,20 @@ impl ThemeDef for DefaultTheme {
                 color: purple,
                 ..Default::default()
             },
+            HighlightType::Hyperlink => TextFormat {
+                font_id: FontId::new(12.5, FontFamily::Proportional),
+                color: {
+                    // This should match get_style() above for hyperlink color.
+                    if dark_mode {
+                        let mut hsva: ecolor::HsvaGamma = Self::accent_color(true).into();
+                        hsva.v = (hsva.v + 0.5).min(1.0); // lighten
+                        hsva.into()
+                    } else {
+                        Self::accent_color(false)
+                    }
+                },
+                ..Default::default()
+            },
         }
     }
 
