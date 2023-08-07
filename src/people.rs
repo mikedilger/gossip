@@ -348,8 +348,6 @@ impl People {
                 person.nip05_last_checked = None; // we haven't checked this one yet
             }
             GLOBALS.storage.write_person(&person, None)?;
-
-            // UI cache invalidation (so notes of the person get rerendered)
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
@@ -644,6 +642,7 @@ impl People {
         if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
             person.followed = follow;
             GLOBALS.storage.write_person(&person, None)?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
         Ok(())
     }
@@ -655,6 +654,7 @@ impl People {
                     if !person.followed {
                         person.followed = true;
                         GLOBALS.storage.write_person(&person, None)?;
+                        GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
                     }
                 }
             }
@@ -664,6 +664,7 @@ impl People {
                 person.followed = pubkeys.contains(&person.pubkey);
                 if person.followed != orig {
                     GLOBALS.storage.write_person(&person, None)?;
+                    GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
                 }
             }
         }
@@ -680,6 +681,7 @@ impl People {
         for mut person in GLOBALS.storage.filter_people(|_| true)? {
             person.followed = false;
             GLOBALS.storage.write_person(&person, None)?;
+            GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
         }
 
         Ok(())
@@ -689,6 +691,7 @@ impl People {
         if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
             person.muted = mute;
             GLOBALS.storage.write_person(&person, None)?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
         // UI cache invalidation (so notes of the person get rerendered)
@@ -762,13 +765,8 @@ impl People {
             person.nip05_last_checked = Some(nip05_last_checked);
 
             GLOBALS.storage.write_person(&person, None)?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
-
-        // UI cache invalidation (so notes of the person get rerendered)
-        GLOBALS
-            .ui_people_to_invalidate
-            .write()
-            .push(pubkey.to_owned());
 
         Ok(())
     }
