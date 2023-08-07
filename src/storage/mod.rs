@@ -155,7 +155,7 @@ impl Storage {
 
         let person_relays = env.create_db(Some("person_relays"), DatabaseFlags::empty())?;
 
-        let storage = Storage {
+        Ok(Storage {
             env,
             general,
             event_seen_on_relay,
@@ -169,21 +169,25 @@ impl Storage {
             relationships,
             people,
             person_relays,
-        };
+        })
+    }
 
+    // Run this after GLOBALS lazy static initialisation, so functions within storage can
+    // access GLOBALS without hanging.
+    pub fn init(&self) -> Result<(), Error> {
         // If migration level is missing, we need to import from legacy sqlite
-        match storage.read_migration_level()? {
+        match self.read_migration_level()? {
             None => {
                 // Import from sqlite
-                storage.import()?;
-                storage.migrate(0)?;
+                self.import()?;
+                self.migrate(0)?;
             }
             Some(level) => {
-                storage.migrate(level)?;
+                self.migrate(level)?;
             }
         }
 
-        Ok(storage)
+        Ok(())
     }
 
     pub fn get_general_stats(&self) -> Result<Stat, Error> {

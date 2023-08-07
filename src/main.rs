@@ -79,6 +79,9 @@ fn main() -> Result<(), Error> {
         .with_env_filter(env_filter)
         .init();
 
+    // Initialize storage
+    GLOBALS.storage.init()?;
+
     // Load settings
     let settings = GLOBALS.storage.read_settings()?.unwrap();
     *GLOBALS.settings.write() = settings;
