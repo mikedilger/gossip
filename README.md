@@ -84,6 +84,7 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 - [ ] NIP-40 - Expiration Timestamp
 - [x] NIP-42 - Authentication of clients to relays
 - [ ] NIP-46 - Nostr Connect
+- [x] NIP-48 - Proxy Tags
 - [ ] NIP-50 - Keywords filter
 - [ ] NIP-51 - Lists
 - [ ] NIP-56 - Reporting

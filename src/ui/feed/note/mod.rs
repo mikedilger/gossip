@@ -522,6 +522,26 @@ fn render_note_inner(
                         });
                 }
 
+                // proxied?
+                if let Some((proxy, id)) = note.event.proxy() {
+                    Frame::none()
+                        .inner_margin(Margin {
+                            left: footer_margin_left,
+                            bottom: 0.0,
+                            right: 0.0,
+                            top: 8.0,
+                        })
+                        .show(ui, |ui| {
+                            let color = app.settings.theme.warning_marker_text_color();
+                            ui.horizontal_wrapped(|ui| {
+                                ui.add(Label::new(
+                                    RichText::new(format!("proxied from {}: ", proxy)).color(color),
+                                ));
+                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, id, id);
+                            });
+                        });
+                }
+
                 // Footer
                 if !hide_footer {
                     Frame::none()
