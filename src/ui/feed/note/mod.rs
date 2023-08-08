@@ -158,7 +158,7 @@ pub(super) fn render_note(
             }
 
             // even if muted, continue rendering thread children
-            if threaded && !as_reply_to {
+            if threaded && !as_reply_to && !app.collapsed.contains(&id) {
                 let replies = GLOBALS.storage.get_replies(id).unwrap_or(vec![]);
                 let iter = replies.iter();
                 let first = replies.first();
