@@ -156,6 +156,7 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
             let enabled = edit || !is_editing;
             let mut widget = RelayEntry::new(db_relay, app);
             widget.set_edit(edit);
+            widget.set_detail(false); // TODO obey settings
             widget.set_enabled(enabled);
             widget.set_connected(is_connected);
             if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {

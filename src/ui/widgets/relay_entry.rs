@@ -6,7 +6,9 @@ use nostr_types::{PublicKeyHex, Unixtime};
 use crate::{comms::ToOverlordMessage, db::DbRelay, globals::GLOBALS, ui::{components, GossipUi}};
 
 /// Height of the list view (width always max. available)
-const LIST_VIEW_HEIGHT: f32 = 80.0;
+const LIST_VIEW_HEIGHT: f32 = 50.0;
+/// Height of the list view (width always max. available)
+const DETAIL_VIEW_HEIGHT: f32 = 80.0;
 /// Height of the edit view (width always max. available)
 const EDIT_VIEW_HEIGHT: f32 = 250.0;
 /// Spacing of frame: left
@@ -77,6 +79,7 @@ const ADVERTISE_HOVER_TEXT: &str = "Where you advertise your relay list (inbox/o
 #[derive(Clone, PartialEq)]
 pub enum RelayEntryView {
     List,
+    Detail,
     Edit,
 }
 
@@ -169,8 +172,12 @@ impl RelayEntry {
     pub fn set_edit(&mut self, edit: bool) {
         if edit {
             self.view = RelayEntryView::Edit;
-        } else {
-            self.view = RelayEntryView::List;
+        }
+    }
+
+    pub fn set_detail(&mut self, detail: bool) {
+        if detail {
+            self.view = RelayEntryView::Detail;
         }
     }
 
@@ -195,6 +202,13 @@ impl RelayEntry {
     fn allocate_list_view(&self, ui: &mut Ui) -> (Rect, Response) {
         let available_width = ui.available_size_before_wrap().x;
         let height = LIST_VIEW_HEIGHT;
+
+        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
+    }
+
+    fn allocate_detail_view(&self, ui: &mut Ui) -> (Rect, Response) {
+        let available_width = ui.available_size_before_wrap().x;
+        let height = DETAIL_VIEW_HEIGHT;
 
         ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
     }
@@ -305,7 +319,7 @@ impl RelayEntry {
         text.paint_with_visuals(ui.painter(), text_pos, visuals);
 
         if response.clicked() {
-            self.view = RelayEntryView::List;
+            self.view = RelayEntryView::Detail;
         }
 
         response
@@ -342,7 +356,7 @@ impl RelayEntry {
         response
     }
 
-    fn paint_stats(&self, ui: &mut Ui, rect: &Rect, with_usage: bool) {
+    fn paint_stats(&self, ui: &mut Ui, rect: &Rect) {
         {
             // ---- Success Rate ----
             let pos = rect.min + vec2(STATS_COL_1_X, TEXT_TOP + STATS_Y_SPACING);
@@ -424,81 +438,88 @@ impl RelayEntry {
                 None,
             );
         }
+    }
 
-        if with_usage {
-            // usage bits
-            let right = pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0);
-            let align = Align::Center;
-
-            let bg_rect = egui::Rect::from_x_y_ranges(
-                right.x - 150.0 ..= right.x,
-                right.y - 5.0 ..= right.y + 18.0);
-            let bg_radius = bg_rect.height() / 2.0;
-            ui.painter().rect_filled(bg_rect, egui::Rounding::same(bg_radius), ui.visuals().code_bg_color);
-
-            fn switch( ui: &mut Ui, str: &str, on: bool ) -> (RichText, Color32) {
-                let active = ui.visuals().text_color();
-                let inactive = ui.visuals().text_color().gamma_multiply(0.4);
-                if on {
-                    (RichText::new(str), active)
-                } else {
-                    (RichText::new(str), inactive)
-                }
+    fn paint_usage(&self, ui: &mut Ui, rect: &Rect) {
+        let right = match self.view {
+            RelayEntryView::Detail => {
+                pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0)
             }
+            _ => {
+                pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT -EDIT_BTN_SIZE - 10.0, TEXT_TOP + 4.0)
+            }
+        };
 
-            const RIGHT: f32 = -17.0;
-            const SPACE: f32 = 23.0;
+        let align = Align::Center;
 
-            // ---- R ----
-            let pos = right + vec2(RIGHT - 5.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "R", self.usage.read );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
-            draw_text_galley_at(ui, pos, galley, Some(color), None);
-            response.on_hover_text(READ_HOVER_TEXT);
+        let bg_rect = egui::Rect::from_x_y_ranges(
+            right.x - 150.0 ..= right.x,
+            right.y - 5.0 ..= right.y + 18.0);
+        let bg_radius = bg_rect.height() / 2.0;
+        ui.painter().rect_filled(bg_rect, egui::Rounding::same(bg_radius), ui.visuals().code_bg_color);
 
-            // ---- I ----
-            let pos = right + vec2(RIGHT - 4.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "I", self.usage.inbox );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
-            draw_text_galley_at(ui, pos, galley, Some(color), None);
-            response.on_hover_text(INBOX_HOVER_TEXT);
-
-            // ---- + ----
-            let pos = pos - vec2(SPACE/2.0,0.0);
-            draw_text_at(ui, pos, "+".into(), align, Some(color), None);
-
-            // ---- W ----
-            let pos = right + vec2(RIGHT - 3.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "W", self.usage.write );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
-            draw_text_galley_at(ui, pos, galley, Some(color), None);
-            response.on_hover_text(WRITE_HOVER_TEXT);
-
-            // ---- O ----
-            let pos = right + vec2(RIGHT - 2.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "O", self.usage.outbox );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
-            draw_text_galley_at(ui, pos, galley, Some(color), None);
-            response.on_hover_text(OUTBOX_HOVER_TEXT);
-
-            // ---- + ----
-            let pos = pos - vec2(SPACE/2.0,0.0);
-            draw_text_at(ui, pos, "+".into(), align, Some(color), None);
-
-            // ---- D ----
-            let pos = right + vec2(RIGHT - 1.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "D", self.usage.discover );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
-            draw_text_galley_at(ui, pos, galley, Some(color), None);
-            response.on_hover_text(DISCOVER_HOVER_TEXT);
-
-            // ---- A ----
-            let pos = right + vec2(RIGHT - 0.0 * SPACE,0.0);
-            let (text, color) = switch( ui, "A", self.usage.advertise );
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
-            draw_text_galley_at(ui, pos, galley, Some(color), None);
-            response.on_hover_text(ADVERTISE_HOVER_TEXT);
+        fn switch( ui: &mut Ui, str: &str, on: bool ) -> (RichText, Color32) {
+            let active = ui.visuals().text_color();
+            let inactive = ui.visuals().text_color().gamma_multiply(0.4);
+            if on {
+                (RichText::new(str), active)
+            } else {
+                (RichText::new(str), inactive)
+            }
         }
+
+        const RIGHT: f32 = -17.0;
+        const SPACE: f32 = 23.0;
+
+        // ---- R ----
+        let pos = right + vec2(RIGHT - 5.0 * SPACE,0.0);
+        let (text, color) = switch( ui, "R", self.usage.read );
+        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
+        draw_text_galley_at(ui, pos, galley, Some(color), None);
+        response.on_hover_text(READ_HOVER_TEXT);
+
+        // ---- I ----
+        let pos = right + vec2(RIGHT - 4.0 * SPACE,0.0);
+        let (text, color) = switch( ui, "I", self.usage.inbox );
+        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
+        draw_text_galley_at(ui, pos, galley, Some(color), None);
+        response.on_hover_text(INBOX_HOVER_TEXT);
+
+        // ---- + ----
+        let pos = pos - vec2(SPACE/2.0,0.0);
+        draw_text_at(ui, pos, "+".into(), align, Some(color), None);
+
+        // ---- W ----
+        let pos = right + vec2(RIGHT - 3.0 * SPACE,0.0);
+        let (text, color) = switch( ui, "W", self.usage.write );
+        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
+        draw_text_galley_at(ui, pos, galley, Some(color), None);
+        response.on_hover_text(WRITE_HOVER_TEXT);
+
+        // ---- O ----
+        let pos = right + vec2(RIGHT - 2.0 * SPACE,0.0);
+        let (text, color) = switch( ui, "O", self.usage.outbox );
+        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
+        draw_text_galley_at(ui, pos, galley, Some(color), None);
+        response.on_hover_text(OUTBOX_HOVER_TEXT);
+
+        // ---- + ----
+        let pos = pos - vec2(SPACE/2.0,0.0);
+        draw_text_at(ui, pos, "+".into(), align, Some(color), None);
+
+        // ---- D ----
+        let pos = right + vec2(RIGHT - 1.0 * SPACE,0.0);
+        let (text, color) = switch( ui, "D", self.usage.discover );
+        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
+        draw_text_galley_at(ui, pos, galley, Some(color), None);
+        response.on_hover_text(DISCOVER_HOVER_TEXT);
+
+        // ---- A ----
+        let pos = right + vec2(RIGHT - 0.0 * SPACE,0.0);
+        let (text, color) = switch( ui, "A", self.usage.advertise );
+        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
+        draw_text_galley_at(ui, pos, galley, Some(color), None);
+        response.on_hover_text(ADVERTISE_HOVER_TEXT);
     }
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
@@ -888,7 +909,22 @@ impl RelayEntry {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
-            self.paint_stats(ui, &rect, self.db_relay.usage_bits != 0);
+            if self.db_relay.usage_bits != 0 { self.paint_usage(ui, &rect); }
+        }
+
+        response
+    }
+
+    fn update_detail_view(mut self, ui: &mut Ui) -> Response {
+        let (rect, mut response) = self.allocate_detail_view(ui);
+
+        // all the heavy lifting is only done if it's actually visible
+        if ui.is_rect_visible(rect) {
+            self.paint_frame(ui, &rect);
+            self.paint_title(ui, &rect);
+            response |= self.paint_edit_btn(ui, &rect);
+            self.paint_stats(ui, &rect);
+            if self.db_relay.usage_bits != 0 { self.paint_usage(ui, &rect); }
         }
 
         response
@@ -901,7 +937,7 @@ impl RelayEntry {
         if ui.is_rect_visible(rect) {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
-            self.paint_stats(ui, &rect, false);
+            self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
             self.paint_nip11(ui, &rect);
             self.paint_usage_settings(ui, &rect);
@@ -920,6 +956,7 @@ impl Widget for RelayEntry {
 
         match self.view {
             RelayEntryView::List => self.update_list_view(ui),
+            RelayEntryView::Detail => self.update_detail_view(ui),
             RelayEntryView::Edit => self.update_edit_view(ui),
         }
     }
