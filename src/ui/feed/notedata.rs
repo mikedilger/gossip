@@ -104,7 +104,7 @@ impl NoteData {
                 for tag in &event.tags {
                     if let Tag::Other { tag, data } = tag {
                         if tag == "alt" && !data.is_empty() {
-                            dc = format!("UNSUPPORTED EVENT KIND, ALT: {}", data[1]);
+                            dc = format!("UNSUPPORTED EVENT KIND, ALT: {}", data[0]);
                         }
                     }
                 }
