@@ -569,6 +569,16 @@ fn render_note_inner(
                                             o.copied_text =
                                                 serde_json::to_string(&note.event).unwrap()
                                         });
+                                    } else if note.event.kind == EventKind::EncryptedDirectMessage {
+                                        ui.output_mut(|o| {
+                                            if let Ok(m) =
+                                                GLOBALS.signer.decrypt_message(&note.event)
+                                            {
+                                                o.copied_text = m
+                                            } else {
+                                                o.copied_text = note.event.content.clone()
+                                            }
+                                        });
                                     } else {
                                         ui.output_mut(|o| {
                                             o.copied_text = note.event.content.clone()
