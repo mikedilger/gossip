@@ -315,12 +315,15 @@ impl RelayEntry {
         let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
             // TODO remove relay
+            let _ = GLOBALS.to_overlord.send(
+                ToOverlordMessage::ClearAllUsageOnRelay(self.db_relay.url.to_owned()),
+            );
         }
 
         let pos = pos + vec2(200.0, 0.0);
         let id = self.make_id("disconnect_button");
         let text = "Force disconnect";
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
+        let response = response | draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
             let _ = GLOBALS.to_overlord.send(
                 ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
@@ -894,7 +897,7 @@ impl RelayEntry {
             self.paint_nip11(ui, &rect);
             self.paint_usage_settings(ui, &rect);
             paint_hline(ui, &rect, HLINE_2_Y_OFFSET);
-            self.paint_lower_buttons(ui, &rect);
+            response |= self.paint_lower_buttons(ui, &rect);
             response |= self.paint_close_btn(ui, &rect);
         }
 

@@ -605,6 +605,17 @@ impl Overlord {
                 DbRelay::insert(dbrelay.clone()).await?;
                 GLOBALS.all_relays.insert(relay_str, dbrelay);
             }
+            ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
+                if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
+                    // TODO: replace with dedicated method to clear all bits
+                    dbrelay.clear_usage_bits_memory_only(
+                        DbRelay::ADVERTISE | DbRelay::DISCOVER | DbRelay::INBOX |
+                        DbRelay::OUTBOX | DbRelay::READ | DbRelay::WRITE );
+                    dbrelay.save_usage_bits().await?;
+                } else {
+                    tracing::error!("CODE OVERSIGHT - Attempt to clear relay usage bit for a relay not in memory. It will not be saved.");
+                }
+            }
             ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
                 if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
                     dbrelay.adjust_usage_bit_memory_only(bit, value);
