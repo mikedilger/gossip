@@ -122,6 +122,7 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
 
         for db_relay in relays {
             let db_url = db_relay.url.clone();
+
             // is THIS entry being edited?
             let edit = if let Some(edit_url) = &app.relays.edit {
                 if edit_url == &db_url {
@@ -133,6 +134,8 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
             } else {
                 false
             };
+
+            // retrieve an updated copy of this relay when editing
             let db_relay = if has_edit_target {
                 if let Some(entry) = GLOBALS.all_relays.get(&db_url) {
                     entry.clone() // update
@@ -142,10 +145,19 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
             } else {
                 db_relay // don't update
             };
+
+            // is this relay currently connected?
+            let is_connected = if let Some(_) = GLOBALS.connected_relays.get(&db_url) {
+                true
+            } else {
+                false
+            };
+
             let enabled = edit || !is_editing;
             let mut widget = RelayEntry::new(db_relay, app);
             widget.set_edit(edit);
             widget.set_enabled(enabled);
+            widget.set_connected(is_connected);
             if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                 widget.set_user_count(assignment.pubkeys.len());
             }

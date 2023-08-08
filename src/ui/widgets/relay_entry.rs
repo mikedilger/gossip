@@ -136,6 +136,7 @@ pub struct RelayEntry {
     db_relay: DbRelay,
     view: RelayEntryView,
     enabled: bool,
+    connected: bool,
     user_count: Option<usize>,
     usage: UsageBits,
     accent: Color32,
@@ -155,6 +156,7 @@ impl RelayEntry {
             db_relay,
             view: RelayEntryView::List,
             enabled: true,
+            connected: false,
             user_count: None,
             usage,
             accent,
@@ -178,6 +180,10 @@ impl RelayEntry {
 
     pub fn set_user_count(&mut self, count: usize) {
         self.user_count = Some(count);
+    }
+
+    pub fn set_connected(&mut self, connected: bool) {
+        self.connected = connected;
     }
 
     // pub fn view(&self) -> RelayEntryView {
@@ -312,7 +318,7 @@ impl RelayEntry {
         let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 -OUTER_MARGIN_BOTTOM -line_height);
         let id = self.make_id("remove_button");
         let text = "Remove from personal list";
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
+        let mut response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
             // TODO remove relay
             let _ = GLOBALS.to_overlord.send(
@@ -320,15 +326,18 @@ impl RelayEntry {
             );
         }
 
-        let pos = pos + vec2(200.0, 0.0);
-        let id = self.make_id("disconnect_button");
-        let text = "Force disconnect";
-        let response = response | draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
-        if response.clicked() {
-            let _ = GLOBALS.to_overlord.send(
-                ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
-            );
+        if self.connected {
+            let pos = pos + vec2(200.0, 0.0);
+            let id = self.make_id("disconnect_button");
+            let text = "Force disconnect";
+            response |= draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
+            if response.clicked() {
+                let _ = GLOBALS.to_overlord.send(
+                    ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
+                );
+            }
         }
+
         // pass the response back so the page knows the edit view should close
         response
     }
