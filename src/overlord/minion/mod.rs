@@ -187,11 +187,16 @@ impl Minion {
                 accept_unmasked_frames: false,       // default is false which is the standard
             };
 
-            let (websocket_stream, _response) = tokio::time::timeout(
+            let (websocket_stream, response) = tokio::time::timeout(
                 std::time::Duration::new(15, 0),
                 tokio_tungstenite::connect_async_with_config(req, Some(config), false),
             )
             .await??;
+
+            // Check the status code of the response
+            if response.status().as_u16() == 4000 {
+                return Err(ErrorKind::RelayRejectedUs.into());
+            }
 
             tracing::debug!("{}: Connected", &self.url);
 

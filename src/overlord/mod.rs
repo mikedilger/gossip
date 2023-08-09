@@ -387,7 +387,9 @@ impl Overlord {
                     Self::bump_failure_count(&url);
                     tracing::error!("Minion {} completed with error: {}", &url, e);
                     exclusion = 60;
-                    if let ErrorKind::Websocket(wserror) = e.kind {
+                    if let ErrorKind::RelayRejectedUs = e.kind {
+                        exclusion = 60 * 60 * 24 * 365; // don't connect again, practically
+                    } else if let ErrorKind::Websocket(wserror) = e.kind {
                         if let tungstenite::error::Error::Http(response) = wserror {
                             exclusion = match response.status() {
                                 StatusCode::MOVED_PERMANENTLY => 60 * 60 * 24,
