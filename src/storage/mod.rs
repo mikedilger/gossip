@@ -103,8 +103,7 @@ impl Storage {
         let mut builder = Environment::new();
 
         builder.set_flags(
-            EnvironmentFlags::WRITE_MAP, // no nested transactions!
-                                         // commits sync. we don't disable any syncing.
+            EnvironmentFlags::NO_SYNC,
         );
         // builder.set_max_readers(126); // this is the default
         builder.set_max_dbs(32);
