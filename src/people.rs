@@ -51,7 +51,9 @@ impl Person {
     }
 
     pub fn display_name(&self) -> Option<&str> {
-        if let Some(md) = &self.metadata {
+        if let Some(pn) = &self.petname {
+            Some(pn)
+        } else if let Some(md) = &self.metadata {
             if md.other.contains_key("display_name") {
                 if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
                     if !s.is_empty() {
@@ -94,6 +96,29 @@ impl Person {
             md.nip05.as_deref()
         } else {
             None
+        }
+    }
+}
+
+impl PartialEq for Person {
+    fn eq(&self, other: &Self) -> bool {
+        self.pubkey.eq(&other.pubkey)
+    }
+}
+impl Eq for Person {}
+impl PartialOrd for Person {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self.display_name(), other.display_name()) {
+            (Some(a), Some(b)) => a.to_lowercase().partial_cmp(&b.to_lowercase()),
+            _ => self.pubkey.partial_cmp(&other.pubkey),
+        }
+    }
+}
+impl Ord for Person {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self.display_name(), other.display_name()) {
+            (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
+            _ => self.pubkey.cmp(&other.pubkey),
         }
     }
 }
