@@ -102,9 +102,7 @@ impl Storage {
     pub fn new() -> Result<Storage, Error> {
         let mut builder = Environment::new();
 
-        builder.set_flags(
-            EnvironmentFlags::NO_SYNC,
-        );
+        builder.set_flags(EnvironmentFlags::NO_SYNC);
         // builder.set_max_readers(126); // this is the default
         builder.set_max_dbs(32);
 

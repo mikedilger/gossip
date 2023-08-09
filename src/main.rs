@@ -111,6 +111,13 @@ fn main() -> Result<(), Error> {
     // Wait for the async thread to complete
     async_thread.join().unwrap();
 
+    // Sync storage again
+    if let Err(e) = GLOBALS.storage.sync() {
+        tracing::error!("{}", e);
+    } else {
+        tracing::info!("LMDB synced.");
+    }
+
     Ok(())
 }
 
