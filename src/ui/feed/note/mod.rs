@@ -137,7 +137,8 @@ pub(super) fn render_note(
                 app.height.insert(id, bottom.y - top.y);
 
                 // Mark post as viewed if hovered AND we are not scrolling
-                if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
+                if !viewed && inner_response.response.hovered() && app.current_scroll_offset == 0.0
+                {
                     let _ = GLOBALS.storage.mark_event_viewed(id, None);
                 }
 
