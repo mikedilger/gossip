@@ -378,7 +378,7 @@ fn render_note_inner(
                         if ui.button("Dismiss").clicked() {
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
                         }
-                        if Some(note.event.pubkey) == GLOBALS.signer.public_key()
+                        if Some(note.event.pubkey) == app.settings.public_key
                             && note.deletion.is_none()
                         {
                             if ui.button("Delete").clicked() {
