@@ -146,11 +146,23 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
                 db_relay // don't update
             };
 
-            // is this relay currently connected?
-            let is_connected = if let Some(_) = GLOBALS.connected_relays.get(&db_url) {
-                true
+            // get details on this relay
+            let (is_connected, reasons) = if let Some(entry) = GLOBALS.connected_relays.get(&db_url) {
+                (
+                    true,
+                    entry.iter()
+                        .map(|rj| {
+                            if rj.persistent {
+                                format!("[{}]", rj.reason)
+                            } else {
+                                rj.reason.to_string()
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
             } else {
-                false
+                (false, "".into())
             };
 
             let enabled = edit || !is_editing;
@@ -159,6 +171,7 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
             widget.set_detail(false); // TODO obey settings
             widget.set_enabled(enabled);
             widget.set_connected(is_connected);
+            widget.set_reasons(reasons);
             if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                 widget.set_user_count(assignment.pubkeys.len());
             }

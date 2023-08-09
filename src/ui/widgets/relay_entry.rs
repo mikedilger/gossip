@@ -140,6 +140,7 @@ pub struct RelayEntry {
     view: RelayEntryView,
     enabled: bool,
     connected: bool,
+    reasons: String,
     user_count: Option<usize>,
     usage: UsageBits,
     accent: Color32,
@@ -160,6 +161,7 @@ impl RelayEntry {
             view: RelayEntryView::List,
             enabled: true,
             connected: false,
+            reasons: "".into(),
             user_count: None,
             usage,
             accent,
@@ -191,6 +193,10 @@ impl RelayEntry {
 
     pub fn set_connected(&mut self, connected: bool) {
         self.connected = connected;
+    }
+
+    pub fn set_reasons(&mut self, reasons: String) {
+        self.reasons = reasons;
     }
 
     // pub fn view(&self) -> RelayEntryView {
@@ -441,12 +447,15 @@ impl RelayEntry {
     }
 
     fn paint_usage(&self, ui: &mut Ui, rect: &Rect) {
+        const RIGHT: f32 = -17.0;
+        const SPACE: f32 = 23.0;
+
         let right = match self.view {
             RelayEntryView::Detail => {
                 pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0)
             }
             _ => {
-                pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT -EDIT_BTN_SIZE - 10.0, TEXT_TOP + 4.0)
+                pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT -EDIT_BTN_SIZE -SPACE, TEXT_TOP + 4.0)
             }
         };
 
@@ -468,8 +477,9 @@ impl RelayEntry {
             }
         }
 
-        const RIGHT: f32 = -17.0;
-        const SPACE: f32 = 23.0;
+        // ---- usage text ----
+        let pos = right + vec2(RIGHT - 7.0 * SPACE, 0.0);
+        draw_text_at(ui, pos, self.reasons.clone().into(), Align::RIGHT, Some(ui.visuals().text_color()), None);
 
         // ---- R ----
         let pos = right + vec2(RIGHT - 5.0 * SPACE,0.0);
