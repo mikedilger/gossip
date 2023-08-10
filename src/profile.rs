@@ -136,5 +136,5 @@ fn normalize<P: AsRef<Path>>(path: P) -> Result<PathBuf, Error> {
 
 #[cfg(windows)]
 fn normalize<P: AsRef<Path>>(path: P) -> Result<PathBuf, Error> {
-    Ok(path.normalize()?)
+    Ok(path.as_ref().normalize()?.into_path_buf())
 }
