@@ -71,6 +71,9 @@ url = "2.4"
 vecmap-rs = "0.1"
 zeroize = "1.6"
 
+[target.'cfg(windows)'.dependencies]
+normpath = "1.1"
+
 # Force scrypt to build with release-like speed even in dev mode
 [profile.dev.package.scrypt]
 opt-level = 3
