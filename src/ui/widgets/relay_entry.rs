@@ -178,8 +178,18 @@ impl RelayEntry {
     }
 
     pub fn set_detail(&mut self, detail: bool) {
-        if detail {
-            self.view = RelayEntryView::Detail;
+        match self.view {
+            RelayEntryView::List => {
+                if detail {
+                    self.view = RelayEntryView::Detail;
+                }
+            },
+            RelayEntryView::Detail => {
+                if !detail {
+                    self.view = RelayEntryView::List;
+                }
+            },
+            _ => {}
         }
     }
 
@@ -336,7 +346,7 @@ impl RelayEntry {
             f.row_height(&FontId::default())
         });
         let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 -OUTER_MARGIN_BOTTOM -line_height);
-        let id = self.make_id("remove_button");
+        let id = self.make_id("remove_link");
         let text = "Remove from personal list";
         let mut response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
@@ -345,16 +355,24 @@ impl RelayEntry {
             );
         }
 
-        if self.connected {
-            let pos = pos + vec2(200.0, 0.0);
-            let id = self.make_id("disconnect_button");
-            let text = "Force disconnect";
-            response |= draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
-            if response.clicked() {
-                let _ = GLOBALS.to_overlord.send(
-                    ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
-                );
-            }
+        let pos = pos + vec2(200.0, 0.0);
+        let id = self.make_id("disconnect_link");
+        let text = "Force disconnect";
+        response |= draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled && self.connected, true);
+        if response.clicked() {
+            let _ = GLOBALS.to_overlord.send(
+                ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
+            );
+        }
+
+        let pos = pos + vec2(150.0, 0.0);
+        let id = self.make_id("hide_unhide_link");
+        let text = if self.db_relay.hidden { "Unhide Relay" } else { "Hide Relay" };
+        response |= draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
+        if response.clicked() {
+            let _ = GLOBALS.to_overlord.send(
+                ToOverlordMessage::HideOrShowRelay(self.db_relay.url.to_owned(), !self.db_relay.hidden),
+            );
         }
 
         // pass the response back so the page knows the edit view should close
@@ -1079,7 +1097,11 @@ fn draw_link_at(
     secondary: bool,
 ) -> Response {
     let (galley, response) = allocate_text_at(ui, pos, text, align, id);
-    let response = response.on_hover_cursor(CursorIcon::PointingHand);
+    let response = if enabled {
+        response.on_hover_cursor(CursorIcon::PointingHand)
+    } else {
+        response
+    };
     let hover_color = ui.visuals().widgets.hovered.fg_stroke.color;
     let (color, stroke) = if !secondary {
         if enabled {
