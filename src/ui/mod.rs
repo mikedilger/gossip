@@ -248,7 +248,6 @@ struct GossipUi {
     new_metadata_fieldname: String,
     import_priv: String,
     import_pub: String,
-    show_hidden_relays: bool,
     search: String,
     entering_search_page: bool,
 
@@ -457,7 +456,6 @@ impl GossipUi {
             new_metadata_fieldname: String::new(),
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
-            show_hidden_relays: false,
             search: "".to_owned(),
             entering_search_page: false,
             collapsed: vec![],

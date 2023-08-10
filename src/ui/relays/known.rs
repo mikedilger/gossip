@@ -1,10 +1,10 @@
 use super::GossipUi;
-use crate::{db::DbRelay};
+use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id};
+use egui_winit::egui::Id;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
@@ -16,11 +16,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
+            super::configure_list_btn(app, ui);
+            ui.add_space(20.0);
             super::relay_filter_combo(app, ui);
             ui.add_space(20.0);
             super::relay_sort_combo(app, ui);
-            ui.add_space(20.0);
-            ui.checkbox(&mut app.show_hidden_relays, "Show hidden");
         });
     });
     ui.add_space(10.0);
@@ -77,7 +77,7 @@ fn get_relays(app: &mut GossipUi) -> Vec<DbRelay> {
         .all_relays
         .iter()
         .map(|ri| ri.value().clone())
-        .filter(|ri| app.show_hidden_relays || !ri.hidden && super::filter_relay(&app.relays, ri))
+        .filter(|ri| app.relays.show_hidden || !ri.hidden && super::filter_relay(&app.relays, ri))
         .collect();
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));

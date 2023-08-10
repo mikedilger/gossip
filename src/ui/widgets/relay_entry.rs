@@ -340,7 +340,6 @@ impl RelayEntry {
         let text = "Remove from personal list";
         let mut response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
-            // TODO remove relay
             let _ = GLOBALS.to_overlord.send(
                 ToOverlordMessage::ClearAllUsageOnRelay(self.db_relay.url.to_owned()),
             );
@@ -451,9 +450,9 @@ impl RelayEntry {
         const SPACE: f32 = 23.0;
 
         let right = match self.view {
-            RelayEntryView::Detail => {
-                pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0)
-            }
+            // RelayEntryView::Detail => {
+            //     pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0)
+            // }
             _ => {
                 pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT -EDIT_BTN_SIZE -SPACE, TEXT_TOP + 4.0)
             }

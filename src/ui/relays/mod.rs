@@ -19,6 +19,10 @@ pub(super) struct RelayUi {
     sort: RelaySorting,
     /// which relays to include in the list
     filter: RelayFilter,
+    /// Show hidden relays on/off
+    show_hidden: bool,
+    /// show details on/off
+    show_details: bool,
     /// to edit, add the relay url here
     edit: Option<RelayUrl>,
     /// cache relay list for editing
@@ -31,6 +35,9 @@ pub(super) struct RelayUi {
     /// Add Relay dialog
     pub(super) add_dialog_active: bool,
     new_relay_url: String,
+
+    /// Configure List Menu
+    configure_list_menu_active: bool,
 }
 
 impl RelayUi {
@@ -39,12 +46,15 @@ impl RelayUi {
             search: String::new(),
             sort: RelaySorting::default(),
             filter: RelayFilter::default(),
+            show_hidden: false,
+            show_details: false,
             edit: None,
             edit_relays: Vec::new(),
             edit_done: None,
             edit_needs_scroll: false,
             add_dialog_active: false,
             new_relay_url: "".to_string(),
+            configure_list_menu_active: false,
         }
     }
 }
@@ -168,7 +178,7 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
             let enabled = edit || !is_editing;
             let mut widget = RelayEntry::new(db_relay, app);
             widget.set_edit(edit);
-            widget.set_detail(false); // TODO obey settings
+            widget.set_detail(app.relays.show_details);
             widget.set_enabled(enabled);
             widget.set_connected(is_connected);
             widget.set_reasons(reasons);
@@ -314,6 +324,70 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
 
         });
     });
+}
+
+///
+/// Draw button with configure popup
+///
+pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
+    let (response, painter) = ui.allocate_painter(vec2(20.0,20.0), egui::Sense::click());
+    let response = response
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text("Configure List View");
+    let btn_rect = response.rect;
+    let color = if response.hovered() {
+        app.settings.theme.accent_color()
+    } else {
+        ui.visuals().text_color()
+    };
+    let mut mesh = egui::Mesh::with_texture((&app.options_symbol).into());
+    mesh.add_rect_with_uv(
+        btn_rect.shrink(2.0),
+        Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        color,
+    );
+    painter.add(egui::Shape::mesh(mesh));
+
+    if response.clicked() {
+        app.relays.configure_list_menu_active ^= true;
+    }
+
+    let mut seen_on_popup_position = response.rect.center_bottom();
+    seen_on_popup_position.x -= 150.0;
+    seen_on_popup_position.y += 18.0; // drop below the icon itself
+
+    let id: Id = "configure-list-menu".into();
+    let mut frame = egui::Frame::popup(&ui.style());
+    let area = egui::Area::new(id)
+        .movable(false)
+        .interactable(true)
+        .order(egui::Order::Foreground)
+        .fixed_pos(seen_on_popup_position)
+        .constrain(true);
+    if app.relays.configure_list_menu_active {
+       let menuresp = area.show(ui.ctx(), |ui| {
+            frame.fill = ui.visuals().extreme_bg_color;
+            frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
+            frame.show(ui, |ui|{
+                let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
+                crate::ui::components::switch_with_size(
+                    ui,
+                    &mut app.relays.show_details,
+                    size,
+                );
+                ui.label("Show details");
+                crate::ui::components::switch_with_size(
+                    ui,
+                    &mut app.relays.show_hidden,
+                    size,
+                );
+                ui.label("Show hidden relays");
+            });
+        });
+        if menuresp.response.clicked_elsewhere() && !response.clicked() {
+            app.relays.configure_list_menu_active = false;
+        }
+    }
 }
 
 ///
