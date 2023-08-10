@@ -120,7 +120,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     }
                     ui.label("to edit/save metadata.");
                 });
-            } else if !GLOBALS
+            } else if GLOBALS
                 .storage
                 .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
                 .unwrap_or(vec![])
