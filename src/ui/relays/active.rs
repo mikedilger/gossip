@@ -15,8 +15,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.heading("Active Relays");
-        ui.add_space(50.0);
         ui.set_enabled(!is_editing);
+        ui.add_space(10.0);
+        if ui.button("Pick Again").clicked() { let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays); }
+        ui.add_space(50.0);
         widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
