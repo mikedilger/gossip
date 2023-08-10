@@ -237,13 +237,16 @@ impl RelayEntry {
     }
 
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let mut title = safe_truncate(self.db_relay.url.as_str(), TITLE_MAX_LEN).to_string();
+        let title = self.db_relay.url.as_str().trim_start_matches("wss://");
+        let title = title.trim_start_matches("ws://");
+        let title = title.trim_end_matches('/');
+        let mut title = safe_truncate(title, TITLE_MAX_LEN).to_string();
         if self.db_relay.url.0.len() > TITLE_MAX_LEN {
             title.push('\u{2026}'); // append ellipsis
         }
         let text = RichText::new(title).size(16.5);
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
-        draw_text_at(
+        let rect = draw_text_at(
             ui,
             pos,
             text.into(),
@@ -251,6 +254,7 @@ impl RelayEntry {
             Some(self.accent),
             None,
         );
+        ui.interact(rect, ui.next_auto_id(), Sense::hover()).on_hover_text(self.db_relay.url.as_str());
     }
 
     fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
