@@ -55,6 +55,10 @@ const USAGE_LINE_THICKNESS: f32 = 1.0;
 const NIP11_Y_SPACING: f32 = 20.0;
 /// Copy symbol for nip11 items copy button
 const COPY_SYMBOL: &str = "\u{2398}";
+/// Status symbol for status color indicator
+const STATUS_SYMBOL: &str = "\u{25CF}";
+/// Space reserved for status symbol before title
+const STATUS_SYMBOL_SPACE: f32 = 18.0;
 /// Max length of title string
 const TITLE_MAX_LEN: usize = 50;
 /// First stat column x location
@@ -140,6 +144,7 @@ pub struct RelayEntry {
     view: RelayEntryView,
     enabled: bool,
     connected: bool,
+    timeout_until: Option<i64>,
     reasons: String,
     user_count: Option<usize>,
     usage: UsageBits,
@@ -161,6 +166,7 @@ impl RelayEntry {
             view: RelayEntryView::List,
             enabled: true,
             connected: false,
+            timeout_until: None,
             reasons: "".into(),
             user_count: None,
             usage,
@@ -205,6 +211,10 @@ impl RelayEntry {
         self.connected = connected;
     }
 
+    pub fn set_timeout(&mut self, timeout_until: Option<i64>) {
+        self.timeout_until = timeout_until;
+    }
+
     pub fn set_reasons(&mut self, reasons: String) {
         self.reasons = reasons;
     }
@@ -245,7 +255,7 @@ impl RelayEntry {
             title.push('\u{2026}'); // append ellipsis
         }
         let text = RichText::new(title).size(16.5);
-        let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
+        let pos = rect.min + vec2(TEXT_LEFT + STATUS_SYMBOL_SPACE, TEXT_TOP);
         let rect = draw_text_at(
             ui,
             pos,
@@ -255,6 +265,43 @@ impl RelayEntry {
             None,
         );
         ui.interact(rect, ui.next_auto_id(), Sense::hover()).on_hover_text(self.db_relay.url.as_str());
+
+        // paint status indicator
+        // green - connected
+        // gray - disconnected
+        // orange - penalty box
+        let text = RichText::new(STATUS_SYMBOL).size(15.0);
+        let color = if self.connected {
+            egui::Color32::from_rgb(0x63, 0xc8, 0x56) // green
+        } else {
+            if self.db_relay.rank == 0 {
+                egui::Color32::from_rgb(0xed, 0x6a, 0x5e) // red
+            } else {
+                if self.timeout_until.is_some() {
+                    egui::Color32::from_rgb(0xf4, 0xbf, 0x4f) // orange
+                } else {
+                    egui::Color32::GRAY
+                }
+            }
+        };
+        let pos = pos + vec2(-STATUS_SYMBOL_SPACE, 0.0);
+        let rect = draw_text_at(
+            ui,
+            pos,
+            text.into(),
+            Align::LEFT,
+            Some(color),
+            None
+        );
+
+        // show remaining time on timeout
+        if let Some(timeout) = self.timeout_until {
+            if let Ok(now) = Unixtime::now() {
+                let remain = timeout - now.0;
+                let text = format!("retry in {} seconds", remain);
+                ui.interact(rect, ui.next_auto_id(), Sense::hover()).on_hover_text(text);
+            }
+        }
     }
 
     fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {

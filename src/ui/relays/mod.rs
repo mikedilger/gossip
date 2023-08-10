@@ -177,12 +177,17 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
                 (false, "".into())
             };
 
+            // get timeout if any
+            let timeout_until = GLOBALS.relay_picker.excluded_relays_iter()
+                .find(|p| p.key() == &db_url ).map(|f| *f.value());
+
             let enabled = edit || !is_editing;
             let mut widget = RelayEntry::new(db_relay, app);
             widget.set_edit(edit);
             widget.set_detail(app.relays.show_details);
             widget.set_enabled(enabled);
             widget.set_connected(is_connected);
+            widget.set_timeout(timeout_until);
             widget.set_reasons(reasons);
             if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                 widget.set_user_count(assignment.pubkeys.len());
