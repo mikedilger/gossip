@@ -63,6 +63,7 @@ impl RelayUi {
 pub(super) enum RelaySorting {
     #[default]
     Rank,
+    Name,
     WriteRelays,
     AdvertiseRelays,
     HighestFollowing,
@@ -74,6 +75,7 @@ impl RelaySorting {
     pub fn get_name(&self) -> &str {
         match self {
             RelaySorting::Rank => "Rank",
+            RelaySorting::Name => "Name",
             RelaySorting::WriteRelays => "Write Relays",
             RelaySorting::AdvertiseRelays => "Advertise Relays",
             RelaySorting::HighestFollowing => "Following",
@@ -406,6 +408,11 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
             );
             ui.selectable_value(
                 &mut app.relays.sort,
+                RelaySorting::Name,
+                RelaySorting::Name.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.sort,
                 RelaySorting::HighestFollowing,
                 RelaySorting::HighestFollowing.get_name(),
             );
@@ -478,6 +485,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &DbRelay, b: &DbRelay) -> Ordering {
             .rank.cmp(&a.rank)
             .then(b.usage_bits.cmp(&a.usage_bits))
             .then(a.url.cmp(&b.url)),
+        RelaySorting::Name => a.url.cmp(&b.url),
         RelaySorting::WriteRelays => b
             .has_usage_bits(DbRelay::WRITE)
             .cmp(&a.has_usage_bits(DbRelay::WRITE))
