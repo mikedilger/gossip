@@ -1794,10 +1794,25 @@ impl Storage {
         dir: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let person_relays = self.get_person_relays(pubkey)?;
+
+        // Note: the following read_rank and write_rank do not consider our own
+        // rank or the success rate.
         let mut ranked_relays = match dir {
             Direction::Write => PersonRelay::write_rank(person_relays),
             Direction::Read => PersonRelay::read_rank(person_relays),
         };
+
+        // Modulate these scores with our local rankings
+        for ranked_relay in ranked_relays.iter_mut() {
+            match self.read_relay(&ranked_relay.0)? {
+                None => ranked_relay.1 = 0,
+                Some(relay) => {
+                    let success_rate = relay.success_rate();
+                    let rank = (relay.rank as f32 * success_rate * 0.66666) as u64;
+                    ranked_relay.1 *= rank;
+                }
+            }
+        }
 
         let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person as usize;
 
