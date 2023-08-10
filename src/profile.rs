@@ -88,6 +88,12 @@ impl Profile {
         let lmdb_dir = {
             let mut lmdb_dir = base_dir.clone();
             lmdb_dir.push("lmdb");
+
+            // Windows syntax not compatible with lmdb:
+            if lmdb_dir.starts_with(r#"\\?\"#) {
+                lmdb_dir = lmdb_dir.strip_prefix(r#"\\?\"#).unwrap().to_path_buf();
+            }
+
             lmdb_dir
         };
 
