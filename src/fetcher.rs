@@ -26,11 +26,8 @@ pub enum FetchState {
 
 #[derive(Debug, Default)]
 pub struct Fetcher {
-    // we don't want new() to fail in lazy_static init, so we just mark it dead if there was an error
-    // on creation
-    dead: Option<String>,
-    cache_dir: PathBuf,
-    client: Client,
+    cache_dir: RwLock<PathBuf>,
+    client: RwLock<Option<Client>>,
 
     // Here is where we store the current state of each URL being fetched
     urls: RwLock<HashMap<Url, FetchState>>,
@@ -44,45 +41,29 @@ pub struct Fetcher {
 
 impl Fetcher {
     pub fn new() -> Fetcher {
+        Fetcher {
+            ..Default::default()
+        }
+    }
+
+    pub fn start() -> Result<(), Error> {
+        // Setup the cache directory
+        *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::current()?.cache_dir;
+
+        // Create client
         let connect_timeout =
             std::time::Duration::new(GLOBALS.settings.read().fetcher_connect_timeout_sec, 0);
         let timeout = std::time::Duration::new(GLOBALS.settings.read().fetcher_timeout_sec, 0);
-        let client = match Client::builder()
-            .gzip(true)
-            .brotli(true)
-            .deflate(true)
-            .connect_timeout(connect_timeout)
-            .timeout(timeout)
-            .build()
-        {
-            Ok(c) => c,
-            Err(e) => {
-                return Fetcher {
-                    dead: Some(format!("{}", e)),
-                    ..Default::default()
-                }
-            }
-        };
+        *GLOBALS.fetcher.client.write().unwrap() = Some(
+            Client::builder()
+                .gzip(true)
+                .brotli(true)
+                .deflate(true)
+                .connect_timeout(connect_timeout)
+                .timeout(timeout)
+                .build()?,
+        );
 
-        let mut f: Fetcher = Fetcher {
-            client,
-            ..Default::default()
-        };
-
-        // Setup the cache directory
-        let cache_dir = match Profile::current() {
-            Ok(p) => p.cache_dir,
-            Err(_) => {
-                f.dead = Some("No Data Directory.".to_owned());
-                return f;
-            }
-        };
-
-        f.cache_dir = cache_dir;
-        f
-    }
-
-    pub fn start() {
         // Setup periodic queue management
         let fetcher_looptime_ms = GLOBALS.settings.read().fetcher_looptime_ms;
         tokio::task::spawn(async move {
@@ -99,6 +80,8 @@ impl Fetcher {
                 }
             }
         });
+
+        Ok(())
     }
 
     pub fn requests_queued(&self) -> usize {
@@ -122,9 +105,6 @@ impl Fetcher {
     }
 
     pub async fn process_queue(&self) {
-        if self.dead.is_some() {
-            return;
-        }
         if GLOBALS.settings.read().offline {
             return;
         }
@@ -183,11 +163,6 @@ impl Fetcher {
         // FIXME - this function is called synchronously, but it makes several
         //         file system calls. This might be pushing the limits of what we should
         //         be blocking on.
-
-        // Error if we are dead
-        if let Some(reason) = &self.dead {
-            return Err((format!("Fetcher is dead: {}", reason), file!(), line!()).into());
-        }
 
         // Do not fetch if offline
         if GLOBALS.settings.read().offline {
@@ -272,14 +247,6 @@ impl Fetcher {
     }
 
     async fn fetch(&self, url: Url) {
-        // Error if we are dead
-        if GLOBALS.fetcher.dead.is_some() {
-            // mark as failed
-            tracing::debug!("FETCH {url}: Failed: fetcher is dead");
-            self.urls.write().unwrap().insert(url, FetchState::Failed);
-            return;
-        }
-
         // Do not fetch if offline
         if GLOBALS.settings.read().offline {
             tracing::debug!("FETCH {url}: Failed: offline mode");
@@ -313,7 +280,9 @@ impl Fetcher {
             .insert(url.clone(), FetchState::InFlight);
 
         // Fetch the resource
-        let client = GLOBALS.fetcher.client.clone(); // it is an Arc internally
+        // it is an Arc internally
+        let client = GLOBALS.fetcher.client.read().unwrap().clone().unwrap();
+
         let mut req = client.get(&url.0);
         if let Some(ref etag) = etag {
             req = req.header("if-none-match", etag.to_owned());
@@ -528,7 +497,7 @@ impl Fetcher {
             hex::encode(result)
         };
 
-        let mut cache_file = self.cache_dir.clone();
+        let mut cache_file = self.cache_dir.read().unwrap().clone();
         cache_file.push(hash);
         cache_file
     }
