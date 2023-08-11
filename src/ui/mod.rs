@@ -134,6 +134,16 @@ struct SubMenuState {
     submenu_states: HashMap<SubMenu, bool>,
 }
 
+#[derive(Eq, Hash, PartialEq)]
+enum SettingsTab {
+    Content,
+    Database,
+    Id,
+    Network,
+    Posting,
+    Ui,
+}
+
 impl SubMenuState {
     fn new() -> Self {
         let mut submenu_states: HashMap<SubMenu, bool> = HashMap::new();
@@ -195,6 +205,7 @@ struct GossipUi {
     inbox_include_indirect: bool,
     submenu_ids: HashMap<SubMenu, egui::Id>,
     submenu_state: SubMenuState,
+    settings_tab: SettingsTab,
 
     // General Data
     about: About,
@@ -414,6 +425,7 @@ impl GossipUi {
                 .unwrap_or(false),
             submenu_ids,
             submenu_state: SubMenuState::new(),
+            settings_tab: SettingsTab::Id,
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,

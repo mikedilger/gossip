@@ -3,7 +3,7 @@ use nostr_types::{EventKind, PublicKey};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
-#[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable)]
+#[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable, PartialEq)]
 pub struct Settings {
     // ID settings
     pub public_key: Option<PublicKey>,
