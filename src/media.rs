@@ -121,11 +121,10 @@ impl Media {
             return None; // can recover if the setting is switched
         }
 
-        match GLOBALS
-            .fetcher
-            .try_get(url, Duration::from_secs(60 * 60 * 24 * 3))
-        {
-            // cache expires in 3 days
+        match GLOBALS.fetcher.try_get(
+            url,
+            Duration::from_secs(60 * 60 * GLOBALS.settings.read().media_becomes_stale_hours),
+        ) {
             Ok(None) => None,
             Ok(Some(bytes)) => {
                 self.data_temp.insert(url.clone(), bytes);
@@ -158,8 +157,18 @@ pub(crate) fn load_image_bytes(
                 image = crop_square(image);
             }
             if force_resize || image.width() > 16384 || image.height() > 16384 {
+                // https://docs.rs/image/latest/image/imageops/enum.FilterType.html
+                let algo = match &*GLOBALS.settings.read().image_resize_algorithm {
+                    "Nearest" => FilterType::Nearest,
+                    "Triangle" => FilterType::Triangle,
+                    "CatmullRom" => FilterType::CatmullRom,
+                    "Gaussian" => FilterType::Gaussian,
+                    "Lanczos3" => FilterType::Lanczos3,
+                    _ => FilterType::Triangle,
+                };
+
                 // This preserves aspect ratio. The sizes represent bounds.
-                image = image.resize(default_size, default_size, FilterType::Triangle);
+                image = image.resize(default_size, default_size, algo);
             }
             let current_size = [image.width() as _, image.height() as _];
             let image_buffer = image.into_rgba8();

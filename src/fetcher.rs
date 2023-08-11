@@ -44,8 +44,9 @@ pub struct Fetcher {
 
 impl Fetcher {
     pub fn new() -> Fetcher {
-        let connect_timeout = std::time::Duration::new(10, 0);
-        let timeout = std::time::Duration::new(15, 0);
+        let connect_timeout =
+            std::time::Duration::new(GLOBALS.settings.read().fetcher_connect_timeout_sec, 0);
+        let timeout = std::time::Duration::new(GLOBALS.settings.read().fetcher_timeout_sec, 0);
         let client = match Client::builder()
             .gzip(true)
             .brotli(true)
@@ -83,10 +84,10 @@ impl Fetcher {
 
     pub fn start() {
         // Setup periodic queue management
-        tokio::task::spawn(async {
+        let fetcher_looptime_ms = GLOBALS.settings.read().fetcher_looptime_ms;
+        tokio::task::spawn(async move {
             loop {
-                // Every 1200 milliseconds...
-                tokio::time::sleep(Duration::from_millis(1200)).await;
+                tokio::time::sleep(Duration::from_millis(fetcher_looptime_ms)).await;
 
                 // Process the queue
                 GLOBALS.fetcher.process_queue().await;
@@ -150,7 +151,7 @@ impl Fetcher {
                     }
 
                     let load = self.fetch_host_load(&host);
-                    if load >= 3 {
+                    if load >= GLOBALS.settings.read().fetcher_max_requests_per_host {
                         continue; // We cannot overload any given host
                     }
 
@@ -384,6 +385,19 @@ impl Fetcher {
 
         let maybe_response = req.send().await;
 
+        let low_exclusion = GLOBALS
+            .settings
+            .read()
+            .fetcher_host_exclusion_on_low_error_secs;
+        let med_exclusion = GLOBALS
+            .settings
+            .read()
+            .fetcher_host_exclusion_on_med_error_secs;
+        let high_exclusion = GLOBALS
+            .settings
+            .read()
+            .fetcher_host_exclusion_on_high_error_secs;
+
         // Deal with response errors
         let response = match maybe_response {
             Ok(r) => r,
@@ -391,11 +405,16 @@ impl Fetcher {
                 if e.is_builder() {
                     finish(FailOutcome::Fail, "builder error", Some(e.into()), 0);
                 } else if e.is_timeout() {
-                    finish(FailOutcome::Requeue, "timeout", Some(e.into()), 30);
+                    finish(
+                        FailOutcome::Requeue,
+                        "timeout",
+                        Some(e.into()),
+                        low_exclusion,
+                    );
                 } else if e.is_request() {
                     finish(FailOutcome::Fail, "request error", Some(e.into()), 0);
                 } else if e.is_connect() {
-                    finish(FailOutcome::Fail, "connect error", Some(e.into()), 15);
+                    finish(FailOutcome::Fail, "connect error", Some(e.into()), 0);
                 } else if e.is_body() {
                     finish(FailOutcome::Fail, "body error", Some(e.into()), 0);
                 } else if e.is_decode() {
@@ -410,7 +429,12 @@ impl Fetcher {
         // Deal with status codes
         let status = response.status();
         if status.is_informational() {
-            finish(FailOutcome::Requeue, "informational error", None, 30);
+            finish(
+                FailOutcome::Requeue,
+                "informational error",
+                None,
+                low_exclusion,
+            );
             return;
         } else if status.is_redirection() {
             if status == StatusCode::NOT_MODIFIED {
@@ -421,20 +445,23 @@ impl Fetcher {
             }
             return;
         } else if status.is_server_error() {
-            finish(FailOutcome::Requeue, "server error", None, 300);
+            // Give the server time to recover
+            finish(FailOutcome::Requeue, "server error", None, high_exclusion);
             return;
-            // give them 5 minutes, maybe the server will recover
         } else if status.is_success() {
             // fall through
         } else {
             match status {
                 StatusCode::REQUEST_TIMEOUT => {
-                    finish(FailOutcome::Requeue, "request timeout", None, 30);
-                    // give 30 seconds and try again
+                    finish(FailOutcome::Requeue, "request timeout", None, low_exclusion);
                 }
                 StatusCode::TOO_MANY_REQUESTS => {
-                    finish(FailOutcome::Requeue, "too many requests", None, 30);
-                    // give 15 seconds and try again
+                    finish(
+                        FailOutcome::Requeue,
+                        "too many requests",
+                        None,
+                        med_exclusion,
+                    );
                 }
                 _ => {
                     finish(FailOutcome::Fail, &format!("{}", status), None, 0);

@@ -112,6 +112,8 @@ impl Storage {
         // Some filesystem that doesn't handle sparse files may allocate all
         //   of this, so we don't go too crazy big.
 
+        // NOTE: this cannot be a setting because settings are only available
+        //       after the database has been launched.
         builder.set_map_size(1048576 * 1024 * 24); // 24 GB
 
         let env = builder.open(&Profile::current()?.lmdb_dir)?;
