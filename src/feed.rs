@@ -291,9 +291,11 @@ impl Feed {
                         None,         // since
                     )?;
 
+                    let since = now - Duration::from_secs(GLOBALS.settings.read().replies_chunk);
+
                     let inbox_events: Vec<Id> = GLOBALS
                         .storage
-                        .read_events_referencing_person(&my_pubkey, one_month_ago, |e| {
+                        .read_events_referencing_person(&my_pubkey, since, |e| {
                             if e.created_at > now {
                                 return false;
                             } // no future events
