@@ -377,7 +377,12 @@ fn render_note_inner(
                                 author: None,
                                 kind: None,
                             };
-                            ui.output_mut(|o| o.copied_text = format!("https://nostr.com/{}", event_pointer.as_bech32_string()));
+                            ui.output_mut(|o| {
+                                o.copied_text = format!(
+                                    "https://nostr.com/{}",
+                                    event_pointer.as_bech32_string()
+                                )
+                            });
                         }
                         if ui.button("Copy note1 Id").clicked() {
                             let nostr_url: NostrUrl = note.event.id.into();
