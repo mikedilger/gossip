@@ -63,7 +63,10 @@ impl Storage {
         // Copy event_hashtags
         import_hashtags(&db, |hashtag: String, event: String| {
             let id = Id::try_from_hex_string(&event)?;
-            self.add_hashtag(&hashtag, id, Some(&mut txn))
+            if let Err(e) = self.add_hashtag(&hashtag, id, Some(&mut txn)) {
+                tracing::error!("{}", e); // non fatal, keep importing
+            }
+            Ok(())
         })?;
         tracing::info!("LMDB: imported event hashtag index.");
 
