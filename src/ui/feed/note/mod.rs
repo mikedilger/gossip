@@ -364,6 +364,21 @@ fn render_note_inner(
                             let nostr_url: NostrUrl = event_pointer.into();
                             ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                         }
+                        if ui.button("Copy web link").clicked() {
+                            let event_pointer = EventPointer {
+                                id: note.event.id,
+                                relays: match GLOBALS.storage.get_event_seen_on_relay(note.event.id)
+                                {
+                                    Ok(vec) => {
+                                        vec.iter().map(|(url, _)| url.to_unchecked_url()).collect()
+                                    }
+                                    Err(_) => vec![],
+                                },
+                                author: None,
+                                kind: None,
+                            };
+                            ui.output_mut(|o| o.copied_text = format!("https://nostr.com/{}", event_pointer.as_bech32_string()));
+                        }
                         if ui.button("Copy note1 Id").clicked() {
                             let nostr_url: NostrUrl = note.event.id.into();
                             ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
