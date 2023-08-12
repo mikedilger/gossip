@@ -117,6 +117,7 @@ Most dependencies are probably already installed in your base operating system. 
 - pkg-config (debian: "pkg-config")
 - openssl (debian: "libssl-dev")
 - fontconfig (debian: "libfontconfig1-dev")
+- ffmpeg support (debian: libavutil-dev libavformat-dev libavfilter-dev libavdevice-dev libxext-dev libclang-dev)
 
 #### macOS
 
