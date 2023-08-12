@@ -24,7 +24,7 @@ const MAX_LMDB_KEY: usize = 511;
 macro_rules! key {
     ($slice:expr) => {
         if $slice.len() > 511 {
-            &$slice[..511]
+            &$slice[..510]
         } else {
             $slice
         }
