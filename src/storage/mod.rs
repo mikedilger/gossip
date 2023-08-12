@@ -620,6 +620,9 @@ impl Storage {
         rw_txn: Option<&mut RwTransaction<'a>>,
     ) -> Result<(), Error> {
         let key = key!(hashtag.as_bytes());
+        if key.is_empty() {
+            return Err(ErrorKind::Empty("hashtag".to_owned()).into());
+        }
         let bytes = id.as_slice();
 
         let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
@@ -641,6 +644,9 @@ impl Storage {
 
     pub fn get_event_ids_with_hashtag(&self, hashtag: &String) -> Result<Vec<Id>, Error> {
         let key = key!(hashtag.as_bytes());
+        if key.is_empty() {
+            return Err(ErrorKind::Empty("hashtag".to_owned()).into());
+        }
         let txn = self.env.begin_ro_txn()?;
         let mut cursor = txn.open_ro_cursor(self.hashtags)?;
         let iter = cursor.iter_from(key);
@@ -670,6 +676,9 @@ impl Storage {
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
         let key = key!(relay.url.0.as_bytes());
+        if key.is_empty() {
+            return Err(ErrorKind::Empty("relay url".to_owned()).into());
+        }
         let bytes = serde_json::to_vec(relay)?;
 
         let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
@@ -711,6 +720,9 @@ impl Storage {
         M: FnMut(&mut Relay),
     {
         let key = key!(url.0.as_bytes());
+        if key.is_empty() {
+            return Err(ErrorKind::Empty("relay url".to_owned()).into());
+        }
 
         let mut f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
             match txn.get(self.relays, &key) {
@@ -781,6 +793,10 @@ impl Storage {
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
         let key = key!(url.0.as_bytes());
+        if key.is_empty() {
+            return Err(ErrorKind::Empty("relay url".to_owned()).into());
+        }
+
         let txn = self.env.begin_ro_txn()?;
         match txn.get(self.relays, &key) {
             Ok(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
