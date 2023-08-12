@@ -3,10 +3,8 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
-use eframe::egui::{Color32, ColorImage};
-use egui_extras::image::FitTo;
+use eframe::egui::ColorImage;
 use gossip_relay_picker::Direction;
-use image::imageops::FilterType;
 use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
@@ -481,54 +479,23 @@ impl People {
                             .pixels_per_point_times_100
                             .load(Ordering::Relaxed)
                         / 100;
-                    if let Ok(mut image) = image::load_from_memory(&bytes) {
-                        // Note: we can't use egui_extras::image::load_image_bytes because we
-                        // need to modify the image
 
-                        // Crop square
-                        let smaller = image.width().min(image.height());
-                        if image.width() > smaller {
-                            let excess = image.width() - smaller;
-                            image = image.crop_imm(
-                                excess / 2,
-                                0,
-                                image.width() - excess,
-                                image.height(),
-                            );
-                        } else if image.height() > smaller {
-                            let excess = image.height() - smaller;
-                            image = image.crop_imm(
-                                0,
-                                excess / 2,
-                                image.width(),
-                                image.height() - excess,
-                            );
-                        }
-                        let image = image.resize(size, size, FilterType::Triangle); // DynamicImage
-                        let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
-                        let mut color_image = ColorImage::from_rgba_unmultiplied(
-                            [
-                                image_buffer.width() as usize,
-                                image_buffer.height() as usize,
-                            ],
-                            image_buffer.as_flat_samples().as_slice(),
-                        );
-                        if GLOBALS.settings.read().theme.round_image() {
-                            round_image(&mut color_image);
-                        }
-                        GLOBALS.people.avatars_temp.insert(apubkey, color_image);
-                    } else if let Ok(mut color_image) = egui_extras::image::load_svg_bytes_with_size(
+                    let round_image = GLOBALS.settings.read().theme.round_image();
+                    match crate::media::load_image_bytes(
                         &bytes,
-                        FitTo::Size(size, size),
+                        true, // crop square
+                        size, // default size,
+                        true, // force to that size
+                        round_image,
                     ) {
-                        if GLOBALS.settings.read().theme.round_image() {
-                            round_image(&mut color_image);
+                        Ok(color_image) => {
+                            GLOBALS.people.avatars_temp.insert(apubkey, color_image);
                         }
-                        GLOBALS.people.avatars_temp.insert(apubkey, color_image);
-                    } else {
-                        // this cannot recover without new metadata
-                        GLOBALS.failed_avatars.write().await.insert(apubkey);
-                    };
+                        Err(_) => {
+                            // this cannot recover without new metadata
+                            GLOBALS.failed_avatars.write().await.insert(apubkey);
+                        }
+                    }
                 });
                 self.avatars_pending_processing.insert(pubkey.to_owned());
                 None
@@ -813,50 +780,6 @@ impl People {
 
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
         self.active_persons_write_relays.blocking_read().clone()
-    }
-}
-
-fn round_image(image: &mut ColorImage) {
-    // The radius to the edge of of the avatar circle
-    let edge_radius = image.size[0] as f32 / 2.0;
-    let edge_radius_squared = edge_radius * edge_radius;
-
-    for (pixnum, pixel) in image.pixels.iter_mut().enumerate() {
-        // y coordinate
-        let uy = pixnum / image.size[0];
-        let y = uy as f32;
-        let y_offset = edge_radius - y;
-
-        // x coordinate
-        let ux = pixnum % image.size[0];
-        let x = ux as f32;
-        let x_offset = edge_radius - x;
-
-        // The radius to this pixel (may be inside or outside the circle)
-        let pixel_radius_squared: f32 = x_offset * x_offset + y_offset * y_offset;
-
-        // If inside of the avatar circle
-        if pixel_radius_squared <= edge_radius_squared {
-            // squareroot to find how many pixels we are from the edge
-            let pixel_radius: f32 = pixel_radius_squared.sqrt();
-            let distance = edge_radius - pixel_radius;
-
-            // If we are within 1 pixel of the edge, we should fade, to
-            // antialias the edge of the circle. 1 pixel from the edge should
-            // be 100% of the original color, and right on the edge should be
-            // 0% of the original color.
-            if distance <= 1.0 {
-                *pixel = Color32::from_rgba_premultiplied(
-                    (pixel.r() as f32 * distance) as u8,
-                    (pixel.g() as f32 * distance) as u8,
-                    (pixel.b() as f32 * distance) as u8,
-                    (pixel.a() as f32 * distance) as u8,
-                );
-            }
-        } else {
-            // Outside of the avatar circle
-            *pixel = Color32::TRANSPARENT;
-        }
     }
 }
 
