@@ -89,7 +89,7 @@ impl Profile {
         };
 
         let lmdb_dir = {
-            let mut lmdb_dir = base_dir.clone();
+            let mut lmdb_dir = profile_dir.clone();
             lmdb_dir.push("lmdb");
 
             // Windows syntax not compatible with lmdb:
