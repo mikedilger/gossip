@@ -7,7 +7,7 @@ use eframe::{
     epaint::Vec2,
 };
 use egui::{RichText, Ui};
-use nostr_types::{ContentSegment, Id, IdHex, NostrBech32, PublicKey, Span, Tag, Url};
+use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -30,11 +30,7 @@ pub(super) fn render_content(
                 ContentSegment::NostrUrl(nurl) => {
                     match &nurl.0 {
                         NostrBech32::EventAddr(ea) => {
-                            // FIXME - we should link to the event instead
-                            ui.label(
-                                RichText::new(format!("nostr:{}", ea.as_bech32_string()))
-                                    .underline(),
-                            );
+                            render_parameterized_event_link(app, ui, note.event.id, ea);
                         }
                         NostrBech32::EventPointer(ep) => {
                             let mut render_link = true;
@@ -218,6 +214,32 @@ pub(super) fn render_event_link(
             referenced_by: referenced_by_id,
             author: None,
         }));
+    };
+}
+
+pub(super) fn render_parameterized_event_link(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    referenced_by_id: Id,
+    event_addr: &EventAddr,
+) {
+    let nam = format!("nostr:{}", event_addr.as_bech32_string());
+    if ui.link(&nam).clicked() {
+        if let Ok(Some(prevent)) = GLOBALS
+            .storage
+            .get_parameterized_replaceable_event(event_addr)
+        {
+            app.set_page(Page::Feed(FeedKind::Thread {
+                id: prevent.id,
+                referenced_by: referenced_by_id,
+                author: Some(prevent.pubkey),
+            }));
+        } else {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Parameterized event not found.".to_owned());
+        }
     };
 }
 
