@@ -1,6 +1,6 @@
 use crate::comms::ToOverlordMessage;
-use crate::GLOBALS;
 use crate::ui::GossipUi;
+use crate::GLOBALS;
 use eframe::egui;
 use egui::widgets::Slider;
 use egui::{Context, Ui};

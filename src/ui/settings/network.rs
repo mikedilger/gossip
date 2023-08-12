@@ -150,15 +150,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("How long before a relay list becomes stale and needs rechecking?");
-        ui.add(
-            Slider::new(&mut app.settings.relay_list_becomes_stale_hours, 2..=40).text("hours"),
-        );
+        ui.add(Slider::new(&mut app.settings.relay_list_becomes_stale_hours, 2..=40).text("hours"));
     });
     ui.horizontal(|ui| {
         ui.label("How long before metadata becomes stale and needs rechecking?");
-        ui.add(
-            Slider::new(&mut app.settings.metadata_becomes_stale_hours, 2..=40).text("hours"),
-        );
+        ui.add(Slider::new(&mut app.settings.metadata_becomes_stale_hours, 2..=40).text("hours"));
     });
     ui.horizontal(|ui| {
         ui.label("How long before valid nip05 becomes stale and needs rechecking?");
@@ -169,19 +165,19 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("How long before invalid nip05 becomes stale and needs rechecking?");
         ui.add(
-            Slider::new(&mut app.settings.nip05_becomes_stale_if_invalid_minutes, 5..=600).text("minutes"),
+            Slider::new(
+                &mut app.settings.nip05_becomes_stale_if_invalid_minutes,
+                5..=600,
+            )
+            .text("minutes"),
         );
     });
     ui.horizontal(|ui| {
         ui.label("How long before an avatar image becomes stale and needs rechecking?");
-        ui.add(
-            Slider::new(&mut app.settings.avatar_becomes_stale_hours, 2..=40).text("hours"),
-        );
+        ui.add(Slider::new(&mut app.settings.avatar_becomes_stale_hours, 2..=40).text("hours"));
     });
     ui.horizontal(|ui| {
         ui.label("How long before event media becomes stale and needs rechecking?");
-        ui.add(
-            Slider::new(&mut app.settings.media_becomes_stale_hours, 2..=40).text("hours"),
-        );
+        ui.add(Slider::new(&mut app.settings.media_becomes_stale_hours, 2..=40).text("hours"));
     });
 }

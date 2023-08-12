@@ -178,6 +178,7 @@ struct GossipUi {
     next_frame: Instant,
     override_dpi: bool,
     override_dpi_value: u32,
+    original_dpi_value: u32,
     current_scroll_offset: f32,
     future_scroll_offset: f32,
 
@@ -403,6 +404,7 @@ impl GossipUi {
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
+            original_dpi_value: override_dpi_value,
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),

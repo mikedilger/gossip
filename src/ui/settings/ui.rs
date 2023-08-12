@@ -51,7 +51,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     };
                 }
             });
-        ui.checkbox(&mut app.settings.theme.follow_os_dark_mode,"Follow OS dark-mode")
+        ui.checkbox(&mut app.settings.theme.follow_os_dark_mode, "Follow OS dark-mode")
             .on_hover_text("Follow the operating system setting for dark-mode (requires app-restart to take effect)");
     });
 
@@ -65,7 +65,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             &mut app.override_dpi,
             "Override to ");
         ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
-        if ui.button("Try it now").clicked() {
+
+        if ui.button("Apply this change now (without saving)").clicked() {
             let ppt: f32 = app.override_dpi_value as f32 / 72.0;
             ctx.set_pixels_per_point(ppt);
         }

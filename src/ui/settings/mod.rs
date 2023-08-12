@@ -1,6 +1,6 @@
 use crate::comms::ToOverlordMessage;
-use crate::GLOBALS;
 use crate::ui::{GossipUi, SettingsTab};
+use crate::GLOBALS;
 use eframe::egui;
 use egui::{Align, Context, Layout, ScrollArea, Ui, Vec2};
 
@@ -19,9 +19,36 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             if stored_settings != app.settings {
                 if ui.button("REVERT CHANGES").clicked() {
                     app.settings = GLOBALS.settings.read().clone();
+
+                    // Fully revert any DPI changes
+                    match app.settings.override_dpi {
+                        Some(value) => {
+                            app.override_dpi = true;
+                            app.override_dpi_value = value;
+                        }
+                        None => {
+                            app.override_dpi = false;
+                            app.override_dpi_value = app.original_dpi_value;
+                        }
+                    };
+                    let ppt: f32 = app.override_dpi_value as f32 / 72.0;
+                    ctx.set_pixels_per_point(ppt);
                 }
 
                 if ui.button("SAVE CHANGES").clicked() {
+                    // Apply DPI change
+                    if stored_settings.override_dpi != app.settings.override_dpi {
+                        if let Some(value) = app.settings.override_dpi {
+                            let ppt: f32 = value as f32 / 72.0;
+                            ctx.set_pixels_per_point(ppt);
+                        }
+                    }
+
+                    // Save new original DPI value
+                    if let Some(value) = app.settings.override_dpi {
+                        app.original_dpi_value = value;
+                    }
+
                     // Copy local settings to global settings
                     *GLOBALS.settings.write() = app.settings.clone();
 
