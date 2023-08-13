@@ -1315,7 +1315,7 @@ impl Storage {
             }
         }
 
-        events.sort_unstable_by(|a, b| {
+        events.sort_by(|a, b| {
             // ORDER created_at desc
             b.created_at.cmp(&a.created_at)
         });
