@@ -715,6 +715,29 @@ impl Storage {
         }
 
         let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            // Delete any person_relay with this relay
+            let mut deletions: Vec<Vec<u8>> = Vec::new();
+            {
+                let mut cursor = txn.open_rw_cursor(self.person_relays)?;
+                let iter = cursor.iter_start();
+                for result in iter {
+                    match result {
+                        Err(e) => return Err(e.into()),
+                        Ok((key, val)) => {
+                            if let Ok(person_relay) = PersonRelay::read_from_buffer(val) {
+                                if person_relay.url == *url {
+                                    deletions.push(key.to_owned());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for deletion in deletions.drain(..) {
+                txn.del(self.person_relays, &deletion, None)?;
+            }
+
+            // Delete the relay
             txn.del(self.relays, &key, None)?;
             Ok(())
         };
