@@ -1,13 +1,13 @@
 use super::Storage;
 use crate::error::{Error, ErrorKind};
 use lmdb::{Cursor, RwTransaction, Transaction};
-use nostr_types::Event;
+use nostr_types::{Event, RelayUrl};
 use speedy::Readable;
 
 mod settings;
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 2;
+    const MAX_MIGRATION_LEVEL: u32 = 3;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -42,6 +42,10 @@ impl Storage {
             1 => {
                 tracing::info!("{prefix}: Updating Settings...");
                 self.try_migrate_settings1_settings2(Some(txn))?;
+            }
+            2 => {
+                tracing::info!("{prefix}: Removing invalid relays...");
+                self.remove_invalid_relays(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -101,6 +105,21 @@ impl Storage {
         };
 
         self.enable_sync()?;
+
+        Ok(())
+    }
+
+    fn remove_invalid_relays<'a>(&'a self, rw_txn: &mut RwTransaction<'a>) -> Result<(), Error> {
+        let bad_relays =
+            self.filter_relays(|relay| RelayUrl::try_from_str(&relay.url.0).is_err())?;
+
+        for relay in &bad_relays {
+            tracing::info!("Deleting bad relay: {}", relay.url);
+
+            self.delete_relay(&relay.url, Some(rw_txn))?;
+        }
+
+        tracing::info!("Deleted {} bad relays", bad_relays.len());
 
         Ok(())
     }

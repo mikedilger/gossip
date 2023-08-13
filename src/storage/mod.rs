@@ -701,6 +701,36 @@ impl Storage {
         Ok(())
     }
 
+    pub fn delete_relay<'a>(
+        &'a self,
+        url: &RelayUrl,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
+        // Note that we use serde instead of speedy because the complexity of the
+        // serde_json::Value type makes it difficult. Any other serde serialization
+        // should work though: Consider bincode.
+        let key = key!(url.0.as_bytes());
+        if key.is_empty() {
+            return Err(ErrorKind::Empty("relay url".to_owned()).into());
+        }
+
+        let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
+            txn.del(self.relays, &key, None)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.begin_rw_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
     pub fn write_relay_if_missing<'a>(
         &'a self,
         url: &RelayUrl,
