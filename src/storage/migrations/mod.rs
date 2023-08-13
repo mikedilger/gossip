@@ -4,11 +4,13 @@ use lmdb::{Cursor, RwTransaction, Transaction};
 use nostr_types::Event;
 use speedy::Readable;
 
+mod settings;
+
 impl Storage {
-    const MIGRATION_LEVEL: u32 = 1;
+    const MAX_MIGRATION_LEVEL: u32 = 2;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
-        if level > Self::MIGRATION_LEVEL {
+        if level > Self::MAX_MIGRATION_LEVEL {
             return Err(ErrorKind::General(format!(
                 "Migration level {} unknown: This client is older than your data.",
                 level
@@ -17,47 +19,48 @@ impl Storage {
         }
 
         let mut txn = self.env.begin_rw_txn()?;
-
-        while level < Self::MIGRATION_LEVEL {
+        while level < Self::MAX_MIGRATION_LEVEL {
+            self.migrate_inner(level, &mut txn)?;
             level += 1;
-            tracing::info!("LMDB Migration to level {}...", level);
-            self.migrate_inner(level, Some(&mut txn))?;
             self.write_migration_level(level, Some(&mut txn))?;
         }
-
         txn.commit()?;
 
         Ok(())
     }
 
-    fn migrate_inner<'a>(
-        &'a self,
-        level: u32,
-        rw_txn: Option<&mut RwTransaction<'a>>,
-    ) -> Result<(), Error> {
+    fn migrate_inner<'a>(&'a self, level: u32, txn: &mut RwTransaction<'a>) -> Result<(), Error> {
+        let prefix = format!("LMDB Migration {} -> {}", level, level + 1);
         match level {
-            0 => Ok(()),
-            1 => self.compute_relationships(rw_txn),
-            n => panic!("Unknown migration level {}", n),
-        }
+            0 => {
+                let total = self.get_event_stats()?.entries();
+                tracing::info!(
+                    "{prefix}: Computing and storing event relationships for {total} events..."
+                );
+                self.compute_relationships(total, Some(txn))?;
+            }
+            1 => {
+                tracing::info!("{prefix}: Updating Settings...");
+                self.try_migrate_settings1_settings2(Some(txn))?;
+            }
+            _ => panic!("Unreachable migration level"),
+        };
+
+        tracing::info!("done.");
+
+        Ok(())
     }
 
     // Load and process every event in order to generate the relationships data
     fn compute_relationships<'a>(
         &'a self,
+        total: usize,
         rw_txn: Option<&mut RwTransaction<'a>>,
     ) -> Result<(), Error> {
         self.disable_sync()?;
 
         let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
             // track progress
-            let total = self.get_event_stats()?.entries();
-
-            tracing::info!(
-                "LMDB Migration 1: Computing and storing event relationships for {} events...",
-                total
-            );
-
             let mut count = 0;
 
             let event_txn = self.env.begin_ro_txn()?;

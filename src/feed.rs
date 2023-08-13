@@ -239,7 +239,6 @@ impl Feed {
         // Filter further for the general feed
         let dismissed = GLOBALS.dismissed.read().await.clone();
         let now = Unixtime::now().unwrap();
-        let one_month_ago = now - Duration::new(60 * 60 * 24 * 30, 0);
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
@@ -346,12 +345,14 @@ impl Feed {
                 }
             }
             FeedKind::Person(person_pubkey) => {
+                let since = now - Duration::from_secs(GLOBALS.settings.read().person_feed_chunk);
+
                 let events: Vec<(Unixtime, Id)> = GLOBALS
                     .storage
                     .find_events(
-                        &kinds,              // feed kinds
-                        &[], // any person (due to delegation condition) // FIXME GINA
-                        Some(one_month_ago), // one year ago
+                        &kinds, // feed kinds
+                        &[],    // any person (due to delegation condition) // FIXME
+                        Some(since),
                         |e| {
                             if dismissed.contains(&e.id) {
                                 return false;

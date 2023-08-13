@@ -198,8 +198,11 @@ impl People {
 
         task::spawn(async {
             loop {
+                let fetch_metadata_looptime_ms =
+                    GLOBALS.settings.read().fetcher_metadata_looptime_ms;
+
                 // Every 3 seconds...
-                tokio::time::sleep(Duration::from_millis(3000)).await;
+                tokio::time::sleep(Duration::from_millis(fetch_metadata_looptime_ms)).await;
 
                 // We fetch needed metadata
                 GLOBALS.people.maybe_fetch_metadata().await;
@@ -224,12 +227,11 @@ impl People {
         &self,
         among_these: &[PublicKey],
     ) -> Vec<PublicKey> {
-        let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 8);
+        let stale = Unixtime::now().unwrap().0
+            - 60 * 60 * GLOBALS.settings.read().relay_list_becomes_stale_hours as i64;
 
         if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
-            p.followed
-                && p.relay_list_last_received < one_day_ago
-                && among_these.contains(&p.pubkey)
+            p.followed && p.relay_list_last_received < stale && among_these.contains(&p.pubkey)
         }) {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
@@ -270,9 +272,11 @@ impl People {
                 let need = {
                     // Metadata refresh interval
                     let now = Unixtime::now().unwrap();
-                    let eight_hours = Duration::from_secs(60 * 60 * 8);
+                    let stale = Duration::from_secs(
+                        60 * 60 * GLOBALS.settings.read().metadata_becomes_stale_hours,
+                    );
                     person.metadata_created_at.is_none()
-                        || person.metadata_last_received < (now - eight_hours).0
+                        || person.metadata_last_received < (now - stale).0
                 };
                 if !need {
                     return;
@@ -394,9 +398,16 @@ impl People {
                 } else if let Some(last) = person.nip05_last_checked {
                     // FIXME make these settings
                     let recheck_duration = if person.nip05_valid {
-                        Duration::from_secs(60 * 60 * 24 * 14)
+                        Duration::from_secs(
+                            60 * 60 * GLOBALS.settings.read().nip05_becomes_stale_if_valid_hours,
+                        )
                     } else {
-                        Duration::from_secs(60 * 60 * 24)
+                        Duration::from_secs(
+                            60 * GLOBALS
+                                .settings
+                                .read()
+                                .nip05_becomes_stale_if_invalid_minutes,
+                        )
                     };
                     Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration
                 } else {
@@ -464,10 +475,10 @@ impl People {
             }
         };
 
-        match GLOBALS
-            .fetcher
-            .try_get(&url, Duration::from_secs(60 * 60 * 24 * 3))
-        {
+        match GLOBALS.fetcher.try_get(
+            &url,
+            Duration::from_secs(60 * 60 * GLOBALS.settings.read().avatar_becomes_stale_hours),
+        ) {
             // cache expires in 3 days
             Ok(None) => None,
             Ok(Some(bytes)) => {

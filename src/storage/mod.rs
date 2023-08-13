@@ -113,6 +113,8 @@ impl Storage {
         // Some filesystem that doesn't handle sparse files may allocate all
         //   of this, so we don't go too crazy big.
 
+        // NOTE: this cannot be a setting because settings are only available
+        //       after the database has been launched.
         builder.set_map_size(1048576 * 1024 * 24); // 24 GB
 
         let env = builder.open(&Profile::current()?.lmdb_dir)?;
@@ -498,7 +500,7 @@ impl Storage {
         let bytes = settings.write_to_vec()?;
 
         let f = |txn: &mut RwTransaction<'a>| -> Result<(), Error> {
-            txn.put(self.general, b"settings", &bytes, WriteFlags::empty())?;
+            txn.put(self.general, b"settings2", &bytes, WriteFlags::empty())?;
             Ok(())
         };
 
@@ -516,7 +518,7 @@ impl Storage {
 
     pub fn read_settings(&self) -> Result<Option<Settings>, Error> {
         let txn = self.env.begin_ro_txn()?;
-        match txn.get(self.general, b"settings") {
+        match txn.get(self.general, b"settings2") {
             Ok(bytes) => Ok(Some(Settings::read_from_buffer(bytes)?)),
             Err(lmdb::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),

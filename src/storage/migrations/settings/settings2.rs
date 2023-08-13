@@ -1,10 +1,11 @@
-use crate::ui::{Theme, ThemeVariant};
-use nostr_types::{EventKind, PublicKey};
+use super::settings1::Settings1;
+use super::theme1::{Theme1, ThemeVariant1};
+use nostr_types::PublicKey;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
-#[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable, PartialEq)]
-pub struct Settings {
+#[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable)]
+pub struct Settings2 {
     // ID settings
     pub public_key: Option<PublicKey>,
     pub log_n: u8,
@@ -48,7 +49,7 @@ pub struct Settings {
     pub max_fps: u32,
     pub recompute_feed_periodically: bool,
     pub feed_recompute_interval_ms: u32,
-    pub theme: Theme,
+    pub theme: Theme1,
     pub override_dpi: Option<u32>,
     pub highlight_unread_events: bool,
     pub posting_area_at_top: bool,
@@ -85,9 +86,9 @@ pub struct Settings {
     pub prune_period_days: u64,
 }
 
-impl Default for Settings {
-    fn default() -> Settings {
-        Settings {
+impl Default for Settings2 {
+    fn default() -> Settings2 {
+        Settings2 {
             // ID settings
             public_key: None,
             log_n: 18,
@@ -131,8 +132,8 @@ impl Default for Settings {
             max_fps: 12,
             recompute_feed_periodically: true,
             feed_recompute_interval_ms: 8000,
-            theme: Theme {
-                variant: ThemeVariant::Default,
+            theme: Theme1 {
+                variant: ThemeVariant1::Default,
                 dark_mode: false,
                 follow_os_dark_mode: false,
             },
@@ -174,37 +175,55 @@ impl Default for Settings {
     }
 }
 
-impl Settings {
-    pub fn enabled_event_kinds(&self) -> Vec<EventKind> {
-        EventKind::iter()
-            .filter(|k| {
-                ((*k != EventKind::Reaction) || self.reactions)
-                    && ((*k != EventKind::Repost) || self.reposts)
-                    && ((*k != EventKind::LongFormContent) || self.show_long_form)
-                    && ((*k != EventKind::EncryptedDirectMessage) || self.direct_messages)
-                    && ((*k != EventKind::Zap) || self.enable_zap_receipts)
-            })
-            .collect()
-    }
+impl From<Settings1> for Settings2 {
+    fn from(old: Settings1) -> Settings2 {
+        Settings2 {
+            // ID settings
+            public_key: old.public_key,
 
-    pub fn feed_related_event_kinds(&self) -> Vec<EventKind> {
-        self.enabled_event_kinds()
-            .drain(..)
-            .filter(|k| k.is_feed_related())
-            .collect()
-    }
+            // Network settings
+            offline: old.offline,
+            load_avatars: old.load_avatars,
+            load_media: old.load_media,
+            check_nip05: old.check_nip05,
+            automatically_fetch_metadata: old.automatically_fetch_metadata,
 
-    pub fn feed_displayable_event_kinds(&self) -> Vec<EventKind> {
-        self.enabled_event_kinds()
-            .drain(..)
-            .filter(|k| k.is_feed_displayable())
-            .collect()
-    }
+            // Relay settings
+            num_relays_per_person: old.num_relays_per_person,
+            max_relays: old.max_relays,
 
-    pub fn feed_augment_event_kinds(&self) -> Vec<EventKind> {
-        self.enabled_event_kinds()
-            .drain(..)
-            .filter(|k| k.augments_feed_related())
-            .collect()
+            // Feed settings
+            feed_chunk: old.feed_chunk,
+            replies_chunk: old.replies_chunk,
+            overlap: old.overlap,
+
+            // Event Selection
+            reposts: old.reposts,
+            show_long_form: old.show_long_form,
+            show_mentions: old.show_mentions,
+            direct_messages: old.direct_messages,
+
+            // Event Content Settings
+            reactions: old.reactions,
+            enable_zap_receipts: old.enable_zap_receipts,
+            show_media: old.show_media,
+
+            // Posting settings
+            pow: old.pow,
+            set_client_tag: old.set_client_tag,
+            set_user_agent: old.set_user_agent,
+            delegatee_tag: old.delegatee_tag,
+
+            // UI settings
+            max_fps: old.max_fps,
+            recompute_feed_periodically: old.recompute_feed_periodically,
+            feed_recompute_interval_ms: old.feed_recompute_interval_ms,
+            theme: old.theme,
+            override_dpi: old.override_dpi,
+            highlight_unread_events: old.highlight_unread_events,
+            posting_area_at_top: old.posting_area_at_top,
+
+            ..Default::default()
+        }
     }
 }

@@ -108,7 +108,7 @@ impl Overlord {
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
         // Start the fetcher
-        crate::fetcher::Fetcher::start();
+        crate::fetcher::Fetcher::start()?;
 
         // Load signer from settings
         GLOBALS.signer.load_from_settings()?;
@@ -670,7 +670,8 @@ impl Overlord {
                     .write("Pruning database, please be patient..".to_owned());
 
                 let now = Unixtime::now().unwrap();
-                let then = now - Duration::new(60 * 60 * 24 * 180, 0); // 180 days
+                let then = now
+                    - Duration::new(GLOBALS.settings.read().prune_period_days * 60 * 60 * 24, 0);
                 let count = GLOBALS.storage.prune(then)?;
 
                 GLOBALS.status_queue.write().write(format!(

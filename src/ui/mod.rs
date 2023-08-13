@@ -134,6 +134,16 @@ struct SubMenuState {
     submenu_states: HashMap<SubMenu, bool>,
 }
 
+#[derive(Eq, Hash, PartialEq)]
+enum SettingsTab {
+    Content,
+    Database,
+    Id,
+    Network,
+    Posting,
+    Ui,
+}
+
 impl SubMenuState {
     fn new() -> Self {
         let mut submenu_states: HashMap<SubMenu, bool> = HashMap::new();
@@ -168,6 +178,7 @@ struct GossipUi {
     next_frame: Instant,
     override_dpi: bool,
     override_dpi_value: u32,
+    original_dpi_value: u32,
     current_scroll_offset: f32,
     future_scroll_offset: f32,
 
@@ -195,6 +206,7 @@ struct GossipUi {
     inbox_include_indirect: bool,
     submenu_ids: HashMap<SubMenu, egui::Id>,
     submenu_state: SubMenuState,
+    settings_tab: SettingsTab,
 
     // General Data
     about: About,
@@ -392,6 +404,7 @@ impl GossipUi {
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
+            original_dpi_value: override_dpi_value,
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
             qr_codes: HashMap::new(),
@@ -414,6 +427,7 @@ impl GossipUi {
                 .unwrap_or(false),
             submenu_ids,
             submenu_state: SubMenuState::new(),
+            settings_tab: SettingsTab::Id,
             about: crate::about::about(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
@@ -574,6 +588,55 @@ impl eframe::App for GossipUi {
                 self.settings.theme.dark_mode = os_dark_mode;
                 theme::apply_theme(self.settings.theme, ctx);
             }
+        }
+
+        if self.settings.status_bar {
+            egui::TopBottomPanel::top("stats-bar")
+                .frame(
+                    egui::Frame::side_top_panel(&self.settings.theme.get_style()).inner_margin(
+                        egui::Margin {
+                            left: 0.0,
+                            right: 0.0,
+                            top: 0.0,
+                            bottom: 0.0,
+                        },
+                    ),
+                )
+                .show(
+                    ctx,
+                    |ui| {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
+                            let in_flight = GLOBALS.fetcher.requests_in_flight();
+                            let queued = GLOBALS.fetcher.requests_queued();
+                            let events = GLOBALS
+                                .storage
+                                .get_event_stats()
+                                .map(|s| s.entries())
+                                .unwrap_or(0);
+                            let relays = GLOBALS.connected_relays.len();
+                            let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
+                            let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
+                            let stats_message = format!(
+                                "EVENTS PROCESSED={}  STORED={}     RELAYS CONNS={}  SUBS={}     HTTP: {} / {}",
+                                processed,
+                                events,
+                                relays,
+                                subs,
+                                in_flight,
+                                in_flight + queued
+                            );
+                            let stats_message = RichText::new(stats_message)
+                                .color(self.settings.theme.notice_marker_text_color());
+                            ui.add(Label::new(stats_message))
+                                .on_hover_text(
+                                    "events processed: number of events relays have sent to us, including duplicates.\n\
+                                     events stored: number of unique events in storage\n\
+                                     relay conns: number of relays currently connected\n\
+                                     relay subs: number of subscriptions that have not come to EOSE yet\n\
+                                     http: number of fetches in flight / number of requests queued");
+                        });
+                    },
+                );
         }
 
         egui::SidePanel::left("main-naviation-panel")
@@ -825,41 +888,6 @@ impl eframe::App for GossipUi {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                 }
-                /*
-                    ui.vertical(|ui| {
-                        ui.add_space(5.0);
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
-                            let in_flight = GLOBALS.fetcher.requests_in_flight();
-                            let queued = GLOBALS.fetcher.requests_queued();
-                            let events = GLOBALS
-                                .storage
-                                .get_event_stats()
-                                .map(|s| s.entries())
-                                .unwrap_or(0);
-                            let relays = GLOBALS.connected_relays.len();
-                            let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
-                            let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
-                            let stats_message = format!(
-                                "EVENTS PROCESSED={}  STORED={}     RELAYS CONNS={}  SUBS={}     HTTP: {} / {}",
-                                processed,
-                                events,
-                                relays,
-                                subs,
-                                in_flight,
-                                in_flight + queued
-                            );
-                            let stats_message = RichText::new(stats_message)
-                                .color(self.settings.theme.notice_marker_text_color());
-                            ui.add(Label::new(stats_message))
-                                .on_hover_text(
-                                    "events processed: number of events relays have sent to us, including duplicates.\n\
-                                     events stored: number of unique events in storage\n\
-                                     relay conns: number of relays currently connected\n\
-                                     relay subs: number of subscriptions that have not come to EOSE yet\n\
-                                     http: number of fetches in flight / number of requests queued");
-                        });
-                });
-                    */
             });
 
         // Prepare local zap data once per frame for easier compute at render time

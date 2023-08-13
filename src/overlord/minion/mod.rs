@@ -77,6 +77,9 @@ impl Minion {
         // minion will log when it connects
         tracing::trace!("{}: Minion handling started", &self.url);
 
+        let fetcher_timeout =
+            std::time::Duration::new(GLOBALS.settings.read().fetcher_timeout_sec, 0);
+
         // Connect to the relay
         let websocket_stream = {
             // Parse the URI
@@ -94,7 +97,7 @@ impl Minion {
 
             // Fetch NIP-11 data
             let request_nip11_future = reqwest::Client::builder()
-                .timeout(std::time::Duration::new(30, 0))
+                .timeout(fetcher_timeout)
                 .redirect(reqwest::redirect::Policy::none())
                 .gzip(true)
                 .brotli(true)
@@ -126,7 +129,12 @@ impl Minion {
                                     "{}: Unable to parse response as NIP-11 ({}): {}\n",
                                     &self.url,
                                     e,
-                                    text.lines().take(10).collect::<Vec<_>>().join("\n")
+                                    text.lines()
+                                        .take(
+                                            GLOBALS.settings.read().nip11_lines_to_output_on_error
+                                        )
+                                        .collect::<Vec<_>>()
+                                        .join("\n")
                                 );
                             }
                         }
@@ -182,13 +190,16 @@ impl Minion {
                 // Cameri nostream relay limits to 0.5 a megabyte
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
                 // Cameri said people with >2k followers were losing data at 128kb cutoff.
-                max_message_size: Some(1024 * 1024), // 1 MB
-                max_frame_size: Some(1024 * 1024),   // 1 MB
-                accept_unmasked_frames: false,       // default is false which is the standard
+                max_message_size: Some(
+                    GLOBALS.settings.read().max_websocket_message_size_kb * 1024,
+                ),
+                max_frame_size: Some(GLOBALS.settings.read().max_websocket_frame_size_kb * 1024),
+                accept_unmasked_frames: GLOBALS.settings.read().websocket_accept_unmasked_frames,
             };
 
+            let connect_timeout = GLOBALS.settings.read().websocket_connect_timeout_sec;
             let (websocket_stream, response) = tokio::time::timeout(
-                std::time::Duration::new(15, 0),
+                std::time::Duration::new(connect_timeout, 0),
                 tokio_tungstenite::connect_async_with_config(req, Some(config), false),
             )
             .await??;
@@ -250,7 +261,10 @@ impl Minion {
     async fn loop_handler(&mut self) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
 
-        let mut timer = tokio::time::interval(std::time::Duration::new(55, 0));
+        let mut timer = tokio::time::interval(std::time::Duration::new(
+            GLOBALS.settings.read().websocket_ping_frequency_sec,
+            0,
+        ));
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         timer.tick().await; // use up the first immediate tick.
 
