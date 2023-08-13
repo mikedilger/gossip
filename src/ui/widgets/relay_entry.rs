@@ -270,17 +270,33 @@ impl RelayEntry {
         // green - connected
         // gray - disconnected
         // orange - penalty box
-        let text = RichText::new(STATUS_SYMBOL).size(15.0);
-        let color = if self.connected {
-            egui::Color32::from_rgb(0x63, 0xc8, 0x56) // green
+        // dark gray - disabled
+        let symbol = RichText::new(STATUS_SYMBOL).size(15.0);
+        let (color, tooltip) = if self.connected {
+            let mut text = "Connected".to_string();
+            if let Some(at) = self.db_relay.last_connected_at {
+                let ago = crate::date_ago::date_ago(Unixtime(at as i64));
+                text = format!("Connected since {}", ago);
+            }
+            (egui::Color32::from_rgb(0x63, 0xc8, 0x56), text) // green
         } else {
             if self.db_relay.rank == 0 {
-                egui::Color32::from_rgb(0xed, 0x6a, 0x5e) // red
+                // ranke == 0 means disabled
+                // egui::Color32::from_rgb(0xed, 0x6a, 0x5e) // red
+                (egui::Color32::DARK_GRAY, "Disabled (rank=0)".to_string())
             } else {
-                if self.timeout_until.is_some() {
-                    egui::Color32::from_rgb(0xf4, 0xbf, 0x4f) // orange
+                // show remaining time on timeout
+                if let Some(timeout) = self.timeout_until {
+                    let color = egui::Color32::from_rgb(0xf4, 0xbf, 0x4f); // orange
+                    if let Ok(now) = Unixtime::now() {
+                        let remain = timeout - now.0;
+                        let text = format!("Timeout, retry in {} seconds", remain);
+                        (color, text)
+                    } else {
+                        (color, "Timeout, retry soon".to_string())
+                    }
                 } else {
-                    egui::Color32::GRAY
+                    (egui::Color32::GRAY, "Currently not picked by picker".to_string())
                 }
             }
         };
@@ -288,20 +304,14 @@ impl RelayEntry {
         let rect = draw_text_at(
             ui,
             pos,
-            text.into(),
+            symbol.into(),
             Align::LEFT,
             Some(color),
             None
         );
 
-        // show remaining time on timeout
-        if let Some(timeout) = self.timeout_until {
-            if let Ok(now) = Unixtime::now() {
-                let remain = timeout - now.0;
-                let text = format!("retry in {} seconds", remain);
-                ui.interact(rect, ui.next_auto_id(), Sense::hover()).on_hover_text(text);
-            }
-        }
+        // set tooltip
+        ui.interact(rect, ui.next_auto_id(), Sense::hover()).on_hover_text(tooltip);
     }
 
     fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
