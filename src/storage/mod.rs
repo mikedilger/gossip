@@ -15,7 +15,8 @@ use lmdb::{
     Transaction, WriteFlags,
 };
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl,
+    Unixtime,
 };
 use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
@@ -934,6 +935,29 @@ impl Storage {
         self.write_event(event, rw_txn)?;
 
         Ok(true)
+    }
+
+    pub fn get_parameterized_replaceable_event(
+        &self,
+        event_addr: &EventAddr,
+    ) -> Result<Option<Event>, Error> {
+        if !event_addr.kind.is_parameterized_replaceable() {
+            return Err(ErrorKind::General(
+                "Invalid EventAddr, kind is not parameterized replaceable.".to_owned(),
+            )
+            .into());
+        }
+
+        let mut events = self.find_events(
+            &[event_addr.kind],
+            &[event_addr.author],
+            None, // any time
+            |e| e.parameter().as_ref() == Some(&event_addr.d),
+            true, // sorted in reverse time order
+        )?;
+
+        let maybe_event = events.drain(..).take(1).next();
+        Ok(maybe_event)
     }
 
     pub fn replace_parameterized_event<'a>(
