@@ -54,6 +54,7 @@ pub struct Settings {
     pub posting_area_at_top: bool,
     pub status_bar: bool,
     pub image_resize_algorithm: String,
+    pub allow_key_scrolling: bool,
 
     // Staletime settings
     pub relay_list_becomes_stale_hours: u64,
@@ -141,6 +142,7 @@ impl Default for Settings {
             posting_area_at_top: true,
             status_bar: false,
             image_resize_algorithm: "CatmullRom".to_owned(),
+            allow_key_scrolling: true,
 
             // Staletime settings
             relay_list_becomes_stale_hours: 8,
