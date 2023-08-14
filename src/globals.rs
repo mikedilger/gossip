@@ -14,6 +14,7 @@ use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
+use rhai::{AST, Engine};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
@@ -115,6 +116,10 @@ pub struct Globals {
 
     /// Events Processed
     pub events_processed: AtomicU32,
+
+    /// Filter
+    pub filter_engine: Engine,
+    pub filter: Option<AST>,
 }
 
 lazy_static! {
@@ -130,6 +135,9 @@ lazy_static! {
             Ok(s) => s,
             Err(e) => panic!("{e}")
         };
+
+        let filter_engine = Engine::new();
+        let filter = crate::filter::load_script(&filter_engine);
 
         Globals {
             first_run: AtomicBool::new(false),
@@ -161,6 +169,8 @@ lazy_static! {
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
             storage,
             events_processed: AtomicU32::new(0),
+            filter_engine,
+            filter,
         }
     };
 }
