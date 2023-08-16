@@ -15,10 +15,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         &mut app.settings.posting_area_at_top,
         "Show posting area at the top instead of the bottom",
     );
-    ui.checkbox(
-        &mut app.settings.allow_key_scrolling,
-        "Allows the use of arrow and page keys for scrolling",
-    );
 
     ui.add_space(20.0);
     ui.horizontal(|ui| {

@@ -580,22 +580,20 @@ impl eframe::App for GossipUi {
             }
         }
         // use keys to scroll
-        if self.settings.allow_key_scrolling {
-            ctx.input(|i| {
-                if i.key_pressed(egui::Key::ArrowDown) {
-                    self.current_scroll_offset -= 30.0;
-                }
-                if i.key_pressed(egui::Key::ArrowUp) {
-                    self.current_scroll_offset = 30.0;
-                }
-                if i.key_pressed(egui::Key::PageUp) {
-                    self.current_scroll_offset = 150.0;
-                }
-                if i.key_pressed(egui::Key::PageDown) {
-                    self.current_scroll_offset -= 150.0;
-                }
-            });
-        }
+        ctx.input(|i| {
+            if i.key_pressed(egui::Key::ArrowDown) {
+                self.current_scroll_offset -= 30.0;
+            }
+            if i.key_pressed(egui::Key::ArrowUp) {
+                self.current_scroll_offset = 30.0;
+            }
+            if i.key_pressed(egui::Key::PageUp) {
+                self.current_scroll_offset = 150.0;
+            }
+            if i.key_pressed(egui::Key::PageDown) {
+                self.current_scroll_offset -= 150.0;
+            }
+        });
 
         if self.settings.theme.follow_os_dark_mode {
             // detect if the OS has changed dark/light mode
