@@ -2047,6 +2047,9 @@ impl Storage {
             }
         }
 
+        // Resort
+        ranked_relays.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
+
         let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person as usize;
 
         // If we can't get enough of them, extend with some of our relays
