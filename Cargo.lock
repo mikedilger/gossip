@@ -1819,6 +1819,7 @@ dependencies = [
  "normpath",
  "nostr-types",
  "parking_lot",
+ "paste",
  "qrcode",
  "rand",
  "regex",
