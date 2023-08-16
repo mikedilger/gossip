@@ -984,8 +984,10 @@ impl GossipUi {
                         .to_overlord
                         .send(ToOverlordMessage::UpdateMetadata(person.pubkey));
                 }
-                if ui.button("View Their Posts").clicked() {
-                    app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
+                if app.page != Page::Feed(FeedKind::Person(person.pubkey)){
+                    if ui.button("View Their Posts").clicked() {
+                        app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
+                    }
                 }
             });
 
