@@ -2040,9 +2040,9 @@ impl Storage {
             match self.read_relay(&ranked_relay.0)? {
                 None => ranked_relay.1 = 0,
                 Some(relay) => {
-                    let success_rate = relay.success_rate();
-                    let rank = (relay.rank as f32 * success_rate * 0.66666) as u64;
-                    ranked_relay.1 *= rank;
+                    ranked_relay.1 = (ranked_relay.1 as f32
+                        * (relay.rank as f32 / 3.0)
+                        * (relay.success_rate() * 2.0)) as u64;
                 }
             }
         }
