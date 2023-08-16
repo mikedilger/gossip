@@ -15,7 +15,7 @@ use lmdb::{
     Transaction, WriteFlags,
 };
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Tag,
     Unixtime,
 };
 use speedy::{Readable, Writable};
@@ -881,6 +881,169 @@ impl Storage {
             }
         }
         Ok(output)
+    }
+
+    pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
+        let mut txn = self.env.begin_rw_txn()?;
+
+        // Check if this relay list is newer than the stamp we have for its author
+        if let Some(mut person) = self.read_person(&event.pubkey)? {
+            // Mark that we received it (changes fetch duration for next time)
+            person.relay_list_last_received = Unixtime::now().unwrap().0;
+
+            if let Some(previous_at) = person.relay_list_created_at {
+                if event.created_at.0 <= previous_at {
+                    return Ok(());
+                }
+            }
+
+            // Mark when it was created
+            person.relay_list_created_at = Some(event.created_at.0);
+
+            // And save those marks in the Person record
+            self.write_person(&person, Some(&mut txn))?;
+        }
+
+        let mut ours = false;
+        if let Some(pubkey) = GLOBALS.settings.read().public_key {
+            if event.pubkey == pubkey {
+                tracing::info!("Processing our own relay list");
+                ours = true;
+
+                // Clear all current read/write bits (within the transaction)
+                // note: inbox is kind10002 'read', outbox is kind10002 'write'
+                self.modify_all_relays(
+                    |relay| relay.usage_bits &= !(Relay::INBOX | Relay::OUTBOX),
+                    Some(&mut txn),
+                )?;
+            }
+        }
+
+        // Collect the URLs for inbox(read) and outbox(write) specified in the event
+        let mut inbox_relays: Vec<RelayUrl> = Vec::new();
+        let mut outbox_relays: Vec<RelayUrl> = Vec::new();
+        for tag in event.tags.iter() {
+            if let Tag::Reference { url, marker, .. } = tag {
+                if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
+                    if let Some(m) = marker {
+                        match &*m.trim().to_lowercase() {
+                            "read" => {
+                                // 'read' means inbox and not outbox
+                                inbox_relays.push(relay_url.clone());
+                                if ours {
+                                    if let Some(mut dbrelay) = self.read_relay(&relay_url)? {
+                                        // Update
+                                        dbrelay.set_usage_bits(Relay::INBOX);
+                                        dbrelay.clear_usage_bits(Relay::OUTBOX);
+                                        self.write_relay(&dbrelay, Some(&mut txn))?;
+                                    } else {
+                                        // Insert missing relay
+                                        let mut dbrelay = Relay::new(relay_url.to_owned());
+                                        // Since we are creating, we add READ
+                                        dbrelay.set_usage_bits(Relay::INBOX | Relay::READ);
+                                        self.write_relay(&dbrelay, Some(&mut txn))?;
+                                    }
+                                }
+                            }
+                            "write" => {
+                                // 'write' means outbox and not inbox
+                                outbox_relays.push(relay_url.clone());
+                                if ours {
+                                    if let Some(mut dbrelay) = self.read_relay(&relay_url)? {
+                                        // Update
+                                        dbrelay.set_usage_bits(Relay::OUTBOX);
+                                        dbrelay.clear_usage_bits(Relay::INBOX);
+                                        self.write_relay(&dbrelay, Some(&mut txn))?;
+                                    } else {
+                                        // Create
+                                        let mut dbrelay = Relay::new(relay_url.to_owned());
+                                        // Since we are creating, we add WRITE
+                                        dbrelay.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
+                                        self.write_relay(&dbrelay, Some(&mut txn))?;
+                                    }
+                                }
+                            }
+                            _ => {} // ignore unknown marker
+                        }
+                    } else {
+                        // No marker means both inbox and outbox
+                        inbox_relays.push(relay_url.clone());
+                        outbox_relays.push(relay_url.clone());
+                        if ours {
+                            if let Some(mut dbrelay) = self.read_relay(&relay_url)? {
+                                // Update
+                                dbrelay.set_usage_bits(Relay::INBOX | Relay::OUTBOX);
+                                self.write_relay(&dbrelay, Some(&mut txn))?;
+                            } else {
+                                // Create
+                                let mut dbrelay = Relay::new(relay_url.to_owned());
+                                // Since we are creating, we add READ and WRITE
+                                dbrelay.set_usage_bits(
+                                    Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
+                                );
+                                self.write_relay(&dbrelay, Some(&mut txn))?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        self.set_relay_list(event.pubkey, inbox_relays, outbox_relays, Some(&mut txn))?;
+
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn set_relay_list<'a>(
+        &'a self,
+        pubkey: PublicKey,
+        read_relays: Vec<RelayUrl>,
+        write_relays: Vec<RelayUrl>,
+        rw_txn: Option<&mut RwTransaction<'a>>,
+    ) -> Result<(), Error> {
+        let mut person_relays = self.get_person_relays(pubkey)?;
+
+        'for_read_relays: for relay in &read_relays {
+            for pr in &person_relays {
+                if pr.url == *relay {
+                    continue 'for_read_relays;
+                }
+            }
+            // Not found. Create a new person relay for this
+            // (last loop below will set and save)
+            let pr = PersonRelay::new(pubkey, relay.clone());
+            person_relays.push(pr);
+        }
+
+        'for_write_relays: for relay in &write_relays {
+            for pr in &person_relays {
+                if pr.url == *relay {
+                    continue 'for_write_relays;
+                }
+            }
+            // Not found. Create a new person relay for this
+            // (last loop below will set and save)
+            let pr = PersonRelay::new(pubkey, relay.clone());
+            person_relays.push(pr);
+        }
+
+        for mut pr in person_relays.drain(..) {
+            let orig_read = pr.read;
+            let orig_write = pr.write;
+            pr.read = read_relays.contains(&pr.url);
+            pr.write = write_relays.contains(&pr.url);
+            if pr.read != orig_read || pr.write != orig_write {
+                // here is some reborrow magic we needed to appease the borrow checker
+                if let Some(&mut ref mut v) = rw_txn {
+                    self.write_person_relay(&pr, Some(v))?;
+                } else {
+                    self.write_person_relay(&pr, None)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn write_event<'a>(
@@ -1834,31 +1997,6 @@ impl Storage {
             }
         }
         Ok(output)
-    }
-
-    pub fn set_relay_list<'a>(
-        &'a self,
-        pubkey: PublicKey,
-        read_relays: Vec<RelayUrl>,
-        write_relays: Vec<RelayUrl>,
-        rw_txn: Option<&mut RwTransaction<'a>>,
-    ) -> Result<(), Error> {
-        let mut person_relays = self.get_person_relays(pubkey)?;
-        for mut pr in person_relays.drain(..) {
-            let orig_read = pr.read;
-            let orig_write = pr.write;
-            pr.read = read_relays.contains(&pr.url);
-            pr.write = write_relays.contains(&pr.url);
-            if pr.read != orig_read || pr.write != orig_write {
-                // here is some reborrow magic we needed to appease the borrow checker
-                if let Some(&mut ref mut v) = rw_txn {
-                    self.write_person_relay(&pr, Some(v))?;
-                } else {
-                    self.write_person_relay(&pr, None)?;
-                }
-            }
-        }
-        Ok(())
     }
 
     /*
