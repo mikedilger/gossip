@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::storage::Storage;
 use crate::ui::Theme;
-use nostr_types::{EventKind, PublicKey};
+use nostr_types::PublicKey;
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -296,40 +296,5 @@ impl Settings {
         save_setting!(nip11_lines_to_output_on_error, self, txn);
         save_setting!(prune_period_days, self, txn);
         Ok(())
-    }
-}
-
-impl Settings {
-    pub fn enabled_event_kinds(&self) -> Vec<EventKind> {
-        EventKind::iter()
-            .filter(|k| {
-                ((*k != EventKind::Reaction) || self.reactions)
-                    && ((*k != EventKind::Repost) || self.reposts)
-                    && ((*k != EventKind::LongFormContent) || self.show_long_form)
-                    && ((*k != EventKind::EncryptedDirectMessage) || self.direct_messages)
-                    && ((*k != EventKind::Zap) || self.enable_zap_receipts)
-            })
-            .collect()
-    }
-
-    pub fn feed_related_event_kinds(&self) -> Vec<EventKind> {
-        self.enabled_event_kinds()
-            .drain(..)
-            .filter(|k| k.is_feed_related())
-            .collect()
-    }
-
-    pub fn feed_displayable_event_kinds(&self) -> Vec<EventKind> {
-        self.enabled_event_kinds()
-            .drain(..)
-            .filter(|k| k.is_feed_displayable())
-            .collect()
-    }
-
-    pub fn feed_augment_event_kinds(&self) -> Vec<EventKind> {
-        self.enabled_event_kinds()
-            .drain(..)
-            .filter(|k| k.augments_feed_related())
-            .collect()
     }
 }

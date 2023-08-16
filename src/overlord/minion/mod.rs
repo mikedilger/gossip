@@ -395,7 +395,7 @@ impl Minion {
     }
 
     async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
-        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let mut event_kinds = crate::feed::feed_related_event_kinds();
         event_kinds.retain(|f| f.augments_feed_related());
 
         let filter = Filter {
@@ -472,7 +472,7 @@ impl Minion {
         };
 
         // Allow all feed related event kinds
-        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let mut event_kinds = crate::feed::feed_related_event_kinds();
         // But exclude DMs in the general feed
         event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
@@ -593,7 +593,7 @@ impl Minion {
         };
 
         // Allow all feed related event kinds
-        let event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let event_kinds = crate::feed::feed_related_event_kinds();
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // Any mentions of me
@@ -679,7 +679,7 @@ impl Minion {
         // NOTE we do not unsubscribe to the general feed
 
         // Allow all feed related event kinds
-        let mut event_kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
+        let mut event_kinds = crate::feed::feed_displayable_event_kinds();
         // Exclude DMs
         event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
@@ -760,7 +760,7 @@ impl Minion {
             });
 
             // Get reactions to ancestors, but not replies
-            let kinds = GLOBALS.settings.read().feed_augment_event_kinds();
+            let kinds = crate::feed::feed_augment_event_kinds();
             filters.push(Filter {
                 e: vec_ids,
                 kinds,
@@ -769,7 +769,7 @@ impl Minion {
         }
 
         // Allow all feed related event kinds
-        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let mut event_kinds = crate::feed::feed_related_event_kinds();
         // But exclude DMs
         event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 

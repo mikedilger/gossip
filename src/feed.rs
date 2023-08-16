@@ -229,7 +229,7 @@ impl Feed {
         // Copy some values from settings
         let feed_recompute_interval_ms = GLOBALS.settings.read().feed_recompute_interval_ms;
 
-        let kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
+        let kinds = feed_displayable_event_kinds();
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
@@ -381,4 +381,43 @@ impl Feed {
 
         Ok(())
     }
+}
+
+pub fn enabled_event_kinds() -> Vec<EventKind> {
+    let reactions = GLOBALS.storage.read_setting_reactions();
+    let reposts = GLOBALS.storage.read_setting_reposts();
+    let show_long_form = GLOBALS.storage.read_setting_show_long_form();
+    let direct_messages = GLOBALS.storage.read_setting_direct_messages();
+    let enable_zap_receipts = GLOBALS.storage.read_setting_enable_zap_receipts();
+
+    EventKind::iter()
+        .filter(|k| {
+            ((*k != EventKind::Reaction) || reactions)
+                && ((*k != EventKind::Repost) || reposts)
+                && ((*k != EventKind::LongFormContent) || show_long_form)
+                && ((*k != EventKind::EncryptedDirectMessage) || direct_messages)
+                && ((*k != EventKind::Zap) || enable_zap_receipts)
+        })
+        .collect()
+}
+
+pub fn feed_related_event_kinds() -> Vec<EventKind> {
+    enabled_event_kinds()
+        .drain(..)
+        .filter(|k| k.is_feed_related())
+        .collect()
+}
+
+pub fn feed_displayable_event_kinds() -> Vec<EventKind> {
+    enabled_event_kinds()
+        .drain(..)
+        .filter(|k| k.is_feed_displayable())
+        .collect()
+}
+
+pub fn feed_augment_event_kinds() -> Vec<EventKind> {
+    enabled_event_kinds()
+        .drain(..)
+        .filter(|k| k.augments_feed_related())
+        .collect()
 }

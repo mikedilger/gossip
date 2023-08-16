@@ -1436,7 +1436,7 @@ impl Storage {
     }
 
     pub fn search_events(&self, text: &str) -> Result<Vec<Event>, Error> {
-        let event_kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
+        let event_kinds = crate::feed::feed_displayable_event_kinds();
 
         let needle = regex::escape(text.to_lowercase().as_str());
         let re = regex::RegexBuilder::new(needle.as_str())
