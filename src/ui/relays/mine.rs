@@ -1,6 +1,6 @@
 use super::GossipUi;
-use crate::relay::Relay;
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui};
