@@ -134,7 +134,7 @@ async fn update_relays(nip05: String, nip05file: Nip05, pubkey: &PublicKey) -> R
     for relay in relays.iter() {
         // Save relay
         if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
-            GLOBALS.storage.write_relay_if_missing(&relay_url)?;
+            GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
 
             // Save person_relay
             let mut pr = match GLOBALS.storage.read_person_relay(*pubkey, &relay_url)? {
@@ -142,7 +142,7 @@ async fn update_relays(nip05: String, nip05file: Nip05, pubkey: &PublicKey) -> R
                 None => PersonRelay::new(*pubkey, relay_url.clone()),
             };
             pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
-            GLOBALS.storage.write_person_relay(&pr)?;
+            GLOBALS.storage.write_person_relay(&pr, None)?;
         }
     }
 

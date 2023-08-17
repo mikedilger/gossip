@@ -21,46 +21,36 @@ impl Minion {
             }
         };
 
-        let mut maxtime = Unixtime::now()?;
-        maxtime.0 += 60 * 15; // 15 minutes into the future
-
         match relay_message {
             RelayMessage::Event(subid, event) => {
-                if let Err(e) = event.verify(Some(maxtime)) {
-                    tracing::error!(
-                        "{}: VERIFY ERROR: {}, {}",
-                        &self.url,
-                        e,
-                        serde_json::to_string(&event)?
-                    )
-                } else {
-                    let handle = self
-                        .subscription_map
-                        .get_handle_by_id(&subid.0)
-                        .unwrap_or_else(|| "_".to_owned());
+                let handle = self
+                    .subscription_map
+                    .get_handle_by_id(&subid.0)
+                    .unwrap_or_else(|| "_".to_owned());
 
-                    // Events that come in after EOSE on the general feed bump the last_general_eose
-                    // timestamp for that relay, so we don't query before them next time we run.
-                    if let Some(sub) = self.subscription_map.get_mut_by_id(&subid.0) {
-                        if handle == "general_feed" && sub.eose() {
-                            // Update last general EOSE
-                            self.dbrelay.last_general_eose_at =
-                                Some(match self.dbrelay.last_general_eose_at {
-                                    Some(old) => old.max(event.created_at.0 as u64),
-                                    None => event.created_at.0 as u64,
-                                });
-                        }
+                // Events that come in after EOSE on the general feed bump the last_general_eose
+                // timestamp for that relay, so we don't query before them next time we run.
+                if let Some(sub) = self.subscription_map.get_mut_by_id(&subid.0) {
+                    if handle == "general_feed" && sub.eose() {
+                        // Update last general EOSE
+                        self.dbrelay.last_general_eose_at =
+                            Some(match self.dbrelay.last_general_eose_at {
+                                Some(old) => old.max(event.created_at.0 as u64),
+                                None => event.created_at.0 as u64,
+                            });
+                        GLOBALS.storage.modify_relay(
+                            &self.dbrelay.url,
+                            |relay| {
+                                relay.last_general_eose_at = self.dbrelay.last_general_eose_at;
+                            },
+                            None,
+                        )?;
                     }
-
-                    // Try processing everything immediately
-                    crate::process::process_new_event(
-                        &event,
-                        true,
-                        Some(self.url.clone()),
-                        Some(handle),
-                    )
-                    .await?;
                 }
+
+                // Try processing everything immediately
+                crate::process::process_new_event(&event, Some(self.url.clone()), Some(handle))
+                    .await?;
             }
             RelayMessage::Notice(msg) => {
                 tracing::warn!("{}: NOTICE: {}", &self.url, msg);
@@ -91,6 +81,13 @@ impl Minion {
                                     Some(old) => old.max(now),
                                     None => now,
                                 });
+                            GLOBALS.storage.modify_relay(
+                                &self.dbrelay.url,
+                                |relay| {
+                                    relay.last_general_eose_at = self.dbrelay.last_general_eose_at;
+                                },
+                                None,
+                            )?;
                         }
                     }
                     None => {
@@ -122,6 +119,7 @@ impl Minion {
                             id,
                             &self.url,
                             Unixtime::now().unwrap(),
+                            None,
                         )?;
                     } else {
                         // demerit the relay

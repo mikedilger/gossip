@@ -137,8 +137,9 @@ pub(super) fn render_note(
                 app.height.insert(id, bottom.y - top.y);
 
                 // Mark post as viewed if hovered AND we are not scrolling
-                if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
-                    let _ = GLOBALS.storage.mark_event_viewed(id);
+                if !viewed && inner_response.response.hovered() && app.current_scroll_offset == 0.0
+                {
+                    let _ = GLOBALS.storage.mark_event_viewed(id, None);
                 }
 
                 // Record if the rendered note was visible
@@ -158,7 +159,7 @@ pub(super) fn render_note(
             }
 
             // even if muted, continue rendering thread children
-            if threaded && !as_reply_to {
+            if threaded && !as_reply_to && !app.collapsed.contains(&id) {
                 let replies = GLOBALS.storage.get_replies(id).unwrap_or(vec![]);
                 let iter = replies.iter();
                 let first = replies.first();
@@ -363,6 +364,26 @@ fn render_note_inner(
                             let nostr_url: NostrUrl = event_pointer.into();
                             ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                         }
+                        if ui.button("Copy web link").clicked() {
+                            let event_pointer = EventPointer {
+                                id: note.event.id,
+                                relays: match GLOBALS.storage.get_event_seen_on_relay(note.event.id)
+                                {
+                                    Ok(vec) => {
+                                        vec.iter().map(|(url, _)| url.to_unchecked_url()).collect()
+                                    }
+                                    Err(_) => vec![],
+                                },
+                                author: None,
+                                kind: None,
+                            };
+                            ui.output_mut(|o| {
+                                o.copied_text = format!(
+                                    "https://nostr.com/{}",
+                                    event_pointer.as_bech32_string()
+                                )
+                            });
+                        }
                         if ui.button("Copy note1 Id").clicked() {
                             let nostr_url: NostrUrl = note.event.id.into();
                             ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
@@ -378,7 +399,7 @@ fn render_note_inner(
                         if ui.button("Dismiss").clicked() {
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
                         }
-                        if Some(note.event.pubkey) == GLOBALS.signer.public_key()
+                        if Some(note.event.pubkey) == app.settings.public_key
                             && note.deletion.is_none()
                         {
                             if ui.button("Delete").clicked() {
@@ -522,6 +543,26 @@ fn render_note_inner(
                         });
                 }
 
+                // proxied?
+                if let Some((proxy, id)) = note.event.proxy() {
+                    Frame::none()
+                        .inner_margin(Margin {
+                            left: footer_margin_left,
+                            bottom: 0.0,
+                            right: 0.0,
+                            top: 8.0,
+                        })
+                        .show(ui, |ui| {
+                            let color = app.settings.theme.warning_marker_text_color();
+                            ui.horizontal_wrapped(|ui| {
+                                ui.add(Label::new(
+                                    RichText::new(format!("proxied from {}: ", proxy)).color(color),
+                                ));
+                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, id, id);
+                            });
+                        });
+                }
+
                 // Footer
                 if !hide_footer {
                     Frame::none()
@@ -548,6 +589,16 @@ fn render_note_inner(
                                         ui.output_mut(|o| {
                                             o.copied_text =
                                                 serde_json::to_string(&note.event).unwrap()
+                                        });
+                                    } else if note.event.kind == EventKind::EncryptedDirectMessage {
+                                        ui.output_mut(|o| {
+                                            if let Ok(m) =
+                                                GLOBALS.signer.decrypt_message(&note.event)
+                                            {
+                                                o.copied_text = m
+                                            } else {
+                                                o.copied_text = note.event.content.clone()
+                                            }
                                         });
                                     } else {
                                         ui.output_mut(|o| {

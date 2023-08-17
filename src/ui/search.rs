@@ -108,11 +108,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                         }
                     });
 
-                    let summary = event
+                    let mut summary = event
                         .content
                         .get(0..event.content.len().min(100))
                         .unwrap_or("...")
                         .replace('\n', " ");
+
+                    if summary.is_empty() {
+                        // Show something they can click on anyways
+                        summary = "[no event summary]".to_owned();
+                    }
 
                     if ui.add(Label::new(summary).sense(Sense::click())).clicked() {
                         app.set_page(Page::Feed(FeedKind::Thread {

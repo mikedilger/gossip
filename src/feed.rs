@@ -44,7 +44,7 @@ impl Feed {
             followed_feed: RwLock::new(Vec::new()),
             inbox_feed: RwLock::new(Vec::new()),
             person_feed: RwLock::new(Vec::new()),
-            interval_ms: RwLock::new(1000), // Every second, until we load from settings
+            interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
         }
@@ -239,7 +239,6 @@ impl Feed {
         // Filter further for the general feed
         let dismissed = GLOBALS.dismissed.read().await.clone();
         let now = Unixtime::now().unwrap();
-        let one_month_ago = now - Duration::new(60 * 60 * 24 * 30, 0);
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
@@ -291,9 +290,11 @@ impl Feed {
                         None,         // since
                     )?;
 
+                    let since = now - Duration::from_secs(GLOBALS.settings.read().replies_chunk);
+
                     let inbox_events: Vec<Id> = GLOBALS
                         .storage
-                        .read_events_referencing_person(&my_pubkey, one_month_ago, |e| {
+                        .read_events_referencing_person(&my_pubkey, since, |e| {
                             if e.created_at > now {
                                 return false;
                             } // no future events
@@ -344,12 +345,14 @@ impl Feed {
                 }
             }
             FeedKind::Person(person_pubkey) => {
+                let since = now - Duration::from_secs(GLOBALS.settings.read().person_feed_chunk);
+
                 let events: Vec<(Unixtime, Id)> = GLOBALS
                     .storage
                     .find_events(
-                        &kinds,              // feed kinds
-                        &[], // any person (due to delegation condition) // FIXME GINA
-                        Some(one_month_ago), // one year ago
+                        &kinds, // feed kinds
+                        &[],    // any person (due to delegation condition) // FIXME
+                        Some(since),
                         |e| {
                             if dismissed.contains(&e.id) {
                                 return false;

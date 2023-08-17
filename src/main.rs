@@ -79,6 +79,9 @@ fn main() -> Result<(), Error> {
         .with_env_filter(env_filter)
         .init();
 
+    // Initialize storage
+    GLOBALS.storage.init()?;
+
     // Load settings
     let settings = GLOBALS.storage.read_settings()?.unwrap();
     *GLOBALS.settings.write() = settings;
@@ -107,6 +110,13 @@ fn main() -> Result<(), Error> {
 
     // Wait for the async thread to complete
     async_thread.join().unwrap();
+
+    // Sync storage again
+    if let Err(e) = GLOBALS.storage.sync() {
+        tracing::error!("{}", e);
+    } else {
+        tracing::info!("LMDB synced.");
+    }
 
     Ok(())
 }

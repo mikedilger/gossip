@@ -2,8 +2,11 @@ use crate::error::Error;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::RwLock;
+
+#[cfg(windows)]
+use normpath::PathExt;
 
 lazy_static! {
     static ref CURRENT: RwLock<Option<Profile>> = RwLock::new(None);
@@ -32,21 +35,21 @@ impl Profile {
             .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
 
         // Canonicalize (follow symlinks, resolve ".." paths)
-        let data_dir = fs::canonicalize(data_dir)?;
+        let data_dir = normalize(data_dir)?;
 
         // Push "gossip" to data_dir, or override with GOSSIP_DIR
         let base_dir = match env::var("GOSSIP_DIR") {
             Ok(dir) => {
                 tracing::info!("Using GOSSIP_DIR: {}", dir);
                 // Note, this must pre-exist
-                fs::canonicalize(PathBuf::from(dir))?
+                normalize(dir)?
             }
             Err(_) => {
                 let mut base_dir = data_dir;
                 base_dir.push("gossip");
                 // We canonicalize here because gossip might be a link, but if it
                 // doesn't exist yet we have to just go with basedir
-                fs::canonicalize(base_dir.as_path()).unwrap_or(base_dir)
+                normalize(base_dir.as_path()).unwrap_or(base_dir)
             }
         };
 
@@ -86,8 +89,14 @@ impl Profile {
         };
 
         let lmdb_dir = {
-            let mut lmdb_dir = base_dir.clone();
+            let mut lmdb_dir = profile_dir.clone();
             lmdb_dir.push("lmdb");
+
+            // Windows syntax not compatible with lmdb:
+            if lmdb_dir.starts_with(r#"\\?\"#) {
+                lmdb_dir = lmdb_dir.strip_prefix(r#"\\?\"#).unwrap().to_path_buf();
+            }
+
             lmdb_dir
         };
 
@@ -118,4 +127,14 @@ impl Profile {
         *w = Some(created.clone());
         Ok(created)
     }
+}
+
+#[cfg(not(windows))]
+fn normalize<P: AsRef<Path>>(path: P) -> Result<PathBuf, Error> {
+    Ok(fs::canonicalize(path)?)
+}
+
+#[cfg(windows)]
+fn normalize<P: AsRef<Path>>(path: P) -> Result<PathBuf, Error> {
+    Ok(path.as_ref().normalize()?.into_path_buf())
 }

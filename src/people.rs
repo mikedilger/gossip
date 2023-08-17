@@ -3,10 +3,8 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
-use eframe::egui::{Color32, ColorImage};
-use egui_extras::image::FitTo;
+use eframe::egui::ColorImage;
 use gossip_relay_picker::Direction;
-use image::imageops::FilterType;
 use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
@@ -51,7 +49,9 @@ impl Person {
     }
 
     pub fn display_name(&self) -> Option<&str> {
-        if let Some(md) = &self.metadata {
+        if let Some(pn) = &self.petname {
+            Some(pn)
+        } else if let Some(md) = &self.metadata {
             if md.other.contains_key("display_name") {
                 if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
                     if !s.is_empty() {
@@ -94,6 +94,29 @@ impl Person {
             md.nip05.as_deref()
         } else {
             None
+        }
+    }
+}
+
+impl PartialEq for Person {
+    fn eq(&self, other: &Self) -> bool {
+        self.pubkey.eq(&other.pubkey)
+    }
+}
+impl Eq for Person {}
+impl PartialOrd for Person {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self.display_name(), other.display_name()) {
+            (Some(a), Some(b)) => a.to_lowercase().partial_cmp(&b.to_lowercase()),
+            _ => self.pubkey.partial_cmp(&other.pubkey),
+        }
+    }
+}
+impl Ord for Person {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self.display_name(), other.display_name()) {
+            (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
+            _ => self.pubkey.cmp(&other.pubkey),
         }
     }
 }
@@ -175,8 +198,11 @@ impl People {
 
         task::spawn(async {
             loop {
+                let fetch_metadata_looptime_ms =
+                    GLOBALS.settings.read().fetcher_metadata_looptime_ms;
+
                 // Every 3 seconds...
-                tokio::time::sleep(Duration::from_millis(3000)).await;
+                tokio::time::sleep(Duration::from_millis(fetch_metadata_looptime_ms)).await;
 
                 // We fetch needed metadata
                 GLOBALS.people.maybe_fetch_metadata().await;
@@ -201,12 +227,11 @@ impl People {
         &self,
         among_these: &[PublicKey],
     ) -> Vec<PublicKey> {
-        let one_day_ago = Unixtime::now().unwrap().0 - (60 * 60 * 8);
+        let stale = Unixtime::now().unwrap().0
+            - 60 * 60 * GLOBALS.settings.read().relay_list_becomes_stale_hours as i64;
 
         if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
-            p.followed
-                && p.relay_list_last_received < one_day_ago
-                && among_these.contains(&p.pubkey)
+            p.followed && p.relay_list_last_received < stale && among_these.contains(&p.pubkey)
         }) {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
@@ -222,7 +247,7 @@ impl People {
 
     pub fn create_all_if_missing(&self, pubkeys: &[PublicKey]) -> Result<(), Error> {
         for pubkey in pubkeys {
-            GLOBALS.storage.write_person_if_missing(pubkey)?;
+            GLOBALS.storage.write_person_if_missing(pubkey, None)?;
         }
 
         Ok(())
@@ -247,9 +272,11 @@ impl People {
                 let need = {
                     // Metadata refresh interval
                     let now = Unixtime::now().unwrap();
-                    let eight_hours = Duration::from_secs(60 * 60 * 8);
+                    let stale = Duration::from_secs(
+                        60 * 60 * GLOBALS.settings.read().metadata_becomes_stale_hours,
+                    );
                     person.metadata_created_at.is_none()
-                        || person.metadata_last_received < (now - eight_hours).0
+                        || person.metadata_last_received < (now - stale).0
                 };
                 if !need {
                     return;
@@ -322,7 +349,7 @@ impl People {
 
         // Update metadata_last_received, even if we don't update the metadata
         person.metadata_last_received = now.0;
-        GLOBALS.storage.write_person(&person)?;
+        GLOBALS.storage.write_person(&person, None)?;
 
         // Remove from the list of people that need metadata
         self.need_metadata.remove(pubkey);
@@ -347,9 +374,7 @@ impl People {
                 person.nip05_valid = false; // changed, so reset to invalid
                 person.nip05_last_checked = None; // we haven't checked this one yet
             }
-            GLOBALS.storage.write_person(&person)?;
-
-            // UI cache invalidation (so notes of the person get rerendered)
+            GLOBALS.storage.write_person(&person, None)?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
@@ -373,9 +398,16 @@ impl People {
                 } else if let Some(last) = person.nip05_last_checked {
                     // FIXME make these settings
                     let recheck_duration = if person.nip05_valid {
-                        Duration::from_secs(60 * 60 * 24 * 14)
+                        Duration::from_secs(
+                            60 * 60 * GLOBALS.settings.read().nip05_becomes_stale_if_valid_hours,
+                        )
                     } else {
-                        Duration::from_secs(60 * 60 * 24)
+                        Duration::from_secs(
+                            60 * GLOBALS
+                                .settings
+                                .read()
+                                .nip05_becomes_stale_if_invalid_minutes,
+                        )
                     };
                     Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration
                 } else {
@@ -443,10 +475,10 @@ impl People {
             }
         };
 
-        match GLOBALS
-            .fetcher
-            .try_get(&url, Duration::from_secs(60 * 60 * 24 * 3))
-        {
+        match GLOBALS.fetcher.try_get(
+            &url,
+            Duration::from_secs(60 * 60 * GLOBALS.settings.read().avatar_becomes_stale_hours),
+        ) {
             // cache expires in 3 days
             Ok(None) => None,
             Ok(Some(bytes)) => {
@@ -458,54 +490,23 @@ impl People {
                             .pixels_per_point_times_100
                             .load(Ordering::Relaxed)
                         / 100;
-                    if let Ok(mut image) = image::load_from_memory(&bytes) {
-                        // Note: we can't use egui_extras::image::load_image_bytes because we
-                        // need to modify the image
 
-                        // Crop square
-                        let smaller = image.width().min(image.height());
-                        if image.width() > smaller {
-                            let excess = image.width() - smaller;
-                            image = image.crop_imm(
-                                excess / 2,
-                                0,
-                                image.width() - excess,
-                                image.height(),
-                            );
-                        } else if image.height() > smaller {
-                            let excess = image.height() - smaller;
-                            image = image.crop_imm(
-                                0,
-                                excess / 2,
-                                image.width(),
-                                image.height() - excess,
-                            );
-                        }
-                        let image = image.resize(size, size, FilterType::CatmullRom); // DynamicImage
-                        let image_buffer = image.into_rgba8(); // RgbaImage (ImageBuffer)
-                        let mut color_image = ColorImage::from_rgba_unmultiplied(
-                            [
-                                image_buffer.width() as usize,
-                                image_buffer.height() as usize,
-                            ],
-                            image_buffer.as_flat_samples().as_slice(),
-                        );
-                        if GLOBALS.settings.read().theme.round_image() {
-                            round_image(&mut color_image);
-                        }
-                        GLOBALS.people.avatars_temp.insert(apubkey, color_image);
-                    } else if let Ok(mut color_image) = egui_extras::image::load_svg_bytes_with_size(
+                    let round_image = GLOBALS.settings.read().theme.round_image();
+                    match crate::media::load_image_bytes(
                         &bytes,
-                        FitTo::Size(size, size),
+                        true, // crop square
+                        size, // default size,
+                        true, // force to that size
+                        round_image,
                     ) {
-                        if GLOBALS.settings.read().theme.round_image() {
-                            round_image(&mut color_image);
+                        Ok(color_image) => {
+                            GLOBALS.people.avatars_temp.insert(apubkey, color_image);
                         }
-                        GLOBALS.people.avatars_temp.insert(apubkey, color_image);
-                    } else {
-                        // this cannot recover without new metadata
-                        GLOBALS.failed_avatars.write().await.insert(apubkey);
-                    };
+                        Err(_) => {
+                            // this cannot recover without new metadata
+                            GLOBALS.failed_avatars.write().await.insert(apubkey);
+                        }
+                    }
                 });
                 self.avatars_pending_processing.insert(pubkey.to_owned());
                 None
@@ -620,7 +621,7 @@ impl People {
         // We don't use the data, but we shouldn't clobber it.
 
         let content = match GLOBALS.storage.fetch_contact_list(&public_key)? {
-            Some(c) => c.content.clone(),
+            Some(c) => c.content,
             None => "".to_owned(),
         };
 
@@ -643,7 +644,8 @@ impl People {
     pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
         if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
             person.followed = follow;
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
         Ok(())
     }
@@ -654,7 +656,8 @@ impl People {
                 if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
                     if !person.followed {
                         person.followed = true;
-                        GLOBALS.storage.write_person(&person)?;
+                        GLOBALS.storage.write_person(&person, None)?;
+                        GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
                     }
                 }
             }
@@ -663,7 +666,8 @@ impl People {
                 let orig = person.followed;
                 person.followed = pubkeys.contains(&person.pubkey);
                 if person.followed != orig {
-                    GLOBALS.storage.write_person(&person)?;
+                    GLOBALS.storage.write_person(&person, None)?;
+                    GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
                 }
             }
         }
@@ -679,7 +683,8 @@ impl People {
     pub fn follow_none(&self) -> Result<(), Error> {
         for mut person in GLOBALS.storage.filter_people(|_| true)? {
             person.followed = false;
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
+            GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
         }
 
         Ok(())
@@ -688,7 +693,8 @@ impl People {
     pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
         if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
             person.muted = mute;
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
         // UI cache invalidation (so notes of the person get rerendered)
@@ -726,7 +732,7 @@ impl People {
             person.relay_list_created_at = Some(created_at);
         }
 
-        GLOBALS.storage.write_person(&person)?;
+        GLOBALS.storage.write_person(&person, None)?;
 
         Ok(retval)
     }
@@ -736,7 +742,7 @@ impl People {
 
         if let Some(mut person) = GLOBALS.storage.read_person(&pubkey)? {
             person.nip05_last_checked = Some(now as u64);
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
         }
 
         Ok(())
@@ -752,23 +758,18 @@ impl People {
         // Update memory
         if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
             if let Some(metadata) = &mut person.metadata {
-                metadata.nip05 = nip05.clone()
+                metadata.nip05 = nip05
             } else {
                 let mut metadata = Metadata::new();
-                metadata.nip05 = nip05.clone();
+                metadata.nip05 = nip05;
                 person.metadata = Some(metadata);
             }
             person.nip05_valid = nip05_valid;
             person.nip05_last_checked = Some(nip05_last_checked);
 
-            GLOBALS.storage.write_person(&person)?;
+            GLOBALS.storage.write_person(&person, None)?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
-
-        // UI cache invalidation (so notes of the person get rerendered)
-        GLOBALS
-            .ui_people_to_invalidate
-            .write()
-            .push(pubkey.to_owned());
 
         Ok(())
     }
@@ -790,50 +791,6 @@ impl People {
 
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
         self.active_persons_write_relays.blocking_read().clone()
-    }
-}
-
-fn round_image(image: &mut ColorImage) {
-    // The radius to the edge of of the avatar circle
-    let edge_radius = image.size[0] as f32 / 2.0;
-    let edge_radius_squared = edge_radius * edge_radius;
-
-    for (pixnum, pixel) in image.pixels.iter_mut().enumerate() {
-        // y coordinate
-        let uy = pixnum / image.size[0];
-        let y = uy as f32;
-        let y_offset = edge_radius - y;
-
-        // x coordinate
-        let ux = pixnum % image.size[0];
-        let x = ux as f32;
-        let x_offset = edge_radius - x;
-
-        // The radius to this pixel (may be inside or outside the circle)
-        let pixel_radius_squared: f32 = x_offset * x_offset + y_offset * y_offset;
-
-        // If inside of the avatar circle
-        if pixel_radius_squared <= edge_radius_squared {
-            // squareroot to find how many pixels we are from the edge
-            let pixel_radius: f32 = pixel_radius_squared.sqrt();
-            let distance = edge_radius - pixel_radius;
-
-            // If we are within 1 pixel of the edge, we should fade, to
-            // antialias the edge of the circle. 1 pixel from the edge should
-            // be 100% of the original color, and right on the edge should be
-            // 0% of the original color.
-            if distance <= 1.0 {
-                *pixel = Color32::from_rgba_premultiplied(
-                    (pixel.r() as f32 * distance) as u8,
-                    (pixel.g() as f32 * distance) as u8,
-                    (pixel.b() as f32 * distance) as u8,
-                    (pixel.a() as f32 * distance) as u8,
-                );
-            }
-        } else {
-            // Outside of the avatar circle
-            *pixel = Color32::TRANSPARENT;
-        }
     }
 }
 

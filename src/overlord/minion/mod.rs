@@ -52,7 +52,7 @@ impl Minion {
             Some(dbrelay) => dbrelay,
             None => {
                 let dbrelay = Relay::new(url.clone());
-                GLOBALS.storage.write_relay(&dbrelay)?;
+                GLOBALS.storage.write_relay(&dbrelay, None)?;
                 dbrelay
             }
         };
@@ -77,6 +77,9 @@ impl Minion {
         // minion will log when it connects
         tracing::trace!("{}: Minion handling started", &self.url);
 
+        let fetcher_timeout =
+            std::time::Duration::new(GLOBALS.settings.read().fetcher_timeout_sec, 0);
+
         // Connect to the relay
         let websocket_stream = {
             // Parse the URI
@@ -94,7 +97,7 @@ impl Minion {
 
             // Fetch NIP-11 data
             let request_nip11_future = reqwest::Client::builder()
-                .timeout(std::time::Duration::new(30, 0))
+                .timeout(fetcher_timeout)
                 .redirect(reqwest::redirect::Policy::none())
                 .gzip(true)
                 .brotli(true)
@@ -126,7 +129,12 @@ impl Minion {
                                     "{}: Unable to parse response as NIP-11 ({}): {}\n",
                                     &self.url,
                                     e,
-                                    text.lines().take(10).collect::<Vec<_>>().join("\n")
+                                    text.lines()
+                                        .take(
+                                            GLOBALS.settings.read().nip11_lines_to_output_on_error
+                                        )
+                                        .collect::<Vec<_>>()
+                                        .join("\n")
                                 );
                             }
                         }
@@ -138,7 +146,7 @@ impl Minion {
             }
 
             // Save updated NIP-11 data (even if it failed)
-            GLOBALS.storage.write_relay(&self.dbrelay)?;
+            GLOBALS.storage.write_relay(&self.dbrelay, None)?;
 
             let key: [u8; 16] = rand::random();
 
@@ -182,16 +190,24 @@ impl Minion {
                 // Cameri nostream relay limits to 0.5 a megabyte
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
                 // Cameri said people with >2k followers were losing data at 128kb cutoff.
-                max_message_size: Some(1024 * 1024), // 1 MB
-                max_frame_size: Some(1024 * 1024),   // 1 MB
-                accept_unmasked_frames: false,       // default is false which is the standard
+                max_message_size: Some(
+                    GLOBALS.settings.read().max_websocket_message_size_kb * 1024,
+                ),
+                max_frame_size: Some(GLOBALS.settings.read().max_websocket_frame_size_kb * 1024),
+                accept_unmasked_frames: GLOBALS.settings.read().websocket_accept_unmasked_frames,
             };
 
-            let (websocket_stream, _response) = tokio::time::timeout(
-                std::time::Duration::new(15, 0),
+            let connect_timeout = GLOBALS.settings.read().websocket_connect_timeout_sec;
+            let (websocket_stream, response) = tokio::time::timeout(
+                std::time::Duration::new(connect_timeout, 0),
                 tokio_tungstenite::connect_async_with_config(req, Some(config), false),
             )
             .await??;
+
+            // Check the status code of the response
+            if response.status().as_u16() == 4000 {
+                return Err(ErrorKind::RelayRejectedUs.into());
+            }
 
             tracing::debug!("{}: Connected", &self.url);
 
@@ -245,13 +261,30 @@ impl Minion {
     async fn loop_handler(&mut self) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
 
-        let mut timer = tokio::time::interval(std::time::Duration::new(55, 0));
+        let mut timer = tokio::time::interval(std::time::Duration::new(
+            GLOBALS.settings.read().websocket_ping_frequency_sec,
+            0,
+        ));
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         timer.tick().await; // use up the first immediate tick.
 
         select! {
+            biased;
             _ = timer.tick() => {
                 ws_stream.send(WsMessage::Ping(vec![0x1])).await?;
+            },
+            to_minion_message = self.from_overlord.recv() => {
+                let to_minion_message = match to_minion_message {
+                    Ok(m) => m,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        self.keepgoing = false;
+                        return Ok(());
+                    },
+                    Err(e) => return Err(e.into())
+                };
+                if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
+                    self.handle_overlord_message(to_minion_message.payload).await?;
+                }
             },
             ws_message = ws_stream.next() => {
                 let ws_message = match ws_message {
@@ -282,19 +315,6 @@ impl Minion {
                     WsMessage::Pong(_) => { }, // Verify it is 0x1? Nah. It's just for keep-alive.
                     WsMessage::Close(_) => self.keepgoing = false,
                     WsMessage::Frame(_) => tracing::warn!("{}: Unexpected frame message", &self.url),
-                }
-            },
-            to_minion_message = self.from_overlord.recv() => {
-                let to_minion_message = match to_minion_message {
-                    Ok(m) => m,
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        self.keepgoing = false;
-                        return Ok(());
-                    },
-                    Err(e) => return Err(e.into())
-                };
-                if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
-                    self.handle_overlord_message(to_minion_message.payload).await?;
                 }
             },
         }
@@ -659,10 +679,9 @@ impl Minion {
         // NOTE we do not unsubscribe to the general feed
 
         // Allow all feed related event kinds
-        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
-        // Exclude DMs and reactions (we wouldn't see the post it reacted to) in person feed
-        event_kinds
-            .retain(|f| *f != EventKind::EncryptedDirectMessage && *f != EventKind::Reaction);
+        let mut event_kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
+        // Exclude DMs
+        event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
         let filters: Vec<Filter> = vec![Filter {
             authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(16)],
@@ -726,8 +745,6 @@ impl Minion {
 
         let mut filters: Vec<Filter> = Vec::new();
 
-        let enable_reactions = GLOBALS.settings.read().reactions;
-
         if !vec_ids.is_empty() {
             let idhp: Vec<IdHexPrefix> = vec_ids
                 .iter()
@@ -743,10 +760,7 @@ impl Minion {
             });
 
             // Get reactions to ancestors, but not replies
-            let mut kinds = vec![EventKind::EventDeletion];
-            if enable_reactions {
-                kinds.push(EventKind::Reaction);
-            }
+            let kinds = GLOBALS.settings.read().feed_augment_event_kinds();
             filters.push(Filter {
                 e: vec_ids,
                 kinds,
@@ -1071,7 +1085,7 @@ impl Minion {
         self.dbrelay.failure_count += 1;
 
         // Save to storage
-        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay) {
+        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay, None) {
             tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
         }
     }
@@ -1086,7 +1100,7 @@ impl Minion {
         }
 
         // Save to storage
-        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay) {
+        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay, None) {
             tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
         }
     }

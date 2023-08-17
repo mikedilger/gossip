@@ -84,7 +84,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Inbox(indirect) => {
-            if GLOBALS.signer.public_key().is_none() {
+            if app.settings.public_key.is_none() {
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup an identity").clicked() {
@@ -216,19 +216,6 @@ fn render_note_maybe_fake(
         is_last,
     } = feed_note_params;
 
-    // We always get the event even offscreen so we can estimate its height
-    let event = match GLOBALS.storage.read_event(id) {
-        Ok(Some(event)) => event,
-        _ => return,
-    };
-
-    // Stop rendering if the note is included in a collapsed thread
-    if let Some((id, _)) = event.replies_to() {
-        if app.collapsed.contains(&id) {
-            return;
-        }
-    }
-
     let screen_rect = ctx.input(|i| i.screen_rect); // Rect
     let pos2 = ui.next_widget_position();
 
@@ -265,8 +252,8 @@ fn render_note_maybe_fake(
         ui.add_space(height);
 
         // Yes, and we need to fake render threads to get their approx height too.
-        if threaded && !as_reply_to {
-            let replies = GLOBALS.storage.get_replies(event.id).unwrap_or(vec![]);
+        if threaded && !as_reply_to && !app.collapsed.contains(&id) {
+            let replies = GLOBALS.storage.get_replies(id).unwrap_or(vec![]);
             let iter = replies.iter();
             let first = replies.first();
             let last = replies.last();

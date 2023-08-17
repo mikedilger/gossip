@@ -5,10 +5,11 @@ pub enum ErrorKind {
     BroadcastSend(tokio::sync::broadcast::error::SendError<ToMinionMessage>),
     BroadcastReceive(tokio::sync::broadcast::error::RecvError),
     Delegation(String),
+    Empty(String),
     General(String),
     HttpError(http::Error),
     JoinError(tokio::task::JoinError),
-    Lmdb(lmdb::Error),
+    Lmdb(heed::Error),
     MaxRelaysReached,
     MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
     Nip05KeyNotFound,
@@ -25,6 +26,7 @@ pub enum ErrorKind {
     ParseInt(std::num::ParseIntError),
     Regex(regex::Error),
     RelayPickerError(gossip_relay_picker::Error),
+    RelayRejectedUs,
     ReqwestHttpError(reqwest::Error),
     Sql(rusqlite::Error),
     SerdeJson(serde_json::Error),
@@ -58,6 +60,7 @@ impl std::fmt::Display for Error {
             BroadcastSend(e) => write!(f, "Error broadcasting: {e}"),
             BroadcastReceive(e) => write!(f, "Error receiving broadcast: {e}"),
             Delegation(s) => write!(f, "NIP-26 Delegation Error: {s}"),
+            Empty(s) => write!(f, "{s} is empty"),
             General(s) => write!(f, "{s}"),
             HttpError(e) => write!(f, "HTTP error: {e}"),
             JoinError(e) => write!(f, "Task join error: {e}"),
@@ -81,6 +84,7 @@ impl std::fmt::Display for Error {
             ParseInt(e) => write!(f, "Bad integer: {e}"),
             Regex(e) => write!(f, "Regex: {e}"),
             RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
+            RelayRejectedUs => write!(f, "Relay rejected us."),
             ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
             Sql(e) => write!(f, "SQL: {e}"),
             SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
@@ -194,8 +198,8 @@ impl From<http::uri::InvalidUri> for ErrorKind {
     }
 }
 
-impl From<lmdb::Error> for ErrorKind {
-    fn from(e: lmdb::Error) -> ErrorKind {
+impl From<heed::Error> for ErrorKind {
+    fn from(e: heed::Error) -> ErrorKind {
         ErrorKind::Lmdb(e)
     }
 }

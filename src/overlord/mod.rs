@@ -5,6 +5,7 @@ use crate::comms::{
 };
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
+use crate::people::Person;
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
@@ -15,8 +16,9 @@ use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData,
-    PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32,
+    PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag, UncheckedUrl,
+    Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -106,7 +108,7 @@ impl Overlord {
 
     pub async fn run_inner(&mut self) -> Result<(), Error> {
         // Start the fetcher
-        crate::fetcher::Fetcher::start();
+        crate::fetcher::Fetcher::start()?;
 
         // Load signer from settings
         GLOBALS.signer.load_from_settings()?;
@@ -385,7 +387,9 @@ impl Overlord {
                     Self::bump_failure_count(&url);
                     tracing::error!("Minion {} completed with error: {}", &url, e);
                     exclusion = 60;
-                    if let ErrorKind::Websocket(wserror) = e.kind {
+                    if let ErrorKind::RelayRejectedUs = e.kind {
+                        exclusion = 60 * 60 * 24 * 365; // don't connect again, practically
+                    } else if let ErrorKind::Websocket(wserror) = e.kind {
                         if let tungstenite::error::Error::Http(response) = wserror {
                             exclusion = match response.status() {
                                 StatusCode::MOVED_PERMANENTLY => 60 * 60 * 24,
@@ -468,15 +472,15 @@ impl Overlord {
     fn bump_failure_count(url: &RelayUrl) {
         if let Ok(Some(mut dbrelay)) = GLOBALS.storage.read_relay(url) {
             dbrelay.failure_count += 1;
-            let _ = GLOBALS.storage.write_relay(&dbrelay);
+            let _ = GLOBALS.storage.write_relay(&dbrelay, None);
         }
     }
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
             ToOverlordMessage::AddRelay(relay_str) => {
-                let dbrelay = Relay::new(relay_str.clone());
-                GLOBALS.storage.write_relay(&dbrelay)?;
+                let dbrelay = Relay::new(relay_str);
+                GLOBALS.storage.write_relay(&dbrelay, None)?;
             }
             ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
                 if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
@@ -491,7 +495,7 @@ impl Overlord {
             ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
                 if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                     dbrelay.adjust_usage_bit(bit, value);
-                    GLOBALS.storage.write_relay(&dbrelay)?;
+                    GLOBALS.storage.write_relay(&dbrelay, None)?;
                 } else {
                     tracing::error!("CODE OVERSIGHT - We are adjusting a relay usage bit for a relay not in memory, how did that happen? It will not be saved.");
                 }
@@ -576,7 +580,7 @@ impl Overlord {
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
                 if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
                     relay.hidden = hidden;
-                    GLOBALS.storage.write_relay(&relay)?;
+                    GLOBALS.storage.write_relay(&relay, None)?;
                 }
             }
             ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
@@ -676,7 +680,8 @@ impl Overlord {
                     .write("Pruning database, please be patient..".to_owned());
 
                 let now = Unixtime::now().unwrap();
-                let then = now - Duration::new(60 * 60 * 24 * 180, 0); // 180 days
+                let then = now
+                    - Duration::new(GLOBALS.settings.read().prune_period_days * 60 * 60 * 24, 0);
                 let count = GLOBALS.storage.prune(then)?;
 
                 GLOBALS.status_queue.write().write(format!(
@@ -699,7 +704,7 @@ impl Overlord {
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                     dbrelay.rank = rank as u64;
-                    GLOBALS.storage.write_relay(&dbrelay)?;
+                    GLOBALS.storage.write_relay(&dbrelay, None)?;
                 }
             }
             ToOverlordMessage::ReengageMinion(url, persistent_jobs) => {
@@ -713,7 +718,7 @@ impl Overlord {
             }
             ToOverlordMessage::SaveSettings => {
                 let settings = GLOBALS.settings.read().clone();
-                GLOBALS.storage.write_settings(&settings)?;
+                GLOBALS.storage.write_settings(&settings, None)?;
                 tracing::debug!("Settings saved.");
             }
             ToOverlordMessage::Search(text) => {
@@ -744,7 +749,7 @@ impl Overlord {
                 let public_key = GLOBALS.signer.public_key().unwrap();
                 GLOBALS.settings.write().public_key = Some(public_key);
                 let settings = GLOBALS.settings.read().clone();
-                GLOBALS.storage.write_settings(&settings)?;
+                GLOBALS.storage.write_settings(&settings, None)?;
             }
             ToOverlordMessage::UpdateFollowing(merge) => {
                 self.update_following(merge).await?;
@@ -868,7 +873,7 @@ impl Overlord {
 
         // Save relay
         let db_relay = Relay::new(relay.clone());
-        GLOBALS.storage.write_relay(&db_relay)?;
+        GLOBALS.storage.write_relay(&db_relay, None)?;
 
         let now = Unixtime::now().unwrap().0 as u64;
 
@@ -880,7 +885,7 @@ impl Overlord {
         pr.last_suggested_kind3 = Some(now);
         pr.manually_paired_read = true;
         pr.manually_paired_write = true;
-        GLOBALS.storage.write_person_relay(&pr)?;
+        GLOBALS.storage.write_person_relay(&pr, None)?;
 
         // async_follow added them to the relay tracker.
         // Pick relays to start tracking them now
@@ -1059,7 +1064,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, false, None, None).await?;
+        crate::process::process_new_event(&event, None, None).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1260,7 +1265,7 @@ impl Overlord {
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, false, None, None).await?;
+        crate::process::process_new_event(&event, None, None).await?;
 
         Ok(())
     }
@@ -1489,7 +1494,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, false, None, None).await?;
+        crate::process::process_new_event(&event, None, None).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1668,7 +1673,7 @@ impl Overlord {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
                 // Save relay
                 let db_relay = Relay::new(relay_url.clone());
-                GLOBALS.storage.write_relay(&db_relay)?;
+                GLOBALS.storage.write_relay(&db_relay, None)?;
 
                 // Save person_relay
                 let mut pr = match GLOBALS
@@ -1679,7 +1684,7 @@ impl Overlord {
                     None => PersonRelay::new(nprofile.pubkey, relay_url.clone()),
                 };
                 pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
-                GLOBALS.storage.write_person_relay(&pr)?;
+                GLOBALS.storage.write_person_relay(&pr, None)?;
             }
         }
 
@@ -1738,7 +1743,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, false, None, None).await?;
+        crate::process::process_new_event(&event, None, None).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1818,7 +1823,7 @@ impl Overlord {
                         .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
                     {
                         // Save relay if missing
-                        GLOBALS.storage.write_relay_if_missing(&url)?;
+                        GLOBALS.storage.write_relay_if_missing(&url, None)?;
 
                         // create or update person_relay last_suggested_kind3
                         let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
@@ -1826,7 +1831,7 @@ impl Overlord {
                             None => PersonRelay::new(pubkey, url.clone()),
                         };
                         pr.last_suggested_kind3 = Some(now.0 as u64);
-                        GLOBALS.storage.write_person_relay(&pr)?;
+                        GLOBALS.storage.write_person_relay(&pr, None)?;
                     }
                     // TBD: do something with the petname
                 }
@@ -1842,7 +1847,9 @@ impl Overlord {
         } else {
             our_contact_list.created_at
         };
-        GLOBALS.storage.write_last_contact_list_edit(last_edit.0)?;
+        GLOBALS
+            .storage
+            .write_last_contact_list_edit(last_edit.0, None)?;
 
         // Pick relays again
         {
@@ -1864,21 +1871,67 @@ impl Overlord {
                 .write("You must enter at least 2 characters to search.".to_string());
             return Ok(());
         }
-
         text = text.to_lowercase();
 
-        // If npub, convert to hex so we can find it in the database
-        // (This will only work with full npubs)
-        let mut pubkeytext = text.clone();
-        if let Ok(pk) = PublicKey::try_from_bech32_string(&text, true) {
-            pubkeytext = pk.as_hex_string();
+        let mut people_search_results: Vec<Person> = Vec::new();
+        let mut note_search_results: Vec<Event> = Vec::new();
+
+        // If a nostr: url, strip the 'nostr:' part
+        if text.len() >= 6 && &text[0..6] == "nostr:" {
+            text = text.split_off(6);
         }
 
-        *GLOBALS.people_search_results.write() = GLOBALS.storage.filter_people(|p| {
-            if p.pubkey.as_hex_string().contains(&pubkeytext) {
-                return true;
+        if let Some(nb32) = NostrBech32::try_from_string(&text) {
+            match nb32 {
+                NostrBech32::EventAddr(ea) => {
+                    if let Some(event) = GLOBALS
+                        .storage
+                        .find_events(
+                            &[ea.kind],
+                            &[ea.author],
+                            None,
+                            |event| {
+                                event.tags.iter().any(|tag| {
+                                    if let Tag::Identifier { d, .. } = tag {
+                                        if *d == ea.d {
+                                            return true;
+                                        }
+                                    }
+                                    false
+                                })
+                            },
+                            true,
+                        )?
+                        .get(1)
+                    {
+                        note_search_results.push(event.clone());
+                    }
+                }
+                NostrBech32::EventPointer(ep) => {
+                    if let Some(event) = GLOBALS.storage.read_event(ep.id)? {
+                        note_search_results.push(event);
+                    }
+                }
+                NostrBech32::Id(id) => {
+                    if let Some(event) = GLOBALS.storage.read_event(id)? {
+                        note_search_results.push(event);
+                    }
+                }
+                NostrBech32::Profile(prof) => {
+                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey)? {
+                        people_search_results.push(person);
+                    }
+                }
+                NostrBech32::Pubkey(pk) => {
+                    if let Some(person) = GLOBALS.storage.read_person(&pk)? {
+                        people_search_results.push(person);
+                    }
+                }
+                NostrBech32::Relay(_relay) => (),
             }
+        }
 
+        people_search_results.extend(GLOBALS.storage.filter_people(|p| {
             if let Some(metadata) = &p.metadata {
                 if let Ok(s) = serde_json::to_string(&metadata) {
                     if s.to_lowercase().contains(&text) {
@@ -1894,9 +1947,11 @@ impl Overlord {
             }
 
             false
-        })?;
+        })?);
 
-        let note_search_results = GLOBALS.storage.search_events(&text)?;
+        note_search_results.extend(GLOBALS.storage.search_events(&text)?);
+
+        *GLOBALS.people_search_results.write() = people_search_results;
         *GLOBALS.note_search_results.write() = note_search_results;
 
         Ok(())

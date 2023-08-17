@@ -22,8 +22,8 @@ impl Relay {
     pub const READ: u64 = 1 << 0; // 1
     pub const WRITE: u64 = 1 << 1; // 2
     pub const ADVERTISE: u64 = 1 << 2; // 4
-    pub const INBOX: u64 = 1 << 3; // 8
-    pub const OUTBOX: u64 = 1 << 4; // 16
+    pub const INBOX: u64 = 1 << 3; // 8            this is 'read' of kind 10002
+    pub const OUTBOX: u64 = 1 << 4; // 16          this is 'write' of kind 10002
     pub const DISCOVER: u64 = 1 << 5; // 32
 
     pub fn new(url: RelayUrl) -> Relay {
@@ -47,12 +47,6 @@ impl Relay {
 
     pub fn clear_usage_bits(&mut self, bits: u64) {
         self.usage_bits &= !bits;
-    }
-
-    pub fn clear_all_relay_list_usage_bits() -> Result<(), Error> {
-        GLOBALS.storage.modify_all_relays(|relay| {
-            relay.usage_bits &= Self::INBOX | Self::OUTBOX;
-        })
     }
 
     pub fn adjust_usage_bit(&mut self, bit: u64, value: bool) {

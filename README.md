@@ -84,6 +84,7 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 - [ ] NIP-40 - Expiration Timestamp
 - [x] NIP-42 - Authentication of clients to relays
 - [ ] NIP-46 - Nostr Connect
+- [x] NIP-48 - Proxy Tags
 - [ ] NIP-50 - Keywords filter
 - [ ] NIP-51 - Lists
 - [ ] NIP-56 - Reporting
@@ -116,6 +117,7 @@ Most dependencies are probably already installed in your base operating system. 
 - pkg-config (debian: "pkg-config")
 - openssl (debian: "libssl-dev")
 - fontconfig (debian: "libfontconfig1-dev")
+- ffmpeg support (debian: libavutil-dev libavformat-dev libavfilter-dev libavdevice-dev libxext-dev libclang-dev)
 
 #### macOS
 
@@ -210,6 +212,10 @@ Compile with
 ````
 
 ## Known Issues
+
+### Performance issues
+
+If you are having performance issues, please see [PERFORMANCE.md](PERFORMANCE.md).
 
 ### Sqlite Constraint Issues (Foreign or Unique Key)
 

@@ -37,7 +37,8 @@ fallible-iterator = "0.2"
 filetime = "0.2"
 futures = "0.3"
 futures-util = "0.3"
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "a1a81895641eb59c25792376b2efc7682b09c156" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "67436e26cb61596b1ff459693f2fe5999854efe2" }
+heed = { git = "https://github.com/mikedilger/heed", rev = "b876c8fc6b256f081a3f3b94f06a08ffb44aa614" }
 hex = "0.4"
 http = "0.2"
 humansize = "2.1"
@@ -45,11 +46,9 @@ image = { version = "0.24.6", features = [ "png", "jpeg" ] }
 kamadak-exif = "0.5"
 lazy_static = "1.4"
 linkify = "0.9"
-lmdb-rkv = "0.14"
-lmdb-rkv-sys = "0.11"
 memoize = "0.4"
 mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "099077afc81def588b8655f010a15d77baaff7ca", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "ab8abe371b42e6ed54372c7f97eb2c78cd8ce1c4", features = [ "speedy" ] }
 parking_lot = "0.12"
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust", rev = "519b77b3efa3f84961169b47d3de08c5ddd86548" }
 rand = "0.8"
@@ -70,6 +69,9 @@ tungstenite = { version = "0.19", default-features = false }
 url = "2.4"
 vecmap-rs = "0.1"
 zeroize = "1.6"
+
+[target.'cfg(windows)'.dependencies]
+normpath = "1.1"
 
 # Force scrypt to build with release-like speed even in dev mode
 [profile.dev.package.scrypt]

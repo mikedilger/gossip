@@ -8,8 +8,6 @@ use nostr_types::{
 use parking_lot::RwLock;
 use tokio::task;
 
-const DEFAULT_LOG_N: u8 = 18;
-
 #[derive(Default)]
 pub struct Signer {
     public: RwLock<Option<PublicKey>>,
@@ -31,10 +29,10 @@ impl Signer {
     pub async fn save_through_settings(&self) -> Result<(), Error> {
         GLOBALS.settings.write().public_key = *self.public.read();
         let settings = GLOBALS.settings.read().clone();
-        GLOBALS.storage.write_settings(&settings)?;
+        GLOBALS.storage.write_settings(&settings, None)?;
 
         let epk = self.encrypted.read().clone();
-        GLOBALS.storage.write_encrypted_private_key(&epk)?;
+        GLOBALS.storage.write_encrypted_private_key(&epk, None)?;
 
         Ok(())
     }
@@ -70,7 +68,7 @@ impl Signer {
     }
 
     pub fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
-        *self.encrypted.write() = Some(pk.export_encrypted(pass, DEFAULT_LOG_N)?);
+        *self.encrypted.write() = Some(pk.export_encrypted(pass, GLOBALS.settings.read().log_n)?);
         *self.public.write() = Some(pk.public_key());
         *self.private.write() = Some(pk);
         Ok(())
@@ -88,7 +86,8 @@ impl Signer {
 
                 // If older version, re-encrypt with new version at default 2^18 rounds
                 if epk.version()? < 2 {
-                    *self.encrypted.write() = Some(private.export_encrypted(pass, DEFAULT_LOG_N)?);
+                    *self.encrypted.write() =
+                        Some(private.export_encrypted(pass, GLOBALS.settings.read().log_n)?);
                     // and eventually save
                     task::spawn(async move {
                         if let Err(e) = GLOBALS.signer.save_through_settings().await {
@@ -130,7 +129,7 @@ impl Signer {
             Some(epk) => {
                 // Test password
                 let pk = epk.decrypt(old)?;
-                let epk = pk.export_encrypted(new, DEFAULT_LOG_N)?;
+                let epk = pk.export_encrypted(new, GLOBALS.settings.read().log_n)?;
                 *self.encrypted.write() = Some(epk);
                 task::spawn(async move {
                     if let Err(e) = GLOBALS.signer.save_through_settings().await {
@@ -149,7 +148,7 @@ impl Signer {
 
     pub fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
         let pk = PrivateKey::generate();
-        *self.encrypted.write() = Some(pk.export_encrypted(pass, DEFAULT_LOG_N)?);
+        *self.encrypted.write() = Some(pk.export_encrypted(pass, GLOBALS.settings.read().log_n)?);
         *self.public.write() = Some(pk.public_key());
         *self.private.write() = Some(pk);
         Ok(())
@@ -201,7 +200,7 @@ impl Signer {
 
                 // We have to regenerate encrypted private key because it may have fallen from
                 // medium to weak security. And then we need to save that
-                let epk = pk.export_encrypted(pass, DEFAULT_LOG_N)?;
+                let epk = pk.export_encrypted(pass, GLOBALS.settings.read().log_n)?;
                 *self.encrypted.write() = Some(epk);
                 *self.private.write() = Some(pk);
                 task::spawn(async move {
@@ -226,7 +225,7 @@ impl Signer {
 
                 // We have to regenerate encrypted private key because it may have fallen from
                 // medium to weak security. And then we need to save that
-                let epk = pk.export_encrypted(pass, DEFAULT_LOG_N)?;
+                let epk = pk.export_encrypted(pass, GLOBALS.settings.read().log_n)?;
                 *self.encrypted.write() = Some(epk);
                 *self.private.write() = Some(pk);
                 task::spawn(async move {
