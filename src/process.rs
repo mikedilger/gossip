@@ -45,7 +45,7 @@ pub async fn process_new_event(
     if let Some(ref relay_url) = seen_on {
         // Verify the event
         let mut maxtime = now;
-        maxtime.0 += GLOBALS.settings.read().future_allowance_secs as i64;
+        maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
         if let Err(e) = event.verify(Some(maxtime)) {
             tracing::error!(
                 "{}: VERIFY ERROR: {}, {}",

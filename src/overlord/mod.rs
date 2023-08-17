@@ -124,7 +124,7 @@ impl Overlord {
         GLOBALS.relay_picker.init().await?;
 
         // Pick Relays and start Minions
-        if !GLOBALS.settings.read().offline {
+        if !GLOBALS.storage.read_setting_offline() {
             self.pick_relays().await;
         }
 
@@ -276,7 +276,7 @@ impl Overlord {
 
     async fn engage_minion(&mut self, url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(), Error> {
         // Do not connect if we are offline
-        if GLOBALS.settings.read().offline {
+        if GLOBALS.storage.read_setting_offline() {
             return Ok(());
         }
 
@@ -687,7 +687,10 @@ impl Overlord {
 
                 let now = Unixtime::now().unwrap();
                 let then = now
-                    - Duration::new(GLOBALS.settings.read().prune_period_days * 60 * 60 * 24, 0);
+                    - Duration::new(
+                        GLOBALS.storage.read_setting_prune_period_days() * 60 * 60 * 24,
+                        0,
+                    );
                 let count = GLOBALS.storage.prune(then)?;
 
                 GLOBALS.status_queue.write().write(format!(
@@ -762,7 +765,7 @@ impl Overlord {
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
-                let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
+                let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
                 // we do 1 more than num_relays_per_person, which is really for main posts,
                 // since metadata is more important and I didn't want to bother with
@@ -789,7 +792,7 @@ impl Overlord {
                 GLOBALS.people.recheck_nip05_on_update_metadata(&pubkey);
             }
             ToOverlordMessage::UpdateMetadataInBulk(mut pubkeys) => {
-                let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
+                let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
                 let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
                 for pubkey in pubkeys.drain(..) {
                     let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
@@ -920,7 +923,7 @@ impl Overlord {
                 }
             };
 
-            if GLOBALS.settings.read().set_client_tag {
+            if GLOBALS.storage.read_setting_set_client_tag() {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -1056,7 +1059,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().pow;
+            let powint = GLOBALS.storage.read_setting_pow();
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 
@@ -1218,7 +1221,7 @@ impl Overlord {
                 },
             ];
 
-            if GLOBALS.settings.read().set_client_tag {
+            if GLOBALS.storage.read_setting_set_client_tag() {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -1234,7 +1237,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().pow;
+            let powint = GLOBALS.storage.read_setting_pow();
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 
@@ -1389,7 +1392,7 @@ impl Overlord {
             pubkeys.push(pubkey)
         }
 
-        let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
 
@@ -1470,7 +1473,7 @@ impl Overlord {
                 }
             };
 
-            if GLOBALS.settings.read().set_client_tag {
+            if GLOBALS.storage.read_setting_set_client_tag() {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -1486,7 +1489,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().pow;
+            let powint = GLOBALS.storage.read_setting_pow();
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 

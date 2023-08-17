@@ -555,7 +555,7 @@ impl Storage {
         Theme {
             variant: ThemeVariant::Default,
             dark_mode: false,
-            follow_os_dark_mode: false,
+            follow_os_dark_mode: false
         }
     );
     def_setting!(override_dpi, b"override_dpi", Option::<u32>, None);
@@ -1094,7 +1094,7 @@ impl Storage {
         }
 
         let mut ours = false;
-        if let Some(pubkey) = GLOBALS.settings.read().public_key {
+        if let Some(pubkey) = GLOBALS.storage.read_setting_public_key() {
             if event.pubkey == pubkey {
                 tracing::info!("Processing our own relay list");
                 ours = true;
@@ -2129,7 +2129,7 @@ impl Storage {
         // Resort
         ranked_relays.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
 
-        let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person as usize;
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
 
         // If we can't get enough of them, extend with some of our relays
         // at whatever the lowest score of their last one was

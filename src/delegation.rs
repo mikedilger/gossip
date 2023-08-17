@@ -55,7 +55,7 @@ impl Delegation {
     }
 
     pub fn load_through_settings(&self) -> Result<(), Error> {
-        self.set(&GLOBALS.settings.read().delegatee_tag)
+        self.set(&GLOBALS.storage.read_setting_delegatee_tag())
     }
 
     pub async fn save_through_settings(&self) -> Result<(), Error> {

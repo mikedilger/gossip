@@ -78,7 +78,7 @@ impl Minion {
         tracing::trace!("{}: Minion handling started", &self.url);
 
         let fetcher_timeout =
-            std::time::Duration::new(GLOBALS.settings.read().fetcher_timeout_sec, 0);
+            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0);
 
         // Connect to the relay
         let websocket_stream = {
@@ -131,7 +131,9 @@ impl Minion {
                                     e,
                                     text.lines()
                                         .take(
-                                            GLOBALS.settings.read().nip11_lines_to_output_on_error
+                                            GLOBALS
+                                                .storage
+                                                .read_setting_nip11_lines_to_output_on_error()
                                         )
                                         .collect::<Vec<_>>()
                                         .join("\n")
@@ -152,7 +154,7 @@ impl Minion {
 
             let req = http::request::Request::builder().method("GET");
 
-            let req = if GLOBALS.settings.read().set_user_agent {
+            let req = if GLOBALS.storage.read_setting_set_user_agent() {
                 req.header("User-Agent", USER_AGENT)
             } else {
                 req
@@ -191,13 +193,17 @@ impl Minion {
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
                 // Cameri said people with >2k followers were losing data at 128kb cutoff.
                 max_message_size: Some(
-                    GLOBALS.settings.read().max_websocket_message_size_kb * 1024,
+                    GLOBALS.storage.read_setting_max_websocket_message_size_kb() * 1024,
                 ),
-                max_frame_size: Some(GLOBALS.settings.read().max_websocket_frame_size_kb * 1024),
-                accept_unmasked_frames: GLOBALS.settings.read().websocket_accept_unmasked_frames,
+                max_frame_size: Some(
+                    GLOBALS.storage.read_setting_max_websocket_frame_size_kb() * 1024,
+                ),
+                accept_unmasked_frames: GLOBALS
+                    .storage
+                    .read_setting_websocket_accept_unmasked_frames(),
             };
 
-            let connect_timeout = GLOBALS.settings.read().websocket_connect_timeout_sec;
+            let connect_timeout = GLOBALS.storage.read_setting_websocket_connect_timeout_sec();
             let (websocket_stream, response) = tokio::time::timeout(
                 std::time::Duration::new(connect_timeout, 0),
                 tokio_tungstenite::connect_async_with_config(req, Some(config), false),
@@ -262,7 +268,7 @@ impl Minion {
         let ws_stream = self.stream.as_mut().unwrap();
 
         let mut timer = tokio::time::interval(std::time::Duration::new(
-            GLOBALS.settings.read().websocket_ping_frequency_sec,
+            GLOBALS.storage.read_setting_websocket_ping_frequency_sec(),
             0,
         ));
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

@@ -199,7 +199,7 @@ impl People {
         task::spawn(async {
             loop {
                 let fetch_metadata_looptime_ms =
-                    GLOBALS.settings.read().fetcher_metadata_looptime_ms;
+                    GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
 
                 // Every 3 seconds...
                 tokio::time::sleep(Duration::from_millis(fetch_metadata_looptime_ms)).await;
@@ -228,7 +228,10 @@ impl People {
         among_these: &[PublicKey],
     ) -> Vec<PublicKey> {
         let stale = Unixtime::now().unwrap().0
-            - 60 * 60 * GLOBALS.settings.read().relay_list_becomes_stale_hours as i64;
+            - 60 * 60
+                * GLOBALS
+                    .storage
+                    .read_setting_relay_list_becomes_stale_hours() as i64;
 
         if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
             p.followed && p.relay_list_last_received < stale && among_these.contains(&p.pubkey)
@@ -257,7 +260,7 @@ impl People {
     // metadata, then add this person to the list of people that need metadata.
     pub fn person_of_interest(&self, pubkey: PublicKey) {
         // Don't get metadata if disabled
-        if !GLOBALS.settings.read().automatically_fetch_metadata {
+        if !GLOBALS.storage.read_setting_automatically_fetch_metadata() {
             return;
         }
 
@@ -273,7 +276,7 @@ impl People {
                     // Metadata refresh interval
                     let now = Unixtime::now().unwrap();
                     let stale = Duration::from_secs(
-                        60 * 60 * GLOBALS.settings.read().metadata_becomes_stale_hours,
+                        60 * 60 * GLOBALS.storage.read_setting_metadata_becomes_stale_hours(),
                     );
                     person.metadata_created_at.is_none()
                         || person.metadata_last_received < (now - stale).0
@@ -399,14 +402,16 @@ impl People {
                     // FIXME make these settings
                     let recheck_duration = if person.nip05_valid {
                         Duration::from_secs(
-                            60 * 60 * GLOBALS.settings.read().nip05_becomes_stale_if_valid_hours,
+                            60 * 60
+                                * GLOBALS
+                                    .storage
+                                    .read_setting_nip05_becomes_stale_if_valid_hours(),
                         )
                     } else {
                         Duration::from_secs(
                             60 * GLOBALS
-                                .settings
-                                .read()
-                                .nip05_becomes_stale_if_invalid_minutes,
+                                .storage
+                                .read_setting_nip05_becomes_stale_if_invalid_minutes(),
                         )
                     };
                     Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration
@@ -445,7 +450,7 @@ impl People {
         }
 
         // Do not fetch if disabled
-        if !GLOBALS.settings.read().load_avatars {
+        if !GLOBALS.storage.read_setting_load_avatars() {
             return None; // can recover if the setting is switched
         }
 
@@ -477,7 +482,9 @@ impl People {
 
         match GLOBALS.fetcher.try_get(
             &url,
-            Duration::from_secs(60 * 60 * GLOBALS.settings.read().avatar_becomes_stale_hours),
+            Duration::from_secs(
+                60 * 60 * GLOBALS.storage.read_setting_avatar_becomes_stale_hours(),
+            ),
         ) {
             // cache expires in 3 days
             Ok(None) => None,
@@ -491,7 +498,7 @@ impl People {
                             .load(Ordering::Relaxed)
                         / 100;
 
-                    let round_image = GLOBALS.settings.read().theme.round_image();
+                    let round_image = GLOBALS.storage.read_setting_theme().round_image();
                     match crate::media::load_image_bytes(
                         &bytes,
                         true, // crop square
