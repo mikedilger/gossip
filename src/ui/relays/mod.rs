@@ -1,16 +1,15 @@
 use std::cmp::Ordering;
 
-use crate::{db::DbRelay, globals::GLOBALS, comms::ToOverlordMessage};
-
-use super::{GossipUi, Page, widgets::RelayEntry};
+use super::{GossipUi, Page};
+use crate::{comms::ToOverlordMessage, globals::GLOBALS, relay::Relay};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id, vec2, Rect, RichText};
+use egui_winit::egui::{vec2, Id, Rect, RichText};
 use nostr_types::RelayUrl;
 
 mod active;
-mod mine;
 mod known;
+mod mine;
 
 pub(super) struct RelayUi {
     /// text of search field
@@ -26,7 +25,7 @@ pub(super) struct RelayUi {
     /// to edit, add the relay url here
     edit: Option<RelayUrl>,
     /// cache relay list for editing
-    edit_relays: Vec<DbRelay>,
+    edit_relays: Vec<Relay>,
     /// did we just finish editing an entry, add it here
     edit_done: Option<RelayUrl>,
     /// do we still need to scroll to the edit
@@ -59,7 +58,7 @@ impl RelayUi {
     }
 }
 
-#[derive(PartialEq,Default)]
+#[derive(PartialEq, Default)]
 pub(super) enum RelaySorting {
     #[default]
     Rank,
@@ -129,7 +128,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 }
 
-pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbRelay>, id_source: Id) {
+pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<Relay>, id_source: Id) {
     let scroll_size = ui.available_size_before_wrap();
     let is_editing = app.relays.edit.is_some();
     let enable_scroll = !is_editing && !egui::ScrollArea::is_scrolling(ui, id_source);
@@ -158,7 +157,7 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
 
             // retrieve an updated copy of this relay when editing
             let db_relay = if has_edit_target {
-                if let Some(entry) = GLOBALS.all_relays.get(&db_url) {
+                if let Ok(Some(entry)) = GLOBALS.storage.read_relay(&db_url) {
                     entry.clone() // update
                 } else {
                     db_relay // can't update
@@ -191,7 +190,7 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
                 .find(|p| p.key() == &db_url ).map(|f| *f.value());
 
             let enabled = edit || !is_editing;
-            let mut widget = RelayEntry::new(db_relay, app);
+            let mut widget = super::widgets::RelayEntry::new(db_relay, app);
             widget.set_edit(edit);
             widget.set_detail(app.relays.show_details);
             widget.set_enabled(enabled);
@@ -264,7 +263,8 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
             ui.painter().rect_filled(
                 ctx.screen_rect(),
                 egui::Rounding::same(0.0),
-                egui::Color32::from_rgba_unmultiplied(0x9f,0x9f,0x9f,102));
+                egui::Color32::from_rgba_unmultiplied(0x9f, 0x9f, 0x9f, 102),
+            );
         });
 
     let id: Id = "relays-add-dialog".into();
@@ -278,15 +278,15 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
     area.show(ctx, |ui| {
         frame.fill = ui.visuals().extreme_bg_color;
         frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
-        frame.show(ui, |ui|{
+        frame.show(ui, |ui| {
             ui.set_min_size(dlg_size);
             ui.set_max_size(dlg_size);
 
             // ui.max_rect is inner_margin size
             let tr = ui.max_rect().right_top();
 
-            ui.vertical(|ui|{
-                ui.horizontal(|ui|{
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
                     ui.heading("Add a new relay");
                     let rect = Rect::from_x_y_ranges(tr.x ..= tr.x + 10.0 , tr.y - 20.0 ..= tr.y - 10.0 );
                     ui.allocate_ui_at_rect(
@@ -383,7 +383,7 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
         ui.add_space(10.0);
 
         // if the overlord has added the relay, we are done for now
-        if GLOBALS.all_relays.contains_key(&url) {
+        if GLOBALS.storage.read_relay(&url).is_ok() {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui|{
                 ui.visuals_mut().widgets.inactive.weak_bg_fill = app.settings.theme.accent_color();
                 ui.visuals_mut().widgets.hovered.weak_bg_fill = {
@@ -559,20 +559,21 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
 /// Filter a relay entry
 /// - return: true if selected
 ///
-pub(super) fn sort_relay(rui: &RelayUi, a: &DbRelay, b: &DbRelay) -> Ordering {
+pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
     match rui.sort {
         RelaySorting::Rank => b
-            .rank.cmp(&a.rank)
+            .rank
+            .cmp(&a.rank)
             .then(b.usage_bits.cmp(&a.usage_bits))
             .then(a.url.cmp(&b.url)),
         RelaySorting::Name => a.url.cmp(&b.url),
         RelaySorting::WriteRelays => b
-            .has_usage_bits(DbRelay::WRITE)
-            .cmp(&a.has_usage_bits(DbRelay::WRITE))
+            .has_usage_bits(Relay::WRITE)
+            .cmp(&a.has_usage_bits(Relay::WRITE))
             .then(a.url.cmp(&b.url)),
         RelaySorting::AdvertiseRelays => b
-            .has_usage_bits(DbRelay::ADVERTISE)
-            .cmp(&a.has_usage_bits(DbRelay::ADVERTISE))
+            .has_usage_bits(Relay::ADVERTISE)
+            .cmp(&a.has_usage_bits(Relay::ADVERTISE))
             .then(a.url.cmp(&b.url)),
         RelaySorting::HighestFollowing => a.url.cmp(&b.url), // FIXME need following numbers here
         RelaySorting::HighestSuccessRate => b
@@ -590,7 +591,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &DbRelay, b: &DbRelay) -> Ordering {
 /// Filter a relay entry
 /// - return: true if selected
 ///
-pub(super) fn filter_relay(rui: &RelayUi, ri: &DbRelay) -> bool {
+pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
     let search = if rui.search.len() > 1 {
         ri.url
             .as_str()
@@ -602,10 +603,10 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &DbRelay) -> bool {
 
     let filter = match rui.filter {
         RelayFilter::All => true,
-        RelayFilter::Write => ri.has_usage_bits(DbRelay::WRITE),
-        RelayFilter::Read => ri.has_usage_bits(DbRelay::READ),
-        RelayFilter::Advertise => ri.has_usage_bits(DbRelay::ADVERTISE),
-        RelayFilter::Private => !ri.has_usage_bits(DbRelay::INBOX | DbRelay::OUTBOX),
+        RelayFilter::Write => ri.has_usage_bits(Relay::WRITE),
+        RelayFilter::Read => ri.has_usage_bits(Relay::READ),
+        RelayFilter::Advertise => ri.has_usage_bits(Relay::ADVERTISE),
+        RelayFilter::Private => !ri.has_usage_bits(Relay::INBOX | Relay::OUTBOX),
     };
 
     search && filter

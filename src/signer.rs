@@ -18,31 +18,24 @@ pub struct Signer {
 }
 
 impl Signer {
-    pub async fn load_from_settings(&self) {
+    pub fn load_from_settings(&self) -> Result<(), Error> {
         *self.public.write() = GLOBALS.settings.read().public_key;
         *self.private.write() = None;
 
-        let db = GLOBALS.db.lock().await;
-        if let Ok(epk) = db.query_row(
-            "SELECT encrypted_private_key FROM local_settings LIMIT 1",
-            [],
-            |row| row.get::<usize, String>(0),
-        ) {
-            *self.encrypted.write() = Some(EncryptedPrivateKey(epk));
-        }
+        let epk = GLOBALS.storage.read_encrypted_private_key()?;
+        *self.encrypted.write() = epk;
+
+        Ok(())
     }
 
     pub async fn save_through_settings(&self) -> Result<(), Error> {
         GLOBALS.settings.write().public_key = *self.public.read();
         let settings = GLOBALS.settings.read().clone();
-        settings.save().await?;
+        GLOBALS.storage.write_settings(&settings)?;
 
         let epk = self.encrypted.read().clone();
-        let db = GLOBALS.db.lock().await;
-        db.execute(
-            "UPDATE local_settings SET encrypted_private_key=?",
-            (epk.map(|e| e.0),),
-        )?;
+        GLOBALS.storage.write_encrypted_private_key(&epk)?;
+
         Ok(())
     }
 
@@ -110,11 +103,18 @@ impl Signer {
 
                 // Invalidate DMs so they rerender decrypted
                 let dms: Vec<Id> = GLOBALS
-                    .events
+                    .storage
+                    .find_events(
+                        &[EventKind::EncryptedDirectMessage],
+                        &[],
+                        None,
+                        |_| true,
+                        false,
+                    )?
                     .iter()
-                    .filter(|e| e.kind == EventKind::EncryptedDirectMessage)
-                    .map(|e| e.value().id)
+                    .map(|e| e.id)
                     .collect();
+
                 GLOBALS.ui_notes_to_invalidate.write().extend(dms);
             }
 

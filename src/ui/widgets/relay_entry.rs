@@ -3,7 +3,7 @@ use eframe::egui;
 use egui::{widget_text::WidgetTextGalley, *};
 use nostr_types::{PublicKeyHex, Unixtime};
 
-use crate::{comms::ToOverlordMessage, db::DbRelay, globals::GLOBALS, ui::{components, GossipUi}};
+use crate::{comms::ToOverlordMessage, relay::Relay, globals::GLOBALS, ui::{components, GossipUi}};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 50.0;
@@ -100,34 +100,34 @@ struct UsageBits {
 impl UsageBits {
     fn from_usage_bits(usage_bits: u64) -> Self {
         Self {
-            read: usage_bits & DbRelay::READ == DbRelay::READ,
-            write: usage_bits & DbRelay::WRITE == DbRelay::WRITE,
-            advertise: usage_bits & DbRelay::ADVERTISE == DbRelay::ADVERTISE,
-            inbox: usage_bits & DbRelay::INBOX == DbRelay::INBOX,
-            outbox: usage_bits & DbRelay::OUTBOX == DbRelay::OUTBOX,
-            discover: usage_bits & DbRelay::DISCOVER == DbRelay::DISCOVER,
+            read: usage_bits & Relay::READ == Relay::READ,
+            write: usage_bits & Relay::WRITE == Relay::WRITE,
+            advertise: usage_bits & Relay::ADVERTISE == Relay::ADVERTISE,
+            inbox: usage_bits & Relay::INBOX == Relay::INBOX,
+            outbox: usage_bits & Relay::OUTBOX == Relay::OUTBOX,
+            discover: usage_bits & Relay::DISCOVER == Relay::DISCOVER,
         }
     }
 
     // fn to_usage_bits(&self) -> u64 {
     //     let mut bits: u64 = 0;
     //     if self.read {
-    //         bits |= DbRelay::READ
+    //         bits |= Relay::READ
     //     }
     //     if self.write {
-    //         bits |= DbRelay::WRITE
+    //         bits |= Relay::WRITE
     //     }
     //     if self.advertise {
-    //         bits |= DbRelay::ADVERTISE
+    //         bits |= Relay::ADVERTISE
     //     }
     //     if self.inbox {
-    //         bits |= DbRelay::INBOX
+    //         bits |= Relay::INBOX
     //     }
     //     if self.outbox {
-    //         bits |= DbRelay::OUTBOX
+    //         bits |= Relay::OUTBOX
     //     }
     //     if self.discover {
-    //         bits |= DbRelay::DISCOVER
+    //         bits |= Relay::DISCOVER
     //     }
     //     bits
     // }
@@ -140,7 +140,7 @@ impl UsageBits {
 ///
 #[derive(Clone)]
 pub struct RelayEntry {
-    db_relay: DbRelay,
+    relay: Relay,
     view: RelayEntryView,
     enabled: bool,
     connected: bool,
@@ -155,14 +155,14 @@ pub struct RelayEntry {
 }
 
 impl RelayEntry {
-    pub(in crate::ui) fn new(db_relay: DbRelay, app: &mut GossipUi) -> Self {
-        let usage = UsageBits::from_usage_bits(db_relay.usage_bits);
+    pub(in crate::ui) fn new(relay: Relay, app: &mut GossipUi) -> Self {
+        let usage = UsageBits::from_usage_bits(relay.usage_bits);
         let accent = app.settings.theme.accent_color();
         let mut hsva: ecolor::HsvaGamma  = accent.into();
         hsva.v *= 0.8;
         let accent_hover: Color32 = hsva.into();
         Self {
-            db_relay,
+            relay,
             view: RelayEntryView::List,
             enabled: true,
             connected: false,
@@ -247,11 +247,11 @@ impl RelayEntry {
     }
 
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = self.db_relay.url.as_str().trim_start_matches("wss://");
+        let title = self.relay.url.as_str().trim_start_matches("wss://");
         let title = title.trim_start_matches("ws://");
         let title = title.trim_end_matches('/');
         let mut title = safe_truncate(title, TITLE_MAX_LEN).to_string();
-        if self.db_relay.url.0.len() > TITLE_MAX_LEN {
+        if self.relay.url.0.len() > TITLE_MAX_LEN {
             title.push('\u{2026}'); // append ellipsis
         }
         let text = RichText::new(title).size(16.5);
@@ -264,7 +264,7 @@ impl RelayEntry {
             Some(self.accent),
             None,
         );
-        ui.interact(rect, ui.next_auto_id(), Sense::hover()).on_hover_text(self.db_relay.url.as_str());
+        ui.interact(rect, ui.next_auto_id(), Sense::hover()).on_hover_text(self.relay.url.as_str());
 
         // paint status indicator
         // green - connected
@@ -274,13 +274,13 @@ impl RelayEntry {
         let symbol = RichText::new(STATUS_SYMBOL).size(15.0);
         let (color, tooltip) = if self.connected {
             let mut text = "Connected".to_string();
-            if let Some(at) = self.db_relay.last_connected_at {
+            if let Some(at) = self.relay.last_connected_at {
                 let ago = crate::date_ago::date_ago(Unixtime(at as i64));
                 text = format!("Connected since {}", ago);
             }
             (egui::Color32::from_rgb(0x63, 0xc8, 0x56), text) // green
         } else {
-            if self.db_relay.rank == 0 {
+            if self.relay.rank == 0 {
                 // ranke == 0 means disabled
                 // egui::Color32::from_rgb(0xed, 0x6a, 0x5e) // red
                 (egui::Color32::DARK_GRAY, "Disabled (rank=0)".to_string())
@@ -330,7 +330,7 @@ impl RelayEntry {
 
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id = self.make_id("edit_btn");
-        if self.db_relay.usage_bits == 0 {
+        if self.relay.usage_bits == 0 {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
             let text = RichText::new("pick up & configure");
             let response = draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled,false)
@@ -412,7 +412,7 @@ impl RelayEntry {
         let mut response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
             let _ = GLOBALS.to_overlord.send(
-                ToOverlordMessage::ClearAllUsageOnRelay(self.db_relay.url.to_owned()),
+                ToOverlordMessage::ClearAllUsageOnRelay(self.relay.url.to_owned()),
             );
         }
 
@@ -422,17 +422,17 @@ impl RelayEntry {
         response |= draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled && self.connected, true);
         if response.clicked() {
             let _ = GLOBALS.to_overlord.send(
-                ToOverlordMessage::DropRelay(self.db_relay.url.to_owned()),
+                ToOverlordMessage::DropRelay(self.relay.url.to_owned()),
             );
         }
 
         let pos = pos + vec2(150.0, 0.0);
         let id = self.make_id("hide_unhide_link");
-        let text = if self.db_relay.hidden { "Unhide Relay" } else { "Hide Relay" };
+        let text = if self.relay.hidden { "Unhide Relay" } else { "Hide Relay" };
         response |= draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
             let _ = GLOBALS.to_overlord.send(
-                ToOverlordMessage::HideOrShowRelay(self.db_relay.url.to_owned(), !self.db_relay.hidden),
+                ToOverlordMessage::HideOrShowRelay(self.relay.url.to_owned(), !self.relay.hidden),
             );
         }
 
@@ -446,8 +446,8 @@ impl RelayEntry {
             let pos = rect.min + vec2(STATS_COL_1_X, TEXT_TOP + STATS_Y_SPACING);
             let text = RichText::new(format!(
                 "Rate: {:.0}% ({})",
-                self.db_relay.success_rate() * 100.0,
-                self.db_relay.success_count
+                self.relay.success_rate() * 100.0,
+                self.relay.success_count
             ));
             draw_text_at(
                 ui,
@@ -477,7 +477,7 @@ impl RelayEntry {
             // ---- Last event ----
             let pos = pos + vec2(STATS_COL_3_X, 0.0);
             let mut ago = "".to_string();
-            if let Some(at) = self.db_relay.last_general_eose_at {
+            if let Some(at) = self.relay.last_general_eose_at {
                 ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
             } else {
                 ago += "?";
@@ -495,7 +495,7 @@ impl RelayEntry {
             // ---- Last connection ----
             let pos = pos + vec2(STATS_COL_4_X, 0.0);
             let mut ago = "".to_string();
-            if let Some(at) = self.db_relay.last_connected_at {
+            if let Some(at) = self.relay.last_connected_at {
                 ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
             } else {
                 ago += "?";
@@ -512,7 +512,7 @@ impl RelayEntry {
 
             // ---- Rank ----
             let pos = pos + vec2(STATS_COL_5_X, 0.0);
-            let text = RichText::new(format!("Usage Rank: {}", self.db_relay.rank ));
+            let text = RichText::new(format!("Usage Rank: {}", self.relay.rank ));
             draw_text_at(
                 ui,
                 pos,
@@ -613,7 +613,7 @@ impl RelayEntry {
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
         let align = egui::Align::LEFT;
         let pos = rect.left_top() + vec2(TEXT_LEFT, TEXT_TOP + 70.0);
-        if let Some(doc) = &self.db_relay.nip11 {
+        if let Some(doc) = &self.relay.nip11 {
             if let Some(contact) = &doc.contact {
                 let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
                 let id = self.make_id("copy_nip11_contact");
@@ -696,8 +696,8 @@ impl RelayEntry {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.db_relay.url.clone(),
-                        DbRelay::READ,
+                        self.relay.url.clone(),
+                        Relay::READ,
                         self.usage.read,
                     ));
                 if !self.usage.read {
@@ -706,8 +706,8 @@ impl RelayEntry {
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::AdjustRelayUsageBit(
-                            self.db_relay.url.clone(),
-                            DbRelay::INBOX,
+                            self.relay.url.clone(),
+                            Relay::INBOX,
                             self.usage.inbox,
                         ));
                 }
@@ -748,8 +748,8 @@ impl RelayEntry {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.db_relay.url.clone(),
-                        DbRelay::INBOX,
+                        self.relay.url.clone(),
+                        Relay::INBOX,
                         self.usage.inbox,
                     ));
             }
@@ -782,8 +782,8 @@ impl RelayEntry {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.db_relay.url.clone(),
-                        DbRelay::WRITE,
+                        self.relay.url.clone(),
+                        Relay::WRITE,
                         self.usage.write,
                     ));
 
@@ -793,8 +793,8 @@ impl RelayEntry {
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::AdjustRelayUsageBit(
-                            self.db_relay.url.clone(),
-                            DbRelay::OUTBOX,
+                            self.relay.url.clone(),
+                            Relay::OUTBOX,
                             self.usage.outbox,
                         ));
                 }
@@ -835,8 +835,8 @@ impl RelayEntry {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.db_relay.url.clone(),
-                        DbRelay::OUTBOX,
+                        self.relay.url.clone(),
+                        Relay::OUTBOX,
                         self.usage.outbox,
                     ));
             }
@@ -869,8 +869,8 @@ impl RelayEntry {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.db_relay.url.clone(),
-                        DbRelay::DISCOVER,
+                        self.relay.url.clone(),
+                        Relay::DISCOVER,
                         self.usage.discover,
                     ));
             }
@@ -903,8 +903,8 @@ impl RelayEntry {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.db_relay.url.clone(),
-                        DbRelay::ADVERTISE,
+                        self.relay.url.clone(),
+                        Relay::ADVERTISE,
                         self.usage.advertise,
                     ));
             }
@@ -921,8 +921,8 @@ impl RelayEntry {
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
             // ---- rank ----
-            let r = self.db_relay.rank;
-            let mut new_r = self.db_relay.rank;
+            let r = self.relay.rank;
+            let mut new_r = self.relay.rank;
             let txt_color = ui.visuals().text_color();
             let on_text = ui.visuals().extreme_bg_color;
             let btn_height: f32 = ui.spacing().interact_size.y;
@@ -976,16 +976,16 @@ impl RelayEntry {
                 ui.painter().text(pos, Align2::LEFT_TOP, "Relay-picker rank", font.clone(), txt_color);
             }
 
-            if new_r != self.db_relay.rank {
+            if new_r != self.relay.rank {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::RankRelay(self.db_relay.url.clone(), new_r as u8));
+                    .send(ToOverlordMessage::RankRelay(self.relay.url.clone(), new_r as u8));
             }
         }
     }
 
     fn make_id(&self, str: &str ) -> Id {
-        (self.db_relay.url.to_string() + str).into()
+        (self.relay.url.to_string() + str).into()
     }
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
@@ -997,7 +997,7 @@ impl RelayEntry {
             self.paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
-            if self.db_relay.usage_bits != 0 { self.paint_usage(ui, &rect); }
+            if self.relay.usage_bits != 0 { self.paint_usage(ui, &rect); }
         }
 
         response
@@ -1012,7 +1012,7 @@ impl RelayEntry {
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
-            if self.db_relay.usage_bits != 0 { self.paint_usage(ui, &rect); }
+            if self.relay.usage_bits != 0 { self.paint_usage(ui, &rect); }
         }
 
         response

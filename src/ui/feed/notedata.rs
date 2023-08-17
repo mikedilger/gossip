@@ -1,9 +1,6 @@
-use crate::{
-    globals::{Globals, GLOBALS},
-    people::DbPerson,
-};
+use crate::{globals::GLOBALS, people::Person};
 use nostr_types::{
-    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKeyHex,
+    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
     ShatteredContent, Tag,
 };
 
@@ -26,7 +23,7 @@ pub(super) struct NoteData {
     /// Delegation status of this event
     pub(super) delegation: EventDelegation,
     /// Author of this note (considers delegation)
-    pub(super) author: DbPerson,
+    pub(super) author: Person,
     /// Deletion reason if any
     pub(super) deletion: Option<String>,
     /// Do we consider this note as being a repost of another?
@@ -52,11 +49,17 @@ impl NoteData {
 
         let delegation = event.delegation();
 
-        let deletion = Globals::get_deletion_sync(event.id);
+        let deletion = GLOBALS.storage.get_deletion(event.id).unwrap_or(None);
 
-        let (reactions, self_already_reacted) = Globals::get_reactions_sync(event.id);
+        let (reactions, self_already_reacted) = GLOBALS
+            .storage
+            .get_reactions(event.id)
+            .unwrap_or((vec![], false));
 
-        let zaptotal = Globals::get_zap_total_sync(event.id);
+        let zaptotal = GLOBALS
+            .storage
+            .get_zap_total(event.id)
+            .unwrap_or(MilliSatoshi(0));
 
         // build a list of all cached mentions and their index
         // only notes that are in the cache will be rendered as reposts
@@ -151,15 +154,15 @@ impl NoteData {
         };
 
         // If delegated, use the delegated person
-        let author_pubkey: PublicKeyHex = if let EventDelegation::DelegatedBy(pubkey) = delegation {
-            pubkey.into()
+        let author_pubkey: PublicKey = if let EventDelegation::DelegatedBy(pubkey) = delegation {
+            pubkey
         } else {
-            event.pubkey.into()
+            event.pubkey
         };
 
-        let author = match GLOBALS.people.get(&author_pubkey) {
-            Some(p) => p,
-            None => DbPerson::new(author_pubkey),
+        let author = match GLOBALS.storage.read_person(&author_pubkey) {
+            Ok(Some(p)) => p,
+            _ => Person::new(author_pubkey),
         };
 
         NoteData {
@@ -178,7 +181,10 @@ impl NoteData {
     }
 
     pub(super) fn update_reactions(&mut self) {
-        let (mut reactions, self_already_reacted) = Globals::get_reactions_sync(self.event.id);
+        let (mut reactions, self_already_reacted) = GLOBALS
+            .storage
+            .get_reactions(self.event.id)
+            .unwrap_or((vec![], false));
 
         self.reactions.clear();
         self.reactions.append(&mut reactions);

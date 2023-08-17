@@ -3,26 +3,25 @@ mod minion;
 use crate::comms::{
     RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
 };
-use crate::db::{DbEvent, DbEventFlags, DbEventRelay, DbPersonRelay, DbRelay};
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
-use crate::people::People;
+use crate::person_relay::PersonRelay;
+use crate::relay::Relay;
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
     add_subject_to_tags_if_missing,
 };
-use dashmap::mapref::entry::Entry;
 use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Filter, Id, IdHex, IdHexPrefix, Metadata, MilliSatoshi,
-    NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, PublicKeyHex, RelayUrl,
-    Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData,
+    PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
+use std::time::Duration;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
@@ -59,6 +58,12 @@ impl Overlord {
 
         tracing::debug!("Overlord signalling UI to shutdown");
 
+        if let Err(e) = GLOBALS.storage.sync() {
+            tracing::error!("{}", e);
+        } else {
+            tracing::info!("LMDB synced.");
+        }
+
         GLOBALS.shutting_down.store(true, Ordering::Relaxed);
 
         tracing::debug!("Overlord signalling minions to shutdown");
@@ -78,9 +83,22 @@ impl Overlord {
 
         // Listen on self.minions until it is empty
         while !self.minions.is_empty() {
-            let task_nextjoined = self.minions.join_next_with_id().await;
-
-            self.handle_task_nextjoined(task_nextjoined).await;
+            select! {
+                _ = tokio::time::sleep(Duration::from_secs(10)) => {
+                    tracing::info!("Overlord signalling minions to shutdown (again)");
+                    // Send the shutdown message again
+                    let _ = self.to_minions.send(ToMinionMessage {
+                        target: "all".to_string(),
+                        payload: ToMinionPayload {
+                            job_id: 0,
+                            detail: ToMinionPayloadDetail::Shutdown,
+                        },
+                    });
+                },
+                task_nextjoined = self.minions.join_next_with_id() => {
+                    self.handle_task_nextjoined(task_nextjoined).await;
+                }
+            }
         }
 
         tracing::info!("Overlord confirms all minions have shutdown");
@@ -91,52 +109,11 @@ impl Overlord {
         crate::fetcher::Fetcher::start();
 
         // Load signer from settings
-        GLOBALS.signer.load_from_settings().await;
+        GLOBALS.signer.load_from_settings()?;
 
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen
-
-        People::populate_new_people().await?;
-
-        // FIXME - if this needs doing, it should be done dynamically as
-        //         new people are encountered, not batch-style on startup.
-        // Create a relay record for every relay in person_relay map (these get
-        // updated from events without necessarily updating our relays list)
-        DbRelay::populate_new_relays().await?;
-
-        // Load relays from the database
-        {
-            let mut all_relays: Vec<DbRelay> = DbRelay::fetch(None).await?;
-            for dbrelay in all_relays.drain(..) {
-                GLOBALS.all_relays.insert(dbrelay.url.clone(), dbrelay);
-            }
-        }
-
-        // Load followed people from the database
-        GLOBALS.people.load_all_followed().await?;
-
-        // Load contact list from the database
-        if let Some(pk) = GLOBALS.signer.public_key() {
-            if let Some(event) = DbEvent::fetch_last_contact_list(pk.into()).await? {
-                crate::process::process_new_event(&event, false, None, None).await?;
-            }
-        }
-
-        // Load last_contact_list_edit
-        {
-            let db = GLOBALS.db.lock().await;
-            if let Ok(last_edit) = db.query_row(
-                "SELECT last_contact_list_edit FROM local_settings LIMIT 1",
-                [],
-                |row| row.get::<usize, i64>(0),
-            ) {
-                GLOBALS
-                    .people
-                    .last_contact_list_edit
-                    .store(last_edit, Ordering::Relaxed);
-            }
-        }
 
         // Load delegation tag
         GLOBALS.delegation.load_through_settings()?;
@@ -144,124 +121,18 @@ impl Overlord {
         // Initialize the relay picker
         GLOBALS.relay_picker.init().await?;
 
-        let now = Unixtime::now().unwrap();
-
-        // Load reply-related events from database and process
-        // (where you are tagged)
-        {
-            let replies_chunk = GLOBALS.settings.read().replies_chunk;
-            let then = now.0 - replies_chunk as i64;
-
-            let db_events = DbEvent::fetch_reply_related(then).await?;
-
-            // Map db events into Events
-            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
-            for dbevent in db_events.iter() {
-                let e = serde_json::from_str(&dbevent.raw)?;
-                events.push(e);
-            }
-
-            // Process these events
-            let mut count = 0;
-            for event in events.iter() {
-                count += 1;
-                crate::process::process_new_event(event, false, None, None).await?;
-            }
-            tracing::info!("Loaded {} reply related events from the database", count);
-        }
-
-        // Load feed-related events from database and process
-        {
-            let feed_chunk = GLOBALS.settings.read().feed_chunk;
-            let then = now.0 - feed_chunk as i64;
-
-            let where_kind = GLOBALS
-                .settings
-                .read()
-                .feed_related_event_kinds()
-                .iter()
-                .map(|e| <EventKind as Into<u32>>::into(*e))
-                .map(|e| e.to_string())
-                .collect::<Vec<String>>()
-                .join(",");
-
-            let cond = format!(
-                " kind in ({}) AND created_at > {} ORDER BY created_at ASC",
-                where_kind, then
-            );
-
-            let db_events = DbEvent::fetch(Some(&cond)).await?;
-
-            // Map db events into Events
-            let mut events: Vec<Event> = Vec::with_capacity(db_events.len());
-            for dbevent in db_events.iter() {
-                let e = serde_json::from_str(&dbevent.raw)?;
-                events.push(e);
-            }
-
-            // Process these events
-            let mut count = 0;
-            for event in events.iter() {
-                count += 1;
-                crate::process::process_new_event(event, false, None, None).await?;
-            }
-            tracing::info!("Loaded {} feed related events from the database", count);
-
-            // As soon as we have the feed events loaded, we trigger a feed recompute
-            GLOBALS.feed.ready.store(true, Ordering::Relaxed);
-            GLOBALS.feed.recompute().await?;
-        }
-
-        // Load viewed events set into memory
-        for id in DbEventFlags::load_all_viewed().await?.iter() {
-            GLOBALS.viewed_events.insert(*id);
-        }
-
-        // Load event-seen data into memory
-        GLOBALS.events.load_event_seen_data().await?;
-
-        // Start a reaper that collects new_viewed_events and saves them to the database
-        std::mem::drop(tokio::spawn(async move {
-            loop {
-                // sleep 5 seconds
-                tokio::time::sleep(std::time::Duration::new(5, 0)).await;
-
-                // Take all viewed events
-                let ids = {
-                    let map = GLOBALS.new_viewed_events.write().await;
-                    let ids: Vec<Id> = map.iter().map(|elem| *elem.key()).collect();
-                    map.clear();
-                    ids
-                };
-
-                // Save all viewed events
-                if let Err(e) = DbEventFlags::mark_all_as_viewed(ids).await {
-                    tracing::error!("Could not save viewed events to database: {}", e);
-                }
-            }
-        }));
-
-        // Load relay lists from the database and process
-        {
-            let events: Vec<Event> = DbEvent::fetch_relay_lists().await?;
-
-            // Process these events
-            let mut count = 0;
-            for event in events.iter() {
-                count += 1;
-                crate::process::process_new_event(event, false, None, None).await?;
-            }
-            tracing::info!("Loaded {} relay list events from the database", count);
-        }
-
         // Pick Relays and start Minions
         if !GLOBALS.settings.read().offline {
             self.pick_relays().await;
         }
 
         // Separately subscribe to RelayList discovery for everyone we follow
-        let discover_relay_urls: Vec<RelayUrl> =
-            GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::DISCOVER));
+        let discover_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER))?
+            .iter()
+            .map(|dbrelay| dbrelay.url.clone())
+            .collect();
         let followed = GLOBALS.people.get_followed_pubkeys();
         for relay_url in discover_relay_urls.iter() {
             self.engage_minion(
@@ -279,8 +150,12 @@ impl Overlord {
         }
 
         // Separately subscribe to our config on our write relays
-        let write_relay_urls: Vec<RelayUrl> =
-            GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+        let write_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+            .iter()
+            .map(|dbrelay| dbrelay.url.clone())
+            .collect();
         for relay_url in write_relay_urls.iter() {
             self.engage_minion(
                 relay_url.to_owned(),
@@ -299,8 +174,12 @@ impl Overlord {
         // Separately subscribe to our mentions on our read relays
         // NOTE: we also do this on all dynamically connected relays since NIP-65 is
         //       not in widespread usage.
-        let read_relay_urls: Vec<RelayUrl> =
-            GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::READ));
+        let read_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::READ))?
+            .iter()
+            .map(|dbrelay| dbrelay.url.clone())
+            .collect();
         for relay_url in read_relay_urls.iter() {
             self.engage_minion(
                 relay_url.to_owned(),
@@ -494,7 +373,7 @@ impl Overlord {
         match join_result {
             Err(join_error) => {
                 tracing::error!("Minion {} completed with join error: {}", &url, join_error);
-                Self::bump_failure_count(&url).await;
+                Self::bump_failure_count(&url);
                 exclusion = 60;
             }
             Ok((_id, result)) => match result {
@@ -503,7 +382,7 @@ impl Overlord {
                     // no exclusion
                 }
                 Err(e) => {
-                    Self::bump_failure_count(&url).await;
+                    Self::bump_failure_count(&url);
                     tracing::error!("Minion {} completed with error: {}", &url, e);
                     exclusion = 60;
                     if let ErrorKind::Websocket(wserror) = e.kind {
@@ -577,7 +456,7 @@ impl Overlord {
                         &url,
                         exclusion
                     );
-                    tokio::time::sleep(std::time::Duration::new(exclusion, 0)).await;
+                    tokio::time::sleep(Duration::new(exclusion, 0)).await;
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::ReengageMinion(url, persistent_jobs));
@@ -586,40 +465,33 @@ impl Overlord {
         }
     }
 
-    async fn bump_failure_count(url: &RelayUrl) {
-        // Update in globals
-        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(url) {
+    fn bump_failure_count(url: &RelayUrl) {
+        if let Ok(Some(mut dbrelay)) = GLOBALS.storage.read_relay(url) {
             dbrelay.failure_count += 1;
-
-            // Save to database
-            if let Err(e) = DbRelay::update(dbrelay.clone()).await {
-                tracing::error!("{}: ERROR bumping relay failure count: {}", url, e);
-            }
+            let _ = GLOBALS.storage.write_relay(&dbrelay);
         }
     }
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
             ToOverlordMessage::AddRelay(relay_str) => {
-                let dbrelay = DbRelay::new(relay_str.clone());
-                DbRelay::insert(dbrelay.clone()).await?;
-                GLOBALS.all_relays.insert(relay_str, dbrelay);
+                let dbrelay = Relay::new(relay_str.clone());
+                GLOBALS.storage.write_relay(&dbrelay)?;
             }
             ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
-                if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
+                if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                     // TODO: replace with dedicated method to clear all bits
-                    dbrelay.clear_usage_bits_memory_only(
-                        DbRelay::ADVERTISE | DbRelay::DISCOVER | DbRelay::INBOX |
-                        DbRelay::OUTBOX | DbRelay::READ | DbRelay::WRITE );
-                    dbrelay.save_usage_bits().await?;
+                    dbrelay.clear_usage_bits(
+                        Relay::ADVERTISE | Relay::DISCOVER | Relay::INBOX |
+                        Relay::OUTBOX | Relay::READ | Relay::WRITE );
                 } else {
                     tracing::error!("CODE OVERSIGHT - Attempt to clear relay usage bit for a relay not in memory. It will not be saved.");
                 }
             }
             ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
-                if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
-                    dbrelay.adjust_usage_bit_memory_only(bit, value);
-                    dbrelay.save_usage_bits().await?;
+                if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
+                    dbrelay.adjust_usage_bit(bit, value);
+                    GLOBALS.storage.write_relay(&dbrelay)?;
                 } else {
                     tracing::error!("CODE OVERSIGHT - We are adjusting a relay usage bit for a relay not in memory, how did that happen? It will not be saved.");
                 }
@@ -664,7 +536,7 @@ impl Overlord {
                 });
             }
             ToOverlordMessage::FetchEvent(id, relay_urls) => {
-                // We presume the caller already checked GLOBALS.events.get() and it was not there
+                // We presume the caller already checked GLOBALS.storage.read_event() and it was not there
                 for url in relay_urls.iter() {
                     self.engage_minion(
                         url.to_owned(),
@@ -691,7 +563,7 @@ impl Overlord {
                 }));
             }
             ToOverlordMessage::FollowNprofile(nprofile) => {
-                match Profile::try_from_bech32_string(&nprofile) {
+                match Profile::try_from_bech32_string(&nprofile, true) {
                     Ok(np) => self.follow_nprofile(np).await?,
                     Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
                 }
@@ -702,10 +574,10 @@ impl Overlord {
                 GLOBALS.signer.save_through_settings().await?;
             }
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
-                if let Some(mut relay) = GLOBALS.all_relays.get_mut(&relay_url) {
-                    relay.value_mut().hidden = hidden;
+                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+                    relay.hidden = hidden;
+                    GLOBALS.storage.write_relay(&relay)?;
                 }
-                DbRelay::update_hidden(relay_url, hidden).await?;
             }
             ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
                 if import_priv.starts_with("ncryptsec") {
@@ -733,8 +605,8 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::ImportPub(pubstr) => {
-                let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr);
-                let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr);
+                let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr, true);
+                let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr, true);
                 if maybe_pk1.is_err() && maybe_pk2.is_err() {
                     GLOBALS
                         .status_queue
@@ -797,20 +669,20 @@ impl Overlord {
                 // Then pick
                 self.pick_relays().await;
             }
-            ToOverlordMessage::ProcessIncomingEvents => {
-                std::mem::drop(tokio::spawn(async move {
-                    for (event, url, sub) in GLOBALS.incoming_events.write().await.drain(..) {
-                        let _ =
-                            crate::process::process_new_event(&event, true, Some(url), sub).await;
-                    }
-                }));
-            }
             ToOverlordMessage::PruneDatabase => {
-                std::mem::drop(tokio::spawn(async move {
-                    if let Err(e) = crate::db::prune().await {
-                        tracing::error!("{}", e);
-                    }
-                }));
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Pruning database, please be patient..".to_owned());
+
+                let now = Unixtime::now().unwrap();
+                let then = now - Duration::new(60 * 60 * 24 * 180, 0); // 180 days
+                let count = GLOBALS.storage.prune(then)?;
+
+                GLOBALS.status_queue.write().write(format!(
+                    "Database has been pruned. {} events removed.",
+                    count
+                ));
             }
             ToOverlordMessage::Post(content, tags, reply_to) => {
                 self.post(content, tags, reply_to).await?;
@@ -825,10 +697,10 @@ impl Overlord {
                 self.push_metadata(metadata).await?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
-                if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&relay_url) {
+                if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
                     dbrelay.rank = rank as u64;
+                    GLOBALS.storage.write_relay(&dbrelay)?;
                 }
-                DbRelay::set_rank(relay_url, rank).await?;
             }
             ToOverlordMessage::ReengageMinion(url, persistent_jobs) => {
                 self.engage_minion(url, persistent_jobs).await?;
@@ -841,7 +713,7 @@ impl Overlord {
             }
             ToOverlordMessage::SaveSettings => {
                 let settings = GLOBALS.settings.read().clone();
-                settings.save().await?;
+                GLOBALS.storage.write_settings(&settings)?;
                 tracing::debug!("Settings saved.");
             }
             ToOverlordMessage::Search(text) => {
@@ -872,14 +744,13 @@ impl Overlord {
                 let public_key = GLOBALS.signer.public_key().unwrap();
                 GLOBALS.settings.write().public_key = Some(public_key);
                 let settings = GLOBALS.settings.read().clone();
-                settings.save().await?;
+                GLOBALS.storage.write_settings(&settings)?;
             }
             ToOverlordMessage::UpdateFollowing(merge) => {
                 self.update_following(merge).await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
-                let best_relays =
-                    DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
+                let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
                 let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
                 // we do 1 more than num_relays_per_person, which is really for main posts,
@@ -894,9 +765,7 @@ impl Overlord {
                             reason: "tmp-metadata",
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![
-                                    pubkey.clone()
-                                ]),
+                                detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![pubkey]),
                             },
                             persistent: false,
                         }],
@@ -910,16 +779,15 @@ impl Overlord {
             }
             ToOverlordMessage::UpdateMetadataInBulk(mut pubkeys) => {
                 let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
-                let mut map: HashMap<RelayUrl, Vec<PublicKeyHex>> = HashMap::new();
+                let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
                 for pubkey in pubkeys.drain(..) {
-                    let best_relays =
-                        DbPersonRelay::get_best_relays(pubkey.clone(), Direction::Write).await?;
+                    let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
                     for (relay_url, _score) in
                         best_relays.iter().take(num_relays_per_person as usize + 1)
                     {
                         map.entry(relay_url.to_owned())
-                            .and_modify(|entry| entry.push(pubkey.clone()))
-                            .or_insert_with(|| vec![pubkey.clone()]);
+                            .and_modify(|entry| entry.push(pubkey))
+                            .or_insert_with(|| vec![pubkey]);
                     }
                 }
                 for (relay_url, pubkeys) in map.drain() {
@@ -990,41 +858,35 @@ impl Overlord {
         pubkeystr: String,
         relay: RelayUrl,
     ) -> Result<(), Error> {
-        let pk = match PublicKey::try_from_bech32_string(&pubkeystr) {
+        let pubkey = match PublicKey::try_from_bech32_string(&pubkeystr, true) {
             Ok(pk) => pk,
-            Err(_) => PublicKey::try_from_hex_string(&pubkeystr)?,
+            Err(_) => PublicKey::try_from_hex_string(&pubkeystr, true)?,
         };
-        let pkhex: PublicKeyHex = pk.into();
-        GLOBALS.people.async_follow(&pkhex, true).await?;
+        GLOBALS.people.follow(&pubkey, true)?;
 
-        tracing::debug!("Followed {}", &pkhex);
+        tracing::debug!("Followed {}", &pubkey.as_hex_string());
 
         // Save relay
-        let db_relay = DbRelay::new(relay.clone());
-        DbRelay::insert(db_relay).await?;
+        let db_relay = Relay::new(relay.clone());
+        GLOBALS.storage.write_relay(&db_relay)?;
 
         let now = Unixtime::now().unwrap().0 as u64;
 
         // Save person_relay
-        DbPersonRelay::insert(DbPersonRelay {
-            person: pkhex.to_string(),
-            relay,
-            last_fetched: None,
-            last_suggested_kind3: Some(now), // consider it our claim in our contact list
-            last_suggested_nip05: None,
-            last_suggested_bytag: None,
-            read: false,
-            write: false,
-            manually_paired_read: true,
-            manually_paired_write: true,
-        })
-        .await?;
+        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
+            Some(pr) => pr,
+            None => PersonRelay::new(pubkey, relay.clone()),
+        };
+        pr.last_suggested_kind3 = Some(now);
+        pr.manually_paired_read = true;
+        pr.manually_paired_write = true;
+        GLOBALS.storage.write_person_relay(&pr)?;
 
         // async_follow added them to the relay tracker.
         // Pick relays to start tracking them now
         self.pick_relays().await;
 
-        tracing::info!("Setup 1 relay for {}", &pkhex);
+        tracing::info!("Setup 1 relay for {}", &pubkey.as_hex_string());
 
         Ok(())
     }
@@ -1036,7 +898,7 @@ impl Overlord {
         reply_to: Option<Id>,
     ) -> Result<(), Error> {
         // We will fill this just before we create the event
-        let mut tagged_pubkeys: Vec<PublicKeyHex>;
+        let mut tagged_pubkeys: Vec<PublicKey>;
 
         let event = {
             let public_key = match GLOBALS.signer.public_key() {
@@ -1108,7 +970,7 @@ impl Overlord {
 
             if let Some(parent_id) = reply_to {
                 // Get the event we are replying to
-                let parent = match GLOBALS.events.get(&parent_id) {
+                let parent = match GLOBALS.storage.read_event(parent_id)? {
                     Some(e) => e,
                     None => return Err("Cannot find event we are replying to.".into()),
                 };
@@ -1164,7 +1026,10 @@ impl Overlord {
                 .iter()
                 .filter_map(|t| {
                     if let Tag::Pubkey { pubkey, .. } = t {
-                        Some(pubkey.clone())
+                        match PublicKey::try_from_hex_string(pubkey, true) {
+                            Ok(pk) => Some(pk),
+                            _ => None,
+                        }
                     } else {
                         None
                     }
@@ -1202,19 +1067,23 @@ impl Overlord {
             // Get 'read' relays for everybody tagged in the event.
             // Currently we take the 2 best read relays per person
             for pubkey in tagged_pubkeys.drain(..) {
-                let best_relays: Vec<RelayUrl> =
-                    DbPersonRelay::get_best_relays(pubkey, Direction::Read)
-                        .await?
-                        .drain(..)
-                        .take(2)
-                        .map(|(u, _)| u)
-                        .collect();
+                let best_relays: Vec<RelayUrl> = GLOBALS
+                    .storage
+                    .get_best_relays(pubkey, Direction::Read)?
+                    .drain(..)
+                    .take(2)
+                    .map(|(u, _)| u)
+                    .collect();
                 relay_urls.extend(best_relays);
             }
 
             // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> =
-                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+                .iter()
+                .map(|dbrelay| dbrelay.url.clone())
+                .collect();
             relay_urls.extend(write_relay_urls);
 
             relay_urls.sort();
@@ -1251,20 +1120,19 @@ impl Overlord {
             }
         };
 
-        let inbox_or_outbox_relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| {
-            r.has_usage_bits(DbRelay::INBOX) || r.has_usage_bits(DbRelay::OUTBOX)
-        });
+        let inbox_or_outbox_relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX))?;
         let mut tags: Vec<Tag> = Vec::new();
         for relay in inbox_or_outbox_relays.iter() {
             tags.push(Tag::Reference {
                 url: relay.url.to_unchecked_url(),
-                marker: if relay.has_usage_bits(DbRelay::INBOX)
-                    && relay.has_usage_bits(DbRelay::OUTBOX)
+                marker: if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX)
                 {
                     None
-                } else if relay.has_usage_bits(DbRelay::INBOX) {
+                } else if relay.has_usage_bits(Relay::INBOX) {
                     Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
-                } else if relay.has_usage_bits(DbRelay::OUTBOX) {
+                } else if relay.has_usage_bits(Relay::OUTBOX) {
                     Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
                 } else {
                     unreachable!()
@@ -1284,8 +1152,12 @@ impl Overlord {
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
 
-        let advertise_to_relay_urls: Vec<RelayUrl> =
-            GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::ADVERTISE));
+        let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::ADVERTISE))?
+            .iter()
+            .map(|dbrelay| dbrelay.url.clone())
+            .collect();
 
         for relay_url in advertise_to_relay_urls {
             // Send it the event to post
@@ -1321,7 +1193,7 @@ impl Overlord {
             let mut tags: Vec<Tag> = vec![
                 Tag::Event {
                     id,
-                    recommended_relay_url: DbRelay::recommended_relay_for_reply(id)
+                    recommended_relay_url: Relay::recommended_relay_for_reply(id)
                         .await?
                         .map(|rr| rr.to_unchecked_url()),
                     marker: None,
@@ -1364,7 +1236,9 @@ impl Overlord {
                 .sign_preevent(pre_event, pow, Some(work_sender))?
         };
 
-        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
         // FIXME - post it to relays we have seen it on.
 
         for relay in relays {
@@ -1393,7 +1267,9 @@ impl Overlord {
 
     async fn pull_following(&mut self) -> Result<(), Error> {
         // Pull our list from all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1420,7 +1296,9 @@ impl Overlord {
         let event = GLOBALS.people.generate_contact_list_event().await?;
 
         // Push to all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1444,7 +1322,7 @@ impl Overlord {
     }
 
     async fn clear_following(&mut self) -> Result<(), Error> {
-        GLOBALS.people.async_follow_none().await?;
+        GLOBALS.people.follow_none()?;
         Ok(())
     }
 
@@ -1466,7 +1344,9 @@ impl Overlord {
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
 
         // Push to all of the relays we post to
-        let relays: Vec<DbRelay> = GLOBALS.relays_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1495,23 +1375,24 @@ impl Overlord {
 
         // add own pubkey as well
         if let Some(pubkey) = GLOBALS.signer.public_key() {
-            pubkeys.push(pubkey.into())
+            pubkeys.push(pubkey)
         }
 
         let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
 
-        let mut map: HashMap<RelayUrl, Vec<PublicKeyHex>> = HashMap::new();
+        let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
-            for relayscore in DbPersonRelay::get_best_relays(pubkey.to_owned(), Direction::Write)
-                .await?
+            for relayscore in GLOBALS
+                .storage
+                .get_best_relays(*pubkey, Direction::Write)?
                 .drain(..)
                 .take(num_relays_per_person as usize)
             {
                 map.entry(relayscore.0)
-                    .and_modify(|e| e.push(pubkey.to_owned()))
-                    .or_insert_with(|| vec![pubkey.to_owned()]);
+                    .and_modify(|e| e.push(*pubkey))
+                    .or_insert_with(|| vec![*pubkey]);
             }
         }
 
@@ -1534,7 +1415,7 @@ impl Overlord {
     }
 
     async fn repost(&mut self, id: Id) -> Result<(), Error> {
-        let reposted_event = match GLOBALS.events.get(&id) {
+        let reposted_event = match GLOBALS.storage.read_event(id)? {
             Some(event) => event,
             None => {
                 GLOBALS
@@ -1548,11 +1429,15 @@ impl Overlord {
         let mut tags: Vec<Tag> = vec![
             Tag::Event {
                 id,
-                recommended_relay_url: match GLOBALS.events.get_seen_on(&reposted_event.id) {
-                    None => DbRelay::recommended_relay_for_reply(id)
-                        .await?
-                        .map(|rr| rr.to_unchecked_url()),
-                    Some(vec) => vec.get(0).map(|rurl| rurl.to_unchecked_url()),
+                recommended_relay_url: {
+                    let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
+                    if seen_on.is_empty() {
+                        Relay::recommended_relay_for_reply(id)
+                            .await?
+                            .map(|rr| rr.to_unchecked_url())
+                    } else {
+                        seen_on.get(0).map(|(rurl, _)| rurl.to_unchecked_url())
+                    }
                 },
                 marker: None,
                 trailing: Vec::new(),
@@ -1610,8 +1495,12 @@ impl Overlord {
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> =
-                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+                .iter()
+                .map(|dbrelay| dbrelay.url.clone())
+                .collect();
             relay_urls.extend(write_relay_urls);
             relay_urls.sort();
             relay_urls.dedup();
@@ -1643,7 +1532,7 @@ impl Overlord {
         id: Id,
         referenced_by: Id,
         mut relays: Vec<RelayUrl>,
-        author: Option<PublicKeyHex>,
+        author: Option<PublicKey>,
     ) -> Result<(), Error> {
         // We are responsible for loading all the ancestors and all the replies, and
         // process.rs is responsible for building the relationships.
@@ -1661,18 +1550,30 @@ impl Overlord {
         let mut missing_ancestors: Vec<Id> = Vec::new();
 
         // Include the relays where the referenced_by event was seen
-        relays.extend(DbEventRelay::get_relays_for_event(referenced_by).await?);
-        relays.extend(DbEventRelay::get_relays_for_event(id).await?);
+        relays.extend(
+            GLOBALS
+                .storage
+                .get_event_seen_on_relay(referenced_by)?
+                .drain(..)
+                .map(|(url, _time)| url),
+        );
+        relays.extend(
+            GLOBALS
+                .storage
+                .get_event_seen_on_relay(id)?
+                .drain(..)
+                .map(|(url, _time)| url),
+        );
 
         // If we have less than 2 relays, include the write relays of the author
         if relays.len() < 2 {
-            if let Some(pkh) = author {
-                let author_relays: Vec<RelayUrl> =
-                    DbPersonRelay::get_best_relays(pkh, Direction::Write)
-                        .await?
-                        .drain(..)
-                        .map(|pair| pair.0)
-                        .collect();
+            if let Some(pk) = author {
+                let author_relays: Vec<RelayUrl> = GLOBALS
+                    .storage
+                    .get_best_relays(pk, Direction::Write)?
+                    .drain(..)
+                    .map(|pair| pair.0)
+                    .collect();
                 relays.extend(author_relays);
             }
         }
@@ -1680,7 +1581,7 @@ impl Overlord {
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription
         let highest_parent_id =
-            if let Some(hpid) = GLOBALS.events.get_highest_local_parent(&id).await? {
+            if let Some(hpid) = GLOBALS.storage.get_highest_local_parent_event_id(id)? {
                 hpid
             } else {
                 // we don't have the event itself!
@@ -1693,7 +1594,7 @@ impl Overlord {
         GLOBALS.feed.set_thread_parent(highest_parent_id);
 
         // Collect missing ancestors and potential relays further up the chain
-        if let Some(highest_parent) = GLOBALS.events.get_local(highest_parent_id).await? {
+        if let Some(highest_parent) = GLOBALS.storage.read_event(highest_parent_id)? {
             // Use relays in 'e' tags
             for (id, opturl, _marker) in highest_parent.referred_events() {
                 missing_ancestors.push(id);
@@ -1714,61 +1615,6 @@ impl Overlord {
 
         let missing_ancestors_hex: Vec<IdHex> =
             missing_ancestors.iter().map(|id| (*id).into()).collect();
-
-        // Load events from local database
-        // FIXME: This replicates filters that the minion also builds. We should
-        //        instead build the filters, then both send them to the minion and
-        //        also query them locally.
-        {
-            if !missing_ancestors_hex.is_empty() {
-                let idhp: Vec<IdHexPrefix> = missing_ancestors_hex
-                    .iter()
-                    .map(|id| id.to_owned().into())
-                    .collect();
-                let _ = GLOBALS
-                    .events
-                    .get_local_events_by_filter(Filter {
-                        ids: idhp,
-                        ..Default::default()
-                    })
-                    .await?;
-
-                let kinds = GLOBALS
-                    .settings
-                    .read()
-                    .feed_related_event_kinds()
-                    .drain(..)
-                    .filter(|k| k.augments_feed_related())
-                    .collect();
-
-                let e = GLOBALS
-                    .events
-                    .get_local_events_by_filter(Filter {
-                        e: missing_ancestors_hex.clone(),
-                        kinds,
-                        ..Default::default()
-                    })
-                    .await?;
-                if !e.is_empty() {
-                    tracing::debug!("Loaded {} local ancestor events", e.len());
-                }
-            }
-
-            let mut kinds = GLOBALS.settings.read().feed_related_event_kinds();
-            kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
-
-            let e = GLOBALS
-                .events
-                .get_local_events_by_filter(Filter {
-                    e: vec![id.into()],
-                    kinds,
-                    ..Default::default()
-                })
-                .await?;
-            if !e.is_empty() {
-                tracing::debug!("Loaded {} local reply events", e.len());
-            }
-        }
 
         // Subscribe on relays
         if relays.is_empty() {
@@ -1815,26 +1661,25 @@ impl Overlord {
     }
 
     async fn follow_nprofile(&mut self, nprofile: Profile) -> Result<(), Error> {
-        let pubkey = nprofile.pubkey.into();
-        GLOBALS.people.async_follow(&pubkey, true).await?;
+        GLOBALS.people.follow(&nprofile.pubkey, true)?;
 
         // Set their relays
         for relay in nprofile.relays.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
                 // Save relay
-                let db_relay = DbRelay::new(relay_url.clone());
-                DbRelay::insert(db_relay.clone()).await?;
-                if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(relay_url.clone()) {
-                    entry.insert(db_relay);
-                }
+                let db_relay = Relay::new(relay_url.clone());
+                GLOBALS.storage.write_relay(&db_relay)?;
 
                 // Save person_relay
-                DbPersonRelay::upsert_last_suggested_nip05(
-                    pubkey.to_owned(),
-                    relay_url,
-                    Unixtime::now().unwrap().0 as u64,
-                )
-                .await?;
+                let mut pr = match GLOBALS
+                    .storage
+                    .read_person_relay(nprofile.pubkey, &relay_url)?
+                {
+                    Some(pr) => pr,
+                    None => PersonRelay::new(nprofile.pubkey, relay_url.clone()),
+                };
+                pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
+                GLOBALS.storage.write_person_relay(&pr)?;
             }
         }
 
@@ -1899,8 +1744,12 @@ impl Overlord {
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> =
-                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+                .iter()
+                .map(|dbrelay| dbrelay.url.clone())
+                .collect();
             relay_urls.extend(write_relay_urls);
             relay_urls.sort();
             relay_urls.dedup();
@@ -1936,13 +1785,15 @@ impl Overlord {
                 Some(pk) => pk,
                 None => return Ok(()), // we cannot do anything without an identity setup first
             };
-            match DbEvent::fetch_last_contact_list(pubkey.into()).await? {
-                Some(event) => event,
-                None => return Ok(()), // we have no contact list to update from
+
+            if let Some(event) = GLOBALS.storage.fetch_contact_list(&pubkey)? {
+                event.clone()
+            } else {
+                return Ok(()); // we have no contact list to update from
             }
         };
 
-        let mut pubkeys: Vec<PublicKeyHex> = Vec::new();
+        let mut pubkeys: Vec<PublicKey> = Vec::new();
 
         let now = Unixtime::now().unwrap();
 
@@ -1954,42 +1805,36 @@ impl Overlord {
                 ..
             } = tag
             {
-                // Make sure we have that person
-                GLOBALS
-                    .people
-                    .create_all_if_missing(&[pubkey.to_owned()])
-                    .await?;
+                if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                    // Make sure we have that person
+                    GLOBALS.people.create_all_if_missing(&[pubkey.to_owned()])?;
 
-                // Save the pubkey for actual following them (outside of the loop in a batch)
-                pubkeys.push(pubkey.to_owned());
+                    // Save the pubkey for actual following them (outside of the loop in a batch)
+                    pubkeys.push(pubkey.to_owned());
 
-                // If there is a URL
-                if let Some(url) = recommended_relay_url
-                    .as_ref()
-                    .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                {
-                    // Save relay if missing
-                    let db_relay = DbRelay::new(url.clone());
-                    DbRelay::insert(db_relay.clone()).await?;
-                    if let Entry::Vacant(entry) = GLOBALS.all_relays.entry(url.clone()) {
-                        entry.insert(db_relay);
+                    // If there is a URL
+                    if let Some(url) = recommended_relay_url
+                        .as_ref()
+                        .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
+                    {
+                        // Save relay if missing
+                        GLOBALS.storage.write_relay_if_missing(&url)?;
+
+                        // create or update person_relay last_suggested_kind3
+                        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
+                            Some(pr) => pr,
+                            None => PersonRelay::new(pubkey, url.clone()),
+                        };
+                        pr.last_suggested_kind3 = Some(now.0 as u64);
+                        GLOBALS.storage.write_person_relay(&pr)?;
                     }
-
-                    // create or update person_relay last_suggested_kind3
-                    DbPersonRelay::upsert_last_suggested_kind3(
-                        pubkey.to_string(),
-                        url,
-                        now.0 as u64,
-                    )
-                    .await?;
+                    // TBD: do something with the petname
                 }
-
-                // TBD: do something with the petname
             }
         }
 
         // Follow all those pubkeys, and unfollow everbody else if merge=false
-        GLOBALS.people.follow_all(&pubkeys, merge).await?;
+        GLOBALS.people.follow_all(&pubkeys, merge)?;
 
         // Update last_contact_list_edit
         let last_edit = if merge {
@@ -1997,17 +1842,7 @@ impl Overlord {
         } else {
             our_contact_list.created_at
         };
-        GLOBALS
-            .people
-            .last_contact_list_edit
-            .store(last_edit.0, Ordering::Relaxed);
-        {
-            let db = GLOBALS.db.lock().await;
-            db.execute(
-                "UPDATE local_settings SET last_contact_list_edit=?",
-                (last_edit.0,),
-            )?;
-        }
+        GLOBALS.storage.write_last_contact_list_edit(last_edit.0)?;
 
         // Pick relays again
         {
@@ -2021,7 +1856,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn search(text: String) -> Result<(), Error> {
+    async fn search(mut text: String) -> Result<(), Error> {
         if text.len() < 2 {
             GLOBALS
                 .status_queue
@@ -2030,23 +1865,38 @@ impl Overlord {
             return Ok(());
         }
 
+        text = text.to_lowercase();
+
         // If npub, convert to hex so we can find it in the database
         // (This will only work with full npubs)
         let mut pubkeytext = text.clone();
-        if let Ok(pk) = PublicKey::try_from_bech32_string(&text) {
+        if let Ok(pk) = PublicKey::try_from_bech32_string(&text, true) {
             pubkeytext = pk.as_hex_string();
         }
 
-        let clause = format!(
-            "pubkey like '%{pubkeytext}%' \
-                              OR metadata like '%{text}%' \
-                              OR petname like '%{text}%'"
-        );
+        *GLOBALS.people_search_results.write() = GLOBALS.storage.filter_people(|p| {
+            if p.pubkey.as_hex_string().contains(&pubkeytext) {
+                return true;
+            }
 
-        let people_search_results = People::fetch(Some(&clause)).await?;
-        *GLOBALS.people_search_results.write() = people_search_results;
+            if let Some(metadata) = &p.metadata {
+                if let Ok(s) = serde_json::to_string(&metadata) {
+                    if s.to_lowercase().contains(&text) {
+                        return true;
+                    }
+                }
+            }
 
-        let note_search_results = DbEvent::search(&text).await?;
+            if let Some(petname) = &p.petname {
+                if petname.to_lowercase().contains(&text) {
+                    return true;
+                }
+            }
+
+            false
+        })?;
+
+        let note_search_results = GLOBALS.storage.search_events(&text)?;
         *GLOBALS.note_search_results.write() = note_search_results;
 
         Ok(())
@@ -2190,21 +2040,28 @@ impl Overlord {
         // Get the relays to have the receipt posted to
         let relays = {
             // Start with the relays the event was seen on
-            let mut relays = match GLOBALS.events.get_seen_on(&id) {
-                Some(vec) => vec,
-                None => Vec::new(),
-            };
+            let mut relays: Vec<RelayUrl> = GLOBALS
+                .storage
+                .get_event_seen_on_relay(id)?
+                .drain(..)
+                .map(|(url, _)| url)
+                .collect();
 
             // Add the read relays of the target person
-            let mut target_read_relays =
-                DbPersonRelay::get_best_relays(target_pubkey.into(), Direction::Read).await?;
+            let mut target_read_relays = GLOBALS
+                .storage
+                .get_best_relays(target_pubkey, Direction::Read)?;
             let target_read_relays: Vec<RelayUrl> =
                 target_read_relays.drain(..).map(|pair| pair.0).collect();
             relays.extend(target_read_relays);
 
             // Add all my write relays
-            let write_relay_urls: Vec<RelayUrl> =
-                GLOBALS.relays_url_filtered(|r| r.has_usage_bits(DbRelay::WRITE));
+            let write_relay_urls: Vec<RelayUrl> = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+                .iter()
+                .map(|dbrelay| dbrelay.url.clone())
+                .collect();
             relays.extend(write_relay_urls);
 
             if relays.is_empty() {

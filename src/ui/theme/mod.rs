@@ -6,6 +6,7 @@ use eframe::egui::{
 };
 use eframe::epaint::{FontFamily, FontId, Shadow};
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 use std::collections::BTreeMap;
 
 mod classic;
@@ -26,14 +27,14 @@ pub fn apply_theme(theme: Theme, ctx: &Context) {
 }
 
 // note: if we store anything inside the variants, we can't use macro_rules.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Readable, Writable)]
 pub enum ThemeVariant {
     Classic,
     Default,
     Roundy,
 }
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Readable, Writable)]
 pub struct Theme {
     pub variant: ThemeVariant,
     pub dark_mode: bool,

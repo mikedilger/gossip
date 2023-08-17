@@ -1,7 +1,7 @@
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
-use crate::db::DbRelay;
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use crate::ui::{you, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
@@ -83,10 +83,11 @@ pub(in crate::ui) fn posting_area(
                     ui.label(" to post.");
                 }
             });
-        } else if !GLOBALS
-            .all_relays
-            .iter()
-            .any(|r| r.value().has_usage_bits(DbRelay::WRITE))
+        } else if GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
+            .unwrap_or(vec![])
+            .is_empty()
         {
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
@@ -224,7 +225,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 );
 
                 if !app.tag_someone.is_empty() {
-                    let pairs = GLOBALS.people.search_people_to_tag(&app.tag_someone);
+                    let pairs = GLOBALS
+                        .people
+                        .search_people_to_tag(&app.tag_someone)
+                        .unwrap_or(vec![]);
                     if !pairs.is_empty() {
                         ui.menu_button("@", |ui| {
                             for pair in pairs {
@@ -323,7 +327,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             NostrBech32::Profile(prof) => &prof.pubkey,
             _ => continue,
         };
-        let rendered = if let Some(person) = GLOBALS.people.get(&pk.as_hex_string().into()) {
+        let rendered = if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
             match person.name() {
                 Some(name) => name.to_owned(),
                 None => format!("{}", bech32),

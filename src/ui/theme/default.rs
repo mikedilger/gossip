@@ -16,6 +16,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn accent_color(dark_mode: bool) -> Color32 {
+        #[allow(clippy::if_same_then_else)]
         if dark_mode {
             Color32::from_rgb(85, 122, 149)
         } else {
@@ -153,7 +154,7 @@ impl ThemeDef for DefaultTheme {
 
                 // Background colors
                 window_fill: Color32::from_gray(0x1F), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(0x18),   // panel backgrounds, even-table-rows
+                panel_fill: Color32::from_gray(0x18),  // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(24), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(64),    // ???

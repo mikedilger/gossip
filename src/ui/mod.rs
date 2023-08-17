@@ -28,7 +28,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
-use crate::people::DbPerson;
+use crate::people::Person;
 use crate::settings::Settings;
 pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::ui::widgets::CopyButton;
@@ -42,7 +42,7 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, PublicKeyHex, UncheckedUrl, Url};
+use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -98,7 +98,7 @@ enum Page {
     PeopleList,
     PeopleFollow,
     PeopleMuted,
-    Person(PublicKeyHex),
+    Person(PublicKey),
     YourKeys,
     YourMetadata,
     YourDelegation,
@@ -206,7 +206,7 @@ struct GossipUi {
     placeholder_avatar: TextureHandle,
     options_symbol: TextureHandle,
     settings: Settings,
-    avatars: HashMap<PublicKeyHex, TextureHandle>,
+    avatars: HashMap<PublicKey, TextureHandle>,
     images: HashMap<Url, TextureHandle>,
     /// used when settings.show_media=false to explicitly show
     media_show_list: HashSet<Url>,
@@ -506,7 +506,7 @@ impl GossipUi {
             }) => {
                 GLOBALS
                     .feed
-                    .set_feed_to_thread(*id, *referenced_by, vec![], author.clone());
+                    .set_feed_to_thread(*id, *referenced_by, vec![], *author);
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
@@ -639,15 +639,14 @@ impl eframe::App for GossipUi {
                         )));
                     }
                     if let Some(pubkey) = GLOBALS.signer.public_key() {
-                        let pubkeyhex: PublicKeyHex = pubkey.into();
                         if self.add_selected_label(
                                 ui,
-                                matches!(&self.page, Page::Feed(FeedKind::Person(key)) if key.as_str() == pubkeyhex.as_str()),
+                                matches!(&self.page, Page::Feed(FeedKind::Person(key)) if *key == pubkey),
                                 "My Notes",
                             )
                             .clicked()
                         {
-                            self.set_page(Page::Feed(FeedKind::Person(pubkeyhex)));
+                            self.set_page(Page::Feed(FeedKind::Person(pubkey)));
                         }
                     }
                     if self.add_selected_label(
@@ -821,7 +820,9 @@ impl eframe::App for GossipUi {
                 },
             );
 
-        let show_status = self.show_post_area && !self.settings.posting_area_at_top;
+        //let show_status = self.show_post_area && !self.settings.posting_area_at_top;
+        let show_status = true;
+
         let resizable = true;
 
         egui::TopBottomPanel::bottom("status")
@@ -832,7 +833,7 @@ impl eframe::App for GossipUi {
                         left: 20.0,
                         right: 18.0,
                         top: 10.0,
-                        bottom: 10.0,
+                        bottom: 0.0,
                     }
                 } else {
                     egui::Margin {
@@ -851,6 +852,29 @@ impl eframe::App for GossipUi {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                 }
+                ui.vertical(|ui| {
+                    ui.add_space(5.0);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
+                        let in_flight = GLOBALS.fetcher.requests_in_flight();
+                        let queued = GLOBALS.fetcher.requests_queued();
+                        let events = GLOBALS
+                            .storage
+                            .get_event_stats()
+                            .map(|s| s.entries())
+                            .unwrap_or(0);
+                        let relays = GLOBALS.connected_relays.len();
+                        let stats_message = format!(
+                            "EVENTS: {}     RELAYS CONNECTED: {}     HTTP: {} / {}",
+                            events,
+                            relays,
+                            in_flight,
+                            in_flight + queued
+                        );
+                        let stats_message = RichText::new(stats_message)
+                            .color(self.settings.theme.notice_marker_text_color());
+                        ui.add(Label::new(stats_message));
+                    });
+                });
             });
 
         // Prepare local zap data once per frame for easier compute at render time
@@ -905,78 +929,64 @@ impl GossipUi {
     /// A short rendering of a `PublicKey`
     pub fn pubkey_short(pk: &PublicKey) -> String {
         let npub = pk.as_bech32_string();
-        format!("{}…", &npub.get(0..20).unwrap_or("????????????????????"))
-    }
-
-    /// A short rendering of a `PublicKeyHex`
-    pub fn pubkeyhex_short(pubkeyhex: &PublicKeyHex) -> String {
         format!(
-            "{}_{}...{}_{}",
-            &pubkeyhex.as_str()[0..4],
-            &pubkeyhex.as_str()[4..8],
-            &pubkeyhex.as_str()[56..60],
-            &pubkeyhex.as_str()[60..64],
+            "{}...{}",
+            &npub.get(0..10).unwrap_or("??????????"),
+            &npub
+                .get(npub.len() - 10..npub.len())
+                .unwrap_or("??????????")
         )
-    }
-
-    /// A short rendering of a `PublicKeyHex`, with attempt to convert to bech32
-    pub fn pubkeyhex_convert_short(pubkeyhex: &PublicKeyHex) -> String {
-        match PublicKey::try_from_hex_string(pubkeyhex) {
-            Ok(pk) => Self::pubkey_short(&pk),
-            Err(_) => GossipUi::pubkeyhex_short(pubkeyhex),
-        }
     }
 
     pub fn hex_id_short(idhex: &IdHex) -> String {
         idhex.as_str()[0..8].to_string()
     }
 
-    /// A display name for a `DbPerson`
-    pub fn display_name_from_dbperson(dbperson: &DbPerson) -> String {
+    /// A display name for a `Person`
+    pub fn display_name_from_dbperson(dbperson: &Person) -> String {
         match dbperson.display_name() {
             Some(name) => name.to_owned(),
-            None => Self::pubkeyhex_convert_short(&dbperson.pubkey),
+            None => Self::pubkey_short(&dbperson.pubkey),
         }
     }
 
-    /// A display name for a `PublicKeyHex`, via trying to lookup the person
-    pub fn display_name_from_pubkeyhex_lookup(pkh: &PublicKeyHex) -> String {
-        match GLOBALS.people.get(pkh) {
-            Some(dbperson) => Self::display_name_from_dbperson(&dbperson),
-            None => Self::pubkeyhex_convert_short(pkh),
+    pub fn display_name_from_pubkey_lookup(pubkey: &PublicKey) -> String {
+        match GLOBALS.storage.read_person(pubkey) {
+            Ok(Some(dbperson)) => Self::display_name_from_dbperson(&dbperson),
+            _ => Self::pubkey_short(pubkey),
         }
     }
 
-    pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &DbPerson) {
+    pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &Person) {
         // Let the 'People' manager know that we are interested in displaying this person.
         // It will take all actions necessary to make the data eventually available.
-        GLOBALS.people.person_of_interest(person.pubkey.clone());
+        GLOBALS.people.person_of_interest(person.pubkey);
 
         ui.horizontal_wrapped(|ui| {
             let name = GossipUi::display_name_from_dbperson(person);
 
             ui.menu_button(&name, |ui| {
-                let mute_label = if person.muted == 1 { "Unmute" } else { "Mute" };
+                let mute_label = if person.muted { "Unmute" } else { "Mute" };
                 if ui.button(mute_label).clicked() {
-                    GLOBALS.people.mute(&person.pubkey, person.muted == 0);
+                    let _ = GLOBALS.people.mute(&person.pubkey, !person.muted);
                     app.notes.cache_invalidate_person(&person.pubkey);
                 }
-                if person.followed == 0 && ui.button("Follow").clicked() {
-                    GLOBALS.people.follow(&person.pubkey, true);
-                } else if person.followed == 1 && ui.button("Unfollow").clicked() {
-                    GLOBALS.people.follow(&person.pubkey, false);
+                if !person.followed && ui.button("Follow").clicked() {
+                    let _ = GLOBALS.people.follow(&person.pubkey, true);
+                } else if person.followed && ui.button("Unfollow").clicked() {
+                    let _ = GLOBALS.people.follow(&person.pubkey, false);
                 }
                 if ui.button("Update Metadata").clicked() {
                     let _ = GLOBALS
                         .to_overlord
-                        .send(ToOverlordMessage::UpdateMetadata(person.pubkey.clone()));
+                        .send(ToOverlordMessage::UpdateMetadata(person.pubkey));
                 }
                 if ui.button("View Their Posts").clicked() {
-                    app.set_page(Page::Feed(FeedKind::Person(person.pubkey.clone())));
+                    app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
                 }
             });
 
-            if person.followed > 0 {
+            if person.followed {
                 ui.label("🚶");
             }
 
@@ -985,7 +995,7 @@ impl GossipUi {
                     nip05 = nip05.get(2..).unwrap().to_string();
                 }
 
-                if person.nip05_valid > 0 {
+                if person.nip05_valid {
                     ui.label(RichText::new(nip05).monospace().small());
                 } else {
                     ui.label(RichText::new(nip05).monospace().small().strikethrough());
@@ -1003,28 +1013,24 @@ impl GossipUi {
         });
     }
 
-    pub fn try_get_avatar(
-        &mut self,
-        ctx: &Context,
-        pubkeyhex: &PublicKeyHex,
-    ) -> Option<TextureHandle> {
+    pub fn try_get_avatar(&mut self, ctx: &Context, pubkey: &PublicKey) -> Option<TextureHandle> {
         // Do not keep retrying if failed
-        if GLOBALS.failed_avatars.blocking_read().contains(pubkeyhex) {
+        if GLOBALS.failed_avatars.blocking_read().contains(pubkey) {
             return None;
         }
 
-        if let Some(th) = self.avatars.get(pubkeyhex) {
+        if let Some(th) = self.avatars.get(pubkey) {
             return Some(th.to_owned());
         }
 
-        if let Some(color_image) = GLOBALS.people.get_avatar(pubkeyhex) {
+        if let Some(color_image) = GLOBALS.people.get_avatar(pubkey) {
             let texture_handle = ctx.load_texture(
-                pubkeyhex.to_string(),
+                pubkey.as_hex_string(),
                 color_image,
                 TextureOptions::default(),
             );
             self.avatars
-                .insert(pubkeyhex.to_owned(), texture_handle.clone());
+                .insert(pubkey.to_owned(), texture_handle.clone());
             Some(texture_handle)
         } else {
             None

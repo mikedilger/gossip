@@ -1,9 +1,8 @@
-use crate::db::DbPersonRelay;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_trait::async_trait;
 use gossip_relay_picker::{Direction, RelayPickerHooks};
-use nostr_types::{PublicKeyHex, RelayUrl};
+use nostr_types::{PublicKey, RelayUrl};
 
 #[derive(Default)]
 pub struct Hooks {}
@@ -14,20 +13,19 @@ impl RelayPickerHooks for Hooks {
 
     /// Returns all relays available to be connected to
     fn get_all_relays(&self) -> Vec<RelayUrl> {
-        GLOBALS
-            .all_relays
-            .iter()
-            .map(|elem| elem.key().to_owned())
-            .collect()
+        match GLOBALS.storage.filter_relays(|_| true) {
+            Err(_) => vec![],
+            Ok(vec) => vec.iter().map(|elem| elem.url.to_owned()).collect(),
+        }
     }
 
     /// Returns all relays that this public key uses in the given Direction
     async fn get_relays_for_pubkey(
         &self,
-        pubkey: PublicKeyHex,
+        pubkey: PublicKey,
         direction: Direction,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        DbPersonRelay::get_best_relays(pubkey, direction).await
+        GLOBALS.storage.get_best_relays(pubkey, direction)
     }
 
     /// Is the relay currently connected?
@@ -47,18 +45,20 @@ impl RelayPickerHooks for Hooks {
     }
 
     /// Returns the public keys of all the people followed
-    fn get_followed_pubkeys(&self) -> Vec<PublicKeyHex> {
+    fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
         GLOBALS.people.get_followed_pubkeys()
     }
 
     /// Adjusts the score for a given relay, perhaps based on relay-specific metrics
-    fn adjust_score(&self, relay: RelayUrl, score: u64) -> u64 {
-        if let Some(relay) = GLOBALS.all_relays.get(&relay) {
-            let success_rate = relay.success_rate();
-            let rank = (relay.rank as f32 * (1.3 * success_rate)) as u64;
-            score * rank
-        } else {
-            score
+    fn adjust_score(&self, url: RelayUrl, score: u64) -> u64 {
+        match GLOBALS.storage.read_relay(&url) {
+            Err(_) => 0,
+            Ok(Some(relay)) => {
+                let success_rate = relay.success_rate();
+                let rank = (relay.rank as f32 * (1.3 * success_rate)) as u64;
+                score * rank
+            }
+            Ok(None) => score,
         }
     }
 }

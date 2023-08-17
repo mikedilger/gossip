@@ -8,6 +8,7 @@ pub enum ErrorKind {
     General(String),
     HttpError(http::Error),
     JoinError(tokio::task::JoinError),
+    Lmdb(lmdb::Error),
     MaxRelaysReached,
     MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
     Nip05KeyNotFound,
@@ -22,14 +23,18 @@ pub enum ErrorKind {
     InvalidUri(http::uri::InvalidUri),
     InvalidUrl(String),
     ParseInt(std::num::ParseIntError),
+    Regex(regex::Error),
     RelayPickerError(gossip_relay_picker::Error),
     ReqwestHttpError(reqwest::Error),
     Sql(rusqlite::Error),
     SerdeJson(serde_json::Error),
+    SliceError(std::array::TryFromSliceError),
+    Speedy(speedy::Error),
     Timeout(tokio::time::error::Elapsed),
     UrlHasEmptyHostname,
     UrlHasNoHostname,
     UrlParse(url::ParseError),
+    Utf8Error(std::str::Utf8Error),
     Websocket(tungstenite::Error),
 }
 
@@ -56,6 +61,7 @@ impl std::fmt::Display for Error {
             General(s) => write!(f, "{s}"),
             HttpError(e) => write!(f, "HTTP error: {e}"),
             JoinError(e) => write!(f, "Task join error: {e}"),
+            Lmdb(e) => write!(f, "LMDB: {e}"),
             MaxRelaysReached => write!(
                 f,
                 "Maximum relay connections reached, will not connect to another"
@@ -73,14 +79,18 @@ impl std::fmt::Display for Error {
             InvalidUri(e) => write!(f, "Invalid URI: {e}"),
             InvalidUrl(s) => write!(f, "Invalid URL: {s}"),
             ParseInt(e) => write!(f, "Bad integer: {e}"),
+            Regex(e) => write!(f, "Regex: {e}"),
             RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
             ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
             Sql(e) => write!(f, "SQL: {e}"),
             SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
+            SliceError(e) => write!(f, "Slice: {e}"),
+            Speedy(e) => write!(f, "Speedy: {e}"),
             Timeout(e) => write!(f, "Timeout: {e}"),
             UrlHasEmptyHostname => write!(f, "URL has empty hostname"),
             UrlHasNoHostname => write!(f, "URL has no hostname"),
             UrlParse(e) => write!(f, "URL parse: {e}"),
+            Utf8Error(e) => write!(f, "UTF-8 error: {e}"),
             Websocket(e) => write!(f, "Websocket: {e}"),
         }
     }
@@ -184,9 +194,21 @@ impl From<http::uri::InvalidUri> for ErrorKind {
     }
 }
 
+impl From<lmdb::Error> for ErrorKind {
+    fn from(e: lmdb::Error) -> ErrorKind {
+        ErrorKind::Lmdb(e)
+    }
+}
+
 impl From<std::num::ParseIntError> for ErrorKind {
     fn from(e: std::num::ParseIntError) -> ErrorKind {
         ErrorKind::ParseInt(e)
+    }
+}
+
+impl From<regex::Error> for ErrorKind {
+    fn from(e: regex::Error) -> ErrorKind {
+        ErrorKind::Regex(e)
     }
 }
 
@@ -214,9 +236,27 @@ impl From<serde_json::Error> for ErrorKind {
     }
 }
 
+impl From<std::array::TryFromSliceError> for ErrorKind {
+    fn from(e: std::array::TryFromSliceError) -> ErrorKind {
+        ErrorKind::SliceError(e)
+    }
+}
+
+impl From<speedy::Error> for ErrorKind {
+    fn from(e: speedy::Error) -> ErrorKind {
+        ErrorKind::Speedy(e)
+    }
+}
+
 impl From<tokio::time::error::Elapsed> for ErrorKind {
     fn from(e: tokio::time::error::Elapsed) -> ErrorKind {
         ErrorKind::Timeout(e)
+    }
+}
+
+impl From<std::str::Utf8Error> for ErrorKind {
+    fn from(e: std::str::Utf8Error) -> ErrorKind {
+        ErrorKind::Utf8Error(e)
     }
 }
 

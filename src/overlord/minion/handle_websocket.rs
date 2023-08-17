@@ -1,5 +1,4 @@
 use super::Minion;
-use crate::db::{DbEventRelay, DbRelay};
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use futures_util::sink::SinkExt;
@@ -44,17 +43,12 @@ impl Minion {
                     // timestamp for that relay, so we don't query before them next time we run.
                     if let Some(sub) = self.subscription_map.get_mut_by_id(&subid.0) {
                         if handle == "general_feed" && sub.eose() {
-                            // set in database
-                            DbRelay::update_general_eose(
-                                self.dbrelay.url.clone(),
-                                event.created_at.0 as u64,
-                            )
-                            .await?;
-                            // set in globals
-                            if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url)
-                            {
-                                dbrelay.last_general_eose_at = Some(event.created_at.0 as u64);
-                            }
+                            // Update last general EOSE
+                            self.dbrelay.last_general_eose_at =
+                                Some(match self.dbrelay.last_general_eose_at {
+                                    Some(old) => old.max(event.created_at.0 as u64),
+                                    None => event.created_at.0 as u64,
+                                });
                         }
                     }
 
@@ -90,8 +84,13 @@ impl Minion {
                             sub.set_eose();
                         }
                         if handle == "general_feed" {
+                            // Update last general EOSE
                             let now = Unixtime::now().unwrap().0 as u64;
-                            DbRelay::update_general_eose(self.dbrelay.url.clone(), now).await?;
+                            self.dbrelay.last_general_eose_at =
+                                Some(match self.dbrelay.last_general_eose_at {
+                                    Some(old) => old.max(now),
+                                    None => now,
+                                });
                         }
                     }
                     None => {
@@ -116,18 +115,14 @@ impl Minion {
                 // If we are waiting for a response for this id, process
                 if self.postings.contains(&id) {
                     if ok {
-                        // Save seen_on data in GLOBALS.events
+                        // Save seen_on data
                         // (it was already processed by the overlord before the minion got it,
                         //  but with None for seen_on.)
-                        GLOBALS.events.add_seen_on(id, &self.url);
-
-                        // save seen_on data in database
-                        let event_relay = DbEventRelay {
-                            event: idhex,
-                            relay: url.0.to_owned(),
-                            when_seen: Unixtime::now()?.0 as u64,
-                        };
-                        DbEventRelay::insert(event_relay, true).await?;
+                        GLOBALS.storage.add_event_seen_on_relay(
+                            id,
+                            &self.url,
+                            Unixtime::now().unwrap(),
+                        )?;
                     } else {
                         // demerit the relay
                         self.bump_failure_count().await;

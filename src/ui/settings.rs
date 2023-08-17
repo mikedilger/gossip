@@ -290,7 +290,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(12.0);
 
                     if ui.button("Prune Database")
-                        .on_hover_text("This will delete overridden events, events older than a week, and related data while keeping everything important. It can take MANY MINUTES to complete, and when complete there will be a status message indicating so. Also, because the database will be very busy, best not to use gossip while pruning, just wait.")
+                        .on_hover_text("This will delete events older than six months, but the LMDB files will continue consuming disk space. To compact them, copy withem with `mdb_copy -c` when gossip is not running.")
                         .clicked() {
                             GLOBALS.status_queue.write().write(
                                 "Pruning database, please wait (this takes a long time)...".to_owned()

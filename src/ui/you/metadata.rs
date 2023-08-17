@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
-use crate::db::DbRelay;
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, TextEdit, Ui};
 use nostr_types::Metadata;
@@ -29,11 +29,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     };
 
-    let you = match GLOBALS.people.get(&public_key.into()) {
-        Some(dbp) => dbp,
-        None => {
+    let you = match GLOBALS.storage.read_person(&public_key) {
+        Ok(Some(dbp)) => dbp,
+        _ => {
             ui.label("I cannot find you.");
-            GLOBALS.people.create_if_missing_sync(public_key.into());
+            GLOBALS.people.create_if_missing(public_key);
             return;
         }
     };
@@ -121,9 +121,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     ui.label("to edit/save metadata.");
                 });
             } else if !GLOBALS
-                .all_relays
-                .iter()
-                .any(|r| r.value().has_usage_bits(DbRelay::WRITE))
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
+                .unwrap_or(vec![])
+                .is_empty()
             {
                 ui.horizontal(|ui| {
                     ui.label("You need to");

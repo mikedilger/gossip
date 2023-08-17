@@ -1,7 +1,7 @@
 use super::theme::FeedProperties;
 use super::{GossipUi, Page};
 use crate::feed::FeedKind;
-use crate::globals::{Globals, GLOBALS};
+use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
 use nostr_types::Id;
@@ -137,13 +137,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string());
             }
         }
-        FeedKind::Person(pubkeyhex) => {
+        FeedKind::Person(pubkey) => {
             ui.horizontal(|ui| {
                 recompute_btn(app, ui);
             });
 
             let feed = GLOBALS.feed.get_person_feed();
-            render_a_feed(app, ctx, frame, ui, feed, false, pubkeyhex.as_str());
+            render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string());
         }
     }
 
@@ -217,11 +217,10 @@ fn render_note_maybe_fake(
     } = feed_note_params;
 
     // We always get the event even offscreen so we can estimate its height
-    let maybe_event = GLOBALS.events.get(&id);
-    if maybe_event.is_none() {
-        return;
-    }
-    let event = maybe_event.unwrap();
+    let event = match GLOBALS.storage.read_event(id) {
+        Ok(Some(event)) => event,
+        _ => return,
+    };
 
     // Stop rendering if the note is included in a collapsed thread
     if let Some((id, _)) = event.replies_to() {
@@ -267,7 +266,7 @@ fn render_note_maybe_fake(
 
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to {
-            let replies = Globals::get_replies_sync(event.id);
+            let replies = GLOBALS.storage.get_replies(event.id).unwrap_or(vec![]);
             let iter = replies.iter();
             let first = replies.first();
             let last = replies.last();

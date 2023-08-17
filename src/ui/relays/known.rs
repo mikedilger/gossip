@@ -1,7 +1,7 @@
 use super::GossipUi;
-use crate::db::DbRelay;
 use crate::globals::GLOBALS;
 use crate::ui::widgets;
+use crate::relay::Relay;
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::Id;
@@ -72,13 +72,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     super::relay_scroll_list(app, ui, relays, id_source);
 }
 
-fn get_relays(app: &mut GossipUi) -> Vec<DbRelay> {
-    let mut relays: Vec<DbRelay> = GLOBALS
-        .all_relays
-        .iter()
-        .map(|ri| ri.value().clone())
-        .filter(|ri| app.relays.show_hidden || !ri.hidden && super::filter_relay(&app.relays, ri))
-        .collect();
+fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
+    let mut relays: Vec<Relay> = GLOBALS
+        .storage
+        .filter_relays(|relay| {
+            app.relays.show_hidden || !relay.hidden && super::filter_relay(&app.relays, relay)
+        })
+        .unwrap_or(Vec::new());
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
     relays

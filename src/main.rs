@@ -4,6 +4,7 @@
 // TEMPORARILY
 #![allow(clippy::uninlined_format_args)]
 
+/*
 macro_rules! rtry {
     ($expr:expr $(,)?) => {
         match $expr {
@@ -18,6 +19,7 @@ macro_rules! rtry {
         }
     };
 }
+ */
 
 #[macro_use]
 extern crate lazy_static;
@@ -25,10 +27,8 @@ extern crate lazy_static;
 mod about;
 mod comms;
 mod date_ago;
-mod db;
 mod delegation;
 mod error;
-mod events;
 mod feed;
 mod fetcher;
 mod globals;
@@ -36,13 +36,16 @@ mod media;
 mod nip05;
 mod overlord;
 mod people;
+mod person_relay;
 mod process;
 mod profile;
 mod relationship;
+mod relay;
 mod relay_picker_hooks;
 mod settings;
 mod signer;
 mod status;
+mod storage;
 mod tags;
 mod ui;
 
@@ -76,11 +79,8 @@ fn main() -> Result<(), Error> {
         .with_env_filter(env_filter)
         .init();
 
-    // Setup the database (possibly create, possibly upgrade)
-    crate::db::setup_database()?;
-
     // Load settings
-    let settings = crate::settings::Settings::blocking_load()?;
+    let settings = GLOBALS.storage.read_settings()?.unwrap();
     *GLOBALS.settings.write() = settings;
 
     // We create and enter the runtime on the main thread so that

@@ -3,9 +3,9 @@ mod subscription;
 mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::db::DbRelay;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::relay::Relay;
 use crate::USER_AGENT;
 use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};
@@ -15,8 +15,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKeyHex, PublicKeyHexPrefix,
-    RelayInformationDocument, RelayUrl, Unixtime,
+    ClientMessage, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKey, PublicKeyHex,
+    PublicKeyHexPrefix, RelayInformationDocument, RelayUrl, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -35,7 +35,7 @@ pub struct Minion {
     url: RelayUrl,
     to_overlord: UnboundedSender<ToOverlordMessage>,
     from_overlord: Receiver<ToMinionMessage>,
-    dbrelay: DbRelay,
+    dbrelay: Relay,
     nip11: Option<RelayInformationDocument>,
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     subscription_map: SubscriptionMap,
@@ -48,11 +48,11 @@ impl Minion {
     pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
-        let dbrelay = match DbRelay::fetch_one(&url).await? {
+        let dbrelay = match GLOBALS.storage.read_relay(&url)? {
             Some(dbrelay) => dbrelay,
             None => {
-                let dbrelay = DbRelay::new(url.clone());
-                DbRelay::insert(dbrelay.clone()).await?;
+                let dbrelay = Relay::new(url.clone());
+                GLOBALS.storage.write_relay(&dbrelay)?;
                 dbrelay
             }
         };
@@ -138,12 +138,7 @@ impl Minion {
             }
 
             // Save updated NIP-11 data (even if it failed)
-            // in memory...
-            let _ = GLOBALS
-                .all_relays
-                .insert(self.url.clone(), self.dbrelay.clone());
-            // and in the database...
-            DbRelay::update(self.dbrelay.clone()).await?;
+            GLOBALS.storage.write_relay(&self.dbrelay)?;
 
             let key: [u8; 16] = rand::random();
 
@@ -352,16 +347,15 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
             }
-            ToMinionPayloadDetail::SubscribePersonFeed(pubkeyhex) => {
-                self.subscribe_person_feed(message.job_id, pubkeyhex)
-                    .await?;
+            ToMinionPayloadDetail::SubscribePersonFeed(pubkey) => {
+                self.subscribe_person_feed(message.job_id, pubkey).await?;
             }
             ToMinionPayloadDetail::SubscribeThreadFeed(main, parents) => {
                 self.subscribe_thread_feed(message.job_id, main, parents)
                     .await?;
             }
-            ToMinionPayloadDetail::TempSubscribeMetadata(pubkeyhexs) => {
-                self.temp_subscribe_metadata(message.job_id, pubkeyhexs)
+            ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
+                self.temp_subscribe_metadata(message.job_id, pubkeys)
                     .await?;
             }
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
@@ -411,7 +405,7 @@ impl Minion {
     async fn subscribe_general_feed(
         &mut self,
         job_id: u64,
-        followed_pubkeys: Vec<PublicKeyHex>,
+        followed_pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
         let (overlap, feed_chunk) = {
@@ -477,7 +471,7 @@ impl Minion {
         if !followed_pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
                 .iter()
-                .map(|pk| pk.prefix(16)) // quarter-size
+                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(16)) // quarter-size
                 .collect();
 
             // feed related by people followed
@@ -498,7 +492,7 @@ impl Minion {
                 .people
                 .get_followed_pubkeys_needing_relay_lists(&followed_pubkeys)
                 .drain(..)
-                .map(|pk| pk.prefix(16)) // quarter-size
+                .map(|pk| Into::<PublicKeyHex>::into(pk).prefix(16)) // quarter-size
                 .collect();
 
             if !keys_needing_relay_lists.is_empty() {
@@ -639,10 +633,13 @@ impl Minion {
     async fn subscribe_discover(
         &mut self,
         job_id: u64,
-        pubkeys: Vec<PublicKeyHex>,
+        pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         if !pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHexPrefix> = pubkeys.iter().map(|pk| pk.prefix(16)).collect(); // quarter-size prefix
+            let pkp: Vec<PublicKeyHexPrefix> = pubkeys
+                .iter()
+                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(16))
+                .collect(); // quarter-size prefix
 
             let filters: Vec<Filter> = vec![Filter {
                 authors: pkp,
@@ -658,11 +655,7 @@ impl Minion {
     }
 
     // Subscribe to the posts a person generates on the relays they write to
-    async fn subscribe_person_feed(
-        &mut self,
-        job_id: u64,
-        pubkey: PublicKeyHex,
-    ) -> Result<(), Error> {
+    async fn subscribe_person_feed(&mut self, job_id: u64, pubkey: PublicKey) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
         // Allow all feed related event kinds
@@ -672,7 +665,7 @@ impl Minion {
             .retain(|f| *f != EventKind::EncryptedDirectMessage && *f != EventKind::Reaction);
 
         let filters: Vec<Filter> = vec![Filter {
-            authors: vec![pubkey.clone().into()],
+            authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(16)],
             kinds: event_kinds,
             // No since, just a limit on quantity of posts
             limit: Some(25),
@@ -808,7 +801,7 @@ impl Minion {
             // Find the oldest 'last_fetched' among the 'person_relay' table.
             // Null values will come through as 0.
             let mut special_since: i64 =
-                DbPersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
+                PersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
             */
 
             // Start with where we left off, the time we last got something from
@@ -927,12 +920,12 @@ impl Minion {
     async fn temp_subscribe_metadata(
         &mut self,
         job_id: u64,
-        mut pubkeyhexs: Vec<PublicKeyHex>,
+        mut pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
-        let pkhp: Vec<PublicKeyHexPrefix> = pubkeyhexs
+        let pkhp: Vec<PublicKeyHexPrefix> = pubkeys
             .drain(..)
             .map(
-                |pk| pk.prefix(16), // quarter-size
+                |pk| Into::<PublicKeyHex>::into(pk).prefix(16), // quarter-size
             )
             .collect();
 
@@ -974,7 +967,12 @@ impl Minion {
             // where we left off instead of potentially loading a bunch of events
             // yet again.
             let now = Unixtime::now().unwrap();
-            DbRelay::update_general_eose(self.dbrelay.url.clone(), now.0 as u64).await?;
+
+            // Update last general EOSE
+            self.dbrelay.last_general_eose_at = Some(match self.dbrelay.last_general_eose_at {
+                Some(old) => old.max(now.0 as u64),
+                None => now.0 as u64,
+            });
 
             sub.set_filters(filters);
             let old_job_id = sub.change_job_id(job_id);
@@ -1072,14 +1070,9 @@ impl Minion {
         // Update in self
         self.dbrelay.failure_count += 1;
 
-        // Save to database
-        if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+        // Save to storage
+        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay) {
             tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
-        }
-
-        // Update in globals
-        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url) {
-            dbrelay.failure_count += 1;
         }
     }
 
@@ -1092,17 +1085,9 @@ impl Minion {
             self.dbrelay.last_connected_at = Some(now);
         }
 
-        // Save to database
-        if let Err(e) = DbRelay::update(self.dbrelay.clone()).await {
+        // Save to storage
+        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay) {
             tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
-        }
-
-        // Update in globals
-        if let Some(mut dbrelay) = GLOBALS.all_relays.get_mut(&self.dbrelay.url) {
-            dbrelay.success_count += 1;
-            if also_bump_last_connected {
-                dbrelay.last_connected_at = Some(now);
-            }
         }
     }
 }

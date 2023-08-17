@@ -1,31 +1,7 @@
-mod event;
-pub use event::DbEvent;
-
-mod event_flags;
-pub use event_flags::DbEventFlags;
-
-mod event_relay;
-pub use event_relay::DbEventRelay;
-
-mod event_hashtag;
-pub use event_hashtag::DbEventHashtag;
-
-mod event_tag;
-pub use event_tag::DbEventTag;
-
-mod relay;
-pub use relay::DbRelay;
-
-mod person_relay;
-pub use person_relay::DbPersonRelay;
-
 use crate::error::Error;
-use crate::globals::GLOBALS;
 use crate::profile::Profile;
 use fallible_iterator::FallibleIterator;
 use rusqlite::Connection;
-use std::sync::atomic::Ordering;
-use tokio::task;
 
 pub fn init_database() -> Result<Connection, Error> {
     let profile_dir = Profile::current()?.profile_dir;
@@ -49,39 +25,30 @@ pub fn init_database() -> Result<Connection, Error> {
 
 // This sets up the database
 #[allow(clippy::or_fun_call)]
-pub fn setup_database() -> Result<(), Error> {
+pub fn setup_database(db: &mut Connection) -> Result<(), Error> {
     // Check and upgrade our data schema
-    check_and_upgrade()?;
+    check_and_upgrade(db)?;
 
     // Normalize URLs
-    normalize_urls()?;
-
-    let db = GLOBALS.db.blocking_lock();
+    normalize_urls(db)?;
 
     // Enforce foreign key relationships
     db.pragma_update(None, "foreign_keys", "ON")?;
 
-    // Performance:
-    db.pragma_update(None, "journal_mode", "WAL")?;
-    db.pragma_update(None, "synchronous", "normal")?;
-    db.pragma_update(None, "temp_store", "memory")?;
-    db.pragma_update(None, "mmap_size", "268435456")?; // 1024 * 1024 * 256
-
     Ok(())
 }
 
-fn check_and_upgrade() -> Result<(), Error> {
-    let db = GLOBALS.db.blocking_lock();
+fn check_and_upgrade(db: &mut Connection) -> Result<(), Error> {
     match db.query_row(
         "SELECT schema_version FROM local_settings LIMIT 1",
         [],
         |row| row.get::<usize, usize>(0),
     ) {
-        Ok(version) => upgrade(&db, version),
+        Ok(version) => upgrade(db, version),
         Err(e) => {
             if let rusqlite::Error::SqliteFailure(_, Some(ref s)) = e {
                 if s.contains("no such table") {
-                    return old_check_and_upgrade(&db);
+                    return old_check_and_upgrade(db);
                 }
             }
             Err(e.into())
@@ -97,13 +64,9 @@ fn old_check_and_upgrade(db: &Connection) -> Result<(), Error> {
     ) {
         Ok(v) => {
             let version = v.parse::<usize>().unwrap();
-            if version < 2 {
-                GLOBALS.first_run.store(true, Ordering::Relaxed);
-            }
             upgrade(db, version)
         }
         Err(_e) => {
-            GLOBALS.first_run.store(true, Ordering::Relaxed);
             // Check the error first!
             upgrade(db, 0)
         }
@@ -145,24 +108,7 @@ fn upgrade(db: &Connection, mut version: usize) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn prune() -> Result<(), Error> {
-    task::spawn_blocking(move || {
-        let db = GLOBALS.db.blocking_lock();
-        db.execute_batch(include_str!("sql/prune.sql"))?;
-        Ok::<(), Error>(())
-    })
-    .await??;
-
-    GLOBALS
-        .status_queue
-        .write()
-        .write("Database prune has completed.".to_owned());
-
-    Ok(())
-}
-
-fn normalize_urls() -> Result<(), Error> {
-    let db = GLOBALS.db.blocking_lock();
+fn normalize_urls(db: &mut Connection) -> Result<(), Error> {
     let urls_are_normalized: bool = db.query_row(
         "SELECT urls_are_normalized FROM local_settings LIMIT 1",
         [],

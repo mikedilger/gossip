@@ -9,17 +9,20 @@ lazy_static! {
     static ref CURRENT: RwLock<Option<Profile>> = RwLock::new(None);
 }
 
-///
-/// Access to current directories
-///
+/// Storage paths
 #[derive(Clone, Debug, PartialEq)]
 pub struct Profile {
-    /// The base directory for all gossip data, may be the same as profile_dir if it's a default profile
+    /// The base directory for all gossip data
     pub base_dir: PathBuf,
-    /// The directory for current profile
-    pub profile_dir: PathBuf,
+
     /// The directory for cache
     pub cache_dir: PathBuf,
+
+    /// The profile directory (could be the same as the base_dir if default)
+    pub profile_dir: PathBuf,
+
+    /// The LMDB directory (within the profile directory)
+    pub lmdb_dir: PathBuf,
 }
 
 impl Profile {
@@ -31,7 +34,7 @@ impl Profile {
         // Canonicalize (follow symlinks, resolve ".." paths)
         let data_dir = fs::canonicalize(data_dir)?;
 
-        // By default it's what `dirs::data_dir()` gives, but we allow overriding the base directory via env vars
+        // Push "gossip" to data_dir, or override with GOSSIP_DIR
         let base_dir = match env::var("GOSSIP_DIR") {
             Ok(dir) => {
                 tracing::info!("Using GOSSIP_DIR: {}", dir);
@@ -47,6 +50,12 @@ impl Profile {
             }
         };
 
+        let cache_dir = {
+            let mut cache_dir = base_dir.clone();
+            cache_dir.push("cache");
+            cache_dir
+        };
+
         // optional profile name, if specified the the user data is stored in a subdirectory
         let profile_dir = match env::var("GOSSIP_PROFILE") {
             Ok(profile) => {
@@ -54,9 +63,9 @@ impl Profile {
                     return Err(Error::from("Profile name 'cache' is reserved."));
                 }
 
+                // Check that it doesn't corrupt the expected path
                 let mut dir = base_dir.clone();
                 dir.push(&profile);
-
                 match dir.file_name() {
                     Some(filename) => {
                         if filename != OsStr::new(&profile) {
@@ -76,20 +85,23 @@ impl Profile {
             Err(_) => base_dir.clone(),
         };
 
-        let cache_dir = {
-            let mut base_dir = base_dir.clone();
-            base_dir.push("cache");
-            base_dir
+        let lmdb_dir = {
+            let mut lmdb_dir = base_dir.clone();
+            lmdb_dir.push("lmdb");
+            lmdb_dir
         };
 
+        // Create all these directories if missing
         fs::create_dir_all(&base_dir)?;
-        fs::create_dir_all(&profile_dir)?;
         fs::create_dir_all(&cache_dir)?;
+        fs::create_dir_all(&profile_dir)?;
+        fs::create_dir_all(&lmdb_dir)?;
 
         Ok(Profile {
             base_dir,
             profile_dir,
             cache_dir,
+            lmdb_dir,
         })
     }
 

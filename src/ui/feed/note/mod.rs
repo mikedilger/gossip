@@ -9,7 +9,7 @@ use super::notedata::{NoteData, RepostType};
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
-use crate::globals::{Globals, ZapState, GLOBALS};
+use crate::globals::{ZapState, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
@@ -66,9 +66,13 @@ pub(super) fn render_note(
 
         if let Ok(note_data) = note_ref.try_borrow() {
             // Render if not muted
-            if note_data.author.muted == 0 {
-                let is_new = app.settings.highlight_unread_events
-                    && !GLOBALS.viewed_events.contains(&note_data.event.id);
+            if !note_data.author.muted {
+                let viewed = match GLOBALS.storage.is_event_viewed(note_data.event.id) {
+                    Ok(answer) => answer,
+                    _ => false,
+                };
+
+                let is_new = app.settings.highlight_unread_events && !viewed;
 
                 let is_main_event: bool = {
                     let feed_kind = GLOBALS.feed.get_feed_kind();
@@ -134,8 +138,7 @@ pub(super) fn render_note(
 
                 // Mark post as viewed if hovered AND we are not scrolling
                 if inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
-                    GLOBALS.viewed_events.insert(id);
-                    GLOBALS.new_viewed_events.blocking_write().insert(id);
+                    let _ = GLOBALS.storage.mark_event_viewed(id);
                 }
 
                 // Record if the rendered note was visible
@@ -156,7 +159,7 @@ pub(super) fn render_note(
 
             // even if muted, continue rendering thread children
             if threaded && !as_reply_to {
-                let replies = Globals::get_replies_sync(id);
+                let replies = GLOBALS.storage.get_replies(id).unwrap_or(vec![]);
                 let iter = replies.iter();
                 let first = replies.first();
                 let last = replies.last();
@@ -270,7 +273,7 @@ fn render_note_inner(
                     )
                     .clicked()
                 {
-                    app.set_page(Page::Person(note.author.pubkey.clone()));
+                    app.set_page(Page::Person(note.author.pubkey));
                 };
 
                 ui.add_space(avatar_margin_left);
@@ -290,7 +293,7 @@ fn render_note_inner(
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: irt,
                                 referenced_by: note.event.id,
-                                author: Some(note.event.pubkey.into()),
+                                author: Some(note.event.pubkey),
                             }));
                         };
                         ui.reset_style();
@@ -340,18 +343,19 @@ fn render_note_inner(
                                 app.set_page(Page::Feed(FeedKind::Thread {
                                     id: note.event.id,
                                     referenced_by: note.event.id,
-                                    author: Some(note.event.pubkey.into()),
+                                    author: Some(note.event.pubkey),
                                 }));
                             }
                         }
                         if ui.button("Copy nevent").clicked() {
                             let event_pointer = EventPointer {
                                 id: note.event.id,
-                                relays: match GLOBALS.events.get_seen_on(&note.event.id) {
-                                    None => vec![],
-                                    Some(vec) => {
-                                        vec.iter().map(|url| url.to_unchecked_url()).collect()
+                                relays: match GLOBALS.storage.get_event_seen_on_relay(note.event.id)
+                                {
+                                    Ok(vec) => {
+                                        vec.iter().map(|(url, _)| url.to_unchecked_url()).collect()
                                     }
+                                    Err(_) => vec![],
                                 },
                                 author: None,
                                 kind: None,
@@ -427,7 +431,7 @@ fn render_note_inner(
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: note.event.id,
                                 referenced_by: note.event.id,
-                                author: Some(note.event.pubkey.into()),
+                                author: Some(note.event.pubkey),
                             }));
                         }
                     }
@@ -454,10 +458,10 @@ fn render_note_inner(
                                 egui::Frame::popup(&app.settings.theme.get_style()).show(
                                     ui,
                                     |ui| {
-                                        if let Some(urls) =
-                                            GLOBALS.events.get_seen_on(&note.event.id)
+                                        if let Ok(seen_on) =
+                                            GLOBALS.storage.get_event_seen_on_relay(note.event.id)
                                         {
-                                            for url in urls.iter() {
+                                            for (url, _) in seen_on.iter() {
                                                 ui.label(url.as_str());
                                             }
                                         } else {
@@ -587,12 +591,14 @@ fn render_note_inner(
                                         }
                                         let event_pointer = EventPointer {
                                             id: note.event.id,
-                                            relays: match GLOBALS.events.get_seen_on(&note.event.id)
+                                            relays: match GLOBALS
+                                                .storage
+                                                .get_event_seen_on_relay(note.event.id)
                                             {
-                                                None => vec![],
-                                                Some(vec) => vec
+                                                Err(_) => vec![],
+                                                Ok(vec) => vec
                                                     .iter()
-                                                    .map(|url| url.to_unchecked_url())
+                                                    .map(|(url, _)| url.to_unchecked_url())
                                                     .collect(),
                                             },
                                             author: None,
@@ -675,8 +681,8 @@ fn render_note_inner(
                                     }
 
                                     let mut has_seen_on_relays = false;
-                                    if let Some(seen_on) =
-                                        GLOBALS.events.get_seen_on(&note.event.id)
+                                    if let Ok(seen_on) =
+                                        GLOBALS.storage.get_event_seen_on_relay(note.event.id)
                                     {
                                         if !seen_on.is_empty() {
                                             has_seen_on_relays = true;

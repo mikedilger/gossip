@@ -23,7 +23,7 @@ impl Delegation {
 
     pub fn get_delegator_pubkey(&self) -> Option<PublicKey> {
         if let Some(Tag::Delegation { pubkey, .. }) = self.get_delegatee_tag() {
-            if let Ok(pk) = PublicKey::try_from_hex_string(pubkey.as_str()) {
+            if let Ok(pk) = PublicKey::try_from_hex_string(pubkey.as_str(), true) {
                 return Some(pk);
             }
         }
@@ -60,8 +60,8 @@ impl Delegation {
 
     pub async fn save_through_settings(&self) -> Result<(), Error> {
         GLOBALS.settings.write().delegatee_tag = self.get_delegatee_tag_as_str();
-        let settings = GLOBALS.settings.read().clone();
-        settings.save().await?;
+        let settings = GLOBALS.settings.read();
+        GLOBALS.storage.write_settings(&settings)?;
         Ok(())
     }
 }

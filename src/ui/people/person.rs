@@ -1,22 +1,22 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
-use crate::people::DbPerson;
+use crate::people::Person;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
-use nostr_types::{PublicKey, PublicKeyHex};
+use nostr_types::PublicKey;
 use serde_json::Value;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let (pubkeyhex, person) = match &app.page {
-        Page::Person(pubkeyhex) => {
-            let person = match GLOBALS.people.get(pubkeyhex) {
-                Some(p) => p,
-                None => DbPerson::new(pubkeyhex.to_owned()),
+    let (pubkey, person) = match &app.page {
+        Page::Person(pubkey) => {
+            let person = match GLOBALS.storage.read_person(pubkey) {
+                Ok(Some(p)) => p,
+                _ => Person::new(pubkey.to_owned()),
             };
-            (pubkeyhex.to_owned(), person)
+            (pubkey.to_owned(), person)
         }
         _ => {
             ui.label("ERROR");
@@ -33,22 +33,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            content(app, ctx, ui, pubkeyhex, person);
+            content(app, ctx, ui, pubkey, person);
         });
 }
 
-fn content(
-    app: &mut GossipUi,
-    ctx: &Context,
-    ui: &mut Ui,
-    pubkeyhex: PublicKeyHex,
-    person: DbPerson,
-) {
+fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, person: Person) {
     ui.add_space(24.0);
 
     ui.horizontal(|ui| {
         // Avatar first
-        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pubkeyhex) {
+        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pubkey) {
             avatar
         } else {
             app.placeholder_avatar.clone()
@@ -63,32 +57,29 @@ fn content(
         ui.vertical(|ui| {
             let name = GossipUi::display_name_from_dbperson(&person);
             ui.heading(name);
-            ui.label(RichText::new(GossipUi::pubkeyhex_convert_short(&pubkeyhex)).weak());
+            ui.label(RichText::new(GossipUi::pubkey_short(&pubkey)).weak());
             GossipUi::render_person_name_line(app, ui, &person);
         });
     });
 
     ui.add_space(12.0);
 
-    let mut npub = "Unable to get npub".to_owned();
-    if let Ok(pk) = PublicKey::try_from_hex_string(&pubkeyhex) {
-        npub = pk.as_bech32_string();
-        ui.horizontal_wrapped(|ui| {
-            ui.label(RichText::new("Public Key: ").strong());
-            ui.label(&npub);
-            if ui
-                .add(CopyButton {})
-                .on_hover_text("Copy Public Key")
-                .clicked()
-            {
-                ui.output_mut(|o| o.copied_text = npub.to_owned());
-            }
-            if ui.button("⚃").on_hover_text("Show as QR code").clicked() {
-                app.qr_codes.remove("person_qr");
-                app.person_qr = Some("npub");
-            }
-        });
-    }
+    let npub = pubkey.as_bech32_string();
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new("Public Key: ").strong());
+        ui.label(&npub);
+        if ui
+            .add(CopyButton {})
+            .on_hover_text("Copy Public Key")
+            .clicked()
+        {
+            ui.output_mut(|o| o.copied_text = npub.to_owned());
+        }
+        if ui.button("⚃").on_hover_text("Show as QR code").clicked() {
+            app.qr_codes.remove("person_qr");
+            app.person_qr = Some("npub");
+        }
+    });
 
     if let Some(name) = person.name() {
         ui.horizontal_wrapped(|ui| {
@@ -198,8 +189,9 @@ fn content(
     }
 
     let mut need_to_set_active_person = true;
+
     if let Some(ap) = GLOBALS.people.get_active_person() {
-        if ap == pubkeyhex {
+        if ap == pubkey {
             need_to_set_active_person = false;
             app.setting_active_person = false;
 
@@ -217,6 +209,6 @@ fn content(
         app.setting_active_person = true;
         let _ = GLOBALS
             .to_overlord
-            .send(ToOverlordMessage::SetActivePerson(pubkeyhex.clone()));
+            .send(ToOverlordMessage::SetActivePerson(pubkey));
     }
 }
