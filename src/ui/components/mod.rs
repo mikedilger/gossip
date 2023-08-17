@@ -88,6 +88,7 @@ pub fn switch_with_size_at(
     response
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn switch_custom_at(
     ui: &mut Ui,
     enabled: bool,

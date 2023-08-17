@@ -350,7 +350,7 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
                     GLOBALS.status_queue.write().write( format!(
                         "I asked the overlord to add relay {}. Check for it below.",
                         &app.relays.new_relay_url
-                    ).to_owned());
+                    ));
 
                     // send user to known relays page (where the new entry should show up)
                     app.set_page( Page::RelaysKnownNetwork );
@@ -439,7 +439,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
     seen_on_popup_position.y += 18.0; // drop below the icon itself
 
     let id: Id = "configure-list-menu".into();
-    let mut frame = egui::Frame::popup(&ui.style());
+    let mut frame = egui::Frame::popup(ui.style());
     let area = egui::Area::new(id)
         .movable(false)
         .interactable(true)

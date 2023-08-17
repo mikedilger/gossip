@@ -940,9 +940,7 @@ impl RelayEntry {
                     let resp = ui.interact(rect, self.make_id("rank_sub"), Sense::click())
                         .on_hover_cursor(CursorIcon::PointingHand);
                     if resp.clicked() {
-                        if new_r > 0 {
-                            new_r -= 1;
-                        }
+                        new_r = new_r.saturating_sub(1)
                     }
                     let (fill, txt) = if resp.hovered() {
                         (self.accent_hover, on_text)
@@ -973,7 +971,7 @@ impl RelayEntry {
             }
             let pos = pos+vec2(80.0,0.0);
             {
-                ui.painter().text(pos, Align2::LEFT_TOP, "Relay-picker rank", font.clone(), txt_color);
+                ui.painter().text(pos, Align2::LEFT_TOP, "Relay-picker rank", font, txt_color);
             }
 
             if new_r != self.relay.rank {
