@@ -5,7 +5,7 @@ use crate::{db::DbRelay, globals::GLOBALS, comms::ToOverlordMessage};
 use super::{GossipUi, Page, widgets::RelayEntry};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id, vec2, Rect, RichText, TextBuffer};
+use egui_winit::egui::{Id, vec2, Rect, RichText};
 use nostr_types::RelayUrl;
 
 mod active;
@@ -33,7 +33,7 @@ pub(super) struct RelayUi {
     edit_needs_scroll: bool,
 
     /// Add Relay dialog
-    pub(super) add_dialog_active: bool,
+    add_dialog_step: AddRelayDialogStep,
     new_relay_url: String,
 
     /// Configure List Menu
@@ -52,7 +52,7 @@ impl RelayUi {
             edit_relays: Vec::new(),
             edit_done: None,
             edit_needs_scroll: false,
-            add_dialog_active: false,
+            add_dialog_step: AddRelayDialogStep::Inactive,
             new_relay_url: "".to_string(),
             configure_list_menu_active: false,
         }
@@ -105,6 +105,15 @@ impl RelayFilter {
             RelayFilter::Private => "Private",
         }
     }
+}
+
+#[derive(PartialEq, Default)]
+enum AddRelayDialogStep {
+    #[default]
+    Inactive,
+    Step1UrlEntry,
+    Step2AwaitOverlord
+    // TODO add a configure step once we have overlord connection checking
 }
 
 ///
@@ -216,7 +225,7 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
             pos_last_entry = response.rect.left_top();
         }
 
-        if !has_edit_target {
+        if !has_edit_target && !is_entry_dialog_active(app) {
             // the relay we wanted to edit was not in the list anymore
             // -> release edit modal
             app.relays.edit = None;
@@ -228,6 +237,19 @@ pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<DbR
             ui.allocate_exact_size(desired_size, egui::Sense::hover());
         }
     });
+}
+
+pub(super) fn is_entry_dialog_active(app: &GossipUi) -> bool {
+    app.relays.add_dialog_step != AddRelayDialogStep::Inactive
+}
+
+pub(super) fn start_entry_dialog(app: &mut GossipUi) {
+    app.relays.add_dialog_step = AddRelayDialogStep::Step1UrlEntry;
+}
+
+pub(super) fn stop_entry_dialog(app: &mut GossipUi) {
+    app.relays.new_relay_url = "".to_string();
+    app.relays.add_dialog_step = AddRelayDialogStep::Inactive;
 }
 
 pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
@@ -252,7 +274,7 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
         .interactable(true)
         .order(egui::Order::Foreground)
         .fixed_pos(ctx.screen_rect().center() - vec2(dlg_size.x/2.0, dlg_size.y));
-    area.show_open_close_animation(ctx, &frame, app.relays.add_dialog_active);
+    area.show_open_close_animation(ctx, &frame, app.relays.add_dialog_step != AddRelayDialogStep::Inactive);
     area.show(ctx, |ui| {
         frame.fill = ui.visuals().extreme_bg_color;
         frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
@@ -273,64 +295,117 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
                             if ui.add_sized(
                                 rect.size(),
                                 super::widgets::NavItem::new("\u{274C}", false)).clicked() {
-                                app.relays.add_dialog_active = false;
+                                    stop_entry_dialog(app);
                             }
                         });
                 });
-                ui.add_space(10.0);
-                ui.add(egui::Label::new("Enter relay URL:"));
-                ui.add_space(10.0);
-                let edit_response = ui.horizontal(|ui|{
-                    ui.style_mut().visuals.widgets.inactive.bg_stroke.width = 1.0;
-                    ui.style_mut().visuals.widgets.hovered.bg_stroke.width = 1.0;
-                    ui.add(
-                        text_edit_line!(app, app.relays.new_relay_url).desired_width(ui.available_width())
-                        .hint_text("wss://myrelay.com") )
-                });
 
-                ui.add_space(10.0);
-                ui.allocate_ui_with_layout( vec2(edit_response.inner.rect.width(), 30.0), egui::Layout::left_to_right(egui::Align::Min), |ui|{
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui|{
-                        ui.visuals_mut().widgets.inactive.weak_bg_fill = app.settings.theme.accent_color();
-                        ui.visuals_mut().widgets.hovered.weak_bg_fill = {
-                            let mut hsva: egui::ecolor::HsvaGamma  = app.settings.theme.accent_color().into();
-                            hsva.v *= 0.8;
-                            hsva.into()
-                        };
-                        ui.spacing_mut().button_padding *= 2.0;
-                        let text = RichText::new("Check & Configure").color(ui.visuals().extreme_bg_color);
-                        if ui.add(egui::Button::new(text)).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
-                            if let Ok(url) = RelayUrl::try_from_str(&app.relays.new_relay_url) {
-                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url.clone()));
-                                GLOBALS.status_queue.write().write( format!(
-                                    "I asked the overlord to add relay {}. Check for it below.",
-                                    &app.relays.new_relay_url
-                                ).to_owned());
-
-                                // send user to known relays page (where the new entry should show up)
-                                app.set_page( Page::RelaysKnownNetwork );
-                                // set the new relay to edit mode
-                                app.relays.edit = Some(url);
-                                // search for the new relay so it shows at the top
-                                app.relays.search = app.relays.new_relay_url.take();
-                                // reset the filters so it will show
-                                app.relays.filter = RelayFilter::All;
-
-                                // close this dialog
-                                app.relays.add_dialog_active = false;
-                                app.relays.new_relay_url = "".to_owned();
-                            } else {
-                                GLOBALS.status_queue.write().write(
-                                    "That's not a valid relay URL.".to_owned()
-                                );
-                            }
-                        }
-                    });
-                });
+                match app.relays.add_dialog_step {
+                    AddRelayDialogStep::Inactive => {},
+                    AddRelayDialogStep::Step1UrlEntry => entry_dialog_step1(ui, app),
+                    AddRelayDialogStep::Step2AwaitOverlord => entry_dialog_step2(ui, app),
+                }
             });
-
         });
     });
+}
+
+fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
+    ui.add_space(10.0);
+    ui.add(egui::Label::new("Enter relay URL:"));
+    ui.add_space(10.0);
+
+    // validate relay url (we are validating one UI frame later, shouldn't be an issue)
+    let is_url_valid = RelayUrl::try_from_str(&app.relays.new_relay_url).is_ok();
+
+    let edit_response = ui.horizontal(|ui|{
+        ui.style_mut().visuals.widgets.inactive.bg_stroke.width = 1.0;
+        ui.style_mut().visuals.widgets.hovered.bg_stroke.width = 1.0;
+
+        // change frame color to error when url is invalid
+        if !is_url_valid {
+            ui.style_mut().visuals.widgets.inactive.bg_stroke.color = ui.style().visuals.error_fg_color;
+            ui.style_mut().visuals.selection.stroke.color = ui.style().visuals.error_fg_color;
+        }
+
+        ui.add(
+            text_edit_line!(app, app.relays.new_relay_url).desired_width(ui.available_width())
+            .hint_text("wss://myrelay.com") )
+    });
+
+    ui.add_space(10.0);
+    ui.allocate_ui_with_layout( vec2(edit_response.inner.rect.width(), 30.0), egui::Layout::left_to_right(egui::Align::Min), |ui|{
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui|{
+            ui.visuals_mut().widgets.inactive.weak_bg_fill = app.settings.theme.accent_color();
+            ui.visuals_mut().widgets.hovered.weak_bg_fill = {
+                let mut hsva: egui::ecolor::HsvaGamma  = app.settings.theme.accent_color().into();
+                hsva.v *= 0.8;
+                hsva.into()
+            };
+            ui.spacing_mut().button_padding *= 2.0;
+            let text = RichText::new("Check").color(ui.visuals().extreme_bg_color);
+            if ui.add_enabled(is_url_valid, egui::Button::new(text)).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                if let Ok(url) = RelayUrl::try_from_str(&app.relays.new_relay_url) {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url.clone()));
+                    GLOBALS.status_queue.write().write( format!(
+                        "I asked the overlord to add relay {}. Check for it below.",
+                        &app.relays.new_relay_url
+                    ).to_owned());
+
+                    // send user to known relays page (where the new entry should show up)
+                    app.set_page( Page::RelaysKnownNetwork );
+                    // search for the new relay so it shows at the top
+                    app.relays.search = url.to_string();
+                    // set the new relay to edit mode
+                    app.relays.edit = Some(url);
+                    app.relays.edit_needs_scroll = true;
+                    // reset the filters so it will show
+                    app.relays.filter = RelayFilter::All;
+
+                    // go to next step
+                    app.relays.add_dialog_step = AddRelayDialogStep::Step2AwaitOverlord;
+                    app.relays.new_relay_url = "".to_owned();
+                } else {
+                    GLOBALS.status_queue.write().write(
+                        "That's not a valid relay URL.".to_owned()
+                    );
+                }
+            }
+        });
+    });
+}
+
+fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
+    // the new relay has been set as the edit relay
+    if let Some(url) = app.relays.edit.clone() {
+        ui.add_space(10.0);
+        ui.add(egui::Label::new("Relay added and is ready to be configured."));
+        ui.add_space(10.0);
+
+        // if the overlord has added the relay, we are done for now
+        if GLOBALS.all_relays.contains_key(&url) {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui|{
+                ui.visuals_mut().widgets.inactive.weak_bg_fill = app.settings.theme.accent_color();
+                ui.visuals_mut().widgets.hovered.weak_bg_fill = {
+                    let mut hsva: egui::ecolor::HsvaGamma  = app.settings.theme.accent_color().into();
+                    hsva.v *= 0.8;
+                    hsva.into()
+                };
+                ui.spacing_mut().button_padding *= 2.0;
+                let text = RichText::new("Configure").color(ui.visuals().extreme_bg_color);
+                if ui.add(egui::Button::new(text)).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                    stop_entry_dialog(app);
+                }
+            });
+        }
+    } else {
+        ui.add_space(10.0);
+        ui.add(egui::Label::new("Adding relay..."));
+        ui.add_space(10.0);
+
+        ui.label("If this takes too long, something went wrong.");
+        ui.label("Use the 'X' to close this dialog and abort.");
+    }
 }
 
 ///

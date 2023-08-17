@@ -582,7 +582,7 @@ impl eframe::App for GossipUi {
         }
 
         // dialogues first
-        if self.relays.add_dialog_active {
+        if relays::is_entry_dialog_active(self) {
             relays::entry_dialog(ctx, self);
         }
 
@@ -688,7 +688,7 @@ impl eframe::App for GossipUi {
                                     ui.visuals_mut().widgets.hovered.weak_bg_fill = self.settings.theme.navigation_text_color();
                                     ui.visuals_mut().widgets.hovered.fg_stroke.color = self.settings.theme.accent_color();
                                     if ui.button(RichText::new("Add Relay")).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
-                                        self.relays.add_dialog_active = true;
+                                        relays::start_entry_dialog(self);
                                     }
                                 });
                             });
@@ -899,7 +899,7 @@ impl eframe::App for GossipUi {
 impl GossipUi {
     fn begin_ui(&self, ui: &mut Ui) {
         // if a dialog is open, disable the rest of the UI
-        ui.set_enabled(!self.relays.add_dialog_active);
+        ui.set_enabled(!relays::is_entry_dialog_active(self));
     }
 
     /// A short rendering of a `PublicKey`
