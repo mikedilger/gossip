@@ -1,1 +1,4 @@
 edition = "2021"
+
+#max_width = 1000
+#use_small_heuristics = "Max"
