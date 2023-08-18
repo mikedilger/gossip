@@ -1,4 +1,7 @@
+use crate::error::Error;
+use super::super::Storage;
 use super::theme1::{Theme1, ThemeVariant1};
+use heed::RwTxn;
 use nostr_types::PublicKey;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -74,4 +77,42 @@ impl Default for Settings1 {
             enable_zap_receipts: true,
         }
     }
+}
+
+impl Storage {
+    #[allow(dead_code)]
+    pub fn write_settings1<'a>(
+        &'a self,
+        settings: &Settings1,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = settings.write_to_vec()?;
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general.put(txn, b"settings", &bytes)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn read_settings1(&self) -> Result<Option<Settings1>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.general.get(&txn, b"settings")? {
+            None => Ok(None),
+            Some(bytes) => Ok(Some(Settings1::read_from_buffer(bytes)?)),
+        }
+    }
+
 }

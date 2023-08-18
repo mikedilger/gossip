@@ -1,8 +1,9 @@
 use super::Storage;
+use super::types::{Settings1, Settings2};
 use crate::error::{Error, ErrorKind};
 use heed::RwTxn;
 use nostr_types::{Event, RelayUrl};
-use speedy::Readable;
+use speedy::{Readable, Writable};
 
 impl Storage {
     const MAX_MIGRATION_LEVEL: u32 = 3;
@@ -112,4 +113,39 @@ impl Storage {
 
         Ok(())
     }
+
+    fn try_migrate_settings1_settings2<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // If something is under the old "settings" key
+            if let Ok(Some(bytes)) = self.general.get(txn, b"settings") {
+                let settings1 = Settings1::read_from_buffer(bytes)?;
+
+                // Convert it to the new Settings2 structure
+                let settings2: Settings2 = settings1.into();
+                let bytes = settings2.write_to_vec()?;
+
+                // And store it under the new "settings2" key
+                self.general.put(txn, b"settings2", &bytes)?;
+
+                // Then delete the old "settings" key
+                self.general.delete(txn, b"settings")?;
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
 }

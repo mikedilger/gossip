@@ -1,11 +1,7 @@
 mod legacy;
 use super::Storage;
 use crate::error::Error;
-use crate::people::Person;
-use crate::person_relay::PersonRelay;
-use crate::relay::Relay;
-use crate::settings::Settings;
-use crate::ui::ThemeVariant;
+use super::types::{Person1, PersonRelay1, Relay1, Settings1, ThemeVariant1};
 use nostr_types::{EncryptedPrivateKey, Event, Id, PublicKey, RelayUrl, Unixtime};
 use rusqlite::Connection;
 
@@ -29,8 +25,8 @@ impl Storage {
 
         // old table "settings"
         // Copy settings (including local_settings)
-        import_settings(&db, |settings: &Settings| {
-            self.write_settings(settings, Some(&mut txn))
+        import_settings(&db, |settings: &Settings1| {
+            self.write_settings1(settings, Some(&mut txn))
         })?;
         tracing::info!("LMDB: imported settings.");
 
@@ -68,8 +64,8 @@ impl Storage {
 
         // old table "relay"
         // Copy relays
-        import_relays(&db, |dbrelay: &Relay| {
-            self.write_relay(dbrelay, Some(&mut txn))
+        import_relays(&db, |dbrelay: &Relay1| {
+            self.write_relay1(dbrelay, Some(&mut txn))
         })?;
         tracing::info!("LMDB: imported relays.");
 
@@ -80,15 +76,15 @@ impl Storage {
 
         // old table "person"
         // Copy people
-        import_people(&db, |person: &Person| {
-            self.write_person(person, Some(&mut txn))
+        import_people(&db, |person: &Person1| {
+            self.write_person1(person, Some(&mut txn))
         })?;
         tracing::info!("LMDB: imported people");
 
         // old table "person_relay"
         // Copy person relay
-        import_person_relays(&db, |person_relay: &PersonRelay| {
-            self.write_person_relay(person_relay, Some(&mut txn))
+        import_person_relays(&db, |person_relay: &PersonRelay1| {
+            self.write_person_relay1(person_relay, Some(&mut txn))
         })?;
         tracing::info!("LMDB: import person_relays");
 
@@ -125,14 +121,14 @@ where
 
 fn import_settings<F>(db: &Connection, mut f: F) -> Result<(), Error>
 where
-    F: FnMut(&Settings) -> Result<(), Error>,
+    F: FnMut(&Settings1) -> Result<(), Error>,
 {
     let numstr_to_bool = |s: String| -> bool { &s == "1" };
 
     let sql = "SELECT key, value FROM settings ORDER BY key";
     let mut stmt = db.prepare(sql)?;
     let mut rows = stmt.raw_query();
-    let mut settings = Settings::default();
+    let mut settings = Settings1::default();
     while let Some(row) = rows.next()? {
         let key: String = row.get(0)?;
         let value: String = row.get(1)?;
@@ -198,7 +194,7 @@ where
             "dark_mode" => settings.theme.dark_mode = numstr_to_bool(value),
             "follow_os_dark_mode" => settings.theme.follow_os_dark_mode = numstr_to_bool(value),
             "theme" => {
-                for theme_variant in ThemeVariant::all() {
+                for theme_variant in ThemeVariant1::all() {
                     if &*value == theme_variant.name() {
                         settings.theme.variant = *theme_variant;
                         break;
@@ -295,7 +291,7 @@ where
 
 fn import_relays<F>(db: &Connection, mut f: F) -> Result<(), Error>
 where
-    F: FnMut(&Relay) -> Result<(), Error>,
+    F: FnMut(&Relay1) -> Result<(), Error>,
 {
     let sql = "SELECT url, success_count, failure_count, last_connected_at, \
                last_general_eose_at, rank, hidden, usage_bits, \
@@ -307,7 +303,7 @@ where
         let urlstring: String = row.get(0)?;
         let nip11: Option<String> = row.get(8)?;
         if let Ok(url) = RelayUrl::try_from_str(&urlstring) {
-            let dbrelay = Relay {
+            let dbrelay = Relay1 {
                 url,
                 success_count: row.get(1)?,
                 failure_count: row.get(2)?,
@@ -352,7 +348,7 @@ where
 
 fn import_people<F>(db: &Connection, mut f: F) -> Result<(), Error>
 where
-    F: FnMut(&Person) -> Result<(), Error>,
+    F: FnMut(&Person1) -> Result<(), Error>,
 {
     let sql = "SELECT pubkey, petname, \
                followed, followed_last_updated, muted, \
@@ -377,7 +373,7 @@ where
             None => None,
         };
         let pk: String = row.get(0)?;
-        let person = Person {
+        let person = Person1 {
             pubkey: match PublicKey::try_from_hex_string(&pk, false) {
                 Ok(pk) => pk,
                 Err(e) => {
@@ -405,7 +401,7 @@ where
 
 fn import_person_relays<F>(db: &Connection, mut f: F) -> Result<(), Error>
 where
-    F: FnMut(&PersonRelay) -> Result<(), Error>,
+    F: FnMut(&PersonRelay1) -> Result<(), Error>,
 {
     let sql = "SELECT person, relay, last_fetched, last_suggested_kind3, last_suggested_nip05, \
                last_suggested_bytag, read, write, manually_paired_read, manually_paired_write \
@@ -434,7 +430,7 @@ where
             }
         };
 
-        let person_relay = PersonRelay {
+        let person_relay = PersonRelay1 {
             pubkey,
             url,
             last_fetched: row.get(2)?,

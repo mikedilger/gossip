@@ -1,5 +1,8 @@
+use crate::error::Error;
+use super::super::Storage;
 use super::settings1::Settings1;
 use super::theme1::{Theme1, ThemeVariant1};
+use heed::RwTxn;
 use nostr_types::PublicKey;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -226,4 +229,42 @@ impl From<Settings1> for Settings2 {
             ..Default::default()
         }
     }
+}
+
+impl Storage {
+    #[allow(dead_code)]
+    pub fn write_settings2<'a>(
+        &'a self,
+        settings: &Settings2,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = settings.write_to_vec()?;
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general.put(txn, b"settings", &bytes)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn read_settings2(&self) -> Result<Option<Settings2>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.general.get(&txn, b"settings")? {
+            None => Ok(None),
+            Some(bytes) => Ok(Some(Settings2::read_from_buffer(bytes)?)),
+        }
+    }
+
 }

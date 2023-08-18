@@ -1,3 +1,15 @@
+const MAX_LMDB_KEY: usize = 511;
+
+macro_rules! key {
+    ($slice:expr) => {
+        if $slice.len() > 511 {
+            &$slice[..=510]
+        } else {
+            $slice
+        }
+    };
+}
+
 mod import;
 mod migrations;
 mod types;
@@ -20,17 +32,6 @@ use nostr_types::{
 use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use std::ops::Bound;
-
-const MAX_LMDB_KEY: usize = 511;
-macro_rules! key {
-    ($slice:expr) => {
-        if $slice.len() > 511 {
-            &$slice[..=510]
-        } else {
-            $slice
-        }
-    };
-}
 
 type RawDatabase = Database<UnalignedSlice<u8>, UnalignedSlice<u8>>;
 
