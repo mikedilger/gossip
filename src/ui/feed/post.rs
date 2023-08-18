@@ -92,7 +92,7 @@ pub(in crate::ui) fn posting_area(
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("choose write relays").clicked() {
-                    app.set_page(Page::RelaysAll);
+                    app.set_page(Page::RelaysKnownNetwork);
                 }
                 ui.label(" to post.");
             });

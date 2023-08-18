@@ -77,14 +77,7 @@ impl NavItem {
 impl NavItem {
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
     pub fn layout_in_ui(self, ui: &mut Ui) -> (Pos2, WidgetTextGalley, Response) {
-        let sense = self.sense.unwrap_or_else(|| {
-            // We only want to focus labels if the screen reader is on.
-            if ui.memory(|mem| mem.options.screen_reader) {
-                Sense::focusable_noninteractive()
-            } else {
-                Sense::hover()
-            }
-        });
+        let sense = self.sense.unwrap_or(Sense::click());
         if let WidgetText::Galley(galley) = self.text {
             // If the user said "use this specific galley", then just use it:
             let (rect, response) = ui.allocate_exact_size(galley.size(), sense);
@@ -195,6 +188,10 @@ impl Widget for NavItem {
             } else {
                 Some(ui.style().interact(&response).text_color())
             };
+
+            response
+                .clone()
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
 
             ui.painter().add(epaint::TextShape {
                 pos,

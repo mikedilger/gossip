@@ -34,6 +34,7 @@ pub enum ToOverlordMessage {
     PushMetadata(Metadata),
     ReengageMinion(RelayUrl, Vec<RelayJob>),
     RefreshFollowedMetadata,
+    ClearAllUsageOnRelay(RelayUrl),
     Repost(Id),
     RankRelay(RelayUrl, u8),
     SaveSettings,

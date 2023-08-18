@@ -30,7 +30,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("Manage individual relays on the");
         if ui.link("Relays > Configure").clicked() {
-            app.set_page(Page::RelaysAll);
+            app.set_page(Page::RelaysKnownNetwork);
         }
         ui.label("page.");
     });
