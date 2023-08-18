@@ -434,13 +434,8 @@ impl Minion {
         followed_pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
-        let (overlap, feed_chunk) = {
-            let settings = GLOBALS.settings.read().clone();
-            (
-                Duration::from_secs(settings.overlap),
-                Duration::from_secs(settings.feed_chunk),
-            )
-        };
+        let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
+        let feed_chunk = Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
         tracing::debug!(
             "Following {} people at {}",
@@ -568,13 +563,8 @@ impl Minion {
     // (and any other relay for the time being until nip65 is in widespread use)
     async fn subscribe_mentions(&mut self, job_id: u64) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
-        let (overlap, replies_chunk) = {
-            let settings = GLOBALS.settings.read().clone();
-            (
-                Duration::from_secs(settings.overlap),
-                Duration::from_secs(settings.replies_chunk),
-            )
-        };
+        let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
+        let replies_chunk = Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
 
         // Compute how far to look back
         let replies_since = {
@@ -697,7 +687,7 @@ impl Minion {
             ..Default::default()
         }];
 
-        // let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+        // let feed_chunk = GLOBALS.storage.read_setting_feed_chunk();
 
         // Don't do this anymore. It's low value and we can't compute how far back to look
         // until after we get their 25th oldest post.
@@ -811,11 +801,9 @@ impl Minion {
 
         // Compute how far to look back
         let (feed_since, special_since) = {
-            // Get related settings
-            let (overlap, feed_chunk) = {
-                let settings = GLOBALS.settings.read().await.clone();
-                (settings.overlap, settings.feed_chunk)
-            };
+        // Get related settings
+            let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
+            let feed_chunk = Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
             /*
             // Find the oldest 'last_fetched' among the 'person_relay' table.

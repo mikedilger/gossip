@@ -52,7 +52,6 @@ mod ui;
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use crate::settings::Settings;
 use std::ops::DerefMut;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -82,10 +81,6 @@ fn main() -> Result<(), Error> {
 
     // Initialize storage
     GLOBALS.storage.init()?;
-
-    // Load settings
-    let settings = Settings::load();
-    *GLOBALS.settings.write() = settings;
 
     // We create and enter the runtime on the main thread so that
     // non-async code can have a runtime context within which to spawn

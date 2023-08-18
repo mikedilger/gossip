@@ -290,7 +290,7 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-        let mut settings = GLOBALS.settings.read().clone();
+        let mut settings = Settings::load();
 
         if let Some(dpi) = settings.override_dpi {
             let ppt: f32 = dpi as f32 / 72.0;

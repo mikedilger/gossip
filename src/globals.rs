@@ -6,7 +6,6 @@ use crate::media::Media;
 use crate::people::{People, Person};
 use crate::relay::Relay;
 use crate::relay_picker_hooks::Hooks;
-use crate::settings::Settings;
 use crate::signer::Signer;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
@@ -58,9 +57,6 @@ pub struct Globals {
     /// Whether or not we are shutting down. For the UI (minions will be signaled and
     /// waited for by the overlord)
     pub shutting_down: AtomicBool,
-
-    /// Settings
-    pub settings: PRwLock<Settings>,
 
     /// Signer
     pub signer: Signer,
@@ -144,7 +140,6 @@ lazy_static! {
             connected_relays: DashMap::new(),
             relay_picker: Default::default(),
             shutting_down: AtomicBool::new(false),
-            settings: PRwLock::new(Settings::default()),
             signer: Signer::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),

@@ -725,11 +725,6 @@ impl Overlord {
             ToOverlordMessage::Repost(id) => {
                 self.repost(id).await?;
             }
-            ToOverlordMessage::SaveSettings => {
-                let settings = GLOBALS.settings.read().clone();
-                settings.save()?;
-                tracing::debug!("Settings saved.");
-            }
             ToOverlordMessage::Search(text) => {
                 Overlord::search(text).await?;
             }
@@ -756,9 +751,9 @@ impl Overlord {
 
                 // Update public key from private key
                 let public_key = GLOBALS.signer.public_key().unwrap();
-                GLOBALS.settings.write().public_key = Some(public_key);
-                let settings = GLOBALS.settings.read().clone();
-                settings.save()?;
+                GLOBALS
+                    .storage
+                    .write_setting_public_key(&Some(public_key), None)?;
             }
             ToOverlordMessage::UpdateFollowing(merge) => {
                 self.update_following(merge).await?;

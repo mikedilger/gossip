@@ -59,9 +59,9 @@ impl Delegation {
     }
 
     pub async fn save_through_settings(&self) -> Result<(), Error> {
-        GLOBALS.settings.write().delegatee_tag = self.get_delegatee_tag_as_str();
-        let settings = GLOBALS.settings.read();
-        settings.save()?;
+        GLOBALS
+            .storage
+            .write_setting_delegatee_tag(&self.get_delegatee_tag_as_str(), None)?;
         Ok(())
     }
 }

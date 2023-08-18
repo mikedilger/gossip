@@ -1,7 +1,5 @@
-use crate::comms::ToOverlordMessage;
 use crate::settings::Settings;
 use crate::ui::{GossipUi, SettingsTab};
-use crate::GLOBALS;
 use eframe::egui;
 use egui::{Align, Context, Layout, ScrollArea, Ui, Vec2};
 
@@ -19,7 +17,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         let stored_settings = Settings::load();
         if stored_settings != app.settings {
             if ui.button("REVERT CHANGES").clicked() {
-                app.settings = GLOBALS.settings.read().clone();
+                app.settings = Settings::load();
 
                 // Fully revert any DPI changes
                 match app.settings.override_dpi {
@@ -51,10 +49,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
 
                 // Copy local settings to global settings
-                *GLOBALS.settings.write() = app.settings.clone();
-
-                // Tell the overlord to save them
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SaveSettings);
+                let _ = app.settings.save();
             }
         }
     });
