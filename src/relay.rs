@@ -41,14 +41,17 @@ impl Relay {
         }
     }
 
+    #[inline]
     pub fn set_usage_bits(&mut self, bits: u64) {
         self.usage_bits |= bits;
     }
 
+    #[inline]
     pub fn clear_usage_bits(&mut self, bits: u64) {
         self.usage_bits &= !bits;
     }
 
+    #[inline]
     pub fn adjust_usage_bit(&mut self, bit: u64, value: bool) {
         if value {
             self.set_usage_bits(bit);
@@ -57,16 +60,19 @@ impl Relay {
         }
     }
 
+    #[inline]
     pub fn has_usage_bits(&self, bits: u64) -> bool {
         self.usage_bits & bits == bits
     }
 
+    #[inline]
     pub fn attempts(&self) -> u64 {
         self.success_count + self.failure_count
     }
 
+    #[inline]
     pub fn success_rate(&self) -> f32 {
-        let attempts = self.success_count + self.failure_count;
+        let attempts = self.attempts();
         if attempts == 0 {
             return 0.5;
         } // unknown, so we put it in the middle

@@ -548,15 +548,9 @@ impl RelayEntry {
         const RIGHT: f32 = -17.0;
         const SPACE: f32 = 23.0;
 
-        let right = match self.view {
-            // RelayEntryView::Detail => {
-            //     pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 30.0)
-            // }
-            _ => {
-                pos2(rect.max.x, rect.min.y)
-                    + vec2(-TEXT_RIGHT - EDIT_BTN_SIZE - SPACE, TEXT_TOP + 4.0)
-            }
-        };
+        // match self.view { RelayEntryView::Detail => ... }
+        let right = pos2(rect.max.x, rect.min.y)
+            + vec2(-TEXT_RIGHT - EDIT_BTN_SIZE - SPACE, TEXT_TOP + 4.0);
 
         let align = Align::Center;
 
