@@ -13,10 +13,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add_space(12.0);
         ui.separator();
 
-        ScrollArea::vertical()
-            .override_scroll_delta(Vec2 { x: 0.0, y: app.current_scroll_offset })
-            .show(ui, |ui| {
-
+        ScrollArea::vertical().override_scroll_delta(Vec2 { x: 0.0, y: app.current_scroll_offset }).show(ui, |ui| {
             ui.add_space(10.0);
 
             ui.heading("Existing Nostr Users:");

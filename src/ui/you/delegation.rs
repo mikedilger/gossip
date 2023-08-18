@@ -73,7 +73,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         app.delegatee_tag_str = "".to_owned();
                         // save and statusmsg
                         task::spawn(async move {
-                            if let Err(e) = GLOBALS.delegation.save_through_settings().await {
+                            if let Err(e) = GLOBALS.delegation.save().await {
                                 tracing::error!("{}", e);
                             }
                             GLOBALS.status_queue.write().write(format!(

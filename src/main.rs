@@ -82,10 +82,6 @@ fn main() -> Result<(), Error> {
     // Initialize storage
     GLOBALS.storage.init()?;
 
-    // Load settings
-    let settings = GLOBALS.storage.read_settings()?.unwrap();
-    *GLOBALS.settings.write() = settings;
-
     // We create and enter the runtime on the main thread so that
     // non-async code can have a runtime context within which to spawn
     // async tasks.

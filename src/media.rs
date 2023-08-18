@@ -117,13 +117,13 @@ impl Media {
         }
 
         // Do not fetch if disabled
-        if !GLOBALS.settings.read().load_media {
+        if !GLOBALS.storage.read_setting_load_media() {
             return None; // can recover if the setting is switched
         }
 
         match GLOBALS.fetcher.try_get(
             url,
-            Duration::from_secs(60 * 60 * GLOBALS.settings.read().media_becomes_stale_hours),
+            Duration::from_secs(60 * 60 * GLOBALS.storage.read_setting_media_becomes_stale_hours()),
         ) {
             Ok(None) => None,
             Ok(Some(bytes)) => {
@@ -158,7 +158,7 @@ pub(crate) fn load_image_bytes(
             }
             if force_resize || image.width() > 16384 || image.height() > 16384 {
                 // https://docs.rs/image/latest/image/imageops/enum.FilterType.html
-                let algo = match &*GLOBALS.settings.read().image_resize_algorithm {
+                let algo = match &*GLOBALS.storage.read_setting_image_resize_algorithm() {
                     "Nearest" => FilterType::Nearest,
                     "Triangle" => FilterType::Triangle,
                     "CatmullRom" => FilterType::CatmullRom,

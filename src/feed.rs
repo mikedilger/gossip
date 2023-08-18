@@ -192,7 +192,7 @@ impl Feed {
     // at least one period since the last (for any reason) recomputation.
     pub fn sync_maybe_periodic_recompute(&self) {
         // Only if we recompute periodically
-        if !GLOBALS.settings.read().recompute_feed_periodically {
+        if !GLOBALS.storage.read_setting_recompute_feed_periodically() {
             return;
         }
 
@@ -227,9 +227,9 @@ impl Feed {
         *self.last_computed.write() = Some(Instant::now());
 
         // Copy some values from settings
-        let feed_recompute_interval_ms = GLOBALS.settings.read().feed_recompute_interval_ms;
+        let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
 
-        let kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
+        let kinds = feed_displayable_event_kinds();
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
@@ -249,7 +249,7 @@ impl Feed {
                     followed_pubkeys.push(pubkey); // add the user
                 }
 
-                let since = now - Duration::from_secs(GLOBALS.settings.read().feed_chunk);
+                let since = now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
                 let followed_events: Vec<Id> = GLOBALS
                     .storage
@@ -290,7 +290,8 @@ impl Feed {
                         None,         // since
                     )?;
 
-                    let since = now - Duration::from_secs(GLOBALS.settings.read().replies_chunk);
+                    let since =
+                        now - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
 
                     let inbox_events: Vec<Id> = GLOBALS
                         .storage
@@ -345,7 +346,8 @@ impl Feed {
                 }
             }
             FeedKind::Person(person_pubkey) => {
-                let since = now - Duration::from_secs(GLOBALS.settings.read().person_feed_chunk);
+                let since =
+                    now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
 
                 let events: Vec<(Unixtime, Id)> = GLOBALS
                     .storage
@@ -381,4 +383,43 @@ impl Feed {
 
         Ok(())
     }
+}
+
+pub fn enabled_event_kinds() -> Vec<EventKind> {
+    let reactions = GLOBALS.storage.read_setting_reactions();
+    let reposts = GLOBALS.storage.read_setting_reposts();
+    let show_long_form = GLOBALS.storage.read_setting_show_long_form();
+    let direct_messages = GLOBALS.storage.read_setting_direct_messages();
+    let enable_zap_receipts = GLOBALS.storage.read_setting_enable_zap_receipts();
+
+    EventKind::iter()
+        .filter(|k| {
+            ((*k != EventKind::Reaction) || reactions)
+                && ((*k != EventKind::Repost) || reposts)
+                && ((*k != EventKind::LongFormContent) || show_long_form)
+                && ((*k != EventKind::EncryptedDirectMessage) || direct_messages)
+                && ((*k != EventKind::Zap) || enable_zap_receipts)
+        })
+        .collect()
+}
+
+pub fn feed_related_event_kinds() -> Vec<EventKind> {
+    enabled_event_kinds()
+        .drain(..)
+        .filter(|k| k.is_feed_related())
+        .collect()
+}
+
+pub fn feed_displayable_event_kinds() -> Vec<EventKind> {
+    enabled_event_kinds()
+        .drain(..)
+        .filter(|k| k.is_feed_displayable())
+        .collect()
+}
+
+pub fn feed_augment_event_kinds() -> Vec<EventKind> {
+    enabled_event_kinds()
+        .drain(..)
+        .filter(|k| k.augments_feed_related())
+        .collect()
 }

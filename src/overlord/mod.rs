@@ -118,13 +118,13 @@ impl Overlord {
         // Create a person record for every person seen
 
         // Load delegation tag
-        GLOBALS.delegation.load_through_settings()?;
+        GLOBALS.delegation.load()?;
 
         // Initialize the relay picker
         GLOBALS.relay_picker.init().await?;
 
         // Pick Relays and start Minions
-        if !GLOBALS.settings.read().offline {
+        if !GLOBALS.storage.read_setting_offline() {
             self.pick_relays().await;
         }
 
@@ -276,7 +276,7 @@ impl Overlord {
 
     async fn engage_minion(&mut self, url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(), Error> {
         // Do not connect if we are offline
-        if GLOBALS.settings.read().offline {
+        if GLOBALS.storage.read_setting_offline() {
             return Ok(());
         }
 
@@ -534,7 +534,7 @@ impl Overlord {
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
                 Self::delegation_reset().await?;
-                GLOBALS.signer.save_through_settings().await?;
+                GLOBALS.signer.save().await?;
             }
             ToOverlordMessage::DropRelay(relay_url) => {
                 let _ = self.to_minions.send(ToMinionMessage {
@@ -581,7 +581,7 @@ impl Overlord {
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
                 GLOBALS.signer.generate_private_key(&password)?;
                 password.zeroize();
-                GLOBALS.signer.save_through_settings().await?;
+                GLOBALS.signer.save().await?;
             }
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
                 if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
@@ -595,7 +595,7 @@ impl Overlord {
                     GLOBALS.signer.set_encrypted_private_key(epk);
                     GLOBALS.signer.unlock_encrypted_private_key(&password)?;
                     password.zeroize();
-                    GLOBALS.signer.save_through_settings().await?;
+                    GLOBALS.signer.save().await?;
                 } else {
                     let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
                     let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
@@ -610,7 +610,7 @@ impl Overlord {
                         let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                         GLOBALS.signer.set_private_key(privkey, &password)?;
                         password.zeroize();
-                        GLOBALS.signer.save_through_settings().await?;
+                        GLOBALS.signer.save().await?;
                     }
                 }
             }
@@ -625,7 +625,7 @@ impl Overlord {
                 } else {
                     let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                     GLOBALS.signer.set_public_key(pubkey);
-                    GLOBALS.signer.save_through_settings().await?;
+                    GLOBALS.signer.save().await?;
                 }
             }
             ToOverlordMessage::Like(id, pubkey) => {
@@ -687,7 +687,10 @@ impl Overlord {
 
                 let now = Unixtime::now().unwrap();
                 let then = now
-                    - Duration::new(GLOBALS.settings.read().prune_period_days * 60 * 60 * 24, 0);
+                    - Duration::new(
+                        GLOBALS.storage.read_setting_prune_period_days() * 60 * 60 * 24,
+                        0,
+                    );
                 let count = GLOBALS.storage.prune(then)?;
 
                 GLOBALS.status_queue.write().write(format!(
@@ -722,11 +725,6 @@ impl Overlord {
             ToOverlordMessage::Repost(id) => {
                 self.repost(id).await?;
             }
-            ToOverlordMessage::SaveSettings => {
-                let settings = GLOBALS.settings.read().clone();
-                GLOBALS.storage.write_settings(&settings, None)?;
-                tracing::debug!("Settings saved.");
-            }
             ToOverlordMessage::Search(text) => {
                 Overlord::search(text).await?;
             }
@@ -753,16 +751,16 @@ impl Overlord {
 
                 // Update public key from private key
                 let public_key = GLOBALS.signer.public_key().unwrap();
-                GLOBALS.settings.write().public_key = Some(public_key);
-                let settings = GLOBALS.settings.read().clone();
-                GLOBALS.storage.write_settings(&settings, None)?;
+                GLOBALS
+                    .storage
+                    .write_setting_public_key(&Some(public_key), None)?;
             }
             ToOverlordMessage::UpdateFollowing(merge) => {
                 self.update_following(merge).await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
-                let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
+                let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
                 // we do 1 more than num_relays_per_person, which is really for main posts,
                 // since metadata is more important and I didn't want to bother with
@@ -789,7 +787,7 @@ impl Overlord {
                 GLOBALS.people.recheck_nip05_on_update_metadata(&pubkey);
             }
             ToOverlordMessage::UpdateMetadataInBulk(mut pubkeys) => {
-                let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
+                let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
                 let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
                 for pubkey in pubkeys.drain(..) {
                     let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
@@ -920,7 +918,7 @@ impl Overlord {
                 }
             };
 
-            if GLOBALS.settings.read().set_client_tag {
+            if GLOBALS.storage.read_setting_set_client_tag() {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -1056,7 +1054,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().pow;
+            let powint = GLOBALS.storage.read_setting_pow();
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 
@@ -1218,7 +1216,7 @@ impl Overlord {
                 },
             ];
 
-            if GLOBALS.settings.read().set_client_tag {
+            if GLOBALS.storage.read_setting_set_client_tag() {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -1234,7 +1232,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().pow;
+            let powint = GLOBALS.storage.read_setting_pow();
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 
@@ -1389,7 +1387,7 @@ impl Overlord {
             pubkeys.push(pubkey)
         }
 
-        let num_relays_per_person = GLOBALS.settings.read().num_relays_per_person;
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
 
@@ -1470,7 +1468,7 @@ impl Overlord {
                 }
             };
 
-            if GLOBALS.settings.read().set_client_tag {
+            if GLOBALS.storage.read_setting_set_client_tag() {
                 tags.push(Tag::Other {
                     tag: "client".to_owned(),
                     data: vec!["gossip".to_owned()],
@@ -1486,7 +1484,7 @@ impl Overlord {
                 ots: None,
             };
 
-            let powint = GLOBALS.settings.read().pow;
+            let powint = GLOBALS.storage.read_setting_pow();
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();
 
@@ -1709,7 +1707,7 @@ impl Overlord {
     async fn delegation_reset() -> Result<(), Error> {
         if GLOBALS.delegation.reset() {
             // save and statusmsg
-            GLOBALS.delegation.save_through_settings().await?;
+            GLOBALS.delegation.save().await?;
             GLOBALS
                 .status_queue
                 .write()

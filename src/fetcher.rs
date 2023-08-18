@@ -51,9 +51,12 @@ impl Fetcher {
         *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::current()?.cache_dir;
 
         // Create client
-        let connect_timeout =
-            std::time::Duration::new(GLOBALS.settings.read().fetcher_connect_timeout_sec, 0);
-        let timeout = std::time::Duration::new(GLOBALS.settings.read().fetcher_timeout_sec, 0);
+        let connect_timeout = std::time::Duration::new(
+            GLOBALS.storage.read_setting_fetcher_connect_timeout_sec(),
+            0,
+        );
+        let timeout =
+            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0);
         *GLOBALS.fetcher.client.write().unwrap() = Some(
             Client::builder()
                 .gzip(true)
@@ -65,7 +68,7 @@ impl Fetcher {
         );
 
         // Setup periodic queue management
-        let fetcher_looptime_ms = GLOBALS.settings.read().fetcher_looptime_ms;
+        let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
         tokio::task::spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_millis(fetcher_looptime_ms)).await;
@@ -105,7 +108,7 @@ impl Fetcher {
     }
 
     pub async fn process_queue(&self) {
-        if GLOBALS.settings.read().offline {
+        if GLOBALS.storage.read_setting_offline() {
             return;
         }
 
@@ -131,7 +134,7 @@ impl Fetcher {
                     }
 
                     let load = self.fetch_host_load(&host);
-                    if load >= GLOBALS.settings.read().fetcher_max_requests_per_host {
+                    if load >= GLOBALS.storage.read_setting_fetcher_max_requests_per_host() {
                         continue; // We cannot overload any given host
                     }
 
@@ -165,7 +168,7 @@ impl Fetcher {
         //         be blocking on.
 
         // Do not fetch if offline
-        if GLOBALS.settings.read().offline {
+        if GLOBALS.storage.read_setting_offline() {
             return Ok(None);
         }
 
@@ -248,7 +251,7 @@ impl Fetcher {
 
     async fn fetch(&self, url: Url) {
         // Do not fetch if offline
-        if GLOBALS.settings.read().offline {
+        if GLOBALS.storage.read_setting_offline() {
             tracing::debug!("FETCH {url}: Failed: offline mode");
             self.urls.write().unwrap().insert(url, FetchState::Failed);
             return;
@@ -287,7 +290,7 @@ impl Fetcher {
         if let Some(ref etag) = etag {
             req = req.header("if-none-match", etag.to_owned());
         }
-        if GLOBALS.settings.read().set_user_agent {
+        if GLOBALS.storage.read_setting_set_user_agent() {
             req = req.header("User-Agent", USER_AGENT);
         };
 
@@ -355,17 +358,14 @@ impl Fetcher {
         let maybe_response = req.send().await;
 
         let low_exclusion = GLOBALS
-            .settings
-            .read()
-            .fetcher_host_exclusion_on_low_error_secs;
+            .storage
+            .read_setting_fetcher_host_exclusion_on_low_error_secs();
         let med_exclusion = GLOBALS
-            .settings
-            .read()
-            .fetcher_host_exclusion_on_med_error_secs;
+            .storage
+            .read_setting_fetcher_host_exclusion_on_med_error_secs();
         let high_exclusion = GLOBALS
-            .settings
-            .read()
-            .fetcher_host_exclusion_on_high_error_secs;
+            .storage
+            .read_setting_fetcher_host_exclusion_on_high_error_secs();
 
         // Deal with response errors
         let response = match maybe_response {

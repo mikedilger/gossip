@@ -54,14 +54,14 @@ impl Delegation {
         }
     }
 
-    pub fn load_through_settings(&self) -> Result<(), Error> {
-        self.set(&GLOBALS.settings.read().delegatee_tag)
+    pub fn load(&self) -> Result<(), Error> {
+        self.set(&GLOBALS.storage.read_setting_delegatee_tag())
     }
 
-    pub async fn save_through_settings(&self) -> Result<(), Error> {
-        GLOBALS.settings.write().delegatee_tag = self.get_delegatee_tag_as_str();
-        let settings = GLOBALS.settings.read();
-        GLOBALS.storage.write_settings(&settings, None)?;
+    pub async fn save(&self) -> Result<(), Error> {
+        GLOBALS
+            .storage
+            .write_setting_delegatee_tag(&self.get_delegatee_tag_as_str(), None)?;
         Ok(())
     }
 }

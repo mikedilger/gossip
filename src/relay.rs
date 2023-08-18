@@ -84,7 +84,7 @@ impl Relay {
         let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
             GLOBALS.storage.get_event_seen_on_relay(reply_to)?;
 
-        let maybepubkey = GLOBALS.settings.read().public_key;
+        let maybepubkey = GLOBALS.storage.read_setting_public_key();
         if let Some(pubkey) = maybepubkey {
             let my_inbox_relays: Vec<(RelayUrl, u64)> =
                 GLOBALS.storage.get_best_relays(pubkey, Direction::Read)?;

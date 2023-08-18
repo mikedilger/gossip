@@ -34,10 +34,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     );
 
     ui.horizontal(|ui| {
-        ui.label("Recompute feed every (milliseconds): ")
-            .on_hover_text(
-                "The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes. I recommend 3500.",
-            );
+        ui.label("Recompute feed every (milliseconds): ").on_hover_text("The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes. I recommend 3500.");
         ui.add(Slider::new(&mut app.settings.feed_recompute_interval_ms, 1000..=12000).text("milliseconds"));
     });
 
@@ -71,13 +68,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             "Enable to render a mentioned post where it appears in the text"
         });
 
-    ui.checkbox(
-        &mut app.settings.show_media,
-        "Render all media inline automatically",
-    )
-        .on_hover_text(
-            "If off, you have to click to (potentially fetch and) render media inline. If on, all media referenced by posts in your feed will be (potentially fetched and) rendered. However, if Fetch Media is disabled, only cached media can be shown as media will not be fetched."
-        );
+    ui.checkbox(&mut app.settings.show_media, "Render all media inline automatically").on_hover_text("If off, you have to click to (potentially fetch and) render media inline. If on, all media referenced by posts in your feed will be (potentially fetched and) rendered. However, if Fetch Media is disabled, only cached media can be shown as media will not be fetched.");
 }
 
 fn secs_to_string(secs: u64) -> String {

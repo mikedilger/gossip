@@ -78,7 +78,7 @@ impl Minion {
         tracing::trace!("{}: Minion handling started", &self.url);
 
         let fetcher_timeout =
-            std::time::Duration::new(GLOBALS.settings.read().fetcher_timeout_sec, 0);
+            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0);
 
         // Connect to the relay
         let websocket_stream = {
@@ -131,7 +131,9 @@ impl Minion {
                                     e,
                                     text.lines()
                                         .take(
-                                            GLOBALS.settings.read().nip11_lines_to_output_on_error
+                                            GLOBALS
+                                                .storage
+                                                .read_setting_nip11_lines_to_output_on_error()
                                         )
                                         .collect::<Vec<_>>()
                                         .join("\n")
@@ -152,7 +154,7 @@ impl Minion {
 
             let req = http::request::Request::builder().method("GET");
 
-            let req = if GLOBALS.settings.read().set_user_agent {
+            let req = if GLOBALS.storage.read_setting_set_user_agent() {
                 req.header("User-Agent", USER_AGENT)
             } else {
                 req
@@ -191,13 +193,17 @@ impl Minion {
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
                 // Cameri said people with >2k followers were losing data at 128kb cutoff.
                 max_message_size: Some(
-                    GLOBALS.settings.read().max_websocket_message_size_kb * 1024,
+                    GLOBALS.storage.read_setting_max_websocket_message_size_kb() * 1024,
                 ),
-                max_frame_size: Some(GLOBALS.settings.read().max_websocket_frame_size_kb * 1024),
-                accept_unmasked_frames: GLOBALS.settings.read().websocket_accept_unmasked_frames,
+                max_frame_size: Some(
+                    GLOBALS.storage.read_setting_max_websocket_frame_size_kb() * 1024,
+                ),
+                accept_unmasked_frames: GLOBALS
+                    .storage
+                    .read_setting_websocket_accept_unmasked_frames(),
             };
 
-            let connect_timeout = GLOBALS.settings.read().websocket_connect_timeout_sec;
+            let connect_timeout = GLOBALS.storage.read_setting_websocket_connect_timeout_sec();
             let (websocket_stream, response) = tokio::time::timeout(
                 std::time::Duration::new(connect_timeout, 0),
                 tokio_tungstenite::connect_async_with_config(req, Some(config), false),
@@ -262,7 +268,7 @@ impl Minion {
         let ws_stream = self.stream.as_mut().unwrap();
 
         let mut timer = tokio::time::interval(std::time::Duration::new(
-            GLOBALS.settings.read().websocket_ping_frequency_sec,
+            GLOBALS.storage.read_setting_websocket_ping_frequency_sec(),
             0,
         ));
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -395,7 +401,7 @@ impl Minion {
     }
 
     async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
-        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let mut event_kinds = crate::feed::feed_related_event_kinds();
         event_kinds.retain(|f| f.augments_feed_related());
 
         let filter = Filter {
@@ -428,13 +434,8 @@ impl Minion {
         followed_pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
-        let (overlap, feed_chunk) = {
-            let settings = GLOBALS.settings.read().clone();
-            (
-                Duration::from_secs(settings.overlap),
-                Duration::from_secs(settings.feed_chunk),
-            )
-        };
+        let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
+        let feed_chunk = Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
         tracing::debug!(
             "Following {} people at {}",
@@ -472,7 +473,7 @@ impl Minion {
         };
 
         // Allow all feed related event kinds
-        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let mut event_kinds = crate::feed::feed_related_event_kinds();
         // But exclude DMs in the general feed
         event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
@@ -562,13 +563,8 @@ impl Minion {
     // (and any other relay for the time being until nip65 is in widespread use)
     async fn subscribe_mentions(&mut self, job_id: u64) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
-        let (overlap, replies_chunk) = {
-            let settings = GLOBALS.settings.read().clone();
-            (
-                Duration::from_secs(settings.overlap),
-                Duration::from_secs(settings.replies_chunk),
-            )
-        };
+        let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
+        let replies_chunk = Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
 
         // Compute how far to look back
         let replies_since = {
@@ -593,7 +589,7 @@ impl Minion {
         };
 
         // Allow all feed related event kinds
-        let event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let event_kinds = crate::feed::feed_related_event_kinds();
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // Any mentions of me
@@ -679,7 +675,7 @@ impl Minion {
         // NOTE we do not unsubscribe to the general feed
 
         // Allow all feed related event kinds
-        let mut event_kinds = GLOBALS.settings.read().feed_displayable_event_kinds();
+        let mut event_kinds = crate::feed::feed_displayable_event_kinds();
         // Exclude DMs
         event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
@@ -691,7 +687,7 @@ impl Minion {
             ..Default::default()
         }];
 
-        // let feed_chunk = GLOBALS.settings.read().await.feed_chunk;
+        // let feed_chunk = GLOBALS.storage.read_setting_feed_chunk();
 
         // Don't do this anymore. It's low value and we can't compute how far back to look
         // until after we get their 25th oldest post.
@@ -760,7 +756,7 @@ impl Minion {
             });
 
             // Get reactions to ancestors, but not replies
-            let kinds = GLOBALS.settings.read().feed_augment_event_kinds();
+            let kinds = crate::feed::feed_augment_event_kinds();
             filters.push(Filter {
                 e: vec_ids,
                 kinds,
@@ -769,7 +765,7 @@ impl Minion {
         }
 
         // Allow all feed related event kinds
-        let mut event_kinds = GLOBALS.settings.read().feed_related_event_kinds();
+        let mut event_kinds = crate::feed::feed_related_event_kinds();
         // But exclude DMs
         event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
 
@@ -805,11 +801,9 @@ impl Minion {
 
         // Compute how far to look back
         let (feed_since, special_since) = {
-            // Get related settings
-            let (overlap, feed_chunk) = {
-                let settings = GLOBALS.settings.read().await.clone();
-                (settings.overlap, settings.feed_chunk)
-            };
+        // Get related settings
+            let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
+            let feed_chunk = Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
             /*
             // Find the oldest 'last_fetched' among the 'person_relay' table.

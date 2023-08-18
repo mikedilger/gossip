@@ -17,7 +17,7 @@ pub struct Signer {
 
 impl Signer {
     pub fn load_from_settings(&self) -> Result<(), Error> {
-        *self.public.write() = GLOBALS.settings.read().public_key;
+        *self.public.write() = GLOBALS.storage.read_setting_public_key();
         *self.private.write() = None;
 
         let epk = GLOBALS.storage.read_encrypted_private_key()?;
@@ -26,10 +26,10 @@ impl Signer {
         Ok(())
     }
 
-    pub async fn save_through_settings(&self) -> Result<(), Error> {
-        GLOBALS.settings.write().public_key = *self.public.read();
-        let settings = GLOBALS.settings.read().clone();
-        GLOBALS.storage.write_settings(&settings, None)?;
+    pub async fn save(&self) -> Result<(), Error> {
+        GLOBALS
+            .storage
+            .write_setting_public_key(&self.public.read(), None)?;
 
         let epk = self.encrypted.read().clone();
         GLOBALS.storage.write_encrypted_private_key(&epk, None)?;
@@ -68,7 +68,8 @@ impl Signer {
     }
 
     pub fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
-        *self.encrypted.write() = Some(pk.export_encrypted(pass, GLOBALS.settings.read().log_n)?);
+        *self.encrypted.write() =
+            Some(pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
         *self.public.write() = Some(pk.public_key());
         *self.private.write() = Some(pk);
         Ok(())
@@ -87,10 +88,10 @@ impl Signer {
                 // If older version, re-encrypt with new version at default 2^18 rounds
                 if epk.version()? < 2 {
                     *self.encrypted.write() =
-                        Some(private.export_encrypted(pass, GLOBALS.settings.read().log_n)?);
+                        Some(private.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
                     // and eventually save
                     task::spawn(async move {
-                        if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                        if let Err(e) = GLOBALS.signer.save().await {
                             tracing::error!("{}", e);
                         }
                     });
@@ -129,10 +130,10 @@ impl Signer {
             Some(epk) => {
                 // Test password
                 let pk = epk.decrypt(old)?;
-                let epk = pk.export_encrypted(new, GLOBALS.settings.read().log_n)?;
+                let epk = pk.export_encrypted(new, GLOBALS.storage.read_setting_log_n())?;
                 *self.encrypted.write() = Some(epk);
                 task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                    if let Err(e) = GLOBALS.signer.save().await {
                         tracing::error!("{}", e);
                     }
                     GLOBALS
@@ -148,7 +149,8 @@ impl Signer {
 
     pub fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
         let pk = PrivateKey::generate();
-        *self.encrypted.write() = Some(pk.export_encrypted(pass, GLOBALS.settings.read().log_n)?);
+        *self.encrypted.write() =
+            Some(pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
         *self.public.write() = Some(pk.public_key());
         *self.private.write() = Some(pk);
         Ok(())
@@ -200,11 +202,11 @@ impl Signer {
 
                 // We have to regenerate encrypted private key because it may have fallen from
                 // medium to weak security. And then we need to save that
-                let epk = pk.export_encrypted(pass, GLOBALS.settings.read().log_n)?;
+                let epk = pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?;
                 *self.encrypted.write() = Some(epk);
                 *self.private.write() = Some(pk);
                 task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                    if let Err(e) = GLOBALS.signer.save().await {
                         tracing::error!("{}", e);
                     }
                 });
@@ -225,11 +227,11 @@ impl Signer {
 
                 // We have to regenerate encrypted private key because it may have fallen from
                 // medium to weak security. And then we need to save that
-                let epk = pk.export_encrypted(pass, GLOBALS.settings.read().log_n)?;
+                let epk = pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?;
                 *self.encrypted.write() = Some(epk);
                 *self.private.write() = Some(pk);
                 task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                    if let Err(e) = GLOBALS.signer.save().await {
                         tracing::error!("{}", e);
                     }
                 });
@@ -245,7 +247,7 @@ impl Signer {
         *self.public.write() = None;
 
         task::spawn(async move {
-            if let Err(e) = GLOBALS.signer.save_through_settings().await {
+            if let Err(e) = GLOBALS.signer.save().await {
                 tracing::error!("{}", e);
             }
         });

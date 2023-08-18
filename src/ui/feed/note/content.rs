@@ -312,9 +312,7 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                 app.media_show_list.insert(url.clone());
             }
             if !app.settings.load_media {
-                GLOBALS.status_queue.write().write(
-                    "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned()
-                );
+                GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
         }
         // context menu
@@ -418,9 +416,7 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
                 app.media_show_list.insert(url.clone());
             }
             if !app.settings.load_media {
-                GLOBALS.status_queue.write().write(
-                    "Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned()
-                );
+                GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
         }
         // context menu

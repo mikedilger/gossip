@@ -1,3 +1,6 @@
+use crate::error::Error;
+use crate::storage::Storage;
+use heed::RwTxn;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
@@ -31,5 +34,33 @@ impl ThemeVariant1 {
             ThemeVariant1::Default => "Default",
             ThemeVariant1::Roundy => "Roundy",
         }
+    }
+}
+
+impl Storage {
+    #[allow(dead_code)]
+    pub fn write_setting_theme1<'a>(
+        &'a self,
+        theme: &Theme1,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = theme.write_to_vec()?;
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            Ok(self.general.put(txn, b"theme", &bytes)?)
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 }
