@@ -154,8 +154,12 @@ impl Default for Settings {
             image_resize_algorithm: default_setting!(image_resize_algorithm),
             relay_list_becomes_stale_hours: default_setting!(relay_list_becomes_stale_hours),
             metadata_becomes_stale_hours: default_setting!(metadata_becomes_stale_hours),
-            nip05_becomes_stale_if_valid_hours: default_setting!(nip05_becomes_stale_if_valid_hours),
-            nip05_becomes_stale_if_invalid_minutes: default_setting!(nip05_becomes_stale_if_invalid_minutes),
+            nip05_becomes_stale_if_valid_hours: default_setting!(
+                nip05_becomes_stale_if_valid_hours
+            ),
+            nip05_becomes_stale_if_invalid_minutes: default_setting!(
+                nip05_becomes_stale_if_invalid_minutes
+            ),
             avatar_becomes_stale_hours: default_setting!(avatar_becomes_stale_hours),
             media_becomes_stale_hours: default_setting!(media_becomes_stale_hours),
             max_websocket_message_size_kb: default_setting!(max_websocket_message_size_kb),
@@ -168,9 +172,15 @@ impl Default for Settings {
             fetcher_connect_timeout_sec: default_setting!(fetcher_connect_timeout_sec),
             fetcher_timeout_sec: default_setting!(fetcher_timeout_sec),
             fetcher_max_requests_per_host: default_setting!(fetcher_max_requests_per_host),
-            fetcher_host_exclusion_on_low_error_secs: default_setting!(fetcher_host_exclusion_on_low_error_secs),
-            fetcher_host_exclusion_on_med_error_secs: default_setting!(fetcher_host_exclusion_on_med_error_secs),
-            fetcher_host_exclusion_on_high_error_secs: default_setting!(fetcher_host_exclusion_on_high_error_secs),
+            fetcher_host_exclusion_on_low_error_secs: default_setting!(
+                fetcher_host_exclusion_on_low_error_secs
+            ),
+            fetcher_host_exclusion_on_med_error_secs: default_setting!(
+                fetcher_host_exclusion_on_med_error_secs
+            ),
+            fetcher_host_exclusion_on_high_error_secs: default_setting!(
+                fetcher_host_exclusion_on_high_error_secs
+            ),
             nip11_lines_to_output_on_error: default_setting!(nip11_lines_to_output_on_error),
             prune_period_days: default_setting!(prune_period_days),
         }
@@ -217,7 +227,9 @@ impl Settings {
             relay_list_becomes_stale_hours: load_setting!(relay_list_becomes_stale_hours),
             metadata_becomes_stale_hours: load_setting!(metadata_becomes_stale_hours),
             nip05_becomes_stale_if_valid_hours: load_setting!(nip05_becomes_stale_if_valid_hours),
-            nip05_becomes_stale_if_invalid_minutes: load_setting!(nip05_becomes_stale_if_invalid_minutes),
+            nip05_becomes_stale_if_invalid_minutes: load_setting!(
+                nip05_becomes_stale_if_invalid_minutes
+            ),
             avatar_becomes_stale_hours: load_setting!(avatar_becomes_stale_hours),
             media_becomes_stale_hours: load_setting!(media_becomes_stale_hours),
             max_websocket_message_size_kb: load_setting!(max_websocket_message_size_kb),
@@ -230,9 +242,15 @@ impl Settings {
             fetcher_connect_timeout_sec: load_setting!(fetcher_connect_timeout_sec),
             fetcher_timeout_sec: load_setting!(fetcher_timeout_sec),
             fetcher_max_requests_per_host: load_setting!(fetcher_max_requests_per_host),
-            fetcher_host_exclusion_on_low_error_secs: load_setting!(fetcher_host_exclusion_on_low_error_secs),
-            fetcher_host_exclusion_on_med_error_secs: load_setting!(fetcher_host_exclusion_on_med_error_secs),
-            fetcher_host_exclusion_on_high_error_secs: load_setting!(fetcher_host_exclusion_on_high_error_secs),
+            fetcher_host_exclusion_on_low_error_secs: load_setting!(
+                fetcher_host_exclusion_on_low_error_secs
+            ),
+            fetcher_host_exclusion_on_med_error_secs: load_setting!(
+                fetcher_host_exclusion_on_med_error_secs
+            ),
+            fetcher_host_exclusion_on_high_error_secs: load_setting!(
+                fetcher_host_exclusion_on_high_error_secs
+            ),
             nip11_lines_to_output_on_error: load_setting!(nip11_lines_to_output_on_error),
             prune_period_days: load_setting!(prune_period_days),
         }

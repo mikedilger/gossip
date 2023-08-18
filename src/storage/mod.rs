@@ -501,18 +501,33 @@ impl Storage {
     def_setting!(load_avatars, b"load_avatars", bool, true);
     def_setting!(load_media, b"load_media", bool, true);
     def_setting!(check_nip05, b"check_nip05", bool, true);
-    def_setting!(automatically_fetch_metadata, b"automatically_fetch_metadata", bool, true);
+    def_setting!(
+        automatically_fetch_metadata,
+        b"automatically_fetch_metadata",
+        bool,
+        true
+    );
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
     def_setting!(feed_chunk, b"feed_chunk", u64, 60 * 60 * 12);
     def_setting!(replies_chunk, b"replies_chunk", u64, 60 * 60 * 24 * 7);
-    def_setting!(person_feed_chunk, b"person_feed_chunk", u64, 60 * 60 * 24 * 30);
+    def_setting!(
+        person_feed_chunk,
+        b"person_feed_chunk",
+        u64,
+        60 * 60 * 24 * 30
+    );
     def_setting!(overlap, b"overlap", u64, 300);
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);
     def_setting!(direct_messages, b"direct_messages", bool, true);
-    def_setting!(future_allowance_secs, b"future_allowance_secs", u64, 60 * 15);
+    def_setting!(
+        future_allowance_secs,
+        b"future_allowance_secs",
+        u64,
+        60 * 15
+    );
     def_setting!(reactions, b"reactions", bool, true);
     def_setting!(enable_zap_receipts, b"enable_zap_receipts", bool, true);
     def_setting!(show_media, b"show_media", bool, true);
@@ -521,38 +536,153 @@ impl Storage {
     def_setting!(set_user_agent, b"set_user_agent", bool, false);
     def_setting!(delegatee_tag, b"delegatee_tag", String, String::new());
     def_setting!(max_fps, b"max_fps", u32, 12);
-    def_setting!(recompute_feed_periodically, b"recompute_feed_periodically", bool, true);
-    def_setting!(feed_recompute_interval_ms, b"feed_recompute_interval_ms", u32, 8000);
-    def_setting!(theme, b"theme", Theme, Theme {
-        variant: ThemeVariant::Default,
-        dark_mode: false,
-        follow_os_dark_mode: false,
-    });
+    def_setting!(
+        recompute_feed_periodically,
+        b"recompute_feed_periodically",
+        bool,
+        true
+    );
+    def_setting!(
+        feed_recompute_interval_ms,
+        b"feed_recompute_interval_ms",
+        u32,
+        8000
+    );
+    def_setting!(
+        theme,
+        b"theme",
+        Theme,
+        Theme {
+            variant: ThemeVariant::Default,
+            dark_mode: false,
+            follow_os_dark_mode: false,
+        }
+    );
     def_setting!(override_dpi, b"override_dpi", Option::<u32>, None);
-    def_setting!(highlight_unread_events, b"highlight_unread_events", bool, true);
+    def_setting!(
+        highlight_unread_events,
+        b"highlight_unread_events",
+        bool,
+        true
+    );
     def_setting!(posting_area_at_top, b"posting_area_at_top", bool, true);
     def_setting!(status_bar, b"status_bar", bool, false);
-    def_setting!(image_resize_algorithm, b"image_resize_algorithm", String, "CatmullRom".to_owned());
-    def_setting!(relay_list_becomes_stale_hours, b"relay_list_becomes_stale_hours", u64, 8);
-    def_setting!(metadata_becomes_stale_hours, b"metadata_becomes_stale_hours", u64, 8);
-    def_setting!(nip05_becomes_stale_if_valid_hours, b"nip05_becomes_stale_if_valid_hours", u64, 8);
-    def_setting!(nip05_becomes_stale_if_invalid_minutes, b"nip05_becomes_stale_if_invalid_minutes", u64, 30);
-    def_setting!(avatar_becomes_stale_hours, b"avatar_becomes_stale_hours", u64, 8);
-    def_setting!(media_becomes_stale_hours, b"media_becomes_stale_hours", u64, 8);
-    def_setting!(max_websocket_message_size_kb, b"max_websocket_message_size_kb", usize, 1024);
-    def_setting!(max_websocket_frame_size_kb, b"max_websocket_frame_size_kb", usize, 1024);
-    def_setting!(websocket_accept_unmasked_frames, b"websocket_accept_unmasked_frames", bool, false);
-    def_setting!(websocket_connect_timeout_sec, b"websocket_connect_timeout_sec", u64, 15);
-    def_setting!(websocket_ping_frequency_sec, b"websocket_ping_frequency_sec", u64, 55);
-    def_setting!(fetcher_metadata_looptime_ms, b"fetcher_metadata_looptime_ms", u64, 3000);
+    def_setting!(
+        image_resize_algorithm,
+        b"image_resize_algorithm",
+        String,
+        "CatmullRom".to_owned()
+    );
+    def_setting!(
+        relay_list_becomes_stale_hours,
+        b"relay_list_becomes_stale_hours",
+        u64,
+        8
+    );
+    def_setting!(
+        metadata_becomes_stale_hours,
+        b"metadata_becomes_stale_hours",
+        u64,
+        8
+    );
+    def_setting!(
+        nip05_becomes_stale_if_valid_hours,
+        b"nip05_becomes_stale_if_valid_hours",
+        u64,
+        8
+    );
+    def_setting!(
+        nip05_becomes_stale_if_invalid_minutes,
+        b"nip05_becomes_stale_if_invalid_minutes",
+        u64,
+        30
+    );
+    def_setting!(
+        avatar_becomes_stale_hours,
+        b"avatar_becomes_stale_hours",
+        u64,
+        8
+    );
+    def_setting!(
+        media_becomes_stale_hours,
+        b"media_becomes_stale_hours",
+        u64,
+        8
+    );
+    def_setting!(
+        max_websocket_message_size_kb,
+        b"max_websocket_message_size_kb",
+        usize,
+        1024
+    );
+    def_setting!(
+        max_websocket_frame_size_kb,
+        b"max_websocket_frame_size_kb",
+        usize,
+        1024
+    );
+    def_setting!(
+        websocket_accept_unmasked_frames,
+        b"websocket_accept_unmasked_frames",
+        bool,
+        false
+    );
+    def_setting!(
+        websocket_connect_timeout_sec,
+        b"websocket_connect_timeout_sec",
+        u64,
+        15
+    );
+    def_setting!(
+        websocket_ping_frequency_sec,
+        b"websocket_ping_frequency_sec",
+        u64,
+        55
+    );
+    def_setting!(
+        fetcher_metadata_looptime_ms,
+        b"fetcher_metadata_looptime_ms",
+        u64,
+        3000
+    );
     def_setting!(fetcher_looptime_ms, b"fetcher_looptime_ms", u64, 1800);
-    def_setting!(fetcher_connect_timeout_sec, b"fetcher_connect_timeout_sec", u64, 15);
+    def_setting!(
+        fetcher_connect_timeout_sec,
+        b"fetcher_connect_timeout_sec",
+        u64,
+        15
+    );
     def_setting!(fetcher_timeout_sec, b"fetcher_timeout_sec", u64, 30);
-    def_setting!(fetcher_max_requests_per_host, b"fetcher_max_requests_per_host", usize, 3);
-    def_setting!(fetcher_host_exclusion_on_low_error_secs, b"fetcher_host_exclusion_on_low_error_secs", u64, 30);
-    def_setting!(fetcher_host_exclusion_on_med_error_secs, b"fetcher_host_exclusion_on_med_error_secs", u64, 60);
-    def_setting!(fetcher_host_exclusion_on_high_error_secs, b"fetcher_host_exclusion_on_high_error_secs", u64, 600);
-    def_setting!(nip11_lines_to_output_on_error, b"nip11_lines_to_output_on_error", usize, 10);
+    def_setting!(
+        fetcher_max_requests_per_host,
+        b"fetcher_max_requests_per_host",
+        usize,
+        3
+    );
+    def_setting!(
+        fetcher_host_exclusion_on_low_error_secs,
+        b"fetcher_host_exclusion_on_low_error_secs",
+        u64,
+        30
+    );
+    def_setting!(
+        fetcher_host_exclusion_on_med_error_secs,
+        b"fetcher_host_exclusion_on_med_error_secs",
+        u64,
+        60
+    );
+    def_setting!(
+        fetcher_host_exclusion_on_high_error_secs,
+        b"fetcher_host_exclusion_on_high_error_secs",
+        u64,
+        600
+    );
+    def_setting!(
+        nip11_lines_to_output_on_error,
+        b"nip11_lines_to_output_on_error",
+        usize,
+        10
+    );
     def_setting!(prune_period_days, b"prune_period_days", u64, 30);
 
     pub fn write_encrypted_private_key<'a>(
