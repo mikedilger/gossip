@@ -1,7 +1,7 @@
 mod legacy;
+use super::types::{Person1, PersonRelay1, Relay1, Settings1, ThemeVariant1};
 use super::Storage;
 use crate::error::Error;
-use super::types::{Person1, PersonRelay1, Relay1, Settings1, ThemeVariant1};
 use nostr_types::{EncryptedPrivateKey, Event, Id, PublicKey, RelayUrl, Unixtime};
 use rusqlite::Connection;
 

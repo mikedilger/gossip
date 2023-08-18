@@ -32,5 +32,4 @@ impl ThemeVariant1 {
             ThemeVariant1::Roundy => "Roundy",
         }
     }
-
 }

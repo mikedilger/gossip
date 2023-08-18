@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::storage::{MAX_LMDB_KEY, Storage};
+use crate::storage::{Storage, MAX_LMDB_KEY};
 use heed::RwTxn;
 use nostr_types::{PublicKey, RelayUrl};
 use speedy::{Readable, Writable};

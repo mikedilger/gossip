@@ -1,8 +1,8 @@
 use crate::error::Error;
 use crate::storage::Storage;
 use heed::RwTxn;
-use serde::{Deserialize, Serialize};
 use nostr_types::{Metadata, PublicKey};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Person1 {

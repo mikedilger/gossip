@@ -1,4 +1,3 @@
-
 mod person1;
 pub use person1::Person1;
 

@@ -1,6 +1,6 @@
-use crate::error::Error;
 use super::super::Storage;
 use super::theme1::{Theme1, ThemeVariant1};
+use crate::error::Error;
 use heed::RwTxn;
 use nostr_types::PublicKey;
 use serde::{Deserialize, Serialize};
@@ -114,5 +114,4 @@ impl Storage {
             Some(bytes) => Ok(Some(Settings1::read_from_buffer(bytes)?)),
         }
     }
-
 }

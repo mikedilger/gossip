@@ -2,8 +2,8 @@ use heed::types::UnalignedSlice;
 use heed::{EnvFlags, EnvOpenOptions};
 use nostr_types::{PublicKey, RelayUrl};
 use speedy::{Readable, Writable};
-use std::{env, fmt};
 use std::path::PathBuf;
+use std::{env, fmt};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args();

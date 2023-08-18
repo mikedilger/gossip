@@ -1,5 +1,5 @@
-use super::Storage;
 use super::types::{Settings1, Settings2};
+use super::Storage;
 use crate::error::{Error, ErrorKind};
 use heed::RwTxn;
 use nostr_types::{Event, RelayUrl};
@@ -147,5 +147,4 @@ impl Storage {
 
         Ok(())
     }
-
 }
