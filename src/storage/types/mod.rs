@@ -3,12 +3,14 @@
 // to look like.
 
 mod settings1;
-use settings1::Settings1;
+pub use settings1::Settings1;
 
 mod settings2;
-use settings2::Settings2;
+pub use settings2::Settings2;
 
 mod theme1;
+pub use theme1::{Theme1, ThemeVariant1};
+
 
 use crate::error::Error;
 use crate::storage::Storage;

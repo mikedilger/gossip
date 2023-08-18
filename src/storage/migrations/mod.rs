@@ -4,8 +4,6 @@ use heed::RwTxn;
 use nostr_types::{Event, RelayUrl};
 use speedy::Readable;
 
-mod settings;
-
 impl Storage {
     const MAX_MIGRATION_LEVEL: u32 = 3;
 

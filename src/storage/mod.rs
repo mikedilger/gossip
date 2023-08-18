@@ -1,5 +1,6 @@
 mod import;
 mod migrations;
+mod types;
 
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
