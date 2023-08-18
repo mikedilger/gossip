@@ -38,6 +38,7 @@ pub struct Settings2 {
     pub reactions: bool,
     pub enable_zap_receipts: bool,
     pub show_media: bool,
+    pub approve_content_warning: bool,
 
     // Posting Settings
     pub pow: u8,
@@ -121,6 +122,7 @@ impl Default for Settings2 {
             reactions: true,
             enable_zap_receipts: true,
             show_media: true,
+            approve_content_warning: false,
 
             // Posting settings
             pow: 0,
@@ -207,6 +209,7 @@ impl From<Settings1> for Settings2 {
             reactions: old.reactions,
             enable_zap_receipts: old.enable_zap_receipts,
             show_media: old.show_media,
+            approve_content_warning: old.approve_content_warning,
 
             // Posting settings
             pow: old.pow,

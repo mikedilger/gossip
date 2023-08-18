@@ -235,6 +235,7 @@ where
             "highlight_unread_events" => settings.highlight_unread_events = numstr_to_bool(value),
             "posting_area_at_top" => settings.posting_area_at_top = numstr_to_bool(value),
             "enable_zap_receipts" => settings.enable_zap_receipts = numstr_to_bool(value),
+            "approve_content_warning" => settings.approve_content_warning = numstr_to_bool(value),
             _ => {}
         }
     }

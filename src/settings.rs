@@ -37,6 +37,7 @@ pub struct Settings {
     pub reactions: bool,
     pub enable_zap_receipts: bool,
     pub show_media: bool,
+    pub approve_content_warning: bool,
 
     // Posting Settings
     pub pow: u8,
@@ -120,6 +121,7 @@ impl Default for Settings {
             reactions: true,
             enable_zap_receipts: true,
             show_media: true,
+            approve_content_warning: false,
 
             // Posting settings
             pow: 0,

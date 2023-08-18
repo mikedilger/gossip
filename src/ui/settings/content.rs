@@ -78,6 +78,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .on_hover_text(
             "If off, you have to click to (potentially fetch and) render media inline. If on, all media referenced by posts in your feed will be (potentially fetched and) rendered. However, if Fetch Media is disabled, only cached media can be shown as media will not be fetched."
         );
+
+    ui.checkbox(
+        &mut app.settings.approve_content_warning,
+        "Approve all content-warning tagged media automatically",
+    )
+        .on_hover_text(
+            "If off, you have to click to show content-warning tagged media. If on, all content-warning tagged media in your feed will be rendered."
+        );
 }
 
 fn secs_to_string(secs: u64) -> String {

@@ -34,6 +34,7 @@ pub struct Settings1 {
     pub highlight_unread_events: bool,
     pub posting_area_at_top: bool,
     pub enable_zap_receipts: bool,
+    pub approve_content_warning: bool,
 }
 
 impl Default for Settings1 {
@@ -72,6 +73,7 @@ impl Default for Settings1 {
             highlight_unread_events: true,
             posting_area_at_top: true,
             enable_zap_receipts: true,
+            approve_content_warning: false,
         }
     }
 }
