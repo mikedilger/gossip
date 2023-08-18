@@ -133,7 +133,7 @@ impl Overlord {
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER))?
             .iter()
-            .map(|dbrelay| dbrelay.url.clone())
+            .map(|relay| relay.url.clone())
             .collect();
         let followed = GLOBALS.people.get_followed_pubkeys();
         for relay_url in discover_relay_urls.iter() {
@@ -156,7 +156,7 @@ impl Overlord {
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
             .iter()
-            .map(|dbrelay| dbrelay.url.clone())
+            .map(|relay| relay.url.clone())
             .collect();
         for relay_url in write_relay_urls.iter() {
             self.engage_minion(
@@ -180,7 +180,7 @@ impl Overlord {
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::READ))?
             .iter()
-            .map(|dbrelay| dbrelay.url.clone())
+            .map(|relay| relay.url.clone())
             .collect();
         for relay_url in read_relay_urls.iter() {
             self.engage_minion(
@@ -470,22 +470,22 @@ impl Overlord {
     }
 
     fn bump_failure_count(url: &RelayUrl) {
-        if let Ok(Some(mut dbrelay)) = GLOBALS.storage.read_relay(url) {
-            dbrelay.failure_count += 1;
-            let _ = GLOBALS.storage.write_relay(&dbrelay, None);
+        if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url) {
+            relay.failure_count += 1;
+            let _ = GLOBALS.storage.write_relay(&relay, None);
         }
     }
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
             ToOverlordMessage::AddRelay(relay_str) => {
-                let dbrelay = Relay::new(relay_str);
-                GLOBALS.storage.write_relay(&dbrelay, None)?;
+                let relay = Relay::new(relay_str);
+                GLOBALS.storage.write_relay(&relay, None)?;
             }
             ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
-                if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
+                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
                     // TODO: replace with dedicated method to clear all bits
-                    dbrelay.clear_usage_bits(
+                    relay.clear_usage_bits(
                         Relay::ADVERTISE
                             | Relay::DISCOVER
                             | Relay::INBOX
@@ -493,14 +493,15 @@ impl Overlord {
                             | Relay::READ
                             | Relay::WRITE,
                     );
+                    GLOBALS.storage.write_relay(&relay, None)?;
                 } else {
                     tracing::error!("CODE OVERSIGHT - Attempt to clear relay usage bit for a relay not in memory. It will not be saved.");
                 }
             }
             ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
-                if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
-                    dbrelay.adjust_usage_bit(bit, value);
-                    GLOBALS.storage.write_relay(&dbrelay, None)?;
+                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+                    relay.adjust_usage_bit(bit, value);
+                    GLOBALS.storage.write_relay(&relay, None)?;
                 } else {
                     tracing::error!("CODE OVERSIGHT - We are adjusting a relay usage bit for a relay not in memory, how did that happen? It will not be saved.");
                 }
@@ -707,9 +708,9 @@ impl Overlord {
                 self.push_metadata(metadata).await?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
-                if let Some(mut dbrelay) = GLOBALS.storage.read_relay(&relay_url)? {
-                    dbrelay.rank = rank as u64;
-                    GLOBALS.storage.write_relay(&dbrelay, None)?;
+                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+                    relay.rank = rank as u64;
+                    GLOBALS.storage.write_relay(&relay, None)?;
                 }
             }
             ToOverlordMessage::ReengageMinion(url, persistent_jobs) => {
@@ -1092,7 +1093,7 @@ impl Overlord {
                 .storage
                 .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
                 .iter()
-                .map(|dbrelay| dbrelay.url.clone())
+                .map(|relay| relay.url.clone())
                 .collect();
             relay_urls.extend(write_relay_urls);
 
@@ -1166,7 +1167,7 @@ impl Overlord {
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::ADVERTISE))?
             .iter()
-            .map(|dbrelay| dbrelay.url.clone())
+            .map(|relay| relay.url.clone())
             .collect();
 
         for relay_url in advertise_to_relay_urls {
@@ -1509,7 +1510,7 @@ impl Overlord {
                 .storage
                 .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
                 .iter()
-                .map(|dbrelay| dbrelay.url.clone())
+                .map(|relay| relay.url.clone())
                 .collect();
             relay_urls.extend(write_relay_urls);
             relay_urls.sort();
@@ -1758,7 +1759,7 @@ impl Overlord {
                 .storage
                 .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
                 .iter()
-                .map(|dbrelay| dbrelay.url.clone())
+                .map(|relay| relay.url.clone())
                 .collect();
             relay_urls.extend(write_relay_urls);
             relay_urls.sort();
@@ -2120,7 +2121,7 @@ impl Overlord {
                 .storage
                 .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
                 .iter()
-                .map(|dbrelay| dbrelay.url.clone())
+                .map(|relay| relay.url.clone())
                 .collect();
             relays.extend(write_relay_urls);
 
