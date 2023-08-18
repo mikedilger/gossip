@@ -914,7 +914,8 @@ fn render_content(
                             .monospace()
                             .italics(),
                         );
-                        if ui.button("Show Post").clicked() || app.settings.approve_content_warning {
+                        if ui.button("Show Post").clicked() || app.settings.approve_content_warning
+                        {
                             app.approved.insert(event.id);
                             app.height.remove(&event.id); // will need to be recalculated.
                         }
