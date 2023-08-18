@@ -118,7 +118,7 @@ impl Overlord {
         // Create a person record for every person seen
 
         // Load delegation tag
-        GLOBALS.delegation.load_through_settings()?;
+        GLOBALS.delegation.load()?;
 
         // Initialize the relay picker
         GLOBALS.relay_picker.init().await?;
@@ -534,7 +534,7 @@ impl Overlord {
             ToOverlordMessage::DeletePub => {
                 GLOBALS.signer.clear_public_key();
                 Self::delegation_reset().await?;
-                GLOBALS.signer.save_through_settings().await?;
+                GLOBALS.signer.save().await?;
             }
             ToOverlordMessage::DropRelay(relay_url) => {
                 let _ = self.to_minions.send(ToMinionMessage {
@@ -581,7 +581,7 @@ impl Overlord {
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
                 GLOBALS.signer.generate_private_key(&password)?;
                 password.zeroize();
-                GLOBALS.signer.save_through_settings().await?;
+                GLOBALS.signer.save().await?;
             }
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
                 if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
@@ -595,7 +595,7 @@ impl Overlord {
                     GLOBALS.signer.set_encrypted_private_key(epk);
                     GLOBALS.signer.unlock_encrypted_private_key(&password)?;
                     password.zeroize();
-                    GLOBALS.signer.save_through_settings().await?;
+                    GLOBALS.signer.save().await?;
                 } else {
                     let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv);
                     let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv);
@@ -610,7 +610,7 @@ impl Overlord {
                         let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                         GLOBALS.signer.set_private_key(privkey, &password)?;
                         password.zeroize();
-                        GLOBALS.signer.save_through_settings().await?;
+                        GLOBALS.signer.save().await?;
                     }
                 }
             }
@@ -625,7 +625,7 @@ impl Overlord {
                 } else {
                     let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                     GLOBALS.signer.set_public_key(pubkey);
-                    GLOBALS.signer.save_through_settings().await?;
+                    GLOBALS.signer.save().await?;
                 }
             }
             ToOverlordMessage::Like(id, pubkey) => {
@@ -1707,7 +1707,7 @@ impl Overlord {
     async fn delegation_reset() -> Result<(), Error> {
         if GLOBALS.delegation.reset() {
             // save and statusmsg
-            GLOBALS.delegation.save_through_settings().await?;
+            GLOBALS.delegation.save().await?;
             GLOBALS
                 .status_queue
                 .write()

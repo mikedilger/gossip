@@ -54,11 +54,11 @@ impl Delegation {
         }
     }
 
-    pub fn load_through_settings(&self) -> Result<(), Error> {
+    pub fn load(&self) -> Result<(), Error> {
         self.set(&GLOBALS.storage.read_setting_delegatee_tag())
     }
 
-    pub async fn save_through_settings(&self) -> Result<(), Error> {
+    pub async fn save(&self) -> Result<(), Error> {
         GLOBALS
             .storage
             .write_setting_delegatee_tag(&self.get_delegatee_tag_as_str(), None)?;

@@ -26,7 +26,7 @@ impl Signer {
         Ok(())
     }
 
-    pub async fn save_through_settings(&self) -> Result<(), Error> {
+    pub async fn save(&self) -> Result<(), Error> {
         GLOBALS
             .storage
             .write_setting_public_key(&self.public.read(), None)?;
@@ -91,7 +91,7 @@ impl Signer {
                         Some(private.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
                     // and eventually save
                     task::spawn(async move {
-                        if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                        if let Err(e) = GLOBALS.signer.save().await {
                             tracing::error!("{}", e);
                         }
                     });
@@ -133,7 +133,7 @@ impl Signer {
                 let epk = pk.export_encrypted(new, GLOBALS.storage.read_setting_log_n())?;
                 *self.encrypted.write() = Some(epk);
                 task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                    if let Err(e) = GLOBALS.signer.save().await {
                         tracing::error!("{}", e);
                     }
                     GLOBALS
@@ -206,7 +206,7 @@ impl Signer {
                 *self.encrypted.write() = Some(epk);
                 *self.private.write() = Some(pk);
                 task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                    if let Err(e) = GLOBALS.signer.save().await {
                         tracing::error!("{}", e);
                     }
                 });
@@ -231,7 +231,7 @@ impl Signer {
                 *self.encrypted.write() = Some(epk);
                 *self.private.write() = Some(pk);
                 task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save_through_settings().await {
+                    if let Err(e) = GLOBALS.signer.save().await {
                         tracing::error!("{}", e);
                     }
                 });
@@ -247,7 +247,7 @@ impl Signer {
         *self.public.write() = None;
 
         task::spawn(async move {
-            if let Err(e) = GLOBALS.signer.save_through_settings().await {
+            if let Err(e) = GLOBALS.signer.save().await {
                 tracing::error!("{}", e);
             }
         });
