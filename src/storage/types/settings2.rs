@@ -241,7 +241,7 @@ impl Storage {
         let bytes = settings.write_to_vec()?;
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"settings", &bytes)?;
+            self.general.put(txn, b"settings2", &bytes)?;
             Ok(())
         };
 
@@ -261,7 +261,7 @@ impl Storage {
     pub fn read_settings2(&self) -> Result<Option<Settings2>, Error> {
         let txn = self.env.read_txn()?;
 
-        match self.general.get(&txn, b"settings")? {
+        match self.general.get(&txn, b"settings2")? {
             None => Ok(None),
             Some(bytes) => Ok(Some(Settings2::read_from_buffer(bytes)?)),
         }
