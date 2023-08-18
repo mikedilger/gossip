@@ -21,7 +21,6 @@ use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::Relationship;
 use crate::relay::Relay;
-use crate::settings::Settings;
 use crate::ui::{Theme, ThemeVariant};
 use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
@@ -43,7 +42,7 @@ macro_rules! def_setting {
             #[allow(dead_code)]
             pub fn [<write_setting_ $field>]<'a>(
                 &'a self,
-               $field: &$type,
+                $field: &$type,
                 rw_txn: Option<&mut RwTxn<'a>>,
             ) -> Result<(), Error> {
                 let bytes = $field.write_to_vec()?;
@@ -623,39 +622,6 @@ impl Storage {
         match self.general.get(&txn, b"last_contact_list_edit")? {
             None => Ok(None),
             Some(bytes) => Ok(Some(i64::from_be_bytes(bytes[..8].try_into().unwrap()))),
-        }
-    }
-
-    pub fn write_settings<'a>(
-        &'a self,
-        settings: &Settings,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = settings.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"settings2", &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub fn read_settings(&self) -> Result<Option<Settings>, Error> {
-        let txn = self.env.read_txn()?;
-
-        match self.general.get(&txn, b"settings2")? {
-            None => Ok(None),
-            Some(bytes) => Ok(Some(Settings::read_from_buffer(bytes)?)),
         }
     }
 

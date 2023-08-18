@@ -52,6 +52,7 @@ mod ui;
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::settings::Settings;
 use std::ops::DerefMut;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -83,7 +84,7 @@ fn main() -> Result<(), Error> {
     GLOBALS.storage.init()?;
 
     // Load settings
-    let settings = GLOBALS.storage.read_settings()?.unwrap();
+    let settings = Settings::load();
     *GLOBALS.settings.write() = settings;
 
     // We create and enter the runtime on the main thread so that

@@ -182,7 +182,7 @@ impl Storage {
             self.write_setting_max_fps(&settings.max_fps, Some(rw_txn))?;
             self.write_setting_recompute_feed_periodically(&settings.recompute_feed_periodically, Some(rw_txn))?;
             self.write_setting_feed_recompute_interval_ms(&settings.feed_recompute_interval_ms, Some(rw_txn))?;
-            self.write_setting_theme(&settings.theme, Some(rw_txn))?;
+            self.write_setting_theme1(&settings.theme, Some(rw_txn))?;
             self.write_setting_override_dpi(&settings.override_dpi, Some(rw_txn))?;
             self.write_setting_highlight_unread_events(&settings.highlight_unread_events, Some(rw_txn))?;
             self.write_setting_posting_area_at_top(&settings.posting_area_at_top, Some(rw_txn))?;
