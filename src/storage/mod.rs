@@ -531,6 +531,7 @@ impl Storage {
     def_setting!(reactions, b"reactions", bool, true);
     def_setting!(enable_zap_receipts, b"enable_zap_receipts", bool, true);
     def_setting!(show_media, b"show_media", bool, true);
+    def_setting!(approve_content_warning, b"approve_content_warning", bool, false);
     def_setting!(pow, b"pow", u8, 0);
     def_setting!(set_client_tag, b"set_client_tag", bool, false);
     def_setting!(set_user_agent, b"set_user_agent", bool, false);
