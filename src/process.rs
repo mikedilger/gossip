@@ -34,9 +34,12 @@ pub async fn process_new_event(
         match crate::filter::filter(event.clone(), author) {
             EventFilterAction::Allow => {}
             EventFilterAction::Deny => {
-                tracing::info!("SPAM FILTER: Filtered out event {}", event.id.as_hex_string());
+                tracing::info!(
+                    "SPAM FILTER: Filtered out event {}",
+                    event.id.as_hex_string()
+                );
                 return Ok(());
-            },
+            }
             EventFilterAction::MuteAuthor => {
                 GLOBALS.people.mute(&event.pubkey, true)?;
                 return Ok(());
