@@ -2,7 +2,7 @@ use crate::globals::GLOBALS;
 use crate::people::Person;
 use crate::profile::Profile;
 use nostr_types::{Event, EventKind};
-use rhai::{AST, Engine, Scope};
+use rhai::{Engine, Scope, AST};
 use std::fs;
 
 #[derive(Clone, Copy, Debug)]
@@ -18,7 +18,7 @@ pub fn load_script(engine: &Engine) -> Option<AST> {
         Err(e) => {
             tracing::error!("Profile failed: {}", e);
             return None;
-        },
+        }
     };
 
     let mut path = profile.profile_dir.clone();
@@ -29,7 +29,7 @@ pub fn load_script(engine: &Engine) -> Option<AST> {
         Err(e) => {
             tracing::info!("No spam filter: {}", e);
             return None;
-        },
+        }
     };
 
     let ast = match engine.compile(script) {
@@ -48,7 +48,7 @@ pub fn load_script(engine: &Engine) -> Option<AST> {
 pub fn filter(event: Event, author: Option<Person>) -> EventFilterAction {
     let ast = match &GLOBALS.filter {
         Some(ast) => ast,
-        None => return EventFilterAction::Allow
+        None => return EventFilterAction::Allow,
     };
 
     let mut scope = Scope::new();
@@ -65,7 +65,10 @@ pub fn filter(event: Event, author: Option<Person>) -> EventFilterAction {
         },
     );
 
-    match GLOBALS.filter_engine.call_fn::<i64>(&mut scope, &ast, "filter", ()) {
+    match GLOBALS
+        .filter_engine
+        .call_fn::<i64>(&mut scope, &ast, "filter", ())
+    {
         Ok(action) => match action {
             0 => {
                 tracing::info!("SPAM FILTER BLOCKING EVENT {}", event.id.as_hex_string());

@@ -67,6 +67,7 @@ pub struct Settings {
     pub reactions: bool,
     pub enable_zap_receipts: bool,
     pub show_media: bool,
+    pub approve_content_warning: bool,
 
     // Posting Settings
     pub pow: u8,
@@ -139,6 +140,7 @@ impl Default for Settings {
             reactions: default_setting!(reactions),
             enable_zap_receipts: default_setting!(enable_zap_receipts),
             show_media: default_setting!(show_media),
+            approve_content_warning: default_setting!(approve_content_warning),
             pow: default_setting!(pow),
             set_client_tag: default_setting!(set_client_tag),
             set_user_agent: default_setting!(set_user_agent),
@@ -211,6 +213,7 @@ impl Settings {
             reactions: load_setting!(reactions),
             enable_zap_receipts: load_setting!(enable_zap_receipts),
             show_media: load_setting!(show_media),
+            approve_content_warning: load_setting!(approve_content_warning),
             pow: load_setting!(pow),
             set_client_tag: load_setting!(set_client_tag),
             set_user_agent: load_setting!(set_user_agent),
@@ -279,6 +282,7 @@ impl Settings {
         save_setting!(reactions, self, txn);
         save_setting!(enable_zap_receipts, self, txn);
         save_setting!(show_media, self, txn);
+        save_setting!(approve_content_warning, self, txn);
         save_setting!(pow, self, txn);
         save_setting!(set_client_tag, self, txn);
         save_setting!(set_user_agent, self, txn);

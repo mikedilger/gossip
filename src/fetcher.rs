@@ -268,10 +268,9 @@ impl Fetcher {
                 } else {
                     None
                 }
-            },
+            }
             Err(_) => None,
         };
-
 
         let stale = matches!(
             self.urls
@@ -281,7 +280,6 @@ impl Fetcher {
                 .unwrap_or(&FetchState::Queued),
             FetchState::QueuedStale
         );
-
 
         let host = self.host(&url).unwrap();
 
