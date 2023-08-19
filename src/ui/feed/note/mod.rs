@@ -904,7 +904,7 @@ fn render_content(
                     } else if app.render_qr == Some(event.id) {
                         app.render_qr(ui, ctx, "feedqr", event.content.trim());
                     // FIXME should this be the unmodified content (event.content)?
-                    } else if event.content_warning().is_some() && !app.approved.contains(&event.id)
+                    } else if event.content_warning().is_some() && !app.approved.contains(&event.id) && !app.settings.approve_content_warning
                     {
                         ui.label(
                             RichText::new(format!(
@@ -914,7 +914,8 @@ fn render_content(
                             .monospace()
                             .italics(),
                         );
-                        if ui.button("Show Post").clicked() {
+                        if ui.button("Show Post").clicked()
+                        {
                             app.approved.insert(event.id);
                             app.height.remove(&event.id); // will need to be recalculated.
                         }

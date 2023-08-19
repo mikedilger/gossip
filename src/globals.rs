@@ -14,7 +14,7 @@ use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
-use rhai::{AST, Engine};
+use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
