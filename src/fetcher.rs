@@ -258,10 +258,20 @@ impl Fetcher {
         }
 
         let etag_file = GLOBALS.fetcher.etag_file(&url);
+        let cache_file = GLOBALS.fetcher.cache_file(&url);
+
         let etag: Option<Vec<u8>> = match tokio::fs::read(etag_file.as_path()).await {
-            Ok(contents) => Some(contents),
+            Ok(contents) => {
+                // etag is only valid if the contents file is present
+                if matches!(tokio::fs::try_exists(cache_file.as_path()).await, Ok(true)) {
+                    Some(contents)
+                } else {
+                    None
+                }
+            },
             Err(_) => None,
         };
+
 
         let stale = matches!(
             self.urls
@@ -272,7 +282,6 @@ impl Fetcher {
             FetchState::QueuedStale
         );
 
-        let cache_file = GLOBALS.fetcher.cache_file(&url);
 
         let host = self.host(&url).unwrap();
 
