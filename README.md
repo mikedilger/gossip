@@ -18,13 +18,13 @@ or choose to [Build from Source](#building-from-source)
 
 The following features make gossip different than most other nostr clients so far:
 
-- Gossip follows people at they relays they profess to post to. That means it has to discover which relays those are (see [NIP-65](https://github.com/nostr-protocol/nips/blob/master/65.md)). Gossip connects to all relays necessary to cover everybody you follow, while also trying to listen to the minimum number of relays necessary to do that (considering that there is overlap, and that people generally post to multiple relays). It also dynamically adjusts to relays being down or disconnecting.
-- Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory.
-- Gossip avoids web technologies (other than HTTP GET and WebSockets). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are complex and represent a security hazard due to such a large attack surface. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
-
-### Status
-
-Gossip is ready to use as a daily client if you wish. There are shortcomings, and active [development](DEVELOPING.md) is ongoing.
+- **Desktop Portable**: Gossip is designed to run on desktop computers, and is portable to Windows, MacOS and Linux.
+- **Gossip Model**: The Gossip Model was named after this client, because gossip never used a simple list of relays. From day one it tried to find posts of people that you follow wherever they are most likely to be, based on those people's relay lists as well as half a dozen other heuristics. Today multiple clients use a similar model, focused around ([NIP-65](https://github.com/nostr-protocol/nips/blob/master/65.md)). Gossip connects to all relays necessary to cover everybody you follow, while also trying to listen to the minimum number of relays necessary to do that (considering that there is overlap, and that people generally post to multiple relays). It also dynamically adjusts to relays being down or disconnecting.
+- **Secure Key Handling**: Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory. This shouldn't really be a point of difference but few other clients bother.
+- **Avoids Browser-Tech**: Gossip avoids web technologies (other than HTTP GET and WebSockets which are necessary for nostr). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are complex and represent a security hazard due to such a large attack surface. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
+- **Performant**: Gossip aims towards being highly performant, using the LMDB database, the rust language, and coding architectures with performance always in mind. Unless you have quite old hardware, the network speed will probably be your bottleneck.
+- **High user control**: Gossip has (at the time of writing) 57 different settings. When the right value is uncertain, I pick a reasonable default and give the user the mechanism to change it.
+- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS which won't do Tor completely. Gossip provides options to support privacy usage such as not loading avatars, not necessarily sharing who you follow, etc. We will be adding more privacy features.
 
 ## Media
 
@@ -33,28 +33,12 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 ![Gossip Screenshot, Default Light Theme](assets/gossip_screenshot_light.png)
 ![Gossip Screenshot, Default Dark Theme](assets/gossip_screenshot_dark.png)
 
-### Videos
-
-[First Gossip Video, 5 Jan 2023](https://mikedilger.com/gossip1.mp4)
-
-[Gossip Relay Model, 29 Jan 2023](https://mikedilger.com/gossip-relay-model.mp4)
-
-## Development Ideology
-
-- **High user control**: The plan is for the user to be in control of quite a lot of settings regarding which posts they see, which relays to talk to, and when to fetch from them, but with some sane defaults.
-- **Key Security**: Private keys need to be handled as securely as possible. We store the key encrypted under a passphrase on disk, and we zero out any memory that has seen either the key or the passphrase that decrypts it. We also keep the decrypted key in just one place, the Signer, which doesn't provide access to the key directly. Eventually we will look to add hardware token support, probably first using programmable [SoloKeys](https://solokeys.com/) because I have a few of those.
-- **Portable** design intended for the **desktop**: This is intended to run on desktop computers, but not limited as such. The platform must be supported by rust (most are), and SQLite3 needs to store its file somewhere. The UI will run on many backends.
-- **High-enough performance**: Generally the network speed should be your limiting factor on performance, not the UI or any other part of the code. It doesn't matter too much how fast the code runs as long as it is always faster than the network, and I think that's definitely true for gossip.
-- **Easy-ish on CPU/power usage**: We can't achieve this as well as other clients might because we use an immediate-mode renderer which necessarily recomputes what it draws every "frame" and may redraw many times per second. We are working hard to minimize the CPU impact of this hot loop. Try it and see.
-- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS which won't do Tor completely. Gossip provides options to support privacy usage such as not loading avatars, not necessarily sharing who you follow, etc. We will be adding more privacy features.
-
 ### nostr features supported
 
 - [x] NIP-01 - Basic protocol flow description
 - [x] NIP-02 - Contact List and Petnames
 - [ ] NIP-03 - OpenTimestamps Attestations for Events [NOT PLANNED]
-- [ ] NIP-04 - Encrypted Direct Message
-    - Read Only is implemented
+- [ ] NIP-04 - Encrypted Direct Message [Read Only is implemented]
 - [x] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers
 - [ ] NIP-06 - Basic key derivation from mnemonic seed phrase
 - [ ] NIP-07 - window.nostr capability for web browsers [NOT APPLICABLE]
@@ -62,36 +46,41 @@ Gossip is ready to use as a daily client if you wish. There are shortcomings, an
 - [x] NIP-09 - Event Deletion
 - [x] NIP-10 - Conventions for clients' use of e and p tags in text events
 - [x] NIP-11 - Relay Information Document
-- [x] NIP-12 - Generic Tag Queries
 - [x] NIP-13 - Proof of Work
 - [x] NIP-14 - Subject tag in text events
-- [x] NIP-15 - End of Stored Events Notice
-- [x] NIP-16 - Event Treatment
 - [x] NIP-18 - Reposts
 - [x] NIP-19 - bech32-encoded entities
-- [x] NIP-20 - Command Results
 - [x] NIP-21 - nostr: URL scheme
 - [x] NIP-22 - Event created_at Limits
-- [ ] NIP-23 - Long-form Content
-    - Optional viewing, but not creating
+- [ ] NIP-23 - Long-form Content [Optional viewing, but not creating]
 - [x] NIP-25 - Reactions
 - [x] NIP-26 - Delegated Event Signing
 - [x] NIP-27 - Text Note References
 - [ ] NIP-28 - Public Chat
-- [x] NIP-33 - Parameterized Replaceable Events
+- [ ] NIP-30 - Custom Emoji
+- [x] NIP-31 - Dealing with Unknown Events
+- [ ] NIP-32 - Labeling
 - [x] NIP-36 - Sensitive Content
 - [ ] NIP-39 - External Identities in Profiles
 - [ ] NIP-40 - Expiration Timestamp
 - [x] NIP-42 - Authentication of clients to relays
+- [ ] NIP-45 - Counting results
 - [ ] NIP-46 - Nostr Connect
 - [x] NIP-48 - Proxy Tags
 - [ ] NIP-50 - Keywords filter
 - [ ] NIP-51 - Lists
+- [ ] NIP-52 - Calendar Events
+- [ ] NIP-53 - Live Activities
 - [ ] NIP-56 - Reporting
-- [ ] NIP-57 - Lightning Zaps
+- [x] NIP-57 - Lightning Zaps
 - [ ] NIP-58 - Badges
 - [x] NIP-65 - Relay List Metadata
+- [ ] NIP-72 - Moderated Communities
 - [ ] NIP-78 - Application-specific data
+- [ ] NIP-89 - Recommended Application Handlers
+- [ ] NIP-94 - File Metadata
+- [ ] NIP-98 - HTTP Auth
+- [ ] NIP-99 - Classified Listings
 
 ## Building from Source
 
@@ -217,21 +206,11 @@ Compile with
 
 If you are having performance issues, please see [PERFORMANCE.md](PERFORMANCE.md).
 
-### Sqlite Constraint Issues (Foreign or Unique Key)
-
-First you need to locate your database file. The gossip directory is under this path: https://docs.rs/dirs/4.0.0/dirs/fn.data_dir.html  The database file is `gossip.sqlite`.  Then you need to install `sqlite3` on your system.
-
-Using `sqlite3` on your database file, the following kind of SQL can help you identify rows that violate foreign key constraints.
-
-#### Error: Sql(SqliteFailure(Error { code: ConstraintViolation, extended_code: 2067 }, Some("UNIQUE constraint failed: person_relay.person, person_relay.relay")))
-
-You can find which rows are duplicated using: `select a.person, a.relay FROM person_relay a INNER JOIN person_relay b WHERE a.person=b.person AND a.relay=b.relay AND a.rowid!=b.rowid;`  You'll need to delete one row from each pair (by rowid so you don't delete both of them).
-
 ## Technology Involved
 
 - Rust Language
 - egui Rust GUI framework
-- SQLite 3
+- LMDB
 - Tungstenite websocket library
 - Tokio async task runtime
 - Serde serialization/deserialization
@@ -268,5 +247,3 @@ You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you
 I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term keypair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
 
 You can tip me at my Bitcoin Lighting address: decentbun13@walletofsatoshi.com == lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
-
-Anything more than 500,000 sats or so should probably go through my on-chain address: bc1qx2a4qmuczvmdcqr8wauty66gkh2klywckd5wn8
