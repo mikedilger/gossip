@@ -48,7 +48,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     app.original_dpi_value = value;
                 }
 
-                // Copy local settings to global settings
                 let _ = app.settings.save();
             }
         }

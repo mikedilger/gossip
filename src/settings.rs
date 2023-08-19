@@ -313,6 +313,7 @@ impl Settings {
         save_setting!(fetcher_host_exclusion_on_high_error_secs, self, txn);
         save_setting!(nip11_lines_to_output_on_error, self, txn);
         save_setting!(prune_period_days, self, txn);
+        txn.commit()?;
         Ok(())
     }
 }
