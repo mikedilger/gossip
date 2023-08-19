@@ -1,0 +1,48 @@
+// This is a sample spam filtering script for the gossip nostr client.
+// The language is called Rhai, details are at: https://rhai.rs/book/
+//
+// For gossip to find your spam filtering script, put it in your gossip
+// profile directory. See https://docs.rs/dirs/latest/dirs/fn.data_dir.html
+// to find the base directory. A subdirectory "gossip" is your gossip
+// data directory which for most people is their profile directory too.
+// (Note: if you use a GOSSIP_PROFILE, you'll need to put it one directory
+// deeper into that profile directory).
+//
+// This filter is used to filter out and refuse to process incoming events
+// as they flow in from relays. It does not filter out events that are
+// already in your database.  It is only run on feed-displayable event kinds,
+// and only by authors you are not following. In case of error, nothing is
+// filtered.
+//
+// You must define a function called 'filter' which returns one of these
+// numerical results:
+//   0 = Deny (the event is filtered out)
+//   1 = Allow (the event is allowed through)
+//   2 = Mute Author (the event is filtered out, and the author is automatically muted)
+// Any other number will be treated like Allow.
+//
+// Your script will be provided the following global variables:
+//   'id' - the event ID, as a hex string
+//   'pubkey' - the event author public key, as a hex string
+//   'kind' - the event kind as an integer
+//   'content' - the event content as a string
+//   'nip05valid' - whether nip05 is valid for the author, as a boolean
+//
+// I know this isn't very useful yet. Please open github issues to make suggestions on
+// how we can make spam filtering more effective.
+
+fn filter() {
+  // Mute these spammers
+  if content.to_lower().contains("airdrop") {
+    2
+  }
+
+  // Block these events, I'm sick of talking about Ukraine
+  else if content.to_lower().contains("ukraine") {
+    0
+  }
+
+  else {
+    1
+  }
+}

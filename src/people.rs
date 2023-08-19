@@ -215,12 +215,18 @@ impl People {
         });
     }
 
+    // FIXME this is expensive
     pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
         if let Ok(vec) = GLOBALS.storage.filter_people(|p| p.followed) {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
             vec![]
         }
+    }
+
+    // FIXME this is expensive
+    pub fn is_followed(&self, pubkey: &PublicKey) -> bool {
+        self.get_followed_pubkeys().contains(pubkey)
     }
 
     pub fn get_followed_pubkeys_needing_relay_lists(

@@ -1,5 +1,6 @@
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
+use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
 use crate::person_relay::PersonRelay;
 use nostr_types::{
@@ -26,6 +27,22 @@ pub async fn process_new_event(
     }
 
     GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);
+
+    // Spam filter (displayable and author is not followed)
+    if event.kind.is_feed_displayable() && !GLOBALS.people.is_followed(&event.pubkey) {
+        let author = GLOBALS.storage.read_person(&event.pubkey)?;
+        match crate::filter::filter(event.clone(), author) {
+            EventFilterAction::Allow => {}
+            EventFilterAction::Deny => {
+                tracing::info!("SPAM FILTER: Filtered out event {}", event.id.as_hex_string());
+                return Ok(());
+            },
+            EventFilterAction::MuteAuthor => {
+                GLOBALS.people.mute(&event.pubkey, true)?;
+                return Ok(());
+            }
+        }
+    }
 
     // Determine if we already had this event
     let duplicate = GLOBALS.storage.has_event(event.id)?;
@@ -144,14 +161,6 @@ pub async fn process_new_event(
         }
     }
 
-    // Save event relationships (whether from a relay or not)
-    let invalid_ids = GLOBALS
-        .storage
-        .process_relationships_of_event(event, None)?;
-
-    // Invalidate UI events indicated by those relationships
-    GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
-
     // Save event_hashtags
     if seen_on.is_some() {
         let hashtags = event.hashtags();
@@ -159,6 +168,14 @@ pub async fn process_new_event(
             GLOBALS.storage.add_hashtag(&hashtag, event.id, None)?;
         }
     }
+
+    // Save event relationships (whether from a relay or not)
+    let invalid_ids = GLOBALS
+        .storage
+        .process_relationships_of_event(event, None)?;
+
+    // Invalidate UI events indicated by those relationships
+    GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
 
     // If metadata, update person
     if event.kind == EventKind::Metadata {

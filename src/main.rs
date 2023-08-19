@@ -31,6 +31,7 @@ mod delegation;
 mod error;
 mod feed;
 mod fetcher;
+mod filter;
 mod globals;
 mod media;
 mod nip05;
