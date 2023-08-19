@@ -1,6 +1,6 @@
 use heed::types::UnalignedSlice;
 use heed::{EnvFlags, EnvOpenOptions};
-use nostr_types::{RelayUrl, RelayInformationDocument};
+use nostr_types::{RelayInformationDocument, RelayUrl};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 //use std::{env, fmt};
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     for relay in &output {
-        if relay.usage_bits & 1<<2 != 0 {
+        if relay.usage_bits & 1 << 2 != 0 {
             println!("ADV: {}", relay.url);
         }
     }

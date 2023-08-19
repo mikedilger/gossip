@@ -67,7 +67,7 @@ pub fn filter(event: Event, author: Option<Person>) -> EventFilterAction {
 
     match GLOBALS
         .filter_engine
-        .call_fn::<i64>(&mut scope, &ast, "filter", ())
+        .call_fn::<i64>(&mut scope, ast, "filter", ())
     {
         Ok(action) => match action {
             0 => {
