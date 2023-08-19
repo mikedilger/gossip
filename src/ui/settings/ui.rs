@@ -69,4 +69,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label("Maximum FPS: ").on_hover_text("The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately. I recommend 10, maybe even less.");
         ui.add(Slider::new(&mut app.settings.max_fps, 2..=60).text("Frames per second"));
     });
+
+    ui.add_space(20.0);
+    ui.checkbox(
+        &mut app.settings.status_bar,
+        "Show DEBUG statistics in sidebar",
+    );
 }
