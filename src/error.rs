@@ -36,6 +36,7 @@ pub enum ErrorKind {
     UrlHasEmptyHostname,
     UrlHasNoHostname,
     UrlParse(url::ParseError),
+    Usage(String, String), // error, usage line
     Utf8Error(std::str::Utf8Error),
     Websocket(tungstenite::Error),
 }
@@ -94,6 +95,7 @@ impl std::fmt::Display for Error {
             UrlHasEmptyHostname => write!(f, "URL has empty hostname"),
             UrlHasNoHostname => write!(f, "URL has no hostname"),
             UrlParse(e) => write!(f, "URL parse: {e}"),
+            Usage(e, u) => write!(f, "{}\n\nUsage: {}", e, u),
             Utf8Error(e) => write!(f, "UTF-8 error: {e}"),
             Websocket(e) => write!(f, "Websocket: {e}"),
         }

@@ -25,6 +25,7 @@ macro_rules! rtry {
 extern crate lazy_static;
 
 mod about;
+mod commands;
 mod comms;
 mod date_ago;
 mod delegation;
@@ -88,6 +89,15 @@ fn main() -> Result<(), Error> {
     // async tasks.
     let rt = tokio::runtime::Runtime::new().unwrap();
     let _main_rt = rt.enter(); // <-- this allows it.
+
+    // If we were handed a command, execute the command and return
+    let args = env::args();
+    if args.len() > 1 {
+        if let Err(e) = crate::commands::handle_command(args) {
+            println!("{}", e);
+        }
+        return Ok(());
+    }
 
     // We run our main async code on a separate thread, not just a
     // separate task. This leave the main thread for UI work only.
