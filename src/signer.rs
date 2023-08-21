@@ -3,7 +3,7 @@ use std::sync::mpsc::Sender;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent, PrivateKey, PublicKey,
+    EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent, PrivateKey, PublicKey, Rumor,
 };
 use parking_lot::RwLock;
 use tokio::task;
@@ -105,7 +105,7 @@ impl Signer {
                 let dms: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
-                        &[EventKind::EncryptedDirectMessage],
+                        &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
                         &[],
                         None,
                         |_| true,
@@ -256,6 +256,13 @@ impl Signer {
     pub fn decrypt_message(&self, event: &Event) -> Result<String, Error> {
         match &*self.private.read() {
             Some(private) => Ok(event.decrypted_contents(private)?),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+        }
+    }
+
+    pub fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
+        match &*self.private.read() {
+            Some(private) => Ok(event.giftwrap_unwrap(private, false)?),
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }

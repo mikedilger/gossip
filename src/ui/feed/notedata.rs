@@ -1,7 +1,7 @@
 use crate::{globals::GLOBALS, people::Person};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
-    ShatteredContent, Tag,
+    ShatteredContent, Signature, Tag,
 };
 
 #[derive(PartialEq)]
@@ -40,12 +40,19 @@ pub(super) struct NoteData {
     pub(super) self_already_reacted: bool,
     /// The content shattered into renderable elements
     pub(super) shattered_content: ShatteredContent,
+    /// Securely delivered via GiftWrap
+    pub(super) secure: bool,
 }
 
 impl NoteData {
     pub(super) fn new(event: Event) -> NoteData {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
+
+        // If it was a gift wrap, the unwrapped rumor-converted-to-event
+        // signature will be all zeroes. This internally indicates it was
+        // securely delivered.
+        let secure = event.sig == Signature::zeroes();
 
         let delegation = event.delegation();
 
@@ -95,7 +102,7 @@ impl NoteData {
             EventKind::Repost => "".to_owned(),
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
                 Ok(m) => m,
-                Err(_) => "DECRYPTION FAILED".to_owned(),
+                Err(_) => "DECRYPTION FAILED".to_owned(), // FIXME, not really content.
             },
             EventKind::LongFormContent => event.content.clone(),
             _ => {
@@ -182,6 +189,7 @@ impl NoteData {
             zaptotal,
             self_already_reacted,
             shattered_content,
+            secure,
         }
     }
 

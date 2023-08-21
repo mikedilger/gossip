@@ -229,7 +229,8 @@ impl Feed {
         // Copy some values from settings
         let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
 
-        let kinds = feed_displayable_event_kinds();
+        let kinds_with_dms = feed_displayable_event_kinds(true);
+        let kinds_without_dms = feed_displayable_event_kinds(true);
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
@@ -254,7 +255,7 @@ impl Feed {
                 let followed_events: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
-                        &kinds,            // kinds
+                        &kinds_without_dms,
                         &followed_pubkeys, // pubkeys
                         Some(since),
                         |e| {
@@ -285,7 +286,7 @@ impl Feed {
                     // of NIP-10)
 
                     let my_event_ids: HashSet<Id> = GLOBALS.storage.find_event_ids(
-                        &kinds,       // kinds
+                        &kinds_with_dms,
                         &[my_pubkey], // pubkeys
                         None,         // since
                     )?;
@@ -352,8 +353,8 @@ impl Feed {
                 let events: Vec<(Unixtime, Id)> = GLOBALS
                     .storage
                     .find_events(
-                        &kinds, // feed kinds
-                        &[],    // any person (due to delegation condition) // FIXME
+                        &kinds_without_dms,
+                        &[], // any person (due to delegation condition) // FIXME
                         Some(since),
                         |e| {
                             if dismissed.contains(&e.id) {
@@ -403,17 +404,17 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
         .collect()
 }
 
-pub fn feed_related_event_kinds() -> Vec<EventKind> {
+pub fn feed_related_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
-        .filter(|k| k.is_feed_related())
+        .filter(|k| k.is_feed_related() && (dms || *k != EventKind::EncryptedDirectMessage))
         .collect()
 }
 
-pub fn feed_displayable_event_kinds() -> Vec<EventKind> {
+pub fn feed_displayable_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
-        .filter(|k| k.is_feed_displayable())
+        .filter(|k| k.is_feed_displayable() && (dms || *k != EventKind::EncryptedDirectMessage))
         .collect()
 }
 
