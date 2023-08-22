@@ -303,9 +303,9 @@ impl Feed {
                             if dismissed.contains(&e.id) {
                                 return false;
                             } // not dismissed
-                            if e.pubkey == my_pubkey {
-                                return false;
-                            } // not self-authored
+                              //if e.pubkey == my_pubkey {
+                              //    return false;
+                              //} // not self-authored
 
                             // Include if it directly replies to one of my events
                             if let Some((id, _)) = e.replies_to() {
