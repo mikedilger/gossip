@@ -17,11 +17,13 @@ pub struct Signer {
 
 impl Signer {
     pub fn load_from_settings(&self) -> Result<(), Error> {
-        *self.public.write() = GLOBALS.storage.read_setting_public_key();
-        *self.private.write() = None;
-
-        let epk = GLOBALS.storage.read_encrypted_private_key()?;
-        *self.encrypted.write() = epk;
+        if self.public.read().is_none() {
+            *self.public.write() = GLOBALS.storage.read_setting_public_key();
+        }
+        if self.encrypted.read().is_none() {
+            let epk = GLOBALS.storage.read_encrypted_private_key()?;
+            *self.encrypted.write() = epk;
+        }
 
         Ok(())
     }
