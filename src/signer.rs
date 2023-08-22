@@ -268,4 +268,16 @@ impl Signer {
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
+
+    pub fn nip44_decrypt(
+        &self,
+        other: &PublicKey,
+        ciphertext: &str,
+        padded: bool,
+    ) -> Result<Vec<u8>, Error> {
+        match &*self.private.read() {
+            Some(private) => Ok(private.nip44_decrypt(other, ciphertext, padded)?),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+        }
+    }
 }

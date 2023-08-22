@@ -6,6 +6,7 @@ pub enum ErrorKind {
     BroadcastReceive(tokio::sync::broadcast::error::RecvError),
     Delegation(String),
     Empty(String),
+    EventNotFound,
     General(String),
     HttpError(http::Error),
     JoinError(tokio::task::JoinError),
@@ -39,6 +40,7 @@ pub enum ErrorKind {
     Usage(String, String), // error, usage line
     Utf8Error(std::str::Utf8Error),
     Websocket(tungstenite::Error),
+    WrongEventKind,
 }
 
 #[derive(Debug)]
@@ -62,6 +64,7 @@ impl std::fmt::Display for Error {
             BroadcastReceive(e) => write!(f, "Error receiving broadcast: {e}"),
             Delegation(s) => write!(f, "NIP-26 Delegation Error: {s}"),
             Empty(s) => write!(f, "{s} is empty"),
+            EventNotFound => write!(f, "Event not found"),
             General(s) => write!(f, "{s}"),
             HttpError(e) => write!(f, "HTTP error: {e}"),
             JoinError(e) => write!(f, "Task join error: {e}"),
@@ -98,6 +101,7 @@ impl std::fmt::Display for Error {
             Usage(e, u) => write!(f, "{}\n\nUsage: {}", e, u),
             Utf8Error(e) => write!(f, "UTF-8 error: {e}"),
             Websocket(e) => write!(f, "Websocket: {e}"),
+            WrongEventKind => write!(f, "Wrong event kind"),
         }
     }
 }
