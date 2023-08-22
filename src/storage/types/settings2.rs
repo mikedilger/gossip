@@ -266,4 +266,14 @@ impl Storage {
             Some(bytes) => Ok(Some(Settings2::read_from_buffer(bytes)?)),
         }
     }
+
+    #[allow(dead_code)]
+    pub fn read_settings2_from_wrong_key(&self) -> Result<Option<Settings2>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.general.get(&txn, b"settings")? {
+            None => Ok(None),
+            Some(bytes) => Ok(Some(Settings2::read_from_buffer(bytes)?)),
+        }
+    }
 }
