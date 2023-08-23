@@ -2294,6 +2294,22 @@ impl Storage {
         Ok(ranked_relays)
     }
 
+    pub fn rebuild_event_indices(&self) -> Result<(), Error> {
+        let mut wtxn = self.env.write_txn()?;
+        let mut last_key = Id([0; 32]);
+        while let Some((key, val)) = self.events.get_greater_than(&wtxn, last_key.as_slice())? {
+            let id = Id::read_from_buffer(key)?;
+            let event = Event::read_from_buffer(val)?;
+            self.write_event_ek_pk_index(&event, Some(&mut wtxn))?;
+            self.write_event_ek_c_index(&event, Some(&mut wtxn))?;
+            self.write_event_references_person(&event, Some(&mut wtxn))?;
+            last_key = id;
+        }
+        wtxn.commit()?;
+        GLOBALS.storage.sync()?;
+        Ok(())
+    }
+
     pub fn sync(&self) -> Result<(), Error> {
         self.env.force_sync()?;
         Ok(())

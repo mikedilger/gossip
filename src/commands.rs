@@ -23,6 +23,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "giftwrap_ids" => giftwrap_ids()?,
         "verify" => verify(args)?,
         "verify_json" => verify_json(args)?,
+        "rebuild_indices" => rebuild_indices()?,
         other => println!("Unknown command {}", other),
     }
 
@@ -36,12 +37,14 @@ pub fn help() -> Result<(), Error> {
     println!("    print the event (in JSON) from the database that has the given id");
     println!("gossip help");
     println!("    show this list");
-    println!("gossip login");
-    println!("    login on the command line before starting the gossip GUI");
-    println!("gossip ungiftwrap <idhex>");
-    println!("    Unwrap the giftwrap event with the given ID and print the rumor (in JSON)");
     println!("gossip giftwrap_ids");
     println!("    List the IDs of all giftwrap events you are tagged on");
+    println!("gossip login");
+    println!("    login on the command line before starting the gossip GUI");
+    println!("gossip rebuild_indices");
+    println!("    Rebuild all event-related indices");
+    println!("gossip ungiftwrap <idhex>");
+    println!("    Unwrap the giftwrap event with the given ID and print the rumor (in JSON)");
     println!("gossip verify <idhex>");
     println!("    Verify if the given event signature is valid");
     println!("gossip verify_json <event_json>");
@@ -204,6 +207,13 @@ pub fn verify_json(mut args: env::Args) -> Result<(), Error> {
     event.verify(None)?;
     println!("Valid event");
 
+    Ok(())
+}
+
+pub fn rebuild_indices() -> Result<(), Error> {
+    login()?;
+
+    GLOBALS.storage.rebuild_event_indices()?;
     Ok(())
 }
 
