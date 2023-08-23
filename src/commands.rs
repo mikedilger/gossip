@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Id, PublicKey};
+use nostr_types::{Event, EventKind, Id, PublicKey};
 use std::env;
 use zeroize::Zeroize;
 
@@ -20,6 +20,9 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         }
         "test" => println!("Test successful"),
         "ungiftwrap" => ungiftwrap(args)?,
+        "giftwrap_ids" => giftwrap_ids()?,
+        "verify" => verify(args)?,
+        "verify_json" => verify_json(args)?,
         other => println!("Unknown command {}", other),
     }
 
@@ -121,6 +124,66 @@ pub fn ungiftwrap(mut args: env::Args) -> Result<(), Error> {
     let rumor = GLOBALS.signer.unwrap_giftwrap(&event)?;
 
     println!("{}", serde_json::to_string(&rumor)?);
+
+    Ok(())
+}
+
+pub fn giftwrap_ids() -> Result<(), Error> {
+    login()?;
+
+    let ids = GLOBALS.storage.find_event_ids(
+        &[EventKind::GiftWrap],
+        &[],
+        None
+    )?;
+
+    for id in ids {
+        println!("{}", id.as_hex_string());
+    }
+
+    Ok(())
+}
+
+pub fn verify(mut args: env::Args) -> Result<(), Error> {
+    let idstr = match args.next() {
+        Some(id) => id,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing idhex parameter".to_string(),
+                "verify <idhex>".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let id = Id::try_from_hex_string(&idstr)?;
+
+    match GLOBALS.storage.read_event(id)? {
+        Some(event) => {
+            event.verify(None)?;
+            println!("Valid event");
+        }
+        None => return Err(ErrorKind::EventNotFound.into()),
+    }
+
+    Ok(())
+}
+
+pub fn verify_json(mut args: env::Args) -> Result<(), Error> {
+    let json = match args.next() {
+        Some(json) => json,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing json parameter".to_string(),
+                "verify_json <json>".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let event: Event = serde_json::from_str(&json)?;
+    event.verify(None)?;
+    println!("Valid event");
 
     Ok(())
 }
