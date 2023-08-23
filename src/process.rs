@@ -118,11 +118,13 @@ pub async fn process_new_event(
         event.created_at
     );
 
-    // If it is a GiftWrap, unwrap it and send it through again
+    // If it is a GiftWrap, from here on out operate on the Rumor
+    let mut event: &Event = event; // take ownership of this reference
+    let rumor_event: Event;
     if event.kind == EventKind::GiftWrap {
         let rumor = GLOBALS.signer.unwrap_giftwrap(event)?;
-        let inner_event = rumor.into_event_with_bad_signature();
-        return process_new_event(&inner_event, seen_on, subscription, false).await;
+        rumor_event = rumor.into_event_with_bad_signature();
+        event = &rumor_event;
     }
 
     if seen_on.is_some() {
