@@ -1939,8 +1939,8 @@ dependencies = [
 
 [[package]]
 name = "heed"
-version = "0.20.0-alpha.3"
-source = "git+https://github.com/mikedilger/heed?rev=b876c8fc6b256f081a3f3b94f06a08ffb44aa614#b876c8fc6b256f081a3f3b94f06a08ffb44aa614"
+version = "0.20.0-alpha.4"
+source = "git+https://github.com/meilisearch/heed?rev=02030e3bf3d26ee98d4f5343fc086a7b63289159#02030e3bf3d26ee98d4f5343fc086a7b63289159"
 dependencies = [
  "bitflags 2.3.3",
  "bytemuck",
@@ -1958,13 +1958,13 @@ dependencies = [
 
 [[package]]
 name = "heed-traits"
-version = "0.20.0-alpha.3"
-source = "git+https://github.com/mikedilger/heed?rev=b876c8fc6b256f081a3f3b94f06a08ffb44aa614#b876c8fc6b256f081a3f3b94f06a08ffb44aa614"
+version = "0.20.0-alpha.4"
+source = "git+https://github.com/meilisearch/heed?rev=02030e3bf3d26ee98d4f5343fc086a7b63289159#02030e3bf3d26ee98d4f5343fc086a7b63289159"
 
 [[package]]
 name = "heed-types"
-version = "0.20.0-alpha.3"
-source = "git+https://github.com/mikedilger/heed?rev=b876c8fc6b256f081a3f3b94f06a08ffb44aa614#b876c8fc6b256f081a3f3b94f06a08ffb44aa614"
+version = "0.20.0-alpha.4"
+source = "git+https://github.com/meilisearch/heed?rev=02030e3bf3d26ee98d4f5343fc086a7b63289159#02030e3bf3d26ee98d4f5343fc086a7b63289159"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -2411,7 +2411,7 @@ checksum = "57bcfdad1b858c2db7c38303a6d2ad4dfaf5eb53dfeb0910128b2c26d6158503"
 [[package]]
 name = "lmdb-master-sys"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/heed?rev=b876c8fc6b256f081a3f3b94f06a08ffb44aa614#b876c8fc6b256f081a3f3b94f06a08ffb44aa614"
+source = "git+https://github.com/meilisearch/heed?rev=02030e3bf3d26ee98d4f5343fc086a7b63289159#02030e3bf3d26ee98d4f5343fc086a7b63289159"
 dependencies = [
  "cc",
  "doxygen-rs",
