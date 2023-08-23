@@ -14,11 +14,11 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
     match &*command {
         "decrypt" => decrypt(args)?,
         "dump_event" => dump_event(args)?,
+        "help" => help()?,
         "login" => {
             login()?;
             return Ok(false);
         }
-        "test" => println!("Test successful"),
         "ungiftwrap" => ungiftwrap(args)?,
         "giftwrap_ids" => giftwrap_ids()?,
         "verify" => verify(args)?,
@@ -27,6 +27,27 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
     }
 
     Ok(true)
+}
+
+pub fn help() -> Result<(), Error> {
+    println!("gossip decrypt <pubkeyhex> <ciphertext> <padded?>");
+    println!("    decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.");
+    println!("gossip dump_event <idhex>");
+    println!("    print the event (in JSON) from the database that has the given id");
+    println!("gossip help");
+    println!("    show this list");
+    println!("gossip login");
+    println!("    login on the command line before starting the gossip GUI");
+    println!("gossip ungiftwrap <idhex>");
+    println!("    Unwrap the giftwrap event with the given ID and print the rumor (in JSON)");
+    println!("gossip giftwrap_ids");
+    println!("    List the IDs of all giftwrap events you are tagged on");
+    println!("gossip verify <idhex>");
+    println!("    Verify if the given event signature is valid");
+    println!("gossip verify_json <event_json>");
+    println!("    Verify if the passed in event JSON's signature is valid");
+
+    Ok(())
 }
 
 pub fn decrypt(mut args: env::Args) -> Result<(), Error> {
@@ -100,7 +121,7 @@ pub fn ungiftwrap(mut args: env::Args) -> Result<(), Error> {
         None => {
             return Err(ErrorKind::Usage(
                 "Missing idhex parameter".to_string(),
-                "ungiftwrap <idhex> <encprivkey>".to_owned(),
+                "ungiftwrap <idhex>".to_owned(),
             )
             .into())
         }
@@ -131,11 +152,9 @@ pub fn ungiftwrap(mut args: env::Args) -> Result<(), Error> {
 pub fn giftwrap_ids() -> Result<(), Error> {
     login()?;
 
-    let ids = GLOBALS.storage.find_event_ids(
-        &[EventKind::GiftWrap],
-        &[],
-        None
-    )?;
+    let ids = GLOBALS
+        .storage
+        .find_event_ids(&[EventKind::GiftWrap], &[], None)?;
 
     for id in ids {
         println!("{}", id.as_hex_string());
@@ -175,7 +194,7 @@ pub fn verify_json(mut args: env::Args) -> Result<(), Error> {
         None => {
             return Err(ErrorKind::Usage(
                 "Missing json parameter".to_string(),
-                "verify_json <json>".to_owned(),
+                "verify_json <event_json>".to_owned(),
             )
             .into())
         }

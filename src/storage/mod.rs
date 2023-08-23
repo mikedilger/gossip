@@ -423,7 +423,8 @@ impl Storage {
         }
         tracing::info!("PRUNE: deleting {} records from hashtags", deletions.len());
         for deletion in deletions.drain(..) {
-            self.hashtags.delete_one_duplicate(&mut txn, &deletion.0, &deletion.1)?;
+            self.hashtags
+                .delete_one_duplicate(&mut txn, &deletion.0, &deletion.1)?;
         }
 
         // Delete from relationships
