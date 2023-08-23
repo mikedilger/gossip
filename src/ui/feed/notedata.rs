@@ -1,7 +1,7 @@
 use crate::{globals::GLOBALS, people::Person};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
-    ShatteredContent, Signature, Tag,
+    ShatteredContent, Tag,
 };
 
 #[derive(PartialEq)]
@@ -45,14 +45,18 @@ pub(super) struct NoteData {
 }
 
 impl NoteData {
-    pub(super) fn new(event: Event) -> NoteData {
+    pub(super) fn new(mut event: Event) -> NoteData {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
 
-        // If it was a gift wrap, the unwrapped rumor-converted-to-event
-        // signature will be all zeroes. This internally indicates it was
-        // securely delivered.
-        let secure = event.sig == Signature::zeroes();
+        let mut secure: bool = false;
+        if matches!(event.kind, EventKind::GiftWrap) {
+            secure = true;
+            if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
+                // Use the rumor for subsequent processing
+                event = rumor.into_event_with_bad_signature();
+            }
+        }
 
         let delegation = event.delegation();
 
@@ -105,6 +109,8 @@ impl NoteData {
                 Err(_) => "DECRYPTION FAILED".to_owned(), // FIXME, not really content.
             },
             EventKind::LongFormContent => event.content.clone(),
+            EventKind::DmChat => event.content.clone(),
+            EventKind::GiftWrap => "DECRYPTION FAILED".to_owned(), // FIXME, not really content.
             _ => {
                 let mut dc = "UNSUPPORTED EVENT KIND".to_owned();
                 // support the 'alt' tag of NIP-31:
