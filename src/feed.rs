@@ -261,6 +261,7 @@ impl Feed {
                         |e| {
                             e.created_at <= now // no future events
                                 && e.kind != EventKind::EncryptedDirectMessage // no DMs
+                                && e.kind != EventKind::DmChat // no DMs
                                 && !dismissed.contains(&e.id) // not dismissed
                                 && if !with_replies {
                                     !matches!(e.replies_to(), Some((_id, _))) // is not a reply
@@ -307,6 +308,13 @@ impl Feed {
                               //    return false;
                               //} // not self-authored
 
+                            // Always include gift wrap and DMs
+                            if e.kind == EventKind::GiftWrap
+                                || e.kind == EventKind::EncryptedDirectMessage
+                            {
+                                return true;
+                            }
+
                             // Include if it directly replies to one of my events
                             if let Some((id, _)) = e.replies_to() {
                                 if my_event_ids.contains(&id) {
@@ -318,14 +326,10 @@ impl Feed {
                                 // Include if it tags me
                                 e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
                             } else {
-                                if e.kind == EventKind::EncryptedDirectMessage {
-                                    true
-                                } else {
-                                    // Include if it directly references me in the content
-                                    e.people_referenced_in_content()
-                                        .iter()
-                                        .any(|p| *p == my_pubkey)
-                                }
+                                // Include if it directly references me in the content
+                                e.people_referenced_in_content()
+                                    .iter()
+                                    .any(|p| *p == my_pubkey)
                             }
                         })?
                         .iter()
@@ -399,6 +403,8 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
                 && ((*k != EventKind::Repost) || reposts)
                 && ((*k != EventKind::LongFormContent) || show_long_form)
                 && ((*k != EventKind::EncryptedDirectMessage) || direct_messages)
+                && ((*k != EventKind::DmChat) || direct_messages)
+                && ((*k != EventKind::GiftWrap) || direct_messages)
                 && ((*k != EventKind::Zap) || enable_zap_receipts)
         })
         .collect()
@@ -407,14 +413,20 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
 pub fn feed_related_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
-        .filter(|k| k.is_feed_related() && (dms || *k != EventKind::EncryptedDirectMessage))
+        .filter(|k| {
+            (k.is_feed_related() || *k == EventKind::GiftWrap)
+                && (dms || (*k != EventKind::EncryptedDirectMessage && *k != EventKind::DmChat))
+        })
         .collect()
 }
 
 pub fn feed_displayable_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
-        .filter(|k| k.is_feed_displayable() && (dms || *k != EventKind::EncryptedDirectMessage))
+        .filter(|k| {
+            (k.is_feed_displayable() || *k == EventKind::GiftWrap)
+                && (dms || (*k != EventKind::EncryptedDirectMessage && *k != EventKind::DmChat))
+        })
         .collect()
 }
 
