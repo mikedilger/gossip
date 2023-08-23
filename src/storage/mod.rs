@@ -165,6 +165,11 @@ pub struct Storage {
     //   key: key!(pubkey.as_bytes + url.0.as_bytes)
     //   val: person_relay.write_to_vec) | PersonRelay::read_from_buffer(bytes)
     person_relays: RawDatabase,
+
+    // Id -> ()
+    //   key: id.as_slice()
+    //   val: vec![]
+    unindexed_giftwraps: RawDatabase,
 }
 
 impl Storage {
@@ -264,6 +269,12 @@ impl Storage {
             .name("person_relays")
             .create(&mut txn)?;
 
+        let unindexed_giftwraps = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+            .name("unindexed_giftwraps")
+            .create(&mut txn)?;
+
         txn.commit()?;
 
         Ok(Storage {
@@ -280,6 +291,7 @@ impl Storage {
             relationships,
             people,
             person_relays,
+            unindexed_giftwraps,
         })
     }
 
@@ -1622,12 +1634,35 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let ek: u32 = event.kind.into();
-        let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-        key.extend(event.pubkey.as_bytes()); // pubkey
-        let bytes = event.id.as_slice();
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+
+            let mut event = event;
+
+            // If giftwrap, index the inner rumor instead
+            let mut rumor_event: Event;
+            if event.kind == EventKind::GiftWrap {
+                match GLOBALS.signer.unwrap_giftwrap(&event) {
+                    Ok(rumor) => {
+                        rumor_event = rumor.into_event_with_bad_signature();
+                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
+                        event = &rumor_event;
+                    },
+                    Err(e) => {
+                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
+                            // Store as unindexed for later indexing
+                            let bytes = vec![];
+                            self.unindexed_giftwraps.put(txn, event.id.as_slice(), &bytes)?;
+                        }
+                    }
+                }
+            }
+
+            let ek: u32 = event.kind.into();
+            let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
+            key.extend(event.pubkey.as_bytes()); // pubkey
+            let bytes = event.id.as_slice();
+
             self.event_ek_pk_index.put(txn, &key, bytes)?;
             Ok(())
         };
@@ -1650,12 +1685,35 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let ek: u32 = event.kind.into();
-        let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-        key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
-        let bytes = event.id.as_slice();
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+
+            let mut event = event;
+
+            // If giftwrap, index the inner rumor instead
+            let mut rumor_event: Event;
+            if event.kind == EventKind::GiftWrap {
+                match GLOBALS.signer.unwrap_giftwrap(&event) {
+                    Ok(rumor) => {
+                        rumor_event = rumor.into_event_with_bad_signature();
+                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
+                        event = &rumor_event;
+                    },
+                    Err(e) => {
+                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
+                            // Store as unindexed for later indexing
+                            let bytes = vec![];
+                            self.unindexed_giftwraps.put(txn, event.id.as_slice(), &bytes)?;
+                        }
+                    }
+                }
+            }
+
+            let ek: u32 = event.kind.into();
+            let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
+            key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
+            let bytes = event.id.as_slice();
+
             self.event_ek_c_index.put(txn, &key, bytes)?;
             Ok(())
         };
@@ -1678,42 +1736,66 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        if !event.kind.is_feed_displayable() {
-            return Ok(());
-        }
 
-        let bytes = event.id.as_slice();
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
 
-        let mut pubkeys: HashSet<PublicKey> = HashSet::new();
-        for (pubkeyhex, _, _) in event.people() {
-            let pubkey = match PublicKey::try_from_hex_string(pubkeyhex.as_str(), false) {
-                Ok(pk) => pk,
-                Err(_) => continue,
-            };
-            pubkeys.insert(pubkey);
-        }
-        for pubkey in event.people_referenced_in_content() {
-            pubkeys.insert(pubkey);
-        }
-        if !pubkeys.is_empty() {
-            let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let mut event = event;
+
+            // If giftwrap, index the inner rumor instead
+            let mut rumor_event: Event;
+            if event.kind == EventKind::GiftWrap {
+                match GLOBALS.signer.unwrap_giftwrap(&event) {
+                    Ok(rumor) => {
+                        rumor_event = rumor.into_event_with_bad_signature();
+                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
+                        event = &rumor_event;
+                    },
+                    Err(e) => {
+                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
+                            // Store as unindexed for later indexing
+                            let bytes = vec![];
+                            self.unindexed_giftwraps.put(txn, event.id.as_slice(), &bytes)?;
+                        }
+                    }
+                }
+            }
+
+            if !event.kind.is_feed_displayable() {
+                return Ok(());
+            }
+
+            let bytes = event.id.as_slice();
+
+            let mut pubkeys: HashSet<PublicKey> = HashSet::new();
+            for (pubkeyhex, _, _) in event.people() {
+                let pubkey = match PublicKey::try_from_hex_string(pubkeyhex.as_str(), false) {
+                    Ok(pk) => pk,
+                    Err(_) => continue,
+                };
+                pubkeys.insert(pubkey);
+            }
+            for pubkey in event.people_referenced_in_content() {
+                pubkeys.insert(pubkey);
+            }
+            if !pubkeys.is_empty() {
                 for pubkey in pubkeys.drain() {
                     let mut key: Vec<u8> = pubkey.to_bytes();
                     key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
                     self.event_references_person.put(txn, &key, bytes)?;
                 }
-                Ok(())
-            };
+            }
 
-            match rw_txn {
-                Some(txn) => f(txn)?,
-                None => {
-                    let mut txn = self.env.write_txn()?;
-                    f(&mut txn)?;
-                    txn.commit()?;
-                }
-            };
-        }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
 
         Ok(())
     }
@@ -1751,6 +1833,36 @@ impl Storage {
             }
         }
         Ok(events)
+    }
+
+    pub fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
+        if ! GLOBALS.signer.is_ready() {
+            return Err(ErrorKind::NoPrivateKey.into());
+        }
+
+        let mut ids: Vec<Id> = Vec::new();
+        let txn = self.env.read_txn()?;
+        let iter = self.unindexed_giftwraps.iter(&txn)?;
+        for result in iter {
+            let (key, _val) = result?;
+            let a: [u8; 32] = key.try_into()?;
+            let id = Id(a);
+            ids.push(id);
+        }
+
+        let mut txn = self.env.write_txn()?;
+        for id in ids {
+            if let Some(event) = self.read_event(id)? {
+                self.write_event_ek_pk_index(&event, Some(&mut txn))?;
+                self.write_event_ek_c_index(&event, Some(&mut txn))?;
+                self.write_event_references_person(&event, Some(&mut txn))?;
+            }
+            self.unindexed_giftwraps.delete(&mut txn, id.as_slice())?;
+        }
+
+        txn.commit()?;
+
+        Ok(())
     }
 
     // TBD: optimize this by storing better event indexes
@@ -2134,7 +2246,7 @@ impl Storage {
         // Resort
         ranked_relays.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
 
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
+        let num_relays_per_person = self.read_setting_num_relays_per_person() as usize;
 
         // If we can't get enough of them, extend with some of our relays
         // at whatever the lowest score of their last one was

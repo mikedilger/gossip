@@ -118,6 +118,10 @@ impl Signer {
                     .collect();
 
                 GLOBALS.ui_notes_to_invalidate.write().extend(dms);
+
+                // Index any GiftWraps that weren't indexed due to not having a
+                // private key ready
+                GLOBALS.storage.index_unindexed_giftwraps()?;
             }
 
             Ok(())
