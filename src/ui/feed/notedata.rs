@@ -54,7 +54,9 @@ impl NoteData {
             secure = true;
             if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
                 // Use the rumor for subsequent processing
+                let id = event.id;
                 event = rumor.into_event_with_bad_signature();
+                event.id = id; // lie, keep the giftwrap id
             }
         }
 
