@@ -178,7 +178,7 @@ pub(super) fn relay_scroll_list(
                             entry
                                 .iter()
                                 .map(|rj| {
-                                    if rj.persistent {
+                                    if rj.reason.persistent() {
                                         format!("[{}]", rj.reason)
                                     } else {
                                         rj.reason.to_string()

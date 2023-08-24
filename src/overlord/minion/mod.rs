@@ -410,9 +410,9 @@ impl Minion {
             ..Default::default()
         };
 
-        self.subscribe(vec![filter], "augments", job_id).await?;
+        self.subscribe(vec![filter], "temp_augments", job_id).await?;
 
-        if let Some(sub) = self.subscription_map.get_mut("augments") {
+        if let Some(sub) = self.subscription_map.get_mut("temp_augments") {
             if let Some(nip11) = &self.nip11 {
                 if !nip11.supports_nip(15) {
                     // Does not support EOSE.  Set subscription to EOSE now.
@@ -650,7 +650,7 @@ impl Minion {
                 ..Default::default()
             }];
 
-            self.subscribe(filters, "config_feed", job_id).await?;
+            self.subscribe(filters, "temp_config_feed", job_id).await?;
         }
 
         Ok(())
@@ -675,7 +675,7 @@ impl Minion {
                 ..Default::default()
             }];
 
-            self.subscribe(filters, "discover_feed", job_id).await?;
+            self.subscribe(filters, "temp_discover_feed", job_id).await?;
         }
 
         Ok(())
@@ -965,7 +965,7 @@ impl Minion {
                 kinds: vec![EventKind::ContactList],
                 ..Default::default()
             };
-            self.subscribe(vec![filter], "following", job_id).await?;
+            self.subscribe(vec![filter], "temp_following_list", job_id).await?;
         }
         Ok(())
     }
