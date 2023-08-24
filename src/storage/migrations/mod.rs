@@ -17,14 +17,13 @@ impl Storage {
             .into());
         }
 
-        let mut txn = self.env.write_txn()?;
-
         while level < Self::MAX_MIGRATION_LEVEL {
+            let mut txn = self.env.write_txn()?;
             self.migrate_inner(level, &mut txn)?;
             level += 1;
             self.write_migration_level(level, Some(&mut txn))?;
+            txn.commit()?;
         }
-        txn.commit()?;
 
         Ok(())
     }
@@ -140,7 +139,10 @@ impl Storage {
 
                 // Then delete the old "settings" key
                 self.general.delete(txn, b"settings")?;
+            } else {
+                return Err(ErrorKind::General("Settings missing.".to_string()).into());
             }
+
             Ok(())
         };
 
