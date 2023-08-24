@@ -544,6 +544,25 @@ impl RelayEntry {
         }
     }
 
+    fn paint_reasons(&self, ui: &mut Ui, rect: &Rect) {
+        const RIGHT: f32 = -17.0;
+        const SPACE: f32 = 23.0;
+
+        // match self.view { RelayEntryView::Detail => ... }
+        let right = pos2(rect.max.x, rect.min.y)
+            + vec2(-TEXT_RIGHT - EDIT_BTN_SIZE - SPACE, TEXT_TOP + 4.0);
+
+        let pos = right + vec2(RIGHT - 7.0 * SPACE, 0.0);
+        draw_text_at(
+            ui,
+            pos,
+            self.reasons.clone().into(),
+            Align::RIGHT,
+            Some(ui.visuals().text_color()),
+            None,
+        );
+    }
+
     fn paint_usage(&self, ui: &mut Ui, rect: &Rect) {
         const RIGHT: f32 = -17.0;
         const SPACE: f32 = 23.0;
@@ -572,17 +591,6 @@ impl RelayEntry {
                 (RichText::new(str), inactive)
             }
         }
-
-        // ---- usage text ----
-        let pos = right + vec2(RIGHT - 7.0 * SPACE, 0.0);
-        draw_text_at(
-            ui,
-            pos,
-            self.reasons.clone().into(),
-            Align::RIGHT,
-            Some(ui.visuals().text_color()),
-            None,
-        );
 
         // ---- R ----
         let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
@@ -1083,6 +1091,7 @@ impl RelayEntry {
             if self.relay.usage_bits != 0 {
                 self.paint_usage(ui, &rect);
             }
+            self.paint_reasons(ui, &rect);
         }
 
         response
@@ -1100,6 +1109,7 @@ impl RelayEntry {
             if self.relay.usage_bits != 0 {
                 self.paint_usage(ui, &rect);
             }
+            self.paint_reasons(ui, &rect);
         }
 
         response
