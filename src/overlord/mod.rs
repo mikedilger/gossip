@@ -276,6 +276,10 @@ impl Overlord {
             return Ok(());
         }
 
+        if jobs.is_empty() {
+            return Ok(());
+        }
+
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
             // We are already connected. Send it the jobs
             for job in jobs.drain(..) {
@@ -300,6 +304,7 @@ impl Overlord {
             // And record it
             GLOBALS.connected_relays.insert(url, jobs);
         }
+
         Ok(())
     }
 
@@ -635,19 +640,9 @@ impl Overlord {
                     if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
                         refmut
                             .value_mut()
-                            .retain(|job| job.payload.job_id != job_id || job.reason.persistent());
-
-                        // If only one 'augments' job remains, disconnect the relay
-                        if refmut.value().len() == 1 && refmut.value()[0].reason == RelayConnectionReason::FetchAugments {
-                            let _ = self.to_minions.send(ToMinionMessage {
-                                target: url.0,
-                                payload: ToMinionPayload {
-                                    job_id: 0,
-                                    detail: ToMinionPayloadDetail::Shutdown,
-                                },
-                            });
-                        }
+                            .retain(|job| job.payload.job_id != job_id);
                     }
+                    self.maybe_disconnect_relay(&url)?;
                 }
             }
             ToOverlordMessage::MinionJobUpdated(url, old_job_id, new_job_id) => {
@@ -662,8 +657,9 @@ impl Overlord {
                             } else {
                                 true // keep the rest
                             }
-                        })
+                        });
                     }
+                    self.maybe_disconnect_relay(&url)?;
                 }
             }
             ToOverlordMessage::PickRelays => {
@@ -848,6 +844,33 @@ impl Overlord {
         }
 
         Ok(true)
+    }
+
+    fn maybe_disconnect_relay(
+        &mut self,
+        url: &RelayUrl
+    ) -> Result<(), Error> {
+        if let Some(refmut) = GLOBALS.connected_relays.get_mut(url) {
+            // If no job remains, disconnect the relay
+            let mut disconnect = refmut.value().is_empty();
+
+            // If only one 'augments' job remains, disconnect the relay
+            if refmut.value().len() == 1 && refmut.value()[0].reason == RelayConnectionReason::FetchAugments {
+                disconnect = true;
+            }
+
+            if disconnect {
+                let _ = self.to_minions.send(ToMinionMessage {
+                    target: url.0.clone(),
+                    payload: ToMinionPayload {
+                        job_id: 0,
+                        detail: ToMinionPayloadDetail::Shutdown,
+                    },
+                });
+            }
+        }
+
+        Ok(())
     }
 
     async fn follow_pubkey_and_relay(
