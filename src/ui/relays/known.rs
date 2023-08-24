@@ -25,31 +25,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
     ui.add_space(10.0);
 
-    // ui.horizontal(|ui| {
-    //     ui.label("Enter a new relay URL:");
-    //     ui.add(text_edit_line!(app, app.new_relay_url));
-    //     if ui.button("Add").clicked() {
-    //         if let Ok(url) = RelayUrl::try_from_str(&app.new_relay_url) {
-    //             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AddRelay(url));
-    //             *GLOBALS.status_message.blocking_write() = format!(
-    //                 "I asked the overlord to add relay {}. Check for it below.",
-    //                 &app.new_relay_url
-    //             );
-    //             app.new_relay_url = "".to_owned();
-    //         } else {
-    //             *GLOBALS.status_message.blocking_write() =
-    //                 "That's not a valid relay URL.".to_owned();
-    //         }
-    //     }
-    //     ui.separator();
-    //     if ui.button("↑ Advertise Relay List ↑").clicked() {
-    //         let _ = GLOBALS
-    //             .to_overlord
-    //             .send(ToOverlordMessage::AdvertiseRelayList);
-    //     }
-    //     ui.checkbox(&mut app.show_hidden_relays, "Show hidden relays");
-    // });
-
     // TBD time how long this takes. We don't want expensive code in the UI
     // FIXME keep more relay info and display it
     let relays = if !is_editing {
