@@ -40,12 +40,25 @@ pub(super) struct NoteData {
     pub(super) self_already_reacted: bool,
     /// The content shattered into renderable elements
     pub(super) shattered_content: ShatteredContent,
+    /// Securely delivered via GiftWrap
+    pub(super) secure: bool,
 }
 
 impl NoteData {
-    pub(super) fn new(event: Event) -> NoteData {
+    pub(super) fn new(mut event: Event) -> NoteData {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
+
+        let mut secure: bool = false;
+        if matches!(event.kind, EventKind::GiftWrap) {
+            secure = true;
+            if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
+                // Use the rumor for subsequent processing
+                let id = event.id;
+                event = rumor.into_event_with_bad_signature();
+                event.id = id; // lie, keep the giftwrap id
+            }
+        }
 
         let delegation = event.delegation();
 
@@ -95,9 +108,11 @@ impl NoteData {
             EventKind::Repost => "".to_owned(),
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
                 Ok(m) => m,
-                Err(_) => "DECRYPTION FAILED".to_owned(),
+                Err(_) => "DECRYPTION FAILED".to_owned(), // FIXME, not really content.
             },
             EventKind::LongFormContent => event.content.clone(),
+            EventKind::DmChat => event.content.clone(),
+            EventKind::GiftWrap => "DECRYPTION FAILED".to_owned(), // FIXME, not really content.
             _ => {
                 let mut dc = "UNSUPPORTED EVENT KIND".to_owned();
                 // support the 'alt' tag of NIP-31:
@@ -182,6 +197,7 @@ impl NoteData {
             zaptotal,
             self_already_reacted,
             shattered_content,
+            secure,
         }
     }
 

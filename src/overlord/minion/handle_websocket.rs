@@ -49,8 +49,13 @@ impl Minion {
                 }
 
                 // Try processing everything immediately
-                crate::process::process_new_event(&event, Some(self.url.clone()), Some(handle))
-                    .await?;
+                crate::process::process_new_event(
+                    &event,
+                    Some(self.url.clone()),
+                    Some(handle),
+                    true,
+                )
+                .await?;
             }
             RelayMessage::Notice(msg) => {
                 tracing::warn!("{}: NOTICE: {}", &self.url, msg);

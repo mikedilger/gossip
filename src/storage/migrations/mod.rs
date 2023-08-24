@@ -2,11 +2,11 @@ use super::types::{Settings1, Settings2};
 use super::Storage;
 use crate::error::{Error, ErrorKind};
 use heed::RwTxn;
-use nostr_types::{Event, RelayUrl};
+use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 4;
+    const MAX_MIGRATION_LEVEL: u32 = 5;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -49,6 +49,10 @@ impl Storage {
             3 => {
                 tracing::info!("{prefix}: Using kv for settings...");
                 self.use_kv_for_settings(txn)?;
+            }
+            4 => {
+                tracing::info!("{prefix}: deleting decrypted rumors...");
+                self.delete_rumors(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -299,6 +303,24 @@ impl Storage {
         self.write_setting_prune_period_days(&settings.prune_period_days, Some(rw_txn))?;
 
         self.general.delete(rw_txn, b"settings2")?;
+
+        Ok(())
+    }
+
+    pub fn delete_rumors<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let mut ids: Vec<Id> = Vec::new();
+        let iter = self.events.iter(txn)?;
+        for result in iter {
+            let (_key, val) = result?;
+            let event = Event::read_from_buffer(val)?;
+            if event.sig == Signature::zeroes() {
+                ids.push(event.id);
+            }
+        }
+
+        for id in ids {
+            self.events.delete(txn, id.as_slice())?;
+        }
 
         Ok(())
     }
