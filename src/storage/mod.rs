@@ -1634,25 +1634,24 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-
             let mut event = event;
 
             // If giftwrap, index the inner rumor instead
             let mut rumor_event: Event;
             if event.kind == EventKind::GiftWrap {
-                match GLOBALS.signer.unwrap_giftwrap(&event) {
+                match GLOBALS.signer.unwrap_giftwrap(event) {
                     Ok(rumor) => {
                         rumor_event = rumor.into_event_with_bad_signature();
                         rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
                         event = &rumor_event;
-                    },
+                    }
                     Err(e) => {
                         if matches!(e.kind, ErrorKind::NoPrivateKey) {
                             // Store as unindexed for later indexing
                             let bytes = vec![];
-                            self.unindexed_giftwraps.put(txn, event.id.as_slice(), &bytes)?;
+                            self.unindexed_giftwraps
+                                .put(txn, event.id.as_slice(), &bytes)?;
                         }
                     }
                 }
@@ -1685,25 +1684,24 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-
             let mut event = event;
 
             // If giftwrap, index the inner rumor instead
             let mut rumor_event: Event;
             if event.kind == EventKind::GiftWrap {
-                match GLOBALS.signer.unwrap_giftwrap(&event) {
+                match GLOBALS.signer.unwrap_giftwrap(event) {
                     Ok(rumor) => {
                         rumor_event = rumor.into_event_with_bad_signature();
                         rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
                         event = &rumor_event;
-                    },
+                    }
                     Err(e) => {
                         if matches!(e.kind, ErrorKind::NoPrivateKey) {
                             // Store as unindexed for later indexing
                             let bytes = vec![];
-                            self.unindexed_giftwraps.put(txn, event.id.as_slice(), &bytes)?;
+                            self.unindexed_giftwraps
+                                .put(txn, event.id.as_slice(), &bytes)?;
                         }
                     }
                 }
@@ -1736,25 +1734,24 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-
             let mut event = event;
 
             // If giftwrap, index the inner rumor instead
             let mut rumor_event: Event;
             if event.kind == EventKind::GiftWrap {
-                match GLOBALS.signer.unwrap_giftwrap(&event) {
+                match GLOBALS.signer.unwrap_giftwrap(event) {
                     Ok(rumor) => {
                         rumor_event = rumor.into_event_with_bad_signature();
                         rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
                         event = &rumor_event;
-                    },
+                    }
                     Err(e) => {
                         if matches!(e.kind, ErrorKind::NoPrivateKey) {
                             // Store as unindexed for later indexing
                             let bytes = vec![];
-                            self.unindexed_giftwraps.put(txn, event.id.as_slice(), &bytes)?;
+                            self.unindexed_giftwraps
+                                .put(txn, event.id.as_slice(), &bytes)?;
                         }
                     }
                 }
@@ -1836,7 +1833,7 @@ impl Storage {
     }
 
     pub fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
-        if ! GLOBALS.signer.is_ready() {
+        if !GLOBALS.signer.is_ready() {
             return Err(ErrorKind::NoPrivateKey.into());
         }
 
