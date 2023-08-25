@@ -12,8 +12,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.heading("My Relays");
-        ui.add_space(50.0);
         ui.set_enabled(!is_editing);
+        ui.add_space(10.0);
+        if ui.button("Advertise Relay List")
+            .on_hover_text("Advertise my relays. Will send 10002 kind to all relays that have 'ADVERTISE' usage enabled")
+            .clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::AdvertiseRelayList);
+        }
+        ui.add_space(50.0);
         widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
@@ -25,14 +33,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
     });
     ui.add_space(10.0);
-
-    ui.horizontal(|ui| {
-        if ui.button("↑ Advertise Relay List ↑").clicked() {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::AdvertiseRelayList);
-        }
-    });
 
     let relays = if !is_editing {
         // clear edit cache if present
