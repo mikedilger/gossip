@@ -285,6 +285,7 @@ impl Settings {
         save_setting!(reactions, self, txn);
         save_setting!(enable_zap_receipts, self, txn);
         save_setting!(show_media, self, txn);
+        save_setting!(show_deleted_events, self, txn);
         save_setting!(approve_content_warning, self, txn);
         save_setting!(pow, self, txn);
         save_setting!(set_client_tag, self, txn);
