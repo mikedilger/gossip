@@ -71,11 +71,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.checkbox(&mut app.settings.show_media, "Render all media inline automatically").on_hover_text("If off, you have to click to (potentially fetch and) render media inline. If on, all media referenced by posts in your feed will be (potentially fetched and) rendered. However, if Fetch Media is disabled, only cached media can be shown as media will not be fetched.");
     ui.checkbox(&mut app.settings.approve_content_warning, "Approve all content-warning tagged media automatically")
         .on_hover_text("If off, you have to click to show content-warning tagged media. If on, all content-warning tagged media in your feed will be rendered.");
-    ui.checkbox(&mut app.settings.show_deleted_events, "Render delete events (labeled as deleted)")
+    ui.checkbox(&mut app.settings.show_deleted_events, "Render delete events, but labeled as deleted")
     .on_hover_text(if app.settings.show_deleted_events {
-        "Enable to show all deleted events (labeled as deleted)"
-    } else {
         "Disable to exclude all deleted events from rendering"
+    } else {
+        "Enable to show all deleted events, but labeled as deleted"
     });   
 }
 
