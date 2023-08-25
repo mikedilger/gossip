@@ -104,10 +104,9 @@ pub(super) fn render_note(
                 let top = ui.next_widget_position();
 
                 let inner_response = ui.horizontal(|ui| {
-                   
                     // Outer indents first
                     app.settings.theme.feed_post_outer_indent(ui, &render_data);
-                   
+
                     Frame::none()
                         .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
                         .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
@@ -118,7 +117,9 @@ pub(super) fn render_note(
                         .show(ui, |ui| {
                             ui.horizontal_wrapped(|ui| {
                                 // Deleted events are not shown if user did not set show_deleted_events from settings
-                                if !(note_data.deletion.is_some() && !app.settings.show_deleted_events) {
+                                if !(note_data.deletion.is_some()
+                                    && !app.settings.show_deleted_events)
+                                {
                                     // Inner indents first
                                     app.settings.theme.feed_post_inner_indent(ui, &render_data);
 
@@ -134,7 +135,6 @@ pub(super) fn render_note(
                                 }
                             });
                         })
-                   
                 });
 
                 // Store actual rendered height for future reference
