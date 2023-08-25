@@ -68,6 +68,7 @@ pub struct Settings {
     pub enable_zap_receipts: bool,
     pub show_media: bool,
     pub approve_content_warning: bool,
+    pub show_deleted_events: bool,
 
     // Posting Settings
     pub pow: u8,
@@ -140,6 +141,7 @@ impl Default for Settings {
             reactions: default_setting!(reactions),
             enable_zap_receipts: default_setting!(enable_zap_receipts),
             show_media: default_setting!(show_media),
+            show_deleted_events: default_setting!(show_deleted_events),
             approve_content_warning: default_setting!(approve_content_warning),
             pow: default_setting!(pow),
             set_client_tag: default_setting!(set_client_tag),
@@ -213,6 +215,7 @@ impl Settings {
             reactions: load_setting!(reactions),
             enable_zap_receipts: load_setting!(enable_zap_receipts),
             show_media: load_setting!(show_media),
+            show_deleted_events: load_setting!(show_deleted_events),
             approve_content_warning: load_setting!(approve_content_warning),
             pow: load_setting!(pow),
             set_client_tag: load_setting!(set_client_tag),

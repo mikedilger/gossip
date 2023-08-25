@@ -537,6 +537,7 @@ impl Storage {
         bool,
         false
     );
+    def_setting!(show_deleted_events, b"show_deleted_events", bool, false);
     def_setting!(pow, b"pow", u8, 0);
     def_setting!(set_client_tag, b"set_client_tag", bool, false);
     def_setting!(set_user_agent, b"set_user_agent", bool, false);
