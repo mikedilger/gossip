@@ -3,7 +3,7 @@ use std::sync::mpsc::Sender;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent, PrivateKey, PublicKey,
+    EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent, PrivateKey, PublicKey, Rumor,
 };
 use parking_lot::RwLock;
 use tokio::task;
@@ -17,11 +17,13 @@ pub struct Signer {
 
 impl Signer {
     pub fn load_from_settings(&self) -> Result<(), Error> {
-        *self.public.write() = GLOBALS.storage.read_setting_public_key();
-        *self.private.write() = None;
-
-        let epk = GLOBALS.storage.read_encrypted_private_key()?;
-        *self.encrypted.write() = epk;
+        if self.public.read().is_none() {
+            *self.public.write() = GLOBALS.storage.read_setting_public_key();
+        }
+        if self.encrypted.read().is_none() {
+            let epk = GLOBALS.storage.read_encrypted_private_key()?;
+            *self.encrypted.write() = epk;
+        }
 
         Ok(())
     }
@@ -105,7 +107,7 @@ impl Signer {
                 let dms: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
-                        &[EventKind::EncryptedDirectMessage],
+                        &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
                         &[],
                         None,
                         |_| true,
@@ -116,6 +118,10 @@ impl Signer {
                     .collect();
 
                 GLOBALS.ui_notes_to_invalidate.write().extend(dms);
+
+                // Index any GiftWraps that weren't indexed due to not having a
+                // private key ready
+                GLOBALS.storage.index_unindexed_giftwraps()?;
             }
 
             Ok(())
@@ -256,6 +262,25 @@ impl Signer {
     pub fn decrypt_message(&self, event: &Event) -> Result<String, Error> {
         match &*self.private.read() {
             Some(private) => Ok(event.decrypted_contents(private)?),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+        }
+    }
+
+    pub fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
+        match &*self.private.read() {
+            Some(private) => Ok(event.giftwrap_unwrap(private, false)?),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+        }
+    }
+
+    pub fn nip44_decrypt(
+        &self,
+        other: &PublicKey,
+        ciphertext: &str,
+        padded: bool,
+    ) -> Result<Vec<u8>, Error> {
+        match &*self.private.read() {
+            Some(private) => Ok(private.nip44_decrypt(other, ciphertext, padded)?),
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }

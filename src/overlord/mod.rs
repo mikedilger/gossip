@@ -1,7 +1,8 @@
 mod minion;
 
 use crate::comms::{
-    RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage,
+    RelayJob, RelayConnectionReason, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
+    ToOverlordMessage,
 };
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
@@ -140,12 +141,11 @@ impl Overlord {
             self.engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
-                    reason: "discovery",
+                    reason: RelayConnectionReason::Discovery,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeDiscover(followed.clone()),
                     },
-                    persistent: true,
                 }],
             )
             .await?;
@@ -162,12 +162,11 @@ impl Overlord {
             self.engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
-                    reason: "config",
+                    reason: RelayConnectionReason::Config,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeConfig,
                     },
-                    persistent: true,
                 }],
             )
             .await?;
@@ -186,12 +185,11 @@ impl Overlord {
             self.engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
-                    reason: "mentions",
+                    reason: RelayConnectionReason::FetchMentions,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeMentions,
                     },
-                    persistent: true,
                 }],
             )
             .await?;
@@ -248,24 +246,22 @@ impl Overlord {
             assignment.relay_url.clone(),
             vec![
                 RelayJob {
-                    reason: "follow",
+                    reason: RelayConnectionReason::Follow,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
                             assignment.pubkeys.clone(),
                         ),
                     },
-                    persistent: false,
                 },
                 RelayJob {
                     // Until NIP-65 is in widespread use, we should listen for mentions
                     // of us on all these relays too
-                    reason: "mentions",
+                    reason: RelayConnectionReason::FetchMentions,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeMentions,
                     },
-                    persistent: false,
                 },
             ],
         )
@@ -277,6 +273,10 @@ impl Overlord {
     async fn engage_minion(&mut self, url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(), Error> {
         // Do not connect if we are offline
         if GLOBALS.storage.read_setting_offline() {
+            return Ok(());
+        }
+
+        if jobs.is_empty() {
             return Ok(());
         }
 
@@ -304,6 +304,7 @@ impl Overlord {
             // And record it
             GLOBALS.connected_relays.insert(url, jobs);
         }
+
         Ok(())
     }
 
@@ -449,7 +450,7 @@ impl Overlord {
         if let Some(mut jobs) = jobs {
             // If we have any persistent jobs, restart after a delaythe relay
             let persistent_jobs: Vec<RelayJob> =
-                jobs.drain(..).filter(|job| job.persistent).collect();
+                jobs.drain(..).filter(|job| job.reason.persistent()).collect();
 
             if !persistent_jobs.is_empty() {
                 // Do it after a delay
@@ -551,12 +552,11 @@ impl Overlord {
                     self.engage_minion(
                         url.to_owned(),
                         vec![RelayJob {
-                            reason: "fetch-event",
+                            reason: RelayConnectionReason::FetchEvent,
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
                                 detail: ToMinionPayloadDetail::FetchEvent(id.into()),
                             },
-                            persistent: false,
                         }],
                     )
                     .await?;
@@ -640,19 +640,9 @@ impl Overlord {
                     if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
                         refmut
                             .value_mut()
-                            .retain(|job| job.payload.job_id != job_id || job.persistent);
-
-                        // If only one 'augments' job remains, disconnect the relay
-                        if refmut.value().len() == 1 && refmut.value()[0].reason == "augments" {
-                            let _ = self.to_minions.send(ToMinionMessage {
-                                target: url.0,
-                                payload: ToMinionPayload {
-                                    job_id: 0,
-                                    detail: ToMinionPayloadDetail::Shutdown,
-                                },
-                            });
-                        }
+                            .retain(|job| job.payload.job_id != job_id);
                     }
+                    self.maybe_disconnect_relay(&url)?;
                 }
             }
             ToOverlordMessage::MinionJobUpdated(url, old_job_id, new_job_id) => {
@@ -667,8 +657,9 @@ impl Overlord {
                             } else {
                                 true // keep the rest
                             }
-                        })
+                        });
                     }
+                    self.maybe_disconnect_relay(&url)?;
                 }
             }
             ToOverlordMessage::PickRelays => {
@@ -771,12 +762,11 @@ impl Overlord {
                     self.engage_minion(
                         relay_url.to_owned(),
                         vec![RelayJob {
-                            reason: "tmp-metadata",
+                            reason: RelayConnectionReason::FetchMetadata,
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
                                 detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![pubkey]),
                             },
-                            persistent: false,
                         }],
                     )
                     .await?;
@@ -803,12 +793,11 @@ impl Overlord {
                     self.engage_minion(
                         relay_url.clone(),
                         vec![RelayJob {
-                            reason: "tmp-metadata",
+                            reason: RelayConnectionReason::FetchMetadata,
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
                                 detail: ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys),
                             },
-                            persistent: false,
                         }],
                     )
                     .await?;
@@ -817,16 +806,12 @@ impl Overlord {
             ToOverlordMessage::VisibleNotesChanged(visible) => {
                 let visible: Vec<IdHex> = visible.iter().map(|i| (*i).into()).collect();
 
-                let mut relay_urls: Vec<RelayUrl> = GLOBALS
+                let mut persistent_relay_urls: Vec<RelayUrl> = GLOBALS
                     .connected_relays
                     .iter()
                     .filter_map(|r| {
                         for job in r.value() {
-                            if job.reason == "follow"
-                                || job.reason == "mentions"
-                                || job.reason == "fetch-event"
-                                || job.reason == "read-thread"
-                            {
+                            if job.reason.persistent() {
                                 return Some(r.key().clone());
                             }
                         }
@@ -836,16 +821,15 @@ impl Overlord {
 
                 // Resubscribe to augments on all relays that have
                 // any feed-event subscriptions (see filter above)
-                for url in relay_urls.drain(..) {
+                for url in persistent_relay_urls.drain(..) {
                     self.engage_minion(
                         url,
                         vec![RelayJob {
-                            reason: "augments",
+                            reason: RelayConnectionReason::FetchAugments,
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
                                 detail: ToMinionPayloadDetail::SubscribeAugments(visible.clone()),
                             },
-                            persistent: false,
                         }],
                     )
                     .await?;
@@ -860,6 +844,33 @@ impl Overlord {
         }
 
         Ok(true)
+    }
+
+    fn maybe_disconnect_relay(
+        &mut self,
+        url: &RelayUrl
+    ) -> Result<(), Error> {
+        if let Some(refmut) = GLOBALS.connected_relays.get_mut(url) {
+            // If no job remains, disconnect the relay
+            let mut disconnect = refmut.value().is_empty();
+
+            // If only one 'augments' job remains, disconnect the relay
+            if refmut.value().len() == 1 && refmut.value()[0].reason == RelayConnectionReason::FetchAugments {
+                disconnect = true;
+            }
+
+            if disconnect {
+                let _ = self.to_minions.send(ToMinionMessage {
+                    target: url.0.clone(),
+                    payload: ToMinionPayload {
+                        job_id: 0,
+                        detail: ToMinionPayloadDetail::Shutdown,
+                    },
+                });
+            }
+        }
+
+        Ok(())
     }
 
     async fn follow_pubkey_and_relay(
@@ -1068,7 +1079,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None).await?;
+        crate::process::process_new_event(&event, None, None, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1106,12 +1117,11 @@ impl Overlord {
             self.engage_minion(
                 url.clone(),
                 vec![RelayJob {
-                    reason: "posting",
+                    reason: RelayConnectionReason::PostEvent,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
-                    persistent: false,
                 }],
             )
             .await?;
@@ -1175,12 +1185,11 @@ impl Overlord {
             self.engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
-                    reason: "advertising",
+                    reason: RelayConnectionReason::Advertising,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
-                    persistent: false,
                 }],
             )
             .await?;
@@ -1257,19 +1266,18 @@ impl Overlord {
             self.engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
-                    reason: "post-like",
+                    reason: RelayConnectionReason::PostLike,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
-                    persistent: false,
                 }],
             )
             .await?;
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, None, None).await?;
+        crate::process::process_new_event(&event, None, None, false).await?;
 
         Ok(())
     }
@@ -1287,12 +1295,11 @@ impl Overlord {
             self.engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
-                    reason: "pull-contacts",
+                    reason: RelayConnectionReason::FetchContacts,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PullFollowing,
                     },
-                    persistent: false,
                 }],
             )
             .await?;
@@ -1316,12 +1323,11 @@ impl Overlord {
             self.engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
-                    reason: "pushing-contacts",
+                    reason: RelayConnectionReason::PostContacts,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
-                    persistent: false,
                 }],
             )
             .await?;
@@ -1364,12 +1370,11 @@ impl Overlord {
             self.engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
-                    reason: "write-metadata",
+                    reason: RelayConnectionReason::PostMetadata,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
-                    persistent: false,
                 }],
             )
             .await?;
@@ -1409,12 +1414,11 @@ impl Overlord {
             self.engage_minion(
                 url.clone(),
                 vec![RelayJob {
-                    reason: "tmp-metadata",
+                    reason: RelayConnectionReason::FetchMetadata,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys),
                     },
-                    persistent: false,
                 }],
             )
             .await?;
@@ -1498,7 +1502,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None).await?;
+        crate::process::process_new_event(&event, None, None, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1522,12 +1526,11 @@ impl Overlord {
             self.engage_minion(
                 url.clone(),
                 vec![RelayJob {
-                    reason: "reposting",
+                    reason: RelayConnectionReason::PostEvent,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
-                    persistent: false,
                 }],
             )
             .await?;
@@ -1651,7 +1654,7 @@ impl Overlord {
                 self.engage_minion(
                     url.to_owned(),
                     vec![RelayJob {
-                        reason: "read-thread",
+                        reason: RelayConnectionReason::ReadThread,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
                             detail: ToMinionPayloadDetail::SubscribeThreadFeed(
@@ -1659,7 +1662,6 @@ impl Overlord {
                                 missing_ancestors_hex.clone(),
                             ),
                         },
-                        persistent: false,
                     }],
                 )
                 .await?;
@@ -1747,7 +1749,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None).await?;
+        crate::process::process_new_event(&event, None, None, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1771,12 +1773,11 @@ impl Overlord {
             self.engage_minion(
                 url.to_owned(),
                 vec![RelayJob {
-                    reason: "deleting",
+                    reason: RelayConnectionReason::PostEvent,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
-                    persistent: false,
                 }],
             )
             .await?;

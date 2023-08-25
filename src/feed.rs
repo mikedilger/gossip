@@ -229,7 +229,8 @@ impl Feed {
         // Copy some values from settings
         let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
 
-        let kinds = feed_displayable_event_kinds();
+        let kinds_with_dms = feed_displayable_event_kinds(true);
+        let kinds_without_dms = feed_displayable_event_kinds(true);
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
@@ -254,12 +255,13 @@ impl Feed {
                 let followed_events: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
-                        &kinds,            // kinds
+                        &kinds_without_dms,
                         &followed_pubkeys, // pubkeys
                         Some(since),
                         |e| {
                             e.created_at <= now // no future events
                                 && e.kind != EventKind::EncryptedDirectMessage // no DMs
+                                && e.kind != EventKind::DmChat // no DMs
                                 && !dismissed.contains(&e.id) // not dismissed
                                 && if !with_replies {
                                     !matches!(e.replies_to(), Some((_id, _))) // is not a reply
@@ -285,7 +287,7 @@ impl Feed {
                     // of NIP-10)
 
                     let my_event_ids: HashSet<Id> = GLOBALS.storage.find_event_ids(
-                        &kinds,       // kinds
+                        &kinds_with_dms,
                         &[my_pubkey], // pubkeys
                         None,         // since
                     )?;
@@ -302,9 +304,16 @@ impl Feed {
                             if dismissed.contains(&e.id) {
                                 return false;
                             } // not dismissed
-                            if e.pubkey == my_pubkey {
-                                return false;
-                            } // not self-authored
+                              //if e.pubkey == my_pubkey {
+                              //    return false;
+                              //} // not self-authored
+
+                            // Always include gift wrap and DMs
+                            if e.kind == EventKind::GiftWrap
+                                || e.kind == EventKind::EncryptedDirectMessage
+                            {
+                                return true;
+                            }
 
                             // Include if it directly replies to one of my events
                             if let Some((id, _)) = e.replies_to() {
@@ -317,14 +326,10 @@ impl Feed {
                                 // Include if it tags me
                                 e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
                             } else {
-                                if e.kind == EventKind::EncryptedDirectMessage {
-                                    true
-                                } else {
-                                    // Include if it directly references me in the content
-                                    e.people_referenced_in_content()
-                                        .iter()
-                                        .any(|p| *p == my_pubkey)
-                                }
+                                // Include if it directly references me in the content
+                                e.people_referenced_in_content()
+                                    .iter()
+                                    .any(|p| *p == my_pubkey)
                             }
                         })?
                         .iter()
@@ -352,8 +357,8 @@ impl Feed {
                 let events: Vec<(Unixtime, Id)> = GLOBALS
                     .storage
                     .find_events(
-                        &kinds, // feed kinds
-                        &[],    // any person (due to delegation condition) // FIXME
+                        &kinds_without_dms,
+                        &[], // any person (due to delegation condition) // FIXME
                         Some(since),
                         |e| {
                             if dismissed.contains(&e.id) {
@@ -398,22 +403,30 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
                 && ((*k != EventKind::Repost) || reposts)
                 && ((*k != EventKind::LongFormContent) || show_long_form)
                 && ((*k != EventKind::EncryptedDirectMessage) || direct_messages)
+                && ((*k != EventKind::DmChat) || direct_messages)
+                && ((*k != EventKind::GiftWrap) || direct_messages)
                 && ((*k != EventKind::Zap) || enable_zap_receipts)
         })
         .collect()
 }
 
-pub fn feed_related_event_kinds() -> Vec<EventKind> {
+pub fn feed_related_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
-        .filter(|k| k.is_feed_related())
+        .filter(|k| {
+            (k.is_feed_related() || *k == EventKind::GiftWrap)
+                && (dms || (*k != EventKind::EncryptedDirectMessage && *k != EventKind::DmChat))
+        })
         .collect()
 }
 
-pub fn feed_displayable_event_kinds() -> Vec<EventKind> {
+pub fn feed_displayable_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
-        .filter(|k| k.is_feed_displayable())
+        .filter(|k| {
+            (k.is_feed_displayable() || *k == EventKind::GiftWrap)
+                && (dms || (*k != EventKind::EncryptedDirectMessage && *k != EventKind::DmChat))
+        })
         .collect()
 }
 

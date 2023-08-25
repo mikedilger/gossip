@@ -104,7 +104,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 }
                 if ui
                     .button("SAVE")
-                    .on_hover_text("Finishes editing, but does not push.")
+                    .on_hover_text("Finishes editing and publishes.")
                     .clicked()
                 {
                     app.editing_metadata = false;

@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
 use crate::person_relay::PersonRelay;
+use async_recursion::async_recursion;
 use nostr_types::{
     Event, EventKind, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
@@ -10,10 +11,12 @@ use std::sync::atomic::Ordering;
 
 // This processes a new event, saving the results into the database
 // and also populating the GLOBALS maps.
+#[async_recursion]
 pub async fn process_new_event(
     event: &Event,
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
+    verify: bool,
 ) -> Result<(), Error> {
     let now = Unixtime::now()?;
 
@@ -53,7 +56,7 @@ pub async fn process_new_event(
         tracing::trace!(
             "{}: Old Event: {} {:?} @{}",
             seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-            subscription.unwrap_or("_".to_string()),
+            subscription.as_ref().unwrap_or(&"_".to_string()),
             event.kind,
             event.created_at
         );
@@ -64,16 +67,18 @@ pub async fn process_new_event(
     // Bail if the event is an already-replaced replaceable event
     if let Some(ref relay_url) = seen_on {
         // Verify the event
-        let mut maxtime = now;
-        maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
-        if let Err(e) = event.verify(Some(maxtime)) {
-            tracing::error!(
-                "{}: VERIFY ERROR: {}, {}",
-                relay_url,
-                e,
-                serde_json::to_string(&event)?
-            );
-            return Ok(());
+        if verify {
+            let mut maxtime = now;
+            maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
+            if let Err(e) = event.verify(Some(maxtime)) {
+                tracing::error!(
+                    "{}: VERIFY ERROR: {}, {}",
+                    relay_url,
+                    e,
+                    serde_json::to_string(&event)?
+                );
+                return Ok(());
+            }
         }
 
         if event.kind.is_replaceable() {
@@ -81,7 +86,7 @@ pub async fn process_new_event(
                 tracing::trace!(
                     "{}: Old Event: {} {:?} @{}",
                     seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-                    subscription.unwrap_or("_".to_string()),
+                    subscription.as_ref().unwrap_or(&"_".to_string()),
                     event.kind,
                     event.created_at
                 );
@@ -92,7 +97,7 @@ pub async fn process_new_event(
                 tracing::trace!(
                     "{}: Old Event: {} {:?} @{}",
                     seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-                    subscription.unwrap_or("_".to_string()),
+                    subscription.as_ref().unwrap_or(&"_".to_string()),
                     event.kind,
                     event.created_at
                 );
@@ -108,10 +113,20 @@ pub async fn process_new_event(
     tracing::debug!(
         "{}: New Event: {} {:?} @{}",
         seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-        subscription.unwrap_or("_".to_string()),
+        subscription.as_ref().unwrap_or(&"_".to_string()),
         event.kind,
         event.created_at
     );
+
+    // If it is a GiftWrap, from here on out operate on the Rumor
+    let mut event: &Event = event; // take ownership of this reference
+    let mut rumor_event: Event;
+    if event.kind == EventKind::GiftWrap {
+        let rumor = GLOBALS.signer.unwrap_giftwrap(event)?;
+        rumor_event = rumor.into_event_with_bad_signature();
+        rumor_event.id = event.id; // Lie so it's handled with the giftwrap's id
+        event = &rumor_event;
+    }
 
     if seen_on.is_some() {
         // Create the person if missing in the database

@@ -401,7 +401,7 @@ impl Minion {
     }
 
     async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
-        let mut event_kinds = crate::feed::feed_related_event_kinds();
+        let mut event_kinds = crate::feed::feed_related_event_kinds(false);
         event_kinds.retain(|f| f.augments_feed_related());
 
         let filter = Filter {
@@ -410,9 +410,9 @@ impl Minion {
             ..Default::default()
         };
 
-        self.subscribe(vec![filter], "augments", job_id).await?;
+        self.subscribe(vec![filter], "temp_augments", job_id).await?;
 
-        if let Some(sub) = self.subscription_map.get_mut("augments") {
+        if let Some(sub) = self.subscription_map.get_mut("temp_augments") {
             if let Some(nip11) = &self.nip11 {
                 if !nip11.supports_nip(15) {
                     // Does not support EOSE.  Set subscription to EOSE now.
@@ -472,10 +472,8 @@ impl Minion {
             }
         };
 
-        // Allow all feed related event kinds
-        let mut event_kinds = crate::feed::feed_related_event_kinds();
-        // But exclude DMs in the general feed
-        event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
+        // Allow all feed related event kinds (excluding DMs)
+        let event_kinds = crate::feed::feed_related_event_kinds(false);
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // feed related by me
@@ -588,8 +586,13 @@ impl Minion {
             replies_since.max(one_replieschunk_ago)
         };
 
-        // Allow all feed related event kinds
-        let event_kinds = crate::feed::feed_related_event_kinds();
+        // GiftWrap lookback needs to be one week further back
+        // FIXME: this depends on how far other clients backdate.
+        let giftwrap_since = Unixtime(replies_since.0 - 60 * 60 * 24 * 7);
+
+        // Allow all feed related event kinds (including DMs)
+        let mut event_kinds = crate::feed::feed_related_event_kinds(true);
+        event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // Any mentions of me
@@ -598,9 +601,17 @@ impl Minion {
             let pkh: PublicKeyHex = pubkey.into();
 
             filters.push(Filter {
-                p: vec![pkh],
+                p: vec![pkh.clone()],
                 kinds: event_kinds,
                 since: Some(replies_since),
+                ..Default::default()
+            });
+
+            // Giftwrap specially looks back further
+            filters.push(Filter {
+                p: vec![pkh],
+                kinds: vec![EventKind::GiftWrap],
+                since: Some(giftwrap_since),
                 ..Default::default()
             });
         }
@@ -639,7 +650,7 @@ impl Minion {
                 ..Default::default()
             }];
 
-            self.subscribe(filters, "config_feed", job_id).await?;
+            self.subscribe(filters, "temp_config_feed", job_id).await?;
         }
 
         Ok(())
@@ -664,7 +675,7 @@ impl Minion {
                 ..Default::default()
             }];
 
-            self.subscribe(filters, "discover_feed", job_id).await?;
+            self.subscribe(filters, "temp_discover_feed", job_id).await?;
         }
 
         Ok(())
@@ -674,10 +685,8 @@ impl Minion {
     async fn subscribe_person_feed(&mut self, job_id: u64, pubkey: PublicKey) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
-        // Allow all feed related event kinds
-        let mut event_kinds = crate::feed::feed_displayable_event_kinds();
-        // Exclude DMs
-        event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
+        // Allow all feed related event kinds (excluding DMs)
+        let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
         let filters: Vec<Filter> = vec![Filter {
             authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(16)],
@@ -764,10 +773,8 @@ impl Minion {
             });
         }
 
-        // Allow all feed related event kinds
-        let mut event_kinds = crate::feed::feed_related_event_kinds();
-        // But exclude DMs
-        event_kinds.retain(|f| *f != EventKind::EncryptedDirectMessage);
+        // Allow all feed related event kinds (excluding DMs)
+        let event_kinds = crate::feed::feed_related_event_kinds(false);
 
         filters.push(Filter {
             e: vec![main],
@@ -958,7 +965,7 @@ impl Minion {
                 kinds: vec![EventKind::ContactList],
                 ..Default::default()
             };
-            self.subscribe(vec![filter], "following", job_id).await?;
+            self.subscribe(vec![filter], "temp_following_list", job_id).await?;
         }
         Ok(())
     }

@@ -178,10 +178,10 @@ pub(super) fn relay_scroll_list(
                             entry
                                 .iter()
                                 .map(|rj| {
-                                    if rj.persistent {
-                                        format!("[{}]", rj.reason)
-                                    } else {
+                                    if rj.reason.persistent() {
                                         rj.reason.to_string()
+                                    } else {
+                                        format!("[{}]", rj.reason)
                                     }
                                 })
                                 .collect::<Vec<String>>()

@@ -1,3 +1,4 @@
+use std::fmt;
 use nostr_types::{
     Event, Id, IdHex, Metadata, MilliSatoshi, PublicKey, RelayUrl, Tag, UncheckedUrl,
 };
@@ -87,16 +88,81 @@ pub enum ToMinionPayloadDetail {
     UnsubscribeThreadFeed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RelayConnectionReason {
+    Advertising,
+    Config,
+    Discovery,
+    FetchAugments,
+    FetchContacts,
+    FetchEvent,
+    FetchMentions,
+    FetchMetadata,
+    Follow,
+    PostEvent,
+    PostContacts,
+    PostLike,
+    PostMetadata,
+    ReadThread,
+}
+
+impl fmt::Display for RelayConnectionReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)?;
+        Ok(())
+    }
+}
+
+impl RelayConnectionReason {
+    pub fn description(&self) -> &'static str {
+        use RelayConnectionReason::*;
+        match *self {
+            Discovery => "Searching for other people's Relay Lists",
+            Config => "Reading our client configuration",
+            FetchMentions => "Searching for mentions of us",
+            Follow => "Following the posts of people in our Contact List",
+            FetchAugments => "Fetching events that augment other events (likes, zaps, deletions)",
+            FetchEvent => "Fetching a particular event",
+            FetchMetadata => "Fetching metadata for a person",
+            PostEvent => "Posting an event",
+            Advertising => "Advertising our relay list",
+            PostLike => "Posting a reaction to an event",
+            FetchContacts => "Fetching our contact list",
+            PostContacts => "Posting our contact list",
+            PostMetadata => "Posting our metadata",
+            ReadThread => "Reading ancestors to build a thread",
+        }
+    }
+
+    pub fn persistent(&self) -> bool {
+        use RelayConnectionReason::*;
+        match *self {
+            Discovery => false,
+            Config => false,
+            FetchMentions => true,
+            Follow => true,
+            FetchAugments => false,
+            FetchEvent => false,
+            FetchMetadata => false,
+            PostEvent => false,
+            Advertising => false,
+            PostLike => false,
+            FetchContacts => false,
+            PostContacts => false,
+            PostMetadata => false,
+            ReadThread => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RelayJob {
     // Short reason for human viewing
-    pub reason: &'static str,
+    pub reason: RelayConnectionReason,
 
     // Payload sent when it was started
     pub payload: ToMinionPayload,
 
-    // Persistent? (restart if we get disconnected)
-    pub persistent: bool,
     // NOTE, there is other per-relay data stored elsewhere in
     //   overlord.minions_task_url
     //   GLOBALS.relay_picker

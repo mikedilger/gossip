@@ -1,4 +1,5 @@
 use super::GossipUi;
+use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::ui::widgets;
@@ -24,6 +25,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
     });
     ui.add_space(10.0);
+
+    ui.horizontal(|ui| {
+        if ui.button("↑ Advertise Relay List ↑").clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::AdvertiseRelayList);
+        }
+    });
 
     let relays = if !is_editing {
         // clear edit cache if present

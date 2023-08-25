@@ -93,10 +93,17 @@ fn main() -> Result<(), Error> {
     // If we were handed a command, execute the command and return
     let args = env::args();
     if args.len() > 1 {
-        if let Err(e) = crate::commands::handle_command(args) {
-            println!("{}", e);
+        match crate::commands::handle_command(args) {
+            Err(e) => {
+                println!("{}", e);
+                return Ok(());
+            }
+            Ok(exit) => {
+                if exit {
+                    return Ok(());
+                }
+            }
         }
-        return Ok(());
     }
 
     // We run our main async code on a separate thread, not just a

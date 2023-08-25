@@ -338,6 +338,10 @@ fn render_note_inner(
                         let color = app.settings.theme.notice_marker_text_color();
                         ui.label(RichText::new("ENCRYPTED DM").color(color));
                     }
+                    if note.secure {
+                        let color = app.settings.theme.notice_marker_text_color();
+                        ui.label(RichText::new("SECURE").color(color));
+                    }
                 });
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
