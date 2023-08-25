@@ -8,6 +8,7 @@ use egui_winit::egui::{vec2, Id, Rect, RichText};
 use nostr_types::RelayUrl;
 
 mod active;
+mod coverage;
 mod known;
 mod mine;
 
@@ -118,12 +119,12 @@ enum AddRelayDialogStep {
 /// Show the Relays UI
 ///
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    if app.page == Page::RelaysActivityMonitor {
-        active::update(app, ctx, frame, ui);
-    } else if app.page == Page::RelaysMine {
-        mine::update(app, ctx, frame, ui);
-    } else if app.page == Page::RelaysKnownNetwork {
-        known::update(app, ctx, frame, ui);
+    match app.page {
+        Page::RelaysActivityMonitor  => active::update(app, ctx, frame, ui),
+        Page::RelaysCoverage => coverage::update(app, ctx, frame, ui),
+        Page::RelaysMine => mine::update(app, ctx, frame, ui),
+        Page::RelaysKnownNetwork => known::update(app, ctx, frame, ui),
+        _ => {},
     }
 }
 

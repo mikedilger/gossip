@@ -32,29 +32,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
     });
     ui.add_space(10.0);
-    ui.separator();
-    ui.add_space(10.0);
-
-    ui.heading("Coverage");
-
-    if GLOBALS.relay_picker.pubkey_counts_iter().count() > 0 {
-        for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
-            let pk = elem.key();
-            let count = elem.value();
-            let name = GossipUi::display_name_from_pubkey_lookup(pk);
-            ui.label(format!("{}: coverage short by {} relay(s)", name, count));
-        }
-        ui.add_space(12.0);
-        if ui.button("Pick Again").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
-        }
-    } else {
-        ui.label("All followed people are fully covered.".to_owned());
-    }
-
-    ui.add_space(10.0);
-    ui.separator();
-    ui.add_space(10.0);
 
     let relays = if !is_editing {
         // clear edit cache if present
