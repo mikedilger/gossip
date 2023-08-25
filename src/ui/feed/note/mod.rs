@@ -104,9 +104,10 @@ pub(super) fn render_note(
                 let top = ui.next_widget_position();
 
                 let inner_response = ui.horizontal(|ui| {
+                   
                     // Outer indents first
                     app.settings.theme.feed_post_outer_indent(ui, &render_data);
-
+                   
                     Frame::none()
                         .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
                         .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
@@ -116,20 +117,24 @@ pub(super) fn render_note(
                         .stroke(app.settings.theme.feed_frame_stroke(&render_data))
                         .show(ui, |ui| {
                             ui.horizontal_wrapped(|ui| {
-                                // Inner indents first
-                                app.settings.theme.feed_post_inner_indent(ui, &render_data);
+                                // Deleted events are not shown if user did not set show_deleted_events from settings
+                                if !(note_data.deletion.is_some() && !app.settings.show_deleted_events) {
+                                    // Inner indents first
+                                    app.settings.theme.feed_post_inner_indent(ui, &render_data);
 
-                                render_note_inner(
-                                    app,
-                                    ctx,
-                                    ui,
-                                    note_ref.clone(),
-                                    &render_data,
-                                    as_reply_to,
-                                    &None,
-                                );
+                                    render_note_inner(
+                                        app,
+                                        ctx,
+                                        ui,
+                                        note_ref.clone(),
+                                        &render_data,
+                                        as_reply_to,
+                                        &None,
+                                    );
+                                }
                             });
                         })
+                   
                 });
 
                 // Store actual rendered height for future reference
