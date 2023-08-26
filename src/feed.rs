@@ -50,6 +50,34 @@ impl Feed {
         }
     }
 
+    fn unlisten(&self) {
+        let feed_kind = self.current_feed_kind.read().to_owned();
+
+        // If not in the Thread feed
+        if !matches!(feed_kind, FeedKind::Thread { .. }) {
+            // Stop listening to Thread events
+            let _ = GLOBALS.to_minions.send(ToMinionMessage {
+                target: "all".to_string(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+                },
+            });
+        }
+
+        // If not in the Person feed
+        if !matches!(feed_kind, FeedKind::Person(_)) {
+            // Stop listening to Person events
+            let _ = GLOBALS.to_minions.send(ToMinionMessage {
+                target: "all".to_string(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
+                },
+            });
+        }
+    }
+
     pub fn set_feed_to_followed(&self, with_replies: bool) {
         // We are always subscribed to the general feed. Don't resubscribe here
         // because it won't have changed, but the relays will shower you with
@@ -60,21 +88,7 @@ impl Feed {
         // Recompute as they switch
         self.sync_recompute();
 
-        // When going to Followed or Inbox, we stop listening for Thread/Person events
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            },
-        });
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            },
-        });
+        self.unlisten();
     }
 
     pub fn set_feed_to_inbox(&self, indirect: bool) {
@@ -84,21 +98,7 @@ impl Feed {
         // Recompute as they switch
         self.sync_recompute();
 
-        // When going to Followed or Inbox, we stop listening for Thread/Person events
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            },
-        });
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            },
-        });
+        self.unlisten();
     }
 
     pub fn set_feed_to_thread(
@@ -121,13 +121,9 @@ impl Feed {
         // Recompute as they switch
         self.sync_recompute();
 
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            },
-        });
+        self.unlisten();
+
+        // Listen for Thread events
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed(
             id,
             referenced_by,
@@ -143,13 +139,9 @@ impl Feed {
         // Recompute as they switch
         self.sync_recompute();
 
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            },
-        });
+        self.unlisten();
+
+        // Listen for Person events
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload {
