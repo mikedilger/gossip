@@ -29,6 +29,7 @@ mod commands;
 mod comms;
 mod date_ago;
 mod delegation;
+mod dm_channel;
 mod error;
 mod feed;
 mod fetcher;
