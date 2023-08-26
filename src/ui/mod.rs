@@ -896,44 +896,13 @@ impl GossipUi {
         ui.set_enabled(!relays::is_entry_dialog_active(self));
     }
 
-    /// A short rendering of a `PublicKey`
-    pub fn pubkey_short(pk: &PublicKey) -> String {
-        let npub = pk.as_bech32_string();
-        format!(
-            "{}...{}",
-            &npub.get(0..10).unwrap_or("??????????"),
-            &npub
-                .get(npub.len() - 10..npub.len())
-                .unwrap_or("??????????")
-        )
-    }
-
-    pub fn hex_id_short(idhex: &IdHex) -> String {
-        idhex.as_str()[0..8].to_string()
-    }
-
-    /// A display name for a `Person`
-    pub fn display_name_from_dbperson(dbperson: &Person) -> String {
-        match dbperson.display_name() {
-            Some(name) => name.to_owned(),
-            None => Self::pubkey_short(&dbperson.pubkey),
-        }
-    }
-
-    pub fn display_name_from_pubkey_lookup(pubkey: &PublicKey) -> String {
-        match GLOBALS.storage.read_person(pubkey) {
-            Ok(Some(dbperson)) => Self::display_name_from_dbperson(&dbperson),
-            _ => Self::pubkey_short(pubkey),
-        }
-    }
-
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &Person) {
         // Let the 'People' manager know that we are interested in displaying this person.
         // It will take all actions necessary to make the data eventually available.
         GLOBALS.people.person_of_interest(person.pubkey);
 
         ui.horizontal_wrapped(|ui| {
-            let name = GossipUi::display_name_from_dbperson(person);
+            let name = crate::names::display_name_from_person(person);
 
             ui.menu_button(&name, |ui| {
                 let mute_label = if person.muted { "Unmute" } else { "Mute" };

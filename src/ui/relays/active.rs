@@ -41,7 +41,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
             let pk = elem.key();
             let count = elem.value();
-            let name = GossipUi::display_name_from_pubkey_lookup(pk);
+            let name = crate::names::display_name_from_pubkey_lookup(pk);
             ui.label(format!("{}: coverage short by {} relay(s)", name, count));
         }
         ui.add_space(12.0);

@@ -35,6 +35,7 @@ mod fetcher;
 mod filter;
 mod globals;
 mod media;
+mod names;
 mod nip05;
 mod overlord;
 mod people;

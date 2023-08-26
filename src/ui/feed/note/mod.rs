@@ -291,7 +291,7 @@ fn render_note_inner(
 
                         ui.style_mut().override_text_style = Some(TextStyle::Small);
                         let idhex: IdHex = irt.into();
-                        let nam = format!("▲ #{}", GossipUi::hex_id_short(&idhex));
+                        let nam = format!("▲ #{}", crate::names::hex_id_short(&idhex));
                         if ui.link(&nam).clicked() {
                             app.set_page(Page::Feed(FeedKind::Thread {
                                 id: irt,

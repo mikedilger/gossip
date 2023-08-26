@@ -55,9 +55,9 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             },
         );
         ui.vertical(|ui| {
-            let name = GossipUi::display_name_from_dbperson(&person);
+            let name = crate::names::display_name_from_person(&person);
             ui.heading(name);
-            ui.label(RichText::new(GossipUi::pubkey_short(&pubkey)).weak());
+            ui.label(RichText::new(crate::names::pubkey_short(&pubkey)).weak());
             GossipUi::render_person_name_line(app, ui, &person);
         });
     });
