@@ -215,7 +215,6 @@ where
             "show_long_form" => settings.show_long_form = numstr_to_bool(value),
             "show_mentions" => settings.show_mentions = numstr_to_bool(value),
             "show_media" => settings.show_media = numstr_to_bool(value),
-            "show_deleted_events" => settings.show_deleted_events = numstr_to_bool(value),
             "approve_content_warning" => settings.approve_content_warning = numstr_to_bool(value),
             "load_avatars" => settings.load_avatars = numstr_to_bool(value),
             "load_media" => settings.load_media = numstr_to_bool(value),
