@@ -473,8 +473,8 @@ impl Minion {
             }
         };
 
-        // Allow all feed related event kinds (excluding DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(false);
+        // Allow all feed related event kinds (including DMs)
+        let event_kinds = crate::feed::feed_related_event_kinds(true);
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             // feed related by me
