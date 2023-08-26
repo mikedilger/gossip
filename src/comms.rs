@@ -1,7 +1,7 @@
-use std::fmt;
 use nostr_types::{
     Event, Id, IdHex, Metadata, MilliSatoshi, PublicKey, RelayUrl, Tag, UncheckedUrl,
 };
+use std::fmt;
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
@@ -162,7 +162,6 @@ pub struct RelayJob {
 
     // Payload sent when it was started
     pub payload: ToMinionPayload,
-
     // NOTE, there is other per-relay data stored elsewhere in
     //   overlord.minions_task_url
     //   GLOBALS.relay_picker

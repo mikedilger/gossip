@@ -1,7 +1,7 @@
 mod minion;
 
 use crate::comms::{
-    RelayJob, RelayConnectionReason, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
+    RelayConnectionReason, RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
     ToOverlordMessage,
 };
 use crate::error::{Error, ErrorKind};
@@ -449,8 +449,10 @@ impl Overlord {
 
         if let Some(mut jobs) = jobs {
             // If we have any persistent jobs, restart after a delaythe relay
-            let persistent_jobs: Vec<RelayJob> =
-                jobs.drain(..).filter(|job| job.reason.persistent()).collect();
+            let persistent_jobs: Vec<RelayJob> = jobs
+                .drain(..)
+                .filter(|job| job.reason.persistent())
+                .collect();
 
             if !persistent_jobs.is_empty() {
                 // Do it after a delay
@@ -846,16 +848,15 @@ impl Overlord {
         Ok(true)
     }
 
-    fn maybe_disconnect_relay(
-        &mut self,
-        url: &RelayUrl
-    ) -> Result<(), Error> {
+    fn maybe_disconnect_relay(&mut self, url: &RelayUrl) -> Result<(), Error> {
         if let Some(refmut) = GLOBALS.connected_relays.get_mut(url) {
             // If no job remains, disconnect the relay
             let mut disconnect = refmut.value().is_empty();
 
             // If only one 'augments' job remains, disconnect the relay
-            if refmut.value().len() == 1 && refmut.value()[0].reason == RelayConnectionReason::FetchAugments {
+            if refmut.value().len() == 1
+                && refmut.value()[0].reason == RelayConnectionReason::FetchAugments
+            {
                 disconnect = true;
             }
 

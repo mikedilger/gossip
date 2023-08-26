@@ -410,7 +410,8 @@ impl Minion {
             ..Default::default()
         };
 
-        self.subscribe(vec![filter], "temp_augments", job_id).await?;
+        self.subscribe(vec![filter], "temp_augments", job_id)
+            .await?;
 
         if let Some(sub) = self.subscription_map.get_mut("temp_augments") {
             if let Some(nip11) = &self.nip11 {
@@ -675,7 +676,8 @@ impl Minion {
                 ..Default::default()
             }];
 
-            self.subscribe(filters, "temp_discover_feed", job_id).await?;
+            self.subscribe(filters, "temp_discover_feed", job_id)
+                .await?;
         }
 
         Ok(())
@@ -965,7 +967,8 @@ impl Minion {
                 kinds: vec![EventKind::ContactList],
                 ..Default::default()
             };
-            self.subscribe(vec![filter], "temp_following_list", job_id).await?;
+            self.subscribe(vec![filter], "temp_following_list", job_id)
+                .await?;
         }
         Ok(())
     }
