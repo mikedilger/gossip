@@ -145,6 +145,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             let feed = GLOBALS.feed.get_person_feed();
             render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string());
         }
+        FeedKind::DmChat(channel) => {
+            ui.horizontal(|ui| {
+                recompute_btn(app, ui);
+            });
+
+            let feed = GLOBALS.feed.get_dm_chat_feed();
+            let id = channel.unique_id();
+            render_a_feed(app, ctx, frame, ui, feed, false, &id);
+        }
     }
 
     // Handle any changes due to changes in which notes are visible

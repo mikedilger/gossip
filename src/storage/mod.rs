@@ -2353,9 +2353,72 @@ impl Storage {
             }
         }
 
-        let output = output.into_iter().collect::<Vec<_>>();
-
+        let mut output = output.into_iter().collect::<Vec<_>>();
+        output.sort(); // not by name, by key
         Ok(output)
+    }
+
+    /// Get DM events (by id) in a channel
+    pub fn dm_events(&self, channel: &DmChannel) -> Result<Vec<Id>, Error> {
+        let my_pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => return Ok(Vec::new()),
+        };
+
+        let mut pass1 = self.find_events(
+            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
+            &[],
+            Some(Unixtime(0)),
+            |event| {
+                if event.kind == EventKind::EncryptedDirectMessage {
+                    let other = &channel.keys()[0];
+                    let people = event.people();
+                    channel.keys().len() == 1
+                        && ((event.pubkey == my_pubkey
+                            && event.is_tagged(other)
+                            && (people.len() == 1
+                                || (people.len() == 2 && event.is_tagged(&my_pubkey))))
+                            || (event.pubkey == *other
+                                && event.is_tagged(&my_pubkey)
+                                && (people.len() == 1
+                                    || (people.len() == 2 && event.is_tagged(other)))))
+                } else if event.kind == EventKind::GiftWrap {
+                    // Decrypt in next pass, else we would have to decrypt twice
+                    true
+                } else {
+                    false
+                }
+            },
+            false,
+        )?;
+
+        let mut pass2: Vec<Event> = Vec::new();
+
+        for event in pass1.drain(..) {
+            if event.kind == EventKind::EncryptedDirectMessage {
+                pass2.push(event); // already validated
+            } else if event.kind == EventKind::GiftWrap {
+                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
+                    let mut rumor_event = rumor.into_event_with_bad_signature();
+                    rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
+                    let mut tagged: Vec<PublicKey> = rumor_event
+                        .people()
+                        .drain(..)
+                        .filter_map(|(pkh, _, _)| PublicKey::try_from(pkh).ok())
+                        .collect();
+                    tagged.retain(|pk| *pk != my_pubkey);
+                    let this_channel = DmChannel::new(&tagged);
+                    if this_channel == *channel {
+                        pass2.push(event);
+                    }
+                }
+            }
+        }
+
+        // sort
+        pass2.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+        Ok(pass2.iter().map(|e| e.id).collect())
     }
 
     pub fn rebuild_event_indices(&self) -> Result<(), Error> {
