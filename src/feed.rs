@@ -354,7 +354,7 @@ impl Feed {
                 let since =
                     now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
 
-                let events: Vec<(Unixtime, Id)> = GLOBALS
+                let events: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
                         &kinds_without_dms,
@@ -377,10 +377,10 @@ impl Feed {
                         true,
                     )?
                     .iter()
-                    .map(|e| (e.created_at, e.id))
+                    .map(|e| e.id)
                     .collect();
 
-                *self.person_feed.write() = events.iter().map(|e| e.1).collect();
+                *self.person_feed.write() = events;
             }
         }
 
