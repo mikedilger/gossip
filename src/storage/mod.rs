@@ -14,6 +14,7 @@ mod import;
 mod migrations;
 mod types;
 
+use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::Person;
@@ -2291,6 +2292,70 @@ impl Storage {
         }
 
         Ok(ranked_relays)
+    }
+
+    /// Get all the DM channels (all sets of PublicKeys on existing DM events)
+    pub fn dm_channels(&self) -> Result<Vec<DmChannel>, Error> {
+        let my_pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => return Ok(Vec::new()),
+        };
+
+        let events = self.find_events(
+            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
+            &[],
+            Some(Unixtime(0)),
+            |event| {
+                if event.kind == EventKind::EncryptedDirectMessage {
+                    event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
+                    // Make sure if it has tags, only author and my_pubkey
+                    // TBD
+                } else if event.kind == EventKind::GiftWrap {
+                    true
+                } else {
+                    false
+                }
+            },
+            false,
+        )?;
+
+        let mut output: HashSet<DmChannel> = HashSet::new();
+
+        for event in &events {
+            if event.kind == EventKind::EncryptedDirectMessage {
+                if event.pubkey != my_pubkey {
+                    // DM sent to me
+                    output.insert(DmChannel::new(&[event.pubkey]));
+                } else {
+                    // DM sent from me
+                    for tag in event.tags.iter() {
+                        if let Tag::Pubkey { pubkey, .. } = tag {
+                            if let Ok(pk) = PublicKey::try_from(pubkey) {
+                                if pk != my_pubkey {
+                                    output.insert(DmChannel::new(&[pk]));
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if event.kind == EventKind::GiftWrap {
+                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
+                    let rumor_event = rumor.into_event_with_bad_signature();
+
+                    let people: Vec<PublicKey> = rumor_event
+                        .people()
+                        .iter()
+                        .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
+                        .filter(|pk| *pk != my_pubkey)
+                        .collect();
+                    output.insert(DmChannel::new(&people));
+                }
+            }
+        }
+
+        let output = output.into_iter().collect::<Vec<_>>();
+
+        Ok(output)
     }
 
     pub fn rebuild_event_indices(&self) -> Result<(), Error> {
