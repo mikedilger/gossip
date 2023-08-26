@@ -1,15 +1,13 @@
 mod copy_button;
+pub(crate) mod list_entry;
 pub use copy_button::CopyButton;
 
 mod nav_item;
+use egui_winit::egui::{WidgetText, Ui, FontSelection, Response, TextEdit, Rect, vec2, Sense};
 pub use nav_item::NavItem;
 
 mod relay_entry;
 pub use relay_entry::{RelayEntry, RelayEntryView};
-
-use eframe::egui::widgets::TextEdit;
-use eframe::egui::{FontSelection, Ui, WidgetText};
-use egui_winit::egui::{vec2, Rect, Response, Sense};
 
 // pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {
 //     let mut job = text.into().into_text_job(

@@ -1,13 +1,12 @@
 use std::collections::HashSet;
 
 use super::GossipUi;
-use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::Id;
+use egui_winit::egui::{Id, RichText};
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -17,8 +16,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.heading("Active Relays");
         ui.set_enabled(!is_editing);
         ui.add_space(10.0);
-        if ui.button("Pick Again").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
+        if ui.link(RichText::new("Coverage Report")).clicked() {
+            app.set_page(crate::ui::Page::RelaysCoverage);
         }
         ui.add_space(50.0);
         widgets::search_filter_field(ui, &mut app.relays.search, 200.0);

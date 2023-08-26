@@ -1,6 +1,5 @@
 //#![allow(dead_code)]
-use eframe::egui;
-use egui::{widget_text::WidgetTextGalley, *};
+use eframe::egui::{self, *};
 use nostr_types::{PublicKeyHex, Unixtime};
 
 use crate::{
@@ -10,32 +9,18 @@ use crate::{
     ui::{components, GossipUi},
 };
 
+use super::list_entry::{allocate_text_at, draw_text_galley_at, safe_truncate, draw_text_at, TEXT_LEFT, TEXT_TOP, OUTER_MARGIN_TOP, OUTER_MARGIN_BOTTOM, TEXT_RIGHT, draw_link_at, paint_hline, self};
+
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 50.0;
 /// Height of the list view (width always max. available)
 const DETAIL_VIEW_HEIGHT: f32 = 80.0;
 /// Height of the edit view (width always max. available)
 const EDIT_VIEW_HEIGHT: f32 = 250.0;
-/// Spacing of frame: left
-const OUTER_MARGIN_LEFT: f32 = 0.0;
-/// Spacing of frame: right
-const OUTER_MARGIN_RIGHT: f32 = 5.0;
-/// Spacing of frame: top
-const OUTER_MARGIN_TOP: f32 = 5.0;
-/// Spacing of frame: bottom
-const OUTER_MARGIN_BOTTOM: f32 = 5.0;
-/// Start of text (excl. outer margin): left
-const TEXT_LEFT: f32 = 20.0;
-/// Start of text (excl. outer margin): right
-const TEXT_RIGHT: f32 = 25.0;
-/// Start of text (excl. outer margin): top
-const TEXT_TOP: f32 = 15.0;
 /// Y-offset for first separator
 const HLINE_1_Y_OFFSET: f32 = 57.0;
 /// Y-offset for second separator
 const HLINE_2_Y_OFFSET: f32 = 190.0;
-/// Thickness of separator
-const HLINE_THICKNESS: f32 = 1.5;
 /// Size of edit button
 const EDIT_BTN_SIZE: f32 = 20.0;
 /// Spacing of stats row to heading
@@ -230,27 +215,6 @@ impl RelayEntry {
 }
 
 impl RelayEntry {
-    fn allocate_list_view(&self, ui: &mut Ui) -> (Rect, Response) {
-        let available_width = ui.available_size_before_wrap().x;
-        let height = LIST_VIEW_HEIGHT;
-
-        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
-    }
-
-    fn allocate_detail_view(&self, ui: &mut Ui) -> (Rect, Response) {
-        let available_width = ui.available_size_before_wrap().x;
-        let height = DETAIL_VIEW_HEIGHT;
-
-        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
-    }
-
-    fn allocate_edit_view(&self, ui: &mut Ui) -> (Rect, Response) {
-        let available_width = ui.available_size_before_wrap().x;
-        let height = EDIT_VIEW_HEIGHT;
-
-        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
-    }
-
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
         let title = self.relay.url.as_str().trim_start_matches("wss://");
         let title = title.trim_start_matches("ws://");
@@ -308,20 +272,6 @@ impl RelayEntry {
         // set tooltip
         ui.interact(rect, ui.next_auto_id(), Sense::hover())
             .on_hover_text(tooltip);
-    }
-
-    fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
-        let frame_rect = Rect::from_min_max(
-            rect.min + vec2(OUTER_MARGIN_LEFT, OUTER_MARGIN_TOP),
-            rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM),
-        );
-        let fill = ui.style().visuals.extreme_bg_color;
-        ui.painter().add(epaint::RectShape {
-            rect: frame_rect,
-            rounding: Rounding::same(5.0),
-            fill,
-            stroke: Stroke::NONE,
-        });
     }
 
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
@@ -1081,11 +1031,11 @@ impl RelayEntry {
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
     fn update_list_view(mut self, ui: &mut Ui) -> Response {
-        let (rect, mut response) = self.allocate_list_view(ui);
+        let (rect, mut response) = list_entry::allocate_space(ui, LIST_VIEW_HEIGHT);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            self.paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             if self.relay.usage_bits != 0 {
@@ -1098,11 +1048,11 @@ impl RelayEntry {
     }
 
     fn update_detail_view(mut self, ui: &mut Ui) -> Response {
-        let (rect, mut response) = self.allocate_detail_view(ui);
+        let (rect, mut response) = list_entry::allocate_space(ui, DETAIL_VIEW_HEIGHT);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            self.paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
@@ -1116,11 +1066,11 @@ impl RelayEntry {
     }
 
     fn update_edit_view(mut self, ui: &mut Ui) -> Response {
-        let (rect, mut response) = self.allocate_edit_view(ui);
+        let (rect, mut response) = list_entry::allocate_space(ui, EDIT_VIEW_HEIGHT);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            self.paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect);
             self.paint_title(ui, &rect);
             self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
@@ -1144,151 +1094,5 @@ impl Widget for RelayEntry {
             RelayEntryView::Detail => self.update_detail_view(ui),
             RelayEntryView::Edit => self.update_edit_view(ui),
         }
-    }
-}
-
-fn paint_hline(ui: &mut Ui, rect: &Rect, y_pos: f32) {
-    let painter = ui.painter();
-    painter.hline(
-        (rect.left() + TEXT_LEFT + 1.0)..=(rect.right() - TEXT_RIGHT - 1.0),
-        painter.round_to_pixel(rect.top() + TEXT_TOP + y_pos),
-        Stroke::new(HLINE_THICKNESS, ui.visuals().panel_fill),
-    );
-}
-
-fn text_to_galley(ui: &mut Ui, text: WidgetText, align: Align) -> WidgetTextGalley {
-    let mut text_job = text.into_text_job(
-        ui.style(),
-        FontSelection::Default,
-        ui.layout().vertical_align(),
-    );
-    text_job.job.halign = align;
-    ui.fonts(|f| text_job.into_galley(f))
-}
-
-fn allocate_text_at(
-    ui: &mut Ui,
-    pos: Pos2,
-    text: WidgetText,
-    align: Align,
-    id: Id,
-) -> (WidgetTextGalley, Response) {
-    let galley = text_to_galley(ui, text, align);
-    let grect = galley.galley.rect;
-    let rect = if align == Align::Min {
-        Rect::from_min_size(pos, galley.galley.rect.size())
-    } else if align == Align::Center {
-        Rect::from_min_max(
-            pos2(pos.x - grect.width() / 2.0, pos.y),
-            pos2(pos.x + grect.width() / 2.0, pos.y + grect.height()),
-        )
-    } else {
-        Rect::from_min_max(
-            pos2(pos.x - grect.width(), pos.y),
-            pos2(pos.x, pos.y + grect.height()),
-        )
-    };
-    let response = ui.interact(rect, id, Sense::click());
-    (galley, response)
-}
-
-fn draw_text_galley_at(
-    ui: &mut Ui,
-    pos: Pos2,
-    galley: WidgetTextGalley,
-    color: Option<Color32>,
-    underline: Option<Stroke>,
-) -> Rect {
-    let size = galley.galley.rect.size();
-    let halign = galley.galley.job.halign;
-    let color = color.or(Some(ui.visuals().text_color()));
-    ui.painter().add(epaint::TextShape {
-        pos,
-        galley: galley.galley,
-        override_text_color: color,
-        underline: Stroke::NONE,
-        angle: 0.0,
-    });
-    let rect = if halign == Align::LEFT {
-        Rect::from_min_size(pos, size)
-    } else {
-        Rect::from_x_y_ranges(pos.x - size.x..=pos.x, pos.y..=pos.y + size.y)
-    };
-    if let Some(stroke) = underline {
-        let stroke = Stroke::new(stroke.width, stroke.color.gamma_multiply(0.6));
-        let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
-        let painter = ui.painter();
-        painter.hline(
-            rect.min.x..=rect.max.x,
-            rect.min.y + line_height - 2.0,
-            stroke,
-        );
-    }
-    rect
-}
-
-fn draw_text_at(
-    ui: &mut Ui,
-    pos: Pos2,
-    text: WidgetText,
-    align: Align,
-    color: Option<Color32>,
-    underline: Option<Stroke>,
-) -> Rect {
-    let galley = text_to_galley(ui, text, align);
-    let color = color.or(Some(ui.visuals().text_color()));
-    draw_text_galley_at(ui, pos, galley, color, underline)
-}
-
-fn draw_link_at(
-    ui: &mut Ui,
-    id: Id,
-    pos: Pos2,
-    text: WidgetText,
-    align: Align,
-    enabled: bool,
-    secondary: bool,
-) -> Response {
-    let (galley, response) = allocate_text_at(ui, pos, text, align, id);
-    let response = if enabled {
-        response.on_hover_cursor(CursorIcon::PointingHand)
-    } else {
-        response
-    };
-    let hover_color = ui.visuals().widgets.hovered.fg_stroke.color;
-    let (color, stroke) = if !secondary {
-        if enabled {
-            if response.hovered() {
-                (ui.visuals().text_color(), Stroke::NONE)
-            } else {
-                (hover_color, Stroke::new(1.0, hover_color))
-            }
-        } else {
-            (ui.visuals().weak_text_color(), Stroke::NONE)
-        }
-    } else {
-        if enabled {
-            if response.hovered() {
-                (hover_color, Stroke::NONE)
-            } else {
-                (
-                    ui.visuals().text_color(),
-                    Stroke::new(1.0, ui.visuals().text_color()),
-                )
-            }
-        } else {
-            (ui.visuals().weak_text_color(), Stroke::NONE)
-        }
-    };
-    draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
-    response
-}
-
-/// UTF-8 safe truncate (String::truncate() can panic)
-#[inline]
-fn safe_truncate(s: &str, max_chars: usize) -> &str {
-    match s.char_indices().nth(max_chars) {
-        None => s,
-        Some((idx, _)) => &s[..idx],
     }
 }
