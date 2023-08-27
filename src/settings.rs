@@ -115,6 +115,7 @@ pub struct Settings {
 
     // Database settings
     pub prune_period_days: u64,
+    pub cache_prune_period_days: u64,
 }
 
 impl Default for Settings {
@@ -187,6 +188,7 @@ impl Default for Settings {
             ),
             nip11_lines_to_output_on_error: default_setting!(nip11_lines_to_output_on_error),
             prune_period_days: default_setting!(prune_period_days),
+            cache_prune_period_days: default_setting!(prune_period_days),
         }
     }
 }
@@ -259,6 +261,7 @@ impl Settings {
             ),
             nip11_lines_to_output_on_error: load_setting!(nip11_lines_to_output_on_error),
             prune_period_days: load_setting!(prune_period_days),
+            cache_prune_period_days: load_setting!(cache_prune_period_days),
         }
     }
 
@@ -321,6 +324,7 @@ impl Settings {
         save_setting!(fetcher_host_exclusion_on_high_error_secs, self, txn);
         save_setting!(nip11_lines_to_output_on_error, self, txn);
         save_setting!(prune_period_days, self, txn);
+        save_setting!(cache_prune_period_days, self, txn);
         txn.commit()?;
         Ok(())
     }

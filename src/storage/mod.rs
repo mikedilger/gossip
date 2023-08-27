@@ -701,7 +701,8 @@ impl Storage {
         usize,
         10
     );
-    def_setting!(prune_period_days, b"prune_period_days", u64, 30);
+    def_setting!(prune_period_days, b"prune_period_days", u64, 90);
+    def_setting!(cache_prune_period_days, b"cache_prune_period_days", u64, 90);
 
     pub fn write_encrypted_private_key<'a>(
         &'a self,

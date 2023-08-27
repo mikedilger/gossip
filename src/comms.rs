@@ -29,6 +29,7 @@ pub enum ToOverlordMessage {
     MinionJobUpdated(RelayUrl, u64, u64),
     PickRelays,
     Post(String, Vec<Tag>, Option<Id>),
+    PruneCache,
     PruneDatabase,
     PullFollow,
     PushFollow,

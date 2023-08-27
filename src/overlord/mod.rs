@@ -672,6 +672,24 @@ impl Overlord {
                 // Then pick
                 self.pick_relays().await;
             }
+            ToOverlordMessage::PruneCache => {
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Pruning cache, please be patient..".to_owned());
+
+                let age = Duration::new(
+                    GLOBALS.storage.read_setting_cache_prune_period_days() * 60 * 60 * 24,
+                    0,
+                );
+
+                let count = GLOBALS.fetcher.prune(age).await?;
+
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write(format!("Cache has been pruned. {} files removed.", count));
+            }
             ToOverlordMessage::PruneDatabase => {
                 GLOBALS
                     .status_queue
