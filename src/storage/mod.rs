@@ -2342,12 +2342,14 @@ impl Storage {
                 if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
                     let rumor_event = rumor.into_event_with_bad_signature();
 
-                    let people: Vec<PublicKey> = rumor_event
+                    let mut people: Vec<PublicKey> = rumor_event
                         .people()
                         .iter()
                         .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
                         .filter(|pk| *pk != my_pubkey)
                         .collect();
+                    people.push(rumor_event.pubkey); // include author too
+
                     output.insert(DmChannel::new(&people));
                 }
             }
@@ -2406,7 +2408,8 @@ impl Storage {
                         .drain(..)
                         .filter_map(|(pkh, _, _)| PublicKey::try_from(pkh).ok())
                         .collect();
-                    tagged.retain(|pk| *pk != my_pubkey);
+                    tagged.push(rumor_event.pubkey); // include author
+                    tagged.retain(|pk| *pk != my_pubkey); // never include user
                     let this_channel = DmChannel::new(&tagged);
                     if this_channel == *channel {
                         pass2.push(event);

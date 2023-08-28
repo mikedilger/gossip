@@ -12,6 +12,7 @@ impl DmChannel {
     pub fn new(public_keys: &[PublicKey]) -> DmChannel {
         let mut vec = public_keys.to_owned();
         vec.sort();
+        vec.dedup();
         DmChannel(vec)
     }
 
