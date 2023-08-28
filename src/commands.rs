@@ -14,6 +14,9 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
     match &*command {
         "decrypt" => decrypt(args)?,
         "dump_event" => dump_event(args)?,
+        "events_of_kind" => events_of_kind(args)?,
+        "dump_person_relays" => dump_person_relays(args)?,
+        "dump_relays" => dump_relays()?,
         "help" => help()?,
         "login" => {
             login()?;
@@ -35,6 +38,12 @@ pub fn help() -> Result<(), Error> {
     println!("    decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.");
     println!("gossip dump_event <idhex>");
     println!("    print the event (in JSON) from the database that has the given id");
+    println!("gossip dump_person_relays <pubkeyhex>");
+    println!("    print all the person-relay records for the given person");
+    println!("gossip dump_relays");
+    println!("    print all the relay records");
+    println!("gossip events_of_kind <kind>");
+    println!("    print IDs of all events of kind=<kind>");
     println!("gossip help");
     println!("    show this list");
     println!("gossip giftwrap_ids");
@@ -58,7 +67,7 @@ pub fn decrypt(mut args: env::Args) -> Result<(), Error> {
         Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
         None => {
             return Err(ErrorKind::Usage(
-                "Missing ciphertext parameter".to_string(),
+                "Missing pubkeyhex parameter".to_string(),
                 "decrypt <pubkeyhex> <ciphertext> <padded?>".to_owned(),
             )
             .into())
@@ -80,7 +89,7 @@ pub fn decrypt(mut args: env::Args) -> Result<(), Error> {
         Some(padded) => padded == "1",
         None => {
             return Err(ErrorKind::Usage(
-                "Missing ciphertext parameter".to_string(),
+                "Missing padded parameter".to_string(),
                 "decrypt <pubkeyhex> <ciphertext> <padded?>".to_owned(),
             )
             .into())
@@ -113,6 +122,61 @@ pub fn dump_event(mut args: env::Args) -> Result<(), Error> {
     match GLOBALS.storage.read_event(id)? {
         Some(event) => println!("{}", serde_json::to_string(&event)?),
         None => return Err(ErrorKind::EventNotFound.into()),
+    }
+
+    Ok(())
+}
+
+pub fn dump_relays() -> Result<(), Error> {
+    let relays = GLOBALS.storage.filter_relays(|_| true)?;
+    for relay in &relays {
+        println!("{:?}", relay);
+    }
+    Ok(())
+}
+
+pub fn dump_person_relays(mut args: env::Args) -> Result<(), Error> {
+    let pubkey = match args.next() {
+        Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing pubkeyhex parameter".to_string(),
+                "dump_person_relays <pubkeyhex>".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let person_relays = GLOBALS.storage.get_person_relays(pubkey)?;
+    for record in &person_relays {
+        println!("write={} read={}, mwrite={}, mread={}, url={} last_fetched={:?}, last_suggested_kind3={:?}, last_suggested_nip05={:?}, last_suggested_by_tag={:?}",
+                 record.write as usize, record.read as usize,
+                 record.manually_paired_write as usize, record.manually_paired_read as usize,
+                 record.url,
+                 record.last_fetched,
+                 record.last_suggested_kind3,
+                 record.last_suggested_nip05,
+                 record.last_suggested_bytag);
+    }
+    Ok(())
+}
+
+pub fn events_of_kind(mut args: env::Args) -> Result<(), Error> {
+    let kind: EventKind = match args.next() {
+        Some(integer) => integer.parse::<u32>()?.into(),
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing kind parameter".to_string(),
+                "events_of_kind <kind>".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let ids = GLOBALS.storage.find_event_ids(&[kind], &[], None)?;
+
+    for id in ids {
+        println!("{}", id.as_hex_string());
     }
 
     Ok(())
@@ -153,8 +217,6 @@ pub fn ungiftwrap(mut args: env::Args) -> Result<(), Error> {
 }
 
 pub fn giftwrap_ids() -> Result<(), Error> {
-    login()?;
-
     let ids = GLOBALS
         .storage
         .find_event_ids(&[EventKind::GiftWrap], &[], None)?;
