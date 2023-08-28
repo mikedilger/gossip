@@ -13,7 +13,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     };
 
-    channels.sort_by(|a, b| a.name().cmp(&b.name()));
+    channels.sort_by_key(|a| a.name());
 
     ScrollArea::vertical()
         .id_source("dm_chat_list")

@@ -2310,10 +2310,8 @@ impl Storage {
                     event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
                     // Make sure if it has tags, only author and my_pubkey
                     // TBD
-                } else if event.kind == EventKind::GiftWrap {
-                    true
                 } else {
-                    false
+                    event.kind == EventKind::GiftWrap
                 }
             },
             false,
