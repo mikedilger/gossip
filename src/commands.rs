@@ -15,6 +15,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "decrypt" => decrypt(args)?,
         "dump_event" => dump_event(args)?,
         "events_of_kind" => events_of_kind(args)?,
+        "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(args)?,
         "dump_person_relays" => dump_person_relays(args)?,
         "dump_relays" => dump_relays()?,
         "help" => help()?,
@@ -44,6 +45,8 @@ pub fn help() -> Result<(), Error> {
     println!("    print all the relay records");
     println!("gossip events_of_kind <kind>");
     println!("    print IDs of all events of kind=<kind>");
+    println!("gossip events_of_pubkey_and_kind <pubkeyhex> <kind>");
+    println!("    print IDs of all events from <pubkeyhex> of kind=<kind>");
     println!("gossip help");
     println!("    show this list");
     println!("gossip giftwrap_ids");
@@ -174,6 +177,39 @@ pub fn events_of_kind(mut args: env::Args) -> Result<(), Error> {
     };
 
     let ids = GLOBALS.storage.find_event_ids(&[kind], &[], None)?;
+
+    for id in ids {
+        println!("{}", id.as_hex_string());
+    }
+
+    Ok(())
+}
+
+pub fn events_of_pubkey_and_kind(mut args: env::Args) -> Result<(), Error> {
+    let pubkey = match args.next() {
+        Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing pubkeyhex parameter".to_string(),
+                "events_of_pubkey_and_kind <pubkeyhex> <kind>".to_owned(),
+            )
+            .into())
+        }
+    };
+
+
+    let kind: EventKind = match args.next() {
+        Some(integer) => integer.parse::<u32>()?.into(),
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing kind parameter".to_string(),
+                "events_of_pubkey_and_kind <pubkeyhex> <kind>".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let ids = GLOBALS.storage.find_event_ids(&[kind], &[pubkey], None)?;
 
     for id in ids {
         println!("{}", id.as_hex_string());
