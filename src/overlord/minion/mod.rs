@@ -477,9 +477,18 @@ impl Minion {
         let event_kinds = crate::feed::feed_related_event_kinds(true);
 
         if let Some(pubkey) = GLOBALS.signer.public_key() {
+            let pkh: PublicKeyHex = pubkey.into();
+
+            // DMs by me, all time, TEMPORARY FIXME GINA
+            filters.push(Filter {
+                authors: vec![pkh.clone().into()],
+                kinds: vec![EventKind::EncryptedDirectMessage],
+                since: None,
+                ..Default::default()
+            });
+
             // feed related by me
             // FIXME copy this to listening to my write relays
-            let pkh: PublicKeyHex = pubkey.into();
             filters.push(Filter {
                 authors: vec![pkh.into()],
                 kinds: event_kinds.clone(),
