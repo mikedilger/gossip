@@ -367,8 +367,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeMentions => {
                 self.subscribe_mentions(message.job_id).await?;
             }
-            ToMinionPayloadDetail::SubscribeConfig => {
-                self.subscribe_config(message.job_id).await?;
+            ToMinionPayloadDetail::SubscribeOutbox => {
+                self.subscribe_outbox(message.job_id).await?;
             }
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
@@ -475,27 +475,6 @@ impl Minion {
 
         // Allow all feed related event kinds (including DMs)
         let event_kinds = crate::feed::feed_related_event_kinds(true);
-
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            let pkh: PublicKeyHex = pubkey.into();
-
-            // DMs by me, all time, TEMPORARY FIXME GINA
-            filters.push(Filter {
-                authors: vec![pkh.clone().into()],
-                kinds: vec![EventKind::EncryptedDirectMessage],
-                since: None,
-                ..Default::default()
-            });
-
-            // feed related by me
-            // FIXME copy this to listening to my write relays
-            filters.push(Filter {
-                authors: vec![pkh.into()],
-                kinds: event_kinds.clone(),
-                since: Some(feed_since),
-                ..Default::default()
-            });
-        }
 
         if !followed_pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
@@ -643,22 +622,43 @@ impl Minion {
         Ok(())
     }
 
-    // Subscribe to the user's config which is on their own write relays
-    async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
+    // Subscribe to the user's output (config, DMs, etc) which is on their own write relays
+    async fn subscribe_outbox(&mut self, job_id: u64) -> Result<(), Error> {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             let pkh: PublicKeyHex = pubkey.into();
 
-            let filters: Vec<Filter> = vec![Filter {
-                authors: vec![pkh.into()],
-                kinds: vec![
-                    EventKind::Metadata,
-                    //EventKind::RecommendRelay,
-                    EventKind::ContactList,
-                    EventKind::RelayList,
-                ],
-                // these are all replaceable, no since required
-                ..Default::default()
-            }];
+            // Read back in things that we wrote out to our write relays
+            // that we need
+            let filters: Vec<Filter> = vec![
+                // Actual config stuff
+                Filter {
+                    authors: vec![pkh.clone().into()],
+                    kinds: vec![
+                        EventKind::Metadata,
+                        //EventKind::RecommendRelay,
+                        EventKind::ContactList,
+                        EventKind::RelayList,
+                    ],
+                    // these are all replaceable, no since required
+                    ..Default::default()
+                },
+                // DMs I wrote, all the way back (temp?)
+                Filter {
+                    authors: vec![pkh.clone().into()],
+                    kinds: vec![EventKind::EncryptedDirectMessage],
+                    // all the way back
+                    ..Default::default()
+                },
+                // GiftWraps I wrote anonymously to myself
+
+                // Posts I wrote, recently
+                Filter {
+                    authors: vec![pkh.into()],
+                    kinds: crate::feed::feed_related_event_kinds(false), // not DMs
+                    // all the way back
+                    ..Default::default()
+                },
+            ];
 
             self.subscribe(filters, "temp_config_feed", job_id).await?;
         }

@@ -151,7 +151,7 @@ impl Overlord {
             .await?;
         }
 
-        // Separately subscribe to our config on our write relays
+        // Separately subscribe to our outbox events on our write relays
         let write_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
@@ -165,7 +165,7 @@ impl Overlord {
                     reason: RelayConnectionReason::Config,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeConfig,
+                        detail: ToMinionPayloadDetail::SubscribeOutbox,
                     },
                 }],
             )
