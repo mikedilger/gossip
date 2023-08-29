@@ -2406,17 +2406,17 @@ impl Storage {
             Some(Unixtime(0)),
             |event| {
                 if event.kind == EventKind::EncryptedDirectMessage {
+                    if channel.keys().len() > 1 { return false; }
+                    if channel.keys().len() == 0 { return true; } // self-channel
                     let other = &channel.keys()[0];
                     let people = event.people();
-                    channel.keys().len() == 1
-                        && ((event.pubkey == my_pubkey
-                            && event.is_tagged(other)
-                            && (people.len() == 1
-                                || (people.len() == 2 && event.is_tagged(&my_pubkey))))
-                            || (event.pubkey == *other
-                                && event.is_tagged(&my_pubkey)
-                                && (people.len() == 1
-                                    || (people.len() == 2 && event.is_tagged(other)))))
+                    match people.len() {
+                        1 => (event.pubkey == my_pubkey && event.is_tagged(other))
+                            || (event.pubkey == *other && event.is_tagged(&my_pubkey)),
+                        2 => (event.pubkey == my_pubkey || event.pubkey == *other)
+                            && (event.is_tagged(&my_pubkey) && event.is_tagged(other)),
+                        _ => false,
+                    }
                 } else if event.kind == EventKind::GiftWrap {
                     // Decrypt in next pass, else we would have to decrypt twice
                     true

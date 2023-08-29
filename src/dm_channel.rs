@@ -5,6 +5,9 @@ use sha2::Digest;
 /// of participants (usually just one, but can be a small group).
 // internally the pubkeys are kept sorted so they can be compared
 // that is why we don't expose the inner field directly.
+//
+// The pubkey of the gossip user is not included. If they send themselves
+// a note, that channel has an empty vec.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DmChannel(Vec<PublicKey>);
 
