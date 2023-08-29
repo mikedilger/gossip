@@ -17,6 +17,8 @@ pub(crate) const TEXT_LEFT: f32 = 20.0;
 pub(crate) const TEXT_RIGHT: f32 = 25.0;
 /// Start of text (excl. outer margin): top
 pub(crate) const TEXT_TOP: f32 = 15.0;
+/// Title font size
+pub(crate) const TITLE_FONT_SIZE: f32 = 16.5;
 /// Thickness of separator
 const HLINE_THICKNESS: f32 = 1.5;
 
@@ -27,12 +29,12 @@ pub(crate) fn allocate_space(ui: &mut Ui, height: f32) -> (Rect, Response) {
     ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
 }
 
-pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect) {
+pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
     let frame_rect = Rect::from_min_max(
         rect.min + vec2(OUTER_MARGIN_LEFT, OUTER_MARGIN_TOP),
         rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM),
     );
-    let fill = ui.style().visuals.extreme_bg_color;
+    let fill = fill.unwrap_or(ui.style().visuals.extreme_bg_color);
     ui.painter().add(epaint::RectShape {
         rect: frame_rect,
         rounding: Rounding::same(5.0),

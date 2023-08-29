@@ -21,6 +21,9 @@ pub use relay_entry::{RelayEntry, RelayEntryView};
 //     ui.label(job.job);
 // }
 
+/// Copy symbol for copy button
+pub(crate) const COPY_SYMBOL: &str = "\u{1F4CB}";
+
 pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url: impl ToString) {
     let mut job = text.into().into_text_job(
         ui.style(),

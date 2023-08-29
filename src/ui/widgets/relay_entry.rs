@@ -43,8 +43,6 @@ const USAGE_LINE_X_END: f32 = -10.0;
 const USAGE_LINE_THICKNESS: f32 = 1.0;
 /// Spacing between nip11 text rows
 const NIP11_Y_SPACING: f32 = 20.0;
-/// Copy symbol for nip11 items copy button
-const COPY_SYMBOL: &str = "\u{2398}";
 /// Status symbol for status color indicator
 const STATUS_SYMBOL: &str = "\u{25CF}";
 /// Space reserved for status symbol before title
@@ -223,7 +221,7 @@ impl RelayEntry {
         if self.relay.url.0.len() > TITLE_MAX_LEN {
             title.push('\u{2026}'); // append ellipsis
         }
-        let text = RichText::new(title).size(16.5);
+        let text = RichText::new(title).size(list_entry::TITLE_FONT_SIZE);
         let pos = rect.min + vec2(TEXT_LEFT + STATUS_SYMBOL_SPACE, TEXT_TOP);
         let rect = draw_text_at(ui, pos, text.into(), Align::LEFT, Some(self.accent), None);
         ui.interact(rect, ui.next_auto_id(), Sense::hover())
@@ -601,7 +599,7 @@ impl RelayEntry {
                 let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
                 let id = self.make_id("copy_nip11_contact");
                 let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
-                let text = RichText::new(COPY_SYMBOL);
+                let text = RichText::new(crate::ui::widgets::COPY_SYMBOL);
                 let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
                 if response.clicked() {
                     ui.output_mut(|o| {
@@ -634,7 +632,7 @@ impl RelayEntry {
                     let rect = draw_text_at(ui, pos, npub.clone().into(), align, None, None);
                     let id = self.make_id("copy_nip11_npub");
                     let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
-                    let text = RichText::new(COPY_SYMBOL);
+                    let text = RichText::new(crate::ui::widgets::COPY_SYMBOL);
                     let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
                     if response.clicked() {
                         ui.output_mut(|o| {
@@ -1035,7 +1033,7 @@ impl RelayEntry {
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            list_entry::paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect, None);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             if self.relay.usage_bits != 0 {
@@ -1052,7 +1050,7 @@ impl RelayEntry {
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            list_entry::paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect, None);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
@@ -1070,7 +1068,7 @@ impl RelayEntry {
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            list_entry::paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect, None);
             self.paint_title(ui, &rect);
             self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
