@@ -1,11 +1,12 @@
 use super::{GossipUi, Page};
+use crate::dm_channel::DmChannelData;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, Label, RichText, ScrollArea, Sense, Ui};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let mut channels = match GLOBALS.storage.dm_channels() {
+    let mut channels: Vec<DmChannelData> = match GLOBALS.storage.dm_channels() {
         Ok(channels) => channels,
         Err(_) => {
             ui.label("ERROR");
@@ -13,15 +14,35 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     };
 
-    channels.sort_by_key(|a| a.name());
-
     ScrollArea::vertical()
         .id_source("dm_chat_list")
         .show(ui, |ui| {
             let color = app.settings.theme.accent_color();
-            for channel in channels.drain(..) {
+            for channeldata in channels.drain(..) {
                 ui.horizontal_wrapped(|ui| {
-                    let channel_name = channel.name();
+                    let channel_name = channeldata.dm_channel.name();
+                    ui.label(format!(
+                        "({}/{})",
+                        channeldata.unread_message_count, channeldata.message_count
+                    ));
+
+                    ui.label(
+                        RichText::new(crate::date_ago::date_ago(channeldata.latest_message))
+                            .italics()
+                            .weak(),
+                    )
+                    .on_hover_ui(|ui| {
+                        if let Ok(stamp) =
+                            time::OffsetDateTime::from_unix_timestamp(channeldata.latest_message.0)
+                        {
+                            if let Ok(formatted) =
+                                stamp.format(&time::format_description::well_known::Rfc2822)
+                            {
+                                ui.label(formatted);
+                            }
+                        }
+                    });
+
                     if ui
                         .add(
                             Label::new(RichText::new(channel_name).color(color))
@@ -29,7 +50,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         )
                         .clicked()
                     {
-                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                        app.set_page(Page::Feed(FeedKind::DmChat(channeldata.dm_channel)));
                     }
                 });
                 ui.add_space(20.0);

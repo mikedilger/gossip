@@ -14,7 +14,7 @@ mod import;
 mod migrations;
 mod types;
 
-use crate::dm_channel::DmChannel;
+use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::Person;
@@ -2294,8 +2294,8 @@ impl Storage {
         Ok(ranked_relays)
     }
 
-    /// Get all the DM channels (all sets of PublicKeys on existing DM events)
-    pub fn dm_channels(&self) -> Result<Vec<DmChannel>, Error> {
+    /// Get all the DM channels with associated data
+    pub fn dm_channels(&self) -> Result<Vec<DmChannelData>, Error> {
         let my_pubkey = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
@@ -2317,44 +2317,79 @@ impl Storage {
             false,
         )?;
 
-        let mut output: HashSet<DmChannel> = HashSet::new();
+        // Map from channel to latest-message-time and unread-count
+        let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
 
         for event in &events {
+            let unread = 1 - self.is_event_viewed(event.id)? as usize;
             if event.kind == EventKind::EncryptedDirectMessage {
-                if event.pubkey != my_pubkey {
-                    // DM sent to me
-                    output.insert(DmChannel::new(&[event.pubkey]));
-                } else {
-                    // DM sent from me
-                    for tag in event.tags.iter() {
-                        if let Tag::Pubkey { pubkey, .. } = tag {
-                            if let Ok(pk) = PublicKey::try_from(pubkey) {
-                                if pk != my_pubkey {
-                                    output.insert(DmChannel::new(&[pk]));
+                let time = event.created_at;
+                let dmchannel = {
+                    if event.pubkey != my_pubkey {
+                        // DM sent to me
+                        DmChannel::new(&[event.pubkey])
+                    } else {
+                        // DM sent from me
+                        let mut maybe_channel: Option<DmChannel> = None;
+                        for tag in event.tags.iter() {
+                            if let Tag::Pubkey { pubkey, .. } = tag {
+                                if let Ok(pk) = PublicKey::try_from(pubkey) {
+                                    if pk != my_pubkey {
+                                        maybe_channel = Some(DmChannel::new(&[pk]));
+                                    }
                                 }
                             }
                         }
+                        match maybe_channel {
+                            Some(dmchannel) => dmchannel,
+                            None => continue,
+                        }
                     }
-                }
+                };
+                map.entry(dmchannel.clone())
+                    .and_modify(|d| {
+                        d.latest_message = d.latest_message.max(time);
+                        d.message_count += 1;
+                        d.unread_message_count += unread;
+                    })
+                    .or_insert(DmChannelData {
+                        dm_channel: dmchannel,
+                        latest_message: time,
+                        message_count: 1,
+                        unread_message_count: unread,
+                    });
             } else if event.kind == EventKind::GiftWrap {
                 if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
                     let rumor_event = rumor.into_event_with_bad_signature();
-
-                    let mut people: Vec<PublicKey> = rumor_event
-                        .people()
-                        .iter()
-                        .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
-                        .filter(|pk| *pk != my_pubkey)
-                        .collect();
-                    people.push(rumor_event.pubkey); // include author too
-
-                    output.insert(DmChannel::new(&people));
+                    let time = rumor_event.created_at;
+                    let dmchannel = {
+                        let mut people: Vec<PublicKey> = rumor_event
+                            .people()
+                            .iter()
+                            .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
+                            .filter(|pk| *pk != my_pubkey)
+                            .collect();
+                        people.push(rumor_event.pubkey); // include author too
+                        DmChannel::new(&people)
+                    };
+                    map.entry(dmchannel.clone())
+                        .and_modify(|d| {
+                            d.latest_message = d.latest_message.max(time);
+                            d.message_count += 1;
+                            d.unread_message_count += unread;
+                        })
+                        .or_insert(DmChannelData {
+                            dm_channel: dmchannel,
+                            latest_message: time,
+                            message_count: 1,
+                            unread_message_count: unread,
+                        });
                 }
             }
         }
 
-        let mut output = output.into_iter().collect::<Vec<_>>();
-        output.sort(); // not by name, by key
+        let mut output: Vec<DmChannelData> = map.drain().map(|e| e.1).collect();
+        output.sort_by(|a, b| b.latest_message.cmp(&a.latest_message));
         Ok(output)
     }
 

@@ -1,4 +1,4 @@
-use nostr_types::PublicKey;
+use nostr_types::{PublicKey, Unixtime};
 use sha2::Digest;
 
 /// This represents a DM (direct message) channel which includes a set
@@ -43,4 +43,12 @@ impl DmChannel {
         }
         hex::encode(hasher.finalize())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DmChannelData {
+    pub dm_channel: DmChannel,
+    pub latest_message: Unixtime,
+    pub message_count: usize,
+    pub unread_message_count: usize,
 }
