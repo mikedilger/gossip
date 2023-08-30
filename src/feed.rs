@@ -1,4 +1,5 @@
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
+use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{EventDelegation, EventKind, Id, PublicKey, RelayUrl, Unixtime};
@@ -18,6 +19,7 @@ pub enum FeedKind {
         author: Option<PublicKey>,
     },
     Person(PublicKey),
+    DmChat(DmChannel),
 }
 
 pub struct Feed {
@@ -28,6 +30,7 @@ pub struct Feed {
     followed_feed: RwLock<Vec<Id>>,
     inbox_feed: RwLock<Vec<Id>>,
     person_feed: RwLock<Vec<Id>>,
+    dm_chat_feed: RwLock<Vec<Id>>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -44,6 +47,7 @@ impl Feed {
             followed_feed: RwLock::new(Vec::new()),
             inbox_feed: RwLock::new(Vec::new()),
             person_feed: RwLock::new(Vec::new()),
+            dm_chat_feed: RwLock::new(Vec::new()),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
@@ -151,6 +155,16 @@ impl Feed {
         });
     }
 
+    pub fn set_feed_to_dmchat(&self, channel: DmChannel) {
+        *self.current_feed_kind.write() = FeedKind::DmChat(channel);
+        *self.thread_parent.write() = None;
+
+        // Recompute as they switch
+        self.sync_recompute();
+
+        self.unlisten();
+    }
+
     pub fn get_feed_kind(&self) -> FeedKind {
         self.current_feed_kind.read().to_owned()
     }
@@ -168,6 +182,11 @@ impl Feed {
     pub fn get_person_feed(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
         self.person_feed.read().clone()
+    }
+
+    pub fn get_dm_chat_feed(&self) -> Vec<Id> {
+        self.sync_maybe_periodic_recompute();
+        self.dm_chat_feed.read().clone()
     }
 
     pub fn get_thread_parent(&self) -> Option<Id> {
@@ -373,6 +392,10 @@ impl Feed {
                     .collect();
 
                 *self.person_feed.write() = events;
+            }
+            FeedKind::DmChat(channel) => {
+                let ids = GLOBALS.storage.dm_events(&channel)?;
+                *self.dm_chat_feed.write() = ids;
             }
         }
 

@@ -13,6 +13,7 @@ macro_rules! text_edit_multiline {
 }
 
 mod components;
+mod dm_chat_list;
 mod feed;
 mod help;
 mod people;
@@ -94,6 +95,7 @@ pub fn run() -> Result<(), Error> {
 
 #[derive(Debug, Clone, PartialEq)]
 enum Page {
+    DmChatList,
     Feed(FeedKind),
     PeopleList,
     PeopleFollow,
@@ -114,6 +116,7 @@ enum Page {
 
 #[derive(Eq, Hash, PartialEq)]
 enum SubMenu {
+    DmChat,
     People,
     Relays,
     Account,
@@ -123,6 +126,7 @@ enum SubMenu {
 impl SubMenu {
     fn to_id_str(&self) -> &'static str {
         match self {
+            SubMenu::DmChat => "dmchat_submenu",
             SubMenu::People => "people_submenu",
             SubMenu::Account => "account_submenu",
             SubMenu::Relays => "relays_submenu",
@@ -148,6 +152,7 @@ enum SettingsTab {
 impl SubMenuState {
     fn new() -> Self {
         let mut submenu_states: HashMap<SubMenu, bool> = HashMap::new();
+        submenu_states.insert(SubMenu::DmChat, false);
         submenu_states.insert(SubMenu::People, false);
         submenu_states.insert(SubMenu::Relays, false);
         submenu_states.insert(SubMenu::Account, false);
@@ -321,6 +326,7 @@ impl GossipUi {
         }
 
         let mut submenu_ids: HashMap<SubMenu, egui::Id> = HashMap::new();
+        submenu_ids.insert(SubMenu::DmChat, egui::Id::new(SubMenu::DmChat.to_id_str()));
         submenu_ids.insert(SubMenu::People, egui::Id::new(SubMenu::People.to_id_str()));
         submenu_ids.insert(
             SubMenu::Account,
@@ -525,6 +531,9 @@ impl GossipUi {
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
             }
+            Page::Feed(FeedKind::DmChat(pubkeys)) => {
+                GLOBALS.feed.set_feed_to_dmchat(pubkeys.to_owned());
+            }
             Page::Search => {
                 self.entering_search_page = true;
             }
@@ -658,13 +667,25 @@ impl eframe::App for GossipUi {
                     if self.add_selected_label(ui, matches!(&self.page, Page::Feed(FeedKind::Person(key)) if *key == pubkey), "My Notes").clicked() {
                         self.set_page(Page::Feed(FeedKind::Person(pubkey)));
                     }
-                }
-                if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::Inbox(_))), "Inbox").clicked() {
-                    self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
+                    if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::Inbox(_))), "Inbox").clicked() {
+                        self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
+                    }
                 }
 
                 ui.add_space(8.0);
 
+                // ---- DM Chat Submenu ----
+                if GLOBALS.signer.public_key().is_some() {
+                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::DmChat, "DM Chat");
+                    submenu.show_body_indented(&header_response, ui, |ui| {
+                        self.add_menu_item_page(ui, Page::DmChatList, "List");
+                        if let Page::Feed(FeedKind::DmChat(channel)) = &self.page {
+                            self.add_menu_item_page(ui, Page::Feed(FeedKind::DmChat(channel.clone())),
+                                                    &channel.name());
+                        }
+                    });
+                    self.after_openable_menu(ui, &submenu);
+                }
                 // ---- People Submenu ----
                 {
                     let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::People, "People");
@@ -870,6 +891,7 @@ impl eframe::App for GossipUi {
             .show(ctx, |ui| {
                 self.begin_ui(ui);
                 match self.page {
+                    Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
                     Page::Feed(_) => feed::update(self, ctx, frame, ui),
                     Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
                         people::update(self, ctx, frame, ui)

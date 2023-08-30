@@ -78,7 +78,7 @@ pub enum ToMinionPayloadDetail {
     PullFollowing,
     Shutdown,
     SubscribeAugments(Vec<IdHex>),
-    SubscribeConfig,
+    SubscribeOutbox,
     SubscribeDiscover(Vec<PublicKey>),
     SubscribeGeneralFeed(Vec<PublicKey>),
     SubscribeMentions,

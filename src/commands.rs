@@ -197,7 +197,6 @@ pub fn events_of_pubkey_and_kind(mut args: env::Args) -> Result<(), Error> {
         }
     };
 
-
     let kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => {
