@@ -938,7 +938,6 @@ impl Overlord {
         reply_to: Option<Id>,
         dm_channel: Option<DmChannel>,
     ) -> Result<(), Error> {
-
         let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
             None => {
@@ -953,7 +952,7 @@ impl Overlord {
                     return Err((ErrorKind::GroupDmsNotYetSupported, file!(), line!()).into());
                 }
 
-                let recipient = if dmc.keys().len() < 1 {
+                let recipient = if dmc.keys().is_empty() {
                     public_key // must be to yourself
                 } else {
                     dmc.keys()[0]
@@ -961,13 +960,9 @@ impl Overlord {
 
                 // On a DM, we ignore tags and reply_to
 
-                GLOBALS.signer.new_nip04(
-                    recipient,
-                    &content
-                )?
-            },
+                GLOBALS.signer.new_nip04(recipient, &content)?
+            }
             _ => {
-
                 if GLOBALS.storage.read_setting_set_client_tag() {
                     tags.push(Tag::Other {
                         tag: "client".to_owned(),
@@ -992,7 +987,7 @@ impl Overlord {
                                 ea.d.clone(),
                                 ea.relays.get(0).cloned(),
                             )
-                                .await;
+                            .await;
                         }
                         NostrBech32::EventPointer(ep) => {
                             // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
@@ -1030,7 +1025,6 @@ impl Overlord {
                         trailing: Vec::new(),
                     });
                 }
-
 
                 if let Some(parent_id) = reply_to {
                     // Get the event we are replying to

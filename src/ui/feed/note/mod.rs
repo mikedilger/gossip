@@ -617,8 +617,8 @@ fn render_note_inner(
                                 ui.add_space(24.0);
 
                                 if render_data.can_post {
-                                    if note.event.kind != EventKind::EncryptedDirectMessage &&
-                                        note.event.kind != EventKind::DmChat
+                                    if note.event.kind != EventKind::EncryptedDirectMessage
+                                        && note.event.kind != EventKind::DmChat
                                     {
                                         // Button to Repost
                                         if ui
@@ -688,7 +688,8 @@ fn render_note_inner(
                                         app.replying_to = Some(note.event.id);
                                         app.draft_repost = None;
                                         app.show_post_area = true;
-                                        app.draft_dm_channel = DmChannel::from_event(&note.event, None);
+                                        app.draft_dm_channel =
+                                            DmChannel::from_event(&note.event, None);
                                         app.draft_needs_focus = true;
                                     }
 

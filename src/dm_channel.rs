@@ -54,7 +54,7 @@ impl DmChannel {
             None => match GLOBALS.signer.public_key() {
                 Some(pk) => pk,
                 None => return None,
-            }
+            },
         };
 
         if event.kind == EventKind::EncryptedDirectMessage {
@@ -84,7 +84,8 @@ impl DmChannel {
             } else {
                 None
             }
-        } else if event.kind == EventKind::DmChat { // unwrapped rumor
+        } else if event.kind == EventKind::DmChat {
+            // unwrapped rumor
             let mut people: Vec<PublicKey> = event
                 .people()
                 .iter()
