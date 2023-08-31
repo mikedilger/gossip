@@ -269,6 +269,8 @@ struct GossipUi {
     import_pub: String,
     search: String,
     entering_search_page: bool,
+    editing_petname: bool,
+    petname: String,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -481,6 +483,8 @@ impl GossipUi {
             import_pub: "".to_owned(),
             search: "".to_owned(),
             entering_search_page: false,
+            editing_petname: false,
+            petname: "".to_owned(),
             collapsed: vec![],
             visible_note_ids: vec![],
             next_visible_note_ids: vec![],
@@ -933,11 +937,15 @@ impl GossipUi {
         GLOBALS.people.person_of_interest(person.pubkey);
 
         ui.horizontal_wrapped(|ui| {
-            let name = crate::names::display_name_from_person(person);
+            let name = format!("☰ {}", crate::names::display_name_from_person(person));
 
-            let name = format!("☰ {}", name);
+            let name = match &person.petname {
+                // Highlight that this is our petname, not their chosen name
+                Some(pn) => RichText::new(pn).italics().underline(),
+                None => RichText::new(name),
+            };
 
-            ui.menu_button(&name, |ui| {
+            ui.menu_button(name, |ui| {
                 if ui.button("View Person").clicked() {
                     app.set_page(Page::Person(person.pubkey));
                 }
