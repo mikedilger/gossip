@@ -1,4 +1,5 @@
-use nostr_types::{PublicKey, Unixtime};
+use crate::globals::GLOBALS;
+use nostr_types::{Event, EventKind, PublicKey, Unixtime};
 use sha2::Digest;
 
 /// This represents a DM (direct message) channel which includes a set
@@ -19,6 +20,7 @@ impl DmChannel {
         DmChannel(vec)
     }
 
+    #[allow(dead_code)]
     pub fn keys(&self) -> &[PublicKey] {
         &self.0
     }
@@ -45,6 +47,56 @@ impl DmChannel {
             hasher.update(pk.as_bytes());
         }
         hex::encode(hasher.finalize())
+    }
+
+    pub fn from_event(event: &Event, my_pubkey: Option<PublicKey>) -> Option<DmChannel> {
+        let my_pubkey = match my_pubkey {
+            Some(pk) => pk,
+            None => match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => return None,
+            }
+        };
+
+        if event.kind == EventKind::EncryptedDirectMessage {
+            let mut people: Vec<PublicKey> = event
+                .people()
+                .iter()
+                .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
+                .collect();
+            people.push(event.pubkey);
+            people.retain(|p| *p != my_pubkey);
+            if people.len() > 1 {
+                None
+            } else {
+                Some(Self::new(&people))
+            }
+        } else if event.kind == EventKind::GiftWrap {
+            if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
+                let rumor_event = rumor.into_event_with_bad_signature();
+                let mut people: Vec<PublicKey> = rumor_event
+                    .people()
+                    .iter()
+                    .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
+                    .collect();
+                people.push(rumor_event.pubkey); // include author too
+                people.retain(|p| *p != my_pubkey);
+                Some(Self::new(&people))
+            } else {
+                None
+            }
+        } else if event.kind == EventKind::DmChat { // unwrapped rumor
+            let mut people: Vec<PublicKey> = event
+                .people()
+                .iter()
+                .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
+                .collect();
+            people.push(event.pubkey); // include author too
+            people.retain(|p| *p != my_pubkey);
+            Some(Self::new(&people))
+        } else {
+            None
+        }
     }
 }
 
