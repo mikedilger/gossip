@@ -935,21 +935,11 @@ impl GossipUi {
         ui.horizontal_wrapped(|ui| {
             let name = crate::names::display_name_from_person(person);
 
+            let name = format!("☰ {}", name);
+
             ui.menu_button(&name, |ui| {
-                let mute_label = if person.muted { "Unmute" } else { "Mute" };
-                if ui.button(mute_label).clicked() {
-                    let _ = GLOBALS.people.mute(&person.pubkey, !person.muted);
-                    app.notes.cache_invalidate_person(&person.pubkey);
-                }
-                if !person.followed && ui.button("Follow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, true);
-                } else if person.followed && ui.button("Unfollow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, false);
-                }
-                if ui.button("Update Metadata").clicked() {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::UpdateMetadata(person.pubkey));
+                if ui.button("View Person").clicked() {
+                    app.set_page(Page::Person(person.pubkey));
                 }
                 if app.page != Page::Feed(FeedKind::Person(person.pubkey)) {
                     if ui.button("View Their Posts").clicked() {
@@ -964,6 +954,21 @@ impl GossipUi {
                         app.draft_dm_channel = Some(DmChannel::new(&[person.pubkey]));
                         app.draft_needs_focus = true;
                     }
+                }
+                if !person.followed && ui.button("Follow").clicked() {
+                    let _ = GLOBALS.people.follow(&person.pubkey, true);
+                } else if person.followed && ui.button("Unfollow").clicked() {
+                    let _ = GLOBALS.people.follow(&person.pubkey, false);
+                }
+                let mute_label = if person.muted { "Unmute" } else { "Mute" };
+                if ui.button(mute_label).clicked() {
+                    let _ = GLOBALS.people.mute(&person.pubkey, !person.muted);
+                    app.notes.cache_invalidate_person(&person.pubkey);
+                }
+                if ui.button("Update Metadata").clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::UpdateMetadata(person.pubkey));
                 }
             });
 
