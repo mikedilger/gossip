@@ -16,7 +16,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.heading("Direct Private Message Channels");
     ui.add_space(12.0);
-    ui.separator();
 
     ScrollArea::vertical()
         .id_source("dm_chat_list")

@@ -4,6 +4,7 @@ use crate::comms::{
     RelayConnectionReason, RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
     ToOverlordMessage,
 };
+use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
 use crate::people::Person;
@@ -709,8 +710,8 @@ impl Overlord {
                     count
                 ));
             }
-            ToOverlordMessage::Post(content, tags, reply_to) => {
-                self.post(content, tags, reply_to).await?;
+            ToOverlordMessage::Post(content, tags, reply_to, dm_channel) => {
+                self.post(content, tags, reply_to, dm_channel).await?;
             }
             ToOverlordMessage::PullFollow => {
                 self.pull_following().await?;
@@ -935,155 +936,181 @@ impl Overlord {
         content: String,
         mut tags: Vec<Tag>,
         reply_to: Option<Id>,
+        dm_channel: Option<DmChannel>,
     ) -> Result<(), Error> {
-        // We will fill this just before we create the event
-        let mut tagged_pubkeys: Vec<PublicKey>;
+        let public_key = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("No public key! Not posting");
+                return Ok(());
+            }
+        };
 
-        let event = {
-            let public_key = match GLOBALS.signer.public_key() {
-                Some(pk) => pk,
-                None => {
-                    tracing::warn!("No public key! Not posting");
-                    return Ok(());
+        let pre_event = match dm_channel {
+            Some(dmc) => {
+                if dmc.keys().len() > 1 {
+                    return Err((ErrorKind::GroupDmsNotYetSupported, file!(), line!()).into());
                 }
-            };
 
-            if GLOBALS.storage.read_setting_set_client_tag() {
-                tags.push(Tag::Other {
-                    tag: "client".to_owned(),
-                    data: vec!["gossip".to_owned()],
-                });
-            }
-
-            // Add Tags based on references in the content
-            //
-            // FIXME - this function takes a 'tags' variable. We may want to let
-            // the user determine which tags to keep and which to delete, so we
-            // should probably move this processing into the post editor instead.
-            // For now, I'm just trying to remove the old #[0] type substitutions
-            // and use the new NostrBech32 parsing.
-            for bech32 in NostrBech32::find_all_in_string(&content).iter() {
-                match bech32 {
-                    NostrBech32::EventAddr(ea) => {
-                        add_addr_to_tags(
-                            &mut tags,
-                            ea.kind,
-                            ea.author.into(),
-                            ea.d.clone(),
-                            ea.relays.get(0).cloned(),
-                        )
-                        .await;
-                    }
-                    NostrBech32::EventPointer(ep) => {
-                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                        add_event_to_tags(&mut tags, ep.id, "mention").await;
-                    }
-                    NostrBech32::Id(id) => {
-                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                        add_event_to_tags(&mut tags, *id, "mention").await;
-                    }
-                    NostrBech32::Profile(prof) => {
-                        add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
-                    }
-                    NostrBech32::Pubkey(pk) => {
-                        add_pubkey_to_tags(&mut tags, pk).await;
-                    }
-                    NostrBech32::Relay(_) => {
-                        // we don't need to add this to tags I don't think.
-                    }
-                }
-            }
-
-            // Standardize nostr links (prepend 'nostr:' where missing)
-            // (This was a bad idea to do this late in the process, it breaks links that contain
-            //  nostr urls)
-            // content = NostrUrl::urlize(&content);
-
-            // Find and tag all hashtags
-            for capture in GLOBALS.hashtag_regex.captures_iter(&content) {
-                tags.push(Tag::Hashtag {
-                    hashtag: capture[1][1..].to_string(),
-                    trailing: Vec::new(),
-                });
-            }
-
-            if let Some(parent_id) = reply_to {
-                // Get the event we are replying to
-                let parent = match GLOBALS.storage.read_event(parent_id)? {
-                    Some(e) => e,
-                    None => return Err("Cannot find event we are replying to.".into()),
+                let recipient = if dmc.keys().is_empty() {
+                    public_key // must be to yourself
+                } else {
+                    dmc.keys()[0]
                 };
 
-                // Add a 'p' tag for the author we are replying to (except if it is our own key)
-                if parent.pubkey != public_key {
-                    add_pubkey_to_tags(&mut tags, &parent.pubkey).await;
+                // On a DM, we ignore tags and reply_to
+
+                GLOBALS.signer.new_nip04(recipient, &content)?
+            }
+            _ => {
+                if GLOBALS.storage.read_setting_set_client_tag() {
+                    tags.push(Tag::Other {
+                        tag: "client".to_owned(),
+                        data: vec!["gossip".to_owned()],
+                    });
                 }
 
-                // Add all the 'p' tags from the note we are replying to (except our own)
-                // FIXME: Should we avoid taging people who are muted?
-                for tag in &parent.tags {
-                    if let Tag::Pubkey { pubkey, .. } = tag {
-                        if pubkey.as_str() != public_key.as_hex_string() {
-                            add_pubkey_hex_to_tags(&mut tags, pubkey).await;
+                // Add Tags based on references in the content
+                //
+                // FIXME - this function takes a 'tags' variable. We may want to let
+                // the user determine which tags to keep and which to delete, so we
+                // should probably move this processing into the post editor instead.
+                // For now, I'm just trying to remove the old #[0] type substitutions
+                // and use the new NostrBech32 parsing.
+                for bech32 in NostrBech32::find_all_in_string(&content).iter() {
+                    match bech32 {
+                        NostrBech32::EventAddr(ea) => {
+                            add_addr_to_tags(
+                                &mut tags,
+                                ea.kind,
+                                ea.author.into(),
+                                ea.d.clone(),
+                                ea.relays.get(0).cloned(),
+                            )
+                            .await;
+                        }
+                        NostrBech32::EventPointer(ep) => {
+                            // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                            add_event_to_tags(&mut tags, ep.id, "mention").await;
+                        }
+                        NostrBech32::Id(id) => {
+                            // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                            add_event_to_tags(&mut tags, *id, "mention").await;
+                        }
+                        NostrBech32::Profile(prof) => {
+                            if dm_channel.is_none() {
+                                add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
+                            }
+                        }
+                        NostrBech32::Pubkey(pk) => {
+                            if dm_channel.is_none() {
+                                add_pubkey_to_tags(&mut tags, pk).await;
+                            }
+                        }
+                        NostrBech32::Relay(_) => {
+                            // we don't need to add this to tags I don't think.
                         }
                     }
                 }
 
-                if let Some((root, _maybeurl)) = parent.replies_to_root() {
-                    // Add an 'e' tag for the root
-                    add_event_to_tags(&mut tags, root, "root").await;
+                // Standardize nostr links (prepend 'nostr:' where missing)
+                // (This was a bad idea to do this late in the process, it breaks links that contain
+                //  nostr urls)
+                // content = NostrUrl::urlize(&content);
 
-                    // Add an 'e' tag for the note we are replying to
-                    add_event_to_tags(&mut tags, parent_id, "reply").await;
-                } else {
-                    let ancestors = parent.referred_events();
-                    if ancestors.is_empty() {
-                        // parent is the root
-                        add_event_to_tags(&mut tags, parent_id, "root").await;
-                    } else {
+                // Find and tag all hashtags
+                for capture in GLOBALS.hashtag_regex.captures_iter(&content) {
+                    tags.push(Tag::Hashtag {
+                        hashtag: capture[1][1..].to_string(),
+                        trailing: Vec::new(),
+                    });
+                }
+
+                if let Some(parent_id) = reply_to {
+                    // Get the event we are replying to
+                    let parent = match GLOBALS.storage.read_event(parent_id)? {
+                        Some(e) => e,
+                        None => return Err("Cannot find event we are replying to.".into()),
+                    };
+
+                    // Add a 'p' tag for the author we are replying to (except if it is our own key)
+                    if parent.pubkey != public_key {
+                        if dm_channel.is_none() {
+                            add_pubkey_to_tags(&mut tags, &parent.pubkey).await;
+                        }
+                    }
+
+                    // Add all the 'p' tags from the note we are replying to (except our own)
+                    // FIXME: Should we avoid taging people who are muted?
+                    if dm_channel.is_none() {
+                        for tag in &parent.tags {
+                            if let Tag::Pubkey { pubkey, .. } = tag {
+                                if pubkey.as_str() != public_key.as_hex_string() {
+                                    add_pubkey_hex_to_tags(&mut tags, pubkey).await;
+                                }
+                            }
+                        }
+                    }
+
+                    if let Some((root, _maybeurl)) = parent.replies_to_root() {
+                        // Add an 'e' tag for the root
+                        add_event_to_tags(&mut tags, root, "root").await;
+
                         // Add an 'e' tag for the note we are replying to
-                        // (and we don't know about the root, the parent is malformed).
                         add_event_to_tags(&mut tags, parent_id, "reply").await;
+                    } else {
+                        let ancestors = parent.referred_events();
+                        if ancestors.is_empty() {
+                            // parent is the root
+                            add_event_to_tags(&mut tags, parent_id, "root").await;
+                        } else {
+                            // Add an 'e' tag for the note we are replying to
+                            // (and we don't know about the root, the parent is malformed).
+                            add_event_to_tags(&mut tags, parent_id, "reply").await;
+                        }
+                    }
+
+                    // Possibly propagate a subject tag
+                    for tag in &parent.tags {
+                        if let Tag::Subject { subject, .. } = tag {
+                            let mut subject = subject.to_owned();
+                            if !subject.starts_with("Re: ") {
+                                subject = format!("Re: {}", subject);
+                            }
+                            subject = subject.chars().take(80).collect();
+                            add_subject_to_tags_if_missing(&mut tags, subject);
+                        }
                     }
                 }
 
-                // Possibly propagate a subject tag
-                for tag in &parent.tags {
-                    if let Tag::Subject { subject, .. } = tag {
-                        let mut subject = subject.to_owned();
-                        if !subject.starts_with("Re: ") {
-                            subject = format!("Re: {}", subject);
-                        }
-                        subject = subject.chars().take(80).collect();
-                        add_subject_to_tags_if_missing(&mut tags, subject);
-                    }
+                PreEvent {
+                    pubkey: public_key,
+                    created_at: Unixtime::now().unwrap(),
+                    kind: EventKind::TextNote,
+                    tags,
+                    content,
+                    ots: None,
                 }
             }
+        };
 
-            // Copy the tagged pubkeys for determine which relays to send to
-            tagged_pubkeys = tags
-                .iter()
-                .filter_map(|t| {
-                    if let Tag::Pubkey { pubkey, .. } = t {
-                        match PublicKey::try_from_hex_string(pubkey, true) {
-                            Ok(pk) => Some(pk),
-                            _ => None,
-                        }
-                    } else {
-                        None
+        // Copy the tagged pubkeys for determine which relays to send to
+        let mut tagged_pubkeys: Vec<PublicKey> = pre_event
+            .tags
+            .iter()
+            .filter_map(|t| {
+                if let Tag::Pubkey { pubkey, .. } = t {
+                    match PublicKey::try_from_hex_string(pubkey, true) {
+                        Ok(pk) => Some(pk),
+                        _ => None,
                     }
-                })
-                .collect();
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-            let pre_event = PreEvent {
-                pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
-                kind: EventKind::TextNote,
-                tags,
-                content,
-                ots: None,
-            };
-
+        let event = {
             let powint = GLOBALS.storage.read_setting_pow();
             let pow = if powint > 0 { Some(powint) } else { None };
             let (work_sender, work_receiver) = mpsc::channel();

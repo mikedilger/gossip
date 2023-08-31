@@ -73,12 +73,14 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            #[allow(dead_code)]
             pub fn highlight_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::highlight_color(self.dark_mode), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn accent_complementary_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_complementary_color(self.dark_mode), )+

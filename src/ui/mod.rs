@@ -26,6 +26,7 @@ mod you;
 
 use crate::about::About;
 use crate::comms::ToOverlordMessage;
+use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
@@ -243,6 +244,7 @@ struct GossipUi {
     subject: String,
     include_content_warning: bool,
     content_warning: String,
+    draft_dm_channel: Option<DmChannel>,
     replying_to: Option<Id>,
 
     // User entry: metadata
@@ -460,6 +462,7 @@ impl GossipUi {
             subject: "".to_owned(),
             include_content_warning: false,
             content_warning: "".to_owned(),
+            draft_dm_channel: None,
             replying_to: None,
             editing_metadata: false,
             metadata: Metadata::new(),
@@ -551,6 +554,7 @@ impl GossipUi {
         self.include_subject = false;
         self.subject = "".to_owned();
         self.replying_to = None;
+        self.draft_dm_channel = None;
         self.include_content_warning = false;
         self.content_warning = "".to_owned();
     }
@@ -802,6 +806,11 @@ impl eframe::App for GossipUi {
                                 let response = ui.add_sized([crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32], egui::Button::new(text.color(self.settings.theme.navigation_text_color())).stroke(egui::Stroke::NONE).rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32)).fill(self.settings.theme.navigation_bg_fill()));
                                 if response.clicked() {
                                     self.show_post_area = true;
+                                    if let Page::Feed(FeedKind::DmChat(channel)) = &self.page {
+                                        self.draft_dm_channel = Some(channel.clone());
+                                    } else {
+                                        self.draft_dm_channel = None;
+                                    }
                                     if GLOBALS.signer.is_ready() {
                                         self.draft_needs_focus = true;
                                     } else {
@@ -945,6 +954,15 @@ impl GossipUi {
                 if app.page != Page::Feed(FeedKind::Person(person.pubkey)) {
                     if ui.button("View Their Posts").clicked() {
                         app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
+                    }
+                }
+                if GLOBALS.signer.is_ready() {
+                    if ui.button("Send DM").clicked() {
+                        app.replying_to = None;
+                        app.draft_repost = None;
+                        app.show_post_area = true;
+                        app.draft_dm_channel = Some(DmChannel::new(&[person.pubkey]));
+                        app.draft_needs_focus = true;
                     }
                 }
             });
