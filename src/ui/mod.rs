@@ -755,18 +755,6 @@ impl eframe::App for GossipUi {
 
                 // -- Status Area
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                    let messages = GLOBALS.status_queue.read().read_all();
-                    if ui.add(Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click())).clicked() {
-                        GLOBALS.status_queue.write().dismiss(0);
-                    }
-                    if ui.add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click())).clicked() {
-                        GLOBALS.status_queue.write().dismiss(1);
-                    }
-                    if ui.add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click())).clicked() {
-                        GLOBALS.status_queue.write().dismiss(2);
-                    }
-
-                    ui.add_space(30.0);
 
                     // -- DEBUG status area
                     if self.settings.status_bar {
@@ -790,6 +778,19 @@ impl eframe::App for GossipUi {
                         let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
                         let m = format!("EVENTS RECV {}", processed);
                         ui.add(Label::new(RichText::new(m).color(self.settings.theme.notice_marker_text_color())));
+
+                        ui.separator();
+                    }
+
+                    let messages = GLOBALS.status_queue.read().read_all();
+                    if ui.add(Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click())).clicked() {
+                        GLOBALS.status_queue.write().dismiss(0);
+                    }
+                    if ui.add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click())).clicked() {
+                        GLOBALS.status_queue.write().dismiss(1);
+                    }
+                    if ui.add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click())).clicked() {
+                        GLOBALS.status_queue.write().dismiss(2);
                     }
                 });
 
