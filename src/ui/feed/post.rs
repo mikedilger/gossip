@@ -164,9 +164,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
 
         if let Some(dm_channel) = &app.draft_dm_channel {
-            ui.horizontal(|ui| {
-                ui.label(format!("DIRECT MESSAGE TO: {}", dm_channel.name()));
-            });
+            ui.label(format!("DIRECT MESSAGE TO: {}", dm_channel.name()));
+            ui.label("WARNING: DMs currently have security weaknesses and the more DMs you send, the easier it is to crack your keypair.");
         }
 
         let draft_response = ui.add(
