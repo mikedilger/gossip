@@ -8,6 +8,7 @@ use super::notedata::{NoteData, RepostType};
 
 use super::FeedNoteParams;
 use crate::comms::ToOverlordMessage;
+use crate::dm_channel::DmChannel;
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
 use crate::ui::widgets::CopyButton;
@@ -615,61 +616,65 @@ fn render_note_inner(
 
                                 ui.add_space(24.0);
 
-                                if render_data.can_post
-                                    && note.event.kind != EventKind::EncryptedDirectMessage
-                                {
-                                    // Button to Repost
-                                    if ui
-                                        .add(
-                                            Label::new(RichText::new("↻").size(18.0))
-                                                .sense(Sense::click()),
-                                        )
-                                        .on_hover_text("Repost")
-                                        .clicked()
+                                if render_data.can_post {
+                                    if note.event.kind != EventKind::EncryptedDirectMessage &&
+                                        note.event.kind != EventKind::DmChat
                                     {
-                                        app.draft_repost = Some(note.event.id);
-                                        app.replying_to = None;
-                                        app.show_post_area = true;
-                                    }
-
-                                    ui.add_space(24.0);
-
-                                    // Button to quote note
-                                    if ui
-                                        .add(
-                                            Label::new(RichText::new("“…”").size(18.0))
-                                                .sense(Sense::click()),
-                                        )
-                                        .on_hover_text("Quote")
-                                        .clicked()
-                                    {
-                                        if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                            app.draft.push(' ');
+                                        // Button to Repost
+                                        if ui
+                                            .add(
+                                                Label::new(RichText::new("↻").size(18.0))
+                                                    .sense(Sense::click()),
+                                            )
+                                            .on_hover_text("Repost")
+                                            .clicked()
+                                        {
+                                            app.draft_repost = Some(note.event.id);
+                                            app.replying_to = None;
+                                            app.draft_dm_channel = None;
+                                            app.show_post_area = true;
                                         }
-                                        let event_pointer = EventPointer {
-                                            id: note.event.id,
-                                            relays: match GLOBALS
-                                                .storage
-                                                .get_event_seen_on_relay(note.event.id)
-                                            {
-                                                Err(_) => vec![],
-                                                Ok(vec) => vec
-                                                    .iter()
-                                                    .map(|(url, _)| url.to_unchecked_url())
-                                                    .collect(),
-                                            },
-                                            author: None,
-                                            kind: None,
-                                        };
-                                        let nostr_url: NostrUrl = event_pointer.into();
-                                        app.draft.push_str(&format!("{}", nostr_url));
-                                        app.draft_repost = None;
-                                        app.replying_to = None;
-                                        app.show_post_area = true;
-                                        app.draft_needs_focus = true;
-                                    }
 
-                                    ui.add_space(24.0);
+                                        ui.add_space(24.0);
+
+                                        // Button to quote note
+                                        if ui
+                                            .add(
+                                                Label::new(RichText::new("“…”").size(18.0))
+                                                    .sense(Sense::click()),
+                                            )
+                                            .on_hover_text("Quote")
+                                            .clicked()
+                                        {
+                                            if !app.draft.ends_with(' ') && !app.draft.is_empty() {
+                                                app.draft.push(' ');
+                                            }
+                                            let event_pointer = EventPointer {
+                                                id: note.event.id,
+                                                relays: match GLOBALS
+                                                    .storage
+                                                    .get_event_seen_on_relay(note.event.id)
+                                                {
+                                                    Err(_) => vec![],
+                                                    Ok(vec) => vec
+                                                        .iter()
+                                                        .map(|(url, _)| url.to_unchecked_url())
+                                                        .collect(),
+                                                },
+                                                author: None,
+                                                kind: None,
+                                            };
+                                            let nostr_url: NostrUrl = event_pointer.into();
+                                            app.draft.push_str(&format!("{}", nostr_url));
+                                            app.draft_repost = None;
+                                            app.replying_to = None;
+                                            app.draft_dm_channel = None;
+                                            app.show_post_area = true;
+                                            app.draft_needs_focus = true;
+                                        }
+
+                                        ui.add_space(24.0);
+                                    }
 
                                     // Button to reply
                                     if ui
@@ -683,6 +688,7 @@ fn render_note_inner(
                                         app.replying_to = Some(note.event.id);
                                         app.draft_repost = None;
                                         app.show_post_area = true;
+                                        app.draft_dm_channel = DmChannel::from_event(&note.event, None);
                                         app.draft_needs_focus = true;
                                     }
 

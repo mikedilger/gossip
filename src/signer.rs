@@ -197,6 +197,17 @@ impl Signer {
         }
     }
 
+    pub fn new_nip04(
+        &self,
+        recipient_public_key: PublicKey,
+        message: &str,
+    ) -> Result<PreEvent, Error> {
+        match &*self.private.read() {
+            Some(pk) => Ok(PreEvent::new_nip04(pk, recipient_public_key, message)?),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+        }
+    }
+
     pub fn export_private_key_bech32(&self, pass: &str) -> Result<String, Error> {
         let maybe_encrypted = self.encrypted.read().to_owned();
         match maybe_encrypted {

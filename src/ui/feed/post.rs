@@ -163,6 +163,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             });
         }
 
+        if let Some(dm_channel) = &app.draft_dm_channel {
+            ui.horizontal(|ui| {
+                ui.label(format!("DIRECT MESSAGE TO: {}", dm_channel.name()));
+            });
+        }
+
         let draft_response = ui.add(
             text_edit_multiline!(app, app.draft)
                 .id_source("compose_area")
@@ -296,6 +302,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     app.draft.clone(),
                     tags,
                     Some(replying_to_id),
+                    app.draft_dm_channel.clone(),
                 ));
             }
             None => {
@@ -308,6 +315,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         app.draft.clone(),
                         tags,
                         None,
+                        app.draft_dm_channel.clone(),
                     ));
                 }
             }

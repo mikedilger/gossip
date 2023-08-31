@@ -20,7 +20,6 @@ impl DmChannel {
         DmChannel(vec)
     }
 
-    #[allow(dead_code)]
     pub fn keys(&self) -> &[PublicKey] {
         &self.0
     }
