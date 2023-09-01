@@ -65,16 +65,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 ui.label("Pet name:");
                 if app.editing_petname {
                     let edit_color = app.settings.theme.input_text_color();
-                    ui.add(
-                        TextEdit::singleline(&mut app.petname)
-                            .text_color(edit_color)
-                    );
+                    ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
                     if ui.button("save").clicked() {
                         let mut person = person.clone();
                         person.petname = Some(app.petname.clone());
                         if let Err(e) = GLOBALS.storage.write_person(&person, None) {
-                            GLOBALS.status_queue.write()
-                                .write(format!("{}", e));
+                            GLOBALS.status_queue.write().write(format!("{}", e));
                         }
                         app.editing_petname = false;
                     }
@@ -85,8 +81,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         let mut person = person.clone();
                         person.petname = None;
                         if let Err(e) = GLOBALS.storage.write_person(&person, None) {
-                            GLOBALS.status_queue.write()
-                                .write(format!("{}", e));
+                            GLOBALS.status_queue.write().write(format!("{}", e));
                         }
                         app.editing_petname = false;
                     }
@@ -102,11 +97,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 let mut person = person.clone();
                                 person.petname = None;
                                 if let Err(e) = GLOBALS.storage.write_person(&person, None) {
-                                    GLOBALS.status_queue.write()
-                                        .write(format!("{}", e));
+                                    GLOBALS.status_queue.write().write(format!("{}", e));
                                 }
                             }
-                        },
+                        }
                         None => {
                             ui.label(RichText::new("none").italics());
                             if ui.button("add").clicked() {

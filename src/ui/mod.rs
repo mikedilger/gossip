@@ -938,17 +938,16 @@ impl GossipUi {
         GLOBALS.people.person_of_interest(person.pubkey);
 
         ui.horizontal_wrapped(|ui| {
-
             let name = match &person.petname {
                 // Highlight that this is our petname, not their chosen name
                 Some(pn) => {
                     let name = format!("☰ {}", pn);
                     RichText::new(name).italics().underline()
-                },
+                }
                 None => {
                     let name = format!("☰ {}", crate::names::display_name_from_person(person));
                     RichText::new(name)
-                },
+                }
             };
 
             ui.menu_button(name, |ui| {
