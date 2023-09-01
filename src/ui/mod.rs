@@ -679,21 +679,14 @@ impl eframe::App for GossipUi {
                         self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
                     }
                 }
+                if GLOBALS.signer.public_key().is_some() {
+                    if self.add_selected_label(ui, self.page == Page::DmChatList, "Private chats").clicked() {
+                        self.set_page(Page::DmChatList);
+                    }
+                }
 
                 ui.add_space(8.0);
 
-                // ---- DM Chat Submenu ----
-                if GLOBALS.signer.public_key().is_some() {
-                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::DmChat, "DM Chat");
-                    submenu.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::DmChatList, "List");
-                        if let Page::Feed(FeedKind::DmChat(channel)) = &self.page {
-                            self.add_menu_item_page(ui, Page::Feed(FeedKind::DmChat(channel.clone())),
-                                                    &channel.name());
-                        }
-                    });
-                    self.after_openable_menu(ui, &submenu);
-                }
                 // ---- People Submenu ----
                 {
                     let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::People, "People");
