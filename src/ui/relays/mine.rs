@@ -1,5 +1,5 @@
 use super::GossipUi;
-use crate::comms::ToOverlordMessage;
+use crate::{comms::ToOverlordMessage, ui::Page};
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::ui::widgets;
@@ -11,7 +11,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     let is_editing = app.relays.edit.is_some();
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
-        ui.heading("My Relays");
+        ui.heading(Page::RelaysMine.name());
         ui.add_space(50.0);
         ui.set_enabled(!is_editing);
         widgets::search_filter_field(ui, &mut app.relays.search, 200.0);

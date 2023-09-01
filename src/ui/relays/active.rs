@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use super::GossipUi;
-use crate::globals::GLOBALS;
+use crate::{globals::GLOBALS, ui::Page};
 use crate::relay::Relay;
 use crate::ui::widgets;
 use eframe::egui;
@@ -14,10 +14,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-            ui.heading("Active Relays");
+            ui.heading(Page::RelaysActivityMonitor.name());
             ui.set_enabled(!is_editing);
             ui.add_space(10.0);
-            if ui.link(RichText::new("Coverage Report")).clicked() {
+            if ui.link(RichText::new(Page::RelaysCoverage.name())).clicked() {
                 app.set_page(crate::ui::Page::RelaysCoverage);
             }
             ui.add_space(50.0);

@@ -139,6 +139,10 @@ impl Page {
         }
     }
 
+    pub fn name(&self) -> String {
+        self.to_readable().1
+    }
+
     /* short string is used by back button hover text */
     fn to_short_string(&self) -> String {
         fn cat_name(page: &Page) -> String {

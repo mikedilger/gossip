@@ -100,7 +100,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.with_layout( egui::Layout::left_to_right(Align::Center),|ui| {
             ui.heading(format!("Low Coverage Report (less than {} relays)",  app.settings.num_relays_per_person));
             ui.add_space(10.0);
-            if ui.link(format!("< back to {}", Page::RelaysActivityMonitor.to_readable().1)).clicked() {
+            if ui.link(format!("< back to {}", Page::RelaysActivityMonitor.name())).clicked() {
                 app.set_page(Page::RelaysActivityMonitor);
             }
         });
