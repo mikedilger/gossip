@@ -332,13 +332,17 @@ fn render_note_inner(
                         ui.label(RichText::new("REPOSTED").color(color));
                     }
 
-                    if note.event.kind == EventKind::EncryptedDirectMessage {
-                        let color = app.settings.theme.notice_marker_text_color();
-                        ui.label(RichText::new("ENCRYPTED DM").color(color));
-                    }
-                    if note.secure {
-                        let color = app.settings.theme.notice_marker_text_color();
-                        ui.label(RichText::new("SECURE").color(color));
+                    if let Page::Feed(FeedKind::DmChat(_)) = app.page {
+                        // don't show ENCRYPTED DM or SECURE in the dm channel itself
+                    } else {
+                        if note.event.kind == EventKind::EncryptedDirectMessage {
+                            let color = app.settings.theme.notice_marker_text_color();
+                            ui.label(RichText::new("ENCRYPTED DM").color(color));
+                        }
+                        if note.secure {
+                            let color = app.settings.theme.notice_marker_text_color();
+                            ui.label(RichText::new("SECURE").color(color));
+                        }
                     }
                 });
 

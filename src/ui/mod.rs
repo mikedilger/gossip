@@ -118,6 +118,7 @@ enum Page {
 impl Page {
     pub fn show_post_icon(&self) -> bool {
         use Page::*;
+        #[allow(clippy::match_like_matches_macro)] // because we will add more later
         match *self {
             Feed(_) => true,
             _ => false,
