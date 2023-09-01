@@ -332,27 +332,43 @@ fn render_note_inner(
                         ui.label(RichText::new("REPOSTED").color(color));
                     }
 
-                    if note.event.kind == EventKind::EncryptedDirectMessage {
-                        let color = app.settings.theme.notice_marker_text_color();
-                        ui.label(RichText::new("ENCRYPTED DM").color(color));
-                    }
-                    if note.secure {
-                        let color = app.settings.theme.notice_marker_text_color();
-                        ui.label(RichText::new("SECURE").color(color));
+                    if let Page::Feed(FeedKind::DmChat(_)) = app.page {
+                        // don't show ENCRYPTED DM or SECURE in the dm channel itself
+                    } else {
+                        if note.event.kind.is_direct_message_related() {
+                            let color = app.settings.theme.notice_marker_text_color();
+                            if note.secure {
+                                ui.label(RichText::new("Private Chat (Gift Wrapped)").color(color));
+                            } else {
+                                ui.label(RichText::new("Private Chat").color(color));
+                            }
+                        }
                     }
                 });
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.menu_button(RichText::new("=").size(13.0), |ui| {
-                        if !render_data.is_main_event
-                            && note.event.kind != EventKind::EncryptedDirectMessage
-                        {
-                            if ui.button("View Thread").clicked() {
-                                app.set_page(Page::Feed(FeedKind::Thread {
-                                    id: note.event.id,
-                                    referenced_by: note.event.id,
-                                    author: Some(note.event.pubkey),
-                                }));
+                        if !render_data.is_main_event {
+                            if note.event.kind.is_direct_message_related() {
+                                if ui.button("View DM Channel").clicked() {
+                                    if let Some(channel) = DmChannel::from_event(&note.event, None)
+                                    {
+                                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                    } else {
+                                        GLOBALS.status_queue.write().write(
+                                            "Could not determine DM channel for that note."
+                                                .to_string(),
+                                        );
+                                    }
+                                }
+                            } else {
+                                if ui.button("View Thread").clicked() {
+                                    app.set_page(Page::Feed(FeedKind::Thread {
+                                        id: note.event.id,
+                                        referenced_by: note.event.id,
+                                        author: Some(note.event.pubkey),
+                                    }));
+                                }
                             }
                         }
                         if ui.button("Copy nevent").clicked() {
@@ -371,25 +387,30 @@ fn render_note_inner(
                             let nostr_url: NostrUrl = event_pointer.into();
                             ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                         }
-                        if ui.button("Copy web link").clicked() {
-                            let event_pointer = EventPointer {
-                                id: note.event.id,
-                                relays: match GLOBALS.storage.get_event_seen_on_relay(note.event.id)
-                                {
-                                    Ok(vec) => {
-                                        vec.iter().map(|(url, _)| url.to_unchecked_url()).collect()
-                                    }
-                                    Err(_) => vec![],
-                                },
-                                author: None,
-                                kind: None,
-                            };
-                            ui.output_mut(|o| {
-                                o.copied_text = format!(
-                                    "https://nostr.com/{}",
-                                    event_pointer.as_bech32_string()
-                                )
-                            });
+                        if !note.event.kind.is_direct_message_related() {
+                            if ui.button("Copy web link").clicked() {
+                                let event_pointer = EventPointer {
+                                    id: note.event.id,
+                                    relays: match GLOBALS
+                                        .storage
+                                        .get_event_seen_on_relay(note.event.id)
+                                    {
+                                        Ok(vec) => vec
+                                            .iter()
+                                            .map(|(url, _)| url.to_unchecked_url())
+                                            .collect(),
+                                        Err(_) => vec![],
+                                    },
+                                    author: None,
+                                    kind: None,
+                                };
+                                ui.output_mut(|o| {
+                                    o.copied_text = format!(
+                                        "https://nostr.com/{}",
+                                        event_pointer.as_bech32_string()
+                                    )
+                                });
+                            }
                         }
                         if ui.button("Copy note1 Id").clicked() {
                             let nostr_url: NostrUrl = note.event.id.into();
@@ -448,19 +469,27 @@ fn render_note_inner(
                         ui.add_space(4.0);
                     }
 
-                    if !render_data.is_main_event
-                        && note.event.kind != EventKind::EncryptedDirectMessage
-                    {
+                    if !render_data.is_main_event {
                         if ui
                             .button(RichText::new("◉").size(13.0))
                             .on_hover_text("View Thread")
                             .clicked()
                         {
-                            app.set_page(Page::Feed(FeedKind::Thread {
-                                id: note.event.id,
-                                referenced_by: note.event.id,
-                                author: Some(note.event.pubkey),
-                            }));
+                            if note.event.kind.is_direct_message_related() {
+                                if let Some(channel) = DmChannel::from_event(&note.event, None) {
+                                    app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                } else {
+                                    GLOBALS.status_queue.write().write(
+                                        "Could not determine DM channel for that note.".to_string(),
+                                    );
+                                }
+                            } else {
+                                app.set_page(Page::Feed(FeedKind::Thread {
+                                    id: note.event.id,
+                                    referenced_by: note.event.id,
+                                    author: Some(note.event.pubkey),
+                                }));
+                            }
                         }
                     }
 
@@ -677,15 +706,27 @@ fn render_note_inner(
                                     }
 
                                     // Button to reply
+                                    let reply_icon = if note.event.kind.is_direct_message_related()
+                                    {
+                                        "⏎"
+                                    } else {
+                                        "💬"
+                                    };
+
                                     if ui
                                         .add(
-                                            Label::new(RichText::new("💬").size(18.0))
+                                            Label::new(RichText::new(reply_icon).size(18.0))
                                                 .sense(Sense::click()),
                                         )
                                         .on_hover_text("Reply")
                                         .clicked()
                                     {
-                                        app.replying_to = Some(note.event.id);
+                                        app.replying_to =
+                                            if note.event.kind.is_direct_message_related() {
+                                                None
+                                            } else {
+                                                Some(note.event.id)
+                                            };
                                         app.draft_repost = None;
                                         app.show_post_area = true;
                                         app.draft_dm_channel =

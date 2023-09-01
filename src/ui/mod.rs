@@ -115,6 +115,17 @@ enum Page {
     HelpAbout,
 }
 
+impl Page {
+    pub fn show_post_icon(&self) -> bool {
+        use Page::*;
+        #[allow(clippy::match_like_matches_macro)] // because we will add more later
+        match *self {
+            Feed(_) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Eq, Hash, PartialEq)]
 enum SubMenu {
     DmChat,
@@ -550,8 +561,6 @@ impl GossipUi {
     }
 
     fn clear_post(&mut self) {
-        self.show_post_area = false;
-        self.draft_needs_focus = false;
         self.draft = "".to_owned();
         self.draft_repost = None;
         self.tag_someone = "".to_owned();
@@ -561,6 +570,14 @@ impl GossipUi {
         self.draft_dm_channel = None;
         self.include_content_warning = false;
         self.content_warning = "".to_owned();
+
+        if let Page::Feed(FeedKind::DmChat(_)) = self.page {
+            self.show_post_area = true;
+            self.draft_needs_focus = true;
+        } else {
+            self.show_post_area = false;
+            self.draft_needs_focus = false;
+        }
     }
 }
 
@@ -679,21 +696,14 @@ impl eframe::App for GossipUi {
                         self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
                     }
                 }
+                if GLOBALS.signer.public_key().is_some() {
+                    if self.add_selected_label(ui, self.page == Page::DmChatList, "Private chats").clicked() {
+                        self.set_page(Page::DmChatList);
+                    }
+                }
 
                 ui.add_space(8.0);
 
-                // ---- DM Chat Submenu ----
-                if GLOBALS.signer.public_key().is_some() {
-                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::DmChat, "DM Chat");
-                    submenu.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::DmChatList, "List");
-                        if let Page::Feed(FeedKind::DmChat(channel)) = &self.page {
-                            self.add_menu_item_page(ui, Page::Feed(FeedKind::DmChat(channel.clone())),
-                                                    &channel.name());
-                        }
-                    });
-                    self.after_openable_menu(ui, &submenu);
-                }
                 // ---- People Submenu ----
                 {
                     let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::People, "People");
@@ -795,7 +805,7 @@ impl eframe::App for GossipUi {
                 });
 
                 // ---- "plus icon" ----
-                if !self.show_post_area {
+                if !self.show_post_area && self.page.show_post_icon() {
                     let bottom_right = ui.ctx().screen_rect().right_bottom();
                     let pos = bottom_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0);
 
@@ -938,17 +948,16 @@ impl GossipUi {
         GLOBALS.people.person_of_interest(person.pubkey);
 
         ui.horizontal_wrapped(|ui| {
-
             let name = match &person.petname {
                 // Highlight that this is our petname, not their chosen name
                 Some(pn) => {
                     let name = format!("☰ {}", pn);
                     RichText::new(name).italics().underline()
-                },
+                }
                 None => {
                     let name = format!("☰ {}", crate::names::display_name_from_person(person));
                     RichText::new(name)
-                },
+                }
             };
 
             ui.menu_button(name, |ui| {
@@ -962,11 +971,13 @@ impl GossipUi {
                 }
                 if GLOBALS.signer.is_ready() {
                     if ui.button("Send DM").clicked() {
+                        let channel = DmChannel::new(&[person.pubkey]);
                         app.replying_to = None;
                         app.draft_repost = None;
                         app.show_post_area = true;
-                        app.draft_dm_channel = Some(DmChannel::new(&[person.pubkey]));
+                        app.draft_dm_channel = Some(channel.clone());
                         app.draft_needs_focus = true;
+                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
                     }
                 }
                 if !person.followed && ui.button("Follow").clicked() {

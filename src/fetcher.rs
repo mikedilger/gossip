@@ -308,7 +308,6 @@ impl Fetcher {
         }
 
         // closure to run when finished (if we didn't succeed)
-        let cache_file2 = cache_file.clone();
         let finish = |outcome, message, err: Option<Error>, sinbin_secs| {
             match outcome {
                 FailOutcome::Fail => {
@@ -322,7 +321,7 @@ impl Fetcher {
                         }
                         // FIXME: bumping the mtime might not be the best way to do this.
                         let _ = filetime::set_file_mtime(
-                            cache_file2.as_path(),
+                            cache_file.as_path(),
                             filetime::FileTime::now(),
                         );
                         self.urls.write().unwrap().remove(&url);
@@ -341,7 +340,7 @@ impl Fetcher {
                 FailOutcome::NotModified => {
                     tracing::info!("FETCH {url}: Succeeded: {message}");
                     let _ =
-                        filetime::set_file_mtime(cache_file2.as_path(), filetime::FileTime::now());
+                        filetime::set_file_mtime(cache_file.as_path(), filetime::FileTime::now());
                     self.urls.write().unwrap().remove(&url);
                 }
                 FailOutcome::Requeue => {
