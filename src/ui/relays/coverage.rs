@@ -67,7 +67,7 @@ impl<'a> CoverageEntry<'a> {
         draw_text_at(
             ui,
             pos,
-            self.pk.as_bech32_string().into(),
+            GossipUi::pubkey_short(self.pk).into(),
             Align::RIGHT,
             None,
             None);
