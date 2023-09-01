@@ -271,14 +271,14 @@ impl Fetcher {
             return;
         }
 
-        let avatar_file = GLOBALS.fetcher.cache_file(CacheType::Avatar, &url);
+        let _avatar_file = GLOBALS.fetcher.cache_file(CacheType::Avatar, &url);
         let etag_file = GLOBALS.fetcher.cache_file(CacheType::Etag, &url);
         let cache_file = GLOBALS.fetcher.cache_file(CacheType::Content, &url);
 
         let etag: Option<Vec<u8>> = match tokio::fs::read(etag_file.as_path()).await {
             Ok(contents) => {
                 // etag is only valid if the contents file is present
-                if matches!(tokio::fs::try_exists(cache_file.as_path()).await, Ok(true)) {
+                if matches!(tokio::fs::try_exists(etag_file.as_path()).await, Ok(true)) {
                     Some(contents)
                 } else {
                     None
@@ -530,7 +530,7 @@ impl Fetcher {
                 cache_file.push(hash);
                 cache_file
             }
-            CacheType::Etag => {
+            CacheType::Etag => { // etag is in the same folder as avatars
                 let mut avatar_file = self.avatars_dir.read().unwrap().clone();
                 avatar_file.push(hash);
                 avatar_file.with_extension("etag")
