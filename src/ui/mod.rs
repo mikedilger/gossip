@@ -965,11 +965,13 @@ impl GossipUi {
                 }
                 if GLOBALS.signer.is_ready() {
                     if ui.button("Send DM").clicked() {
+                        let channel = DmChannel::new(&[person.pubkey]);
                         app.replying_to = None;
                         app.draft_repost = None;
                         app.show_post_area = true;
-                        app.draft_dm_channel = Some(DmChannel::new(&[person.pubkey]));
+                        app.draft_dm_channel = Some(channel.clone());
                         app.draft_needs_focus = true;
+                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
                     }
                 }
                 if !person.followed && ui.button("Follow").clicked() {
