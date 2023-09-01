@@ -20,6 +20,17 @@ pub enum FeedKind {
     Person(PublicKey),
 }
 
+impl FeedKind {
+    pub fn to_string(&self) -> String {
+        match self {
+            FeedKind::Followed(_) => "Following".into(),
+            FeedKind::Inbox(_) => "Inbox".into(),
+            FeedKind::Thread { id: _, referenced_by: _, author: _ } => "Thread".into(),
+            FeedKind::Person(_) => "Person".into(),
+        }
+    }
+}
+
 pub struct Feed {
     pub recompute_lock: AtomicBool,
 

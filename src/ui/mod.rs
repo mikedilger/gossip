@@ -113,6 +113,62 @@ enum Page {
     HelpAbout,
 }
 
+impl Page {
+    pub fn to_readable(&self) -> (&'static str /* Category */, String /* Name */){
+        match self {
+            Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
+            Page::PeopleList => (SubMenu::People.to_str(), "Followed".into()),
+            Page::PeopleFollow => (SubMenu::People.to_str(), "Follow new".into()),
+            Page::PeopleMuted => (SubMenu::People.to_str(), "Muted".into()),
+            Page::Person(pk) => {
+                let name = GossipUi::display_name_from_pubkey_lookup(pk);
+                ("Profile", name)
+            },
+            Page::YourKeys => (SubMenu::Account.to_str(), "Keys".into()),
+            Page::YourMetadata => (SubMenu::Account.to_str(), "Profile".into()),
+            Page::YourDelegation => (SubMenu::Account.to_str(), "Delegation".into()),
+            Page::RelaysActivityMonitor => (SubMenu::Relays.to_str(), "Active Relays".into()),
+            Page::RelaysCoverage => (SubMenu::Relays.to_str(), "Coverage Report".into()),
+            Page::RelaysMine => (SubMenu::Relays.to_str(), "My Relays".into()),
+            Page::RelaysKnownNetwork => (SubMenu::Relays.to_str(), "Known Network".into()),
+            Page::Search => ("Search", "Search".into()),
+            Page::Settings => ("Settings", "Settings".into()),
+            Page::HelpHelp => (SubMenu::Help.to_str(), "Help".into()),
+            Page::HelpStats => (SubMenu::Help.to_str(), "Stats".into()),
+            Page::HelpAbout => (SubMenu::Help.to_str(), "About".into()),
+        }
+    }
+
+    /* short string is used by back button hover text */
+    fn to_short_string(&self) -> String {
+        fn cat_name(page: &Page) -> String {
+            let (cat, name) = page.to_readable();
+            format!("{} {}", cat, name)
+        }
+
+        fn name_cat(page: &Page) -> String {
+            let (cat, name) = page.to_readable();
+            format!("{} {}", name, cat)
+        }
+
+        fn name(page: &Page) -> String {
+            page.to_readable().1
+        }
+
+        match self {
+            Page::Feed(_) => name_cat(self),
+            Page::PeopleList |
+            Page::PeopleFollow |
+            Page::PeopleMuted => cat_name(self),
+            Page::Person(_) => name_cat(self),
+            Page::YourKeys |
+            Page::YourMetadata |
+            Page::YourDelegation => cat_name(self),
+            _ => name(self),
+        }
+    }
+}
+
 #[derive(Eq, Hash, PartialEq)]
 enum SubMenu {
     People,
@@ -122,6 +178,19 @@ enum SubMenu {
 }
 
 impl SubMenu {
+    fn to_str(&self) -> &'static str {
+        match self {
+            SubMenu::People => "People",
+            SubMenu::Relays => "Relays",
+            SubMenu::Account => "Account",
+            SubMenu::Help => "Help",
+        }
+    }
+
+    fn to_string(&self) -> String {
+        self.to_str().to_string()
+    }
+
     fn to_id_str(&self) -> &'static str {
         match self {
             SubMenu::People => "people_submenu",
@@ -644,7 +713,16 @@ impl eframe::App for GossipUi {
                 ui.add_space(4.0);
                 let back_label_text = RichText::new("‹ Back");
                 let label = if self.history.is_empty() { Label::new(back_label_text.color(Color32::from_white_alpha(8))) } else { Label::new(back_label_text.color(self.settings.theme.navigation_text_color())).sense(Sense::click()) };
-                if ui.add(label).clicked() {
+                if ui.add(label)
+                    .on_hover_text({
+                        if let Some(page) = self.history.last() {
+                            page.to_short_string()
+                        } else {
+                            "".to_string()
+                        }
+                    })
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked() {
                     self.back();
                 }
 
@@ -668,21 +746,21 @@ impl eframe::App for GossipUi {
 
                 // ---- People Submenu ----
                 {
-                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::People, "People");
+                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::People);
                     submenu.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::PeopleList, "Followed");
-                        self.add_menu_item_page(ui, Page::PeopleFollow, "Follow new");
-                        self.add_menu_item_page(ui, Page::PeopleMuted, "Muted");
+                        self.add_menu_item_page(ui, Page::PeopleList);
+                        self.add_menu_item_page(ui, Page::PeopleFollow);
+                        self.add_menu_item_page(ui, Page::PeopleMuted);
                     });
                     self.after_openable_menu(ui, &submenu);
                 }
                 // ---- Relays Submenu ----
                 {
-                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Relays, "Relays");
+                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Relays);
                     submenu.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::RelaysActivityMonitor, "Active Relays");
-                        self.add_menu_item_page(ui, Page::RelaysMine, "My Relays");
-                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork, "Known Network");
+                        self.add_menu_item_page(ui, Page::RelaysActivityMonitor);
+                        self.add_menu_item_page(ui, Page::RelaysMine);
+                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork);
                         ui.vertical(|ui| {
                             ui.spacing_mut().button_padding *= 2.0;
                             ui.visuals_mut().widgets.inactive.weak_bg_fill = self.settings.theme.accent_color().linear_multiply(0.2);
@@ -698,11 +776,11 @@ impl eframe::App for GossipUi {
                 }
                 // ---- Account Submenu ----
                 {
-                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Account, "Account");
+                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Account);
                     submenu.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::YourMetadata, "Profile");
-                        self.add_menu_item_page(ui, Page::YourKeys, "Keys");
-                        self.add_menu_item_page(ui, Page::YourDelegation, "Delegation");
+                        self.add_menu_item_page(ui, Page::YourMetadata);
+                        self.add_menu_item_page(ui, Page::YourKeys);
+                        self.add_menu_item_page(ui, Page::YourDelegation);
                     });
                     self.after_openable_menu(ui, &submenu);
                 }
@@ -716,11 +794,11 @@ impl eframe::App for GossipUi {
                 }
                 // ---- Help Submenu ----
                 {
-                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Help, "Help");
+                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Help);
                     submenu.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::HelpHelp, "Help");
-                        self.add_menu_item_page(ui, Page::HelpStats, "Stats");
-                        self.add_menu_item_page(ui, Page::HelpAbout, "About");
+                        self.add_menu_item_page(ui, Page::HelpHelp);
+                        self.add_menu_item_page(ui, Page::HelpStats);
+                        self.add_menu_item_page(ui, Page::HelpAbout);
                     });
                     self.after_openable_menu(ui, &submenu);
                 }
@@ -1135,9 +1213,9 @@ impl GossipUi {
         }
     }
 
-    fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page, text: &str) {
+    fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page) {
         if self
-            .add_selected_label(ui, self.page == page, text)
+            .add_selected_label(ui, self.page == page, page.to_readable().1.as_str())
             .clicked()
         {
             self.set_page(page);
@@ -1148,14 +1226,13 @@ impl GossipUi {
         &mut self,
         ui: &mut Ui,
         item: SubMenu,
-        label: &str,
     ) -> (egui::CollapsingState, Response) {
         let mut clps =
             egui::CollapsingState::load_with_default_open(ui.ctx(), self.submenu_ids[&item], false);
         let txt = if clps.is_open() {
-            label.to_string() + " \u{25BE}"
+            item.to_string() + " \u{25BE}"
         } else {
-            label.to_string() + " \u{25B8}"
+            item.to_string() + " \u{25B8}"
         };
         if clps.is_open() {
             ui.add_space(10.0)
