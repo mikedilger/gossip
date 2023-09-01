@@ -26,6 +26,9 @@ pub struct Profile {
 
     /// The LMDB directory (within the profile directory)
     pub lmdb_dir: PathBuf,
+
+    /// The directory for avatars (subfolder of cache)
+    pub avatars_dir: PathBuf,
 }
 
 impl Profile {
@@ -53,13 +56,20 @@ impl Profile {
             }
         };
 
+        // Cache folder structure
         let cache_dir = {
             let mut cache_dir = base_dir.clone();
-            cache_dir.push("cache");
+            cache_dir.push("cache/contents");
             cache_dir
         };
 
-        // optional profile name, if specified the the user data is stored in a subdirectory
+        let avatars_dir = {
+            let mut avatars_dir = base_dir.clone();
+            avatars_dir.push("cache/avatars");
+            avatars_dir
+        };
+
+        // Optional profile name, if specified the user data is stored in a subdirectory
         let profile_dir = match env::var("GOSSIP_PROFILE") {
             Ok(profile) => {
                 if "cache".eq_ignore_ascii_case(profile.as_str()) {
@@ -105,12 +115,14 @@ impl Profile {
         fs::create_dir_all(&cache_dir)?;
         fs::create_dir_all(&profile_dir)?;
         fs::create_dir_all(&lmdb_dir)?;
+        fs::create_dir_all(&avatars_dir)?;
 
         Ok(Profile {
             base_dir,
             profile_dir,
             cache_dir,
             lmdb_dir,
+            avatars_dir,
         })
     }
 

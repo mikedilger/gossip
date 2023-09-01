@@ -121,7 +121,7 @@ impl Media {
             return None; // can recover if the setting is switched
         }
 
-        match GLOBALS.fetcher.try_get(
+        match GLOBALS.fetcher.try_get(crate::fetcher::CacheType::Content, 
             url,
             Duration::from_secs(60 * 60 * GLOBALS.storage.read_setting_media_becomes_stale_hours()),
         ) {

@@ -24,9 +24,19 @@ pub enum FetchState {
     // If it succeeds, it is removed entirely.
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum CacheType {
+    Avatar,
+    Content,
+    Etag,
+}
+
 #[derive(Debug, Default)]
 pub struct Fetcher {
+    // Cache
     cache_dir: RwLock<PathBuf>,
+    avatars_dir: RwLock<PathBuf>,
+
     client: RwLock<Option<Client>>,
 
     // Here is where we store the current state of each URL being fetched
@@ -49,6 +59,11 @@ impl Fetcher {
     pub fn start() -> Result<(), Error> {
         // Setup the cache directory
         *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::current()?.cache_dir;
+
+        // Setup the avatars directory
+        *GLOBALS.fetcher.avatars_dir.write().unwrap() = Profile::current()?.avatars_dir;
+
+        // TODO: Copy ex /cache folder content into new folder /cache/contents
 
         // Create client
         let connect_timeout = std::time::Duration::new(
@@ -162,7 +177,7 @@ impl Fetcher {
     /// If you call it over and over rapidly (e.g. from the UI), it will read from the filesystem
     /// over and over again, which is bad. So the UI caller should have it's own means of
     /// caching the results from this call.
-    pub fn try_get(&self, url: &Url, max_age: Duration) -> Result<Option<Vec<u8>>, Error> {
+    pub fn try_get(&self, cache_type: CacheType, url: &Url, max_age: Duration) -> Result<Option<Vec<u8>>, Error> {
         // FIXME - this function is called synchronously, but it makes several
         //         file system calls. This might be pushing the limits of what we should
         //         be blocking on.
@@ -195,15 +210,14 @@ impl Fetcher {
         }
 
         // Check if a cached file exists and is fresh enough
-        let cache_file = self.cache_file(url);
+        let cache_file = self.cache_file(cache_type, url);
         let mut stale = false;
         match fs::metadata(cache_file.as_path()) {
             Ok(md) => {
                 // We had a bug that put empty cache files in place (maybe we still have it).
                 // In any case, if the file is empty, don't honor it and wipe any etag
                 if md.len() == 0 {
-                    let etag_file = GLOBALS.fetcher.etag_file(url);
-                    let _ = fs::remove_file(etag_file);
+                    let _ = fs::remove_file(GLOBALS.fetcher.cache_file(CacheType::Etag, url));
                 } else {
                     if let Ok(modified) = md.modified() {
                         if let Ok(dur) = modified.elapsed() {
@@ -257,8 +271,9 @@ impl Fetcher {
             return;
         }
 
-        let etag_file = GLOBALS.fetcher.etag_file(&url);
-        let cache_file = GLOBALS.fetcher.cache_file(&url);
+        let avatar_file = GLOBALS.fetcher.cache_file(CacheType::Avatar, &url);
+        let etag_file = GLOBALS.fetcher.cache_file(CacheType::Etag, &url);
+        let cache_file = GLOBALS.fetcher.cache_file(CacheType::Content, &url);
 
         let etag: Option<Vec<u8>> = match tokio::fs::read(etag_file.as_path()).await {
             Ok(contents) => {
@@ -495,7 +510,7 @@ impl Fetcher {
         self.urls.write().unwrap().remove(&url);
     }
 
-    fn cache_file(&self, url: &Url) -> PathBuf {
+    fn cache_file(&self, cache_type: CacheType, url: &Url) -> PathBuf {
         // Hash the url into a SHA256 hex string
         let hash = {
             let mut hasher = sha2::Sha256::new();
@@ -504,9 +519,23 @@ impl Fetcher {
             hex::encode(result)
         };
 
-        let mut cache_file = self.cache_dir.read().unwrap().clone();
-        cache_file.push(hash);
-        cache_file
+        match cache_type {
+            CacheType::Avatar => {
+                let mut avatar_file = self.avatars_dir.read().unwrap().clone();
+                avatar_file.push(hash);
+                avatar_file
+            }
+            CacheType::Content => {
+                let mut cache_file = self.cache_dir.read().unwrap().clone();
+                cache_file.push(hash);
+                cache_file
+            }
+            CacheType::Etag => {
+                let mut avatar_file = self.avatars_dir.read().unwrap().clone();
+                avatar_file.push(hash);
+                avatar_file.with_extension("etag")
+            }
+        }
     }
 
     fn sinbin(&self, url: &Url, duration: Duration) {
@@ -535,10 +564,6 @@ impl Fetcher {
             Err(_) => return None,
         };
         u.host_str().map(|s| s.to_owned())
-    }
-
-    fn etag_file(&self, url: &Url) -> PathBuf {
-        self.cache_file(url).with_extension("etag")
     }
 
     fn fetch_host_load(&self, host: &str) -> usize {
