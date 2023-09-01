@@ -677,9 +677,16 @@ fn render_note_inner(
                                     }
 
                                     // Button to reply
+                                    let reply_icon = match note.event.kind {
+                                        EventKind::EncryptedDirectMessage
+                                        | EventKind::DmChat
+                                        | EventKind::GiftWrap => "⏎",
+                                        _ => "💬",
+                                    };
+
                                     if ui
                                         .add(
-                                            Label::new(RichText::new("💬").size(18.0))
+                                            Label::new(RichText::new(reply_icon).size(18.0))
                                                 .sense(Sense::click()),
                                         )
                                         .on_hover_text("Reply")
