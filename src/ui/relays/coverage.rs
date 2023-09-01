@@ -28,13 +28,7 @@ impl<'a> CoverageEntry<'a> {
         let available_width = ui.available_size_before_wrap().x;
         let (rect, response) = ui.allocate_exact_size(vec2(available_width, 80.0), egui::Sense::click());
 
-        let color = if response.hovered() {
-            Some(ui.style().visuals.extreme_bg_color.linear_multiply(0.2))
-        } else {
-            None
-        };
-
-        widgets::list_entry::paint_frame(ui, &rect, color);
+        widgets::list_entry::paint_frame(ui, &rect, None);
 
         // ---- title ----
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
