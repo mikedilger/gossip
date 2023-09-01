@@ -447,7 +447,7 @@ impl People {
 
         // If it failed before, error out now
         if GLOBALS.failed_avatars.blocking_read().contains(pubkey) {
-            return None; // cannot recover.
+            return None; // cannot recover
         }
 
         // If it is pending processing, respond now
@@ -486,7 +486,7 @@ impl People {
             }
         };
 
-        match GLOBALS.fetcher.try_get(
+        match GLOBALS.fetcher.try_get(crate::fetcher::CacheType::Avatar,
             &url,
             Duration::from_secs(
                 60 * 60 * GLOBALS.storage.read_setting_avatar_becomes_stale_hours(),
