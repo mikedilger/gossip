@@ -561,8 +561,6 @@ impl GossipUi {
     }
 
     fn clear_post(&mut self) {
-        self.show_post_area = false;
-        self.draft_needs_focus = false;
         self.draft = "".to_owned();
         self.draft_repost = None;
         self.tag_someone = "".to_owned();
@@ -572,6 +570,14 @@ impl GossipUi {
         self.draft_dm_channel = None;
         self.include_content_warning = false;
         self.content_warning = "".to_owned();
+
+        if let Page::Feed(FeedKind::DmChat(_)) = self.page {
+            self.show_post_area = true;
+            self.draft_needs_focus = true;
+        } else {
+            self.show_post_area = false;
+            self.draft_needs_focus = false;
+        }
     }
 }
 
