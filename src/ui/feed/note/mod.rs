@@ -335,13 +335,13 @@ fn render_note_inner(
                     if let Page::Feed(FeedKind::DmChat(_)) = app.page {
                         // don't show ENCRYPTED DM or SECURE in the dm channel itself
                     } else {
-                        if note.event.kind == EventKind::EncryptedDirectMessage {
+                        if note.event.kind.is_direct_message_related() {
                             let color = app.settings.theme.notice_marker_text_color();
-                            ui.label(RichText::new("ENCRYPTED DM").color(color));
-                        }
-                        if note.secure {
-                            let color = app.settings.theme.notice_marker_text_color();
-                            ui.label(RichText::new("SECURE").color(color));
+                            if note.secure {
+                                ui.label(RichText::new("Private Chat (Gift Wrapped)").color(color));
+                            } else {
+                                ui.label(RichText::new("Private Chat").color(color));
+                            }
                         }
                     }
                 });
@@ -349,7 +349,7 @@ fn render_note_inner(
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.menu_button(RichText::new("=").size(13.0), |ui| {
                         if !render_data.is_main_event {
-                            if note.event.kind == EventKind::EncryptedDirectMessage {
+                            if note.event.kind.is_direct_message_related() {
                                 if ui.button("View DM Channel").clicked() {
                                     if let Some(channel) = DmChannel::from_event(&note.event, None)
                                     {
@@ -470,7 +470,7 @@ fn render_note_inner(
                             .on_hover_text("View Thread")
                             .clicked()
                         {
-                            if note.event.kind == EventKind::EncryptedDirectMessage {
+                            if note.event.kind.is_direct_message_related() {
                                 if let Some(channel) = DmChannel::from_event(&note.event, None) {
                                     app.set_page(Page::Feed(FeedKind::DmChat(channel)));
                                 } else {
