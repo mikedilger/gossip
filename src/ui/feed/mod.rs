@@ -53,6 +53,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
+                    ui.label("Main Feed");
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -101,6 +102,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
+                    ui.label("Inbox");
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -131,6 +133,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         FeedKind::Thread { id, .. } => {
             ui.horizontal(|ui| {
+                ui.label("Thread");
                 recompute_btn(app, ui);
             });
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
@@ -139,6 +142,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         FeedKind::Person(pubkey) => {
             ui.horizontal(|ui| {
+                ui.label(crate::names::display_name_from_pubkey_lookup(&pubkey));
                 recompute_btn(app, ui);
             });
 
@@ -147,6 +151,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         FeedKind::DmChat(channel) => {
             ui.horizontal(|ui| {
+                ui.label(format!("Private Chat with {}", channel.name()));
                 recompute_btn(app, ui);
             });
 
