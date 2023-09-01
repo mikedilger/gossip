@@ -701,11 +701,11 @@ fn render_note_inner(
                                     }
 
                                     // Button to reply
-                                    let reply_icon = match note.event.kind {
-                                        EventKind::EncryptedDirectMessage
-                                        | EventKind::DmChat
-                                        | EventKind::GiftWrap => "⏎",
-                                        _ => "💬",
+                                    let reply_icon = if note.event.kind.is_direct_message_related()
+                                    {
+                                        "⏎"
+                                    } else {
+                                        "💬"
                                     };
 
                                     if ui
@@ -716,7 +716,12 @@ fn render_note_inner(
                                         .on_hover_text("Reply")
                                         .clicked()
                                     {
-                                        app.replying_to = Some(note.event.id);
+                                        app.replying_to =
+                                            if note.event.kind.is_direct_message_related() {
+                                                None
+                                            } else {
+                                                Some(note.event.id)
+                                            };
                                         app.draft_repost = None;
                                         app.show_post_area = true;
                                         app.draft_dm_channel =
