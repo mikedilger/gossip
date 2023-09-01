@@ -115,6 +115,16 @@ enum Page {
     HelpAbout,
 }
 
+impl Page {
+    pub fn show_post_icon(&self) -> bool {
+        use Page::*;
+        match *self {
+            Feed(_) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Eq, Hash, PartialEq)]
 enum SubMenu {
     DmChat,
@@ -788,7 +798,7 @@ impl eframe::App for GossipUi {
                 });
 
                 // ---- "plus icon" ----
-                if !self.show_post_area {
+                if !self.show_post_area && self.page.show_post_icon() {
                     let bottom_right = ui.ctx().screen_rect().right_bottom();
                     let pos = bottom_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0);
 
