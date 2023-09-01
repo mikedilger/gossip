@@ -113,6 +113,7 @@ enum Page {
     HelpHelp,
     HelpStats,
     HelpAbout,
+    HelpTheme,
 }
 
 impl Page {
@@ -759,6 +760,7 @@ impl eframe::App for GossipUi {
                         self.add_menu_item_page(ui, Page::HelpHelp, "Help");
                         self.add_menu_item_page(ui, Page::HelpStats, "Stats");
                         self.add_menu_item_page(ui, Page::HelpAbout, "About");
+                        self.add_menu_item_page(ui, Page::HelpTheme, "Theme Test");
                     });
                     self.after_openable_menu(ui, &submenu);
                 }
@@ -928,7 +930,7 @@ impl eframe::App for GossipUi {
                     }
                     Page::Search => search::update(self, ctx, frame, ui),
                     Page::Settings => settings::update(self, ctx, frame, ui),
-                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
+                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
                         help::update(self, ctx, frame, ui)
                     }
                 }
