@@ -48,6 +48,7 @@ impl<'a> CoverageEntry<'a> {
             let id = self.make_id("copy-pubkey");
             let (galley, response) = allocate_text_at(ui, pos, text.into(), Align::RIGHT, id);
             if response
+                .on_hover_text("Copy to clipboard")
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked() {
                 ui.output_mut(|o| {
