@@ -348,15 +348,27 @@ fn render_note_inner(
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.menu_button(RichText::new("=").size(13.0), |ui| {
-                        if !render_data.is_main_event
-                            && note.event.kind != EventKind::EncryptedDirectMessage
-                        {
-                            if ui.button("View Thread").clicked() {
-                                app.set_page(Page::Feed(FeedKind::Thread {
-                                    id: note.event.id,
-                                    referenced_by: note.event.id,
-                                    author: Some(note.event.pubkey),
-                                }));
+                        if !render_data.is_main_event {
+                            if note.event.kind == EventKind::EncryptedDirectMessage {
+                                if ui.button("View DM Channel").clicked() {
+                                    if let Some(channel) = DmChannel::from_event(&note.event, None)
+                                    {
+                                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                    } else {
+                                        GLOBALS.status_queue.write().write(
+                                            "Could not determine DM channel for that note."
+                                                .to_string(),
+                                        );
+                                    }
+                                }
+                            } else {
+                                if ui.button("View Thread").clicked() {
+                                    app.set_page(Page::Feed(FeedKind::Thread {
+                                        id: note.event.id,
+                                        referenced_by: note.event.id,
+                                        author: Some(note.event.pubkey),
+                                    }));
+                                }
                             }
                         }
                         if ui.button("Copy nevent").clicked() {
@@ -452,19 +464,27 @@ fn render_note_inner(
                         ui.add_space(4.0);
                     }
 
-                    if !render_data.is_main_event
-                        && note.event.kind != EventKind::EncryptedDirectMessage
-                    {
+                    if !render_data.is_main_event {
                         if ui
                             .button(RichText::new("◉").size(13.0))
                             .on_hover_text("View Thread")
                             .clicked()
                         {
-                            app.set_page(Page::Feed(FeedKind::Thread {
-                                id: note.event.id,
-                                referenced_by: note.event.id,
-                                author: Some(note.event.pubkey),
-                            }));
+                            if note.event.kind == EventKind::EncryptedDirectMessage {
+                                if let Some(channel) = DmChannel::from_event(&note.event, None) {
+                                    app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                } else {
+                                    GLOBALS.status_queue.write().write(
+                                        "Could not determine DM channel for that note.".to_string(),
+                                    );
+                                }
+                            } else {
+                                app.set_page(Page::Feed(FeedKind::Thread {
+                                    id: note.event.id,
+                                    referenced_by: note.event.id,
+                                    author: Some(note.event.pubkey),
+                                }));
+                            }
                         }
                     }
 
