@@ -63,50 +63,43 @@ pub async fn process_new_event(
         return Ok(()); // No more processing needed for existing event.
     }
 
+    // Verify the event
+    if verify {
+        let mut maxtime = now;
+        maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
+        if let Err(e) = event.verify(Some(maxtime)) {
+            tracing::error!("{}: VERIFY ERROR: {}", e, serde_json::to_string(&event)?);
+            return Ok(());
+        }
+    }
+
     // Save event
     // Bail if the event is an already-replaced replaceable event
-    if let Some(ref relay_url) = seen_on {
-        // Verify the event
-        if verify {
-            let mut maxtime = now;
-            maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
-            if let Err(e) = event.verify(Some(maxtime)) {
-                tracing::error!(
-                    "{}: VERIFY ERROR: {}, {}",
-                    relay_url,
-                    e,
-                    serde_json::to_string(&event)?
-                );
-                return Ok(());
-            }
+    if event.kind.is_replaceable() {
+        if !GLOBALS.storage.replace_event(event, None)? {
+            tracing::trace!(
+                "{}: Old Event: {} {:?} @{}",
+                seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                subscription.as_ref().unwrap_or(&"_".to_string()),
+                event.kind,
+                event.created_at
+            );
+            return Ok(()); // This did not replace anything.
         }
-
-        if event.kind.is_replaceable() {
-            if !GLOBALS.storage.replace_event(event, None)? {
-                tracing::trace!(
-                    "{}: Old Event: {} {:?} @{}",
-                    seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-                    subscription.as_ref().unwrap_or(&"_".to_string()),
-                    event.kind,
-                    event.created_at
-                );
-                return Ok(()); // This did not replace anything.
-            }
-        } else if event.kind.is_parameterized_replaceable() {
-            if !GLOBALS.storage.replace_parameterized_event(event, None)? {
-                tracing::trace!(
-                    "{}: Old Event: {} {:?} @{}",
-                    seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-                    subscription.as_ref().unwrap_or(&"_".to_string()),
-                    event.kind,
-                    event.created_at
-                );
-                return Ok(()); // This did not replace anything.
-            }
-        } else {
-            // This will ignore if it is already there
-            GLOBALS.storage.write_event(event, None)?;
+    } else if event.kind.is_parameterized_replaceable() {
+        if !GLOBALS.storage.replace_parameterized_event(event, None)? {
+            tracing::trace!(
+                "{}: Old Event: {} {:?} @{}",
+                seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                subscription.as_ref().unwrap_or(&"_".to_string()),
+                event.kind,
+                event.created_at
+            );
+            return Ok(()); // This did not replace anything.
         }
+    } else {
+        // This will ignore if it is already there
+        GLOBALS.storage.write_event(event, None)?;
     }
 
     // Log
