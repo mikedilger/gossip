@@ -589,7 +589,7 @@ fn render_note_inner(
                             top: 8.0,
                         })
                         .show(ui, |ui| {
-                            let color = app.settings.theme.warning_marker_text_color();
+                            let color = app.settings.theme.accent_complementary_color();
                             ui.horizontal_wrapped(|ui| {
                                 ui.add(Label::new(
                                     RichText::new(format!("proxied from {}: ", proxy)).color(color),
