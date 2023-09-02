@@ -74,7 +74,10 @@ impl<'a> CoverageEntry<'a> {
 
         // ---- connected relays ----
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + 30.0);
-        let relays_string = self.relays.iter().map(|f| f.to_string()).collect::<Vec<String>>().join(", ");
+        let relays_string = self.relays.iter()
+            .map(|rurl| GossipUi::domain_from_relay_url(rurl).to_string() )
+            .collect::<Vec<String>>()
+            .join(", ");
         draw_text_at(
             ui,
             pos,
