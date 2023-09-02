@@ -42,7 +42,7 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, UncheckedUrl, Url};
+use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, UncheckedUrl, Url, RelayUrl};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -1008,6 +1008,13 @@ impl GossipUi {
             Ok(Some(dbperson)) => Self::display_name_from_dbperson(&dbperson),
             _ => Self::pubkey_short(pubkey),
         }
+    }
+
+    pub fn domain_from_relay_url<'a>(relay: &'a RelayUrl) -> &'a str /* domain */ {
+        let domain = relay.0.trim_start_matches("wss://");
+        let domain = domain.trim_start_matches("ws://");
+        let domain = domain.trim_end_matches('/');
+        domain
     }
 
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &Person) {

@@ -214,9 +214,7 @@ impl RelayEntry {
 
 impl RelayEntry {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = self.relay.url.as_str().trim_start_matches("wss://");
-        let title = title.trim_start_matches("ws://");
-        let title = title.trim_end_matches('/');
+        let title = GossipUi::domain_from_relay_url(&self.relay.url);
         let mut title = safe_truncate(title, TITLE_MAX_LEN).to_string();
         if self.relay.url.0.len() > TITLE_MAX_LEN {
             title.push('\u{2026}'); // append ellipsis
