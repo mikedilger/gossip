@@ -241,7 +241,7 @@ impl Feed {
         let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
 
         let kinds_with_dms = feed_displayable_event_kinds(true);
-        let kinds_without_dms = feed_displayable_event_kinds(true);
+        let kinds_without_dms = feed_displayable_event_kinds(false);
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
