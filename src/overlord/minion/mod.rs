@@ -627,6 +627,31 @@ impl Minion {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             let pkh: PublicKeyHex = pubkey.into();
 
+            // Compute how far to look back
+            let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
+            let chunk = Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
+
+            let since = {
+                // Start with where we left off, the time we last got something from
+                // this relay.
+                let mut since: Unixtime = match self.dbrelay.last_general_eose_at {
+                    Some(u) => Unixtime(u as i64),
+                    None => Unixtime(0),
+                };
+
+                // Subtract overlap to avoid gaps due to clock sync and event
+                // propagation delay
+                since = since - overlap;
+
+                // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
+                if since.0 < 1577836800 {
+                    since.0 = 1577836800;
+                }
+
+                let one_chunk_ago = Unixtime::now().unwrap() - chunk;
+                since.max(one_chunk_ago)
+            };
+
             // Read back in things that we wrote out to our write relays
             // that we need
             let filters: Vec<Filter> = vec![
@@ -642,20 +667,20 @@ impl Minion {
                     // these are all replaceable, no since required
                     ..Default::default()
                 },
-                // DMs I wrote, all the way back (temp?)
+                // DMs I wrote
                 Filter {
                     authors: vec![pkh.clone().into()],
                     kinds: vec![EventKind::EncryptedDirectMessage],
-                    // all the way back
+                    since: Some(since),
                     ..Default::default()
                 },
                 // GiftWraps I wrote anonymously to myself
-
-                // Posts I wrote, recently
+                // TBD -- and make since go back 1 week further
+                // Posts I wrote
                 Filter {
                     authors: vec![pkh.into()],
                     kinds: crate::feed::feed_related_event_kinds(false), // not DMs
-                    // all the way back
+                    since: Some(since),
                     ..Default::default()
                 },
             ];
