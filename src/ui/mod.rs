@@ -187,6 +187,34 @@ pub enum HighlightType {
     Hyperlink,
 }
 
+pub struct DraftData {
+    pub draft: String,
+    pub repost: Option<Id>,
+    pub tag_someone: String,
+    pub include_subject: bool,
+    pub subject: String,
+    pub include_content_warning: bool,
+    pub content_warning: String,
+    pub dm_channel: Option<DmChannel>,
+    pub replying_to: Option<Id>,
+}
+
+impl Default for DraftData {
+    fn default() -> DraftData {
+        DraftData {
+            draft: "".to_owned(),
+            repost: None,
+            tag_someone: "".to_owned(),
+            include_subject: false,
+            subject: "".to_owned(),
+            include_content_warning: false,
+            content_warning: "".to_owned(),
+            dm_channel: None,
+            replying_to: None,
+        }
+    }
+}
+
 struct GossipUi {
     #[cfg(feature = "video-ffmpeg")]
     audio_device: Option<AudioDevice>,
@@ -247,18 +275,20 @@ struct GossipUi {
 
     // User entry: posts
     show_post_area: bool,
-    draft: String,
     draft_needs_focus: bool,
-    draft_repost: Option<Id>,
     unlock_needs_focus: bool,
+    draft_data: DraftData,
+    /*
+    draft: String,
+    repost: Option<Id>,
     tag_someone: String,
     include_subject: bool,
     subject: String,
     include_content_warning: bool,
     content_warning: String,
-    draft_dm_channel: Option<DmChannel>,
+    dm_channel: Option<DmChannel>,
     replying_to: Option<Id>,
-
+     */
     // User entry: metadata
     editing_metadata: bool,
     metadata: Metadata,
@@ -467,17 +497,9 @@ impl GossipUi {
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
             show_post_area: false,
-            draft: "".to_owned(),
             draft_needs_focus: false,
-            draft_repost: None,
             unlock_needs_focus: false,
-            tag_someone: "".to_owned(),
-            include_subject: false,
-            subject: "".to_owned(),
-            include_content_warning: false,
-            content_warning: "".to_owned(),
-            draft_dm_channel: None,
-            replying_to: None,
+            draft_data: DraftData::default(),
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
@@ -559,26 +581,6 @@ impl GossipUi {
             _ => {}
         }
         self.page = page;
-    }
-
-    fn clear_post(&mut self) {
-        self.draft = "".to_owned();
-        self.draft_repost = None;
-        self.tag_someone = "".to_owned();
-        self.include_subject = false;
-        self.subject = "".to_owned();
-        self.replying_to = None;
-        self.draft_dm_channel = None;
-        self.include_content_warning = false;
-        self.content_warning = "".to_owned();
-
-        if let Page::Feed(FeedKind::DmChat(_)) = self.page {
-            self.show_post_area = true;
-            self.draft_needs_focus = true;
-        } else {
-            self.show_post_area = false;
-            self.draft_needs_focus = false;
-        }
     }
 }
 
@@ -824,9 +826,9 @@ impl eframe::App for GossipUi {
                                 if response.clicked() {
                                     self.show_post_area = true;
                                     if let Page::Feed(FeedKind::DmChat(channel)) = &self.page {
-                                        self.draft_dm_channel = Some(channel.clone());
+                                        self.draft_data.dm_channel = Some(channel.clone());
                                     } else {
-                                        self.draft_dm_channel = None;
+                                        self.draft_data.dm_channel = None;
                                     }
                                     if GLOBALS.signer.is_ready() {
                                         self.draft_needs_focus = true;
@@ -974,10 +976,10 @@ impl GossipUi {
                 if GLOBALS.signer.is_ready() {
                     if ui.button("Send DM").clicked() {
                         let channel = DmChannel::new(&[person.pubkey]);
-                        app.replying_to = None;
-                        app.draft_repost = None;
+                        app.draft_data.replying_to = None;
+                        app.draft_data.repost = None;
                         app.show_post_area = true;
-                        app.draft_dm_channel = Some(channel.clone());
+                        app.draft_data.dm_channel = Some(channel.clone());
                         app.draft_needs_focus = true;
                         app.set_page(Page::Feed(FeedKind::DmChat(channel)));
                     }

@@ -105,7 +105,7 @@ pub(in crate::ui) fn posting_area(
 fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     // Maybe render post we are replying to or reposting
 
-    if let Some(id) = app.replying_to.or(app.draft_repost) {
+    if let Some(id) = app.draft_data.replying_to.or(app.draft_data.repost) {
         ScrollArea::vertical()
             .max_height(200.0)
             .override_scroll_delta(Vec2 {
@@ -132,7 +132,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     let mut send_now: bool = false;
 
-    if app.draft_repost.is_none() {
+    if app.draft_data.repost.is_none() {
         // Text area
         let theme = app.settings.theme;
         let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
@@ -141,40 +141,40 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.fonts(|f| f.layout_job(layout_job))
         };
 
-        if app.include_subject && app.replying_to.is_none() {
+        if app.draft_data.include_subject && app.draft_data.replying_to.is_none() {
             ui.horizontal(|ui| {
                 ui.label("Subject: ");
                 ui.add(
-                    text_edit_line!(app, app.subject)
+                    text_edit_line!(app, app.draft_data.subject)
                         .hint_text("Type subject here")
                         .desired_width(f32::INFINITY),
                 );
             });
         }
 
-        if app.include_content_warning {
+        if app.draft_data.include_content_warning {
             ui.horizontal(|ui| {
                 ui.label("Content Warning: ");
                 ui.add(
-                    text_edit_line!(app, app.content_warning)
+                    text_edit_line!(app, app.draft_data.content_warning)
                         .hint_text("Type content warning here")
                         .desired_width(f32::INFINITY),
                 );
             });
         }
 
-        if let Some(dm_channel) = &app.draft_dm_channel {
+        if let Some(dm_channel) = &app.draft_data.dm_channel {
             ui.label(format!("DIRECT MESSAGE TO: {}", dm_channel.name()));
             ui.label("WARNING: DMs currently have security weaknesses and the more DMs you send, the easier it is to crack your keypair.");
         }
 
         let draft_response = ui.add(
-            text_edit_multiline!(app, app.draft)
+            text_edit_multiline!(app, app.draft_data.draft)
                 .id_source("compose_area")
                 .hint_text("Type your message here")
                 .desired_width(f32::INFINITY)
                 .lock_focus(true)
-                .interactive(app.draft_repost.is_none())
+                .interactive(app.draft_data.repost.is_none())
                 .layouter(&mut layouter),
         );
         if app.draft_needs_focus {
@@ -182,7 +182,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             app.draft_needs_focus = false;
         }
 
-        if draft_response.has_focus() && !app.draft.is_empty() {
+        if draft_response.has_focus() && !app.draft_data.draft.is_empty() {
             let modifiers = if cfg!(target_os = "macos") {
                 Modifiers {
                     command: true,
@@ -205,73 +205,78 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     ui.horizontal(|ui| {
         if ui.button("Cancel").clicked() {
-            app.clear_post();
+            app.draft_data = Default::default();
+            app.show_post_area = false;
+            app.draft_needs_focus = false;
         }
 
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(12.0);
-            let send_label = if app.draft_repost.is_some() {
+            let send_label = if app.draft_data.repost.is_some() {
                 "Repost"
             } else {
                 "Send"
             };
 
             if ui.button(send_label).clicked()
-                && (!app.draft.is_empty() || app.draft_repost.is_some())
+                && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
             {
                 send_now = true;
             }
 
-            if app.draft_repost.is_none() {
+            if app.draft_data.repost.is_none() {
                 ui.add(
-                    text_edit_line!(app, app.tag_someone)
+                    text_edit_line!(app, app.draft_data.tag_someone)
                         .desired_width(100.0)
                         .hint_text("@username"),
                 );
 
-                if !app.tag_someone.is_empty() {
+                if !app.draft_data.tag_someone.is_empty() {
                     let pairs = GLOBALS
                         .people
-                        .search_people_to_tag(&app.tag_someone)
+                        .search_people_to_tag(&app.draft_data.tag_someone)
                         .unwrap_or(vec![]);
                     if !pairs.is_empty() {
                         ui.menu_button("@", |ui| {
                             for pair in pairs {
                                 if ui.button(pair.0).clicked() {
-                                    if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                        app.draft.push(' ');
+                                    if !app.draft_data.draft.ends_with(' ')
+                                        && !app.draft_data.draft.is_empty()
+                                    {
+                                        app.draft_data.draft.push(' ');
                                     }
                                     let nostr_url: NostrUrl = pair.1.into();
-                                    app.draft.push_str(&format!("{}", nostr_url));
-                                    app.tag_someone = "".to_owned();
+                                    app.draft_data.draft.push_str(&format!("{}", nostr_url));
+                                    app.draft_data.tag_someone = "".to_owned();
                                 }
                             }
                         });
                     }
                 }
 
-                if app.include_subject {
+                if app.draft_data.include_subject {
                     if ui.button("Remove Subject").clicked() {
-                        app.include_subject = false;
-                        app.subject = "".to_owned();
+                        app.draft_data.include_subject = false;
+                        app.draft_data.subject = "".to_owned();
                     }
-                } else if app.replying_to.is_none() && ui.button("Add Subject").clicked() {
-                    app.include_subject = true;
+                } else if app.draft_data.replying_to.is_none() && ui.button("Add Subject").clicked()
+                {
+                    app.draft_data.include_subject = true;
                 }
 
-                if app.include_content_warning {
+                if app.draft_data.include_content_warning {
                     if ui.button("Remove Content Warning").clicked() {
-                        app.include_content_warning = false;
-                        app.content_warning = "".to_owned();
+                        app.draft_data.include_content_warning = false;
+                        app.draft_data.content_warning = "".to_owned();
                     }
                 } else if ui.button("Add Content Warning").clicked() {
-                    app.include_content_warning = true;
+                    app.draft_data.include_content_warning = true;
                 }
 
                 // Emoji picker
                 ui.menu_button(RichText::new("😀▼").size(14.0), |ui| {
                     if let Some(emoji) = crate::ui::components::emoji_picker(ui) {
-                        app.draft.push(emoji);
+                        app.draft_data.draft.push(emoji);
                     }
                 });
             }
@@ -280,52 +285,55 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     if send_now {
         let mut tags: Vec<Tag> = Vec::new();
-        if app.include_content_warning {
+        if app.draft_data.include_content_warning {
             tags.push(Tag::ContentWarning {
-                warning: app.content_warning.clone(),
+                warning: app.draft_data.content_warning.clone(),
                 trailing: Vec::new(),
             });
         }
         if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
             tags.push(delegatee_tag);
         }
-        if app.include_subject {
+        if app.draft_data.include_subject {
             tags.push(Tag::Subject {
-                subject: app.subject.clone(),
+                subject: app.draft_data.subject.clone(),
                 trailing: Vec::new(),
             });
         }
-        match app.replying_to {
+        match app.draft_data.replying_to {
             Some(replying_to_id) => {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-                    app.draft.clone(),
+                    app.draft_data.draft.clone(),
                     tags,
                     Some(replying_to_id),
-                    app.draft_dm_channel.clone(),
+                    app.draft_data.dm_channel.clone(),
                 ));
             }
             None => {
-                if let Some(event_id) = app.draft_repost {
+                if let Some(event_id) = app.draft_data.repost {
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::Repost(event_id));
                 } else {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-                        app.draft.clone(),
+                        app.draft_data.draft.clone(),
                         tags,
                         None,
-                        app.draft_dm_channel.clone(),
+                        app.draft_data.dm_channel.clone(),
                     ));
                 }
             }
         }
-        app.clear_post();
+
+        app.draft_data = Default::default();
+        app.show_post_area = false;
+        app.draft_needs_focus = false;
     }
 
     // List tags that will be applied
     // FIXME: list tags from parent event too in case of reply
     // FIXME: tag handling in overlord::post() needs to move back here so the user can control this
-    for (i, bech32) in NostrBech32::find_all_in_string(&app.draft)
+    for (i, bech32) in NostrBech32::find_all_in_string(&app.draft_data.draft)
         .iter()
         .enumerate()
     {

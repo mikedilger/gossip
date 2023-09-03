@@ -1,10 +1,10 @@
 use super::GossipUi;
-use crate::ui::HighlightType;
 use crate::ui::feed::NoteRenderData;
+use crate::ui::HighlightType;
 use eframe::egui;
-use egui::{Color32, Context, Frame, Margin, RichText, Ui};
 use egui::text::LayoutJob;
 use egui::widget_text::WidgetText;
+use egui::{Color32, Context, Frame, Margin, RichText, Ui};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Background {
@@ -88,36 +88,38 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.heading("Input Background");
             inner(app, ui, Background::Input);
         });
-
 }
 
 fn inner(app: &mut GossipUi, ui: &mut Ui, background: Background) {
     let theme = app.settings.theme.clone();
     let accent = RichText::new("accent").color(theme.accent_color());
-    let accent_complementary = RichText::new("accent complimentary (indirectly used)").color(theme.accent_complementary_color());
+    let accent_complementary = RichText::new("accent complimentary (indirectly used)")
+        .color(theme.accent_complementary_color());
 
     line(ui, accent);
     line(ui, accent_complementary);
 
     if background == Background::Input {
-        for (ht,txt) in [(HighlightType::Nothing, "nothing"),
-                         (HighlightType::PublicKey, "public key"),
-                         (HighlightType::Event, "event"),
-                         (HighlightType::Relay, "relay"),
-                         (HighlightType::Hyperlink, "hyperlink")]
-        {
+        for (ht, txt) in [
+            (HighlightType::Nothing, "nothing"),
+            (HighlightType::PublicKey, "public key"),
+            (HighlightType::Event, "event"),
+            (HighlightType::Relay, "relay"),
+            (HighlightType::Hyperlink, "hyperlink"),
+        ] {
             let mut highlight_job = LayoutJob::default();
             highlight_job.append(
                 &format!("highlight text format for {}", txt),
                 0.0,
-                theme.highlight_text_format(ht)
+                theme.highlight_text_format(ht),
             );
             line(ui, WidgetText::LayoutJob(highlight_job));
         }
     }
 
     if background == Background::Note || background == Background::HighlightedNote {
-        let warning_marker = RichText::new("warning marker").color(theme.warning_marker_text_color());
+        let warning_marker =
+            RichText::new("warning marker").color(theme.warning_marker_text_color());
         line(ui, warning_marker);
 
         let notice_marker = RichText::new("notice marker").color(theme.notice_marker_text_color());
@@ -130,7 +132,7 @@ fn inner(app: &mut GossipUi, ui: &mut Ui, background: Background) {
             crate::ui::widgets::break_anywhere_hyperlink_to(
                 ui,
                 "https://hyperlink.example.com",
-                "https://hyperlink.example.com"
+                "https://hyperlink.example.com",
             );
         });
     }

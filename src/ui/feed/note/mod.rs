@@ -658,10 +658,10 @@ fn render_note_inner(
                                             .on_hover_text("Repost")
                                             .clicked()
                                         {
-                                            app.draft_repost = Some(note.event.id);
-                                            app.replying_to = None;
-                                            app.draft_dm_channel = None;
                                             app.show_post_area = true;
+                                            app.draft_data.repost = Some(note.event.id);
+                                            app.draft_data.replying_to = None;
+                                            app.draft_data.dm_channel = None;
                                         }
 
                                         ui.add_space(24.0);
@@ -675,8 +675,10 @@ fn render_note_inner(
                                             .on_hover_text("Quote")
                                             .clicked()
                                         {
-                                            if !app.draft.ends_with(' ') && !app.draft.is_empty() {
-                                                app.draft.push(' ');
+                                            if !app.draft_data.draft.ends_with(' ')
+                                                && !app.draft_data.draft.is_empty()
+                                            {
+                                                app.draft_data.draft.push(' ');
                                             }
                                             let event_pointer = EventPointer {
                                                 id: note.event.id,
@@ -694,10 +696,13 @@ fn render_note_inner(
                                                 kind: None,
                                             };
                                             let nostr_url: NostrUrl = event_pointer.into();
-                                            app.draft.push_str(&format!("{}", nostr_url));
-                                            app.draft_repost = None;
-                                            app.replying_to = None;
-                                            app.draft_dm_channel = None;
+                                            app.draft_data
+                                                .draft
+                                                .push_str(&format!("{}", nostr_url));
+                                            app.draft_data.repost = None;
+                                            app.draft_data.replying_to = None;
+                                            app.draft_data.dm_channel = None;
+
                                             app.show_post_area = true;
                                             app.draft_needs_focus = true;
                                         }
@@ -721,16 +726,17 @@ fn render_note_inner(
                                         .on_hover_text("Reply")
                                         .clicked()
                                     {
-                                        app.replying_to =
+                                        app.draft_data.replying_to =
                                             if note.event.kind.is_direct_message_related() {
                                                 None
                                             } else {
                                                 Some(note.event.id)
                                             };
-                                        app.draft_repost = None;
-                                        app.show_post_area = true;
-                                        app.draft_dm_channel =
+                                        app.draft_data.repost = None;
+                                        app.draft_data.dm_channel =
                                             DmChannel::from_event(&note.event, None);
+
+                                        app.show_post_area = true;
                                         app.draft_needs_focus = true;
                                     }
 
