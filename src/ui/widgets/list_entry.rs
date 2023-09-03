@@ -12,11 +12,13 @@ pub(crate) const OUTER_MARGIN_TOP: f32 = 5.0;
 /// Spacing of frame: bottom
 pub(crate) const OUTER_MARGIN_BOTTOM: f32 = 5.0;
 /// Start of text (excl. outer margin): left
-pub(crate) const TEXT_LEFT: f32 = 20.0;
+pub(crate) const TEXT_LEFT: f32 = 15.0;
 /// Start of text (excl. outer margin): right
-pub(crate) const TEXT_RIGHT: f32 = 25.0;
+pub(crate) const TEXT_RIGHT: f32 = 20.0;
 /// Start of text (excl. outer margin): top
-pub(crate) const TEXT_TOP: f32 = 15.0;
+pub(crate) const TEXT_TOP: f32 = 20.0;
+/// Start of text (excl. outer margin): bottom
+pub(crate) const TEXT_BOTTOM: f32 = 20.0;
 /// Title font size
 pub(crate) const TITLE_FONT_SIZE: f32 = 16.5;
 /// Thickness of separator

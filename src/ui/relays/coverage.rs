@@ -1,7 +1,7 @@
 use egui_winit::egui::{Context, Ui, self, vec2, Response, RichText, Align, Id};
 use nostr_types::{PublicKey, RelayUrl};
 
-use crate::{globals::GLOBALS, ui::{GossipUi, widgets::{self, list_entry::{TEXT_TOP, TEXT_LEFT, self, draw_text_at, TEXT_RIGHT}, COPY_SYMBOL_SIZE}, Page, SettingsTab}, comms::ToOverlordMessage};
+use crate::{globals::GLOBALS, ui::{GossipUi, widgets::{self, list_entry::{TEXT_TOP, TEXT_LEFT, self, draw_text_at, TEXT_RIGHT, TITLE_FONT_SIZE}, COPY_SYMBOL_SIZE}, Page, SettingsTab}, comms::ToOverlordMessage};
 
 struct CoverageEntry<'a> {
     pk: &'a PublicKey,
@@ -26,7 +26,9 @@ impl<'a> CoverageEntry<'a> {
 
     pub(super) fn show(&self, ui: &mut Ui, app: &mut GossipUi) -> Response {
         let available_width = ui.available_size_before_wrap().x;
-        let (rect, response) = ui.allocate_exact_size(vec2(available_width, 80.0), egui::Sense::click());
+        let (rect, response) = ui.allocate_exact_size(
+            vec2(available_width, 2.0 * TEXT_TOP + 1.5 * TITLE_FONT_SIZE + 14.5),
+            egui::Sense::click());
 
         widgets::list_entry::paint_frame(ui, &rect, None);
 
@@ -75,7 +77,7 @@ impl<'a> CoverageEntry<'a> {
             None);
 
         // ---- connected relays ----
-        let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + 30.0);
+        let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + (1.5 * TITLE_FONT_SIZE));
         let relays_string = self.relays.iter()
             .map(|rurl| GossipUi::domain_from_relay_url(rurl).to_string() )
             .collect::<Vec<String>>()

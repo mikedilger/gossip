@@ -9,22 +9,24 @@ use crate::{
     ui::{components, GossipUi},
 };
 
-use super::{list_entry::{allocate_text_at, draw_text_galley_at, safe_truncate, draw_text_at, TEXT_LEFT, TEXT_TOP, OUTER_MARGIN_TOP, OUTER_MARGIN_BOTTOM, TEXT_RIGHT, draw_link_at, paint_hline, self}, COPY_SYMBOL_SIZE, CopyButton};
+use super::{list_entry::{allocate_text_at, draw_text_galley_at, safe_truncate, draw_text_at, TEXT_LEFT, TEXT_TOP, OUTER_MARGIN_TOP, OUTER_MARGIN_BOTTOM, TEXT_RIGHT, draw_link_at, paint_hline, self, TITLE_FONT_SIZE, TEXT_BOTTOM}, COPY_SYMBOL_SIZE, CopyButton};
 
 /// Height of the list view (width always max. available)
-const LIST_VIEW_HEIGHT: f32 = 50.0;
+const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
 const DETAIL_VIEW_HEIGHT: f32 = 80.0;
 /// Height of the edit view (width always max. available)
 const EDIT_VIEW_HEIGHT: f32 = 250.0;
 /// Y-offset for first separator
-const HLINE_1_Y_OFFSET: f32 = 57.0;
+const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT - 12.0;
 /// Y-offset for second separator
-const HLINE_2_Y_OFFSET: f32 = 190.0;
+const HLINE_2_Y_OFFSET: f32 = 180.0;
+/// Y top for the detail section
+const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT;
 /// Size of edit button
 const EDIT_BTN_SIZE: f32 = 20.0;
 /// Spacing of stats row to heading
-const STATS_Y_SPACING: f32 = 30.0;
+const STATS_Y_SPACING: f32 = 1.5 * TITLE_FONT_SIZE;
 /// Distance of usage switch-left from TEXT_RIGHT
 const USAGE_SWITCH_PULL_RIGHT: f32 = 300.0;
 /// Spacing of usage switches: y direction
@@ -273,7 +275,7 @@ impl RelayEntry {
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id = self.make_id("edit_btn");
         if self.relay.usage_bits == 0 {
-            let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
+            let pos = rect.right_top() + vec2(-TEXT_RIGHT, TEXT_TOP);
             let text = RichText::new("pick up & configure");
             let response =
                 draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled, false)
@@ -284,7 +286,7 @@ impl RelayEntry {
             }
             response
         } else {
-            let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
+            let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, TEXT_TOP);
             let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
             let response = ui
                 .interact(btn_rect, id, Sense::click())
@@ -315,7 +317,7 @@ impl RelayEntry {
         let mut desired_size = text.size() + 4.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
         let pos =
-            rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - OUTER_MARGIN_BOTTOM) - desired_size;
+            rect.right_bottom() + vec2(-TEXT_RIGHT, -TEXT_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
         let response = ui
             .interact(btn_rect, id, Sense::click())
@@ -350,7 +352,7 @@ impl RelayEntry {
 
     fn paint_lower_buttons(&self, ui: &mut Ui, rect: &Rect) -> Response {
         let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
-        let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 - OUTER_MARGIN_BOTTOM - line_height);
+        let pos = rect.left_bottom() + vec2(TEXT_LEFT, -TEXT_BOTTOM - line_height);
         let id = self.make_id("remove_link");
         let text = "Remove from personal list";
         let mut response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
@@ -591,7 +593,7 @@ impl RelayEntry {
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
         let align = egui::Align::LEFT;
-        let pos = rect.left_top() + vec2(TEXT_LEFT, TEXT_TOP + 70.0);
+        let pos = rect.left_top() + vec2(TEXT_LEFT, DETAIL_SECTION_TOP);
         if let Some(doc) = &self.relay.nip11 {
             if let Some(contact) = &doc.contact {
                 let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
@@ -665,7 +667,7 @@ impl RelayEntry {
         let knob_fill = ui.visuals().extreme_bg_color;
         let on_fill = self.accent;
         let off_fill = ui.visuals().widgets.inactive.bg_fill;
-        let pos = rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, TEXT_TOP + 70.0);
+        let pos = rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, DETAIL_SECTION_TOP);
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
         {
             // ---- read ----
