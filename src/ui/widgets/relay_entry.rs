@@ -9,7 +9,7 @@ use crate::{
     ui::{components, GossipUi},
 };
 
-use super::list_entry::{allocate_text_at, draw_text_galley_at, safe_truncate, draw_text_at, TEXT_LEFT, TEXT_TOP, OUTER_MARGIN_TOP, OUTER_MARGIN_BOTTOM, TEXT_RIGHT, draw_link_at, paint_hline, self};
+use super::{list_entry::{allocate_text_at, draw_text_galley_at, safe_truncate, draw_text_at, TEXT_LEFT, TEXT_TOP, OUTER_MARGIN_TOP, OUTER_MARGIN_BOTTOM, TEXT_RIGHT, draw_link_at, paint_hline, self}, COPY_SYMBOL_SIZE, CopyButton};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 50.0;
@@ -597,8 +597,10 @@ impl RelayEntry {
                 let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
                 let id = self.make_id("copy_nip11_contact");
                 let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
-                let text = RichText::new(crate::ui::widgets::COPY_SYMBOL);
-                let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
+                let response = ui.interact(
+                    Rect::from_min_size(pos, COPY_SYMBOL_SIZE),
+                    id,
+                    Sense::click());
                 if response.clicked() {
                     ui.output_mut(|o| {
                         o.copied_text = contact.to_string();
@@ -609,7 +611,7 @@ impl RelayEntry {
                     });
                 }
                 response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                draw_text_galley_at(ui, pos, galley, None, None);
+                CopyButton::paint(ui, pos);
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(desc) = &doc.description {
@@ -630,8 +632,10 @@ impl RelayEntry {
                     let rect = draw_text_at(ui, pos, npub.clone().into(), align, None, None);
                     let id = self.make_id("copy_nip11_npub");
                     let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
-                    let text = RichText::new(crate::ui::widgets::COPY_SYMBOL);
-                    let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
+                    let response = ui.interact(
+                        Rect::from_min_size(pos, COPY_SYMBOL_SIZE),
+                        id,
+                        Sense::click());
                     if response.clicked() {
                         ui.output_mut(|o| {
                             o.copied_text = npub;
@@ -642,7 +646,7 @@ impl RelayEntry {
                         });
                     }
                     response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                    draw_text_galley_at(ui, pos, galley, None, None);
+                    CopyButton::paint(ui, pos);
                 }
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);

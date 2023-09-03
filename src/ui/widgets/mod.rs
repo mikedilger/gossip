@@ -1,6 +1,6 @@
 mod copy_button;
 pub(crate) mod list_entry;
-pub use copy_button::CopyButton;
+pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
 use egui_winit::egui::{WidgetText, Ui, FontSelection, Response, TextEdit, Rect, vec2, Sense};
@@ -20,9 +20,6 @@ pub use relay_entry::{RelayEntry, RelayEntryView};
 //     job.job.wrap.break_anywhere = true;
 //     ui.label(job.job);
 // }
-
-/// Copy symbol for copy button
-pub(crate) const COPY_SYMBOL: &str = "\u{1F4CB}";
 
 pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url: impl ToString) {
     let mut job = text.into().into_text_job(

@@ -1,7 +1,7 @@
 use egui_winit::egui::{Context, Ui, self, vec2, Response, RichText, Align, Id};
 use nostr_types::{PublicKey, RelayUrl};
 
-use crate::{globals::GLOBALS, ui::{GossipUi, widgets::{self, list_entry::{TEXT_TOP, TEXT_LEFT, self, draw_text_at, TEXT_RIGHT, allocate_text_at, draw_text_galley_at}}, Page, SettingsTab}, comms::ToOverlordMessage};
+use crate::{globals::GLOBALS, ui::{GossipUi, widgets::{self, list_entry::{TEXT_TOP, TEXT_LEFT, self, draw_text_at, TEXT_RIGHT}, COPY_SYMBOL_SIZE}, Page, SettingsTab}, comms::ToOverlordMessage};
 
 struct CoverageEntry<'a> {
     pk: &'a PublicKey,
@@ -43,10 +43,13 @@ impl<'a> CoverageEntry<'a> {
         // ---- pubkey ----
         // copy button
         {
-            let pos = rect.right_top() + vec2(-TEXT_RIGHT, TEXT_TOP);
-            let text = RichText::new(crate::ui::widgets::COPY_SYMBOL);
+            let pos = rect.right_top() + vec2(-TEXT_RIGHT - COPY_SYMBOL_SIZE.x, TEXT_TOP);
             let id = self.make_id("copy-pubkey");
-            let (galley, response) = allocate_text_at(ui, pos, text.into(), Align::RIGHT, id);
+            let response = ui.interact( egui::Rect::from_min_size(
+                pos,
+                COPY_SYMBOL_SIZE
+            ), id, egui::Sense::click());
+            widgets::CopyButton::paint(ui, pos);
             if response
                 .on_hover_text("Copy to clipboard")
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -59,7 +62,6 @@ impl<'a> CoverageEntry<'a> {
                         .write("copied to clipboard".to_owned());
                 });
             }
-            draw_text_galley_at(ui, pos, galley, None, None);
         }
 
         // pubkey
