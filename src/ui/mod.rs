@@ -189,29 +189,46 @@ pub enum HighlightType {
 
 pub struct DraftData {
     pub draft: String,
-    pub repost: Option<Id>,
-    pub tag_someone: String,
+
     pub include_subject: bool,
     pub subject: String,
+
     pub include_content_warning: bool,
     pub content_warning: String,
-    pub dm_channel: Option<DmChannel>,
+
+    // Data for normal draft
+    pub repost: Option<Id>,
     pub replying_to: Option<Id>,
+    pub tag_someone: String,
 }
 
 impl Default for DraftData {
     fn default() -> DraftData {
         DraftData {
             draft: "".to_owned(),
-            repost: None,
-            tag_someone: "".to_owned(),
             include_subject: false,
             subject: "".to_owned(),
             include_content_warning: false,
             content_warning: "".to_owned(),
-            dm_channel: None,
+
+            // The following are ignored for DMs
+            repost: None,
+            tag_someone: "".to_owned(),
             replying_to: None,
         }
+    }
+}
+
+impl DraftData {
+    pub fn clear(&mut self) {
+        self.draft = "".to_owned();
+        self.include_subject = false;
+        self.subject = "".to_owned();
+        self.include_content_warning = false;
+        self.content_warning = "".to_owned();
+        self.repost = None;
+        self.replying_to = None;
+        self.tag_someone = "".to_owned();
     }
 }
 
@@ -278,17 +295,8 @@ struct GossipUi {
     draft_needs_focus: bool,
     unlock_needs_focus: bool,
     draft_data: DraftData,
-    /*
-    draft: String,
-    repost: Option<Id>,
-    tag_someone: String,
-    include_subject: bool,
-    subject: String,
-    include_content_warning: bool,
-    content_warning: String,
-    dm_channel: Option<DmChannel>,
-    replying_to: Option<Id>,
-     */
+    dm_draft_data: DraftData,
+
     // User entry: metadata
     editing_metadata: bool,
     metadata: Metadata,
@@ -500,6 +508,7 @@ impl GossipUi {
             draft_needs_focus: false,
             unlock_needs_focus: false,
             draft_data: DraftData::default(),
+            dm_draft_data: DraftData::default(),
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
@@ -572,8 +581,8 @@ impl GossipUi {
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
             }
-            Page::Feed(FeedKind::DmChat(pubkeys)) => {
-                GLOBALS.feed.set_feed_to_dmchat(pubkeys.to_owned());
+            Page::Feed(FeedKind::DmChat(channel)) => {
+                GLOBALS.feed.set_feed_to_dmchat(channel.to_owned());
             }
             Page::Search => {
                 self.entering_search_page = true;
@@ -809,7 +818,7 @@ impl eframe::App for GossipUi {
                 });
 
                 // ---- "plus icon" ----
-                if !self.show_post_area && self.page.show_post_icon() {
+                if !self.show_post_area_fn() && self.page.show_post_icon() {
                     let bottom_right = ui.ctx().screen_rect().right_bottom();
                     let pos = bottom_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0);
 
@@ -825,11 +834,6 @@ impl eframe::App for GossipUi {
                                 let response = ui.add_sized([crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32], egui::Button::new(text.color(self.settings.theme.navigation_text_color())).stroke(egui::Stroke::NONE).rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32)).fill(self.settings.theme.navigation_bg_fill()));
                                 if response.clicked() {
                                     self.show_post_area = true;
-                                    if let Page::Feed(FeedKind::DmChat(channel)) = &self.page {
-                                        self.draft_data.dm_channel = Some(channel.clone());
-                                    } else {
-                                        self.draft_data.dm_channel = None;
-                                    }
                                     if GLOBALS.signer.is_ready() {
                                         self.draft_needs_focus = true;
                                     } else {
@@ -856,14 +860,14 @@ impl eframe::App for GossipUi {
             .resizable(true)
             .show_animated(
                 ctx,
-                self.show_post_area && self.settings.posting_area_at_top,
+                self.show_post_area_fn() && self.settings.posting_area_at_top,
                 |ui| {
                     self.begin_ui(ui);
                     feed::post::posting_area(self, ctx, frame, ui);
                 },
             );
 
-        let show_status = self.show_post_area && !self.settings.posting_area_at_top;
+        let show_status = self.show_post_area_fn() && !self.settings.posting_area_at_top;
 
         let resizable = true;
 
@@ -890,7 +894,7 @@ impl eframe::App for GossipUi {
             .show_separator_line(false)
             .show_animated(ctx, show_status, |ui| {
                 self.begin_ui(ui);
-                if self.show_post_area && !self.settings.posting_area_at_top {
+                if self.show_post_area_fn() && !self.settings.posting_area_at_top {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                 }
@@ -976,11 +980,6 @@ impl GossipUi {
                 if GLOBALS.signer.is_ready() {
                     if ui.button("Send DM").clicked() {
                         let channel = DmChannel::new(&[person.pubkey]);
-                        app.draft_data.replying_to = None;
-                        app.draft_data.repost = None;
-                        app.show_post_area = true;
-                        app.draft_data.dm_channel = Some(channel.clone());
-                        app.draft_needs_focus = true;
                         app.set_page(Page::Feed(FeedKind::DmChat(channel)));
                     }
                 }
@@ -1366,5 +1365,19 @@ impl GossipUi {
                 *GLOBALS.current_zap.write() = ZapState::None;
             }
         }
+    }
+
+    fn reset_draft(&mut self) {
+        if let Page::Feed(FeedKind::DmChat(_)) = &self.page {
+            self.dm_draft_data.clear();
+        } else {
+            self.draft_data.clear();
+            self.show_post_area = false;
+            self.draft_needs_focus = false;
+        }
+    }
+
+    fn show_post_area_fn(&self) -> bool {
+        self.show_post_area || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
     }
 }

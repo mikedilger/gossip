@@ -56,12 +56,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         .clicked()
                     {
                         app.set_page(Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())));
-                        app.show_post_area = true;
-                        app.draft_needs_focus = false;
-
-                        app.draft_data.replying_to = None;
-                        app.draft_data.repost = None;
-                        app.draft_data.dm_channel = Some(channeldata.dm_channel);
+                        app.dm_draft_data.clear();
+                        app.draft_needs_focus = true;
                     }
                 });
                 ui.add_space(20.0);
