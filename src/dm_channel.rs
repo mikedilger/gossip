@@ -25,6 +25,13 @@ impl DmChannel {
     }
 
     pub fn name(&self) -> String {
+        if self.0.is_empty() {
+            return match GLOBALS.signer.public_key() {
+                Some(pk) => crate::names::display_name_from_pubkey_lookup(&pk),
+                None => "[NOBODY]".to_string(),
+            };
+        }
+
         let mut output = String::new();
         let mut first = true;
         for pubkey in &self.0 {
