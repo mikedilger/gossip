@@ -767,15 +767,18 @@ impl eframe::App for GossipUi {
                 ui.add_space(4.0);
                 let back_label_text = RichText::new("‹ Back");
                 let label = if self.history.is_empty() { Label::new(back_label_text.color(Color32::from_white_alpha(8))) } else { Label::new(back_label_text.color(self.settings.theme.navigation_text_color())).sense(Sense::click()) };
-                if ui.add(label)
-                    .on_hover_text({
-                        if let Some(page) = self.history.last() {
-                            page.to_short_string()
-                        } else {
-                            "".to_string()
-                        }
-                    })
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                let response = ui.add(label);
+                let response = if let Some(page) = self.history.last() {
+                    response.on_hover_text(format!("back to {}", page.to_short_string()))
+                } else {
+                    response
+                };
+                let response = if !self.history.is_empty() {
+                    response.on_hover_cursor(egui::CursorIcon::PointingHand)
+                } else {
+                    response.on_hover_cursor(egui::CursorIcon::NotAllowed)
+                };
+                if response
                     .clicked() {
                     self.back();
                 }
