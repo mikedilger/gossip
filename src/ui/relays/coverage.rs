@@ -3,6 +3,8 @@ use nostr_types::{PublicKey, RelayUrl};
 
 use crate::{globals::GLOBALS, ui::{GossipUi, widgets::{self, list_entry::{TEXT_TOP, TEXT_LEFT, self, draw_text_at, TEXT_RIGHT, TITLE_FONT_SIZE}, COPY_SYMBOL_SIZE}, Page, SettingsTab}, comms::ToOverlordMessage, relay::Relay};
 
+const COVERAGE_ENTRY_HEIGHT: f32 =  2.0 * TEXT_TOP + 1.5 * TITLE_FONT_SIZE + 14.5;
+
 struct CoverageEntry<'a> {
     pk: &'a PublicKey,
     _count: &'a usize,
@@ -27,7 +29,7 @@ impl<'a> CoverageEntry<'a> {
     pub(super) fn show(&self, ui: &mut Ui, app: &mut GossipUi) -> Response {
         let available_width = ui.available_size_before_wrap().x;
         let (rect, response) = ui.allocate_exact_size(
-            vec2(available_width, 2.0 * TEXT_TOP + 1.5 * TITLE_FONT_SIZE + 14.5),
+            vec2(available_width, COVERAGE_ENTRY_HEIGHT),
             egui::Sense::click());
 
         widgets::list_entry::paint_frame(ui, &rect, None);
@@ -170,13 +172,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     app.set_page(Page::Person(*pk));
                 }
             }
-            // uncomment below to mock with people entries for development
-            // for pk in GLOBALS.people.get_followed_pubkeys() {
-            //     let entry = CoverageEntry::new(&pk, &0);
-            //     if entry.show(ui).clicked() {
-            //         app.set_page(Page::Person(pk));
-            //     }
-            // }
+
+            // add one entry space at the bottom
+            ui.allocate_exact_size(
+                vec2(ui.available_size_before_wrap().x, COVERAGE_ENTRY_HEIGHT),
+                egui::Sense::hover());
         });
     } else {
         ui.label("All followed people are fully covered.".to_owned());
