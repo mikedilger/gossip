@@ -3,7 +3,7 @@ use nostr_types::{PublicKey, RelayUrl};
 
 use crate::{globals::GLOBALS, ui::{GossipUi, widgets::{self, list_entry::{TEXT_TOP, TEXT_LEFT, self, draw_text_at, TEXT_RIGHT, TITLE_FONT_SIZE}, COPY_SYMBOL_SIZE}, Page, SettingsTab}, comms::ToOverlordMessage, relay::Relay};
 
-const COVERAGE_ENTRY_HEIGHT: f32 =  2.0 * TEXT_TOP + 1.5 * TITLE_FONT_SIZE + 14.5;
+const COVERAGE_ENTRY_HEIGHT: f32 =  2.0 * TEXT_TOP + 1.5 * TITLE_FONT_SIZE + 14.0;
 
 struct CoverageEntry<'a> {
     pk: &'a PublicKey,
