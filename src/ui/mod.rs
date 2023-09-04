@@ -13,6 +13,7 @@ macro_rules! text_edit_multiline {
 }
 
 mod components;
+mod dm_chat_list;
 mod feed;
 mod help;
 mod people;
@@ -25,6 +26,7 @@ mod you;
 
 use crate::about::About;
 use crate::comms::ToOverlordMessage;
+use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
@@ -42,7 +44,7 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, UncheckedUrl, Url, RelayUrl};
+use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -94,6 +96,7 @@ pub fn run() -> Result<(), Error> {
 
 #[derive(Debug, Clone, PartialEq)]
 enum Page {
+    DmChatList,
     Feed(FeedKind),
     PeopleList,
     PeopleFollow,
@@ -111,17 +114,30 @@ enum Page {
     HelpHelp,
     HelpStats,
     HelpAbout,
+    HelpTheme,
+}
+
+impl Page {
+    pub fn show_post_icon(&self) -> bool {
+        use Page::*;
+        #[allow(clippy::match_like_matches_macro)] // because we will add more later
+        match *self {
+            Feed(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Page {
     pub fn to_readable(&self) -> (&'static str /* Category */, String /* Name */){
         match self {
+            Page::DmChatList => (SubMenu::DmChat.to_str(), "Private chats".into() ),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
             Page::PeopleList => (SubMenu::People.to_str(), "Followed".into()),
             Page::PeopleFollow => (SubMenu::People.to_str(), "Follow new".into()),
             Page::PeopleMuted => (SubMenu::People.to_str(), "Muted".into()),
             Page::Person(pk) => {
-                let name = GossipUi::display_name_from_pubkey_lookup(pk);
+                let name = crate::names::display_name_from_pubkey_lookup(pk);
                 ("Profile", name)
             },
             Page::YourKeys => (SubMenu::Account.to_str(), "Keys".into()),
@@ -136,6 +152,7 @@ impl Page {
             Page::HelpHelp => (SubMenu::Help.to_str(), "Help".into()),
             Page::HelpStats => (SubMenu::Help.to_str(), "Stats".into()),
             Page::HelpAbout => (SubMenu::Help.to_str(), "About".into()),
+            Page::HelpTheme => (SubMenu::Help.to_str(), "Theme Test".into()),
         }
     }
 
@@ -160,6 +177,7 @@ impl Page {
         }
 
         match self {
+            Page::DmChatList => cat_name(self),
             Page::Feed(_) => name_cat(self),
             Page::PeopleList |
             Page::PeopleFollow |
@@ -175,6 +193,7 @@ impl Page {
 
 #[derive(Eq, Hash, PartialEq)]
 enum SubMenu {
+    DmChat,
     People,
     Relays,
     Account,
@@ -184,6 +203,7 @@ enum SubMenu {
 impl SubMenu {
     fn to_str(&self) -> &'static str {
         match self {
+            SubMenu::DmChat => "Chats",
             SubMenu::People => "People",
             SubMenu::Relays => "Relays",
             SubMenu::Account => "Account",
@@ -197,6 +217,7 @@ impl SubMenu {
 
     fn to_id_str(&self) -> &'static str {
         match self {
+            SubMenu::DmChat => "dmchat_submenu",
             SubMenu::People => "people_submenu",
             SubMenu::Account => "account_submenu",
             SubMenu::Relays => "relays_submenu",
@@ -222,6 +243,7 @@ enum SettingsTab {
 impl SubMenuState {
     fn new() -> Self {
         let mut submenu_states: HashMap<SubMenu, bool> = HashMap::new();
+        submenu_states.insert(SubMenu::DmChat, false);
         submenu_states.insert(SubMenu::People, false);
         submenu_states.insert(SubMenu::Relays, false);
         submenu_states.insert(SubMenu::Account, false);
@@ -241,6 +263,51 @@ pub enum HighlightType {
     Event,
     Relay,
     Hyperlink,
+}
+
+pub struct DraftData {
+    pub draft: String,
+
+    pub include_subject: bool,
+    pub subject: String,
+
+    pub include_content_warning: bool,
+    pub content_warning: String,
+
+    // Data for normal draft
+    pub repost: Option<Id>,
+    pub replying_to: Option<Id>,
+    pub tag_someone: String,
+}
+
+impl Default for DraftData {
+    fn default() -> DraftData {
+        DraftData {
+            draft: "".to_owned(),
+            include_subject: false,
+            subject: "".to_owned(),
+            include_content_warning: false,
+            content_warning: "".to_owned(),
+
+            // The following are ignored for DMs
+            repost: None,
+            tag_someone: "".to_owned(),
+            replying_to: None,
+        }
+    }
+}
+
+impl DraftData {
+    pub fn clear(&mut self) {
+        self.draft = "".to_owned();
+        self.include_subject = false;
+        self.subject = "".to_owned();
+        self.include_content_warning = false;
+        self.content_warning = "".to_owned();
+        self.repost = None;
+        self.replying_to = None;
+        self.tag_someone = "".to_owned();
+    }
 }
 
 struct GossipUi {
@@ -303,16 +370,10 @@ struct GossipUi {
 
     // User entry: posts
     show_post_area: bool,
-    draft: String,
     draft_needs_focus: bool,
-    draft_repost: Option<Id>,
     unlock_needs_focus: bool,
-    tag_someone: String,
-    include_subject: bool,
-    subject: String,
-    include_content_warning: bool,
-    content_warning: String,
-    replying_to: Option<Id>,
+    draft_data: DraftData,
+    dm_draft_data: DraftData,
 
     // User entry: metadata
     editing_metadata: bool,
@@ -336,6 +397,8 @@ struct GossipUi {
     import_pub: String,
     search: String,
     entering_search_page: bool,
+    editing_petname: bool,
+    petname: String,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -395,6 +458,7 @@ impl GossipUi {
         }
 
         let mut submenu_ids: HashMap<SubMenu, egui::Id> = HashMap::new();
+        submenu_ids.insert(SubMenu::DmChat, egui::Id::new(SubMenu::DmChat.to_id_str()));
         submenu_ids.insert(SubMenu::People, egui::Id::new(SubMenu::People.to_id_str()));
         submenu_ids.insert(
             SubMenu::Account,
@@ -519,16 +583,10 @@ impl GossipUi {
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
             show_post_area: false,
-            draft: "".to_owned(),
             draft_needs_focus: false,
-            draft_repost: None,
             unlock_needs_focus: false,
-            tag_someone: "".to_owned(),
-            include_subject: false,
-            subject: "".to_owned(),
-            include_content_warning: false,
-            content_warning: "".to_owned(),
-            replying_to: None,
+            draft_data: DraftData::default(),
+            dm_draft_data: DraftData::default(),
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
@@ -546,6 +604,8 @@ impl GossipUi {
             import_pub: "".to_owned(),
             search: "".to_owned(),
             entering_search_page: false,
+            editing_petname: false,
+            petname: "".to_owned(),
             collapsed: vec![],
             visible_note_ids: vec![],
             next_visible_note_ids: vec![],
@@ -599,25 +659,15 @@ impl GossipUi {
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
             }
+            Page::Feed(FeedKind::DmChat(channel)) => {
+                GLOBALS.feed.set_feed_to_dmchat(channel.to_owned());
+            }
             Page::Search => {
                 self.entering_search_page = true;
             }
             _ => {}
         }
         self.page = page;
-    }
-
-    fn clear_post(&mut self) {
-        self.show_post_area = false;
-        self.draft_needs_focus = false;
-        self.draft = "".to_owned();
-        self.draft_repost = None;
-        self.tag_someone = "".to_owned();
-        self.include_subject = false;
-        self.subject = "".to_owned();
-        self.replying_to = None;
-        self.include_content_warning = false;
-        self.content_warning = "".to_owned();
     }
 }
 
@@ -741,9 +791,14 @@ impl eframe::App for GossipUi {
                     if self.add_selected_label(ui, matches!(&self.page, Page::Feed(FeedKind::Person(key)) if *key == pubkey), "My Notes").clicked() {
                         self.set_page(Page::Feed(FeedKind::Person(pubkey)));
                     }
+                    if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::Inbox(_))), "Inbox").clicked() {
+                        self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
+                    }
                 }
-                if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::Inbox(_))), "Inbox").clicked() {
-                    self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
+                if GLOBALS.signer.public_key().is_some() {
+                    if self.add_selected_label(ui, self.page == Page::DmChatList, "Private chats").clicked() {
+                        self.set_page(Page::DmChatList);
+                    }
                 }
 
                 ui.add_space(8.0);
@@ -803,24 +858,13 @@ impl eframe::App for GossipUi {
                         self.add_menu_item_page(ui, Page::HelpHelp);
                         self.add_menu_item_page(ui, Page::HelpStats);
                         self.add_menu_item_page(ui, Page::HelpAbout);
+                        self.add_menu_item_page(ui, Page::HelpTheme);
                     });
                     self.after_openable_menu(ui, &submenu);
                 }
 
                 // -- Status Area
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                    let messages = GLOBALS.status_queue.read().read_all();
-                    if ui.add(Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click())).clicked() {
-                        GLOBALS.status_queue.write().dismiss(0);
-                    }
-                    if ui.add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click())).clicked() {
-                        GLOBALS.status_queue.write().dismiss(1);
-                    }
-                    if ui.add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click())).clicked() {
-                        GLOBALS.status_queue.write().dismiss(2);
-                    }
-
-                    ui.add_space(30.0);
 
                     // -- DEBUG status area
                     if self.settings.status_bar {
@@ -844,11 +888,24 @@ impl eframe::App for GossipUi {
                         let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
                         let m = format!("EVENTS RECV {}", processed);
                         ui.add(Label::new(RichText::new(m).color(self.settings.theme.notice_marker_text_color())));
+
+                        ui.separator();
+                    }
+
+                    let messages = GLOBALS.status_queue.read().read_all();
+                    if ui.add(Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click())).clicked() {
+                        GLOBALS.status_queue.write().dismiss(0);
+                    }
+                    if ui.add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click())).clicked() {
+                        GLOBALS.status_queue.write().dismiss(1);
+                    }
+                    if ui.add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click())).clicked() {
+                        GLOBALS.status_queue.write().dismiss(2);
                     }
                 });
 
                 // ---- "plus icon" ----
-                if !self.show_post_area {
+                if !self.show_post_area_fn() && self.page.show_post_icon() {
                     let bottom_right = ui.ctx().screen_rect().right_bottom();
                     let pos = bottom_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0);
 
@@ -890,14 +947,14 @@ impl eframe::App for GossipUi {
             .resizable(true)
             .show_animated(
                 ctx,
-                self.show_post_area && self.settings.posting_area_at_top,
+                self.show_post_area_fn() && self.settings.posting_area_at_top,
                 |ui| {
                     self.begin_ui(ui);
                     feed::post::posting_area(self, ctx, frame, ui);
                 },
             );
 
-        let show_status = self.show_post_area && !self.settings.posting_area_at_top;
+        let show_status = self.show_post_area_fn() && !self.settings.posting_area_at_top;
 
         let resizable = true;
 
@@ -924,7 +981,7 @@ impl eframe::App for GossipUi {
             .show_separator_line(false)
             .show_animated(ctx, show_status, |ui| {
                 self.begin_ui(ui);
-                if self.show_post_area && !self.settings.posting_area_at_top {
+                if self.show_post_area_fn() && !self.settings.posting_area_at_top {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                 }
@@ -953,6 +1010,7 @@ impl eframe::App for GossipUi {
             .show(ctx, |ui| {
                 self.begin_ui(ui);
                 match self.page {
+                    Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
                     Page::Feed(_) => feed::update(self, ctx, frame, ui),
                     Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
                         people::update(self, ctx, frame, ui)
@@ -965,7 +1023,7 @@ impl eframe::App for GossipUi {
                     }
                     Page::Search => search::update(self, ctx, frame, ui),
                     Page::Settings => settings::update(self, ctx, frame, ui),
-                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
+                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
                         help::update(self, ctx, frame, ui)
                     }
                 }
@@ -979,72 +1037,53 @@ impl GossipUi {
         ui.set_enabled(!relays::is_entry_dialog_active(self));
     }
 
-    /// A short rendering of a `PublicKey`
-    pub fn pubkey_short(pk: &PublicKey) -> String {
-        let npub = pk.as_bech32_string();
-        format!(
-            "{}...{}",
-            &npub.get(0..10).unwrap_or("??????????"),
-            &npub
-                .get(npub.len() - 10..npub.len())
-                .unwrap_or("??????????")
-        )
-    }
-
-    pub fn hex_id_short(idhex: &IdHex) -> String {
-        idhex.as_str()[0..8].to_string()
-    }
-
-    /// A display name for a `Person`
-    pub fn display_name_from_dbperson(dbperson: &Person) -> String {
-        match dbperson.display_name() {
-            Some(name) => name.to_owned(),
-            None => Self::pubkey_short(&dbperson.pubkey),
-        }
-    }
-
-    pub fn display_name_from_pubkey_lookup(pubkey: &PublicKey) -> String {
-        match GLOBALS.storage.read_person(pubkey) {
-            Ok(Some(dbperson)) => Self::display_name_from_dbperson(&dbperson),
-            _ => Self::pubkey_short(pubkey),
-        }
-    }
-
-    pub fn domain_from_relay_url<'a>(relay: &'a RelayUrl) -> &'a str /* domain */ {
-        let domain = relay.0.trim_start_matches("wss://");
-        let domain = domain.trim_start_matches("ws://");
-        let domain = domain.trim_end_matches('/');
-        domain
-    }
-
     pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &Person) {
         // Let the 'People' manager know that we are interested in displaying this person.
         // It will take all actions necessary to make the data eventually available.
         GLOBALS.people.person_of_interest(person.pubkey);
 
         ui.horizontal_wrapped(|ui| {
-            let name = GossipUi::display_name_from_dbperson(person);
+            let name = match &person.petname {
+                // Highlight that this is our petname, not their chosen name
+                Some(pn) => {
+                    let name = format!("☰ {}", pn);
+                    RichText::new(name).italics().underline()
+                }
+                None => {
+                    let name = format!("☰ {}", crate::names::display_name_from_person(person));
+                    RichText::new(name)
+                }
+            };
 
-            ui.menu_button(&name, |ui| {
-                let mute_label = if person.muted { "Unmute" } else { "Mute" };
-                if ui.button(mute_label).clicked() {
-                    let _ = GLOBALS.people.mute(&person.pubkey, !person.muted);
-                    app.notes.cache_invalidate_person(&person.pubkey);
+            ui.menu_button(name, |ui| {
+                if ui.button("View Person").clicked() {
+                    app.set_page(Page::Person(person.pubkey));
+                }
+                if app.page != Page::Feed(FeedKind::Person(person.pubkey)) {
+                    if ui.button("View Their Posts").clicked() {
+                        app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
+                    }
+                }
+                if GLOBALS.signer.is_ready() {
+                    if ui.button("Send DM").clicked() {
+                        let channel = DmChannel::new(&[person.pubkey]);
+                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                    }
                 }
                 if !person.followed && ui.button("Follow").clicked() {
                     let _ = GLOBALS.people.follow(&person.pubkey, true);
                 } else if person.followed && ui.button("Unfollow").clicked() {
                     let _ = GLOBALS.people.follow(&person.pubkey, false);
                 }
+                let mute_label = if person.muted { "Unmute" } else { "Mute" };
+                if ui.button(mute_label).clicked() {
+                    let _ = GLOBALS.people.mute(&person.pubkey, !person.muted);
+                    app.notes.cache_invalidate_person(&person.pubkey);
+                }
                 if ui.button("Update Metadata").clicked() {
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::UpdateMetadata(person.pubkey));
-                }
-                if app.page != Page::Feed(FeedKind::Person(person.pubkey)) {
-                    if ui.button("View Their Posts").clicked() {
-                        app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
-                    }
                 }
             });
 
@@ -1412,5 +1451,19 @@ impl GossipUi {
                 *GLOBALS.current_zap.write() = ZapState::None;
             }
         }
+    }
+
+    fn reset_draft(&mut self) {
+        if let Page::Feed(FeedKind::DmChat(_)) = &self.page {
+            self.dm_draft_data.clear();
+        } else {
+            self.draft_data.clear();
+            self.show_post_area = false;
+            self.draft_needs_focus = false;
+        }
+    }
+
+    fn show_post_area_fn(&self) -> bool {
+        self.show_post_area || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
     }
 }

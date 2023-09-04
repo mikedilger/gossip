@@ -367,8 +367,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeMentions => {
                 self.subscribe_mentions(message.job_id).await?;
             }
-            ToMinionPayloadDetail::SubscribeConfig => {
-                self.subscribe_config(message.job_id).await?;
+            ToMinionPayloadDetail::SubscribeOutbox => {
+                self.subscribe_outbox(message.job_id).await?;
             }
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
@@ -410,7 +410,8 @@ impl Minion {
             ..Default::default()
         };
 
-        self.subscribe(vec![filter], "temp_augments", job_id).await?;
+        self.subscribe(vec![filter], "temp_augments", job_id)
+            .await?;
 
         if let Some(sub) = self.subscription_map.get_mut("temp_augments") {
             if let Some(nip11) = &self.nip11 {
@@ -434,8 +435,6 @@ impl Minion {
         followed_pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
-        let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
-        let feed_chunk = Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
         tracing::debug!(
             "Following {} people at {}",
@@ -445,47 +444,16 @@ impl Minion {
 
         // Compute how far to look back
         let feed_since = {
-            let now = Unixtime::now().unwrap();
-
             if self.subscription_map.has("general_feed") {
                 // don't lookback if we are just adding more people
-                now
+                Unixtime::now().unwrap()
             } else {
-                // Start with where we left off, the time we last got something from
-                // this relay.
-                let mut feed_since: Unixtime = match self.dbrelay.last_general_eose_at {
-                    Some(u) => Unixtime(u as i64),
-                    None => Unixtime(0),
-                };
-
-                // Subtract overlap to avoid gaps due to clock sync and event
-                // propagation delay
-                feed_since = feed_since - overlap;
-
-                // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
-                if feed_since.0 < 1577836800 {
-                    feed_since.0 = 1577836800;
-                }
-
-                let one_feedchunk_ago = now - feed_chunk;
-                feed_since.max(one_feedchunk_ago)
+                self.compute_since(GLOBALS.storage.read_setting_feed_chunk())
             }
         };
 
-        // Allow all feed related event kinds (excluding DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(false);
-
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            // feed related by me
-            // FIXME copy this to listening to my write relays
-            let pkh: PublicKeyHex = pubkey.into();
-            filters.push(Filter {
-                authors: vec![pkh.into()],
-                kinds: event_kinds.clone(),
-                since: Some(feed_since),
-                ..Default::default()
-            });
-        }
+        // Allow all feed related event kinds (including DMs)
+        let event_kinds = crate::feed::feed_related_event_kinds(true);
 
         if !followed_pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
@@ -561,30 +529,9 @@ impl Minion {
     // (and any other relay for the time being until nip65 is in widespread use)
     async fn subscribe_mentions(&mut self, job_id: u64) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
-        let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
-        let replies_chunk = Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
 
         // Compute how far to look back
-        let replies_since = {
-            // Start with where we left off, the time we last got something from
-            // this relay.
-            let mut replies_since: Unixtime = match self.dbrelay.last_general_eose_at {
-                Some(u) => Unixtime(u as i64),
-                None => Unixtime(0),
-            };
-
-            // Subtract overlap to avoid gaps due to clock sync and event
-            // propagation delay
-            replies_since = replies_since - overlap;
-
-            // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:
-            if replies_since.0 < 1577836800 {
-                replies_since.0 = 1577836800;
-            }
-
-            let one_replieschunk_ago = Unixtime::now().unwrap() - replies_chunk;
-            replies_since.max(one_replieschunk_ago)
-        };
+        let replies_since = self.compute_since(GLOBALS.storage.read_setting_replies_chunk());
 
         // GiftWrap lookback needs to be one week further back
         // FIXME: this depends on how far other clients backdate.
@@ -633,22 +580,51 @@ impl Minion {
         Ok(())
     }
 
-    // Subscribe to the user's config which is on their own write relays
-    async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
+    // Subscribe to the user's output (config, DMs, etc) which is on their own write relays
+    async fn subscribe_outbox(&mut self, job_id: u64) -> Result<(), Error> {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             let pkh: PublicKeyHex = pubkey.into();
 
-            let filters: Vec<Filter> = vec![Filter {
-                authors: vec![pkh.into()],
-                kinds: vec![
-                    EventKind::Metadata,
-                    //EventKind::RecommendRelay,
-                    EventKind::ContactList,
-                    EventKind::RelayList,
-                ],
-                // these are all replaceable, no since required
-                ..Default::default()
-            }];
+            let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
+            let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
+
+            // Read back in things that we wrote out to our write relays
+            // that we need
+            let filters: Vec<Filter> = vec![
+                // Actual config stuff
+                Filter {
+                    authors: vec![pkh.clone().into()],
+                    kinds: vec![
+                        EventKind::Metadata,
+                        //EventKind::RecommendRelay,
+                        EventKind::ContactList,
+                        EventKind::RelayList,
+                    ],
+                    // these are all replaceable, no since required
+                    ..Default::default()
+                },
+                // DMs I wrote recently
+                Filter {
+                    authors: vec![pkh.clone().into()],
+                    kinds: vec![EventKind::EncryptedDirectMessage],
+                    since: Some(since),
+                    ..Default::default()
+                },
+                // GiftWraps I wrote recently
+                Filter {
+                    authors: vec![pkh.clone().into()],
+                    kinds: vec![EventKind::GiftWrap],
+                    since: Some(giftwrap_since),
+                    ..Default::default()
+                },
+                // Posts I wrote recently
+                Filter {
+                    authors: vec![pkh.into()],
+                    kinds: crate::feed::feed_related_event_kinds(false), // not DMs
+                    since: Some(since),
+                    ..Default::default()
+                },
+            ];
 
             self.subscribe(filters, "temp_config_feed", job_id).await?;
         }
@@ -675,7 +651,8 @@ impl Minion {
                 ..Default::default()
             }];
 
-            self.subscribe(filters, "temp_discover_feed", job_id).await?;
+            self.subscribe(filters, "temp_discover_feed", job_id)
+                .await?;
         }
 
         Ok(())
@@ -695,35 +672,6 @@ impl Minion {
             limit: Some(25),
             ..Default::default()
         }];
-
-        // let feed_chunk = GLOBALS.storage.read_setting_feed_chunk();
-
-        // Don't do this anymore. It's low value and we can't compute how far back to look
-        // until after we get their 25th oldest post.
-        /*
-        // Reactions to posts made by the person
-        // (presuming people include a 'p' tag in their reactions)
-        filters.push(Filter {
-            kinds: vec![EventKind::Reaction],
-            p: vec![pubkey],
-            // Limited in time just so we aren't overwhelmed. Generally we only need reactions
-            // to their most recent posts. This is a very sloppy and approximate solution.
-            since: Some(Unixtime::now().unwrap() - Duration::from_secs(feed_chunk * 25)),
-            ..Default::default()
-        });
-         */
-
-        // persons metadata
-        // we don't display this stuff in their feed, so probably take this out.
-        // FIXME TBD
-        /*
-        filters.push(Filter {
-            authors: vec![pubkey],
-            kinds: vec![EventKind::Metadata, EventKind::RecommendRelay, EventKind::ContactList, EventKind::RelaysList],
-            since: // last we last checked
-            .. Default::default()
-        });
-         */
 
         // NO REPLIES OR ANCESTORS
 
@@ -786,118 +734,6 @@ impl Minion {
 
         Ok(())
     }
-
-    // Create or replace the following subscription
-    /*
-    async fn upsert_following(&mut self, pubkeys: Vec<PublicKeyHex>) -> Result<(), Error> {
-        let websocket_stream = self.stream.as_mut().unwrap();
-
-        if pubkeys.is_empty() {
-            if let Some(sub) = self.subscription_map.get("following") {
-                // Close the subscription
-                let wire = serde_json::to_string(&sub.close_message())?;
-                websocket_stream.send(WsMessage::Text(wire.clone())).await?;
-
-                // Remove the subscription from the map
-                self.subscription_map.remove("following");
-            }
-
-            // Since pubkeys is empty, nothing to subscribe to.
-            return Ok(());
-        }
-
-        // Compute how far to look back
-        let (feed_since, special_since) = {
-        // Get related settings
-            let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
-            let feed_chunk = Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
-
-            /*
-            // Find the oldest 'last_fetched' among the 'person_relay' table.
-            // Null values will come through as 0.
-            let mut special_since: i64 =
-                PersonRelay::fetch_oldest_last_fetched(&pubkeys, &self.url.0).await? as i64;
-            */
-
-            // Start with where we left off, the time we last got something from
-            // this relay.
-            let mut special_since: i64 = match self.dbrelay.last_general_eose_at {
-                Some(u) => u as i64,
-                None => 0,
-            };
-
-            // Subtract overlap to avoid gaps due to clock sync and event
-            // propagation delay
-            special_since -= overlap as i64;
-
-            // Some relays don't like dates before 1970.  Hell, we don't need anything before 2020:a
-            if special_since < 1577836800 {
-                special_since = 1577836800;
-            }
-
-            // For feed related events, don't look back more than one feed_chunk ago
-            let one_feedchunk_ago = Unixtime::now().unwrap().0 - feed_chunk as i64;
-            let feed_since = special_since.max(one_feedchunk_ago);
-
-            (Unixtime(feed_since), Unixtime(special_since))
-        };
-
-        // Create the author filter
-        let mut feed_filter: Filter = Filter::new();
-        for pk in pubkeys.iter() {
-            feed_filter.add_author(pk, None);
-        }
-        feed_filter.add_event_kind(EventKind::TextNote);
-        feed_filter.add_event_kind(EventKind::Reaction);
-        feed_filter.add_event_kind(EventKind::EventDeletion);
-        feed_filter.since = Some(feed_since);
-
-        tracing::trace!(
-            "{}: Feed Filter: {} authors",
-            &self.url,
-            feed_filter.authors.len()
-        );
-
-        // Create the lookback filter
-        let mut special_filter: Filter = Filter::new();
-        for pk in pubkeys.iter() {
-            special_filter.add_author(pk, None);
-        }
-        special_filter.add_event_kind(EventKind::Metadata);
-        special_filter.add_event_kind(EventKind::RecommendRelay);
-        special_filter.add_event_kind(EventKind::ContactList);
-        special_filter.add_event_kind(EventKind::RelaysList);
-        special_filter.since = Some(special_since);
-
-        tracing::trace!(
-            "{}: Special Filter: {} authors",
-            &self.url,
-            special_filter.authors.len()
-        );
-
-        // Get the subscription
-        let req_message = if self.subscription_map.has("following") {
-            let sub = self.subscription_map.get_mut("following").unwrap();
-            let vec: &mut Vec<Filter> = sub.get_mut();
-            vec.clear();
-            vec.push(feed_filter);
-            vec.push(special_filter);
-            sub.req_message()
-        } else {
-            self.subscription_map
-                .add("following", vec![feed_filter, special_filter]);
-            self.subscription_map.get("following").unwrap().req_message()
-        };
-
-        // Subscribe (or resubscribe) to the subscription
-        let wire = serde_json::to_string(&req_message)?;
-        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
-
-        tracing::trace!("{}: Sent {}", &self.url, &wire);
-
-        Ok(())
-    }
-     */
 
     async fn get_event(&mut self, job_id: u64, id: IdHex) -> Result<(), Error> {
         // create the filter
@@ -965,7 +801,8 @@ impl Minion {
                 kinds: vec![EventKind::ContactList],
                 ..Default::default()
             };
-            self.subscribe(vec![filter], "temp_following_list", job_id).await?;
+            self.subscribe(vec![filter], "temp_following_list", job_id)
+                .await?;
         }
         Ok(())
     }
@@ -1104,5 +941,32 @@ impl Minion {
         if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay, None) {
             tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
         }
+    }
+
+    fn compute_since(&self, chunk_seconds: u64) -> Unixtime {
+        let now = Unixtime::now().unwrap();
+        let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
+        let chunk = Duration::from_secs(chunk_seconds);
+
+        // FIXME - general subscription EOSE is not necessarily applicable to
+        //         other subscriptions. BUt we don't record when we got an EOSE
+        //         on other subscriptions.
+        let eose: Unixtime = match self.dbrelay.last_general_eose_at {
+            Some(u) => Unixtime(u as i64),
+            None => Unixtime(0),
+        };
+
+        let mut since = eose;
+        since = since - overlap;
+
+        // No dates before 2020:
+        if since.0 < 1577836800 {
+            since.0 = 1577836800;
+        }
+
+        // Do not go back by more than one chunk
+        let one_chunk_ago = now - chunk;
+
+        since.max(one_chunk_ago)
     }
 }

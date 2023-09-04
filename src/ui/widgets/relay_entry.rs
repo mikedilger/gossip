@@ -9,7 +9,7 @@ use crate::{
     ui::{components, GossipUi},
 };
 
-use super::{list_entry::{allocate_text_at, draw_text_galley_at, safe_truncate, draw_text_at, TEXT_LEFT, TEXT_TOP, OUTER_MARGIN_TOP, OUTER_MARGIN_BOTTOM, TEXT_RIGHT, draw_link_at, paint_hline, self, TITLE_FONT_SIZE, TEXT_BOTTOM}, COPY_SYMBOL_SIZE, CopyButton};
+use super::{list_entry::{allocate_text_at, draw_text_galley_at, safe_truncate, draw_text_at, TEXT_LEFT, TEXT_TOP, TEXT_RIGHT, draw_link_at, paint_hline, self, TITLE_FONT_SIZE, TEXT_BOTTOM}, COPY_SYMBOL_SIZE, CopyButton};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 60.0;
@@ -216,7 +216,7 @@ impl RelayEntry {
 
 impl RelayEntry {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = GossipUi::domain_from_relay_url(&self.relay.url);
+        let title = Relay::domain_from_relay_url(&self.relay.url);
         let mut title = safe_truncate(title, TITLE_MAX_LEN).to_string();
         if self.relay.url.0.len() > TITLE_MAX_LEN {
             title.push('\u{2026}'); // append ellipsis

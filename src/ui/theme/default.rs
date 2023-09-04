@@ -16,19 +16,10 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn accent_color(dark_mode: bool) -> Color32 {
-        #[allow(clippy::if_same_then_else)]
         if dark_mode {
-            Color32::from_rgb(85, 122, 149)
+            Color32::from_rgb(116, 167, 204)
         } else {
             Color32::from_rgb(85, 122, 149)
-        }
-    }
-
-    fn highlight_color(dark_mode: bool) -> Color32 {
-        if dark_mode {
-            Color32::from_rgb(34, 28, 38)
-        } else {
-            Color32::from_rgb(255, 255, 237)
         }
     }
 
@@ -36,6 +27,14 @@ impl ThemeDef for DefaultTheme {
         let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
         hsva.h = (hsva.h + 0.5) % 1.0;
         hsva.into()
+    }
+
+    fn highlighted_note_bgcolor(dark_mode: bool) -> Color32 {
+        if dark_mode {
+            Color32::from_rgb(41, 34, 46)
+        } else {
+            Color32::from_rgb(255, 255, 237)
+        }
     }
 
     fn get_style(dark_mode: bool) -> Style {
@@ -339,7 +338,7 @@ impl ThemeDef for DefaultTheme {
             Color32::BLACK
         };
         let grey = if dark_mode {
-            Color32::DARK_GRAY
+            Color32::from_gray(16)
         } else {
             Color32::LIGHT_GRAY
         };
@@ -541,20 +540,20 @@ impl ThemeDef for DefaultTheme {
     fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
         if post.is_main_event {
             if dark_mode {
-                let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
+                let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
                 hsva.h = (hsva.h - 0.07) % 1.0;
                 hsva.v = (hsva.v + 0.1) % 1.0;
                 hsva.into()
             } else {
-                let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
+                let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
                 hsva.h = (hsva.h + 0.07) % 1.0;
                 hsva.into()
             }
         } else if post.is_new {
             if dark_mode {
-                Self::highlight_color(true)
+                Self::highlighted_note_bgcolor(true)
             } else {
-                Self::highlight_color(false)
+                Self::highlighted_note_bgcolor(false)
             }
         } else {
             if dark_mode {
@@ -563,7 +562,7 @@ impl ThemeDef for DefaultTheme {
                 hsva.v = 0.12;
                 hsva.into()
             } else {
-                let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
+                let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
                 hsva.s = 0.0;
                 hsva.v = 1.0;
                 hsva.into()
@@ -583,7 +582,7 @@ impl ThemeDef for DefaultTheme {
                 let rgb: Color32 = hsva.into();
                 Stroke::new(1.0, rgb)
             } else {
-                let mut hsva: ecolor::HsvaGamma = Self::highlight_color(dark_mode).into();
+                let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
                 hsva.s = 0.0;
                 hsva.v = 0.90;
                 let rgb: Color32 = hsva.into();

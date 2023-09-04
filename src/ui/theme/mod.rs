@@ -73,15 +73,17 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn highlight_color(&self) -> Color32 {
-                match self.variant {
-                    $( $variant => $class::highlight_color(self.dark_mode), )+
-                }
-            }
-
+            #[allow(dead_code)]
             pub fn accent_complementary_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_complementary_color(self.dark_mode), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn highlighted_note_bgcolor(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::highlighted_note_bgcolor(self.dark_mode), )+
                 }
             }
 
@@ -328,8 +330,13 @@ theme_dispatch!(
 pub trait ThemeDef: Send + Sync {
     // User facing name
     fn name() -> &'static str;
+
+    // Used for strokes, lines, and text in various places
     fn accent_color(dark_mode: bool) -> Color32;
-    fn highlight_color(dark_mode: bool) -> Color32;
+
+    // Used as background for highlighting unread events
+    fn highlighted_note_bgcolor(dark_mode: bool) -> Color32;
+
     fn accent_complementary_color(dark_mode: bool) -> Color32;
 
     // These styles are used by egui by default for widgets if you don't override them

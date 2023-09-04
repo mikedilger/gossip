@@ -193,7 +193,7 @@ pub(super) fn render_plain(ui: &mut Ui, note: &Ref<NoteData>, textspan: &Span, a
 }
 
 pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
-    let nam = GossipUi::display_name_from_pubkey_lookup(pubkey);
+    let nam = crate::names::display_name_from_pubkey_lookup(pubkey);
     let nam = format!("@{}", nam);
     if ui.link(&nam).clicked() {
         app.set_page(Page::Person(pubkey.to_owned()));
@@ -207,7 +207,7 @@ pub(super) fn render_event_link(
     link_to_id: Id,
 ) {
     let idhex: IdHex = link_to_id.into();
-    let nam = format!("#{}", GossipUi::hex_id_short(&idhex));
+    let nam = format!("#{}", crate::names::hex_id_short(&idhex));
     if ui.link(&nam).clicked() {
         app.set_page(Page::Feed(FeedKind::Thread {
             id: link_to_id,

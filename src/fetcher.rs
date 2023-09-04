@@ -13,7 +13,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::RwLock;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 #[derive(Copy, Clone, Debug)]
 pub enum FetchState {
@@ -308,7 +308,6 @@ impl Fetcher {
         }
 
         // closure to run when finished (if we didn't succeed)
-        let cache_file2 = cache_file.clone();
         let finish = |outcome, message, err: Option<Error>, sinbin_secs| {
             match outcome {
                 FailOutcome::Fail => {
@@ -322,7 +321,7 @@ impl Fetcher {
                         }
                         // FIXME: bumping the mtime might not be the best way to do this.
                         let _ = filetime::set_file_mtime(
-                            cache_file2.as_path(),
+                            cache_file.as_path(),
                             filetime::FileTime::now(),
                         );
                         self.urls.write().unwrap().remove(&url);
@@ -341,7 +340,7 @@ impl Fetcher {
                 FailOutcome::NotModified => {
                     tracing::info!("FETCH {url}: Succeeded: {message}");
                     let _ =
-                        filetime::set_file_mtime(cache_file2.as_path(), filetime::FileTime::now());
+                        filetime::set_file_mtime(cache_file.as_path(), filetime::FileTime::now());
                     self.urls.write().unwrap().remove(&url);
                 }
                 FailOutcome::Requeue => {
@@ -568,5 +567,38 @@ impl Fetcher {
                 *load -= 1;
             }
         }
+    }
+
+    pub async fn prune(&self, age: Duration) -> Result<usize, Error> {
+        let mut count: usize = 0;
+        let cache_path = self.cache_dir.read().unwrap().to_owned();
+        let mut entries = tokio::fs::read_dir(cache_path.as_path()).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            if let Ok(metadata) = entry.metadata().await {
+                if metadata.is_dir() {
+                    continue;
+                }
+
+                // FIXME - many filesystems do not track access times. We may want
+                //         to track these in LMDB (along with etags)
+                let file_time = match metadata.accessed() {
+                    Ok(st) => st,
+                    Err(_) => match metadata.modified() {
+                        Ok(st) => st,
+                        Err(_) => metadata.created()?,
+                    },
+                };
+                let file_age = match SystemTime::now().duration_since(file_time) {
+                    Ok(dur) => dur,
+                    Err(_) => continue,
+                };
+                if file_age > age {
+                    tokio::fs::remove_file(entry.path().as_path()).await?;
+                    count += 1;
+                }
+            }
+        }
+
+        Ok(count)
     }
 }

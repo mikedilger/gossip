@@ -74,7 +74,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.label("|");
                 ui.selectable_value(&mut app.settings_tab, SettingsTab::Posting, "Posting");
                 ui.label("|");
-                ui.selectable_value(&mut app.settings_tab, SettingsTab::Database, "Database");
+                ui.selectable_value(&mut app.settings_tab, SettingsTab::Database, "Storage");
             });
 
             ui.add_space(10.0);

@@ -14,6 +14,7 @@ mod import;
 mod migrations;
 mod types;
 
+use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::Person;
@@ -548,6 +549,7 @@ impl Storage {
         bool,
         false
     );
+    def_setting!(show_deleted_events, b"show_deleted_events", bool, false);
     def_setting!(pow, b"pow", u8, 0);
     def_setting!(set_client_tag, b"set_client_tag", bool, false);
     def_setting!(set_user_agent, b"set_user_agent", bool, false);
@@ -700,7 +702,8 @@ impl Storage {
         usize,
         10
     );
-    def_setting!(prune_period_days, b"prune_period_days", u64, 30);
+    def_setting!(prune_period_days, b"prune_period_days", u64, 90);
+    def_setting!(cache_prune_period_days, b"cache_prune_period_days", u64, 90);
 
     pub fn write_encrypted_private_key<'a>(
         &'a self,
@@ -2289,6 +2292,109 @@ impl Storage {
         }
 
         Ok(ranked_relays)
+    }
+
+    /// Get all the DM channels with associated data
+    pub fn dm_channels(&self) -> Result<Vec<DmChannelData>, Error> {
+        let my_pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => return Ok(Vec::new()),
+        };
+
+        let events = self.find_events(
+            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
+            &[],
+            Some(Unixtime(0)),
+            |event| {
+                if event.kind == EventKind::EncryptedDirectMessage {
+                    event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
+                    // Make sure if it has tags, only author and my_pubkey
+                    // TBD
+                } else {
+                    event.kind == EventKind::GiftWrap
+                }
+            },
+            false,
+        )?;
+
+        // Map from channel to latest-message-time and unread-count
+        let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
+
+        for event in &events {
+            let unread = 1 - self.is_event_viewed(event.id)? as usize;
+            if event.kind == EventKind::EncryptedDirectMessage {
+                let time = event.created_at;
+                let dmchannel = match DmChannel::from_event(event, Some(my_pubkey)) {
+                    Some(dmc) => dmc,
+                    None => continue,
+                };
+                map.entry(dmchannel.clone())
+                    .and_modify(|d| {
+                        d.latest_message = d.latest_message.max(time);
+                        d.message_count += 1;
+                        d.unread_message_count += unread;
+                    })
+                    .or_insert(DmChannelData {
+                        dm_channel: dmchannel,
+                        latest_message: time,
+                        message_count: 1,
+                        unread_message_count: unread,
+                    });
+            } else if event.kind == EventKind::GiftWrap {
+                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
+                    let rumor_event = rumor.into_event_with_bad_signature();
+                    let time = rumor_event.created_at;
+                    let dmchannel = match DmChannel::from_event(&rumor_event, Some(my_pubkey)) {
+                        Some(dmc) => dmc,
+                        None => continue,
+                    };
+                    map.entry(dmchannel.clone())
+                        .and_modify(|d| {
+                            d.latest_message = d.latest_message.max(time);
+                            d.message_count += 1;
+                            d.unread_message_count += unread;
+                        })
+                        .or_insert(DmChannelData {
+                            dm_channel: dmchannel,
+                            latest_message: time,
+                            message_count: 1,
+                            unread_message_count: unread,
+                        });
+                }
+            }
+        }
+
+        let mut output: Vec<DmChannelData> = map.drain().map(|e| e.1).collect();
+        output.sort_by(|a, b| b.latest_message.cmp(&a.latest_message));
+        Ok(output)
+    }
+
+    /// Get DM events (by id) in a channel
+    pub fn dm_events(&self, channel: &DmChannel) -> Result<Vec<Id>, Error> {
+        let my_pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => return Ok(Vec::new()),
+        };
+
+        let mut output: Vec<Event> = self.find_events(
+            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
+            &[],
+            Some(Unixtime(0)),
+            |event| {
+                if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
+                    if event_dm_channel == *channel {
+                        return true;
+                    }
+                }
+                false
+            },
+            false,
+        )?;
+
+        // sort
+        output.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+        Ok(output.iter().map(|e| e.id).collect())
     }
 
     pub fn rebuild_event_indices(&self) -> Result<(), Error> {

@@ -1,4 +1,5 @@
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
+use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{EventDelegation, EventKind, Id, PublicKey, RelayUrl, Unixtime};
@@ -18,11 +19,13 @@ pub enum FeedKind {
         author: Option<PublicKey>,
     },
     Person(PublicKey),
+    DmChat(DmChannel),
 }
 
 impl FeedKind {
     pub fn to_string(&self) -> String {
         match self {
+            FeedKind::DmChat(channel) => channel.name(),
             FeedKind::Followed(_) => "Following".into(),
             FeedKind::Inbox(_) => "Inbox".into(),
             FeedKind::Thread { id: _, referenced_by: _, author: _ } => "Thread".into(),
@@ -39,6 +42,7 @@ pub struct Feed {
     followed_feed: RwLock<Vec<Id>>,
     inbox_feed: RwLock<Vec<Id>>,
     person_feed: RwLock<Vec<Id>>,
+    dm_chat_feed: RwLock<Vec<Id>>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -55,9 +59,38 @@ impl Feed {
             followed_feed: RwLock::new(Vec::new()),
             inbox_feed: RwLock::new(Vec::new()),
             person_feed: RwLock::new(Vec::new()),
+            dm_chat_feed: RwLock::new(Vec::new()),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
+        }
+    }
+
+    fn unlisten(&self) {
+        let feed_kind = self.current_feed_kind.read().to_owned();
+
+        // If not in the Thread feed
+        if !matches!(feed_kind, FeedKind::Thread { .. }) {
+            // Stop listening to Thread events
+            let _ = GLOBALS.to_minions.send(ToMinionMessage {
+                target: "all".to_string(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+                },
+            });
+        }
+
+        // If not in the Person feed
+        if !matches!(feed_kind, FeedKind::Person(_)) {
+            // Stop listening to Person events
+            let _ = GLOBALS.to_minions.send(ToMinionMessage {
+                target: "all".to_string(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
+                },
+            });
         }
     }
 
@@ -71,21 +104,7 @@ impl Feed {
         // Recompute as they switch
         self.sync_recompute();
 
-        // When going to Followed or Inbox, we stop listening for Thread/Person events
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            },
-        });
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            },
-        });
+        self.unlisten();
     }
 
     pub fn set_feed_to_inbox(&self, indirect: bool) {
@@ -95,21 +114,7 @@ impl Feed {
         // Recompute as they switch
         self.sync_recompute();
 
-        // When going to Followed or Inbox, we stop listening for Thread/Person events
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            },
-        });
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            },
-        });
+        self.unlisten();
     }
 
     pub fn set_feed_to_thread(
@@ -132,13 +137,9 @@ impl Feed {
         // Recompute as they switch
         self.sync_recompute();
 
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
-            },
-        });
+        self.unlisten();
+
+        // Listen for Thread events
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed(
             id,
             referenced_by,
@@ -154,13 +155,9 @@ impl Feed {
         // Recompute as they switch
         self.sync_recompute();
 
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
-            },
-        });
+        self.unlisten();
+
+        // Listen for Person events
         let _ = GLOBALS.to_minions.send(ToMinionMessage {
             target: "all".to_string(),
             payload: ToMinionPayload {
@@ -168,6 +165,16 @@ impl Feed {
                 detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey),
             },
         });
+    }
+
+    pub fn set_feed_to_dmchat(&self, channel: DmChannel) {
+        *self.current_feed_kind.write() = FeedKind::DmChat(channel);
+        *self.thread_parent.write() = None;
+
+        // Recompute as they switch
+        self.sync_recompute();
+
+        self.unlisten();
     }
 
     pub fn get_feed_kind(&self) -> FeedKind {
@@ -187,6 +194,11 @@ impl Feed {
     pub fn get_person_feed(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
         self.person_feed.read().clone()
+    }
+
+    pub fn get_dm_chat_feed(&self) -> Vec<Id> {
+        self.sync_maybe_periodic_recompute();
+        self.dm_chat_feed.read().clone()
     }
 
     pub fn get_thread_parent(&self) -> Option<Id> {
@@ -241,7 +253,7 @@ impl Feed {
         let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
 
         let kinds_with_dms = feed_displayable_event_kinds(true);
-        let kinds_without_dms = feed_displayable_event_kinds(true);
+        let kinds_without_dms = feed_displayable_event_kinds(false);
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
@@ -365,7 +377,7 @@ impl Feed {
                 let since =
                     now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
 
-                let events: Vec<(Unixtime, Id)> = GLOBALS
+                let events: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
                         &kinds_without_dms,
@@ -388,10 +400,14 @@ impl Feed {
                         true,
                     )?
                     .iter()
-                    .map(|e| (e.created_at, e.id))
+                    .map(|e| e.id)
                     .collect();
 
-                *self.person_feed.write() = events.iter().map(|e| e.1).collect();
+                *self.person_feed.write() = events;
+            }
+            FeedKind::DmChat(channel) => {
+                let ids = GLOBALS.storage.dm_events(&channel)?;
+                *self.dm_chat_feed.write() = ids;
             }
         }
 

@@ -1,7 +1,8 @@
-use std::fmt;
+use crate::dm_channel::DmChannel;
 use nostr_types::{
     Event, Id, IdHex, Metadata, MilliSatoshi, PublicKey, RelayUrl, Tag, UncheckedUrl,
 };
+use std::fmt;
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
@@ -28,7 +29,8 @@ pub enum ToOverlordMessage {
     MinionJobComplete(RelayUrl, u64),
     MinionJobUpdated(RelayUrl, u64, u64),
     PickRelays,
-    Post(String, Vec<Tag>, Option<Id>),
+    Post(String, Vec<Tag>, Option<Id>, Option<DmChannel>),
+    PruneCache,
     PruneDatabase,
     PullFollow,
     PushFollow,
@@ -77,7 +79,7 @@ pub enum ToMinionPayloadDetail {
     PullFollowing,
     Shutdown,
     SubscribeAugments(Vec<IdHex>),
-    SubscribeConfig,
+    SubscribeOutbox,
     SubscribeDiscover(Vec<PublicKey>),
     SubscribeGeneralFeed(Vec<PublicKey>),
     SubscribeMentions,
@@ -162,7 +164,6 @@ pub struct RelayJob {
 
     // Payload sent when it was started
     pub payload: ToMinionPayload,
-
     // NOTE, there is other per-relay data stored elsewhere in
     //   overlord.minions_task_url
     //   GLOBALS.relay_picker

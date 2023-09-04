@@ -2,7 +2,7 @@ use super::{FeedProperties, NoteRenderData, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{FontDefinitions, Margin, RichText, Style, TextFormat, TextStyle, Visuals};
-use eframe::epaint::{Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
+use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow, Stroke};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -13,16 +13,29 @@ impl ThemeDef for ClassicTheme {
         "Classic"
     }
 
-    fn accent_color(_dark_mode: bool) -> Color32 {
-        Color32::from_rgb(0, 0, 0) // Not used
+    fn accent_color(dark_mode: bool) -> Color32 {
+        // not used within
+        if dark_mode {
+            Color32::from_rgb(116, 167, 204)
+        } else {
+            Color32::from_rgb(85, 122, 149)
+        }
     }
 
-    fn highlight_color(_dark_mode: bool) -> Color32 {
-        Color32::from_rgb(0, 0, 0) // Not used
+    fn accent_complementary_color(dark_mode: bool) -> Color32 {
+        // not used within
+        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+        hsva.h = (hsva.h + 0.5) % 1.0;
+        hsva.into()
     }
 
-    fn accent_complementary_color(_dark_mode: bool) -> Color32 {
-        Color32::from_rgb(0, 0, 0) // Not used
+    fn highlighted_note_bgcolor(dark_mode: bool) -> Color32 {
+        // not used within
+        if dark_mode {
+            Color32::from_rgb(41, 34, 46)
+        } else {
+            Color32::from_rgb(255, 255, 237)
+        }
     }
 
     fn get_style(dark_mode: bool) -> Style {
@@ -325,7 +338,7 @@ impl ThemeDef for ClassicTheme {
             Color32::BLACK
         };
         let grey = if dark_mode {
-            Color32::DARK_GRAY
+            Color32::from_gray(36)
         } else {
             Color32::LIGHT_GRAY
         };
@@ -338,6 +351,11 @@ impl ThemeDef for ClassicTheme {
             Color32::LIGHT_RED
         } else {
             Color32::DARK_RED
+        };
+        let purple = if dark_mode {
+            Color32::from_rgb(0xA0, 0x40, 0xA0)
+        } else {
+            Color32::from_rgb(0x80, 0, 0x80)
         };
 
         match highlight_type {
@@ -361,7 +379,7 @@ impl ThemeDef for ClassicTheme {
             HighlightType::Relay => TextFormat {
                 font_id: FontId::new(12.5, FontFamily::Monospace),
                 background: grey,
-                color: red,
+                color: purple,
                 ..Default::default()
             },
             HighlightType::Hyperlink => TextFormat {

@@ -1,7 +1,7 @@
 use egui_winit::egui::{Context, Ui, self, vec2, Response, RichText, Align, Id};
 use nostr_types::{PublicKey, RelayUrl};
 
-use crate::{globals::GLOBALS, ui::{GossipUi, widgets::{self, list_entry::{TEXT_TOP, TEXT_LEFT, self, draw_text_at, TEXT_RIGHT, TITLE_FONT_SIZE}, COPY_SYMBOL_SIZE}, Page, SettingsTab}, comms::ToOverlordMessage};
+use crate::{globals::GLOBALS, ui::{GossipUi, widgets::{self, list_entry::{TEXT_TOP, TEXT_LEFT, self, draw_text_at, TEXT_RIGHT, TITLE_FONT_SIZE}, COPY_SYMBOL_SIZE}, Page, SettingsTab}, comms::ToOverlordMessage, relay::Relay};
 
 struct CoverageEntry<'a> {
     pk: &'a PublicKey,
@@ -71,7 +71,7 @@ impl<'a> CoverageEntry<'a> {
         draw_text_at(
             ui,
             pos,
-            GossipUi::pubkey_short(self.pk).into(),
+            crate::names::pubkey_short(self.pk).into(),
             Align::RIGHT,
             None,
             None);
@@ -79,7 +79,7 @@ impl<'a> CoverageEntry<'a> {
         // ---- connected relays ----
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP + (1.5 * TITLE_FONT_SIZE));
         let relays_string = self.relays.iter()
-            .map(|rurl| GossipUi::domain_from_relay_url(rurl).to_string() )
+            .map(|rurl| Relay::domain_from_relay_url(rurl).to_string() )
             .collect::<Vec<String>>()
             .join(", ");
         draw_text_at(
@@ -154,7 +154,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
                 let pk = elem.key();
                 let count = elem.value();
-                let name = GossipUi::display_name_from_pubkey_lookup(pk);
+                let name = crate::names::display_name_from_pubkey_lookup(pk);
                 let relays = find_relays_for_pubkey(pk);
                 let hover_text = format!("Go to profile of {}", name);
 

@@ -5,7 +5,7 @@ use crate::people::Person;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
+use egui::{Context, Frame, RichText, ScrollArea, TextEdit, Ui, Vec2};
 use nostr_types::PublicKey;
 use serde_json::Value;
 
@@ -55,10 +55,62 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             },
         );
         ui.vertical(|ui| {
-            let name = GossipUi::display_name_from_dbperson(&person);
+            let name = crate::names::display_name_from_person(&person);
             ui.heading(name);
-            ui.label(RichText::new(GossipUi::pubkey_short(&pubkey)).weak());
+            ui.label(RichText::new(crate::names::pubkey_short(&pubkey)).weak());
             GossipUi::render_person_name_line(app, ui, &person);
+
+            ui.horizontal(|ui| {
+                ui.add_space(12.0);
+                ui.label("Pet name:");
+                if app.editing_petname {
+                    let edit_color = app.settings.theme.input_text_color();
+                    ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
+                    if ui.button("save").clicked() {
+                        let mut person = person.clone();
+                        person.petname = Some(app.petname.clone());
+                        if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                            GLOBALS.status_queue.write().write(format!("{}", e));
+                        }
+                        app.editing_petname = false;
+                    }
+                    if ui.button("cancel").clicked() {
+                        app.editing_petname = false;
+                    }
+                    if ui.button("remove").clicked() {
+                        let mut person = person.clone();
+                        person.petname = None;
+                        if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                            GLOBALS.status_queue.write().write(format!("{}", e));
+                        }
+                        app.editing_petname = false;
+                    }
+                } else {
+                    match &person.petname {
+                        Some(pn) => {
+                            ui.label(pn);
+                            if ui.button("edit").clicked() {
+                                app.editing_petname = true;
+                                app.petname = pn.to_owned();
+                            }
+                            if ui.button("remove").clicked() {
+                                let mut person = person.clone();
+                                person.petname = None;
+                                if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                                    GLOBALS.status_queue.write().write(format!("{}", e));
+                                }
+                            }
+                        }
+                        None => {
+                            ui.label(RichText::new("none").italics());
+                            if ui.button("add").clicked() {
+                                app.editing_petname = true;
+                                app.petname = "".to_owned();
+                            }
+                        }
+                    }
+                }
+            });
         });
     });
 

@@ -5,6 +5,7 @@ use egui::{Context, ScrollArea, Ui, Vec2};
 
 mod about;
 mod stats;
+mod theme;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.page == Page::HelpHelp {
@@ -247,5 +248,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         stats::update(app, ctx, _frame, ui);
     } else if app.page == Page::HelpAbout {
         about::update(app, ctx, _frame, ui);
+    } else if app.page == Page::HelpTheme {
+        theme::update(app, ctx, _frame, ui);
     }
 }
