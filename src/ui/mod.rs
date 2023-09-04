@@ -1378,6 +1378,10 @@ impl GossipUi {
     }
 
     fn show_post_area_fn(&self) -> bool {
+        if self.page == Page::DmChatList {
+            return false;
+        }
+
         self.show_post_area || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
     }
 }
