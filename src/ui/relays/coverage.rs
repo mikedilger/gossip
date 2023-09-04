@@ -107,13 +107,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.with_layout( egui::Layout::left_to_right(Align::Center),|ui| {
             ui.heading(format!("Low Coverage Report (less than {} relays)",  app.settings.num_relays_per_person));
             ui.add_space(10.0);
-            if ui.link(format!("< back to {}", Page::RelaysActivityMonitor.name())).clicked() {
-                app.set_page(Page::RelaysActivityMonitor);
-            }
         });
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.add_space(20.0);
             ui.spacing_mut().button_padding *= 2.0;
+            if ui.button("Pick Relays Again")
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked() {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
+            }
+            ui.add_space(10.0);
             {
                 let visuals = ui.visuals_mut();
                 visuals.widgets.inactive.weak_bg_fill = app.settings.theme.accent_color();
@@ -123,10 +126,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 visuals.widgets.hovered.fg_stroke.color = app.settings.theme.accent_color();
                 visuals.widgets.inactive.fg_stroke.color = app.settings.theme.get_style().visuals.extreme_bg_color;
 
-                if ui.button("Pick Relays Again")
+                if ui.button(Page::RelaysActivityMonitor.name())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked() {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
+                    app.set_page(Page::RelaysActivityMonitor);
                 }
             }
         });
