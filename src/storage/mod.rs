@@ -159,6 +159,25 @@ impl Storage {
     // Run this after GLOBALS lazy static initialisation, so functions within storage can
     // access GLOBALS without hanging.
     pub fn init(&self) -> Result<(), Error> {
+        // We have to trigger all of the current-version databases into existence
+        // because otherwise there will be MVCC visibility problems later having
+        // different transactions in parallel
+        //
+        // old-version databases will be handled by their migraiton code and only
+        // triggered into existence if their migration is necessary.
+        let _ = self.db_event_ek_c_index()?;
+        let _ = self.db_event_ek_pk_index()?;
+        let _ = self.db_event_references_person()?;
+        let _ = self.db_events()?;
+        let _ = self.db_event_seen_on_relay()?;
+        let _ = self.db_event_viewed()?;
+        let _ = self.db_hashtags()?;
+        let _ = self.db_people()?;
+        let _ = self.db_person_relays()?;
+        let _ = self.db_relationships()?;
+        let _ = self.db_relays()?;
+        let _ = self.db_unindexed_giftwraps()?;
+
         // If migration level is missing, we need to import from legacy sqlite
         match self.read_migration_level()? {
             None => {
@@ -186,6 +205,26 @@ impl Storage {
     // Database getters ---------------------------------
 
     #[inline]
+    pub fn db_event_ek_c_index(&self) -> Result<RawDatabase, Error> {
+        self.db_event_ek_c_index1()
+    }
+
+    #[inline]
+    pub fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
+        self.db_event_ek_pk_index1()
+    }
+
+    #[inline]
+    pub fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
+        self.db_event_references_person1()
+    }
+
+    #[inline]
+    pub fn db_events(&self) -> Result<RawDatabase, Error> {
+        self.db_events1()
+    }
+
+    #[inline]
     pub fn db_event_seen_on_relay(&self) -> Result<RawDatabase, Error> {
         self.db_event_seen_on_relay1()
     }
@@ -201,28 +240,23 @@ impl Storage {
     }
 
     #[inline]
-    pub fn db_events(&self) -> Result<RawDatabase, Error> {
-        self.db_events1()
+    pub fn db_people(&self) -> Result<RawDatabase, Error> {
+        self.db_people1()
     }
 
     #[inline]
-    pub fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_ek_pk_index1()
-    }
-
-    #[inline]
-    pub fn db_event_ek_c_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_ek_c_index1()
-    }
-
-    #[inline]
-    pub fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
-        self.db_event_references_person1()
+    pub fn db_person_relays(&self) -> Result<RawDatabase, Error> {
+        self.db_person_relays1()
     }
 
     #[inline]
     pub fn db_relationships(&self) -> Result<RawDatabase, Error> {
         self.db_relationships1()
+    }
+
+    #[inline]
+    pub fn db_relays(&self) -> Result<RawDatabase, Error> {
+        self.db_relays1()
     }
 
     #[inline]
