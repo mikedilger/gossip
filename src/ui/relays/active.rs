@@ -17,7 +17,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.heading(Page::RelaysActivityMonitor.name());
             ui.set_enabled(!is_editing);
             ui.add_space(10.0);
-            if ui.link(RichText::new(Page::RelaysCoverage.name())).clicked() {
+            if ui.button(RichText::new(Page::RelaysCoverage.name()))
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked() {
                 app.set_page(crate::ui::Page::RelaysCoverage);
             }
             ui.add_space(50.0);
