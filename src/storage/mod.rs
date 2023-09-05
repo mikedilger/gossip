@@ -374,9 +374,9 @@ impl Storage {
         self.get_people1_len()
     }
 
+    #[inline]
     pub fn get_person_relays_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.person_relays.len(&txn)?)
+        self.get_person_relays1_len()
     }
 
     // Remove all events (and related data) with a created_at before `from`
@@ -943,21 +943,8 @@ impl Storage {
         }
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Delete any person_relay with this relay
-            let mut deletions: Vec<Vec<u8>> = Vec::new();
-            {
-                for result in self.person_relays.iter(txn)? {
-                    let (key, val) = result?;
-                    if let Ok(person_relay) = PersonRelay::read_from_buffer(val) {
-                        if person_relay.url == *url {
-                            deletions.push(key.to_owned());
-                        }
-                    }
-                }
-            }
-            for deletion in deletions.drain(..) {
-                self.person_relays.delete(txn, &deletion)?;
-            }
+            // Delete any PersonRelay with this url
+            self.delete_person_relays(|f| f.url == *url, Some(txn))?;
 
             // Delete the relay
             self.relays.delete(txn, key)?;
@@ -2106,81 +2093,40 @@ impl Storage {
         self.filter_people1(f)
     }
 
+    #[inline]
     pub fn write_person_relay<'a>(
         &'a self,
         person_relay: &PersonRelay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut key = person_relay.pubkey.to_bytes();
-        key.extend(person_relay.url.0.as_bytes());
-        key.truncate(MAX_LMDB_KEY);
-        let bytes = person_relay.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.person_relays.put(txn, &key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_person_relay1(person_relay, rw_txn)
     }
 
+    #[inline]
     pub fn read_person_relay(
         &self,
         pubkey: PublicKey,
         url: &RelayUrl,
     ) -> Result<Option<PersonRelay>, Error> {
-        let mut key = pubkey.to_bytes();
-        key.extend(url.0.as_bytes());
-        key.truncate(MAX_LMDB_KEY);
-        let txn = self.env.read_txn()?;
-        Ok(match self.person_relays.get(&txn, &key)? {
-            Some(bytes) => Some(PersonRelay::read_from_buffer(bytes)?),
-            None => None,
-        })
+        self.read_person_relay1(pubkey, url)
     }
 
+    #[inline]
     pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
-        let start_key = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        let iter = self.person_relays.prefix_iter(&txn, &start_key)?;
-        let mut output: Vec<PersonRelay> = Vec::new();
-        for result in iter {
-            let (_key, val) = result?;
-            let person_relay = PersonRelay::read_from_buffer(val)?;
-            output.push(person_relay);
-        }
-        Ok(output)
+        self.get_person_relays1(pubkey)
     }
 
-    /*
-    pub fn set_person_relay_manual_pairing(
-        &self,
-        pubkey: PublicKey,
-        read_relays: Vec<RelayUrl>,
-        write_relays: Vec<RelayUrl>,
-    ) -> Result<(), Error> {
-        let mut person_relays = self.get_person_relays(pubkey)?;
-        for mut pr in person_relays.drain(..) {
-            let orig_read = pr.manually_paired_read;
-            let orig_write = pr.manually_paired_write;
-            pr.manually_paired_read = read_relays.contains(&pr.url);
-            pr.manually_paired_write = write_relays.contains(&pr.url);
-            if pr.manually_paired_read != orig_read || pr.manually_paired_write != orig_write {
-                self.write_person_relay(&pr)?;
-            }
-        }
-        Ok(())
+    #[inline]
+    pub fn delete_person_relays<'a, F>(
+        &'a self,
+        filter: F,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        F: Fn(&PersonRelay) -> bool,
+    {
+        self.delete_person_relays1(filter, rw_txn)
     }
-     */
 
     /// This returns the relays for a person, along with a score, in order of score
     pub fn get_best_relays(
