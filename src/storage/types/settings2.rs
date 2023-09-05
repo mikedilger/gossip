@@ -7,6 +7,7 @@ use nostr_types::PublicKey;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
+// THIS IS HISTORICAL FOR MIGRATIONS. DO NOT EDIT.
 #[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable)]
 pub struct Settings2 {
     // ID settings
