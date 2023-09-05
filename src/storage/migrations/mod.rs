@@ -73,7 +73,7 @@ impl Storage {
             let mut count = 0;
 
             let event_txn = self.env.read_txn()?;
-            for result in self.events.iter(&event_txn)? {
+            for result in self.db_events1()?.iter(&event_txn)? {
                 let pair = result?;
                 let event = Event::read_from_buffer(pair.1)?;
                 let _ = self.process_relationships_of_event(&event, Some(txn))?;
@@ -309,7 +309,7 @@ impl Storage {
 
     pub fn delete_rumors<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let mut ids: Vec<Id> = Vec::new();
-        let iter = self.events.iter(txn)?;
+        let iter = self.db_events1()?.iter(txn)?;
         for result in iter {
             let (_key, val) = result?;
             let event = Event::read_from_buffer(val)?;
@@ -319,7 +319,7 @@ impl Storage {
         }
 
         for id in ids {
-            self.events.delete(txn, id.as_slice())?;
+            self.db_events1()?.delete(txn, id.as_slice())?;
         }
 
         Ok(())

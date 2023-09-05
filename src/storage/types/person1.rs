@@ -1,6 +1,3 @@
-use crate::error::Error;
-use crate::storage::Storage;
-use heed::RwTxn;
 use nostr_types::{Metadata, PublicKey};
 use serde::{Deserialize, Serialize};
 
@@ -108,70 +105,5 @@ impl Ord for Person1 {
             (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
             _ => self.pubkey.cmp(&other.pubkey),
         }
-    }
-}
-
-impl Storage {
-    pub fn get_people1_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.people.len(&txn)?)
-    }
-
-    #[allow(dead_code)]
-    pub fn write_person1<'a>(
-        &'a self,
-        person: &Person1,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key: Vec<u8> = person.pubkey.to_bytes();
-        let bytes = serde_json::to_vec(person)?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.people.put(txn, &key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub fn read_person1(&self, pubkey: &PublicKey) -> Result<Option<Person1>, Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key: Vec<u8> = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        Ok(match self.people.get(&txn, &key)? {
-            Some(bytes) => Some(serde_json::from_slice(bytes)?),
-            None => None,
-        })
-    }
-
-    pub fn filter_people1<F>(&self, f: F) -> Result<Vec<Person1>, Error>
-    where
-        F: Fn(&Person1) -> bool,
-    {
-        let txn = self.env.read_txn()?;
-        let iter = self.people.iter(&txn)?;
-        let mut output: Vec<Person1> = Vec::new();
-        for result in iter {
-            let (_key, val) = result?;
-            let person: Person1 = serde_json::from_slice(val)?;
-            if f(&person) {
-                output.push(person);
-            }
-        }
-        Ok(output)
     }
 }
