@@ -12,7 +12,8 @@ macro_rules! key {
 
 mod import;
 mod migrations;
-mod types;
+
+pub mod types;
 
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
@@ -368,9 +369,9 @@ impl Storage {
         Ok(self.relationships.len(&txn)?)
     }
 
+    #[inline]
     pub fn get_people_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.people.len(&txn)?)
+        self.get_people1_len()
     }
 
     pub fn get_person_relays_len(&self) -> Result<u64, Error> {
@@ -2071,44 +2072,18 @@ impl Storage {
         Ok(invalidate)
     }
 
+    #[inline]
     pub fn write_person<'a>(
         &'a self,
         person: &Person,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key: Vec<u8> = person.pubkey.to_bytes();
-        let bytes = serde_json::to_vec(person)?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.people.put(txn, &key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_person1(person, rw_txn)
     }
 
+    #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key: Vec<u8> = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        Ok(match self.people.get(&txn, &key)? {
-            Some(bytes) => Some(serde_json::from_slice(bytes)?),
-            None => None,
-        })
+        self.read_person1(pubkey)
     }
 
     pub fn write_person_if_missing<'a>(
@@ -2123,21 +2098,12 @@ impl Storage {
         Ok(())
     }
 
+    #[inline]
     pub fn filter_people<F>(&self, f: F) -> Result<Vec<Person>, Error>
     where
         F: Fn(&Person) -> bool,
     {
-        let txn = self.env.read_txn()?;
-        let iter = self.people.iter(&txn)?;
-        let mut output: Vec<Person> = Vec::new();
-        for result in iter {
-            let (_key, val) = result?;
-            let person: Person = serde_json::from_slice(val)?;
-            if f(&person) {
-                output.push(person);
-            }
-        }
-        Ok(output)
+        self.filter_people1(f)
     }
 
     pub fn write_person_relay<'a>(
