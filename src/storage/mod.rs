@@ -339,9 +339,9 @@ impl Storage {
         Ok(self.hashtags.len(&txn)?)
     }
 
+    #[inline]
     pub fn get_relays_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.relays.len(&txn)?)
+        self.get_relays1_len()
     }
 
     pub fn get_event_len(&self) -> Result<u64, Error> {
@@ -898,69 +898,22 @@ impl Storage {
         Ok(output)
     }
 
+    #[inline]
     pub fn write_relay<'a>(
         &'a self,
         relay: &Relay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key = key!(relay.url.0.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-        let bytes = serde_json::to_vec(relay)?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.relays.put(txn, key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_relay1(relay, rw_txn)
     }
 
+    #[inline]
     pub fn delete_relay<'a>(
         &'a self,
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key = key!(url.0.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Delete any PersonRelay with this url
-            self.delete_person_relays(|f| f.url == *url, Some(txn))?;
-
-            // Delete the relay
-            self.relays.delete(txn, key)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.delete_relay1(url, rw_txn)
     }
 
     pub fn write_relay_if_missing<'a>(
@@ -975,109 +928,42 @@ impl Storage {
         Ok(())
     }
 
+    #[inline]
     pub fn modify_relay<'a, M>(
         &'a self,
         url: &RelayUrl,
-        mut modify: M,
+        modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error>
     where
         M: FnMut(&mut Relay),
     {
-        let key = key!(url.0.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let bytes = self.relays.get(txn, key)?;
-            if let Some(bytes) = bytes {
-                let mut relay = serde_json::from_slice(bytes)?;
-                modify(&mut relay);
-                let bytes = serde_json::to_vec(&relay)?;
-                self.relays.put(txn, key, &bytes)?;
-            }
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.modify_relay1(url, modify, rw_txn)
     }
 
+    #[inline]
     pub fn modify_all_relays<'a, M>(
         &'a self,
-        mut modify: M,
+        modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error>
     where
         M: FnMut(&mut Relay),
     {
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut iter = self.relays.iter_mut(txn)?;
-            while let Some(result) = iter.next() {
-                let (key, val) = result?;
-                let mut dbrelay: Relay = serde_json::from_slice(val)?;
-                modify(&mut dbrelay);
-                let bytes = serde_json::to_vec(&dbrelay)?;
-                // to deal with the unsafety of put_current
-                let key = key.to_owned();
-                unsafe {
-                    iter.put_current(&key, &bytes)?;
-                }
-            }
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.modify_all_relays1(modify, rw_txn)
     }
 
+    #[inline]
     pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key = key!(url.0.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-        let txn = self.env.read_txn()?;
-        match self.relays.get(&txn, key)? {
-            Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
-            None => Ok(None),
-        }
+        self.read_relay1(url)
     }
 
+    #[inline]
     pub fn filter_relays<F>(&self, f: F) -> Result<Vec<Relay>, Error>
     where
         F: Fn(&Relay) -> bool,
     {
-        let txn = self.env.read_txn()?;
-        let mut output: Vec<Relay> = Vec::new();
-        let iter = self.relays.iter(&txn)?;
-        for result in iter {
-            let (_key, val) = result?;
-            let relay: Relay = serde_json::from_slice(val)?;
-            if f(&relay) {
-                output.push(relay);
-            }
-        }
-        Ok(output)
+        self.filter_relays1(f)
     }
 
     pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
