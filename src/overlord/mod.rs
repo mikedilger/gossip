@@ -550,7 +550,14 @@ impl Overlord {
                 });
             }
             ToOverlordMessage::FetchEvent(id, relay_urls) => {
-                // We presume the caller already checked GLOBALS.storage.read_event() and it was not there
+                // Don't do this if we already have the event
+                if GLOBALS.storage.has_event(id)? {
+                    return Ok(true);
+                }
+
+                // Note: minions will remember if they get the same id multiple times
+                //       not to fetch it multiple times.
+
                 for url in relay_urls.iter() {
                     self.engage_minion(
                         url.to_owned(),
@@ -558,7 +565,7 @@ impl Overlord {
                             reason: RelayConnectionReason::FetchEvent,
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::FetchEvent(id.into()),
+                                detail: ToMinionPayloadDetail::FetchEvent(id),
                             },
                         }],
                     )

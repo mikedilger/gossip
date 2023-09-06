@@ -42,6 +42,7 @@ pub struct Minion {
     next_events_subscription_id: u32,
     keepgoing: bool,
     postings: HashSet<Id>,
+    sought: HashSet<Id>,
 }
 
 impl Minion {
@@ -68,6 +69,7 @@ impl Minion {
             next_events_subscription_id: 0,
             keepgoing: true,
             postings: HashSet::new(),
+            sought: HashSet::new(),
         })
     }
 }
@@ -336,7 +338,11 @@ impl Minion {
     pub async fn handle_overlord_message(&mut self, message: ToMinionPayload) -> Result<(), Error> {
         match message.detail {
             ToMinionPayloadDetail::FetchEvent(id) => {
-                self.get_event(message.job_id, id).await?;
+                if self.sought.contains(&id) {
+                    return Ok(());
+                }
+                self.sought.insert(id);
+                self.get_event(message.job_id, id.into()).await?;
             }
             ToMinionPayloadDetail::PostEvent(event) => {
                 let id = event.id;

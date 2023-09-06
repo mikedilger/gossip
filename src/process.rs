@@ -239,18 +239,72 @@ pub async fn process_new_event(
         GLOBALS.storage.process_relay_list(event)?;
     }
 
-    // If the content contains an nevent and we don't have it, fetch it from those relays
-    for bech32 in NostrBech32::find_all_in_string(&event.content) {
-        if let NostrBech32::EventPointer(ep) = bech32 {
-            if GLOBALS.storage.read_event(ep.id)?.is_none() {
-                let relay_urls: Vec<RelayUrl> = ep
-                    .relays
-                    .iter()
-                    .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
-                    .collect();
+    // If the content is a repost, seek the event it reposts
+    if event.kind == EventKind::Repost {
+        for (id, optrelay) in event.mentions().iter() {
+            if let Some(rurl) = optrelay {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
+                    .send(ToOverlordMessage::FetchEvent(*id, vec![rurl.to_owned()]));
+            }
+        }
+    }
+
+    // Process the content for references to things we might want
+    for bech32 in NostrBech32::find_all_in_string(&event.content) {
+        match bech32 {
+            NostrBech32::Id(id) => {
+                if let Some(relay_url) = seen_on.as_ref() {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchEvent(
+                        id,
+                        vec![relay_url.to_owned()],
+                    ));
+                }
+            }
+            NostrBech32::EventPointer(ep) => {
+                if GLOBALS.storage.read_event(ep.id)?.is_none() {
+                    let relay_urls: Vec<RelayUrl> = ep
+                        .relays
+                        .iter()
+                        .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
+                        .collect();
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
+                }
+            }
+            NostrBech32::EventAddr(_ea) => {
+                // FIXME - fetch parameterized replaceable event (need new comms command and relay)
+            }
+            NostrBech32::Profile(prof) => {
+                // Record existence of such a person
+                GLOBALS.people.create_if_missing(prof.pubkey);
+
+                // Make sure we have their relays
+                for relay in prof.relays {
+                    if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
+                        if let Some(_pr) = GLOBALS.storage.read_person_relay(prof.pubkey, &rurl)? {
+                            // FIXME: we need a new field in PersonRelay for this case.
+                            // If the event was signed by the profile person, we should trust it.
+                            // If it wasn't, we can instead bump last_suggested_bytag.
+                        } else {
+                            let mut pr = PersonRelay::new(prof.pubkey, rurl);
+                            pr.read = true;
+                            pr.write = true;
+                            GLOBALS.storage.write_person_relay(&pr, None)?;
+                        }
+                    }
+                }
+            }
+            NostrBech32::Pubkey(pubkey) => {
+                // Record existence of such a person
+                GLOBALS.people.create_if_missing(pubkey);
+            }
+            NostrBech32::Relay(relay) => {
+                if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
+                    // make sure we have the relay
+                    GLOBALS.storage.write_relay_if_missing(&rurl, None)?;
+                }
             }
         }
         // TBD: If the content contains an nprofile, make sure the pubkey is associated

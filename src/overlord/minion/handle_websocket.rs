@@ -48,6 +48,9 @@ impl Minion {
                     }
                 }
 
+                // Remove from sought set
+                self.sought.remove(&event.id);
+
                 // Try processing everything immediately
                 crate::process::process_new_event(
                     &event,
