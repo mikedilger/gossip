@@ -207,10 +207,6 @@ impl SubMenu {
         }
     }
 
-    fn to_string(&self) -> String {
-        self.to_str().to_string()
-    }
-
     fn to_id_str(&self) -> &'static str {
         match self {
             SubMenu::DmChat => "dmchat_submenu",
@@ -219,6 +215,13 @@ impl SubMenu {
             SubMenu::Relays => "relays_submenu",
             SubMenu::Help => "help_submenu",
         }
+    }
+}
+
+// this provides to_string(), implemented to make clipy happy
+impl std::fmt::Display for SubMenu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_str())
     }
 }
 

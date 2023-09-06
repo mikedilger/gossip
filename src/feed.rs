@@ -22,18 +22,18 @@ pub enum FeedKind {
     DmChat(DmChannel),
 }
 
-impl FeedKind {
-    pub fn to_string(&self) -> String {
+impl std::fmt::Display for FeedKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FeedKind::DmChat(channel) => channel.name(),
-            FeedKind::Followed(_) => "Following".into(),
-            FeedKind::Inbox(_) => "Inbox".into(),
+            FeedKind::DmChat(channel) => write!(f, "{}", channel.name()),
+            FeedKind::Followed(_) => write!(f, "Following"),
+            FeedKind::Inbox(_) => write!(f, "Inbox"),
             FeedKind::Thread {
                 id: _,
                 referenced_by: _,
                 author: _,
-            } => "Thread".into(),
-            FeedKind::Person(_) => "Person".into(),
+            } => write!(f, "Thread"),
+            FeedKind::Person(_) => write!(f, "Person"),
         }
     }
 }

@@ -118,7 +118,7 @@ impl Relay {
  *  Static helper functions
  */
 impl Relay {
-    pub fn domain_from_relay_url<'a>(relay: &'a RelayUrl) -> &'a str /* domain */ {
+    pub fn domain_from_relay_url(relay: &RelayUrl) -> &str /* domain */ {
         let domain = relay.0.trim_start_matches("wss://");
         let domain = domain.trim_start_matches("ws://");
         let domain = domain.trim_end_matches('/');
