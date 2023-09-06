@@ -16,6 +16,38 @@ use tokio::task;
 
 pub type Person = crate::storage::types::Person1;
 
+/// Lists people can be added to
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[repr(u8)]
+pub enum PersonList {
+    Muted = 0,
+    Followed = 1,
+    Priority = 2,
+    Custom(u8),
+}
+
+impl From<u8> for PersonList {
+    fn from(u: u8) -> Self {
+        match u {
+            0 => PersonList::Muted,
+            1 => PersonList::Followed,
+            2 => PersonList::Priority,
+            u => PersonList::Custom(u),
+        }
+    }
+}
+
+impl From<PersonList> for u8 {
+    fn from(e: PersonList) -> u8 {
+        match e {
+            PersonList::Muted => 0,
+            PersonList::Followed => 1,
+            PersonList::Priority => 2,
+            PersonList::Custom(u) => u,
+        }
+    }
+}
+
 pub struct People {
     // active person's relays (pull from db as needed)
     active_person: RwLock<Option<PublicKey>>,

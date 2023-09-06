@@ -25,6 +25,7 @@ mod event_viewed1;
 mod events1;
 mod hashtags1;
 mod people1;
+mod person_lists1;
 mod person_relays1;
 mod relationships1;
 mod relays1;
@@ -33,7 +34,7 @@ mod unindexed_giftwraps1;
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::people::Person;
+use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::Relationship;
@@ -177,6 +178,7 @@ impl Storage {
         let _ = self.db_relationships()?;
         let _ = self.db_relays()?;
         let _ = self.db_unindexed_giftwraps()?;
+        let _ = self.db_person_lists()?;
 
         // If migration level is missing, we need to import from legacy sqlite
         match self.read_migration_level()? {
@@ -264,6 +266,11 @@ impl Storage {
         self.db_unindexed_giftwraps1()
     }
 
+    #[inline]
+    pub fn db_person_lists(&self) -> Result<RawDatabase, Error> {
+        self.db_person_lists1()
+    }
+
     // Database length functions ---------------------------------
 
     pub fn get_general_len(&self) -> Result<u64, Error> {
@@ -324,6 +331,11 @@ impl Storage {
     #[inline]
     pub fn get_person_relays_len(&self) -> Result<u64, Error> {
         self.get_person_relays1_len()
+    }
+
+    pub fn get_person_lists_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_person_lists()?.len(&txn)?)
     }
 
     // Prune -------------------------------------------------------
@@ -1920,5 +1932,64 @@ impl Storage {
         wtxn.commit()?;
         self.sync()?;
         Ok(())
+    }
+
+    pub fn read_person_lists(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
+        self.read_person_lists1(pubkey)
+    }
+
+    // Well known lists: 'followed', 'muted'
+    pub fn write_person_lists<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        lists: Vec<PersonList>,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.write_person_lists1(pubkey, lists, rw_txn)
+    }
+
+    // Well known lists: 'followed', 'muted'
+    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
+        self.get_people_in_list1(list)
+    }
+
+    #[inline]
+    pub fn clear_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.clear_person_list1(list, rw_txn)
+    }
+
+    pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> Result<bool, Error> {
+        let lists = self.read_person_lists(pubkey)?;
+        Ok(lists.contains(&list))
+    }
+
+    // Well known lists: 'followed', 'muted'
+    pub fn add_person_to_list<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut lists = self.read_person_lists(pubkey)?;
+        if !lists.iter().any(|s| *s == list) {
+            lists.push(list.to_owned());
+        }
+        self.write_person_lists(pubkey, lists, rw_txn)
+    }
+
+    // Well known lists: 'followed', 'muted'
+    pub fn remove_person_from_list<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut lists = self.read_person_lists(pubkey)?;
+        let lists: Vec<PersonList> = lists.drain(..).filter(|s| *s != list).collect();
+        self.write_person_lists(pubkey, lists, rw_txn)
     }
 }
