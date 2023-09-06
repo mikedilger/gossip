@@ -278,7 +278,7 @@ pub fn reprocess_recent(runtime: &Runtime) -> Result<(), Error> {
 
         let events = match GLOBALS
             .storage
-            .find_events(&*all_kinds, &[], Some(ago), |_| true, false)
+            .find_events(&all_kinds, &[], Some(ago), |_| true, false)
         {
             Ok(e) => e,
             Err(e) => {
@@ -289,7 +289,7 @@ pub fn reprocess_recent(runtime: &Runtime) -> Result<(), Error> {
 
         let mut count = 0;
         for event in events.iter() {
-            if let Err(e) = crate::process::process_new_event(&event, None, None, false, true).await
+            if let Err(e) = crate::process::process_new_event(event, None, None, false, true).await
             {
                 println!("ERROR: {}", e);
             }
