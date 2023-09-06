@@ -11,9 +11,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.heading(Page::RelaysKnownNetwork.name());
-        ui.add_space(50.0);
         ui.set_enabled(!is_editing);
-        widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
             super::configure_list_btn(app, ui);
@@ -21,6 +19,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             super::relay_filter_combo(app, ui);
             ui.add_space(20.0);
             super::relay_sort_combo(app, ui);
+            ui.add_space(20.0);
+            widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
         });
     });
     ui.add_space(10.0);
