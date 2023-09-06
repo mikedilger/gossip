@@ -129,9 +129,9 @@ impl Page {
 }
 
 impl Page {
-    pub fn to_readable(&self) -> (&'static str /* Category */, String /* Name */){
+    pub fn to_readable(&self) -> (&'static str /* Category */, String /* Name */) {
         match self {
-            Page::DmChatList => (SubMenu::DmChat.to_str(), "Private chats".into() ),
+            Page::DmChatList => (SubMenu::DmChat.to_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
             Page::PeopleList => (SubMenu::People.to_str(), "Followed".into()),
             Page::PeopleFollow => (SubMenu::People.to_str(), "Follow new".into()),
@@ -139,7 +139,7 @@ impl Page {
             Page::Person(pk) => {
                 let name = crate::names::display_name_from_pubkey_lookup(pk);
                 ("Profile", name)
-            },
+            }
             Page::YourKeys => (SubMenu::Account.to_str(), "Keys".into()),
             Page::YourMetadata => (SubMenu::Account.to_str(), "Profile".into()),
             Page::YourDelegation => (SubMenu::Account.to_str(), "Delegation".into()),
@@ -179,13 +179,9 @@ impl Page {
         match self {
             Page::DmChatList => cat_name(self),
             Page::Feed(_) => name_cat(self),
-            Page::PeopleList |
-            Page::PeopleFollow |
-            Page::PeopleMuted => cat_name(self),
+            Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted => cat_name(self),
             Page::Person(_) => name_cat(self),
-            Page::YourKeys |
-            Page::YourMetadata |
-            Page::YourDelegation => cat_name(self),
+            Page::YourKeys | Page::YourMetadata | Page::YourDelegation => cat_name(self),
             _ => name(self),
         }
     }
@@ -1021,9 +1017,10 @@ impl eframe::App for GossipUi {
                     Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                         you::update(self, ctx, frame, ui)
                     }
-                    Page::RelaysActivityMonitor | Page::RelaysCoverage | Page::RelaysMine | Page::RelaysKnownNetwork => {
-                        relays::update(self, ctx, frame, ui)
-                    }
+                    Page::RelaysActivityMonitor
+                    | Page::RelaysCoverage
+                    | Page::RelaysMine
+                    | Page::RelaysKnownNetwork => relays::update(self, ctx, frame, ui),
                     Page::Search => search::update(self, ctx, frame, ui),
                     Page::Settings => settings::update(self, ctx, frame, ui),
                     Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {

@@ -9,7 +9,13 @@ use crate::{
     ui::{components, GossipUi},
 };
 
-use super::{list_entry::{allocate_text_at, draw_text_galley_at, safe_truncate, draw_text_at, TEXT_LEFT, TEXT_TOP, TEXT_RIGHT, draw_link_at, paint_hline, self, TITLE_FONT_SIZE, TEXT_BOTTOM}, COPY_SYMBOL_SIZE, CopyButton};
+use super::{
+    list_entry::{
+        self, allocate_text_at, draw_link_at, draw_text_at, draw_text_galley_at, paint_hline,
+        safe_truncate, TEXT_BOTTOM, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE,
+    },
+    CopyButton, COPY_SYMBOL_SIZE,
+};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 60.0;
@@ -316,8 +322,7 @@ impl RelayEntry {
             .into_galley(ui, Some(false), 0.0, TextStyle::Button);
         let mut desired_size = text.size() + 4.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
-        let pos =
-            rect.right_bottom() + vec2(-TEXT_RIGHT, -TEXT_BOTTOM) - desired_size;
+        let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -TEXT_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
         let response = ui
             .interact(btn_rect, id, Sense::click())
@@ -602,7 +607,8 @@ impl RelayEntry {
                 let response = ui.interact(
                     Rect::from_min_size(pos, COPY_SYMBOL_SIZE),
                     id,
-                    Sense::click());
+                    Sense::click(),
+                );
                 if response.clicked() {
                     ui.output_mut(|o| {
                         o.copied_text = contact.to_string();
@@ -637,7 +643,8 @@ impl RelayEntry {
                     let response = ui.interact(
                         Rect::from_min_size(pos, COPY_SYMBOL_SIZE),
                         id,
-                        Sense::click());
+                        Sense::click(),
+                    );
                     if response.clicked() {
                         ui.output_mut(|o| {
                             o.copied_text = npub;
@@ -667,7 +674,8 @@ impl RelayEntry {
         let knob_fill = ui.visuals().extreme_bg_color;
         let on_fill = self.accent;
         let off_fill = ui.visuals().widgets.inactive.bg_fill;
-        let pos = rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, DETAIL_SECTION_TOP);
+        let pos =
+            rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, DETAIL_SECTION_TOP);
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
         {
             // ---- read ----

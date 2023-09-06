@@ -1,8 +1,8 @@
 use super::GossipUi;
-use crate::{comms::ToOverlordMessage, ui::Page};
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::ui::widgets;
+use crate::{comms::ToOverlordMessage, ui::Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::Id;

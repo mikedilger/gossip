@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
 use super::GossipUi;
-use crate::{globals::GLOBALS, ui::Page};
 use crate::relay::Relay;
 use crate::ui::widgets;
+use crate::{globals::GLOBALS, ui::Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{Id, RichText};
@@ -17,9 +17,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.heading(Page::RelaysActivityMonitor.name());
             ui.set_enabled(!is_editing);
             ui.add_space(10.0);
-            if ui.button(RichText::new(Page::RelaysCoverage.name()))
+            if ui
+                .button(RichText::new(Page::RelaysCoverage.name()))
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .clicked() {
+                .clicked()
+            {
                 app.set_page(crate::ui::Page::RelaysCoverage);
             }
         });

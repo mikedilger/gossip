@@ -1,7 +1,7 @@
 use super::GossipUi;
-use crate::{globals::GLOBALS, ui::Page};
 use crate::relay::Relay;
 use crate::ui::widgets;
+use crate::{globals::GLOBALS, ui::Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::Id;

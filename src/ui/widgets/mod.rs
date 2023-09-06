@@ -3,7 +3,7 @@ pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
-use egui_winit::egui::{WidgetText, Ui, FontSelection, Response, TextEdit, Rect, vec2, Sense};
+use egui_winit::egui::{vec2, FontSelection, Rect, Response, Sense, TextEdit, Ui, WidgetText};
 pub use nav_item::NavItem;
 
 mod relay_entry;

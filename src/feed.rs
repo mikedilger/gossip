@@ -28,7 +28,11 @@ impl FeedKind {
             FeedKind::DmChat(channel) => channel.name(),
             FeedKind::Followed(_) => "Following".into(),
             FeedKind::Inbox(_) => "Inbox".into(),
-            FeedKind::Thread { id: _, referenced_by: _, author: _ } => "Thread".into(),
+            FeedKind::Thread {
+                id: _,
+                referenced_by: _,
+                author: _,
+            } => "Thread".into(),
             FeedKind::Person(_) => "Person".into(),
         }
     }

@@ -120,11 +120,11 @@ enum AddRelayDialogStep {
 ///
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     match app.page {
-        Page::RelaysActivityMonitor  => active::update(app, ctx, frame, ui),
+        Page::RelaysActivityMonitor => active::update(app, ctx, frame, ui),
         Page::RelaysCoverage => coverage::update(app, ctx, frame, ui),
         Page::RelaysMine => mine::update(app, ctx, frame, ui),
         Page::RelaysKnownNetwork => known::update(app, ctx, frame, ui),
-        _ => {},
+        _ => {}
     }
 }
 

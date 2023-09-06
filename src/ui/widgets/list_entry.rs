@@ -1,7 +1,10 @@
 use eframe::egui::{FontSelection, Ui, WidgetText};
 use eframe::epaint;
 use egui_winit::egui::widget_text::WidgetTextGalley;
-use egui_winit::egui::{Rect, Response, Sense, Stroke, Align, Pos2, Id, pos2, Color32, FontId, CursorIcon, vec2, Rounding};
+use egui_winit::egui::{
+    pos2, vec2, Align, Color32, CursorIcon, FontId, Id, Pos2, Rect, Response, Rounding, Sense,
+    Stroke,
+};
 
 /// Spacing of frame: left
 pub(crate) const OUTER_MARGIN_LEFT: f32 = 0.0;
