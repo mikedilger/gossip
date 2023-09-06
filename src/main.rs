@@ -95,7 +95,7 @@ fn main() -> Result<(), Error> {
     // If we were handed a command, execute the command and return
     let args = env::args();
     if args.len() > 1 {
-        match crate::commands::handle_command(args) {
+        match crate::commands::handle_command(args, &rt) {
             Err(e) => {
                 println!("{}", e);
                 return Ok(());

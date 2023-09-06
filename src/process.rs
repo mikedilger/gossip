@@ -17,6 +17,7 @@ pub async fn process_new_event(
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
     verify: bool,
+    process_even_if_duplicate: bool,
 ) -> Result<(), Error> {
     let now = Unixtime::now()?;
 
@@ -52,7 +53,7 @@ pub async fn process_new_event(
 
     // Determine if we already had this event
     let duplicate = GLOBALS.storage.has_event(event.id)?;
-    if duplicate {
+    if duplicate && !process_even_if_duplicate {
         tracing::trace!(
             "{}: Old Event: {} {:?} @{}",
             seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),

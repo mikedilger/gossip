@@ -57,6 +57,7 @@ impl Minion {
                     Some(self.url.clone()),
                     Some(handle),
                     true,
+                    false,
                 )
                 .await?;
             }
