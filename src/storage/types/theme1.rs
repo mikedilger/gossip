@@ -4,6 +4,8 @@ use heed::RwTxn;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
+// THIS IS HISTORICAL FOR MIGRATIONS AND SHOULD NOT BE EDITED
+
 // note: if we store anything inside the variants, we can't use macro_rules.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Readable, Writable)]
 pub enum ThemeVariant1 {
