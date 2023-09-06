@@ -11,6 +11,8 @@ use eframe::egui::widgets::TextEdit;
 use eframe::egui::{FontSelection, Ui, WidgetText};
 use egui_winit::egui::{vec2, Rect, Response, Sense};
 
+pub const DROPDOWN_DISTANCE: f32 = 10.0;
+
 // pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {
 //     let mut job = text.into().into_text_job(
 //         ui.style(),

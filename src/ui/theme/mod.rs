@@ -93,6 +93,12 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn get_on_accent_style(&self) -> Style {
+                match self.variant {
+                    $( $variant => $class::get_on_accent_style(self.dark_mode), )+
+                }
+            }
+
             pub fn font_definitions(&self) -> FontDefinitions {
                 match self.variant {
                     $( $variant => $class::font_definitions(), )+
@@ -342,6 +348,8 @@ pub trait ThemeDef: Send + Sync {
     // These styles are used by egui by default for widgets if you don't override them
     // in place.
     fn get_style(dark_mode: bool) -> Style;
+    /// the style to use when displaying ontop an accent-colored background
+    fn get_on_accent_style(dark_mode: bool) -> Style;
 
     fn font_definitions() -> FontDefinitions;
     fn text_styles() -> BTreeMap<TextStyle, FontId>;
