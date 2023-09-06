@@ -1,12 +1,13 @@
 use super::types::{Settings1, Settings2};
 use super::Storage;
 use crate::error::{Error, ErrorKind};
+use crate::people::PersonList;
 use heed::RwTxn;
 use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 5;
+    const MAX_MIGRATION_LEVEL: u32 = 6;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -18,6 +19,9 @@ impl Storage {
         }
 
         while level < Self::MAX_MIGRATION_LEVEL {
+            // Trigger needed databases into existence before the migrate transaction starts
+            self.migrate_trigger(level)?;
+
             let mut txn = self.env.write_txn()?;
             self.migrate_inner(level, &mut txn)?;
             level += 1;
@@ -25,6 +29,28 @@ impl Storage {
             txn.commit()?;
         }
 
+        Ok(())
+    }
+
+    fn migrate_trigger(&self, level: u32) -> Result<(), Error> {
+        // Trigger database into existance BEFORE the migration rw_txn starts, so that they
+        // are visible within that transaction
+        match level {
+            1 => {
+                let _ = self.db_events1()?;
+            }
+            2 => {
+                let _ = self.db_relays1()?;
+            }
+            4 => {
+                let _ = self.db_events1()?;
+            }
+            5 => {
+                let _ = self.db_people1()?;
+                let _ = self.db_person_lists1()?;
+            }
+            _ => {}
+        };
         Ok(())
     }
 
@@ -53,6 +79,10 @@ impl Storage {
             4 => {
                 tracing::info!("{prefix}: deleting decrypted rumors...");
                 self.delete_rumors(txn)?;
+            }
+            5 => {
+                tracing::info!("{prefix}: populating new lists...");
+                self.populate_new_lists(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -108,12 +138,12 @@ impl Storage {
 
     fn remove_invalid_relays<'a>(&'a self, rw_txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let bad_relays =
-            self.filter_relays(|relay| RelayUrl::try_from_str(&relay.url.0).is_err())?;
+            self.filter_relays1(|relay| RelayUrl::try_from_str(&relay.url.0).is_err())?;
 
         for relay in &bad_relays {
             tracing::info!("Deleting bad relay: {}", relay.url);
 
-            self.delete_relay(&relay.url, Some(rw_txn))?;
+            self.delete_relay1(&relay.url, Some(rw_txn))?;
         }
 
         tracing::info!("Deleted {} bad relays", bad_relays.len());
@@ -164,7 +194,7 @@ impl Storage {
             None => match self.read_settings2_from_wrong_key()? {
                 Some(settings) => settings,
                 None => {
-                    if Self::MAX_MIGRATION_LEVEL <= 4 {
+                    if 4 >= Self::MAX_MIGRATION_LEVEL {
                         // At migraiton level < 4 we know this is safe to do:
                         let settings = crate::settings::Settings::default();
                         settings.save()?;
@@ -322,6 +352,30 @@ impl Storage {
             self.db_events1()?.delete(txn, id.as_slice())?;
         }
 
+        Ok(())
+    }
+
+    pub fn populate_new_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let mut count: usize = 0;
+        let mut followed_count: usize = 0;
+        for person1 in self.filter_people1(|_| true)?.iter() {
+            let mut lists: Vec<PersonList> = Vec::new();
+            if person1.followed {
+                lists.push(PersonList::Followed);
+                followed_count += 1;
+            }
+            if person1.muted {
+                lists.push(PersonList::Muted);
+            }
+            if !lists.is_empty() {
+                self.write_person_lists1(&person1.pubkey, lists, Some(txn))?;
+                count += 1;
+            }
+        }
+
+        tracing::info!("{} people added to new lists, {} followed", count, followed_count);
+
+        // This migration does not remove the old data. The next one will.
         Ok(())
     }
 }

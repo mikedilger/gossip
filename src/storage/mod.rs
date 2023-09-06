@@ -799,6 +799,7 @@ impl Storage {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn delete_relay<'a>(
         &'a self,
         url: &RelayUrl,
