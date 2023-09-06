@@ -91,7 +91,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 }
 
 fn inner(app: &mut GossipUi, ui: &mut Ui, background: Background) {
-    let theme = app.settings.theme.clone();
+    let theme = app.settings.theme;
     let accent = RichText::new("accent").color(theme.accent_color());
     let accent_complementary = RichText::new("accent complimentary (indirectly used)")
         .color(theme.accent_complementary_color());

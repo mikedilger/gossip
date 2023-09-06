@@ -150,7 +150,8 @@ fn dm_posting_area(
     }
 
     ui.label(format!("DIRECT MESSAGE TO: {}", dm_channel.name()));
-    ui.label("WARNING: DMs currently have security weaknesses and the more DMs you send, the easier it is to crack your keypair.");
+    ui.add_space(10.0);
+    ui.label("WARNING: DMs currently have security weaknesses and the more DMs you send, the easier it becomes for a sophisticated attacker to crack your shared secret and decrypt this entire conversation.");
 
     let draft_response = ui.add(
         text_edit_multiline!(app, app.dm_draft_data.draft)
