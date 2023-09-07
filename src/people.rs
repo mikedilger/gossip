@@ -142,16 +142,26 @@ impl People {
         });
     }
 
-    // FIXME this is expensive
     pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        if let Ok(vec) = GLOBALS.storage.filter_people(|p| p.followed) {
-            vec.iter().map(|p| p.pubkey).collect()
-        } else {
-            vec![]
+        match GLOBALS.storage.get_people_in_list(PersonList::Followed) {
+            Ok(list) => list,
+            Err(e) => {
+                tracing::error!("{}", e);
+                vec![]
+            }
         }
     }
 
-    // FIXME this is expensive
+    pub fn get_muted_pubkeys(&self) -> Vec<PublicKey> {
+        match GLOBALS.storage.get_people_in_list(PersonList::Muted) {
+            Ok(list) => list,
+            Err(e) => {
+                tracing::error!("{}", e);
+                vec![]
+            }
+        }
+    }
+
     pub fn is_followed(&self, pubkey: &PublicKey) -> bool {
         self.get_followed_pubkeys().contains(pubkey)
     }
@@ -167,7 +177,9 @@ impl People {
                     .read_setting_relay_list_becomes_stale_hours() as i64;
 
         if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
-            p.followed && p.relay_list_last_received < stale && among_these.contains(&p.pubkey)
+            p.is_in_list(PersonList::Followed)
+                && p.relay_list_last_received < stale
+                && among_these.contains(&p.pubkey)
         }) {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
@@ -582,34 +594,26 @@ impl People {
     }
 
     pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
-        if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
-            person.followed = follow;
-            GLOBALS.storage.write_person(&person, None)?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+        if follow {
+            GLOBALS.storage.add_person_to_list(pubkey, PersonList::Followed, None)?;
+        } else {
+            GLOBALS.storage.remove_person_from_list(pubkey, PersonList::Followed, None)?;
         }
+        GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+
         Ok(())
     }
 
     pub fn follow_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
-        if merge {
-            for pubkey in pubkeys {
-                if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
-                    if !person.followed {
-                        person.followed = true;
-                        GLOBALS.storage.write_person(&person, None)?;
-                        GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-                    }
-                }
-            }
-        } else {
-            for mut person in GLOBALS.storage.filter_people(|_| true)? {
-                let orig = person.followed;
-                person.followed = pubkeys.contains(&person.pubkey);
-                if person.followed != orig {
-                    GLOBALS.storage.write_person(&person, None)?;
-                    GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
-                }
-            }
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+
+        if ! merge {
+            GLOBALS.storage.clear_person_list(PersonList::Followed, Some(&mut txn))?;
+        }
+
+        for pubkey in pubkeys {
+            GLOBALS.storage.add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
         // Add the people to the relay_picker for picking
@@ -617,31 +621,25 @@ impl People {
             GLOBALS.relay_picker.add_someone(pubkey.to_owned())?;
         }
 
+        txn.commit()?;
+
         Ok(())
     }
 
     pub fn follow_none(&self) -> Result<(), Error> {
-        for mut person in GLOBALS.storage.filter_people(|_| true)? {
-            person.followed = false;
-            GLOBALS.storage.write_person(&person, None)?;
-            GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
-        }
-
+        GLOBALS.storage.clear_person_list(PersonList::Followed, None)?;
+        GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
         Ok(())
     }
 
-    pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
-        if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
-            person.muted = mute;
-            GLOBALS.storage.write_person(&person, None)?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-        }
 
-        // UI cache invalidation (so notes of the person get rerendered)
-        GLOBALS
-            .ui_people_to_invalidate
-            .write()
-            .push(pubkey.to_owned());
+    pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
+        if mute {
+            GLOBALS.storage.add_person_to_list(pubkey, PersonList::Muted, None)?;
+        } else {
+            GLOBALS.storage.remove_person_from_list(pubkey, PersonList::Muted, None)?;
+        }
+        GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
 
         Ok(())
     }

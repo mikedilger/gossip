@@ -105,6 +105,9 @@ pub struct Globals {
     // when we update a Person, the UI must recompute all notes by them
     pub ui_people_to_invalidate: PRwLock<Vec<PublicKey>>,
 
+    /// UI invalidate all
+    pub ui_invalidate_all: AtomicBool,
+
     /// Current zap data, for UI
     pub current_zap: PRwLock<ZapState>,
 
@@ -165,6 +168,7 @@ lazy_static! {
             note_search_results: PRwLock::new(Vec::new()),
             ui_notes_to_invalidate: PRwLock::new(Vec::new()),
             ui_people_to_invalidate: PRwLock::new(Vec::new()),
+            ui_invalidate_all: AtomicBool::new(false),
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
             storage,

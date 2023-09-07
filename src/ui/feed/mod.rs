@@ -5,6 +5,7 @@ use crate::globals::GLOBALS;
 use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
 use nostr_types::Id;
+use std::sync::atomic::Ordering;
 
 mod notedata;
 
@@ -25,20 +26,27 @@ struct FeedNoteParams {
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    // Do cache invalidations
-    if !GLOBALS.ui_notes_to_invalidate.read().is_empty() {
-        let mut handle = GLOBALS.ui_notes_to_invalidate.write();
-        for id in handle.iter() {
-            app.notes.cache_invalidate_note(id);
+    if GLOBALS.ui_invalidate_all.load(Ordering::Relaxed) {
+        app.notes.cache_invalidate_all();
+        GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
+    } else {
+        // Do per-note invalidations
+        if !GLOBALS.ui_notes_to_invalidate.read().is_empty() {
+            let mut handle = GLOBALS.ui_notes_to_invalidate.write();
+            for id in handle.iter() {
+                app.notes.cache_invalidate_note(id);
+            }
+            *handle = Vec::new();
         }
-        *handle = Vec::new();
-    }
-    if !GLOBALS.ui_people_to_invalidate.read().is_empty() {
-        let mut handle = GLOBALS.ui_people_to_invalidate.write();
-        for pkh in handle.iter() {
-            app.notes.cache_invalidate_person(pkh);
+
+        // Do per-person invalidations
+        if !GLOBALS.ui_people_to_invalidate.read().is_empty() {
+            let mut handle = GLOBALS.ui_people_to_invalidate.write();
+            for pkh in handle.iter() {
+                app.notes.cache_invalidate_person(pkh);
+            }
+            *handle = Vec::new();
         }
-        *handle = Vec::new();
     }
 
     let feed_kind = GLOBALS.feed.get_feed_kind();

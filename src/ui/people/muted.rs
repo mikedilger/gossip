@@ -9,10 +9,14 @@ use std::sync::atomic::Ordering;
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(30.0);
 
-    let people: Vec<Person> = match GLOBALS.storage.filter_people(|p| p.muted) {
-        Ok(people) => people,
-        Err(_) => return,
-    };
+    let muted_pubkeys = GLOBALS.people.get_muted_pubkeys();
+    let mut people: Vec<Person> = Vec::new();
+    for pk in &muted_pubkeys {
+        if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+            people.push(person);
+        }
+    }
+    people.sort_unstable();
 
     ui.heading(format!("People who are Muted ({})", people.len()));
     ui.add_space(10.0);
@@ -24,10 +28,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         })
         .show(ui, |ui| {
             for person in people.iter() {
-                if !person.muted {
-                    continue;
-                }
-
                 ui.horizontal(|ui| {
                     // Avatar first
                     let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {

@@ -8,10 +8,14 @@ use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let mut people: Vec<Person> = match GLOBALS.storage.filter_people(|p| p.followed) {
-        Ok(people) => people,
-        Err(_) => return,
-    };
+
+    let followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
+    let mut people: Vec<Person> = Vec::new();
+    for pk in &followed_pubkeys {
+        if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+            people.push(person);
+        }
+    }
     people.sort_unstable();
 
     ui.add_space(12.0);
@@ -156,10 +160,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         })
         .show(ui, |ui| {
             for person in people.iter() {
-                if !person.followed {
-                    continue;
-                }
-
                 ui.horizontal(|ui| {
                     // Avatar first
                     let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {

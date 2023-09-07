@@ -17,6 +17,7 @@ pub struct Person1 {
     pub relay_list_last_received: i64,
 }
 
+#[allow(dead_code)]
 impl Person1 {
     pub fn new(pubkey: PublicKey) -> Person1 {
         Person1 {

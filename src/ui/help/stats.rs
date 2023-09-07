@@ -126,5 +126,11 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
             GLOBALS.storage.get_person_relays_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
+
+        ui.label(format!(
+            "Person-Lists: {} records",
+            GLOBALS.storage.get_person_lists_len().unwrap_or(0)
+        ));
+        ui.add_space(6.0);
     });
 }

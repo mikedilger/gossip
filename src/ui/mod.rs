@@ -30,7 +30,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
-use crate::people::Person;
+use crate::people::{Person, PersonList};
 use crate::settings::Settings;
 pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::ui::widgets::CopyButton;
@@ -1058,6 +1058,9 @@ impl GossipUi {
                 }
             };
 
+            let followed = person.is_in_list(PersonList::Followed);
+            let muted = person.is_in_list(PersonList::Muted);
+
             ui.menu_button(name, |ui| {
                 if ui.button("View Person").clicked() {
                     app.set_page(Page::Person(person.pubkey));
@@ -1073,14 +1076,14 @@ impl GossipUi {
                         app.set_page(Page::Feed(FeedKind::DmChat(channel)));
                     }
                 }
-                if !person.followed && ui.button("Follow").clicked() {
+                if !followed && ui.button("Follow").clicked() {
                     let _ = GLOBALS.people.follow(&person.pubkey, true);
-                } else if person.followed && ui.button("Unfollow").clicked() {
+                } else if followed && ui.button("Unfollow").clicked() {
                     let _ = GLOBALS.people.follow(&person.pubkey, false);
                 }
-                let mute_label = if person.muted { "Unmute" } else { "Mute" };
+                let mute_label = if muted { "Unmute" } else { "Mute" };
                 if ui.button(mute_label).clicked() {
-                    let _ = GLOBALS.people.mute(&person.pubkey, !person.muted);
+                    let _ = GLOBALS.people.mute(&person.pubkey, !muted);
                     app.notes.cache_invalidate_person(&person.pubkey);
                 }
                 if ui.button("Update Metadata").clicked() {
@@ -1090,7 +1093,7 @@ impl GossipUi {
                 }
             });
 
-            if person.followed {
+            if followed {
                 ui.label("🚶");
             }
 
