@@ -2,10 +2,12 @@ use eframe::{egui, epaint};
 use egui::{Color32, Pos2, Response, Sense, Shape, Ui, Vec2, Widget};
 use epaint::{PathShape, Stroke};
 
+pub const COPY_SYMBOL_SIZE: Vec2 = Vec2::new(12.0, 12.0);
+
 pub struct CopyButton {}
 
 impl CopyButton {
-    fn paint(ui: &mut Ui, corner: Pos2) {
+    pub(crate) fn paint(ui: &mut Ui, corner: Pos2) {
         ui.painter().add(Shape::Path(PathShape {
             points: vec![
                 Pos2 {

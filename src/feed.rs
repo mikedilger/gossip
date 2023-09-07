@@ -22,6 +22,22 @@ pub enum FeedKind {
     DmChat(DmChannel),
 }
 
+impl std::fmt::Display for FeedKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FeedKind::DmChat(channel) => write!(f, "{}", channel.name()),
+            FeedKind::Followed(_) => write!(f, "Following"),
+            FeedKind::Inbox(_) => write!(f, "Inbox"),
+            FeedKind::Thread {
+                id: _,
+                referenced_by: _,
+                author: _,
+            } => write!(f, "Thread"),
+            FeedKind::Person(_) => write!(f, "Person"),
+        }
+    }
+}
+
 pub struct Feed {
     pub recompute_lock: AtomicBool,
 
