@@ -222,8 +222,8 @@ impl RelayEntry {
 
 impl RelayEntry {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = Relay::domain_from_relay_url(&self.relay.url);
-        let mut title = safe_truncate(title, TITLE_MAX_LEN).to_string();
+        let title = self.relay.url.domain();
+        let mut title = safe_truncate(&title, TITLE_MAX_LEN).to_string();
         if self.relay.url.0.len() > TITLE_MAX_LEN {
             title.push('\u{2026}'); // append ellipsis
         }

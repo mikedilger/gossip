@@ -4,7 +4,6 @@ use nostr_types::{PublicKey, RelayUrl};
 use crate::{
     comms::ToOverlordMessage,
     globals::GLOBALS,
-    relay::Relay,
     ui::{
         widgets::{
             self,
@@ -107,7 +106,7 @@ impl<'a> CoverageEntry<'a> {
         let relays_string = self
             .relays
             .iter()
-            .map(|rurl| Relay::domain_from_relay_url(rurl).to_string())
+            .map(|rurl| rurl.domain())
             .collect::<Vec<String>>()
             .join(", ");
         draw_text_at(ui, pos, relays_string.into(), Align::LEFT, None, None);
