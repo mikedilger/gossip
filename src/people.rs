@@ -14,7 +14,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task;
 
-pub type Person = crate::storage::types::Person1;
+pub type Person = crate::storage::types::Person2;
 
 /// Lists people can be added to
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]

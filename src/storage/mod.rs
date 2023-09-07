@@ -25,6 +25,7 @@ mod event_viewed1;
 mod events1;
 mod hashtags1;
 mod people1;
+mod people2;
 mod person_lists1;
 mod person_relays1;
 mod relationships1;
@@ -243,7 +244,7 @@ impl Storage {
 
     #[inline]
     pub fn db_people(&self) -> Result<RawDatabase, Error> {
-        self.db_people1()
+        self.db_people2()
     }
 
     #[inline]
@@ -325,7 +326,7 @@ impl Storage {
 
     #[inline]
     pub fn get_people_len(&self) -> Result<u64, Error> {
-        self.get_people1_len()
+        self.get_people2_len()
     }
 
     #[inline]
@@ -1672,12 +1673,12 @@ impl Storage {
         person: &Person,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_person1(person, rw_txn)
+        self.write_person2(person, rw_txn)
     }
 
     #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
-        self.read_person1(pubkey)
+        self.read_person2(pubkey)
     }
 
     pub fn write_person_if_missing<'a>(
@@ -1697,7 +1698,7 @@ impl Storage {
     where
         F: Fn(&Person) -> bool,
     {
-        self.filter_people1(f)
+        self.filter_people2(f)
     }
 
     #[inline]
