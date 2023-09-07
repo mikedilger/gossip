@@ -34,7 +34,7 @@ impl Storage {
                     .env
                     .database_options()
                     .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-                    .name("people")
+                    .name("people2")
                     .create(&mut txn)?;
                 txn.commit()?;
                 PEOPLE2_DB = Some(db);

@@ -1,4 +1,4 @@
-use super::types::{Settings1, Settings2};
+use super::types::{Settings1, Settings2, Person2};
 use super::Storage;
 use crate::error::{Error, ErrorKind};
 use crate::people::PersonList;
@@ -7,7 +7,7 @@ use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 6;
+    const MAX_MIGRATION_LEVEL: u32 = 7;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -49,6 +49,10 @@ impl Storage {
                 let _ = self.db_people1()?;
                 let _ = self.db_person_lists1()?;
             }
+            6 => {
+                let _ = self.db_people1()?;
+                let _ = self.db_people2()?;
+            }
             _ => {}
         };
         Ok(())
@@ -83,6 +87,10 @@ impl Storage {
             5 => {
                 tracing::info!("{prefix}: populating new lists...");
                 self.populate_new_lists(txn)?;
+            }
+            6 => {
+                tracing::info!("{prefix}: migrating person records...");
+                self.migrate_people(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -376,6 +384,33 @@ impl Storage {
         tracing::info!("{} people added to new lists, {} followed", count, followed_count);
 
         // This migration does not remove the old data. The next one will.
+        Ok(())
+    }
+
+    pub fn migrate_people<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let mut count: usize = 0;
+        for person1 in self.filter_people1(|_| true)?.drain(..) {
+            let person2 = Person2 {
+                pubkey: person1.pubkey,
+                petname: person1.petname,
+                metadata: person1.metadata,
+                metadata_created_at: person1.metadata_created_at,
+                metadata_last_received: person1.metadata_last_received,
+                nip05_valid: person1.nip05_valid,
+                nip05_last_checked: person1.nip05_last_checked,
+                relay_list_created_at: person1.relay_list_created_at,
+                relay_list_last_received: person1.relay_list_last_received,
+            };
+            self.write_person2(&person2, Some(txn))?;
+            count += 1;
+        }
+
+        tracing::info!("Migrated {} people", count);
+
+        // delete people1 database
+        self.db_people1()?.clear(txn)?;
+        // self.general.delete(txn, b"people")?; // LMDB doesn't allow this.
+
         Ok(())
     }
 }
