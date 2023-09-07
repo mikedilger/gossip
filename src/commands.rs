@@ -1,5 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::people::PersonList;
 use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
 use std::env;
 use tokio::runtime::Runtime;
@@ -15,6 +16,8 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     match &*command {
         "decrypt" => decrypt(args)?,
         "dump_event" => dump_event(args)?,
+        "dump_followed" => dump_followed()?,
+        "dump_muted" => dump_muted()?,
         "dump_person_relays" => dump_person_relays(args)?,
         "dump_relays" => dump_relays()?,
         "events_of_kind" => events_of_kind(args)?,
@@ -41,6 +44,10 @@ pub fn help() -> Result<(), Error> {
     println!("    decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.");
     println!("gossip dump_event <idhex>");
     println!("    print the event (in JSON) from the database that has the given id");
+    println!("gossip dump_followed");
+    println!("    print every pubkey that is followed");
+    println!("gossip dump_muted");
+    println!("    print every pubkey that is muted");
     println!("gossip dump_person_relays <pubkeyhex>");
     println!("    print all the person-relay records for the given person");
     println!("gossip dump_relays");
@@ -138,6 +145,22 @@ pub fn dump_relays() -> Result<(), Error> {
     let relays = GLOBALS.storage.filter_relays(|_| true)?;
     for relay in &relays {
         println!("{:?}", relay);
+    }
+    Ok(())
+}
+
+pub fn dump_followed() -> Result<(), Error> {
+    let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
+    for pk in &pubkeys {
+        println!("{}", pk.as_hex_string());
+    }
+    Ok(())
+}
+
+pub fn dump_muted() -> Result<(), Error> {
+    let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
+    for pk in &pubkeys {
+        println!("{}", pk.as_hex_string());
     }
     Ok(())
 }
