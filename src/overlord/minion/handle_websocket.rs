@@ -1,4 +1,5 @@
 use super::Minion;
+use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use futures_util::sink::SinkExt;
@@ -49,9 +50,17 @@ impl Minion {
                 }
 
                 // Remove from sought set
-                self.sought.remove(&event.id);
+                if let Some(ess) = self.sought_events.remove(&event.id) {
+                    // and notify the overlord of the completed job
+                    for job_id in ess.job_ids.iter() {
+                        self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                            self.url.clone(),
+                            *job_id,
+                        ))?;
+                    }
+                }
 
-                // Try processing everything immediately
+                // Process the event
                 crate::process::process_new_event(
                     &event,
                     Some(self.url.clone()),
