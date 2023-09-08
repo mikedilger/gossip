@@ -1,6 +1,5 @@
 //#![allow(dead_code)]
-use eframe::egui;
-use egui::{widget_text::WidgetTextGalley, *};
+use eframe::egui::{self, *};
 use nostr_types::{PublicKeyHex, Unixtime};
 
 use crate::{
@@ -10,36 +9,30 @@ use crate::{
     ui::{components, GossipUi},
 };
 
+use super::{
+    list_entry::{
+        self, allocate_text_at, draw_link_at, draw_text_at, draw_text_galley_at, paint_hline,
+        safe_truncate, TEXT_BOTTOM, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE,
+    },
+    CopyButton, COPY_SYMBOL_SIZE,
+};
+
 /// Height of the list view (width always max. available)
-const LIST_VIEW_HEIGHT: f32 = 50.0;
+const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
 const DETAIL_VIEW_HEIGHT: f32 = 80.0;
 /// Height of the edit view (width always max. available)
 const EDIT_VIEW_HEIGHT: f32 = 250.0;
-/// Spacing of frame: left
-const OUTER_MARGIN_LEFT: f32 = 0.0;
-/// Spacing of frame: right
-const OUTER_MARGIN_RIGHT: f32 = 5.0;
-/// Spacing of frame: top
-const OUTER_MARGIN_TOP: f32 = 5.0;
-/// Spacing of frame: bottom
-const OUTER_MARGIN_BOTTOM: f32 = 5.0;
-/// Start of text (excl. outer margin): left
-const TEXT_LEFT: f32 = 20.0;
-/// Start of text (excl. outer margin): right
-const TEXT_RIGHT: f32 = 25.0;
-/// Start of text (excl. outer margin): top
-const TEXT_TOP: f32 = 15.0;
 /// Y-offset for first separator
-const HLINE_1_Y_OFFSET: f32 = 57.0;
+const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT - 12.0;
 /// Y-offset for second separator
-const HLINE_2_Y_OFFSET: f32 = 190.0;
-/// Thickness of separator
-const HLINE_THICKNESS: f32 = 1.5;
+const HLINE_2_Y_OFFSET: f32 = 180.0;
+/// Y top for the detail section
+const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT;
 /// Size of edit button
 const EDIT_BTN_SIZE: f32 = 20.0;
 /// Spacing of stats row to heading
-const STATS_Y_SPACING: f32 = 30.0;
+const STATS_Y_SPACING: f32 = 1.5 * TITLE_FONT_SIZE;
 /// Distance of usage switch-left from TEXT_RIGHT
 const USAGE_SWITCH_PULL_RIGHT: f32 = 300.0;
 /// Spacing of usage switches: y direction
@@ -58,8 +51,6 @@ const USAGE_LINE_X_END: f32 = -10.0;
 const USAGE_LINE_THICKNESS: f32 = 1.0;
 /// Spacing between nip11 text rows
 const NIP11_Y_SPACING: f32 = 20.0;
-/// Copy symbol for nip11 items copy button
-const COPY_SYMBOL: &str = "\u{2398}";
 /// Status symbol for status color indicator
 const STATUS_SYMBOL: &str = "\u{25CF}";
 /// Space reserved for status symbol before title
@@ -230,36 +221,13 @@ impl RelayEntry {
 }
 
 impl RelayEntry {
-    fn allocate_list_view(&self, ui: &mut Ui) -> (Rect, Response) {
-        let available_width = ui.available_size_before_wrap().x;
-        let height = LIST_VIEW_HEIGHT;
-
-        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
-    }
-
-    fn allocate_detail_view(&self, ui: &mut Ui) -> (Rect, Response) {
-        let available_width = ui.available_size_before_wrap().x;
-        let height = DETAIL_VIEW_HEIGHT;
-
-        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
-    }
-
-    fn allocate_edit_view(&self, ui: &mut Ui) -> (Rect, Response) {
-        let available_width = ui.available_size_before_wrap().x;
-        let height = EDIT_VIEW_HEIGHT;
-
-        ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
-    }
-
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = self.relay.url.as_str().trim_start_matches("wss://");
-        let title = title.trim_start_matches("ws://");
-        let title = title.trim_end_matches('/');
-        let mut title = safe_truncate(title, TITLE_MAX_LEN).to_string();
+        let title = self.relay.url.domain();
+        let mut title = safe_truncate(&title, TITLE_MAX_LEN).to_string();
         if self.relay.url.0.len() > TITLE_MAX_LEN {
             title.push('\u{2026}'); // append ellipsis
         }
-        let text = RichText::new(title).size(16.5);
+        let text = RichText::new(title).size(list_entry::TITLE_FONT_SIZE);
         let pos = rect.min + vec2(TEXT_LEFT + STATUS_SYMBOL_SPACE, TEXT_TOP);
         let rect = draw_text_at(ui, pos, text.into(), Align::LEFT, Some(self.accent), None);
         ui.interact(rect, ui.next_auto_id(), Sense::hover())
@@ -310,24 +278,10 @@ impl RelayEntry {
             .on_hover_text(tooltip);
     }
 
-    fn paint_frame(&self, ui: &mut Ui, rect: &Rect) {
-        let frame_rect = Rect::from_min_max(
-            rect.min + vec2(OUTER_MARGIN_LEFT, OUTER_MARGIN_TOP),
-            rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM),
-        );
-        let fill = ui.style().visuals.extreme_bg_color;
-        ui.painter().add(epaint::RectShape {
-            rect: frame_rect,
-            rounding: Rounding::same(5.0),
-            fill,
-            stroke: Stroke::NONE,
-        });
-    }
-
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id = self.make_id("edit_btn");
         if self.relay.usage_bits == 0 {
-            let pos = rect.right_top() + vec2(-TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
+            let pos = rect.right_top() + vec2(-TEXT_RIGHT, TEXT_TOP);
             let text = RichText::new("pick up & configure");
             let response =
                 draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled, false)
@@ -338,7 +292,7 @@ impl RelayEntry {
             }
             response
         } else {
-            let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, 10.0 + OUTER_MARGIN_TOP);
+            let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, TEXT_TOP);
             let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
             let response = ui
                 .interact(btn_rect, id, Sense::click())
@@ -368,8 +322,7 @@ impl RelayEntry {
             .into_galley(ui, Some(false), 0.0, TextStyle::Button);
         let mut desired_size = text.size() + 4.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
-        let pos =
-            rect.right_bottom() + vec2(-TEXT_RIGHT, -10.0 - OUTER_MARGIN_BOTTOM) - desired_size;
+        let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -TEXT_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
         let response = ui
             .interact(btn_rect, id, Sense::click())
@@ -404,7 +357,7 @@ impl RelayEntry {
 
     fn paint_lower_buttons(&self, ui: &mut Ui, rect: &Rect) -> Response {
         let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
-        let pos = rect.left_bottom() + vec2(TEXT_LEFT, -10.0 - OUTER_MARGIN_BOTTOM - line_height);
+        let pos = rect.left_bottom() + vec2(TEXT_LEFT, -TEXT_BOTTOM - line_height);
         let id = self.make_id("remove_link");
         let text = "Remove from personal list";
         let mut response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
@@ -645,14 +598,17 @@ impl RelayEntry {
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
         let align = egui::Align::LEFT;
-        let pos = rect.left_top() + vec2(TEXT_LEFT, TEXT_TOP + 70.0);
+        let pos = rect.left_top() + vec2(TEXT_LEFT, DETAIL_SECTION_TOP);
         if let Some(doc) = &self.relay.nip11 {
             if let Some(contact) = &doc.contact {
                 let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
                 let id = self.make_id("copy_nip11_contact");
                 let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
-                let text = RichText::new(COPY_SYMBOL);
-                let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
+                let response = ui.interact(
+                    Rect::from_min_size(pos, COPY_SYMBOL_SIZE),
+                    id,
+                    Sense::click(),
+                );
                 if response.clicked() {
                     ui.output_mut(|o| {
                         o.copied_text = contact.to_string();
@@ -663,7 +619,7 @@ impl RelayEntry {
                     });
                 }
                 response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                draw_text_galley_at(ui, pos, galley, None, None);
+                CopyButton::paint(ui, pos);
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(desc) = &doc.description {
@@ -684,8 +640,11 @@ impl RelayEntry {
                     let rect = draw_text_at(ui, pos, npub.clone().into(), align, None, None);
                     let id = self.make_id("copy_nip11_npub");
                     let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
-                    let text = RichText::new(COPY_SYMBOL);
-                    let (galley, response) = allocate_text_at(ui, pos, text.into(), align, id);
+                    let response = ui.interact(
+                        Rect::from_min_size(pos, COPY_SYMBOL_SIZE),
+                        id,
+                        Sense::click(),
+                    );
                     if response.clicked() {
                         ui.output_mut(|o| {
                             o.copied_text = npub;
@@ -696,7 +655,7 @@ impl RelayEntry {
                         });
                     }
                     response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                    draw_text_galley_at(ui, pos, galley, None, None);
+                    CopyButton::paint(ui, pos);
                 }
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
@@ -715,7 +674,8 @@ impl RelayEntry {
         let knob_fill = ui.visuals().extreme_bg_color;
         let on_fill = self.accent;
         let off_fill = ui.visuals().widgets.inactive.bg_fill;
-        let pos = rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, TEXT_TOP + 70.0);
+        let pos =
+            rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, DETAIL_SECTION_TOP);
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
         {
             // ---- read ----
@@ -1081,11 +1041,11 @@ impl RelayEntry {
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
     fn update_list_view(mut self, ui: &mut Ui) -> Response {
-        let (rect, mut response) = self.allocate_list_view(ui);
+        let (rect, mut response) = list_entry::allocate_space(ui, LIST_VIEW_HEIGHT);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            self.paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect, None);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             if self.relay.usage_bits != 0 {
@@ -1098,11 +1058,11 @@ impl RelayEntry {
     }
 
     fn update_detail_view(mut self, ui: &mut Ui) -> Response {
-        let (rect, mut response) = self.allocate_detail_view(ui);
+        let (rect, mut response) = list_entry::allocate_space(ui, DETAIL_VIEW_HEIGHT);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            self.paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect, None);
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
@@ -1116,11 +1076,11 @@ impl RelayEntry {
     }
 
     fn update_edit_view(mut self, ui: &mut Ui) -> Response {
-        let (rect, mut response) = self.allocate_edit_view(ui);
+        let (rect, mut response) = list_entry::allocate_space(ui, EDIT_VIEW_HEIGHT);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            self.paint_frame(ui, &rect);
+            list_entry::paint_frame(ui, &rect, None);
             self.paint_title(ui, &rect);
             self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
@@ -1144,151 +1104,5 @@ impl Widget for RelayEntry {
             RelayEntryView::Detail => self.update_detail_view(ui),
             RelayEntryView::Edit => self.update_edit_view(ui),
         }
-    }
-}
-
-fn paint_hline(ui: &mut Ui, rect: &Rect, y_pos: f32) {
-    let painter = ui.painter();
-    painter.hline(
-        (rect.left() + TEXT_LEFT + 1.0)..=(rect.right() - TEXT_RIGHT - 1.0),
-        painter.round_to_pixel(rect.top() + TEXT_TOP + y_pos),
-        Stroke::new(HLINE_THICKNESS, ui.visuals().panel_fill),
-    );
-}
-
-fn text_to_galley(ui: &mut Ui, text: WidgetText, align: Align) -> WidgetTextGalley {
-    let mut text_job = text.into_text_job(
-        ui.style(),
-        FontSelection::Default,
-        ui.layout().vertical_align(),
-    );
-    text_job.job.halign = align;
-    ui.fonts(|f| text_job.into_galley(f))
-}
-
-fn allocate_text_at(
-    ui: &mut Ui,
-    pos: Pos2,
-    text: WidgetText,
-    align: Align,
-    id: Id,
-) -> (WidgetTextGalley, Response) {
-    let galley = text_to_galley(ui, text, align);
-    let grect = galley.galley.rect;
-    let rect = if align == Align::Min {
-        Rect::from_min_size(pos, galley.galley.rect.size())
-    } else if align == Align::Center {
-        Rect::from_min_max(
-            pos2(pos.x - grect.width() / 2.0, pos.y),
-            pos2(pos.x + grect.width() / 2.0, pos.y + grect.height()),
-        )
-    } else {
-        Rect::from_min_max(
-            pos2(pos.x - grect.width(), pos.y),
-            pos2(pos.x, pos.y + grect.height()),
-        )
-    };
-    let response = ui.interact(rect, id, Sense::click());
-    (galley, response)
-}
-
-fn draw_text_galley_at(
-    ui: &mut Ui,
-    pos: Pos2,
-    galley: WidgetTextGalley,
-    color: Option<Color32>,
-    underline: Option<Stroke>,
-) -> Rect {
-    let size = galley.galley.rect.size();
-    let halign = galley.galley.job.halign;
-    let color = color.or(Some(ui.visuals().text_color()));
-    ui.painter().add(epaint::TextShape {
-        pos,
-        galley: galley.galley,
-        override_text_color: color,
-        underline: Stroke::NONE,
-        angle: 0.0,
-    });
-    let rect = if halign == Align::LEFT {
-        Rect::from_min_size(pos, size)
-    } else {
-        Rect::from_x_y_ranges(pos.x - size.x..=pos.x, pos.y..=pos.y + size.y)
-    };
-    if let Some(stroke) = underline {
-        let stroke = Stroke::new(stroke.width, stroke.color.gamma_multiply(0.6));
-        let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
-        let painter = ui.painter();
-        painter.hline(
-            rect.min.x..=rect.max.x,
-            rect.min.y + line_height - 2.0,
-            stroke,
-        );
-    }
-    rect
-}
-
-fn draw_text_at(
-    ui: &mut Ui,
-    pos: Pos2,
-    text: WidgetText,
-    align: Align,
-    color: Option<Color32>,
-    underline: Option<Stroke>,
-) -> Rect {
-    let galley = text_to_galley(ui, text, align);
-    let color = color.or(Some(ui.visuals().text_color()));
-    draw_text_galley_at(ui, pos, galley, color, underline)
-}
-
-fn draw_link_at(
-    ui: &mut Ui,
-    id: Id,
-    pos: Pos2,
-    text: WidgetText,
-    align: Align,
-    enabled: bool,
-    secondary: bool,
-) -> Response {
-    let (galley, response) = allocate_text_at(ui, pos, text, align, id);
-    let response = if enabled {
-        response.on_hover_cursor(CursorIcon::PointingHand)
-    } else {
-        response
-    };
-    let hover_color = ui.visuals().widgets.hovered.fg_stroke.color;
-    let (color, stroke) = if !secondary {
-        if enabled {
-            if response.hovered() {
-                (ui.visuals().text_color(), Stroke::NONE)
-            } else {
-                (hover_color, Stroke::new(1.0, hover_color))
-            }
-        } else {
-            (ui.visuals().weak_text_color(), Stroke::NONE)
-        }
-    } else {
-        if enabled {
-            if response.hovered() {
-                (hover_color, Stroke::NONE)
-            } else {
-                (
-                    ui.visuals().text_color(),
-                    Stroke::new(1.0, ui.visuals().text_color()),
-                )
-            }
-        } else {
-            (ui.visuals().weak_text_color(), Stroke::NONE)
-        }
-    };
-    draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
-    response
-}
-
-/// UTF-8 safe truncate (String::truncate() can panic)
-#[inline]
-fn safe_truncate(s: &str, max_chars: usize) -> &str {
-    match s.char_indices().nth(max_chars) {
-        None => s,
-        Some((idx, _)) => &s[..idx],
     }
 }

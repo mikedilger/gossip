@@ -1,10 +1,11 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use nostr_types::{Event, EventKind, Id, PublicKey};
+use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
 use std::env;
+use tokio::runtime::Runtime;
 use zeroize::Zeroize;
 
-pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
+pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Error> {
     let _ = args.next(); // program name
     let command = args.next().unwrap(); // must be there or we would not have been called
 
@@ -14,20 +15,21 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
     match &*command {
         "decrypt" => decrypt(args)?,
         "dump_event" => dump_event(args)?,
-        "events_of_kind" => events_of_kind(args)?,
-        "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(args)?,
         "dump_person_relays" => dump_person_relays(args)?,
         "dump_relays" => dump_relays()?,
+        "events_of_kind" => events_of_kind(args)?,
+        "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(args)?,
+        "giftwrap_ids" => giftwrap_ids()?,
         "help" => help()?,
         "login" => {
             login()?;
             return Ok(false);
         }
+        "rebuild_indices" => rebuild_indices()?,
+        "reprocess_recent" => reprocess_recent(runtime)?,
         "ungiftwrap" => ungiftwrap(args)?,
-        "giftwrap_ids" => giftwrap_ids()?,
         "verify" => verify(args)?,
         "verify_json" => verify_json(args)?,
-        "rebuild_indices" => rebuild_indices()?,
         other => println!("Unknown command {}", other),
     }
 
@@ -47,14 +49,16 @@ pub fn help() -> Result<(), Error> {
     println!("    print IDs of all events of kind=<kind>");
     println!("gossip events_of_pubkey_and_kind <pubkeyhex> <kind>");
     println!("    print IDs of all events from <pubkeyhex> of kind=<kind>");
-    println!("gossip help");
-    println!("    show this list");
     println!("gossip giftwrap_ids");
     println!("    List the IDs of all giftwrap events you are tagged on");
+    println!("gossip help");
+    println!("    show this list");
     println!("gossip login");
     println!("    login on the command line before starting the gossip GUI");
     println!("gossip rebuild_indices");
     println!("    Rebuild all event-related indices");
+    println!("gossip reprocess_recent");
+    println!("    Reprocess events that came during the last 24 hours");
     println!("gossip ungiftwrap <idhex>");
     println!("    Unwrap the giftwrap event with the given ID and print the rumor (in JSON)");
     println!("gossip verify <idhex>");
@@ -261,6 +265,44 @@ pub fn giftwrap_ids() -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+pub fn reprocess_recent(runtime: &Runtime) -> Result<(), Error> {
+    login()?;
+
+    let job = tokio::task::spawn(async move {
+        let all_kinds: Vec<EventKind> = EventKind::iter().collect();
+
+        let mut ago = Unixtime::now().unwrap();
+        ago.0 -= 86400;
+
+        let events = match GLOBALS
+            .storage
+            .find_events(&all_kinds, &[], Some(ago), |_| true, false)
+        {
+            Ok(e) => e,
+            Err(e) => {
+                println!("ERROR: {}", e);
+                vec![]
+            }
+        };
+
+        let mut count = 0;
+        for event in events.iter() {
+            if let Err(e) = crate::process::process_new_event(event, None, None, false, true).await
+            {
+                println!("ERROR: {}", e);
+            }
+            count += 1;
+            if count % 100 == 0 {
+                println!("{}...", count);
+            }
+        }
+
+        println!("Done.");
+    });
+
+    Ok(runtime.block_on(job)?)
 }
 
 pub fn verify(mut args: env::Args) -> Result<(), Error> {

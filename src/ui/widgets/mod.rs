@@ -1,15 +1,13 @@
 mod copy_button;
-pub use copy_button::CopyButton;
+pub(crate) mod list_entry;
+pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
+use egui_winit::egui::{vec2, FontSelection, Rect, Response, Sense, TextEdit, Ui, WidgetText};
 pub use nav_item::NavItem;
 
 mod relay_entry;
 pub use relay_entry::{RelayEntry, RelayEntryView};
-
-use eframe::egui::widgets::TextEdit;
-use eframe::egui::{FontSelection, Ui, WidgetText};
-use egui_winit::egui::{vec2, Rect, Response, Sense};
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 

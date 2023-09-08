@@ -12,7 +12,23 @@ macro_rules! key {
 
 mod import;
 mod migrations;
-mod types;
+
+// type implementations
+pub mod types;
+
+// database implementations
+mod event_ek_c_index1;
+mod event_ek_pk_index1;
+mod event_references_person1;
+mod event_seen_on_relay1;
+mod event_viewed1;
+mod events1;
+mod hashtags1;
+mod people1;
+mod person_relays1;
+mod relationships1;
+mod relays1;
+mod unindexed_giftwraps1;
 
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
@@ -25,7 +41,7 @@ use crate::relay::Relay;
 use crate::ui::{Theme, ThemeVariant};
 use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
-use heed::{Database, DatabaseFlags, Env, EnvFlags, EnvOpenOptions, RwTxn};
+use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Tag,
     Unixtime,
@@ -106,71 +122,6 @@ pub struct Storage {
 
     // General database (settings, local_settings)
     general: RawDatabase,
-
-    // Id:Url -> Unixtime
-    //   key: key!(id.as_slice(), url.0.as_bytes())
-    //   val: unixtime.0.to_be_bytes()
-    event_seen_on_relay: RawDatabase,
-
-    // Id -> ()
-    //   key: id.as_slice()
-    //   val: vec![]
-    event_viewed: RawDatabase,
-
-    // Hashtag -> Id
-    // (dup keys, so multiple Ids per hashtag)
-    //   key: key!(hashtag.as_bytes())
-    //   val: id.as_slice() | Id(val[0..32].try_into()?)
-    hashtags: RawDatabase,
-
-    // Url -> Relay
-    //   key: key!(url.0.as_bytes())
-    //   val: serde_json::to_vec(relay) | serde_json::from_slice(bytes)
-    relays: RawDatabase,
-
-    // Id -> Event
-    //   key: id.as_slice() | Id(val[0..32].try_into()?)
-    //   val: event.write_to_vec() | Event::read_from_buffer(val)
-    events: RawDatabase,
-
-    // EventKind:PublicKey -> Id
-    // (pubkey is event author)
-    // (dup keys, so multiple Ids per key)
-    //   val: id.as_slice() | Id(val[0..32].try_into()?)
-    event_ek_pk_index: RawDatabase,
-
-    // EventKind::ReverseUnixtime -> Id
-    // (dup keys, so multiple Ids per key)
-    //   val: id.as_slice() | Id(val[0..32].try_into()?)
-    event_ek_c_index: RawDatabase,
-
-    // PublicKey:ReverseUnixtime -> Id
-    // (pubkey is referenced by the event somehow)
-    // (only feed-displayable events are included)
-    // (dup keys, so multiple Ids per key)
-    // NOTE: this may be far too much data. Maybe we should only build this for the
-    //       user's pubkey as their inbox.
-    event_references_person: RawDatabase,
-
-    // Id:Id -> Relationship
-    //   key: id.as_slice(), id.as_slice() | Id(val[32..64].try_into()?)
-    //   val:  relationship.write_to_vec() | Relationship::read_from_buffer(val)
-    relationships: RawDatabase,
-
-    // PublicKey -> Person
-    //   key: pubkey.as_bytes()
-    //   val: serde_json::to_vec(person) | serde_json::from_slice(bytes)
-    people: RawDatabase,
-
-    // PublicKey:Url -> PersonRelay
-    //   key: key!(pubkey.as_bytes + url.0.as_bytes)
-    //   val: person_relay.write_to_vec) | PersonRelay::read_from_buffer(bytes)
-    person_relays: RawDatabase,
-
-    // Id -> ()
-    //   key: id.as_slice()
-    //   val: vec![]
-    unindexed_giftwraps: RawDatabase,
 }
 
 impl Storage {
@@ -200,105 +151,33 @@ impl Storage {
             .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
             .create(&mut txn)?;
 
-        let event_seen_on_relay = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .name("event_seen_on_relay")
-            .create(&mut txn)?;
-
-        let event_viewed = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .name("event_viewed")
-            .create(&mut txn)?;
-
-        let hashtags = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
-            .name("hashtags")
-            .create(&mut txn)?;
-
-        let relays = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .name("relays")
-            .create(&mut txn)?;
-
-        let events = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .name("events")
-            .create(&mut txn)?;
-
-        let event_ek_pk_index = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
-            .name("event_ek_pk_index")
-            .create(&mut txn)?;
-
-        let event_ek_c_index = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
-            .name("event_ek_c_index")
-            .create(&mut txn)?;
-
-        let event_references_person = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
-            .name("event_references_person")
-            .create(&mut txn)?;
-
-        let relationships = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .name("relationships")
-            .create(&mut txn)?;
-
-        let people = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .name("people")
-            .create(&mut txn)?;
-
-        let person_relays = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .name("person_relays")
-            .create(&mut txn)?;
-
-        let unindexed_giftwraps = env
-            .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-            .name("unindexed_giftwraps")
-            .create(&mut txn)?;
-
         txn.commit()?;
 
-        Ok(Storage {
-            env,
-            general,
-            event_seen_on_relay,
-            event_viewed,
-            hashtags,
-            relays,
-            events,
-            event_ek_pk_index,
-            event_ek_c_index,
-            event_references_person,
-            relationships,
-            people,
-            person_relays,
-            unindexed_giftwraps,
-        })
+        Ok(Storage { env, general })
     }
 
     // Run this after GLOBALS lazy static initialisation, so functions within storage can
     // access GLOBALS without hanging.
     pub fn init(&self) -> Result<(), Error> {
+        // We have to trigger all of the current-version databases into existence
+        // because otherwise there will be MVCC visibility problems later having
+        // different transactions in parallel
+        //
+        // old-version databases will be handled by their migraiton code and only
+        // triggered into existence if their migration is necessary.
+        let _ = self.db_event_ek_c_index()?;
+        let _ = self.db_event_ek_pk_index()?;
+        let _ = self.db_event_references_person()?;
+        let _ = self.db_events()?;
+        let _ = self.db_event_seen_on_relay()?;
+        let _ = self.db_event_viewed()?;
+        let _ = self.db_hashtags()?;
+        let _ = self.db_people()?;
+        let _ = self.db_person_relays()?;
+        let _ = self.db_relationships()?;
+        let _ = self.db_relays()?;
+        let _ = self.db_unindexed_giftwraps()?;
+
         // If migration level is missing, we need to import from legacy sqlite
         match self.read_migration_level()? {
             None => {
@@ -318,72 +197,143 @@ impl Storage {
         Ok(self.env.write_txn()?)
     }
 
+    pub fn sync(&self) -> Result<(), Error> {
+        self.env.force_sync()?;
+        Ok(())
+    }
+
+    // Database getters ---------------------------------
+
+    #[inline]
+    pub fn db_event_ek_c_index(&self) -> Result<RawDatabase, Error> {
+        self.db_event_ek_c_index1()
+    }
+
+    #[inline]
+    pub fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
+        self.db_event_ek_pk_index1()
+    }
+
+    #[inline]
+    pub fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
+        self.db_event_references_person1()
+    }
+
+    #[inline]
+    pub fn db_events(&self) -> Result<RawDatabase, Error> {
+        self.db_events1()
+    }
+
+    #[inline]
+    pub fn db_event_seen_on_relay(&self) -> Result<RawDatabase, Error> {
+        self.db_event_seen_on_relay1()
+    }
+
+    #[inline]
+    pub fn db_event_viewed(&self) -> Result<RawDatabase, Error> {
+        self.db_event_viewed1()
+    }
+
+    #[inline]
+    pub fn db_hashtags(&self) -> Result<RawDatabase, Error> {
+        self.db_hashtags1()
+    }
+
+    #[inline]
+    pub fn db_people(&self) -> Result<RawDatabase, Error> {
+        self.db_people1()
+    }
+
+    #[inline]
+    pub fn db_person_relays(&self) -> Result<RawDatabase, Error> {
+        self.db_person_relays1()
+    }
+
+    #[inline]
+    pub fn db_relationships(&self) -> Result<RawDatabase, Error> {
+        self.db_relationships1()
+    }
+
+    #[inline]
+    pub fn db_relays(&self) -> Result<RawDatabase, Error> {
+        self.db_relays1()
+    }
+
+    #[inline]
+    pub fn db_unindexed_giftwraps(&self) -> Result<RawDatabase, Error> {
+        self.db_unindexed_giftwraps1()
+    }
+
+    // Database length functions ---------------------------------
+
     pub fn get_general_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.general.len(&txn)?)
     }
 
+    #[inline]
     pub fn get_event_seen_on_relay_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.event_seen_on_relay.len(&txn)?)
+        self.get_event_seen_on_relay1_len()
     }
 
+    #[inline]
     pub fn get_event_viewed_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.event_viewed.len(&txn)?)
+        self.get_event_viewed1_len()
     }
 
     pub fn get_hashtags_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.hashtags.len(&txn)?)
+        Ok(self.db_hashtags()?.len(&txn)?)
     }
 
+    #[inline]
     pub fn get_relays_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.relays.len(&txn)?)
+        self.get_relays1_len()
     }
 
     pub fn get_event_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.events.len(&txn)?)
+        Ok(self.db_events()?.len(&txn)?)
     }
 
     pub fn get_event_ek_pk_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.event_ek_pk_index.len(&txn)?)
+        Ok(self.db_event_ek_pk_index()?.len(&txn)?)
     }
 
     pub fn get_event_ek_c_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.event_ek_c_index.len(&txn)?)
+        Ok(self.db_event_ek_c_index()?.len(&txn)?)
     }
 
     pub fn get_event_references_person_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.event_references_person.len(&txn)?)
+        Ok(self.db_event_references_person()?.len(&txn)?)
     }
 
     pub fn get_relationships_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.relationships.len(&txn)?)
+        Ok(self.db_relationships()?.len(&txn)?)
     }
 
+    #[inline]
     pub fn get_people_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.people.len(&txn)?)
+        self.get_people1_len()
     }
 
+    #[inline]
     pub fn get_person_relays_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.person_relays.len(&txn)?)
+        self.get_person_relays1_len()
     }
+
+    // Prune -------------------------------------------------------
 
     // Remove all events (and related data) with a created_at before `from`
     pub fn prune(&self, from: Unixtime) -> Result<usize, Error> {
         // Extract the Ids to delete.
         let txn = self.env.read_txn()?;
         let mut ids: HashSet<Id> = HashSet::new();
-        for result in self.events.iter(&txn)? {
+        for result in self.db_events()?.iter(&txn)? {
             let (_key, val) = result?;
 
             if let Some(created_at) = Event::get_created_at_from_speedy_bytes(val) {
@@ -405,7 +355,7 @@ impl Storage {
         let mut deletions: Vec<Vec<u8>> = Vec::new();
         for id in &ids {
             let start_key: &[u8] = id.as_slice();
-            for result in self.events.prefix_iter_mut(&mut txn, start_key)? {
+            for result in self.db_events()?.prefix_iter_mut(&mut txn, start_key)? {
                 let (_key, val) = result?;
                 deletions.push(val.to_owned());
             }
@@ -415,19 +365,19 @@ impl Storage {
             deletions.len()
         );
         for deletion in deletions.drain(..) {
-            self.event_seen_on_relay.delete(&mut txn, &deletion)?;
+            self.db_event_seen_on_relay()?.delete(&mut txn, &deletion)?;
         }
 
         // Delete from event_viewed
         for id in &ids {
-            let _ = self.event_viewed.delete(&mut txn, id.as_slice());
+            let _ = self.db_event_viewed()?.delete(&mut txn, id.as_slice());
         }
         tracing::info!("PRUNE: deleted {} records from event_viewed", ids.len());
 
         // Delete from hashtags
         // (unfortunately since Ids are the values, we have to scan the whole thing)
         let mut deletions: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
-        for result in self.hashtags.iter(&txn)? {
+        for result in self.db_hashtags()?.iter(&txn)? {
             let (key, val) = result?;
             let id = Id(val[0..32].try_into()?);
             if ids.contains(&id) {
@@ -436,14 +386,14 @@ impl Storage {
         }
         tracing::info!("PRUNE: deleting {} records from hashtags", deletions.len());
         for deletion in deletions.drain(..) {
-            self.hashtags
+            self.db_hashtags()?
                 .delete_one_duplicate(&mut txn, &deletion.0, &deletion.1)?;
         }
 
         // Delete from relationships
         // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
         let mut deletions: Vec<Vec<u8>> = Vec::new();
-        for result in self.relationships.iter(&txn)? {
+        for result in self.db_relationships()?.iter(&txn)? {
             let (key, _val) = result?;
             let id = Id(key[0..32].try_into()?);
             if ids.contains(&id) {
@@ -457,12 +407,12 @@ impl Storage {
         }
         tracing::info!("PRUNE: deleting {} relationships", deletions.len());
         for deletion in deletions.drain(..) {
-            self.relationships.delete(&mut txn, &deletion)?;
+            self.db_relationships()?.delete(&mut txn, &deletion)?;
         }
 
         // delete from events
         for id in &ids {
-            let _ = self.events.delete(&mut txn, id.as_slice());
+            let _ = self.db_events()?.delete(&mut txn, id.as_slice());
         }
         tracing::info!("PRUNE: deleted {} records from events", ids.len());
 
@@ -470,6 +420,8 @@ impl Storage {
 
         Ok(ids.len())
     }
+
+    // General key-value functions --------------------------------------------------
 
     pub fn write_migration_level<'a>(
         &'a self,
@@ -504,6 +456,78 @@ impl Storage {
             .get(&txn, b"migration_level")?
             .map(|bytes| u32::from_be_bytes(bytes[..4].try_into().unwrap())))
     }
+
+    pub fn write_encrypted_private_key<'a>(
+        &'a self,
+        epk: &Option<EncryptedPrivateKey>,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = epk.as_ref().map(|e| &e.0).write_to_vec()?;
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general.put(txn, b"encrypted_private_key", &bytes)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn read_encrypted_private_key(&self) -> Result<Option<EncryptedPrivateKey>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.general.get(&txn, b"encrypted_private_key")? {
+            None => Ok(None),
+            Some(bytes) => {
+                let os = Option::<String>::read_from_buffer(bytes)?;
+                Ok(os.map(EncryptedPrivateKey))
+            }
+        }
+    }
+
+    pub fn write_last_contact_list_edit<'a>(
+        &'a self,
+        when: i64,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = when.to_be_bytes();
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general
+                .put(txn, b"last_contact_list_edit", bytes.as_slice())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn read_last_contact_list_edit(&self) -> Result<Option<i64>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.general.get(&txn, b"last_contact_list_edit")? {
+            None => Ok(None),
+            Some(bytes) => Ok(Some(i64::from_be_bytes(bytes[..8].try_into().unwrap()))),
+        }
+    }
+
+    // Settings ----------------------------------------------------------
 
     // This defines functions for read_{setting} and write_{setting} for each
     // setting value
@@ -705,76 +729,9 @@ impl Storage {
     def_setting!(prune_period_days, b"prune_period_days", u64, 90);
     def_setting!(cache_prune_period_days, b"cache_prune_period_days", u64, 90);
 
-    pub fn write_encrypted_private_key<'a>(
-        &'a self,
-        epk: &Option<EncryptedPrivateKey>,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = epk.as_ref().map(|e| &e.0).write_to_vec()?;
+    // -------------------------------------------------------------------
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"encrypted_private_key", &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub fn read_encrypted_private_key(&self) -> Result<Option<EncryptedPrivateKey>, Error> {
-        let txn = self.env.read_txn()?;
-
-        match self.general.get(&txn, b"encrypted_private_key")? {
-            None => Ok(None),
-            Some(bytes) => {
-                let os = Option::<String>::read_from_buffer(bytes)?;
-                Ok(os.map(EncryptedPrivateKey))
-            }
-        }
-    }
-
-    pub fn write_last_contact_list_edit<'a>(
-        &'a self,
-        when: i64,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = when.to_be_bytes();
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general
-                .put(txn, b"last_contact_list_edit", bytes.as_slice())?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub fn read_last_contact_list_edit(&self) -> Result<Option<i64>, Error> {
-        let txn = self.env.read_txn()?;
-
-        match self.general.get(&txn, b"last_contact_list_edit")? {
-            None => Ok(None),
-            Some(bytes) => Ok(Some(i64::from_be_bytes(bytes[..8].try_into().unwrap()))),
-        }
-    }
-
+    #[inline]
     pub fn add_event_seen_on_relay<'a>(
         &'a self,
         id: Id,
@@ -782,197 +739,60 @@ impl Storage {
         when: Unixtime,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut key: Vec<u8> = id.as_slice().to_owned();
-        key.extend(url.0.as_bytes());
-        key.truncate(MAX_LMDB_KEY);
-        let bytes = when.0.to_be_bytes();
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.event_seen_on_relay.put(txn, &key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.add_event_seen_on_relay1(id, url, when, rw_txn)
     }
 
+    #[inline]
     pub fn get_event_seen_on_relay(&self, id: Id) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
-        let start_key: Vec<u8> = id.as_slice().to_owned();
-        let txn = self.env.read_txn()?;
-        let mut output: Vec<(RelayUrl, Unixtime)> = Vec::new();
-        for result in self.event_seen_on_relay.prefix_iter(&txn, &start_key)? {
-            let (key, val) = result?;
-
-            // Extract off the Url
-            let url = RelayUrl(std::str::from_utf8(&key[32..])?.to_owned());
-            let time = Unixtime(i64::from_be_bytes(val[..8].try_into()?));
-            output.push((url, time));
-        }
-        Ok(output)
+        self.get_event_seen_on_relay1(id)
     }
 
+    #[inline]
     pub fn mark_event_viewed<'a>(
         &'a self,
         id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = vec![];
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.event_viewed.put(txn, id.as_slice(), &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.mark_event_viewed1(id, rw_txn)
     }
 
+    #[inline]
     pub fn is_event_viewed(&self, id: Id) -> Result<bool, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.event_viewed.get(&txn, id.as_slice())?.is_some())
+        self.is_event_viewed1(id)
     }
 
+    #[inline]
     pub fn add_hashtag<'a>(
         &'a self,
         hashtag: &String,
         id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let key = key!(hashtag.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("hashtag".to_owned()).into());
-        }
-        let bytes = id.as_slice();
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.hashtags.put(txn, key, bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.add_hashtag1(hashtag, id, rw_txn)
     }
 
+    #[inline]
     #[allow(dead_code)]
     pub fn get_event_ids_with_hashtag(&self, hashtag: &String) -> Result<Vec<Id>, Error> {
-        let key = key!(hashtag.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("hashtag".to_owned()).into());
-        }
-        let txn = self.env.read_txn()?;
-        let mut output: Vec<Id> = Vec::new();
-        let iter = match self.hashtags.get_duplicates(&txn, key)? {
-            Some(i) => i,
-            None => return Ok(vec![]),
-        };
-        for result in iter {
-            let (_key, val) = result?;
-            let id = Id(val[0..32].try_into()?);
-            output.push(id);
-        }
-        Ok(output)
+        self.get_event_ids_with_hashtag1(hashtag)
     }
 
+    #[inline]
     pub fn write_relay<'a>(
         &'a self,
         relay: &Relay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key = key!(relay.url.0.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-        let bytes = serde_json::to_vec(relay)?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.relays.put(txn, key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_relay1(relay, rw_txn)
     }
 
+    #[inline]
     pub fn delete_relay<'a>(
         &'a self,
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key = key!(url.0.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Delete any person_relay with this relay
-            let mut deletions: Vec<Vec<u8>> = Vec::new();
-            {
-                for result in self.person_relays.iter(txn)? {
-                    let (key, val) = result?;
-                    if let Ok(person_relay) = PersonRelay::read_from_buffer(val) {
-                        if person_relay.url == *url {
-                            deletions.push(key.to_owned());
-                        }
-                    }
-                }
-            }
-            for deletion in deletions.drain(..) {
-                self.person_relays.delete(txn, &deletion)?;
-            }
-
-            // Delete the relay
-            self.relays.delete(txn, key)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.delete_relay1(url, rw_txn)
     }
 
     pub fn write_relay_if_missing<'a>(
@@ -987,109 +807,42 @@ impl Storage {
         Ok(())
     }
 
+    #[inline]
     pub fn modify_relay<'a, M>(
         &'a self,
         url: &RelayUrl,
-        mut modify: M,
+        modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error>
     where
         M: FnMut(&mut Relay),
     {
-        let key = key!(url.0.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let bytes = self.relays.get(txn, key)?;
-            if let Some(bytes) = bytes {
-                let mut relay = serde_json::from_slice(bytes)?;
-                modify(&mut relay);
-                let bytes = serde_json::to_vec(&relay)?;
-                self.relays.put(txn, key, &bytes)?;
-            }
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.modify_relay1(url, modify, rw_txn)
     }
 
+    #[inline]
     pub fn modify_all_relays<'a, M>(
         &'a self,
-        mut modify: M,
+        modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error>
     where
         M: FnMut(&mut Relay),
     {
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut iter = self.relays.iter_mut(txn)?;
-            while let Some(result) = iter.next() {
-                let (key, val) = result?;
-                let mut dbrelay: Relay = serde_json::from_slice(val)?;
-                modify(&mut dbrelay);
-                let bytes = serde_json::to_vec(&dbrelay)?;
-                // to deal with the unsafety of put_current
-                let key = key.to_owned();
-                unsafe {
-                    iter.put_current(&key, &bytes)?;
-                }
-            }
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.modify_all_relays1(modify, rw_txn)
     }
 
+    #[inline]
     pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key = key!(url.0.as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-        let txn = self.env.read_txn()?;
-        match self.relays.get(&txn, key)? {
-            Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
-            None => Ok(None),
-        }
+        self.read_relay1(url)
     }
 
+    #[inline]
     pub fn filter_relays<F>(&self, f: F) -> Result<Vec<Relay>, Error>
     where
         F: Fn(&Relay) -> bool,
     {
-        let txn = self.env.read_txn()?;
-        let mut output: Vec<Relay> = Vec::new();
-        let iter = self.relays.iter(&txn)?;
-        for result in iter {
-            let (_key, val) = result?;
-            let relay: Relay = serde_json::from_slice(val)?;
-            if f(&relay) {
-                output.push(relay);
-            }
-        }
-        Ok(output)
+        self.filter_relays1(f)
     }
 
     pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
@@ -1114,7 +867,7 @@ impl Storage {
         }
 
         let mut ours = false;
-        if let Some(pubkey) = GLOBALS.storage.read_setting_public_key() {
+        if let Some(pubkey) = self.read_setting_public_key() {
             if event.pubkey == pubkey {
                 tracing::info!("Processing our own relay list");
                 ours = true;
@@ -1255,68 +1008,28 @@ impl Storage {
         Ok(())
     }
 
+    #[inline]
     pub fn write_event<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // write to lmdb 'events'
-        let bytes = event.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.events.put(txn, event.id.as_slice(), &bytes)?;
-
-            // also index the event
-            self.write_event_ek_pk_index(event, Some(txn))?;
-            self.write_event_ek_c_index(event, Some(txn))?;
-            self.write_event_references_person(event, Some(txn))?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_event1(event, rw_txn)
     }
 
+    #[inline]
     pub fn read_event(&self, id: Id) -> Result<Option<Event>, Error> {
-        let txn = self.env.read_txn()?;
-        match self.events.get(&txn, id.as_slice())? {
-            None => Ok(None),
-            Some(bytes) => Ok(Some(Event::read_from_buffer(bytes)?)),
-        }
+        self.read_event1(id)
     }
 
+    #[inline]
     pub fn has_event(&self, id: Id) -> Result<bool, Error> {
-        let txn = self.env.read_txn()?;
-        match self.events.get(&txn, id.as_slice())? {
-            None => Ok(false),
-            Some(_) => Ok(true),
-        }
+        self.has_event1(id)
     }
 
+    #[inline]
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let _ = self.events.delete(txn, id.as_slice());
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.delete_event1(id, rw_txn)
     }
 
     pub fn replace_event<'a>(
@@ -1448,7 +1161,7 @@ impl Storage {
             let ek: u32 = (*kind).into();
             if pubkeys.is_empty() {
                 let start_key = ek.to_be_bytes().as_slice().to_owned();
-                let iter = self.event_ek_pk_index.prefix_iter(&txn, &start_key)?;
+                let iter = self.db_event_ek_pk_index()?.prefix_iter(&txn, &start_key)?;
                 for result in iter {
                     let (_key, val) = result?;
                     // Take the event
@@ -1459,7 +1172,7 @@ impl Storage {
                 for pubkey in pubkeys {
                     let mut start_key = ek.to_be_bytes().as_slice().to_owned();
                     start_key.extend(pubkey.as_bytes());
-                    let iter = self.event_ek_pk_index.prefix_iter(&txn, &start_key)?;
+                    let iter = self.db_event_ek_pk_index()?.prefix_iter(&txn, &start_key)?;
                     for result in iter {
                         let (_key, val) = result?;
                         // Take the event
@@ -1493,7 +1206,7 @@ impl Storage {
             start_key.extend((i64::MAX - now.0).to_be_bytes().as_slice()); // work back from now
             end_key.extend((i64::MAX - since.0).to_be_bytes().as_slice()); // until since
             let range = (Bound::Included(&*start_key), Bound::Excluded(&*end_key));
-            let iter = self.event_ek_c_index.range(&txn, &range)?;
+            let iter = self.db_event_ek_c_index()?.range(&txn, &range)?;
             for result in iter {
                 let (_key, val) = result?;
                 // Take the event
@@ -1532,7 +1245,7 @@ impl Storage {
         let mut events: Vec<Event> = Vec::new();
         for id in ids {
             // this is like self.read_event(), but we supply our existing transaction
-            if let Some(bytes) = self.events.get(&txn, id.as_slice())? {
+            if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
                 let event = Event::read_from_buffer(bytes)?;
                 if f(&event) {
                     events.push(event);
@@ -1595,7 +1308,7 @@ impl Storage {
             .build()?;
 
         let txn = self.env.read_txn()?;
-        let iter = self.events.iter(&txn)?;
+        let iter = self.db_events()?.iter(&txn)?;
         let mut events: Vec<Event> = Vec::new();
         for result in iter {
             let (_key, val) = result?;
@@ -1653,7 +1366,7 @@ impl Storage {
                         if matches!(e.kind, ErrorKind::NoPrivateKey) {
                             // Store as unindexed for later indexing
                             let bytes = vec![];
-                            self.unindexed_giftwraps
+                            self.db_unindexed_giftwraps()?
                                 .put(txn, event.id.as_slice(), &bytes)?;
                         }
                     }
@@ -1665,7 +1378,7 @@ impl Storage {
             key.extend(event.pubkey.as_bytes()); // pubkey
             let bytes = event.id.as_slice();
 
-            self.event_ek_pk_index.put(txn, &key, bytes)?;
+            self.db_event_ek_pk_index()?.put(txn, &key, bytes)?;
             Ok(())
         };
 
@@ -1703,7 +1416,7 @@ impl Storage {
                         if matches!(e.kind, ErrorKind::NoPrivateKey) {
                             // Store as unindexed for later indexing
                             let bytes = vec![];
-                            self.unindexed_giftwraps
+                            self.db_unindexed_giftwraps()?
                                 .put(txn, event.id.as_slice(), &bytes)?;
                         }
                     }
@@ -1715,7 +1428,7 @@ impl Storage {
             key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
             let bytes = event.id.as_slice();
 
-            self.event_ek_c_index.put(txn, &key, bytes)?;
+            self.db_event_ek_c_index()?.put(txn, &key, bytes)?;
             Ok(())
         };
 
@@ -1732,75 +1445,17 @@ impl Storage {
     }
 
     // We don't call this externally. Whenever we write an event, we do this.
+    #[inline]
     fn write_event_references_person<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
-
-            // If giftwrap, index the inner rumor instead
-            let mut rumor_event: Event;
-            if event.kind == EventKind::GiftWrap {
-                match GLOBALS.signer.unwrap_giftwrap(event) {
-                    Ok(rumor) => {
-                        rumor_event = rumor.into_event_with_bad_signature();
-                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
-                        event = &rumor_event;
-                    }
-                    Err(e) => {
-                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                            // Store as unindexed for later indexing
-                            let bytes = vec![];
-                            self.unindexed_giftwraps
-                                .put(txn, event.id.as_slice(), &bytes)?;
-                        }
-                    }
-                }
-            }
-
-            if !event.kind.is_feed_displayable() {
-                return Ok(());
-            }
-
-            let bytes = event.id.as_slice();
-
-            let mut pubkeys: HashSet<PublicKey> = HashSet::new();
-            for (pubkeyhex, _, _) in event.people() {
-                let pubkey = match PublicKey::try_from_hex_string(pubkeyhex.as_str(), false) {
-                    Ok(pk) => pk,
-                    Err(_) => continue,
-                };
-                pubkeys.insert(pubkey);
-            }
-            for pubkey in event.people_referenced_in_content() {
-                pubkeys.insert(pubkey);
-            }
-            if !pubkeys.is_empty() {
-                for pubkey in pubkeys.drain() {
-                    let mut key: Vec<u8> = pubkey.to_bytes();
-                    key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
-                    self.event_references_person.put(txn, &key, bytes)?;
-                }
-            }
-
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_event_references_person1(event, rw_txn)
     }
 
     // Read all events referencing a given person in reverse time order
+    #[inline]
     pub fn read_events_referencing_person<F>(
         &self,
         pubkey: &PublicKey,
@@ -1810,59 +1465,12 @@ impl Storage {
     where
         F: Fn(&Event) -> bool,
     {
-        let txn = self.env.read_txn()?;
-        let now = Unixtime::now().unwrap();
-        let mut start_key: Vec<u8> = pubkey.to_bytes();
-        let mut end_key: Vec<u8> = start_key.clone();
-        start_key.extend((i64::MAX - now.0).to_be_bytes().as_slice()); // work back from now
-        end_key.extend((i64::MAX - since.0).to_be_bytes().as_slice()); // until since
-        let range = (Bound::Included(&*start_key), Bound::Excluded(&*end_key));
-        let iter = self.event_references_person.range(&txn, &range)?;
-        let mut events: Vec<Event> = Vec::new();
-        for result in iter {
-            let (_key, val) = result?;
-
-            // Take the event
-            let id = Id(val[0..32].try_into()?);
-            // (like read_event, but we supply our on transaction)
-            if let Some(bytes) = self.events.get(&txn, id.as_slice())? {
-                let event = Event::read_from_buffer(bytes)?;
-                if f(&event) {
-                    events.push(event);
-                }
-            }
-        }
-        Ok(events)
+        self.read_events_referencing_person1(pubkey, since, f)
     }
 
+    #[inline]
     pub fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
-        if !GLOBALS.signer.is_ready() {
-            return Err(ErrorKind::NoPrivateKey.into());
-        }
-
-        let mut ids: Vec<Id> = Vec::new();
-        let txn = self.env.read_txn()?;
-        let iter = self.unindexed_giftwraps.iter(&txn)?;
-        for result in iter {
-            let (key, _val) = result?;
-            let a: [u8; 32] = key.try_into()?;
-            let id = Id(a);
-            ids.push(id);
-        }
-
-        let mut txn = self.env.write_txn()?;
-        for id in ids {
-            if let Some(event) = self.read_event(id)? {
-                self.write_event_ek_pk_index(&event, Some(&mut txn))?;
-                self.write_event_ek_c_index(&event, Some(&mut txn))?;
-                self.write_event_references_person(&event, Some(&mut txn))?;
-            }
-            self.unindexed_giftwraps.delete(&mut txn, id.as_slice())?;
-        }
-
-        txn.commit()?;
-
-        Ok(())
+        self.index_unindexed_giftwraps1()
     }
 
     // TBD: optimize this by storing better event indexes
@@ -1888,6 +1496,7 @@ impl Storage {
         }
     }
 
+    #[inline]
     pub fn write_relationship<'a>(
         &'a self,
         id: Id,
@@ -1895,39 +1504,12 @@ impl Storage {
         relationship: Relationship,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut key = id.as_ref().as_slice().to_owned();
-        key.extend(related.as_ref());
-        let value = relationship.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.relationships.put(txn, &key, &value)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_relationship1(id, related, relationship, rw_txn)
     }
 
+    #[inline]
     pub fn find_relationships(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
-        let start_key = id.as_slice();
-        let txn = self.env.read_txn()?;
-        let iter = self.relationships.prefix_iter(&txn, start_key)?;
-        let mut output: Vec<(Id, Relationship)> = Vec::new();
-        for result in iter {
-            let (key, val) = result?;
-            let id2 = Id(key[32..64].try_into().unwrap());
-            let relationship = Relationship::read_from_buffer(val)?;
-            output.push((id2, relationship));
-        }
-        Ok(output)
+        self.find_relationships1(id)
     }
 
     pub fn get_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
@@ -2071,44 +1653,18 @@ impl Storage {
         Ok(invalidate)
     }
 
+    #[inline]
     pub fn write_person<'a>(
         &'a self,
         person: &Person,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key: Vec<u8> = person.pubkey.to_bytes();
-        let bytes = serde_json::to_vec(person)?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.people.put(txn, &key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_person1(person, rw_txn)
     }
 
+    #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key: Vec<u8> = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        Ok(match self.people.get(&txn, &key)? {
-            Some(bytes) => Some(serde_json::from_slice(bytes)?),
-            None => None,
-        })
+        self.read_person1(pubkey)
     }
 
     pub fn write_person_if_missing<'a>(
@@ -2123,98 +1679,48 @@ impl Storage {
         Ok(())
     }
 
+    #[inline]
     pub fn filter_people<F>(&self, f: F) -> Result<Vec<Person>, Error>
     where
         F: Fn(&Person) -> bool,
     {
-        let txn = self.env.read_txn()?;
-        let iter = self.people.iter(&txn)?;
-        let mut output: Vec<Person> = Vec::new();
-        for result in iter {
-            let (_key, val) = result?;
-            let person: Person = serde_json::from_slice(val)?;
-            if f(&person) {
-                output.push(person);
-            }
-        }
-        Ok(output)
+        self.filter_people1(f)
     }
 
+    #[inline]
     pub fn write_person_relay<'a>(
         &'a self,
         person_relay: &PersonRelay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut key = person_relay.pubkey.to_bytes();
-        key.extend(person_relay.url.0.as_bytes());
-        key.truncate(MAX_LMDB_KEY);
-        let bytes = person_relay.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.person_relays.put(txn, &key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        self.write_person_relay1(person_relay, rw_txn)
     }
 
+    #[inline]
     pub fn read_person_relay(
         &self,
         pubkey: PublicKey,
         url: &RelayUrl,
     ) -> Result<Option<PersonRelay>, Error> {
-        let mut key = pubkey.to_bytes();
-        key.extend(url.0.as_bytes());
-        key.truncate(MAX_LMDB_KEY);
-        let txn = self.env.read_txn()?;
-        Ok(match self.person_relays.get(&txn, &key)? {
-            Some(bytes) => Some(PersonRelay::read_from_buffer(bytes)?),
-            None => None,
-        })
+        self.read_person_relay1(pubkey, url)
     }
 
+    #[inline]
     pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
-        let start_key = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        let iter = self.person_relays.prefix_iter(&txn, &start_key)?;
-        let mut output: Vec<PersonRelay> = Vec::new();
-        for result in iter {
-            let (_key, val) = result?;
-            let person_relay = PersonRelay::read_from_buffer(val)?;
-            output.push(person_relay);
-        }
-        Ok(output)
+        self.get_person_relays1(pubkey)
     }
 
-    /*
-    pub fn set_person_relay_manual_pairing(
-        &self,
-        pubkey: PublicKey,
-        read_relays: Vec<RelayUrl>,
-        write_relays: Vec<RelayUrl>,
-    ) -> Result<(), Error> {
-        let mut person_relays = self.get_person_relays(pubkey)?;
-        for mut pr in person_relays.drain(..) {
-            let orig_read = pr.manually_paired_read;
-            let orig_write = pr.manually_paired_write;
-            pr.manually_paired_read = read_relays.contains(&pr.url);
-            pr.manually_paired_write = write_relays.contains(&pr.url);
-            if pr.manually_paired_read != orig_read || pr.manually_paired_write != orig_write {
-                self.write_person_relay(&pr)?;
-            }
-        }
-        Ok(())
+    #[inline]
+    pub fn delete_person_relays<'a, F>(
+        &'a self,
+        filter: F,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        F: Fn(&PersonRelay) -> bool,
+    {
+        self.delete_person_relays1(filter, rw_txn)
     }
-     */
 
     /// This returns the relays for a person, along with a score, in order of score
     pub fn get_best_relays(
@@ -2400,7 +1906,10 @@ impl Storage {
     pub fn rebuild_event_indices(&self) -> Result<(), Error> {
         let mut wtxn = self.env.write_txn()?;
         let mut last_key = Id([0; 32]);
-        while let Some((key, val)) = self.events.get_greater_than(&wtxn, last_key.as_slice())? {
+        while let Some((key, val)) = self
+            .db_events()?
+            .get_greater_than(&wtxn, last_key.as_slice())?
+        {
             let id = Id::read_from_buffer(key)?;
             let event = Event::read_from_buffer(val)?;
             self.write_event_ek_pk_index(&event, Some(&mut wtxn))?;
@@ -2409,12 +1918,7 @@ impl Storage {
             last_key = id;
         }
         wtxn.commit()?;
-        GLOBALS.storage.sync()?;
-        Ok(())
-    }
-
-    pub fn sync(&self) -> Result<(), Error> {
-        self.env.force_sync()?;
+        self.sync()?;
         Ok(())
     }
 }

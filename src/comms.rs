@@ -74,7 +74,7 @@ pub struct ToMinionPayload {
 
 #[derive(Debug, Clone)]
 pub enum ToMinionPayloadDetail {
-    FetchEvent(IdHex),
+    FetchEvent(Id),
     PostEvent(Box<Event>),
     PullFollowing,
     Shutdown,

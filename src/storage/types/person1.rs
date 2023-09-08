@@ -1,6 +1,3 @@
-use crate::error::Error;
-use crate::storage::Storage;
-use heed::RwTxn;
 use nostr_types::{Metadata, PublicKey};
 use serde::{Deserialize, Serialize};
 
@@ -20,33 +17,93 @@ pub struct Person1 {
     pub relay_list_last_received: i64,
 }
 
-impl Storage {
-    #[allow(dead_code)]
-    pub fn write_person1<'a>(
-        &'a self,
-        person: &Person1,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key: Vec<u8> = person.pubkey.to_bytes();
-        let bytes = serde_json::to_vec(person)?;
+impl Person1 {
+    pub fn new(pubkey: PublicKey) -> Person1 {
+        Person1 {
+            pubkey,
+            petname: None,
+            followed: false,
+            followed_last_updated: 0,
+            muted: false,
+            metadata: None,
+            metadata_created_at: None,
+            metadata_last_received: 0,
+            nip05_valid: false,
+            nip05_last_checked: None,
+            relay_list_created_at: None,
+            relay_list_last_received: 0,
+        }
+    }
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.people.put(txn, &key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
+    pub fn display_name(&self) -> Option<&str> {
+        if let Some(pn) = &self.petname {
+            Some(pn)
+        } else if let Some(md) = &self.metadata {
+            if md.other.contains_key("display_name") {
+                if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
+                    if !s.is_empty() {
+                        return Some(s);
+                    }
+                }
             }
-        };
+            md.name.as_deref()
+        } else {
+            None
+        }
+    }
 
-        Ok(())
+    pub fn name(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            md.name.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn about(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            md.about.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn picture(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            md.picture.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn nip05(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            md.nip05.as_deref()
+        } else {
+            None
+        }
+    }
+}
+
+impl PartialEq for Person1 {
+    fn eq(&self, other: &Self) -> bool {
+        self.pubkey.eq(&other.pubkey)
+    }
+}
+impl Eq for Person1 {}
+impl PartialOrd for Person1 {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self.display_name(), other.display_name()) {
+            (Some(a), Some(b)) => a.to_lowercase().partial_cmp(&b.to_lowercase()),
+            _ => self.pubkey.partial_cmp(&other.pubkey),
+        }
+    }
+}
+impl Ord for Person1 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self.display_name(), other.display_name()) {
+            (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
+            _ => self.pubkey.cmp(&other.pubkey),
+        }
     }
 }

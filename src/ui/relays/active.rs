@@ -1,27 +1,22 @@
 use std::collections::HashSet;
 
 use super::GossipUi;
-use crate::comms::ToOverlordMessage;
-use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::ui::widgets;
+use crate::{globals::GLOBALS, ui::Page};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::Id;
+use egui_winit::egui::{Id, RichText};
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
-        ui.heading("Active Relays");
-        ui.set_enabled(!is_editing);
-        ui.add_space(10.0);
-        if ui.button("Pick Again").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
-        }
-        ui.add_space(50.0);
-        widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            ui.heading(Page::RelaysActivityMonitor.name());
+            ui.set_enabled(!is_editing);
+        });
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             ui.add_space(20.0);
             super::configure_list_btn(app, ui);
@@ -29,31 +24,18 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             super::relay_filter_combo(app, ui);
             ui.add_space(20.0);
             super::relay_sort_combo(app, ui);
+            ui.add_space(20.0);
+            widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
+            ui.add_space(200.0); // search_field somehow doesn't "take up" space
+            if ui
+                .button(RichText::new(Page::RelaysCoverage.name()))
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked()
+            {
+                app.set_page(crate::ui::Page::RelaysCoverage);
+            }
         });
     });
-    ui.add_space(10.0);
-    ui.separator();
-    ui.add_space(10.0);
-
-    ui.heading("Coverage");
-
-    if GLOBALS.relay_picker.pubkey_counts_iter().count() > 0 {
-        for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
-            let pk = elem.key();
-            let count = elem.value();
-            let name = crate::names::display_name_from_pubkey_lookup(pk);
-            ui.label(format!("{}: coverage short by {} relay(s)", name, count));
-        }
-        ui.add_space(12.0);
-        if ui.button("Pick Again").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
-        }
-    } else {
-        ui.label("All followed people are fully covered.".to_owned());
-    }
-
-    ui.add_space(10.0);
-    ui.separator();
     ui.add_space(10.0);
 
     let relays = if !is_editing {

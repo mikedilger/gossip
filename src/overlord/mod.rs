@@ -550,7 +550,14 @@ impl Overlord {
                 });
             }
             ToOverlordMessage::FetchEvent(id, relay_urls) => {
-                // We presume the caller already checked GLOBALS.storage.read_event() and it was not there
+                // Don't do this if we already have the event
+                if GLOBALS.storage.has_event(id)? {
+                    return Ok(true);
+                }
+
+                // Note: minions will remember if they get the same id multiple times
+                //       not to fetch it multiple times.
+
                 for url in relay_urls.iter() {
                     self.engage_minion(
                         url.to_owned(),
@@ -558,7 +565,7 @@ impl Overlord {
                             reason: RelayConnectionReason::FetchEvent,
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::FetchEvent(id.into()),
+                                detail: ToMinionPayloadDetail::FetchEvent(id),
                             },
                         }],
                     )
@@ -1125,7 +1132,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1323,7 +1330,7 @@ impl Overlord {
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, None, None, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         Ok(())
     }
@@ -1548,7 +1555,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1795,7 +1802,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
