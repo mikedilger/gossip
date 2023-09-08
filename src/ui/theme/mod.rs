@@ -348,7 +348,7 @@ pub trait ThemeDef: Send + Sync {
     // These styles are used by egui by default for widgets if you don't override them
     // in place.
     fn get_style(dark_mode: bool) -> Style;
-    /// the style to use when displaying ontop an accent-colored background
+    /// the style to use when displaying on-top of an accent-colored background
     fn get_on_accent_style(dark_mode: bool) -> Style;
 
     fn font_definitions() -> FontDefinitions;

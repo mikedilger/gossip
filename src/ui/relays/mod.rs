@@ -448,9 +448,12 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
 ///
 pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
     let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
-    let response = response
-        .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Configure List View");
+    let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let response = if !app.relays.configure_list_menu_active {
+        response.on_hover_text("Configure List View")
+    } else {
+        response
+    };
     let btn_rect = response.rect;
     let color = if response.hovered() {
         app.settings.theme.accent_color()
