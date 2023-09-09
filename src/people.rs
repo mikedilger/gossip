@@ -249,7 +249,7 @@ impl People {
     }
 
     pub fn create_if_missing(&self, pubkey: PublicKey) {
-        if let Err(e) = GLOBALS.people.create_all_if_missing(&[pubkey]) {
+        if let Err(e) = self.create_all_if_missing(&[pubkey]) {
             tracing::error!("{}", e);
         }
     }
