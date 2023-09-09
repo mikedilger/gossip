@@ -19,7 +19,7 @@ rustls-tls = [ "reqwest/rustls-tls", "tungstenite/rustls-tls-webpki-roots", "tok
 
 [patch.crates-io]
 # override egui crate for egui_video dependency
-egui = { git =  "https://github.com/mikedilger/egui", rev = "538088439c7c507fe49c730eab84ddd85e147391" }
+egui = { git =  "https://github.com/mikedilger/egui", rev = "3a1ed27b4782bfb93afb057acc1a6a85932632b6" }
 # Use the master branch of SDL2 to include a fix related to clang (and XCode after 14.2)
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "27cd1fd67c811e06b9d997a77bb6089a1b65070d" }
 
@@ -29,9 +29,9 @@ async-trait = "0.1"
 base64 = "0.21"
 dashmap = "5.4"
 dirs = "5.0"
-eframe = { git = "https://github.com/mikedilger/egui", rev = "538088439c7c507fe49c730eab84ddd85e147391", features = [ "persistence" ] }
-egui-winit = { git = "https://github.com/mikedilger/egui", rev = "538088439c7c507fe49c730eab84ddd85e147391", features = [ "default" ] }
-egui_extras = { git = "https://github.com/mikedilger/egui", rev = "538088439c7c507fe49c730eab84ddd85e147391", features = [ "image", "svg" ] }
+eframe = { git = "https://github.com/mikedilger/egui", rev = "3a1ed27b4782bfb93afb057acc1a6a85932632b6", features = [ "persistence" ] }
+egui-winit = { git = "https://github.com/mikedilger/egui", rev = "3a1ed27b4782bfb93afb057acc1a6a85932632b6", features = [ "default" ] }
+egui_extras = { git = "https://github.com/mikedilger/egui", rev = "3a1ed27b4782bfb93afb057acc1a6a85932632b6", features = [ "image", "svg" ] }
 egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "5a7297138dce16425c7dc7a8eab4d39d79088aba",  features = [ "from_bytes" ], optional = true }
 encoding_rs = "0.8"
 fallible-iterator = "0.2"

@@ -45,6 +45,8 @@ pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
         rounding: Rounding::same(5.0),
         fill,
         stroke: Stroke::NONE,
+        fill_texture_id: Default::default(),
+        uv: Rect::ZERO,
     });
 }
 
