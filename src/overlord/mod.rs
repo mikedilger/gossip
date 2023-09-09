@@ -1863,18 +1863,18 @@ impl Overlord {
 
         let now = Unixtime::now().unwrap();
 
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+
         // 'p' tags represent the author's contacts
         for tag in &our_contact_list.tags {
             if let Tag::Pubkey {
                 pubkey,
                 recommended_relay_url,
+                petname,
                 ..
             } = tag
             {
                 if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                    // Make sure we have that person
-                    GLOBALS.people.create_all_if_missing(&[pubkey.to_owned()])?;
-
                     // Save the pubkey for actual following them (outside of the loop in a batch)
                     pubkeys.push(pubkey.to_owned());
 
@@ -1884,7 +1884,9 @@ impl Overlord {
                         .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
                     {
                         // Save relay if missing
-                        GLOBALS.storage.write_relay_if_missing(&url, None)?;
+                        GLOBALS
+                            .storage
+                            .write_relay_if_missing(&url, Some(&mut txn))?;
 
                         // create or update person_relay last_suggested_kind3
                         let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
@@ -1892,12 +1894,47 @@ impl Overlord {
                             None => PersonRelay::new(pubkey, url.clone()),
                         };
                         pr.last_suggested_kind3 = Some(now.0 as u64);
-                        GLOBALS.storage.write_person_relay(&pr, None)?;
+                        GLOBALS.storage.write_person_relay(&pr, Some(&mut txn))?;
                     }
-                    // TBD: do something with the petname
+
+                    // Handle petname
+                    if merge && petname.is_none() {
+                        // In this case, we leave any existing petname, so no need to load the
+                        // person record. But we need to ensure the person exists
+                        GLOBALS
+                            .storage
+                            .write_person_if_missing(&pubkey, Some(&mut txn))?;
+                    } else {
+                        // In every other case we have to load the person and compare
+                        let mut person_needs_save = false;
+                        let mut person = match GLOBALS.storage.read_person(&pubkey)? {
+                            Some(person) => person,
+                            None => {
+                                person_needs_save = true;
+                                Person::new(pubkey.to_owned())
+                            }
+                        };
+
+                        if *petname != person.petname {
+                            if petname.is_some() {
+                                person_needs_save = true;
+                                person.petname = petname.clone();
+                            } else if !merge {
+                                // In overwrite mode, clear to None
+                                person_needs_save = true;
+                                person.petname = None;
+                            }
+                        }
+
+                        if person_needs_save {
+                            GLOBALS.storage.write_person(&person, Some(&mut txn))?;
+                        }
+                    }
                 }
             }
         }
+
+        txn.commit()?;
 
         // Follow all those pubkeys, and unfollow everbody else if merge=false
         GLOBALS.people.follow_all(&pubkeys, merge)?;
