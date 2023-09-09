@@ -552,14 +552,21 @@ impl People {
         let mut p_tags: Vec<Tag> = Vec::new();
 
         let pubkeys = self.get_followed_pubkeys();
+
         for pubkey in &pubkeys {
+            // Get their petname
+            let mut petname: Option<String> = None;
+            if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
+                petname = person.petname.clone();
+            }
+
             // Get their best relay
             let relays = GLOBALS.storage.get_best_relays(*pubkey, Direction::Write)?;
             let maybeurl = relays.get(0);
             p_tags.push(Tag::Pubkey {
                 pubkey: (*pubkey).into(),
                 recommended_relay_url: maybeurl.map(|(u, _)| u.to_unchecked_url()),
-                petname: None,
+                petname,
                 trailing: Vec::new(),
             });
         }
@@ -577,10 +584,6 @@ impl People {
             None => "".to_owned(),
         };
 
-        // NOTICE - some clients are stuffing relay following data into the content
-        // of `ContactList`s.  We don't have a set of relays that we read from, so
-        // we could only do half of that even if we wanted to, and I'm not sure only
-        // putting in write relays is of any use.
         let pre_event = PreEvent {
             pubkey: public_key,
             created_at: Unixtime::now().unwrap(),

@@ -1364,6 +1364,9 @@ impl Overlord {
     async fn push_following(&mut self) -> Result<(), Error> {
         let event = GLOBALS.people.generate_contact_list_event().await?;
 
+        // process event locally
+        crate::process::process_new_event(&event, None, None, false, false).await?;
+
         // Push to all of the relays we post to
         let relays: Vec<Relay> = GLOBALS
             .storage
