@@ -1,4 +1,4 @@
-use super::types::{Settings1, Settings2, Person2};
+use super::types::{Person2, Settings1, Settings2};
 use super::Storage;
 use crate::error::{Error, ErrorKind};
 use crate::people::PersonList;
@@ -381,7 +381,11 @@ impl Storage {
             }
         }
 
-        tracing::info!("{} people added to new lists, {} followed", count, followed_count);
+        tracing::info!(
+            "{} people added to new lists, {} followed",
+            count,
+            followed_count
+        );
 
         // This migration does not remove the old data. The next one will.
         Ok(())

@@ -191,7 +191,7 @@ impl NoteData {
 
         let lists = match GLOBALS.storage.read_person_lists(&author_pubkey) {
             Ok(lists) => lists,
-            _ => vec![]
+            _ => vec![],
         };
 
         NoteData {

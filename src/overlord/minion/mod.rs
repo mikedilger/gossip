@@ -353,7 +353,8 @@ impl Minion {
     pub async fn handle_overlord_message(&mut self, message: ToMinionPayload) -> Result<(), Error> {
         match message.detail {
             ToMinionPayloadDetail::FetchEvent(id) => {
-                self.sought_events.entry(id)
+                self.sought_events
+                    .entry(id)
                     .and_modify(|ess| ess.job_ids.push(message.job_id))
                     .or_insert(EventSeekState {
                         job_ids: vec![message.job_id],
@@ -759,7 +760,6 @@ impl Minion {
     }
 
     async fn get_events(&mut self) -> Result<(), Error> {
-
         // Collect all the sought events we have not yet asked for, and
         // presumptively mark them as having been asked for.
         let mut ids: Vec<IdHex> = Vec::new();

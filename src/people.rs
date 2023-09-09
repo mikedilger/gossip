@@ -598,9 +598,13 @@ impl People {
 
     pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
         if follow {
-            GLOBALS.storage.add_person_to_list(pubkey, PersonList::Followed, None)?;
+            GLOBALS
+                .storage
+                .add_person_to_list(pubkey, PersonList::Followed, None)?;
         } else {
-            GLOBALS.storage.remove_person_from_list(pubkey, PersonList::Followed, None)?;
+            GLOBALS
+                .storage
+                .remove_person_from_list(pubkey, PersonList::Followed, None)?;
         }
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
 
@@ -610,12 +614,16 @@ impl People {
     pub fn follow_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
-        if ! merge {
-            GLOBALS.storage.clear_person_list(PersonList::Followed, Some(&mut txn))?;
+        if !merge {
+            GLOBALS
+                .storage
+                .clear_person_list(PersonList::Followed, Some(&mut txn))?;
         }
 
         for pubkey in pubkeys {
-            GLOBALS.storage.add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
+            GLOBALS
+                .storage
+                .add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
@@ -630,17 +638,22 @@ impl People {
     }
 
     pub fn follow_none(&self) -> Result<(), Error> {
-        GLOBALS.storage.clear_person_list(PersonList::Followed, None)?;
+        GLOBALS
+            .storage
+            .clear_person_list(PersonList::Followed, None)?;
         GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
         Ok(())
     }
 
-
     pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
         if mute {
-            GLOBALS.storage.add_person_to_list(pubkey, PersonList::Muted, None)?;
+            GLOBALS
+                .storage
+                .add_person_to_list(pubkey, PersonList::Muted, None)?;
         } else {
-            GLOBALS.storage.remove_person_from_list(pubkey, PersonList::Muted, None)?;
+            GLOBALS
+                .storage
+                .remove_person_from_list(pubkey, PersonList::Muted, None)?;
         }
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
 

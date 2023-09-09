@@ -81,7 +81,10 @@ impl Person2 {
     }
 
     pub fn is_in_list(&self, list: PersonList) -> bool {
-        GLOBALS.storage.is_person_in_list(&self.pubkey, list).unwrap_or(false)
+        GLOBALS
+            .storage
+            .is_person_in_list(&self.pubkey, list)
+            .unwrap_or(false)
     }
 }
 

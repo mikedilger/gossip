@@ -66,8 +66,7 @@ pub(super) fn render_note(
         // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
-            let skip = (note_data.muted()
-                && !matches!(app.page, Page::Feed(FeedKind::DmChat(_))))
+            let skip = (note_data.muted() && !matches!(app.page, Page::Feed(FeedKind::DmChat(_))))
                 || (note_data.deletion.is_some() && !app.settings.show_deleted_events);
 
             if skip {
