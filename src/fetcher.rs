@@ -293,7 +293,7 @@ impl Fetcher {
         // it is an Arc internally
         let client = GLOBALS.fetcher.client.read().unwrap().clone().unwrap();
 
-        let mut req = client.get(&url.0);
+        let mut req = client.get(url.as_str());
         if let Some(ref etag) = etag {
             req = req.header("if-none-match", etag.to_owned());
         }
@@ -498,7 +498,7 @@ impl Fetcher {
         // Hash the url into a SHA256 hex string
         let hash = {
             let mut hasher = sha2::Sha256::new();
-            hasher.update(url.0.as_bytes());
+            hasher.update(url.as_str().as_bytes());
             let result = hasher.finalize();
             hex::encode(result)
         };
@@ -529,7 +529,7 @@ impl Fetcher {
     }
 
     fn host(&self, url: &Url) -> Option<String> {
-        let u = match url::Url::parse(&url.0) {
+        let u = match url::Url::parse(url.as_str()) {
             Ok(u) => u,
             Err(_) => return None,
         };

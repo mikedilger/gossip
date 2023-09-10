@@ -222,9 +222,9 @@ impl RelayEntry {
 
 impl RelayEntry {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = self.relay.url.domain();
+        let title = self.relay.url.host();
         let mut title = safe_truncate(&title, TITLE_MAX_LEN).to_string();
-        if self.relay.url.0.len() > TITLE_MAX_LEN {
+        if self.relay.url.as_str().len() > TITLE_MAX_LEN {
             title.push('\u{2026}'); // append ellipsis
         }
         let text = RichText::new(title).size(list_entry::TITLE_FONT_SIZE);

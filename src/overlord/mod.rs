@@ -285,7 +285,7 @@ impl Overlord {
             // We are already connected. Send it the jobs
             for job in jobs.drain(..) {
                 let _ = self.to_minions.send(ToMinionMessage {
-                    target: url.0.clone(),
+                    target: url.as_str().to_owned(),
                     payload: job.payload.clone(),
                 });
 
@@ -542,7 +542,7 @@ impl Overlord {
             }
             ToOverlordMessage::DropRelay(relay_url) => {
                 let _ = self.to_minions.send(ToMinionMessage {
-                    target: relay_url.0,
+                    target: relay_url.as_str().to_owned(),
                     payload: ToMinionPayload {
                         job_id: 0,
                         detail: ToMinionPayloadDetail::Shutdown,
@@ -888,7 +888,7 @@ impl Overlord {
 
             if disconnect {
                 let _ = self.to_minions.send(ToMinionMessage {
-                    target: url.0.clone(),
+                    target: url.as_str().to_owned(),
                     payload: ToMinionPayload {
                         job_id: 0,
                         detail: ToMinionPayloadDetail::Shutdown,
@@ -2276,7 +2276,7 @@ impl Overlord {
             .deflate(true)
             .build()?;
 
-        let mut url = match url::Url::parse(&callback.0) {
+        let mut url = match url::Url::parse(callback.as_str()) {
             Ok(url) => url,
             Err(e) => {
                 tracing::error!("{}", e);

@@ -34,7 +34,7 @@ impl Storage {
         // Copy events_seen
         import_event_seen_on_relay(&db, |id: String, url: String, seen: u64| {
             let id = Id::try_from_hex_string(&id)?;
-            let relay_url = RelayUrl(url);
+            let relay_url = RelayUrl::try_from_str(&url)?;
             let time = Unixtime(seen as i64);
             self.add_event_seen_on_relay(id, &relay_url, time, Some(&mut txn))
         })?;

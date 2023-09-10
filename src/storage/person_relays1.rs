@@ -8,7 +8,7 @@ use speedy::{Readable, Writable};
 use std::sync::Mutex;
 
 // PublicKey:Url -> PersonRelay
-//   key: key!(pubkey.as_bytes + url.0.as_bytes)
+//   key: key!(pubkey.as_bytes + url.as_str().as_bytes)
 //   val: person_relay.write_to_vec) | PersonRelay::read_from_buffer(bytes)
 
 static PERSON_RELAYS1_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
@@ -56,7 +56,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut key = person_relay.pubkey.to_bytes();
-        key.extend(person_relay.url.0.as_bytes());
+        key.extend(person_relay.url.as_str().as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let bytes = person_relay.write_to_vec()?;
 
@@ -83,7 +83,7 @@ impl Storage {
         url: &RelayUrl,
     ) -> Result<Option<PersonRelay1>, Error> {
         let mut key = pubkey.to_bytes();
-        key.extend(url.0.as_bytes());
+        key.extend(url.as_str().as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let txn = self.env.read_txn()?;
         Ok(match self.db_person_relays1()?.get(&txn, &key)? {

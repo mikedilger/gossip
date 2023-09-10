@@ -146,7 +146,7 @@ impl Storage {
 
     fn remove_invalid_relays<'a>(&'a self, rw_txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let bad_relays =
-            self.filter_relays1(|relay| RelayUrl::try_from_str(&relay.url.0).is_err())?;
+            self.filter_relays1(|relay| RelayUrl::try_from_str(relay.url.as_str()).is_err())?;
 
         for relay in &bad_relays {
             tracing::info!("Deleting bad relay: {}", relay.url);

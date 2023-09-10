@@ -1170,8 +1170,11 @@ impl GossipUi {
         }
 
         if let Some(color_image) = GLOBALS.media.get_image(&url) {
-            let texture_handle =
-                ctx.load_texture(url.0.clone(), color_image, TextureOptions::default());
+            let texture_handle = ctx.load_texture(
+                url.as_str().to_owned(),
+                color_image,
+                TextureOptions::default(),
+            );
             self.images.insert(url, texture_handle.clone());
             Some(texture_handle)
         } else {
