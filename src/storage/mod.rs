@@ -108,7 +108,7 @@ pub struct Storage {
     general: RawDatabase,
 
     // Id:Url -> Unixtime
-    //   key: key!(id.as_slice(), url.0.as_bytes())
+    //   key: key!(id.as_slice(), url.as_str().as_bytes())
     //   val: unixtime.0.to_be_bytes()
     event_seen_on_relay: RawDatabase,
 
@@ -124,7 +124,7 @@ pub struct Storage {
     hashtags: RawDatabase,
 
     // Url -> Relay
-    //   key: key!(url.0.as_bytes())
+    //   key: key!(url.as_str().as_bytes())
     //   val: serde_json::to_vec(relay) | serde_json::from_slice(bytes)
     relays: RawDatabase,
 
@@ -163,7 +163,7 @@ pub struct Storage {
     people: RawDatabase,
 
     // PublicKey:Url -> PersonRelay
-    //   key: key!(pubkey.as_bytes + url.0.as_bytes)
+    //   key: key!(pubkey.as_bytes + url.as_str().as_bytes)
     //   val: person_relay.write_to_vec) | PersonRelay::read_from_buffer(bytes)
     person_relays: RawDatabase,
 
@@ -783,7 +783,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut key: Vec<u8> = id.as_slice().to_owned();
-        key.extend(url.0.as_bytes());
+        key.extend(url.as_str().as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let bytes = when.0.to_be_bytes();
 
@@ -812,7 +812,7 @@ impl Storage {
             let (key, val) = result?;
 
             // Extract off the Url
-            let url = RelayUrl(std::str::from_utf8(&key[32..])?.to_owned());
+            let url = RelayUrl::try_from_str(std::str::from_utf8(&key[32..])?)?;
             let time = Unixtime(i64::from_be_bytes(val[..8].try_into()?));
             output.push((url, time));
         }
@@ -905,7 +905,7 @@ impl Storage {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
-        let key = key!(relay.url.0.as_bytes());
+        let key = key!(relay.url.as_str().as_bytes());
         if key.is_empty() {
             return Err(ErrorKind::Empty("relay url".to_owned()).into());
         }
@@ -936,7 +936,7 @@ impl Storage {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
-        let key = key!(url.0.as_bytes());
+        let key = key!(url.as_str().as_bytes());
         if key.is_empty() {
             return Err(ErrorKind::Empty("relay url".to_owned()).into());
         }
@@ -996,7 +996,7 @@ impl Storage {
     where
         M: FnMut(&mut Relay),
     {
-        let key = key!(url.0.as_bytes());
+        let key = key!(url.as_str().as_bytes());
         if key.is_empty() {
             return Err(ErrorKind::Empty("relay url".to_owned()).into());
         }
@@ -1064,7 +1064,7 @@ impl Storage {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
-        let key = key!(url.0.as_bytes());
+        let key = key!(url.as_str().as_bytes());
         if key.is_empty() {
             return Err(ErrorKind::Empty("relay url".to_owned()).into());
         }
@@ -2146,7 +2146,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut key = person_relay.pubkey.to_bytes();
-        key.extend(person_relay.url.0.as_bytes());
+        key.extend(person_relay.url.as_str().as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let bytes = person_relay.write_to_vec()?;
 
@@ -2173,7 +2173,7 @@ impl Storage {
         url: &RelayUrl,
     ) -> Result<Option<PersonRelay>, Error> {
         let mut key = pubkey.to_bytes();
-        key.extend(url.0.as_bytes());
+        key.extend(url.as_str().as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let txn = self.env.read_txn()?;
         Ok(match self.person_relays.get(&txn, &key)? {

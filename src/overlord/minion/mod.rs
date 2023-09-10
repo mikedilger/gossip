@@ -83,7 +83,7 @@ impl Minion {
         // Connect to the relay
         let websocket_stream = {
             // Parse the URI
-            let uri: http::Uri = self.url.0.parse::<Uri>()?;
+            let uri: http::Uri = self.url.as_str().parse::<Uri>()?;
             let mut parts: Parts = uri.into_parts();
             parts.scheme = match parts.scheme {
                 Some(scheme) => match scheme.as_str() {
@@ -163,16 +163,16 @@ impl Minion {
             // Some relays want an Origin header to filter requests. Of course we
             // don't have an Origin, but whatever, for these specific relays we will
             // give them something.
-            let req = if self.url.0 == "wss://relay.snort.social"
-                || self.url.0 == "wss://relay-pub.deschooling.us"
+            let req = if self.url.as_str() == "wss://relay.snort.social"
+                || self.url.as_str() == "wss://relay-pub.deschooling.us"
             {
                 // Like Damus, we will set it to the URL of the relay itself
-                req.header("Origin", &self.url.0)
+                req.header("Origin", self.url.as_str())
             } else {
                 req
             };
 
-            let uri: http::Uri = self.url.0.parse::<Uri>()?;
+            let uri: http::Uri = self.url.as_str().parse::<Uri>()?;
             let host = uri.host().unwrap(); // fixme
             let req = req
                 .header("Host", host)
@@ -288,7 +288,7 @@ impl Minion {
                     },
                     Err(e) => return Err(e.into())
                 };
-                if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
+                if to_minion_message.target == self.url.as_str() || to_minion_message.target == "all" {
                     self.handle_overlord_message(to_minion_message.payload).await?;
                 }
             },

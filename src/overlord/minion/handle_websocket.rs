@@ -154,7 +154,7 @@ impl Minion {
                     tags: vec![
                         Tag::Other {
                             tag: "relay".to_string(),
-                            data: vec![self.url.0.to_owned()],
+                            data: vec![self.url.as_str().to_owned()],
                         },
                         Tag::Other {
                             tag: "challenge".to_string(),

@@ -106,7 +106,7 @@ impl<'a> CoverageEntry<'a> {
         let relays_string = self
             .relays
             .iter()
-            .map(|rurl| rurl.domain())
+            .map(|rurl| rurl.host())
             .collect::<Vec<String>>()
             .join(", ");
         draw_text_at(ui, pos, relays_string.into(), Align::LEFT, None, None);

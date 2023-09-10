@@ -28,7 +28,7 @@ impl Storage {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
-        let key = key!(relay.url.0.as_bytes());
+        let key = key!(relay.url.as_str().as_bytes());
         if key.is_empty() {
             return Err(ErrorKind::Empty("relay url".to_owned()).into());
         }

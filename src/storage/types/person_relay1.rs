@@ -44,7 +44,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut key = person_relay.pubkey.to_bytes();
-        key.extend(person_relay.url.0.as_bytes());
+        key.extend(person_relay.url.as_str().as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let bytes = person_relay.write_to_vec()?;
 
