@@ -133,7 +133,7 @@ impl Overlord {
         // Separately subscribe to RelayList discovery for everyone we follow
         let discover_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER))?
+            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
             .iter()
             .map(|relay| relay.url.clone())
             .collect();
@@ -155,7 +155,7 @@ impl Overlord {
         // Separately subscribe to our outbox events on our write relays
         let write_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
             .iter()
             .map(|relay| relay.url.clone())
             .collect();
@@ -178,7 +178,7 @@ impl Overlord {
         //       not in widespread usage.
         let read_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::READ))?
+            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
             .iter()
             .map(|relay| relay.url.clone())
             .collect();
@@ -279,6 +279,14 @@ impl Overlord {
 
         if jobs.is_empty() {
             return Ok(());
+        }
+
+        if let Some(relay) = GLOBALS.storage.read_relay(&url)? {
+            if relay.rank == 0 {
+                return Ok(()); // don't connect to rank=0 relays
+            }
+        } else {
+            return Ok(()); // Don't connect if we do not know this relay yet.
         }
 
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
@@ -1153,7 +1161,7 @@ impl Overlord {
             // Get all of the relays that we write to
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
                 .iter()
                 .map(|relay| relay.url.clone())
                 .collect();
@@ -1226,7 +1234,7 @@ impl Overlord {
 
         let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::ADVERTISE))?
+            .filter_relays(|r| r.has_usage_bits(Relay::ADVERTISE) && r.rank != 0)?
             .iter()
             .map(|relay| relay.url.clone())
             .collect();
@@ -1309,7 +1317,7 @@ impl Overlord {
 
         let relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
         // FIXME - post it to relays we have seen it on.
 
         for relay in relays {
@@ -1339,7 +1347,7 @@ impl Overlord {
         // Pull our list from all of the relays we post to
         let relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1370,7 +1378,7 @@ impl Overlord {
         // Push to all of the relays we post to
         let relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1417,7 +1425,7 @@ impl Overlord {
         // Push to all of the relays we post to
         let relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?;
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
 
         for relay in relays {
             // Send it the event to pull our followers
@@ -1566,7 +1574,7 @@ impl Overlord {
             // Get all of the relays that we write to
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
                 .iter()
                 .map(|relay| relay.url.clone())
                 .collect();
@@ -1813,7 +1821,7 @@ impl Overlord {
             // Get all of the relays that we write to
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
                 .iter()
                 .map(|relay| relay.url.clone())
                 .collect();
@@ -2211,7 +2219,7 @@ impl Overlord {
             // Add all my write relays
             let write_relay_urls: Vec<RelayUrl> = GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))?
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
                 .iter()
                 .map(|relay| relay.url.clone())
                 .collect();
