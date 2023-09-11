@@ -27,6 +27,7 @@ sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "27cd1fd67c811e06
 async-recursion = "1.0"
 async-trait = "0.1"
 base64 = "0.21"
+bech32 = "0.9"
 dashmap = "5.4"
 dirs = "5.0"
 eframe = { git = "https://github.com/mikedilger/egui", rev = "30768b98be7ccf13d39b6e069c50948ddf7780c0", features = [ "persistence" ] }

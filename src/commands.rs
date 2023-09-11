@@ -1,7 +1,8 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
-use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
+use bech32::FromBase32;
+use nostr_types::{Event, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, Unixtime};
 use std::env;
 use tokio::runtime::Runtime;
 use zeroize::Zeroize;
@@ -14,6 +15,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     println!("*** COMMAND = {} ***\n", command);
 
     match &*command {
+        "bech32_decode" => bech32_decode(args)?,
         "decrypt" => decrypt(args)?,
         "dump_event" => dump_event(args)?,
         "dump_followed" => dump_followed()?,
@@ -40,6 +42,8 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
 }
 
 pub fn help() -> Result<(), Error> {
+    println!("gossip bech32_decode <bech32string>");
+    println!("    decode the bech32 string.");
     println!("gossip decrypt <pubkeyhex> <ciphertext> <padded?>");
     println!("    decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.");
     println!("gossip dump_event <idhex>");
@@ -72,6 +76,92 @@ pub fn help() -> Result<(), Error> {
     println!("    Verify if the given event signature is valid");
     println!("gossip verify_json <event_json>");
     println!("    Verify if the passed in event JSON's signature is valid");
+
+    Ok(())
+}
+
+pub fn bech32_decode(mut args: env::Args) -> Result<(), Error> {
+    let mut param = match args.next() {
+        Some(s) => s,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing bech32string parameter".to_string(),
+                "bech32_decode <bech32string>".to_string(),
+            )
+            .into())
+        }
+    };
+
+    // Also work if prefixed with 'nostr:'
+    if let Some(nurl) = NostrUrl::try_from_string(&param) {
+        param = format!("{}", nurl.0);
+    }
+
+    if let Some(nb32) = NostrBech32::try_from_string(&param) {
+        match nb32 {
+            NostrBech32::EventAddr(ea) => {
+                println!("Event Address:");
+                println!("  d={}", ea.d);
+                println!(
+                    "  relays={}",
+                    ea.relays
+                        .iter()
+                        .map(|r| r.as_str().to_owned())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+                println!("  kind={}", Into::<u32>::into(ea.kind));
+                println!("  author={}", ea.author.as_hex_string());
+            }
+            NostrBech32::EventPointer(ep) => {
+                println!("Event Pointer:");
+                println!("  id={}", ep.id.as_hex_string());
+                println!(
+                    "  relays={}",
+                    ep.relays
+                        .iter()
+                        .map(|r| r.as_str().to_owned())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+                if let Some(kind) = ep.kind {
+                    println!("  kind={}", Into::<u32>::into(kind));
+                }
+                if let Some(author) = ep.author {
+                    println!("  author={}", author.as_hex_string());
+                }
+            }
+            NostrBech32::Id(id) => {
+                println!("Id: {}", id.as_hex_string());
+            }
+            NostrBech32::Profile(profile) => {
+                println!("Profile:");
+                println!("  pubkey: {}", profile.pubkey.as_hex_string());
+                println!(
+                    "  relays={}",
+                    profile
+                        .relays
+                        .iter()
+                        .map(|r| r.as_str().to_owned())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+            }
+            NostrBech32::Pubkey(pubkey) => {
+                println!("Pubkey: {}", pubkey.as_hex_string());
+            }
+            NostrBech32::Relay(url) => {
+                println!("Relay URL: {}", url.0);
+            }
+        }
+    } else if let Ok(mut key) = PrivateKey::try_from_bech32_string(&param) {
+        println!("Private Key: {}", key.as_hex_string());
+    } else {
+        let data = bech32::decode(&param).unwrap();
+        println!("DATA.0 = {}", data.0);
+        let decoded = Vec::<u8>::from_base32(&data.1).unwrap();
+        println!("DATA.1 = {}", String::from_utf8_lossy(&decoded));
+    }
 
     Ok(())
 }

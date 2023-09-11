@@ -1813,6 +1813,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "base64 0.21.2",
+ "bech32",
  "dashmap",
  "dirs",
  "eframe",
