@@ -9,6 +9,9 @@ impl Storage {
     pub(super) fn import(&self) -> Result<(), Error> {
         tracing::info!("Importing SQLITE data into LMDB...");
 
+        // Trigger old databases
+        let _ = self.db_people1()?;
+
         let mut txn = self.env.write_txn()?;
 
         // Progress the legacy database to the endpoint first
