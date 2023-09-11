@@ -255,11 +255,13 @@ pub async fn process_new_event(
     for bech32 in NostrBech32::find_all_in_string(&event.content) {
         match bech32 {
             NostrBech32::Id(id) => {
-                if let Some(relay_url) = seen_on.as_ref() {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchEvent(
-                        id,
-                        vec![relay_url.to_owned()],
-                    ));
+                if GLOBALS.storage.read_event(id)?.is_none() {
+                    if let Some(relay_url) = seen_on.as_ref() {
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchEvent(
+                            id,
+                            vec![relay_url.to_owned()],
+                        ));
+                    }
                 }
             }
             NostrBech32::EventPointer(ep) => {
