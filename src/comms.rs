@@ -1,6 +1,6 @@
 use crate::dm_channel::DmChannel;
 use nostr_types::{
-    Event, Id, IdHex, Metadata, MilliSatoshi, PublicKey, RelayUrl, Tag, UncheckedUrl,
+    Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, PublicKey, RelayUrl, Tag, UncheckedUrl,
 };
 use std::fmt;
 
@@ -17,6 +17,7 @@ pub enum ToOverlordMessage {
     DeletePub,
     DropRelay(RelayUrl),
     FetchEvent(Id, Vec<RelayUrl>),
+    FetchEventAddr(EventAddr),
     FollowPubkeyAndRelay(String, RelayUrl),
     FollowNip05(String),
     FollowNprofile(String),
@@ -75,6 +76,7 @@ pub struct ToMinionPayload {
 #[derive(Debug, Clone)]
 pub enum ToMinionPayloadDetail {
     FetchEvent(Id),
+    FetchEventAddr(EventAddr),
     PostEvent(Box<Event>),
     PullFollowing,
     Shutdown,

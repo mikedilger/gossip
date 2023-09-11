@@ -580,6 +580,23 @@ impl Overlord {
                     .await?;
                 }
             }
+            ToOverlordMessage::FetchEventAddr(ea) => {
+                for unchecked_url in ea.relays.iter() {
+                    if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(unchecked_url) {
+                        self.engage_minion(
+                            relay_url.to_owned(),
+                            vec![RelayJob {
+                                reason: RelayConnectionReason::FetchEvent,
+                                payload: ToMinionPayload {
+                                    job_id: rand::random::<u64>(),
+                                    detail: ToMinionPayloadDetail::FetchEventAddr(ea.clone()),
+                                },
+                            }],
+                        )
+                        .await?;
+                    }
+                }
+            }
             ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
                 self.follow_pubkey_and_relay(pubkeystr, relay).await?;
             }

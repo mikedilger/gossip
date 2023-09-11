@@ -276,8 +276,20 @@ pub async fn process_new_event(
                         .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
                 }
             }
-            NostrBech32::EventAddr(_ea) => {
-                // FIXME - fetch parameterized replaceable event (need new comms command and relay)
+            NostrBech32::EventAddr(mut ea) => {
+                if let Ok(None) = GLOBALS.storage.get_parameterized_replaceable_event(&ea) {
+                    // Add the seen_on relay
+                    if let Some(seen_on_url) = seen_on.as_ref() {
+                        let seen_on_unchecked_url = seen_on_url.to_unchecked_url();
+                        if !ea.relays.contains(&seen_on_unchecked_url) {
+                            ea.relays.push(seen_on_unchecked_url);
+                        }
+                    }
+
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FetchEventAddr(ea));
+                }
             }
             NostrBech32::Profile(prof) => {
                 // Record existence of such a person

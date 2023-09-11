@@ -92,7 +92,7 @@ pub(super) fn render_note(
 
             let height = match app.height.get(&id) {
                 Some(h) => *h,
-                None => 0.0
+                None => 0.0,
             };
 
             let render_data = NoteRenderData {
@@ -1032,9 +1032,7 @@ fn render_repost(
     content_margin_left: f32,
     bottom_of_avatar: f32,
 ) {
-
     if let Ok(repost_data) = repost_ref.try_borrow() {
-
         let render_data = NoteRenderData {
             // the full note height differs from the reposted height anyways
             height: 0.0,

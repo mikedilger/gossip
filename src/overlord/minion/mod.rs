@@ -15,7 +15,7 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKey, PublicKeyHex,
+    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKey, PublicKeyHex,
     PublicKeyHexPrefix, RelayInformationDocument, RelayUrl, Unixtime,
 };
 use reqwest::Response;
@@ -361,6 +361,11 @@ impl Minion {
                         asked: false,
                     });
                 // We don't ask the relay immediately. See task_timer.
+            }
+            ToMinionPayloadDetail::FetchEventAddr(ea) => {
+                // These are rare enough we can ask immediately. We can't store in sought_events
+                // anyways we would have to create a parallel thing.
+                self.get_event_addr(message.job_id, ea).await?;
             }
             ToMinionPayloadDetail::PostEvent(event) => {
                 let id = event.id;
@@ -808,6 +813,21 @@ impl Minion {
         tracing::trace!("{}: Sent {}", &self.url, &wire);
 
         Ok(())
+    }
+
+    async fn get_event_addr(&mut self, job_id: u64, ea: EventAddr) -> Result<(), Error> {
+        // create a handle for ourselves
+        let handle = format!("temp_event_addr_{}", self.next_events_subscription_id);
+        self.next_events_subscription_id += 1;
+
+        // build the filter
+        let mut filter = Filter::new();
+        let pkh: PublicKeyHex = ea.author.into();
+        filter.authors = vec![pkh.prefix(32)]; // half-size
+        filter.kinds = vec![ea.kind];
+        filter.d = vec![ea.d];
+
+        self.subscribe(vec![filter], &handle, job_id).await
     }
 
     async fn temp_subscribe_metadata(

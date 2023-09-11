@@ -1,4 +1,5 @@
 use super::{GossipUi, NoteData, Page, RepostType};
+use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui::Context;
@@ -235,10 +236,16 @@ pub(super) fn render_parameterized_event_link(
                 author: Some(prevent.pubkey),
             }));
         } else {
+            // Disclose failure
             GLOBALS
                 .status_queue
                 .write()
                 .write("Parameterized event not found.".to_owned());
+
+            // Start fetch
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::FetchEventAddr(event_addr.to_owned()));
         }
     };
 }
