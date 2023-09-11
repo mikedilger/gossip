@@ -1031,6 +1031,7 @@ fn render_repost(
     content_margin_left: f32,
     bottom_of_avatar: f32,
 ) {
+
     if let Ok(repost_data) = repost_ref.try_borrow() {
         let render_data = NoteRenderData {
             height: 0.0,
@@ -1044,6 +1045,8 @@ fn render_repost(
             thread_position: 0,
             can_post: GLOBALS.signer.is_ready(),
         };
+
+        let row_height = ui.cursor().height();
 
         let push_top = {
             let diff = bottom_of_avatar - ui.cursor().top();
@@ -1133,5 +1136,8 @@ fn render_repost(
                     );
                 });
         });
+
+        ui.end_row();
+        ui.set_row_height(row_height);
     }
 }
