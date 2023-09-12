@@ -21,12 +21,6 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "bech32_decode" => bech32_decode(args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(args)?,
         "decrypt" => decrypt(args)?,
-        "print_event" => print_event(args)?,
-        "print_followed" => print_followed()?,
-        "print_muted" => print_muted()?,
-        "print_person_relays" => print_person_relays(args)?,
-        "print_relay" => print_relay(args)?,
-        "print_relays" => print_relays()?,
         "events_of_kind" => events_of_kind(args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(args)?,
         "giftwrap_ids" => giftwrap_ids()?,
@@ -35,6 +29,12 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
             login()?;
             return Ok(false);
         }
+        "print_event" => print_event(args)?,
+        "print_followed" => print_followed()?,
+        "print_muted" => print_muted()?,
+        "print_person_relays" => print_person_relays(args)?,
+        "print_relay" => print_relay(args)?,
+        "print_relays" => print_relays()?,
         "rebuild_indices" => rebuild_indices()?,
         "reprocess_recent" => reprocess_recent(runtime)?,
         "ungiftwrap" => ungiftwrap(args)?,
@@ -53,6 +53,16 @@ pub fn help() -> Result<(), Error> {
     println!("    encode an event address (parameterized replaceable event link).");
     println!("gossip decrypt <pubkeyhex> <ciphertext> <padded?>");
     println!("    decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.");
+    println!("gossip events_of_kind <kind>");
+    println!("    print IDs of all events of kind=<kind>");
+    println!("gossip events_of_pubkey_and_kind <pubkeyhex> <kind>");
+    println!("    print IDs of all events from <pubkeyhex> of kind=<kind>");
+    println!("gossip giftwrap_ids");
+    println!("    List the IDs of all giftwrap events you are tagged on");
+    println!("gossip help");
+    println!("    show this list");
+    println!("gossip login");
+    println!("    login on the command line before starting the gossip GUI");
     println!("gossip print_event <idhex>");
     println!("    print the event (in JSON) from the database that has the given id");
     println!("gossip print_followed");
@@ -65,16 +75,6 @@ pub fn help() -> Result<(), Error> {
     println!("    print the relay record");
     println!("gossip print_relays");
     println!("    print all the relay records");
-    println!("gossip events_of_kind <kind>");
-    println!("    print IDs of all events of kind=<kind>");
-    println!("gossip events_of_pubkey_and_kind <pubkeyhex> <kind>");
-    println!("    print IDs of all events from <pubkeyhex> of kind=<kind>");
-    println!("gossip giftwrap_ids");
-    println!("    List the IDs of all giftwrap events you are tagged on");
-    println!("gossip help");
-    println!("    show this list");
-    println!("gossip login");
-    println!("    login on the command line before starting the gossip GUI");
     println!("gossip rebuild_indices");
     println!("    Rebuild all event-related indices");
     println!("gossip reprocess_recent");
