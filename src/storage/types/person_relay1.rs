@@ -1,7 +1,8 @@
 use nostr_types::{PublicKey, RelayUrl, Unixtime};
+use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
-#[derive(Debug, Readable, Writable)]
+#[derive(Debug, Readable, Writable, Serialize, Deserialize)]
 pub struct PersonRelay1 {
     // The person
     pub pubkey: PublicKey,
