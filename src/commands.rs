@@ -3,8 +3,8 @@ use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use bech32::FromBase32;
 use nostr_types::{
-    Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, UncheckedUrl,
-    Unixtime,
+    Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, RelayUrl,
+    UncheckedUrl, Unixtime,
 };
 use std::env;
 use tokio::runtime::Runtime;
@@ -25,6 +25,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "dump_followed" => dump_followed()?,
         "dump_muted" => dump_muted()?,
         "dump_person_relays" => dump_person_relays(args)?,
+        "dump_relay" => dump_relay(args)?,
         "dump_relays" => dump_relays()?,
         "events_of_kind" => events_of_kind(args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(args)?,
@@ -60,6 +61,8 @@ pub fn help() -> Result<(), Error> {
     println!("    print every pubkey that is muted");
     println!("gossip dump_person_relays <pubkeyhex>");
     println!("    print all the person-relay records for the given person");
+    println!("gossip dump_relay <url>");
+    println!("    print the relay record");
     println!("gossip dump_relays");
     println!("    print all the relay records");
     println!("gossip events_of_kind <kind>");
@@ -287,6 +290,24 @@ pub fn dump_event(mut args: env::Args) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+pub fn dump_relay(mut args: env::Args) -> Result<(), Error> {
+    if let Some(url) = args.next() {
+        let rurl = RelayUrl::try_from_str(&url)?;
+        if let Some(relay) = GLOBALS.storage.read_relay(&rurl)? {
+            println!("{:?}", relay);
+        } else {
+            println!("Relay not found.");
+        }
+        Ok(())
+    } else {
+        return Err(ErrorKind::Usage(
+            "Missing url parameter".to_string(),
+            "dump_relay <url>".to_owned(),
+        )
+        .into());
+    }
 }
 
 pub fn dump_relays() -> Result<(), Error> {
