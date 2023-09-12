@@ -2,7 +2,10 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use bech32::FromBase32;
-use nostr_types::{Event, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, Unixtime};
+use nostr_types::{
+    Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, UncheckedUrl,
+    Unixtime,
+};
 use std::env;
 use tokio::runtime::Runtime;
 use zeroize::Zeroize;
@@ -16,6 +19,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
 
     match &*command {
         "bech32_decode" => bech32_decode(args)?,
+        "bech32_encode_event_addr" => bech32_encode_event_addr(args)?,
         "decrypt" => decrypt(args)?,
         "dump_event" => dump_event(args)?,
         "dump_followed" => dump_followed()?,
@@ -44,6 +48,8 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
 pub fn help() -> Result<(), Error> {
     println!("gossip bech32_decode <bech32string>");
     println!("    decode the bech32 string.");
+    println!("gossip bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]");
+    println!("    encode an event address (parameterized replaceable event link).");
     println!("gossip decrypt <pubkeyhex> <ciphertext> <padded?>");
     println!("    decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.");
     println!("gossip dump_event <idhex>");
@@ -162,6 +168,58 @@ pub fn bech32_decode(mut args: env::Args) -> Result<(), Error> {
         let decoded = Vec::<u8>::from_base32(&data.1).unwrap();
         println!("DATA.1 = {}", String::from_utf8_lossy(&decoded));
     }
+
+    Ok(())
+}
+
+pub fn bech32_encode_event_addr(mut args: env::Args) -> Result<(), Error> {
+    let kind: EventKind = match args.next() {
+        Some(integer) => integer.parse::<u32>()?.into(),
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing kind parameter".to_string(),
+                "bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let pubkey = match args.next() {
+        Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing pubkeyhex parameter".to_string(),
+                "bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let d = match args.next() {
+        Some(d) => d,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing d parameter".to_string(),
+                "bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let mut urls: Vec<UncheckedUrl> = vec![];
+
+    while let Some(s) = args.next() {
+        urls.push(UncheckedUrl::from_string(s));
+    }
+
+    let ea = EventAddr {
+        d,
+        relays: urls,
+        kind,
+        author: pubkey,
+    };
+
+    println!("{}", ea.as_bech32_string());
 
     Ok(())
 }
