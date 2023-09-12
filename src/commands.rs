@@ -296,7 +296,7 @@ pub fn print_relay(mut args: env::Args) -> Result<(), Error> {
     if let Some(url) = args.next() {
         let rurl = RelayUrl::try_from_str(&url)?;
         if let Some(relay) = GLOBALS.storage.read_relay(&rurl)? {
-            println!("{:?}", relay);
+            println!("{}", serde_json::to_string_pretty(&relay)?);
         } else {
             println!("Relay not found.");
         }
@@ -313,7 +313,7 @@ pub fn print_relay(mut args: env::Args) -> Result<(), Error> {
 pub fn print_relays() -> Result<(), Error> {
     let relays = GLOBALS.storage.filter_relays(|_| true)?;
     for relay in &relays {
-        println!("{:?}", relay);
+        println!("{}", serde_json::to_string(relay)?);
     }
     Ok(())
 }
@@ -348,14 +348,7 @@ pub fn print_person_relays(mut args: env::Args) -> Result<(), Error> {
 
     let person_relays = GLOBALS.storage.get_person_relays(pubkey)?;
     for record in &person_relays {
-        println!("write={} read={}, mwrite={}, mread={}, url={} last_fetched={:?}, last_suggested_kind3={:?}, last_suggested_nip05={:?}, last_suggested_by_tag={:?}",
-                 record.write as usize, record.read as usize,
-                 record.manually_paired_write as usize, record.manually_paired_read as usize,
-                 record.url,
-                 record.last_fetched,
-                 record.last_suggested_kind3,
-                 record.last_suggested_nip05,
-                 record.last_suggested_bytag);
+        println!("{}", serde_json::to_string(record)?);
     }
     Ok(())
 }
