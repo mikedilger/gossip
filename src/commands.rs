@@ -21,12 +21,12 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "bech32_decode" => bech32_decode(args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(args)?,
         "decrypt" => decrypt(args)?,
-        "dump_event" => dump_event(args)?,
-        "dump_followed" => dump_followed()?,
-        "dump_muted" => dump_muted()?,
-        "dump_person_relays" => dump_person_relays(args)?,
-        "dump_relay" => dump_relay(args)?,
-        "dump_relays" => dump_relays()?,
+        "print_event" => print_event(args)?,
+        "print_followed" => print_followed()?,
+        "print_muted" => print_muted()?,
+        "print_person_relays" => print_person_relays(args)?,
+        "print_relay" => print_relay(args)?,
+        "print_relays" => print_relays()?,
         "events_of_kind" => events_of_kind(args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(args)?,
         "giftwrap_ids" => giftwrap_ids()?,
@@ -53,17 +53,17 @@ pub fn help() -> Result<(), Error> {
     println!("    encode an event address (parameterized replaceable event link).");
     println!("gossip decrypt <pubkeyhex> <ciphertext> <padded?>");
     println!("    decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.");
-    println!("gossip dump_event <idhex>");
+    println!("gossip print_event <idhex>");
     println!("    print the event (in JSON) from the database that has the given id");
-    println!("gossip dump_followed");
+    println!("gossip print_followed");
     println!("    print every pubkey that is followed");
-    println!("gossip dump_muted");
+    println!("gossip print_muted");
     println!("    print every pubkey that is muted");
-    println!("gossip dump_person_relays <pubkeyhex>");
+    println!("gossip print_person_relays <pubkeyhex>");
     println!("    print all the person-relay records for the given person");
-    println!("gossip dump_relay <url>");
+    println!("gossip print_relay <url>");
     println!("    print the relay record");
-    println!("gossip dump_relays");
+    println!("gossip print_relays");
     println!("    print all the relay records");
     println!("gossip events_of_kind <kind>");
     println!("    print IDs of all events of kind=<kind>");
@@ -270,13 +270,13 @@ pub fn decrypt(mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dump_event(mut args: env::Args) -> Result<(), Error> {
+pub fn print_event(mut args: env::Args) -> Result<(), Error> {
     let idstr = match args.next() {
         Some(id) => id,
         None => {
             return Err(ErrorKind::Usage(
                 "Missing idhex parameter".to_string(),
-                "dump_event <idhex>".to_owned(),
+                "print_event <idhex>".to_owned(),
             )
             .into())
         }
@@ -292,7 +292,7 @@ pub fn dump_event(mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dump_relay(mut args: env::Args) -> Result<(), Error> {
+pub fn print_relay(mut args: env::Args) -> Result<(), Error> {
     if let Some(url) = args.next() {
         let rurl = RelayUrl::try_from_str(&url)?;
         if let Some(relay) = GLOBALS.storage.read_relay(&rurl)? {
@@ -304,13 +304,13 @@ pub fn dump_relay(mut args: env::Args) -> Result<(), Error> {
     } else {
         return Err(ErrorKind::Usage(
             "Missing url parameter".to_string(),
-            "dump_relay <url>".to_owned(),
+            "print_relay <url>".to_owned(),
         )
         .into());
     }
 }
 
-pub fn dump_relays() -> Result<(), Error> {
+pub fn print_relays() -> Result<(), Error> {
     let relays = GLOBALS.storage.filter_relays(|_| true)?;
     for relay in &relays {
         println!("{:?}", relay);
@@ -318,7 +318,7 @@ pub fn dump_relays() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dump_followed() -> Result<(), Error> {
+pub fn print_followed() -> Result<(), Error> {
     let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
     for pk in &pubkeys {
         println!("{}", pk.as_hex_string());
@@ -326,7 +326,7 @@ pub fn dump_followed() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dump_muted() -> Result<(), Error> {
+pub fn print_muted() -> Result<(), Error> {
     let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
     for pk in &pubkeys {
         println!("{}", pk.as_hex_string());
@@ -334,13 +334,13 @@ pub fn dump_muted() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dump_person_relays(mut args: env::Args) -> Result<(), Error> {
+pub fn print_person_relays(mut args: env::Args) -> Result<(), Error> {
     let pubkey = match args.next() {
         Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
         None => {
             return Err(ErrorKind::Usage(
                 "Missing pubkeyhex parameter".to_string(),
-                "dump_person_relays <pubkeyhex>".to_owned(),
+                "print_person_relays <pubkeyhex>".to_owned(),
             )
             .into())
         }
