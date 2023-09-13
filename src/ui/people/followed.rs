@@ -64,7 +64,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         if ui
             .button("↓ Merge ↓")
             .on_hover_text(
-                "This pulls down your contact list, merging it into what is already here",
+                "This pulls down your Contact List, merging it into what is already here",
             )
             .clicked()
         {
@@ -76,7 +76,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         if GLOBALS.signer.is_ready() {
             if ui
                 .button("↑ Publish ↑")
-                .on_hover_text("This publishes your contact list")
+                .on_hover_text("This publishes your Contact List")
                 .clicked()
             {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
