@@ -11,6 +11,7 @@ pub enum ToOverlordMessage {
     AdvertiseRelayList,
     ChangePassphrase(String, String),
     ClearFollowing,
+    ClearMuteList,
     DelegationReset,
     DeletePost(Id),
     DeletePriv,
@@ -35,6 +36,7 @@ pub enum ToOverlordMessage {
     PruneDatabase,
     PushFollow,
     PushMetadata(Metadata),
+    PushMuteList,
     ReengageMinion(RelayUrl, Vec<RelayJob>),
     RefreshFollowedMetadata,
     ClearAllUsageOnRelay(RelayUrl),
@@ -47,6 +49,7 @@ pub enum ToOverlordMessage {
     Shutdown,
     UnlockKey(String),
     UpdateFollowing(bool),
+    UpdateMuteList(bool),
     UpdateMetadata(PublicKey),
     UpdateMetadataInBulk(Vec<PublicKey>),
     VisibleNotesChanged(Vec<Id>),
@@ -105,6 +108,7 @@ pub enum RelayConnectionReason {
     PostContacts,
     PostLike,
     PostMetadata,
+    PostMuteList,
     ReadThread,
 }
 
@@ -131,6 +135,7 @@ impl RelayConnectionReason {
             PostLike => "Posting a reaction to an event",
             FetchContacts => "Fetching our contact list",
             PostContacts => "Posting our contact list",
+            PostMuteList => "Posting our mute list",
             PostMetadata => "Posting our metadata",
             ReadThread => "Reading ancestors to build a thread",
         }
@@ -151,6 +156,7 @@ impl RelayConnectionReason {
             PostLike => false,
             FetchContacts => false,
             PostContacts => false,
+            PostMuteList => false,
             PostMetadata => false,
             ReadThread => true,
         }

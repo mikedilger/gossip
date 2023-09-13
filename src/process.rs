@@ -234,14 +234,36 @@ pub async fn process_new_event(
         } else {
             process_somebody_elses_contact_list(event).await?;
         }
-    }
-
-    if event.kind == EventKind::RelayList {
+    } else if event.kind == EventKind::MuteList {
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
+            if event.pubkey == pubkey {
+                // We do not process our own mute list automatically.
+                // Instead we only process it on user command.
+                // See Overlord::update_muted()
+                //
+                // But we do update people.last_mute_list_asof and _size
+                if event.created_at.0 > GLOBALS.people.last_mute_list_asof.load(Ordering::Relaxed) {
+                    GLOBALS
+                        .people
+                        .last_mute_list_asof
+                        .store(event.created_at.0, Ordering::Relaxed);
+                    let size = event
+                        .tags
+                        .iter()
+                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                        .count();
+                    GLOBALS
+                        .people
+                        .last_mute_list_size
+                        .store(size, Ordering::Relaxed);
+                }
+                return Ok(());
+            }
+        }
+    } else if event.kind == EventKind::RelayList {
         GLOBALS.storage.process_relay_list(event)?;
-    }
-
-    // If the content is a repost, seek the event it reposts
-    if event.kind == EventKind::Repost {
+    } else if event.kind == EventKind::Repost {
+        // If the content is a repost, seek the event it reposts
         for (id, optrelay) in event.mentions().iter() {
             if let Some(rurl) = optrelay {
                 let _ = GLOBALS

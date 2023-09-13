@@ -624,6 +624,7 @@ impl Minion {
                         EventKind::Metadata,
                         //EventKind::RecommendRelay,
                         EventKind::ContactList,
+                        EventKind::MuteList,
                         EventKind::RelayList,
                     ],
                     // these are all replaceable, no since required

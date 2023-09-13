@@ -77,6 +77,12 @@ pub struct People {
 
     // Size of the last self-owned contact list we have an event for
     pub last_contact_list_size: AtomicUsize,
+
+    // Date of the last self-owned mute list we have an event for
+    pub last_mute_list_asof: AtomicI64,
+
+    // Size of the last self-owned mute list we have an event for
+    pub last_mute_list_size: AtomicUsize,
 }
 
 impl People {
@@ -91,14 +97,16 @@ impl People {
             tried_metadata: DashSet::new(),
             last_contact_list_asof: AtomicI64::new(0),
             last_contact_list_size: AtomicUsize::new(0),
+            last_mute_list_asof: AtomicI64::new(0),
+            last_mute_list_size: AtomicUsize::new(0),
         }
     }
 
     // Start the periodic task management
     pub fn start() {
-        // Load our contact list from the database in order to populate
-        // last_contact_list_asof and last_contact_list_size
         if let Some(pk) = GLOBALS.signer.public_key() {
+            // Load our contact list from the database in order to populate
+            // last_contact_list_asof and last_contact_list_size
             if let Ok(Some(event)) = GLOBALS
                 .storage
                 .get_replaceable_event(pk, EventKind::ContactList)
@@ -121,6 +129,29 @@ impl People {
                     GLOBALS
                         .people
                         .last_contact_list_size
+                        .store(size, Ordering::Relaxed);
+                }
+            }
+
+            // Load our mute list from the database in order to populate
+            // last_mute_list_asof and last_mute_list_size
+            if let Ok(Some(event)) = GLOBALS
+                .storage
+                .get_replaceable_event(pk, EventKind::MuteList)
+            {
+                if event.created_at.0 > GLOBALS.people.last_mute_list_asof.load(Ordering::Relaxed) {
+                    GLOBALS
+                        .people
+                        .last_mute_list_asof
+                        .store(event.created_at.0, Ordering::Relaxed);
+                    let size = event
+                        .tags
+                        .iter()
+                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                        .count();
+                    GLOBALS
+                        .people
+                        .last_mute_list_size
                         .store(size, Ordering::Relaxed);
                 }
             }
@@ -602,6 +633,49 @@ impl People {
         GLOBALS.signer.sign_preevent(pre_event, None, None)
     }
 
+    pub async fn generate_mute_list_event(&self) -> Result<Event, Error> {
+        let mut p_tags: Vec<Tag> = Vec::new();
+
+        let muted_pubkeys = self.get_muted_pubkeys();
+
+        for muted_pubkey in &muted_pubkeys {
+            p_tags.push(Tag::Pubkey {
+                pubkey: (*muted_pubkey).into(),
+                recommended_relay_url: None,
+                petname: None,
+                trailing: vec![],
+            });
+        }
+
+        let public_key = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
+        };
+
+        // Get the content from our latest MuteList.
+        // We don't use the data, but we shouldn't clobber it (it is for private mutes
+        // that we have not implemented yet)
+
+        let content = match GLOBALS
+            .storage
+            .get_replaceable_event(public_key, EventKind::MuteList)?
+        {
+            Some(c) => c.content,
+            None => "".to_owned(),
+        };
+
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::MuteList,
+            tags: p_tags,
+            content,
+            ots: None,
+        };
+
+        GLOBALS.signer.sign_preevent(pre_event, None, None)
+    }
+
     pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
@@ -674,7 +748,26 @@ impl People {
         Ok(())
     }
 
+    pub fn clear_mute_list(&self) -> Result<(), Error> {
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+
+        GLOBALS
+            .storage
+            .clear_person_list(PersonList::Muted, Some(&mut txn))?;
+        GLOBALS
+            .storage
+            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+
+        txn.commit()?;
+
+        GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
+
+        Ok(())
+    }
+
     pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+
         if mute {
             if let Some(pk) = GLOBALS.signer.public_key() {
                 if pk == *pubkey {
@@ -684,13 +777,45 @@ impl People {
 
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, PersonList::Muted, None)?;
+                .add_person_to_list(pubkey, PersonList::Muted, Some(&mut txn))?;
         } else {
             GLOBALS
                 .storage
-                .remove_person_from_list(pubkey, PersonList::Muted, None)?;
+                .remove_person_from_list(pubkey, PersonList::Muted, Some(&mut txn))?;
         }
+
+        GLOBALS
+            .storage
+            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+
+        txn.commit()?;
+
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+
+        Ok(())
+    }
+
+    pub fn mute_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+
+        if !merge {
+            GLOBALS
+                .storage
+                .clear_person_list(PersonList::Muted, Some(&mut txn))?;
+        }
+
+        for pubkey in pubkeys {
+            GLOBALS
+                .storage
+                .add_person_to_list(pubkey, PersonList::Muted, Some(&mut txn))?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+        }
+
+        GLOBALS
+            .storage
+            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+
+        txn.commit()?;
 
         Ok(())
     }

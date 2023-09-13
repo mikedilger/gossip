@@ -532,6 +532,9 @@ impl Overlord {
             ToOverlordMessage::ClearFollowing => {
                 self.clear_following().await?;
             }
+            ToOverlordMessage::ClearMuteList => {
+                self.clear_mute_list().await?;
+            }
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
             }
@@ -754,6 +757,9 @@ impl Overlord {
             ToOverlordMessage::PushMetadata(metadata) => {
                 self.push_metadata(metadata).await?;
             }
+            ToOverlordMessage::PushMuteList => {
+                self.push_mute_list().await?;
+            }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
                     relay.rank = rank as u64;
@@ -855,6 +861,9 @@ impl Overlord {
                     )
                     .await?;
                 }
+            }
+            ToOverlordMessage::UpdateMuteList(merge) => {
+                self.update_mute_list(merge).await?;
             }
             ToOverlordMessage::VisibleNotesChanged(visible) => {
                 let visible: Vec<IdHex> = visible.iter().map(|i| (*i).into()).collect();
@@ -1393,6 +1402,42 @@ impl Overlord {
 
     async fn clear_following(&mut self) -> Result<(), Error> {
         GLOBALS.people.follow_none()?;
+        Ok(())
+    }
+
+    async fn push_mute_list(&mut self) -> Result<(), Error> {
+        let event = GLOBALS.people.generate_mute_list_event().await?;
+
+        // process event locally
+        crate::process::process_new_event(&event, None, None, false, false).await?;
+
+        // Push to all of the relays we post to
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
+
+        for relay in relays {
+            // Send it the event to pull our followers
+            tracing::debug!("Pushing MuteList to {}", &relay.url);
+
+            self.engage_minion(
+                relay.url.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::PostMuteList,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn clear_mute_list(&mut self) -> Result<(), Error> {
+        GLOBALS.people.clear_mute_list()?;
         Ok(())
     }
 
@@ -1959,6 +2004,53 @@ impl Overlord {
             // Then pick
             self.pick_relays().await;
         }
+
+        Ok(())
+    }
+
+    // This updates the actual mute list from the last MuteList received
+    async fn update_mute_list(&mut self, merge: bool) -> Result<(), Error> {
+        // Load the latest MuteList from the database
+        let our_mute_list = {
+            let pubkey = match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => return Ok(()), // we cannot do anything without an identity setup first
+            };
+
+            if let Some(event) = GLOBALS
+                .storage
+                .get_replaceable_event(pubkey, EventKind::MuteList)?
+            {
+                event.clone()
+            } else {
+                return Ok(()); // we have no mute list to update from
+            }
+        };
+
+        let mut pubkeys: Vec<PublicKey> = Vec::new();
+
+        // 'p' tags represent the author's mutes
+        for tag in &our_mute_list.tags {
+            if let Tag::Pubkey { pubkey, .. } = tag {
+                if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                    // Save the pubkey
+                    pubkeys.push(pubkey.to_owned());
+                }
+            }
+        }
+
+        // Mute all those pubkeys, and unmute everbody else if merge=false
+        GLOBALS.people.mute_all(&pubkeys, merge)?;
+
+        // Update last_must_list_edit
+        let last_edit = if merge {
+            Unixtime::now().unwrap() // now, since superior to the last event
+        } else {
+            our_mute_list.created_at
+        };
+        GLOBALS
+            .storage
+            .write_last_mute_list_edit(last_edit.0, None)?;
 
         Ok(())
     }
