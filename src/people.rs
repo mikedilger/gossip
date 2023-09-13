@@ -647,6 +647,12 @@ impl People {
 
     pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
         if mute {
+            if let Some(pk) = GLOBALS.signer.public_key() {
+                if pk == *pubkey {
+                    return Err(ErrorKind::General("You cannot mute yourself".to_owned()).into());
+                }
+            }
+
             GLOBALS
                 .storage
                 .add_person_to_list(pubkey, PersonList::Muted, None)?;

@@ -1064,6 +1064,11 @@ impl GossipUi {
 
             let followed = person.is_in_list(PersonList::Followed);
             let muted = person.is_in_list(PersonList::Muted);
+            let is_self = if let Some(pubkey) = GLOBALS.signer.public_key() {
+                pubkey == person.pubkey
+            } else {
+                false
+            };
 
             ui.menu_button(name, |ui| {
                 if ui.button("View Person").clicked() {
@@ -1085,11 +1090,16 @@ impl GossipUi {
                 } else if followed && ui.button("Unfollow").clicked() {
                     let _ = GLOBALS.people.follow(&person.pubkey, false);
                 }
-                let mute_label = if muted { "Unmute" } else { "Mute" };
-                if ui.button(mute_label).clicked() {
-                    let _ = GLOBALS.people.mute(&person.pubkey, !muted);
-                    app.notes.cache_invalidate_person(&person.pubkey);
+
+                // Do not show 'Mute' if this is yourself
+                if muted || !is_self {
+                    let mute_label = if muted { "Unmute" } else { "Mute" };
+                    if ui.button(mute_label).clicked() {
+                        let _ = GLOBALS.people.mute(&person.pubkey, !muted);
+                        app.notes.cache_invalidate_person(&person.pubkey);
+                    }
                 }
+
                 if ui.button("Update Metadata").clicked() {
                     let _ = GLOBALS
                         .to_overlord

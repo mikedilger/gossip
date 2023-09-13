@@ -211,7 +211,7 @@ pub fn bech32_encode_event_addr(mut args: env::Args) -> Result<(), Error> {
 
     let mut urls: Vec<UncheckedUrl> = vec![];
 
-    while let Some(s) = args.next() {
+    for s in args {
         urls.push(UncheckedUrl::from_string(s));
     }
 
@@ -302,11 +302,11 @@ pub fn print_relay(mut args: env::Args) -> Result<(), Error> {
         }
         Ok(())
     } else {
-        return Err(ErrorKind::Usage(
+        Err(ErrorKind::Usage(
             "Missing url parameter".to_string(),
             "print_relay <url>".to_owned(),
         )
-        .into());
+        .into())
     }
 }
 
