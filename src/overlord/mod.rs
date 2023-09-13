@@ -745,9 +745,6 @@ impl Overlord {
             ToOverlordMessage::Post(content, tags, reply_to, dm_channel) => {
                 self.post(content, tags, reply_to, dm_channel).await?;
             }
-            ToOverlordMessage::PullFollow => {
-                self.pull_following().await?;
-            }
             ToOverlordMessage::PushFollow => {
                 self.push_following().await?;
             }
@@ -1356,32 +1353,6 @@ impl Overlord {
 
         // Process the message for ourself
         crate::process::process_new_event(&event, None, None, false, false).await?;
-
-        Ok(())
-    }
-
-    async fn pull_following(&mut self) -> Result<(), Error> {
-        // Pull our list from all of the relays we post to
-        let relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
-
-        for relay in relays {
-            // Send it the event to pull our followers
-            tracing::debug!("Asking {} to pull our followers", &relay.url);
-
-            self.engage_minion(
-                relay.url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchContacts,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PullFollowing,
-                    },
-                }],
-            )
-            .await?;
-        }
 
         Ok(())
     }

@@ -380,9 +380,6 @@ impl Minion {
                     message.job_id,
                 ))?;
             }
-            ToMinionPayloadDetail::PullFollowing => {
-                self.pull_following(message.job_id).await?;
-            }
             ToMinionPayloadDetail::Shutdown => {
                 tracing::debug!("{}: Websocket listener shutting down", &self.url);
                 self.keepgoing = false;
@@ -853,20 +850,6 @@ impl Minion {
             ..Default::default()
         };
         self.subscribe(vec![filter], &handle, job_id).await
-    }
-
-    async fn pull_following(&mut self, job_id: u64) -> Result<(), Error> {
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            let pkh: PublicKeyHex = pubkey.into();
-            let filter = Filter {
-                authors: vec![pkh.into()],
-                kinds: vec![EventKind::ContactList],
-                ..Default::default()
-            };
-            self.subscribe(vec![filter], "temp_following_list", job_id)
-                .await?;
-        }
-        Ok(())
     }
 
     async fn subscribe(
