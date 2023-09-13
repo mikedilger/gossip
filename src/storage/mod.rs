@@ -2233,14 +2233,17 @@ impl Storage {
 
         // Modulate these scores with our local rankings
         for ranked_relay in ranked_relays.iter_mut() {
-            match self.read_relay(&ranked_relay.0)? {
-                None => ranked_relay.1 = 0,
-                Some(relay) => {
-                    ranked_relay.1 = (ranked_relay.1 as f32
-                        * (relay.rank as f32 / 3.0)
-                        * (relay.success_rate() * 2.0)) as u64;
+            let relay = match self.read_relay(&ranked_relay.0)? {
+                None => {
+                    let _ = self.write_relay_if_missing(&ranked_relay.0, None)?;
+                    Relay::new(ranked_relay.0.clone())
                 }
-            }
+                Some(relay) => relay,
+            };
+
+            ranked_relay.1 = (ranked_relay.1 as f32
+                * (relay.rank as f32 / 3.0)
+                * (relay.success_rate() * 2.0)) as u64;
         }
 
         // Resort
