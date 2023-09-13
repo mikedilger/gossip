@@ -115,6 +115,9 @@ impl Overlord {
         // Load signer from settings
         GLOBALS.signer.load_from_settings()?;
 
+        // Start periodic tasks in people manager (after signer)
+        crate::people::People::start();
+
         // FIXME - if this needs doing, it should be done dynamically as
         //         new people are encountered, not batch-style on startup.
         // Create a person record for every person seen

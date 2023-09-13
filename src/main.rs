@@ -138,9 +138,6 @@ fn main() -> Result<(), Error> {
 }
 
 async fn tokio_main() {
-    // Start periodic tasks in people manager
-    crate::people::People::start();
-
     // Steal `tmp_overlord_receiver` from the GLOBALS, and give it to a new Overlord
     let overlord_receiver = {
         let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
