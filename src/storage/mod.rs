@@ -531,12 +531,16 @@ impl Storage {
         Ok(())
     }
 
-    pub fn read_last_contact_list_edit(&self) -> Result<Option<i64>, Error> {
+    pub fn read_last_contact_list_edit(&self) -> Result<i64, Error> {
         let txn = self.env.read_txn()?;
 
         match self.general.get(&txn, b"last_contact_list_edit")? {
-            None => Ok(None),
-            Some(bytes) => Ok(Some(i64::from_be_bytes(bytes[..8].try_into().unwrap()))),
+            None => {
+                let now = Unixtime::now().unwrap();
+                self.write_last_contact_list_edit(now.0, None)?;
+                Ok(now.0)
+            }
+            Some(bytes) => Ok(i64::from_be_bytes(bytes[..8].try_into().unwrap())),
         }
     }
 
