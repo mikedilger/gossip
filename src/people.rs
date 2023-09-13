@@ -99,7 +99,10 @@ impl People {
         // Load our contact list from the database in order to populate
         // last_contact_list_asof and last_contact_list_size
         if let Some(pk) = GLOBALS.signer.public_key() {
-            if let Ok(Some(event)) = GLOBALS.storage.fetch_contact_list(&pk) {
+            if let Ok(Some(event)) = GLOBALS
+                .storage
+                .get_replaceable_event(pk, EventKind::ContactList)
+            {
                 if event.created_at.0
                     > GLOBALS
                         .people
@@ -579,7 +582,10 @@ impl People {
         // Get the content from our latest ContactList.
         // We don't use the data, but we shouldn't clobber it.
 
-        let content = match GLOBALS.storage.fetch_contact_list(&public_key)? {
+        let content = match GLOBALS
+                .storage
+                .get_replaceable_event(public_key, EventKind::ContactList)?
+        {
             Some(c) => c.content,
             None => "".to_owned(),
         };

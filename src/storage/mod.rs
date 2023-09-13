@@ -1084,6 +1084,18 @@ impl Storage {
         Ok(true)
     }
 
+    // TBD: optimize this by storing better event indexes
+    pub fn get_replaceable_event(
+        &self,
+        pubkey: PublicKey,
+        kind: EventKind,
+    ) -> Result<Option<Event>, Error> {
+        Ok(self
+           .find_events(&[kind], &[pubkey], None, |_| true, true)?
+           .first()
+           .cloned())
+    }
+
     pub fn get_parameterized_replaceable_event(
         &self,
         event_addr: &EventAddr,
@@ -1489,16 +1501,6 @@ impl Storage {
     #[inline]
     pub fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
         self.index_unindexed_giftwraps1()
-    }
-
-    // TBD: optimize this by storing better event indexes
-    // currently we stupidly scan every event (just to get LMDB up and running first)
-    pub fn fetch_contact_list(&self, pubkey: &PublicKey) -> Result<Option<Event>, Error> {
-        Ok(self
-            .find_events(&[EventKind::ContactList], &[*pubkey], None, |_| true, false)?
-            .iter()
-            .max_by(|x, y| x.created_at.cmp(&y.created_at))
-            .cloned())
     }
 
     pub fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {

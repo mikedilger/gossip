@@ -1851,7 +1851,10 @@ impl Overlord {
                 None => return Ok(()), // we cannot do anything without an identity setup first
             };
 
-            if let Some(event) = GLOBALS.storage.fetch_contact_list(&pubkey)? {
+            if let Some(event) = GLOBALS
+                .storage
+                .get_replaceable_event(pubkey, EventKind::ContactList)?
+            {
                 event.clone()
             } else {
                 return Ok(()); // we have no contact list to update from
