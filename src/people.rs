@@ -583,8 +583,8 @@ impl People {
         // We don't use the data, but we shouldn't clobber it.
 
         let content = match GLOBALS
-                .storage
-                .get_replaceable_event(public_key, EventKind::ContactList)?
+            .storage
+            .get_replaceable_event(public_key, EventKind::ContactList)?
         {
             Some(c) => c.content,
             None => "".to_owned(),
@@ -603,16 +603,26 @@ impl People {
     }
 
     pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+
         if follow {
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, PersonList::Followed, None)?;
+                .add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
         } else {
-            GLOBALS
-                .storage
-                .remove_person_from_list(pubkey, PersonList::Followed, None)?;
+            GLOBALS.storage.remove_person_from_list(
+                pubkey,
+                PersonList::Followed,
+                Some(&mut txn),
+            )?;
         }
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+
+        GLOBALS
+            .storage
+            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+
+        txn.commit()?;
 
         Ok(())
     }
@@ -633,21 +643,34 @@ impl People {
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
+        GLOBALS
+            .storage
+            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+
+        txn.commit()?;
+
         // Add the people to the relay_picker for picking
         for pubkey in pubkeys.iter() {
             GLOBALS.relay_picker.add_someone(pubkey.to_owned())?;
         }
 
-        txn.commit()?;
-
         Ok(())
     }
 
     pub fn follow_none(&self) -> Result<(), Error> {
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+
         GLOBALS
             .storage
-            .clear_person_list(PersonList::Followed, None)?;
+            .clear_person_list(PersonList::Followed, Some(&mut txn))?;
+        GLOBALS
+            .storage
+            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+
+        txn.commit()?;
+
         GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
+
         Ok(())
     }
 
