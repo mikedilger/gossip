@@ -251,79 +251,85 @@ pub async fn process_new_event(
         }
     }
 
-    // Process the content for references to things we might want
-    for bech32 in NostrBech32::find_all_in_string(&event.content) {
-        match bech32 {
-            NostrBech32::Id(id) => {
-                if GLOBALS.storage.read_event(id)?.is_none() {
-                    if let Some(relay_url) = seen_on.as_ref() {
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchEvent(
-                            id,
-                            vec![relay_url.to_owned()],
-                        ));
-                    }
-                }
-            }
-            NostrBech32::EventPointer(ep) => {
-                if GLOBALS.storage.read_event(ep.id)?.is_none() {
-                    let relay_urls: Vec<RelayUrl> = ep
-                        .relays
-                        .iter()
-                        .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
-                        .collect();
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
-                }
-            }
-            NostrBech32::EventAddr(mut ea) => {
-                if let Ok(None) = GLOBALS.storage.get_parameterized_replaceable_event(&ea) {
-                    // Add the seen_on relay
-                    if let Some(seen_on_url) = seen_on.as_ref() {
-                        let seen_on_unchecked_url = seen_on_url.to_unchecked_url();
-                        if !ea.relays.contains(&seen_on_unchecked_url) {
-                            ea.relays.push(seen_on_unchecked_url);
+    if event.kind.is_feed_displayable() {
+        // Process the content for references to things we might want
+        for bech32 in NostrBech32::find_all_in_string(&event.content) {
+            match bech32 {
+                NostrBech32::Id(id) => {
+                    if GLOBALS.storage.read_event(id)?.is_none() {
+                        if let Some(relay_url) = seen_on.as_ref() {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchEvent(
+                                id,
+                                vec![relay_url.to_owned()],
+                            ));
                         }
                     }
-
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::FetchEventAddr(ea));
                 }
-            }
-            NostrBech32::Profile(prof) => {
-                // Record existence of such a person
-                GLOBALS.people.create_if_missing(prof.pubkey);
+                NostrBech32::EventPointer(ep) => {
+                    if GLOBALS.storage.read_event(ep.id)?.is_none() {
+                        let relay_urls: Vec<RelayUrl> = ep
+                            .relays
+                            .iter()
+                            .filter_map(|unchecked| {
+                                RelayUrl::try_from_unchecked_url(unchecked).ok()
+                            })
+                            .collect();
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
+                    }
+                }
+                NostrBech32::EventAddr(mut ea) => {
+                    if let Ok(None) = GLOBALS.storage.get_parameterized_replaceable_event(&ea) {
+                        // Add the seen_on relay
+                        if let Some(seen_on_url) = seen_on.as_ref() {
+                            let seen_on_unchecked_url = seen_on_url.to_unchecked_url();
+                            if !ea.relays.contains(&seen_on_unchecked_url) {
+                                ea.relays.push(seen_on_unchecked_url);
+                            }
+                        }
 
-                // Make sure we have their relays
-                for relay in prof.relays {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::FetchEventAddr(ea));
+                    }
+                }
+                NostrBech32::Profile(prof) => {
+                    // Record existence of such a person
+                    GLOBALS.people.create_if_missing(prof.pubkey);
+
+                    // Make sure we have their relays
+                    for relay in prof.relays {
+                        if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
+                            if let Some(_pr) =
+                                GLOBALS.storage.read_person_relay(prof.pubkey, &rurl)?
+                            {
+                                // FIXME: we need a new field in PersonRelay for this case.
+                                // If the event was signed by the profile person, we should trust it.
+                                // If it wasn't, we can instead bump last_suggested_bytag.
+                            } else {
+                                let mut pr = PersonRelay::new(prof.pubkey, rurl);
+                                pr.read = true;
+                                pr.write = true;
+                                GLOBALS.storage.write_person_relay(&pr, None)?;
+                            }
+                        }
+                    }
+                }
+                NostrBech32::Pubkey(pubkey) => {
+                    // Record existence of such a person
+                    GLOBALS.people.create_if_missing(pubkey);
+                }
+                NostrBech32::Relay(relay) => {
                     if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
-                        if let Some(_pr) = GLOBALS.storage.read_person_relay(prof.pubkey, &rurl)? {
-                            // FIXME: we need a new field in PersonRelay for this case.
-                            // If the event was signed by the profile person, we should trust it.
-                            // If it wasn't, we can instead bump last_suggested_bytag.
-                        } else {
-                            let mut pr = PersonRelay::new(prof.pubkey, rurl);
-                            pr.read = true;
-                            pr.write = true;
-                            GLOBALS.storage.write_person_relay(&pr, None)?;
-                        }
+                        // make sure we have the relay
+                        GLOBALS.storage.write_relay_if_missing(&rurl, None)?;
                     }
                 }
             }
-            NostrBech32::Pubkey(pubkey) => {
-                // Record existence of such a person
-                GLOBALS.people.create_if_missing(pubkey);
-            }
-            NostrBech32::Relay(relay) => {
-                if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
-                    // make sure we have the relay
-                    GLOBALS.storage.write_relay_if_missing(&rurl, None)?;
-                }
-            }
+            // TBD: If the content contains an nprofile, make sure the pubkey is associated
+            // with those relays
         }
-        // TBD: If the content contains an nprofile, make sure the pubkey is associated
-        // with those relays
     }
 
     // TBD (have to parse runes language for this)
