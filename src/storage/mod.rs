@@ -2235,7 +2235,7 @@ impl Storage {
         for ranked_relay in ranked_relays.iter_mut() {
             let relay = match self.read_relay(&ranked_relay.0)? {
                 None => {
-                    let _ = self.write_relay_if_missing(&ranked_relay.0, None)?;
+                    self.write_relay_if_missing(&ranked_relay.0, None)?;
                     Relay::new(ranked_relay.0.clone())
                 }
                 Some(relay) => relay,
