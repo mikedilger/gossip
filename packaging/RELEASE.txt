@@ -1,3 +1,56 @@
+
+0. DON'T update dependencies. DON'T 'cargo update'.  Do that kind of stuff right after
+   releasing. Because that stuff presents risk.
+
+1. Update the documentation including:
+
+   README.md
+   help page in the UI
+
+2. Stabilize the code. Make all these happy:
+
+   $ cargo clippy
+   $ cargo fmt
+   $ cargo test
+
+3. Edit Cargo.toml and change the version (remove the -unstable).
+   Compile so you get a new Cargo.lock
+
+   Commit these 2 new Cargo files as a commit named after the version.
+
+4. Tag this as vVERSION, and push the tag
+
+5. Build the debian:
+
+   $ cd debian
+   $ ./deb.sh
+
+6. Build the appimage
+
+   $ cd appimage
+   $ cargo appimage --features="lang-cjk,video-ffmpeg"
+
+7. Build the windows
+
+   $ cd windows
+   Follow the windows/README.txt
+
+8. Build the macos
+
+   $ cd macos
+   $ ./build_macos.sh
+   $ ./build_macos_intel.sh
+
+9. Bundle the files, create SHA256 hashes
+
+10. Upload release to github
+
+11. Announce release on nostr under gossip account
+
+
+-----------------
+
+
 This is a draft of the steps taken to make a release.
 I intend to flesh this out as I actually make releases.
 

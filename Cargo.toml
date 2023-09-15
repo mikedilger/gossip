@@ -91,3 +91,6 @@ assets = [
     ["packaging/debian/gossip.desktop", "/usr/share/applications/gossip.desktop", "644"],
 ]
 features = [ "lang-cjk" ]
+
+[package.metadata.appimage]
+auto_link = true
