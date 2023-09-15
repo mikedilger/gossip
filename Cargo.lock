@@ -1808,7 +1808,7 @@ dependencies = [
 
 [[package]]
 name = "gossip"
-version = "0.8.0-unstable"
+version = "0.9.0-unstable"
 dependencies = [
  "async-recursion",
  "async-trait",
