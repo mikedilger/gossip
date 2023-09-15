@@ -166,7 +166,13 @@ impl Storage {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // If something is under the old "settings" key
             if let Ok(Some(bytes)) = self.general.get(txn, b"settings") {
-                let settings1 = Settings1::read_from_buffer(bytes)?;
+                let settings1 = match Settings1::read_from_buffer(bytes) {
+                    Ok(s1) => s1,
+                    Err(_) => {
+                        tracing::error!("Settings are not deserializing. This is probably a code issue (although I have not found the bug yet). The best I can do is reset your settings to the default. This is better than the other option of wiping your entire database and starting over.");
+                        Settings1::default()
+                    }
+                };
 
                 // Convert it to the new Settings2 structure
                 let settings2: Settings2 = settings1.into();
