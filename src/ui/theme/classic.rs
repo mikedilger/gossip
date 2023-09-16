@@ -179,12 +179,11 @@ impl ThemeDef for ClassicTheme {
                 striped: true,
                 window_rounding: Rounding::same(6.0),
                 resize_corner_size: 12.0,
-                text_cursor: Stroke::new(2.0, Color32::from_rgb(192, 222, 255)),
+                text_cursor_width: 2.0,
                 text_cursor_preview: false,
                 clip_rect_margin: 3.0, // should be at least half the size of the widest frame stroke + max WidgetVisuals::expansion
                 button_frame: true,
                 collapsing_header_frame: false,
-                interact_cursor: None,
             };
         } else {
             style.visuals = Visuals {
@@ -263,12 +262,11 @@ impl ThemeDef for ClassicTheme {
                 striped: true,
                 window_rounding: Rounding::same(6.0),
                 resize_corner_size: 12.0,
-                text_cursor: Stroke::new(2.0, Color32::from_rgb(0, 83, 125)),
+                text_cursor_width: 2.0,
                 text_cursor_preview: false,
                 clip_rect_margin: 3.0, // should be at least half the size of the widest frame stroke + max WidgetVisuals::expansion
                 button_frame: true,
                 collapsing_header_frame: false,
-                interact_cursor: None,
             };
         }
         style
@@ -457,7 +455,7 @@ impl ThemeDef for ClassicTheme {
 
     // feed styling
     fn feed_scroll_rounding(_feed: &FeedProperties) -> Rounding {
-        Rounding::ZERO
+        Rounding::none()
     }
     fn feed_scroll_fill(dark_mode: bool, _feed: &FeedProperties) -> Color32 {
         if dark_mode {

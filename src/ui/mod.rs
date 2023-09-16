@@ -475,9 +475,7 @@ impl GossipUi {
             let pixels = image_buffer.as_flat_samples();
             cctx.egui_ctx.load_texture(
                 "icon",
-                ImageData::Color(
-                    ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()).into(),
-                ),
+                ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
                 TextureOptions::default(), // magnification, minification
             )
         };
@@ -490,9 +488,7 @@ impl GossipUi {
             let pixels = image_buffer.as_flat_samples();
             cctx.egui_ctx.load_texture(
                 "placeholder_avatar",
-                ImageData::Color(
-                    ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()).into(),
-                ),
+                ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
                 TextureOptions::default(), // magnification, minification
             )
         };
