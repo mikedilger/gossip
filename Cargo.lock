@@ -400,6 +400,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1181e1e0d1fce796a03db1ae795d67167da795f9cf4a39c37589e85ef57f26d3"
 
 [[package]]
+name = "atomic_refcell"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79d6dc922a2792b006573f60b2648076355daeae5ce9cb59507e5908c9625d31"
+
+[[package]]
 name = "atspi"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1185,7 +1191,7 @@ dependencies = [
 [[package]]
 name = "ecolor"
 version = "0.22.0"
-source = "git+https://github.com/mikedilger/egui?rev=30768b98be7ccf13d39b6e069c50948ddf7780c0#30768b98be7ccf13d39b6e069c50948ddf7780c0"
+source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1194,7 +1200,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.22.0"
-source = "git+https://github.com/mikedilger/egui?rev=30768b98be7ccf13d39b6e069c50948ddf7780c0#30768b98be7ccf13d39b6e069c50948ddf7780c0"
+source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "bytemuck",
  "cocoa",
@@ -1209,7 +1215,6 @@ dependencies = [
  "js-sys",
  "log",
  "objc",
- "parking_lot",
  "percent-encoding",
  "raw-window-handle",
  "ron",
@@ -1226,7 +1231,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.22.0"
-source = "git+https://github.com/mikedilger/egui?rev=30768b98be7ccf13d39b6e069c50948ddf7780c0#30768b98be7ccf13d39b6e069c50948ddf7780c0"
+source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "accesskit",
  "ahash 0.8.3",
@@ -1257,16 +1262,16 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.22.0"
-source = "git+https://github.com/mikedilger/egui?rev=30768b98be7ccf13d39b6e069c50948ddf7780c0#30768b98be7ccf13d39b6e069c50948ddf7780c0"
+source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "accesskit_winit",
  "arboard",
  "egui",
+ "instant",
  "log",
  "raw-window-handle",
  "serde",
  "smithay-clipboard",
- "web-time",
  "webbrowser",
  "winit",
 ]
@@ -1274,7 +1279,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.22.0"
-source = "git+https://github.com/mikedilger/egui?rev=30768b98be7ccf13d39b6e069c50948ddf7780c0#30768b98be7ccf13d39b6e069c50948ddf7780c0"
+source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "egui",
  "image",
@@ -1287,7 +1292,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.22.0"
-source = "git+https://github.com/mikedilger/egui?rev=30768b98be7ccf13d39b6e069c50948ddf7780c0#30768b98be7ccf13d39b6e069c50948ddf7780c0"
+source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1307,7 +1312,7 @@ checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 [[package]]
 name = "emath"
 version = "0.22.0"
-source = "git+https://github.com/mikedilger/egui?rev=30768b98be7ccf13d39b6e069c50948ddf7780c0#30768b98be7ccf13d39b6e069c50948ddf7780c0"
+source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1357,10 +1362,11 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.22.0"
-source = "git+https://github.com/mikedilger/egui?rev=30768b98be7ccf13d39b6e069c50948ddf7780c0#30768b98be7ccf13d39b6e069c50948ddf7780c0"
+source = "git+https://github.com/mikedilger/egui?rev=538088439c7c507fe49c730eab84ddd85e147391#538088439c7c507fe49c730eab84ddd85e147391"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.3",
+ "atomic_refcell",
  "bytemuck",
  "ecolor",
  "emath",
@@ -4814,17 +4820,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b85cbef8c220a6abc02aefd892dfc0fc23afb1c6a426316ec33253a3877249b"
 dependencies = [
  "js-sys",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "web-time"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19353897b48e2c4d849a2d73cb0aeb16dc2be4e00c565abfc11eb65a806e47de"
-dependencies = [
- "js-sys",
- "once_cell",
  "wasm-bindgen",
 ]
 
