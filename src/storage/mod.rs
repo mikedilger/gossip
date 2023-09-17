@@ -1129,9 +1129,9 @@ impl Storage {
         kind: EventKind,
     ) -> Result<Option<Event>, Error> {
         Ok(self
-           .find_events(&[kind], &[pubkey], None, |_| true, true)?
-           .first()
-           .cloned())
+            .find_events(&[kind], &[pubkey], None, |_| true, true)?
+            .first()
+            .cloned())
     }
 
     pub fn get_parameterized_replaceable_event(

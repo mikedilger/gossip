@@ -614,7 +614,7 @@ impl Overlord {
                 }));
             }
             ToOverlordMessage::FollowNprofile(nprofile) => {
-                match Profile::try_from_bech32_string(&nprofile.trim(), true) {
+                match Profile::try_from_bech32_string(nprofile.trim(), true) {
                     Ok(np) => self.follow_nprofile(np).await?,
                     Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
                 }
@@ -638,8 +638,8 @@ impl Overlord {
                     password.zeroize();
                     GLOBALS.signer.save().await?;
                 } else {
-                    let maybe_pk1 = PrivateKey::try_from_bech32_string(&import_priv.trim());
-                    let maybe_pk2 = PrivateKey::try_from_hex_string(&import_priv.trim());
+                    let maybe_pk1 = PrivateKey::try_from_bech32_string(import_priv.trim());
+                    let maybe_pk2 = PrivateKey::try_from_hex_string(import_priv.trim());
                     import_priv.zeroize();
                     if maybe_pk1.is_err() && maybe_pk2.is_err() {
                         password.zeroize();
@@ -656,8 +656,8 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::ImportPub(pubstr) => {
-                let maybe_pk1 = PublicKey::try_from_bech32_string(&pubstr.trim(), true);
-                let maybe_pk2 = PublicKey::try_from_hex_string(&pubstr.trim(), true);
+                let maybe_pk1 = PublicKey::try_from_bech32_string(pubstr.trim(), true);
+                let maybe_pk2 = PublicKey::try_from_hex_string(pubstr.trim(), true);
                 if maybe_pk1.is_err() && maybe_pk2.is_err() {
                     GLOBALS
                         .status_queue
@@ -939,7 +939,7 @@ impl Overlord {
         pubkeystr: String,
         relay: RelayUrl,
     ) -> Result<(), Error> {
-        let pubkey = match PublicKey::try_from_bech32_string(&pubkeystr.trim(), true) {
+        let pubkey = match PublicKey::try_from_bech32_string(pubkeystr.trim(), true) {
             Ok(pk) => pk,
             Err(_) => PublicKey::try_from_hex_string(&pubkeystr, true)?,
         };
