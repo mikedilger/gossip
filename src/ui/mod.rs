@@ -670,78 +670,8 @@ impl GossipUi {
         }
         self.page = page;
     }
-}
 
-impl eframe::App for GossipUi {
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
-        let max_fps = GLOBALS.storage.read_setting_max_fps() as f32;
-
-        if self.future_scroll_offset != 0.0 {
-            ctx.request_repaint();
-        } else {
-            // Wait until the next frame
-            std::thread::sleep(self.next_frame - Instant::now());
-            self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
-
-            // Redraw at least once per second
-            ctx.request_repaint_after(Duration::from_secs(1));
-        }
-
-        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-            frame.close();
-        }
-
-        // Smooth Scrolling
-        {
-            // Add the amount of scroll requested to the future
-            let mut requested_scroll: f32 = 0.0;
-            ctx.input(|i| {
-                requested_scroll = i.scroll_delta.y;
-            });
-
-            // use keys to scroll
-            ctx.input(|i| {
-                if i.key_pressed(egui::Key::ArrowDown) {
-                    requested_scroll -= 30.0;
-                }
-                if i.key_pressed(egui::Key::ArrowUp) {
-                    requested_scroll = 30.0;
-                }
-                if i.key_pressed(egui::Key::PageUp) {
-                    requested_scroll = 150.0;
-                }
-                if i.key_pressed(egui::Key::PageDown) {
-                    requested_scroll -= 150.0;
-                }
-            });
-
-            self.future_scroll_offset += requested_scroll;
-
-            // Move by 10% of future scroll offsets
-            self.current_scroll_offset = 0.1 * self.future_scroll_offset;
-            self.future_scroll_offset -= self.current_scroll_offset;
-
-            // Friction stop when slow enough
-            if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
-                self.future_scroll_offset = 0.0;
-            }
-        }
-
-        if self.settings.theme.follow_os_dark_mode {
-            // detect if the OS has changed dark/light mode
-            let os_dark_mode = ctx.style().visuals.dark_mode;
-            if os_dark_mode != self.settings.theme.dark_mode {
-                // switch to the OS setting
-                self.settings.theme.dark_mode = os_dark_mode;
-                theme::apply_theme(self.settings.theme, ctx);
-            }
-        }
-
-        // dialogues first
-        if relays::is_entry_dialog_active(self) {
-            relays::entry_dialog(ctx, self);
-        }
-
+    fn side_panel(&mut self, ctx: &Context) {
         egui::SidePanel::left("main-naviation-panel")
             .show_separator_line(false)
             .frame(
@@ -936,6 +866,81 @@ impl eframe::App for GossipUi {
                     });
                 }
             });
+    }
+}
+
+impl eframe::App for GossipUi {
+    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        let max_fps = GLOBALS.storage.read_setting_max_fps() as f32;
+
+        if self.future_scroll_offset != 0.0 {
+            ctx.request_repaint();
+        } else {
+            // Wait until the next frame
+            std::thread::sleep(self.next_frame - Instant::now());
+            self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
+
+            // Redraw at least once per second
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
+
+        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+            frame.close();
+        }
+
+        // Smooth Scrolling
+        {
+            // Add the amount of scroll requested to the future
+            let mut requested_scroll: f32 = 0.0;
+            ctx.input(|i| {
+                requested_scroll = i.scroll_delta.y;
+            });
+
+            // use keys to scroll
+            ctx.input(|i| {
+                if i.key_pressed(egui::Key::ArrowDown) {
+                    requested_scroll -= 30.0;
+                }
+                if i.key_pressed(egui::Key::ArrowUp) {
+                    requested_scroll = 30.0;
+                }
+                if i.key_pressed(egui::Key::PageUp) {
+                    requested_scroll = 150.0;
+                }
+                if i.key_pressed(egui::Key::PageDown) {
+                    requested_scroll -= 150.0;
+                }
+            });
+
+            self.future_scroll_offset += requested_scroll;
+
+            // Move by 10% of future scroll offsets
+            self.current_scroll_offset = 0.1 * self.future_scroll_offset;
+            self.future_scroll_offset -= self.current_scroll_offset;
+
+            // Friction stop when slow enough
+            if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
+                self.future_scroll_offset = 0.0;
+            }
+        }
+
+        if self.settings.theme.follow_os_dark_mode {
+            // detect if the OS has changed dark/light mode
+            let os_dark_mode = ctx.style().visuals.dark_mode;
+            if os_dark_mode != self.settings.theme.dark_mode {
+                // switch to the OS setting
+                self.settings.theme.dark_mode = os_dark_mode;
+                theme::apply_theme(self.settings.theme, ctx);
+            }
+        }
+
+        // dialogues first
+        if relays::is_entry_dialog_active(self) {
+            relays::entry_dialog(ctx, self);
+        }
+
+        // side panel
+        self.side_panel(ctx);
 
         egui::TopBottomPanel::top("top-area")
             .frame(
