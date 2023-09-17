@@ -150,6 +150,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string());
         }
         FeedKind::DmChat(channel) => {
+            if !GLOBALS.signer.is_ready() {
+                ui.add_space(10.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("You need to ");
+                    if ui.link("setup your identity").clicked() {
+                        app.set_page(Page::YourKeys);
+                    }
+                    ui.label(" to see DMs.");
+                });
+            }
+
             ui.horizontal(|ui| {
                 ui.label(format!("Private Chat with {}", channel.name()));
                 recompute_btn(app, ui);
