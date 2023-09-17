@@ -22,6 +22,7 @@ mod search;
 mod settings;
 mod theme;
 mod widgets;
+mod wizard;
 mod you;
 
 use crate::about::About;
@@ -53,6 +54,7 @@ use zeroize::Zeroize;
 
 use self::feed::Notes;
 use self::widgets::NavItem;
+use self::wizard::{WizardPage, WizardState};
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../gossip.png");
@@ -114,6 +116,7 @@ enum Page {
     HelpStats,
     HelpAbout,
     HelpTheme,
+    Wizard(WizardPage),
 }
 
 impl Page {
@@ -152,6 +155,7 @@ impl Page {
             Page::HelpStats => (SubMenu::Help.to_str(), "Stats".into()),
             Page::HelpAbout => (SubMenu::Help.to_str(), "About".into()),
             Page::HelpTheme => (SubMenu::Help.to_str(), "Theme Test".into()),
+            Page::Wizard(wp) => ("Wizard", wp.as_str().to_string()),
         }
     }
 
@@ -181,6 +185,7 @@ impl Page {
             Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted => cat_name(self),
             Page::Person(_) => name_cat(self),
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => cat_name(self),
+            Page::Wizard(_) => name_cat(self),
             _ => name(self),
         }
     }
@@ -383,7 +388,6 @@ struct GossipUi {
     // User entry: general
     follow_someone: String,
     add_relay: String, // dep
-
     follow_clear_needs_confirm: bool,
     mute_clear_needs_confirm: bool,
     password: String,
@@ -416,6 +420,8 @@ struct GossipUi {
     //   not authoratative.
     zap_state: ZapState,
     note_being_zapped: Option<Id>,
+
+    wizard_state: WizardState,
 }
 
 impl Drop for GossipUi {
@@ -535,11 +541,16 @@ impl GossipUi {
             None => (false, dpi),
         };
 
-        let start_page = if GLOBALS.first_run.load(Ordering::Relaxed) {
-            Page::HelpHelp
-        } else {
-            Page::Feed(FeedKind::Followed(false))
-        };
+        let mut start_page = Page::Feed(FeedKind::Followed(false));
+
+        // Possibly enter the wizard instead
+        let mut wizard_state: WizardState = Default::default();
+        let wizard_complete = GLOBALS.storage.read_wizard_complete();
+        if !wizard_complete {
+            if let Some(wp) = wizard::start_wizard_page(&mut wizard_state) {
+                start_page = Page::Wizard(wp);
+            }
+        }
 
         // Apply current theme
         if settings.theme.follow_os_dark_mode {
@@ -620,6 +631,7 @@ impl GossipUi {
             last_visible_update: Instant::now(),
             zap_state: ZapState::None,
             note_being_zapped: None,
+            wizard_state,
         }
     }
 
@@ -962,7 +974,12 @@ impl eframe::App for GossipUi {
             relays::entry_dialog(ctx, self);
         }
 
-        // side panel
+        // Wizard does its own panels
+        if let Page::Wizard(wp) = self.page {
+            return wizard::update(self, ctx, frame, wp);
+        }
+
+        // Side panel
         self.side_panel(ctx);
 
         egui::TopBottomPanel::top("top-area")
@@ -1059,6 +1076,7 @@ impl eframe::App for GossipUi {
                     Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
                         help::update(self, ctx, frame, ui)
                     }
+                    Page::Wizard(_) => unreachable!(),
                 }
             });
     }
