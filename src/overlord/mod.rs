@@ -634,9 +634,16 @@ impl Overlord {
                 if import_priv.starts_with("ncryptsec") {
                     let epk = EncryptedPrivateKey(import_priv);
                     GLOBALS.signer.set_encrypted_private_key(epk);
-                    GLOBALS.signer.unlock_encrypted_private_key(&password)?;
-                    password.zeroize();
-                    GLOBALS.signer.save().await?;
+                    if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
+                        password.zeroize();
+                        GLOBALS
+                            .status_queue
+                            .write()
+                            .write(format!("Private key failed to decrypt: {}", e));
+                    } else {
+                        password.zeroize();
+                        GLOBALS.signer.save().await?;
+                    }
                 } else {
                     let maybe_pk1 = PrivateKey::try_from_bech32_string(import_priv.trim());
                     let maybe_pk2 = PrivateKey::try_from_hex_string(import_priv.trim());
