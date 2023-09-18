@@ -343,8 +343,6 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
                 app.import_priv.clone(),
                 app.password.clone(),
             ));
-            app.import_priv.zeroize();
-            app.import_priv = "".to_owned();
         }
         app.password.zeroize();
         app.password = "".to_owned();
