@@ -14,7 +14,9 @@ impl Minion {
             Ok(rm) => rm,
             Err(e) => {
                 tracing::error!(
-                    "RELAY MESSAGE NOT DESERIALIZING: starts with \"{}\"",
+                    "RELAY MESSAGE NOT DESERIALIZING ({}) ({}): starts with \"{}\"",
+                    self.url,
+                    e,
                     &ws_message.chars().take(300).collect::<String>()
                 );
                 return Err(e.into());
