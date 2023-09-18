@@ -115,7 +115,7 @@ impl ThemeDef for ClassicTheme {
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
-                        weak_bg_fill: Color32::from_gray(60),
+                        weak_bg_fill: Color32::from_gray(60), // button background
                         bg_fill: Color32::from_white_alpha(8),
                         bg_stroke: Stroke::new(1.0, Color32::from_gray(72)), // separators, borders
                         // The following is used for All buttons, any clickable text,
@@ -198,7 +198,7 @@ impl ThemeDef for ClassicTheme {
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
-                        weak_bg_fill: Color32::from_gray(230),
+                        weak_bg_fill: Color32::from_gray(230), // button background
                         bg_fill: Color32::from_black_alpha(20),
                         bg_stroke: Stroke::new(1.0, Color32::from_gray(192)),
                         // The following is used for All buttons, any clickable text,

@@ -115,8 +115,8 @@ impl ThemeDef for DefaultTheme {
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
-                        weak_bg_fill: Color32::from_gray(20),
-                        bg_fill: Color32::from_white_alpha(8),
+                        weak_bg_fill: Color32::from_white_alpha(1), // button background
+                        bg_fill: Color32::from_white_alpha(6),
                         bg_stroke: Stroke::new(0.0, Color32::from_gray(72)), // separators, borders
                         // The following is used for All buttons, any clickable text,
                         //    AND text inputs, whether they are inactive OR active. It's really
@@ -126,8 +126,8 @@ impl ThemeDef for DefaultTheme {
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
-                        weak_bg_fill: Color32::from_white_alpha(60),
-                        bg_fill: Color32::from_white_alpha(8),
+                        weak_bg_fill: Color32::from_white_alpha(4),
+                        bg_fill: Color32::from_white_alpha(20),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
                         fg_stroke: Stroke::new(1.5, Self::accent_color(dark_mode)),
                         rounding: Rounding::same(3.0),
@@ -136,16 +136,16 @@ impl ThemeDef for DefaultTheme {
                     active: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(55),
                         bg_fill: Color32::from_gray(55),
-                        bg_stroke: Stroke::new(0.0, Color32::from_white_alpha(95)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(20)),
+                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_black_alpha(64)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
                     open: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_gray(27),
-                        bg_stroke: Stroke::new(1.0, Color32::from_white_alpha(50)),
-                        fg_stroke: Stroke::new(1.0, Color32::from_white_alpha(90)),
+                        bg_stroke: Stroke::new(1.0, Color32::from_gray(72)),
+                        fg_stroke: Stroke::new(1.0, Self::accent_color(dark_mode)),
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
                     },
@@ -198,7 +198,7 @@ impl ThemeDef for DefaultTheme {
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
-                        weak_bg_fill: Color32::from_gray(230),
+                        weak_bg_fill: Color32::from_gray(230), // button background
                         bg_fill: Color32::from_black_alpha(20),
                         bg_stroke: Stroke::new(0.0, Color32::from_gray(192)),
                         // The following is used for All buttons, any clickable text,
