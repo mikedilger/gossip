@@ -65,6 +65,9 @@ pub struct Globals {
     /// Dismissed Events
     pub dismissed: RwLock<Vec<Id>>,
 
+    /// Fully opened Events
+    pub opened: PRwLock<HashSet<Id>>,
+
     /// Feed
     pub feed: Feed,
 
@@ -153,6 +156,7 @@ lazy_static! {
             shutting_down: AtomicBool::new(false),
             signer: Signer::default(),
             dismissed: RwLock::new(Vec::new()),
+            opened: PRwLock::new(HashSet::new()),
             feed: Feed::new(),
             fetcher: Fetcher::new(),
             failed_avatars: RwLock::new(HashSet::new()),

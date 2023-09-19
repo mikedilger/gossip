@@ -26,7 +26,22 @@ pub(super) fn render_content(
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     if let Ok(note) = note_ref.try_borrow() {
+        let content_start = ui.next_widget_position();
+        let mut show_less_button = false;
+
         for segment in note.shattered_content.segments.iter() {
+            if ui.next_widget_position().y > content_start.y + 200.0 {
+                if !GLOBALS.opened.read().contains(&note.event.id) {
+                    ui.end_row();
+                    if ui.button("show more...").clicked() {
+                        GLOBALS.opened.write().insert(note.event.id);
+                    }
+                    break;
+                } else {
+                    show_less_button = true;
+                }
+            }
+
             match segment {
                 ContentSegment::NostrUrl(nurl) => {
                     match &nurl.0 {
@@ -157,6 +172,13 @@ pub(super) fn render_content(
                 }
                 ContentSegment::Hyperlink(linkspan) => render_hyperlink(app, ui, &note, linkspan),
                 ContentSegment::Plain(textspan) => render_plain(ui, &note, textspan, as_deleted),
+            }
+        }
+
+        if show_less_button {
+            ui.end_row();
+            if ui.button("show less...").clicked() {
+                GLOBALS.opened.write().remove(&note.event.id);
             }
         }
     }
