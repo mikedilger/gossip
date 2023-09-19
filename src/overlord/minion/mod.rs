@@ -634,14 +634,7 @@ impl Minion {
                     // these are all replaceable, no since required
                     ..Default::default()
                 },
-                // DMs I wrote recently
-                Filter {
-                    authors: vec![pkh.clone().into()],
-                    kinds: vec![EventKind::EncryptedDirectMessage],
-                    since: Some(since),
-                    ..Default::default()
-                },
-                // GiftWraps I wrote recently
+                // GiftWraps to me, recent only
                 Filter {
                     authors: vec![pkh.clone().into()],
                     kinds: vec![EventKind::GiftWrap],
@@ -777,6 +770,9 @@ impl Minion {
         };
         let pkh: PublicKeyHex = pubkey.into();
 
+        // note: giftwraps can't be subscribed by channel. they are subscribed more
+        // globally, and have to be limited to recent ones.
+
         let mut authors: Vec<PublicKeyHexPrefix> = dmchannel
             .keys()
             .iter()
@@ -787,7 +783,7 @@ impl Minion {
 
         let filters: Vec<Filter> = vec![Filter {
             authors,
-            kinds: vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
+            kinds: vec![EventKind::EncryptedDirectMessage],
             ..Default::default()
         }];
 
