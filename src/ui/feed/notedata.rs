@@ -44,6 +44,8 @@ pub(super) struct NoteData {
     pub(super) self_already_reacted: bool,
     /// The content shattered into renderable elements
     pub(super) shattered_content: ShatteredContent,
+    /// error content (gossip-created notations)
+    pub(super) error_content: Option<String>,
     /// Securely delivered via GiftWrap
     pub(super) secure: bool,
 }
@@ -107,16 +109,16 @@ impl NoteData {
         };
 
         // Compute the content to our needs
-        let display_content = match event.kind {
-            EventKind::TextNote => event.content.trim().to_string(),
-            EventKind::Repost => "".to_owned(),
+        let (display_content, error_content) = match event.kind {
+            EventKind::TextNote => (event.content.trim().to_string(), None),
+            EventKind::Repost => ("".to_owned(), None),
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
-                Ok(m) => m,
-                Err(_) => "DECRYPTION FAILED".to_owned(), // FIXME, not really content.
+                Ok(m) => (m, None),
+                Err(_) => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
             },
-            EventKind::LongFormContent => event.content.clone(),
-            EventKind::DmChat => event.content.clone(),
-            EventKind::GiftWrap => "DECRYPTION FAILED".to_owned(), // FIXME, not really content.
+            EventKind::LongFormContent => (event.content.clone(), None),
+            EventKind::DmChat => (event.content.clone(), None),
+            EventKind::GiftWrap => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
             _ => {
                 let mut dc = "UNSUPPORTED EVENT KIND".to_owned();
                 // support the 'alt' tag of NIP-31:
@@ -127,7 +129,7 @@ impl NoteData {
                         }
                     }
                 }
-                dc
+                ("".to_owned(), Some(dc))
             }
         };
 
@@ -207,6 +209,7 @@ impl NoteData {
             zaptotal,
             self_already_reacted,
             shattered_content,
+            error_content,
             secure,
         }
     }

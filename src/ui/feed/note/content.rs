@@ -28,6 +28,13 @@ pub(super) fn render_content(
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     if let Ok(note) = note_ref.try_borrow() {
+        if let Some(error) = &note.error_content {
+            let color = app.settings.theme.notice_marker_text_color();
+            ui.label(RichText::new(error).color(color));
+            ui.end_row();
+            // fall through in case there is also shattered content to display
+        }
+
         let content_start = ui.next_widget_position();
 
         for segment in note.shattered_content.segments.iter() {
