@@ -289,7 +289,7 @@ impl Overlord {
                 return Ok(()); // don't connect to rank=0 relays
             }
         } else {
-            return Ok(()); // Don't connect if we do not know this relay yet.
+            GLOBALS.storage.write_relay_if_missing(&url, None)?;
         }
 
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
