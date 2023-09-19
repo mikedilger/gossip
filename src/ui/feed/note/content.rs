@@ -7,12 +7,14 @@ use eframe::{
     egui::{self, Image, Response},
     epaint::Vec2,
 };
-use egui::{RichText, Ui};
+use egui::{Pos2, RichText, Ui};
 use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
 };
+
+const MAX_POST_HEIGHT: f32 = 200.0;
 
 pub(super) fn render_content(
     app: &mut GossipUi,
@@ -27,18 +29,15 @@ pub(super) fn render_content(
 
     if let Ok(note) = note_ref.try_borrow() {
         let content_start = ui.next_widget_position();
-        let mut show_less_button = false;
 
         for segment in note.shattered_content.segments.iter() {
-            if ui.next_widget_position().y > content_start.y + 200.0 {
+            if ui.next_widget_position().y > content_start.y + MAX_POST_HEIGHT {
                 if !app.opened.contains(&note.event.id) {
                     ui.end_row();
                     if ui.button("show more...").clicked() {
                         app.opened.insert(note.event.id);
                     }
                     break;
-                } else {
-                    show_less_button = true;
                 }
             }
 
@@ -171,11 +170,16 @@ pub(super) fn render_content(
                     }
                 }
                 ContentSegment::Hyperlink(linkspan) => render_hyperlink(app, ui, &note, linkspan),
-                ContentSegment::Plain(textspan) => render_plain(ui, &note, textspan, as_deleted),
+                ContentSegment::Plain(textspan) => {
+                    if render_plain(app, ui, &note, textspan, as_deleted, content_start) {
+                        // returns true if it did a 'show more'
+                        break;
+                    }
+                }
             }
         }
 
-        if show_less_button {
+        if app.opened.contains(&note.event.id) {
             ui.end_row();
             if ui.button("show less...").clicked() {
                 app.opened.remove(&note.event.id);
@@ -206,13 +210,43 @@ pub(super) fn render_hyperlink(
     }
 }
 
-pub(super) fn render_plain(ui: &mut Ui, note: &Ref<NoteData>, textspan: &Span, as_deleted: bool) {
+pub(super) fn render_plain(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    note: &Ref<NoteData>,
+    textspan: &Span,
+    as_deleted: bool,
+    content_start: Pos2,
+) -> bool {
     let text = note.shattered_content.slice(textspan).unwrap();
-    if as_deleted {
-        ui.label(RichText::new(text).strikethrough());
-    } else {
-        ui.label(text);
+
+    let mut first = true;
+    for line in text.split('\n') {
+        if ui.next_widget_position().y > content_start.y + MAX_POST_HEIGHT {
+            if !app.opened.contains(&note.event.id) {
+                ui.end_row();
+                if ui.button("show more...").clicked() {
+                    app.opened.insert(note.event.id);
+                }
+                return true; // means we put the 'show more' button in place
+            }
+        }
+
+        if !first {
+            // carraige return
+            ui.end_row();
+        }
+
+        if as_deleted {
+            ui.label(RichText::new(line).strikethrough());
+        } else {
+            ui.label(line);
+        }
+
+        first = false;
     }
+
+    false
 }
 
 pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
