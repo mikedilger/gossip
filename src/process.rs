@@ -112,6 +112,17 @@ pub async fn process_new_event(
         event.created_at
     );
 
+    // If we were searching for this event, add it to the search results
+    let is_a_search_result: bool = GLOBALS.events_being_searched_for.read().contains(&event.id);
+    if is_a_search_result {
+        GLOBALS
+            .events_being_searched_for
+            .write()
+            .retain(|id| *id != event.id);
+        GLOBALS.note_search_results.write().push(event.clone());
+    }
+    // FIXME do same for event addr
+
     // If it is a GiftWrap, from here on out operate on the Rumor
     let mut event: &Event = event; // take ownership of this reference
     let mut rumor_event: Event;

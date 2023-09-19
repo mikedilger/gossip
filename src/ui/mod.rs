@@ -672,6 +672,10 @@ impl GossipUi {
             }
             _ => {}
         }
+
+        // clear some search state
+        GLOBALS.events_being_searched_for.write().clear();
+
         self.page = page;
     }
 

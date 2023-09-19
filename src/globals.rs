@@ -94,6 +94,8 @@ pub struct Globals {
     pub media: Media,
 
     /// Search results
+    pub events_being_searched_for: PRwLock<Vec<Id>>, // being searched for
+    //pub event_addrs_being_searched_for: PRwLock<Vec<EventAddr>>, // being searched for
     pub people_search_results: PRwLock<Vec<Person>>,
     pub note_search_results: PRwLock<Vec<Event>>,
 
@@ -164,6 +166,8 @@ lazy_static! {
             open_subscriptions: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),
+            events_being_searched_for: PRwLock::new(Vec::new()),
+            //event_addrs_being_searched_for: PRwLock::new(Vec::new()),
             people_search_results: PRwLock::new(Vec::new()),
             note_search_results: PRwLock::new(Vec::new()),
             ui_notes_to_invalidate: PRwLock::new(Vec::new()),

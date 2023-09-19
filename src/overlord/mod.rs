@@ -2133,26 +2133,56 @@ impl Overlord {
                         .get(1)
                     {
                         note_search_results.push(event.clone());
+                    } else {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::FetchEventAddr(ea.to_owned()));
+
+                        // FIXME - this requires eventaddr comparision on process.rs
+                        // Remember we are searching for this event, so when it comes in
+                        // it can get added to GLOBALS.note_search_results
+                        // GLOBALS.event_addrs_being_searched_for.write().push(ea.to_owned());
                     }
                 }
                 NostrBech32::EventPointer(ep) => {
                     if let Some(event) = GLOBALS.storage.read_event(ep.id)? {
                         note_search_results.push(event);
+                    } else {
+                        let relays: Vec<RelayUrl> = ep
+                            .relays
+                            .iter()
+                            .filter_map(|r| RelayUrl::try_from_unchecked_url(r).ok())
+                            .collect();
+
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::FetchEvent(ep.id, relays));
+
+                        // Remember we are searching for this event, so when it comes in
+                        // it can get added to GLOBALS.note_search_results
+                        GLOBALS.events_being_searched_for.write().push(ep.id);
                     }
                 }
                 NostrBech32::Id(id) => {
                     if let Some(event) = GLOBALS.storage.read_event(id)? {
                         note_search_results.push(event);
                     }
+                    // else we can't go find it, we don't know which relays to ask.
                 }
                 NostrBech32::Profile(prof) => {
                     if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey)? {
                         people_search_results.push(person);
+                    } else {
+                        // Create person from profile
+                        // fetch data on person
                     }
                 }
                 NostrBech32::Pubkey(pk) => {
                     if let Some(person) = GLOBALS.storage.read_person(&pk)? {
                         people_search_results.push(person);
+                    } else {
+                        // Create person from pubkey
+                        // fetch data on person
                     }
                 }
                 NostrBech32::Relay(_relay) => (),
