@@ -792,6 +792,9 @@ impl Overlord {
                 self.set_thread_feed(id, referenced_by, relays, author)
                     .await?;
             }
+            ToOverlordMessage::SetDmChannel(dmchannel) => {
+                self.set_dm_channel(dmchannel).await?;
+            }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
                 return Ok(false);
@@ -1773,6 +1776,32 @@ impl Overlord {
                 )
                 .await?;
             }
+        }
+
+        Ok(())
+    }
+
+    async fn set_dm_channel(&mut self, dmchannel: DmChannel) -> Result<(), Error> {
+        // subscribe to channel on outbox and inbox relays
+        //   outbox: you may have written them there. Other clients may have too.
+        //   inbox: they may have put theirs here for you to pick up.
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
+
+        for relay in relays.iter() {
+            // Subscribe
+            self.engage_minion(
+                relay.url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchDirectMessages,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeDmChannel(dmchannel.clone()),
+                    },
+                }],
+            )
+            .await?;
         }
 
         Ok(())

@@ -3,6 +3,7 @@ mod subscription;
 mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
+use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
@@ -406,6 +407,9 @@ impl Minion {
                 self.subscribe_thread_feed(message.job_id, main, parents)
                     .await?;
             }
+            ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
+                self.subscribe_dm_channel(message.job_id, dmchannel).await?;
+            }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
                 self.temp_subscribe_metadata(message.job_id, pubkeys)
                     .await?;
@@ -758,6 +762,36 @@ impl Minion {
         });
 
         self.subscribe(filters, "thread_feed", job_id).await?;
+
+        Ok(())
+    }
+
+    async fn subscribe_dm_channel(
+        &mut self,
+        job_id: u64,
+        dmchannel: DmChannel,
+    ) -> Result<(), Error> {
+        let pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => return Ok(()),
+        };
+        let pkh: PublicKeyHex = pubkey.into();
+
+        let mut authors: Vec<PublicKeyHexPrefix> = dmchannel
+            .keys()
+            .iter()
+            .map(Into::<PublicKeyHex>::into)
+            .map(|k| k.prefix(32))
+            .collect();
+        authors.push(pkh.prefix(32)); // add the user themselves
+
+        let filters: Vec<Filter> = vec![Filter {
+            authors,
+            kinds: vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
+            ..Default::default()
+        }];
+
+        self.subscribe(filters, "dm_channel", job_id).await?;
 
         Ok(())
     }
