@@ -403,6 +403,9 @@ struct GossipUi {
     // Collapsed threads
     collapsed: Vec<Id>,
 
+    // Fully opened posts
+    opened: HashSet<Id>,
+
     // Visisble Note IDs
     // (we resubscribe to reactions/zaps/deletes when this changes)
     visible_note_ids: Vec<Id>,
@@ -608,6 +611,7 @@ impl GossipUi {
             editing_petname: false,
             petname: "".to_owned(),
             collapsed: vec![],
+            opened: HashSet::new(),
             visible_note_ids: vec![],
             next_visible_note_ids: vec![],
             last_visible_update: Instant::now(),

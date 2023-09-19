@@ -31,10 +31,10 @@ pub(super) fn render_content(
 
         for segment in note.shattered_content.segments.iter() {
             if ui.next_widget_position().y > content_start.y + 200.0 {
-                if !GLOBALS.opened.read().contains(&note.event.id) {
+                if !app.opened.contains(&note.event.id) {
                     ui.end_row();
                     if ui.button("show more...").clicked() {
-                        GLOBALS.opened.write().insert(note.event.id);
+                        app.opened.insert(note.event.id);
                     }
                     break;
                 } else {
@@ -178,7 +178,7 @@ pub(super) fn render_content(
         if show_less_button {
             ui.end_row();
             if ui.button("show less...").clicked() {
-                GLOBALS.opened.write().remove(&note.event.id);
+                app.opened.remove(&note.event.id);
             }
         }
     }
