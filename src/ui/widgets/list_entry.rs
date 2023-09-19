@@ -3,7 +3,7 @@ use eframe::epaint;
 use egui_winit::egui::widget_text::WidgetTextGalley;
 use egui_winit::egui::{
     pos2, vec2, Align, Color32, CursorIcon, FontId, Id, Pos2, Rect, Response, Rounding, Sense,
-    Stroke,
+    Stroke, Frame, self,
 };
 
 /// Spacing of frame: left
@@ -46,6 +46,18 @@ pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
         fill,
         stroke: Stroke::NONE,
     });
+}
+
+pub(crate) fn make_frame(ui: &Ui) -> Frame {
+    Frame::none()
+        .inner_margin(egui::Margin{
+            left: TEXT_LEFT - OUTER_MARGIN_LEFT, right: TEXT_RIGHT - OUTER_MARGIN_RIGHT,
+            top: TEXT_TOP - OUTER_MARGIN_TOP, bottom: TEXT_TOP - OUTER_MARGIN_BOTTOM})
+        .outer_margin(egui::Margin{
+            left: OUTER_MARGIN_LEFT, right: OUTER_MARGIN_RIGHT,
+            top: OUTER_MARGIN_TOP, bottom: OUTER_MARGIN_BOTTOM})
+        .fill(ui.visuals().extreme_bg_color)
+        .rounding(egui::Rounding::same(5.0))
 }
 
 // ---- helper functions ----
