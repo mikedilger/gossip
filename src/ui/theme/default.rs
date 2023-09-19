@@ -529,7 +529,7 @@ impl ThemeDef for DefaultTheme {
         }
     }
     fn feed_frame_outer_margin(_post: &NoteRenderData) -> Margin {
-        Margin::symmetric(0.0, 0.0)
+        Margin::symmetric(0.0, 2.0)
     }
     fn feed_frame_rounding(_post: &NoteRenderData) -> Rounding {
         Rounding::same(4.0)
