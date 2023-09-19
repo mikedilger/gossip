@@ -7,7 +7,7 @@ use eframe::{
     egui::{self, Image, Response},
     epaint::Vec2,
 };
-use egui::{Pos2, RichText, Ui};
+use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
 use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},
@@ -41,7 +41,15 @@ pub(super) fn render_content(
             if ui.next_widget_position().y > content_start.y + MAX_POST_HEIGHT {
                 if !app.opened.contains(&note.event.id) {
                     ui.end_row();
-                    if ui.button("show more...").clicked() {
+                    ui.end_row();
+                    let text_color = if app.settings.theme.dark_mode {
+                        Color32::WHITE
+                    } else {
+                        Color32::BLACK
+                    };
+                    let button = Button::new("Show more ▼")
+                        .stroke(Stroke::new(1.0, text_color));
+                    if ui.add(button).clicked() {
                         app.opened.insert(note.event.id);
                     }
                     break;
@@ -188,7 +196,8 @@ pub(super) fn render_content(
 
         if app.opened.contains(&note.event.id) {
             ui.end_row();
-            if ui.button("show less...").clicked() {
+            ui.end_row();
+            if ui.button("Show less ▲").clicked() {
                 app.opened.remove(&note.event.id);
             }
         }
@@ -232,7 +241,15 @@ pub(super) fn render_plain(
         if ui.next_widget_position().y > content_start.y + MAX_POST_HEIGHT {
             if !app.opened.contains(&note.event.id) {
                 ui.end_row();
-                if ui.button("show more...").clicked() {
+                ui.end_row();
+                let text_color = if app.settings.theme.dark_mode {
+                    Color32::WHITE
+                } else {
+                    Color32::BLACK
+                };
+                let button = Button::new("Show more ▼")
+                    .stroke(Stroke::new(1.0, text_color));
+                if ui.add(button).clicked() {
                     app.opened.insert(note.event.id);
                 }
                 return true; // means we put the 'show more' button in place
