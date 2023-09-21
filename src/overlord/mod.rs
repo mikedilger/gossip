@@ -795,6 +795,19 @@ impl Overlord {
             ToOverlordMessage::SetDmChannel(dmchannel) => {
                 self.set_dm_channel(dmchannel).await?;
             }
+            ToOverlordMessage::SubscribeConfig(relay_url) => {
+                self.engage_minion(
+                    relay_url.to_owned(),
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::Config,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::SubscribeOutbox,
+                        },
+                    }],
+                )
+                .await?;
+            }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
                 return Ok(false);
