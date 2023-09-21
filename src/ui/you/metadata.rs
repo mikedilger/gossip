@@ -108,6 +108,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .clicked()
                 {
                     app.editing_metadata = false;
+                    let mut new_you = you.clone();
+                    new_you.metadata = Some(app.metadata.clone());
+                    let _ = GLOBALS.storage.write_person(&new_you, None);
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::PushMetadata(app.metadata.clone()));
