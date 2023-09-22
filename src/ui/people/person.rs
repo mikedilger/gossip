@@ -1,5 +1,5 @@
 use super::{GossipUi, Page};
-use crate::comms::ToOverlordMessage;
+use crate::{comms::ToOverlordMessage, ui::PersonTab};
 use crate::globals::GLOBALS;
 use crate::people::Person;
 use crate::ui::widgets::CopyButton;
@@ -253,10 +253,23 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
             ui.separator();
             ui.add_space(10.0);
-            ui.heading("Relays");
-            let relays = GLOBALS.people.get_active_person_write_relays();
-            for (relay_url, score) in relays.iter() {
-                ui.label(format!("{} (score={})", relay_url, score));
+
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
+                ui.label("|");
+            });
+
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            match app.person_tab {
+                PersonTab::Relays => {
+                    let relays = GLOBALS.people.get_active_person_write_relays();
+                    for (relay_url, score) in relays.iter() {
+                        ui.label(format!("{} (score={})", relay_url, score));
+                    }
+                },
             }
         }
     }
