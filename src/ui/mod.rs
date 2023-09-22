@@ -1116,6 +1116,15 @@ impl GossipUi {
                         .to_overlord
                         .send(ToOverlordMessage::UpdateMetadata(person.pubkey));
                 }
+
+                if ui.button("Copy web link").clicked() {
+                    ui.output_mut(|o| {
+                        o.copied_text = format!(
+                            "https://njump.me/{}",
+                            person.pubkey.as_bech32_string()
+                        )
+                    });
+                }
             });
 
             if followed {
