@@ -1125,7 +1125,7 @@ impl GossipUi {
                             relays: Vec::new(),
                         };
                         let relays = GLOBALS.people.get_active_person_write_relays();
-                        for (relay_url, _) in relays.iter() {
+                        for (relay_url, _) in relays.iter().take(3) {
                             profile.relays.push(UncheckedUrl(format!("{}", relay_url)));
                         }
                         o.copied_text = format!(
