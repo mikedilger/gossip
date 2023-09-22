@@ -55,6 +55,11 @@ use self::feed::Notes;
 use self::widgets::NavItem;
 use self::wizard::{WizardPage, WizardState};
 
+#[derive(Eq, Hash, PartialEq)]
+enum PersonTab {
+    Relays,
+}
+
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../../gossip.png");
     let icon = image::load_from_memory(icon_bytes)?.to_rgba8();
@@ -344,6 +349,7 @@ struct GossipUi {
 
     // Person page rendering ('npub', 'nprofile', or 'lud06')
     person_qr: Option<&'static str>,
+    person_tab: PersonTab,
     setting_active_person: bool,
 
     // Page
@@ -588,6 +594,7 @@ impl GossipUi {
             approved: HashSet::new(),
             height: HashMap::new(),
             person_qr: None,
+            person_tab: PersonTab::Relays,
             setting_active_person: false,
             page: start_page,
             history: vec![],

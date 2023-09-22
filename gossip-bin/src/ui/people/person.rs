@@ -1,5 +1,6 @@
 use super::{GossipUi, Page};
 use crate::ui::widgets::CopyButton;
+use crate::ui::PersonTab;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Frame, Image, RichText, TextEdit, Ui, Vec2};
@@ -250,10 +251,23 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
             ui.separator();
             ui.add_space(10.0);
-            ui.heading("Relays");
-            let relays = GLOBALS.people.get_active_person_write_relays();
-            for (relay_url, score) in relays.iter() {
-                ui.label(format!("{} (score={})", relay_url, score));
+
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
+                ui.label("|");
+            });
+
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            match app.person_tab {
+                PersonTab::Relays => {
+                    let relays = GLOBALS.people.get_active_person_write_relays();
+                    for (relay_url, score) in relays.iter() {
+                        ui.label(format!("{} (score={})", relay_url, score));
+                    }
+                },
             }
 
             // Add a relay for them
