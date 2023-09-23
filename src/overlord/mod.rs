@@ -493,6 +493,9 @@ impl Overlord {
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
+            ToOverlordMessage::AddPubkeyRelay(pubkey, relayurl) => {
+                self.add_pubkey_relay(pubkey, relayurl).await?;
+            }
             ToOverlordMessage::AddRelay(relay_url) => {
                 // Create relay if missing
                 GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
@@ -916,6 +919,23 @@ impl Overlord {
         }
 
         Ok(true)
+    }
+
+    async fn add_pubkey_relay(&mut self, pubkey: PublicKey, relay: RelayUrl) -> Result<(), Error> {
+        // Save person_relay
+        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
+            Some(pr) => pr,
+            None => PersonRelay::new(pubkey, relay.clone()),
+        };
+        let now = Unixtime::now().unwrap().0 as u64;
+        pr.last_suggested_kind3 = Some(now); // not kind3, but we have no other field for this
+        pr.manually_paired_read = true;
+        pr.manually_paired_write = true;
+        GLOBALS.storage.write_person_relay(&pr, None)?;
+
+        self.pick_relays().await;
+
+        Ok(())
     }
 
     fn maybe_disconnect_relay(&mut self, url: &RelayUrl) -> Result<(), Error> {

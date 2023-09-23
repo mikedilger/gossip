@@ -7,6 +7,7 @@ use std::fmt;
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
 pub enum ToOverlordMessage {
+    AddPubkeyRelay(PublicKey, RelayUrl),
     AddRelay(RelayUrl),
     AdjustRelayUsageBit(RelayUrl, u64, bool),
     AdvertiseRelayList,

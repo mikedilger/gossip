@@ -6,7 +6,7 @@ use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Frame, RichText, ScrollArea, TextEdit, Ui, Vec2};
-use nostr_types::PublicKey;
+use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -258,6 +258,26 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             for (relay_url, score) in relays.iter() {
                 ui.label(format!("{} (score={})", relay_url, score));
             }
+
+            // Add a relay for them
+            ui.add_space(10.0);
+            ui.label("Manually specify a relay they use (read and write):");
+            ui.horizontal(|ui| {
+                ui.add(text_edit_line!(app, app.follow_pubkey_at_relay).hint_text("wss://..."));
+                if ui.button("Add").clicked() {
+                    if let Ok(url) = RelayUrl::try_from_str(&app.follow_pubkey_at_relay) {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::AddPubkeyRelay(pubkey, url));
+                        app.follow_pubkey_at_relay = "".to_owned();
+                    } else {
+                        GLOBALS
+                            .status_queue
+                            .write()
+                            .write("Invalid Relay Url".to_string());
+                    }
+                }
+            });
         }
     }
     if need_to_set_active_person && !app.setting_active_person {
