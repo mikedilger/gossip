@@ -178,6 +178,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.vertical(|ui| {
                         ui.label(RichText::new(crate::names::pubkey_short(&person.pubkey)).weak());
                         GossipUi::render_person_name_line(app, ui, person);
+                        if !GLOBALS
+                            .storage
+                            .have_persons_relays(person.pubkey)
+                            .unwrap_or(false)
+                        {
+                            ui.label(
+                                RichText::new("Relay list not found")
+                                    .color(app.settings.theme.warning_marker_text_color()),
+                            );
+                        }
                     });
                 });
 
