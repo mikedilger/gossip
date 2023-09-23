@@ -1769,6 +1769,11 @@ impl Storage {
     }
 
     #[inline]
+    pub fn have_persons_relays(&self, pubkey: PublicKey) -> Result<bool, Error> {
+        self.have_persons_relays1(pubkey)
+    }
+
+    #[inline]
     pub fn delete_person_relays<'a, F>(
         &'a self,
         filter: F,
