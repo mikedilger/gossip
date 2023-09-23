@@ -493,9 +493,9 @@ impl Overlord {
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
-            ToOverlordMessage::AddRelay(relay_str) => {
-                let relay = Relay::new(relay_str);
-                GLOBALS.storage.write_relay(&relay, None)?;
+            ToOverlordMessage::AddRelay(relay_url) => {
+                // Create relay if missing
+                GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
             }
             ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
                 if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
@@ -957,9 +957,8 @@ impl Overlord {
 
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
 
-        // Save relay
-        let db_relay = Relay::new(relay.clone());
-        GLOBALS.storage.write_relay(&db_relay, None)?;
+        // Create relay if missing
+        GLOBALS.storage.write_relay_if_missing(&relay, None)?;
 
         let now = Unixtime::now().unwrap().0 as u64;
 
@@ -1813,9 +1812,8 @@ impl Overlord {
         // Set their relays
         for relay in nprofile.relays.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
-                // Save relay
-                let db_relay = Relay::new(relay_url.clone());
-                GLOBALS.storage.write_relay(&db_relay, None)?;
+                // Create relay if missing
+                GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
 
                 // Save person_relay
                 let mut pr = match GLOBALS
