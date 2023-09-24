@@ -23,7 +23,9 @@ use egui::{
 use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl};
 
 pub struct NoteRenderData {
-    /// Available height for post
+    /// Height of the post
+    /// This is only used in feed_post_inner_indent() and is often just set to 0.0, but should
+    /// be taken from app.height if we can get that data.
     pub height: f32,
     /// Has this post been seen yet?
     pub is_new: bool,
@@ -66,8 +68,7 @@ pub(super) fn render_note(
         // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
-            let skip = (note_data.author.muted
-                && !matches!(app.page, Page::Feed(FeedKind::DmChat(_))))
+            let skip = (note_data.muted() && !matches!(app.page, Page::Feed(FeedKind::DmChat(_))))
                 || (note_data.deletion.is_some() && !app.settings.show_deleted_events);
 
             if skip {
@@ -89,14 +90,13 @@ pub(super) fn render_note(
                 }
             };
 
-            let height = if let Some(height) = app.height.get(&id) {
-                height
-            } else {
-                &0.0
+            let height = match app.height.get(&id) {
+                Some(h) => *h,
+                None => 0.0,
             };
 
             let render_data = NoteRenderData {
-                height: *height,
+                height,
                 has_repost: note_data.repost.is_some(),
                 is_comment_mention: false,
                 is_new,
@@ -408,7 +408,7 @@ fn render_note_inner(
                                 };
                                 ui.output_mut(|o| {
                                     o.copied_text = format!(
-                                        "https://nostr.com/{}",
+                                        "https://njump.me/{}",
                                         event_pointer.as_bech32_string()
                                     )
                                 });
@@ -1034,6 +1034,7 @@ fn render_repost(
 ) {
     if let Ok(repost_data) = repost_ref.try_borrow() {
         let render_data = NoteRenderData {
+            // the full note height differs from the reposted height anyways
             height: 0.0,
             has_repost: repost_data.repost.is_some(),
             is_comment_mention: *parent_repost == Some(RepostType::CommentMention),
@@ -1045,6 +1046,8 @@ fn render_repost(
             thread_position: 0,
             can_post: GLOBALS.signer.is_ready(),
         };
+
+        let row_height = ui.cursor().height();
 
         let push_top = {
             let diff = bottom_of_avatar - ui.cursor().top();
@@ -1134,5 +1137,8 @@ fn render_repost(
                     );
                 });
         });
+
+        ui.end_row();
+        ui.set_row_height(row_height);
     }
 }

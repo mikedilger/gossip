@@ -138,7 +138,7 @@ pub(super) fn relay_scroll_list(
     let is_editing = app.relays.edit.is_some();
     let enable_scroll = !is_editing && !egui::ScrollArea::is_scrolling(ui, id_source);
 
-    egui::ScrollArea::vertical()
+    app.vert_scroll_area()
         .id_source(id_source)
         .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
@@ -613,7 +613,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
             .cmp(&a.rank)
             .then(b.usage_bits.cmp(&a.usage_bits))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::Name => a.url.cmp(&b.url),
+        RelaySorting::Name => a.url.host().cmp(&b.url.host()),
         RelaySorting::WriteRelays => b
             .has_usage_bits(Relay::WRITE)
             .cmp(&a.has_usage_bits(Relay::WRITE))

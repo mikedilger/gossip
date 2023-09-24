@@ -6,7 +6,7 @@ use nostr_types::{Id, RelayUrl, Unixtime};
 use std::sync::Mutex;
 
 // Id:Url -> Unixtime
-//   key: key!(id.as_slice(), url.0.as_bytes())
+//   key: key!(id.as_slice(), url.as_str().as_bytes())
 //   val: unixtime.0.to_be_bytes()
 
 static EVENT_SEEN_ON_RELAY1_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
@@ -55,7 +55,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut key: Vec<u8> = id.as_slice().to_owned();
-        key.extend(url.0.as_bytes());
+        key.extend(url.as_str().as_bytes());
         key.truncate(MAX_LMDB_KEY);
         let bytes = when.0.to_be_bytes();
 
@@ -87,7 +87,7 @@ impl Storage {
             let (key, val) = result?;
 
             // Extract off the Url
-            let url = RelayUrl(std::str::from_utf8(&key[32..])?.to_owned());
+            let url = RelayUrl::try_from_str(std::str::from_utf8(&key[32..])?)?;
             let time = Unixtime(i64::from_be_bytes(val[..8].try_into()?));
             output.push((url, time));
         }

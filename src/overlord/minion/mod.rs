@@ -3,6 +3,7 @@ mod subscription;
 mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
+use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
@@ -15,7 +16,7 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKey, PublicKeyHex,
+    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKey, PublicKeyHex,
     PublicKeyHexPrefix, RelayInformationDocument, RelayUrl, Unixtime,
 };
 use reqwest::Response;
@@ -90,7 +91,7 @@ impl Minion {
         // Connect to the relay
         let websocket_stream = {
             // Parse the URI
-            let uri: http::Uri = self.url.0.parse::<Uri>()?;
+            let uri: http::Uri = self.url.as_str().parse::<Uri>()?;
             let mut parts: Parts = uri.into_parts();
             parts.scheme = match parts.scheme {
                 Some(scheme) => match scheme.as_str() {
@@ -170,16 +171,16 @@ impl Minion {
             // Some relays want an Origin header to filter requests. Of course we
             // don't have an Origin, but whatever, for these specific relays we will
             // give them something.
-            let req = if self.url.0 == "wss://relay.snort.social"
-                || self.url.0 == "wss://relay-pub.deschooling.us"
+            let req = if self.url.as_str() == "wss://relay.snort.social"
+                || self.url.as_str() == "wss://relay-pub.deschooling.us"
             {
                 // Like Damus, we will set it to the URL of the relay itself
-                req.header("Origin", &self.url.0)
+                req.header("Origin", self.url.as_str())
             } else {
                 req
             };
 
-            let uri: http::Uri = self.url.0.parse::<Uri>()?;
+            let uri: http::Uri = self.url.as_str().parse::<Uri>()?;
             let host = uri.host().unwrap(); // fixme
             let req = req
                 .header("Host", host)
@@ -305,7 +306,7 @@ impl Minion {
                     },
                     Err(e) => return Err(e.into())
                 };
-                if to_minion_message.target == self.url.0 || to_minion_message.target == "all" {
+                if to_minion_message.target == self.url.as_str() || to_minion_message.target == "all" {
                     self.handle_overlord_message(to_minion_message.payload).await?;
                 }
             },
@@ -353,13 +354,19 @@ impl Minion {
     pub async fn handle_overlord_message(&mut self, message: ToMinionPayload) -> Result<(), Error> {
         match message.detail {
             ToMinionPayloadDetail::FetchEvent(id) => {
-                self.sought_events.entry(id)
+                self.sought_events
+                    .entry(id)
                     .and_modify(|ess| ess.job_ids.push(message.job_id))
                     .or_insert(EventSeekState {
                         job_ids: vec![message.job_id],
                         asked: false,
                     });
                 // We don't ask the relay immediately. See task_timer.
+            }
+            ToMinionPayloadDetail::FetchEventAddr(ea) => {
+                // These are rare enough we can ask immediately. We can't store in sought_events
+                // anyways we would have to create a parallel thing.
+                self.get_event_addr(message.job_id, ea).await?;
             }
             ToMinionPayloadDetail::PostEvent(event) => {
                 let id = event.id;
@@ -373,9 +380,6 @@ impl Minion {
                     self.url.clone(),
                     message.job_id,
                 ))?;
-            }
-            ToMinionPayloadDetail::PullFollowing => {
-                self.pull_following(message.job_id).await?;
             }
             ToMinionPayloadDetail::Shutdown => {
                 tracing::debug!("{}: Websocket listener shutting down", &self.url);
@@ -402,6 +406,9 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeThreadFeed(main, parents) => {
                 self.subscribe_thread_feed(message.job_id, main, parents)
                     .await?;
+            }
+            ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
+                self.subscribe_dm_channel(message.job_id, dmchannel).await?;
             }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
                 self.temp_subscribe_metadata(message.job_id, pubkeys)
@@ -621,19 +628,13 @@ impl Minion {
                         EventKind::Metadata,
                         //EventKind::RecommendRelay,
                         EventKind::ContactList,
+                        EventKind::MuteList,
                         EventKind::RelayList,
                     ],
                     // these are all replaceable, no since required
                     ..Default::default()
                 },
-                // DMs I wrote recently
-                Filter {
-                    authors: vec![pkh.clone().into()],
-                    kinds: vec![EventKind::EncryptedDirectMessage],
-                    since: Some(since),
-                    ..Default::default()
-                },
-                // GiftWraps I wrote recently
+                // GiftWraps to me, recent only
                 Filter {
                     authors: vec![pkh.clone().into()],
                     kinds: vec![EventKind::GiftWrap],
@@ -655,7 +656,7 @@ impl Minion {
         Ok(())
     }
 
-    // Subscribe to the user's config which is on their own write relays
+    // Discover relay lists
     async fn subscribe_discover(
         &mut self,
         job_id: u64,
@@ -758,8 +759,40 @@ impl Minion {
         Ok(())
     }
 
-    async fn get_events(&mut self) -> Result<(), Error> {
+    async fn subscribe_dm_channel(
+        &mut self,
+        job_id: u64,
+        dmchannel: DmChannel,
+    ) -> Result<(), Error> {
+        let pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => return Ok(()),
+        };
+        let pkh: PublicKeyHex = pubkey.into();
 
+        // note: giftwraps can't be subscribed by channel. they are subscribed more
+        // globally, and have to be limited to recent ones.
+
+        let mut authors: Vec<PublicKeyHexPrefix> = dmchannel
+            .keys()
+            .iter()
+            .map(Into::<PublicKeyHex>::into)
+            .map(|k| k.prefix(32))
+            .collect();
+        authors.push(pkh.prefix(32)); // add the user themselves
+
+        let filters: Vec<Filter> = vec![Filter {
+            authors,
+            kinds: vec![EventKind::EncryptedDirectMessage],
+            ..Default::default()
+        }];
+
+        self.subscribe(filters, "dm_channel", job_id).await?;
+
+        Ok(())
+    }
+
+    async fn get_events(&mut self) -> Result<(), Error> {
         // Collect all the sought events we have not yet asked for, and
         // presumptively mark them as having been asked for.
         let mut ids: Vec<IdHex> = Vec::new();
@@ -810,6 +843,21 @@ impl Minion {
         Ok(())
     }
 
+    async fn get_event_addr(&mut self, job_id: u64, ea: EventAddr) -> Result<(), Error> {
+        // create a handle for ourselves
+        let handle = format!("temp_event_addr_{}", self.next_events_subscription_id);
+        self.next_events_subscription_id += 1;
+
+        // build the filter
+        let mut filter = Filter::new();
+        let pkh: PublicKeyHex = ea.author.into();
+        filter.authors = vec![pkh.prefix(32)]; // half-size
+        filter.kinds = vec![ea.kind];
+        filter.d = vec![ea.d];
+
+        self.subscribe(vec![filter], &handle, job_id).await
+    }
+
     async fn temp_subscribe_metadata(
         &mut self,
         job_id: u64,
@@ -833,20 +881,6 @@ impl Minion {
             ..Default::default()
         };
         self.subscribe(vec![filter], &handle, job_id).await
-    }
-
-    async fn pull_following(&mut self, job_id: u64) -> Result<(), Error> {
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            let pkh: PublicKeyHex = pubkey.into();
-            let filter = Filter {
-                authors: vec![pkh.into()],
-                kinds: vec![EventKind::ContactList],
-                ..Default::default()
-            };
-            self.subscribe(vec![filter], "temp_following_list", job_id)
-                .await?;
-        }
-        Ok(())
     }
 
     async fn subscribe(

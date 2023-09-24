@@ -6,7 +6,7 @@ use crate::relay::Relay;
 use crate::ui::{you, FeedKind, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
-use egui::{Align, Context, Key, Layout, Modifiers, RichText, ScrollArea, Ui, Vec2};
+use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 
@@ -282,28 +282,22 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     // Maybe render post we are replying to or reposting
 
     if let Some(id) = app.draft_data.replying_to.or(app.draft_data.repost) {
-        ScrollArea::vertical()
-            .max_height(200.0)
-            .override_scroll_delta(Vec2 {
-                x: 0.0,
-                y: app.current_scroll_offset,
-            })
-            .show(ui, |ui| {
-                super::note::render_note(
-                    app,
-                    ctx,
-                    frame,
-                    ui,
-                    FeedNoteParams {
-                        id,
-                        indent: 0,
-                        as_reply_to: true,
-                        threaded: false,
-                        is_first: true,
-                        is_last: true,
-                    },
-                );
-            });
+        app.vert_scroll_area().max_height(200.0).show(ui, |ui| {
+            super::note::render_note(
+                app,
+                ctx,
+                frame,
+                ui,
+                FeedNoteParams {
+                    id,
+                    indent: 0,
+                    as_reply_to: true,
+                    threaded: false,
+                    is_first: true,
+                    is_last: true,
+                },
+            );
+        });
     }
 
     let mut send_now: bool = false;

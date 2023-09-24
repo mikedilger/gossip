@@ -1,13 +1,12 @@
+use crate::globals::GLOBALS;
+use crate::people::PersonList;
 use nostr_types::{Metadata, PublicKey};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Person1 {
+pub struct Person2 {
     pub pubkey: PublicKey,
     pub petname: Option<String>,
-    pub followed: bool,
-    pub followed_last_updated: i64,
-    pub muted: bool,
     pub metadata: Option<Metadata>,
     pub metadata_created_at: Option<i64>,
     pub metadata_last_received: i64,
@@ -17,15 +16,11 @@ pub struct Person1 {
     pub relay_list_last_received: i64,
 }
 
-#[allow(dead_code)]
-impl Person1 {
-    pub fn new(pubkey: PublicKey) -> Person1 {
-        Person1 {
+impl Person2 {
+    pub fn new(pubkey: PublicKey) -> Person2 {
+        Person2 {
             pubkey,
             petname: None,
-            followed: false,
-            followed_last_updated: 0,
-            muted: false,
             metadata: None,
             metadata_created_at: None,
             metadata_last_received: 0,
@@ -84,15 +79,22 @@ impl Person1 {
             None
         }
     }
+
+    pub fn is_in_list(&self, list: PersonList) -> bool {
+        GLOBALS
+            .storage
+            .is_person_in_list(&self.pubkey, list)
+            .unwrap_or(false)
+    }
 }
 
-impl PartialEq for Person1 {
+impl PartialEq for Person2 {
     fn eq(&self, other: &Self) -> bool {
         self.pubkey.eq(&other.pubkey)
     }
 }
-impl Eq for Person1 {}
-impl PartialOrd for Person1 {
+impl Eq for Person2 {}
+impl PartialOrd for Person2 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (self.display_name(), other.display_name()) {
             (Some(a), Some(b)) => a.to_lowercase().partial_cmp(&b.to_lowercase()),
@@ -100,7 +102,7 @@ impl PartialOrd for Person1 {
         }
     }
 }
-impl Ord for Person1 {
+impl Ord for Person2 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self.display_name(), other.display_name()) {
             (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),

@@ -1,6 +1,11 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
+use crate::people::PersonList;
+use bech32::FromBase32;
+use nostr_types::{
+    Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, RelayUrl,
+    UncheckedUrl, Unixtime,
+};
 use std::env;
 use tokio::runtime::Runtime;
 use zeroize::Zeroize;
@@ -13,10 +18,9 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     println!("*** COMMAND = {} ***\n", command);
 
     match &*command {
+        "bech32_decode" => bech32_decode(args)?,
+        "bech32_encode_event_addr" => bech32_encode_event_addr(args)?,
         "decrypt" => decrypt(args)?,
-        "dump_event" => dump_event(args)?,
-        "dump_person_relays" => dump_person_relays(args)?,
-        "dump_relays" => dump_relays()?,
         "events_of_kind" => events_of_kind(args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(args)?,
         "giftwrap_ids" => giftwrap_ids()?,
@@ -25,6 +29,12 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
             login()?;
             return Ok(false);
         }
+        "print_event" => print_event(args)?,
+        "print_followed" => print_followed()?,
+        "print_muted" => print_muted()?,
+        "print_person_relays" => print_person_relays(args)?,
+        "print_relay" => print_relay(args)?,
+        "print_relays" => print_relays()?,
         "rebuild_indices" => rebuild_indices()?,
         "reprocess_recent" => reprocess_recent(runtime)?,
         "ungiftwrap" => ungiftwrap(args)?,
@@ -37,14 +47,12 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
 }
 
 pub fn help() -> Result<(), Error> {
+    println!("gossip bech32_decode <bech32string>");
+    println!("    decode the bech32 string.");
+    println!("gossip bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]");
+    println!("    encode an event address (parameterized replaceable event link).");
     println!("gossip decrypt <pubkeyhex> <ciphertext> <padded?>");
     println!("    decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.");
-    println!("gossip dump_event <idhex>");
-    println!("    print the event (in JSON) from the database that has the given id");
-    println!("gossip dump_person_relays <pubkeyhex>");
-    println!("    print all the person-relay records for the given person");
-    println!("gossip dump_relays");
-    println!("    print all the relay records");
     println!("gossip events_of_kind <kind>");
     println!("    print IDs of all events of kind=<kind>");
     println!("gossip events_of_pubkey_and_kind <pubkeyhex> <kind>");
@@ -55,6 +63,18 @@ pub fn help() -> Result<(), Error> {
     println!("    show this list");
     println!("gossip login");
     println!("    login on the command line before starting the gossip GUI");
+    println!("gossip print_event <idhex>");
+    println!("    print the event (in JSON) from the database that has the given id");
+    println!("gossip print_followed");
+    println!("    print every pubkey that is followed");
+    println!("gossip print_muted");
+    println!("    print every pubkey that is muted");
+    println!("gossip print_person_relays <pubkeyhex>");
+    println!("    print all the person-relay records for the given person");
+    println!("gossip print_relay <url>");
+    println!("    print the relay record");
+    println!("gossip print_relays");
+    println!("    print all the relay records");
     println!("gossip rebuild_indices");
     println!("    Rebuild all event-related indices");
     println!("gossip reprocess_recent");
@@ -65,6 +85,144 @@ pub fn help() -> Result<(), Error> {
     println!("    Verify if the given event signature is valid");
     println!("gossip verify_json <event_json>");
     println!("    Verify if the passed in event JSON's signature is valid");
+
+    Ok(())
+}
+
+pub fn bech32_decode(mut args: env::Args) -> Result<(), Error> {
+    let mut param = match args.next() {
+        Some(s) => s,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing bech32string parameter".to_string(),
+                "bech32_decode <bech32string>".to_string(),
+            )
+            .into())
+        }
+    };
+
+    // Also work if prefixed with 'nostr:'
+    if let Some(nurl) = NostrUrl::try_from_string(&param) {
+        param = format!("{}", nurl.0);
+    }
+
+    if let Some(nb32) = NostrBech32::try_from_string(&param) {
+        match nb32 {
+            NostrBech32::EventAddr(ea) => {
+                println!("Event Address:");
+                println!("  d={}", ea.d);
+                println!(
+                    "  relays={}",
+                    ea.relays
+                        .iter()
+                        .map(|r| r.as_str().to_owned())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+                println!("  kind={}", Into::<u32>::into(ea.kind));
+                println!("  author={}", ea.author.as_hex_string());
+            }
+            NostrBech32::EventPointer(ep) => {
+                println!("Event Pointer:");
+                println!("  id={}", ep.id.as_hex_string());
+                println!(
+                    "  relays={}",
+                    ep.relays
+                        .iter()
+                        .map(|r| r.as_str().to_owned())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+                if let Some(kind) = ep.kind {
+                    println!("  kind={}", Into::<u32>::into(kind));
+                }
+                if let Some(author) = ep.author {
+                    println!("  author={}", author.as_hex_string());
+                }
+            }
+            NostrBech32::Id(id) => {
+                println!("Id: {}", id.as_hex_string());
+            }
+            NostrBech32::Profile(profile) => {
+                println!("Profile:");
+                println!("  pubkey: {}", profile.pubkey.as_hex_string());
+                println!(
+                    "  relays={}",
+                    profile
+                        .relays
+                        .iter()
+                        .map(|r| r.as_str().to_owned())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+            }
+            NostrBech32::Pubkey(pubkey) => {
+                println!("Pubkey: {}", pubkey.as_hex_string());
+            }
+            NostrBech32::Relay(url) => {
+                println!("Relay URL: {}", url.0);
+            }
+        }
+    } else if let Ok(mut key) = PrivateKey::try_from_bech32_string(&param) {
+        println!("Private Key: {}", key.as_hex_string());
+    } else {
+        let data = bech32::decode(&param).unwrap();
+        println!("DATA.0 = {}", data.0);
+        let decoded = Vec::<u8>::from_base32(&data.1).unwrap();
+        println!("DATA.1 = {}", String::from_utf8_lossy(&decoded));
+    }
+
+    Ok(())
+}
+
+pub fn bech32_encode_event_addr(mut args: env::Args) -> Result<(), Error> {
+    let kind: EventKind = match args.next() {
+        Some(integer) => integer.parse::<u32>()?.into(),
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing kind parameter".to_string(),
+                "bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let pubkey = match args.next() {
+        Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing pubkeyhex parameter".to_string(),
+                "bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let d = match args.next() {
+        Some(d) => d,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing d parameter".to_string(),
+                "bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]".to_owned(),
+            )
+            .into())
+        }
+    };
+
+    let mut urls: Vec<UncheckedUrl> = vec![];
+
+    for s in args {
+        urls.push(UncheckedUrl::from_string(s));
+    }
+
+    let ea = EventAddr {
+        d,
+        relays: urls,
+        kind,
+        author: pubkey,
+    };
+
+    println!("{}", ea.as_bech32_string());
 
     Ok(())
 }
@@ -112,13 +270,13 @@ pub fn decrypt(mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dump_event(mut args: env::Args) -> Result<(), Error> {
+pub fn print_event(mut args: env::Args) -> Result<(), Error> {
     let idstr = match args.next() {
         Some(id) => id,
         None => {
             return Err(ErrorKind::Usage(
                 "Missing idhex parameter".to_string(),
-                "dump_event <idhex>".to_owned(),
+                "print_event <idhex>".to_owned(),
             )
             .into())
         }
@@ -134,21 +292,55 @@ pub fn dump_event(mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dump_relays() -> Result<(), Error> {
+pub fn print_relay(mut args: env::Args) -> Result<(), Error> {
+    if let Some(url) = args.next() {
+        let rurl = RelayUrl::try_from_str(&url)?;
+        if let Some(relay) = GLOBALS.storage.read_relay(&rurl)? {
+            println!("{}", serde_json::to_string_pretty(&relay)?);
+        } else {
+            println!("Relay not found.");
+        }
+        Ok(())
+    } else {
+        Err(ErrorKind::Usage(
+            "Missing url parameter".to_string(),
+            "print_relay <url>".to_owned(),
+        )
+        .into())
+    }
+}
+
+pub fn print_relays() -> Result<(), Error> {
     let relays = GLOBALS.storage.filter_relays(|_| true)?;
     for relay in &relays {
-        println!("{:?}", relay);
+        println!("{}", serde_json::to_string(relay)?);
     }
     Ok(())
 }
 
-pub fn dump_person_relays(mut args: env::Args) -> Result<(), Error> {
+pub fn print_followed() -> Result<(), Error> {
+    let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
+    for pk in &pubkeys {
+        println!("{}", pk.as_hex_string());
+    }
+    Ok(())
+}
+
+pub fn print_muted() -> Result<(), Error> {
+    let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
+    for pk in &pubkeys {
+        println!("{}", pk.as_hex_string());
+    }
+    Ok(())
+}
+
+pub fn print_person_relays(mut args: env::Args) -> Result<(), Error> {
     let pubkey = match args.next() {
         Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
         None => {
             return Err(ErrorKind::Usage(
                 "Missing pubkeyhex parameter".to_string(),
-                "dump_person_relays <pubkeyhex>".to_owned(),
+                "print_person_relays <pubkeyhex>".to_owned(),
             )
             .into())
         }
@@ -156,14 +348,7 @@ pub fn dump_person_relays(mut args: env::Args) -> Result<(), Error> {
 
     let person_relays = GLOBALS.storage.get_person_relays(pubkey)?;
     for record in &person_relays {
-        println!("write={} read={}, mwrite={}, mread={}, url={} last_fetched={:?}, last_suggested_kind3={:?}, last_suggested_nip05={:?}, last_suggested_by_tag={:?}",
-                 record.write as usize, record.read as usize,
-                 record.manually_paired_write as usize, record.manually_paired_read as usize,
-                 record.url,
-                 record.last_fetched,
-                 record.last_suggested_kind3,
-                 record.last_suggested_nip05,
-                 record.last_suggested_bytag);
+        println!("{}", serde_json::to_string(record)?);
     }
     Ok(())
 }

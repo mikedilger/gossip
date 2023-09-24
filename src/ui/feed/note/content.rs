@@ -1,4 +1,5 @@
 use super::{GossipUi, NoteData, Page, RepostType};
+use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui::Context;
@@ -6,12 +7,14 @@ use eframe::{
     egui::{self, Image, Response},
     epaint::Vec2,
 };
-use egui::{RichText, Ui};
+use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
 use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
 };
+
+const MAX_POST_HEIGHT: f32 = 200.0;
 
 pub(super) fn render_content(
     app: &mut GossipUi,
@@ -25,7 +28,33 @@ pub(super) fn render_content(
     ui.style_mut().spacing.item_spacing.x = 0.0;
 
     if let Ok(note) = note_ref.try_borrow() {
+        if let Some(error) = &note.error_content {
+            let color = app.settings.theme.notice_marker_text_color();
+            ui.label(RichText::new(error).color(color));
+            ui.end_row();
+            // fall through in case there is also shattered content to display
+        }
+
+        let content_start = ui.next_widget_position();
+
         for segment in note.shattered_content.segments.iter() {
+            if ui.next_widget_position().y > content_start.y + MAX_POST_HEIGHT {
+                if !app.opened.contains(&note.event.id) {
+                    ui.end_row();
+                    ui.end_row();
+                    let text_color = if app.settings.theme.dark_mode {
+                        Color32::WHITE
+                    } else {
+                        Color32::BLACK
+                    };
+                    let button = Button::new("Show more ▼").stroke(Stroke::new(1.0, text_color));
+                    if ui.add(button).clicked() {
+                        app.opened.insert(note.event.id);
+                    }
+                    break;
+                }
+            }
+
             match segment {
                 ContentSegment::NostrUrl(nurl) => {
                     match &nurl.0 {
@@ -155,7 +184,20 @@ pub(super) fn render_content(
                     }
                 }
                 ContentSegment::Hyperlink(linkspan) => render_hyperlink(app, ui, &note, linkspan),
-                ContentSegment::Plain(textspan) => render_plain(ui, &note, textspan, as_deleted),
+                ContentSegment::Plain(textspan) => {
+                    if render_plain(app, ui, &note, textspan, as_deleted, content_start) {
+                        // returns true if it did a 'show more'
+                        break;
+                    }
+                }
+            }
+        }
+
+        if app.opened.contains(&note.event.id) {
+            ui.end_row();
+            ui.end_row();
+            if ui.button("Show less ▲").clicked() {
+                app.opened.remove(&note.event.id);
             }
         }
     }
@@ -183,13 +225,50 @@ pub(super) fn render_hyperlink(
     }
 }
 
-pub(super) fn render_plain(ui: &mut Ui, note: &Ref<NoteData>, textspan: &Span, as_deleted: bool) {
+pub(super) fn render_plain(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    note: &Ref<NoteData>,
+    textspan: &Span,
+    as_deleted: bool,
+    content_start: Pos2,
+) -> bool {
     let text = note.shattered_content.slice(textspan).unwrap();
-    if as_deleted {
-        ui.label(RichText::new(text).strikethrough());
-    } else {
-        ui.label(text);
+
+    let mut first = true;
+    for line in text.split('\n') {
+        if ui.next_widget_position().y > content_start.y + MAX_POST_HEIGHT {
+            if !app.opened.contains(&note.event.id) {
+                ui.end_row();
+                ui.end_row();
+                let text_color = if app.settings.theme.dark_mode {
+                    Color32::WHITE
+                } else {
+                    Color32::BLACK
+                };
+                let button = Button::new("Show more ▼").stroke(Stroke::new(1.0, text_color));
+                if ui.add(button).clicked() {
+                    app.opened.insert(note.event.id);
+                }
+                return true; // means we put the 'show more' button in place
+            }
+        }
+
+        if !first {
+            // carraige return
+            ui.end_row();
+        }
+
+        if as_deleted {
+            ui.label(RichText::new(line).strikethrough());
+        } else {
+            ui.label(line);
+        }
+
+        first = false;
     }
+
+    false
 }
 
 pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
@@ -235,10 +314,16 @@ pub(super) fn render_parameterized_event_link(
                 author: Some(prevent.pubkey),
             }));
         } else {
+            // Disclose failure
             GLOBALS
                 .status_queue
                 .write()
                 .write("Parameterized event not found.".to_owned());
+
+            // Start fetch
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::FetchEventAddr(event_addr.to_owned()));
         }
     };
 }

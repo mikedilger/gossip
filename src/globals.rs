@@ -94,6 +94,8 @@ pub struct Globals {
     pub media: Media,
 
     /// Search results
+    pub events_being_searched_for: PRwLock<Vec<Id>>, // being searched for
+    //pub event_addrs_being_searched_for: PRwLock<Vec<EventAddr>>, // being searched for
     pub people_search_results: PRwLock<Vec<Person>>,
     pub note_search_results: PRwLock<Vec<Event>>,
 
@@ -104,6 +106,9 @@ pub struct Globals {
     /// UI note cache invalidation per person
     // when we update a Person, the UI must recompute all notes by them
     pub ui_people_to_invalidate: PRwLock<Vec<PublicKey>>,
+
+    /// UI invalidate all
+    pub ui_invalidate_all: AtomicBool,
 
     /// Current zap data, for UI
     pub current_zap: PRwLock<ZapState>,
@@ -161,10 +166,13 @@ lazy_static! {
             open_subscriptions: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),
+            events_being_searched_for: PRwLock::new(Vec::new()),
+            //event_addrs_being_searched_for: PRwLock::new(Vec::new()),
             people_search_results: PRwLock::new(Vec::new()),
             note_search_results: PRwLock::new(Vec::new()),
             ui_notes_to_invalidate: PRwLock::new(Vec::new()),
             ui_people_to_invalidate: PRwLock::new(Vec::new()),
+            ui_invalidate_all: AtomicBool::new(false),
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
             storage,

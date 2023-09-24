@@ -25,6 +25,8 @@ mod event_viewed1;
 mod events1;
 mod hashtags1;
 mod people1;
+mod people2;
+mod person_lists1;
 mod person_relays1;
 mod relationships1;
 mod relays1;
@@ -33,7 +35,7 @@ mod unindexed_giftwraps1;
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::people::Person;
+use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::Relationship;
@@ -128,7 +130,7 @@ impl Storage {
     pub fn new() -> Result<Storage, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
-            builder.flags(EnvFlags::NO_SYNC);
+            builder.flags(EnvFlags::NO_SYNC | EnvFlags::NO_TLS);
         }
         // builder.max_readers(126); // this is the default
         builder.max_dbs(32);
@@ -142,7 +144,14 @@ impl Storage {
         //       after the database has been launched.
         builder.map_size(1048576 * 1024 * 24); // 24 GB
 
-        let env = builder.open(Profile::current()?.lmdb_dir)?;
+        let dir = Profile::current()?.lmdb_dir;
+        let env = match builder.open(&dir) {
+            Ok(env) => env,
+            Err(e) => {
+                tracing::error!("Unable to open LMDB at {}", dir.display());
+                return Err(e.into());
+            }
+        };
 
         let mut txn = env.write_txn()?;
 
@@ -177,6 +186,7 @@ impl Storage {
         let _ = self.db_relationships()?;
         let _ = self.db_relays()?;
         let _ = self.db_unindexed_giftwraps()?;
+        let _ = self.db_person_lists()?;
 
         // If migration level is missing, we need to import from legacy sqlite
         match self.read_migration_level()? {
@@ -241,7 +251,7 @@ impl Storage {
 
     #[inline]
     pub fn db_people(&self) -> Result<RawDatabase, Error> {
-        self.db_people1()
+        self.db_people2()
     }
 
     #[inline]
@@ -262,6 +272,11 @@ impl Storage {
     #[inline]
     pub fn db_unindexed_giftwraps(&self) -> Result<RawDatabase, Error> {
         self.db_unindexed_giftwraps1()
+    }
+
+    #[inline]
+    pub fn db_person_lists(&self) -> Result<RawDatabase, Error> {
+        self.db_person_lists1()
     }
 
     // Database length functions ---------------------------------
@@ -318,12 +333,17 @@ impl Storage {
 
     #[inline]
     pub fn get_people_len(&self) -> Result<u64, Error> {
-        self.get_people1_len()
+        self.get_people2_len()
     }
 
     #[inline]
     pub fn get_person_relays_len(&self) -> Result<u64, Error> {
         self.get_person_relays1_len()
+    }
+
+    pub fn get_person_lists_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_person_lists()?.len(&txn)?)
     }
 
     // Prune -------------------------------------------------------
@@ -518,12 +538,54 @@ impl Storage {
         Ok(())
     }
 
-    pub fn read_last_contact_list_edit(&self) -> Result<Option<i64>, Error> {
+    pub fn read_last_contact_list_edit(&self) -> Result<i64, Error> {
         let txn = self.env.read_txn()?;
 
         match self.general.get(&txn, b"last_contact_list_edit")? {
-            None => Ok(None),
-            Some(bytes) => Ok(Some(i64::from_be_bytes(bytes[..8].try_into().unwrap()))),
+            None => {
+                let now = Unixtime::now().unwrap();
+                self.write_last_contact_list_edit(now.0, None)?;
+                Ok(now.0)
+            }
+            Some(bytes) => Ok(i64::from_be_bytes(bytes[..8].try_into().unwrap())),
+        }
+    }
+
+    pub fn write_last_mute_list_edit<'a>(
+        &'a self,
+        when: i64,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = when.to_be_bytes();
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general
+                .put(txn, b"last_mute_list_edit", bytes.as_slice())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn read_last_mute_list_edit(&self) -> Result<i64, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.general.get(&txn, b"last_mute_list_edit")? {
+            None => {
+                let now = Unixtime::now().unwrap();
+                self.write_last_mute_list_edit(now.0, None)?;
+                Ok(now.0)
+            }
+            Some(bytes) => Ok(i64::from_be_bytes(bytes[..8].try_into().unwrap())),
         }
     }
 
@@ -616,6 +678,8 @@ impl Storage {
         String,
         "CatmullRom".to_owned()
     );
+    def_setting!(inertial_scrolling, b"inertial_scrolling", bool, true);
+    def_setting!(mouse_acceleration, b"mouse_acceleration", f32, 1.0);
     def_setting!(
         relay_list_becomes_stale_hours,
         b"relay_list_becomes_stale_hours",
@@ -787,6 +851,7 @@ impl Storage {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn delete_relay<'a>(
         &'a self,
         url: &RelayUrl,
@@ -1064,6 +1129,18 @@ impl Storage {
         self.write_event(event, rw_txn)?;
 
         Ok(true)
+    }
+
+    // TBD: optimize this by storing better event indexes
+    pub fn get_replaceable_event(
+        &self,
+        pubkey: PublicKey,
+        kind: EventKind,
+    ) -> Result<Option<Event>, Error> {
+        Ok(self
+            .find_events(&[kind], &[pubkey], None, |_| true, true)?
+            .first()
+            .cloned())
     }
 
     pub fn get_parameterized_replaceable_event(
@@ -1473,16 +1550,6 @@ impl Storage {
         self.index_unindexed_giftwraps1()
     }
 
-    // TBD: optimize this by storing better event indexes
-    // currently we stupidly scan every event (just to get LMDB up and running first)
-    pub fn fetch_contact_list(&self, pubkey: &PublicKey) -> Result<Option<Event>, Error> {
-        Ok(self
-            .find_events(&[EventKind::ContactList], &[*pubkey], None, |_| true, false)?
-            .iter()
-            .max_by(|x, y| x.created_at.cmp(&y.created_at))
-            .cloned())
-    }
-
     pub fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {
         let event = match self.read_event(id)? {
             Some(event) => event,
@@ -1659,12 +1726,12 @@ impl Storage {
         person: &Person,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_person1(person, rw_txn)
+        self.write_person2(person, rw_txn)
     }
 
     #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
-        self.read_person1(pubkey)
+        self.read_person2(pubkey)
     }
 
     pub fn write_person_if_missing<'a>(
@@ -1684,7 +1751,7 @@ impl Storage {
     where
         F: Fn(&Person) -> bool,
     {
-        self.filter_people1(f)
+        self.filter_people2(f)
     }
 
     #[inline]
@@ -1708,6 +1775,11 @@ impl Storage {
     #[inline]
     pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
         self.get_person_relays1(pubkey)
+    }
+
+    #[inline]
+    pub fn have_persons_relays(&self, pubkey: PublicKey) -> Result<bool, Error> {
+        self.have_persons_relays1(pubkey)
     }
 
     #[inline]
@@ -1739,14 +1811,17 @@ impl Storage {
 
         // Modulate these scores with our local rankings
         for ranked_relay in ranked_relays.iter_mut() {
-            match self.read_relay(&ranked_relay.0)? {
-                None => ranked_relay.1 = 0,
-                Some(relay) => {
-                    ranked_relay.1 = (ranked_relay.1 as f32
-                        * (relay.rank as f32 / 3.0)
-                        * (relay.success_rate() * 2.0)) as u64;
+            let relay = match self.read_relay(&ranked_relay.0)? {
+                None => {
+                    self.write_relay_if_missing(&ranked_relay.0, None)?;
+                    Relay::new(ranked_relay.0.clone())
                 }
-            }
+                Some(relay) => relay,
+            };
+
+            ranked_relay.1 = (ranked_relay.1 as f32
+                * (relay.rank as f32 / 3.0)
+                * (relay.success_rate() * 2.0)) as u64;
         }
 
         // Resort
@@ -1754,15 +1829,10 @@ impl Storage {
 
         let num_relays_per_person = self.read_setting_num_relays_per_person() as usize;
 
-        // If we can't get enough of them, extend with some of our relays
-        // at whatever the lowest score of their last one was
+        // If we can't get enough of them, extend with some of our relays at score=2
         if ranked_relays.len() < (num_relays_per_person + 1) {
             let how_many_more = (num_relays_per_person + 1) - ranked_relays.len();
-            let last_score = if ranked_relays.is_empty() {
-                20
-            } else {
-                ranked_relays[ranked_relays.len() - 1].1
-            };
+            let score = 2;
             match dir {
                 Direction::Write => {
                     // substitute our read relays
@@ -1773,7 +1843,7 @@ impl Storage {
                                 && r.has_usage_bits(Relay::READ)
                         })?
                         .iter()
-                        .map(|r| (r.url.clone(), last_score))
+                        .map(|r| (r.url.clone(), score))
                         .take(how_many_more)
                         .collect();
 
@@ -1788,7 +1858,7 @@ impl Storage {
                                 && r.has_usage_bits(Relay::WRITE)
                         })?
                         .iter()
-                        .map(|r| (r.url.clone(), last_score))
+                        .map(|r| (r.url.clone(), score))
                         .take(how_many_more)
                         .collect();
 
@@ -1920,5 +1990,64 @@ impl Storage {
         wtxn.commit()?;
         self.sync()?;
         Ok(())
+    }
+
+    pub fn read_person_lists(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
+        self.read_person_lists1(pubkey)
+    }
+
+    // Well known lists: 'followed', 'muted'
+    pub fn write_person_lists<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        lists: Vec<PersonList>,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.write_person_lists1(pubkey, lists, rw_txn)
+    }
+
+    // Well known lists: 'followed', 'muted'
+    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
+        self.get_people_in_list1(list)
+    }
+
+    #[inline]
+    pub fn clear_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.clear_person_list1(list, rw_txn)
+    }
+
+    pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> Result<bool, Error> {
+        let lists = self.read_person_lists(pubkey)?;
+        Ok(lists.contains(&list))
+    }
+
+    // Well known lists: 'followed', 'muted'
+    pub fn add_person_to_list<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut lists = self.read_person_lists(pubkey)?;
+        if !lists.iter().any(|s| *s == list) {
+            lists.push(list.to_owned());
+        }
+        self.write_person_lists(pubkey, lists, rw_txn)
+    }
+
+    // Well known lists: 'followed', 'muted'
+    pub fn remove_person_from_list<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut lists = self.read_person_lists(pubkey)?;
+        let lists: Vec<PersonList> = lists.drain(..).filter(|s| *s != list).collect();
+        self.write_person_lists(pubkey, lists, rw_txn)
     }
 }

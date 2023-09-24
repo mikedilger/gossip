@@ -15,7 +15,9 @@ impl Minion {
             Ok(rm) => rm,
             Err(e) => {
                 tracing::error!(
-                    "RELAY MESSAGE NOT DESERIALIZING: starts with \"{}\"",
+                    "RELAY MESSAGE NOT DESERIALIZING ({}) ({}): starts with \"{}\"",
+                    self.url,
+                    e,
                     &ws_message.chars().take(300).collect::<String>()
                 );
                 return Err(e.into());
@@ -167,7 +169,7 @@ impl Minion {
                     tags: vec![
                         Tag::Other {
                             tag: "relay".to_string(),
-                            data: vec![self.url.0.to_owned()],
+                            data: vec![self.url.as_str().to_owned()],
                         },
                         Tag::Other {
                             tag: "challenge".to_string(),

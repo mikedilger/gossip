@@ -106,7 +106,7 @@ impl<'a> CoverageEntry<'a> {
         let relays_string = self
             .relays
             .iter()
-            .map(|rurl| rurl.domain())
+            .map(|rurl| rurl.host())
             .collect::<Vec<String>>()
             .join(", ");
         draw_text_at(ui, pos, relays_string.into(), Align::LEFT, None, None);
@@ -183,33 +183,31 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         ui.add_space(10.0);
         let id_source = ui.auto_id_with("relay-coverage-scroll");
-        egui::ScrollArea::vertical()
-            .id_source(id_source)
-            .show(ui, |ui| {
-                for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
-                    let pk = elem.key();
-                    let count = elem.value();
-                    let name = crate::names::display_name_from_pubkey_lookup(pk);
-                    let relays = find_relays_for_pubkey(pk);
-                    let hover_text = format!("Go to profile of {}", name);
+        app.vert_scroll_area().id_source(id_source).show(ui, |ui| {
+            for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
+                let pk = elem.key();
+                let count = elem.value();
+                let name = crate::names::display_name_from_pubkey_lookup(pk);
+                let relays = find_relays_for_pubkey(pk);
+                let hover_text = format!("Go to profile of {}", name);
 
-                    let entry = CoverageEntry::new(pk, name, count, relays);
-                    if entry
-                        .show(ui, app)
-                        .on_hover_text(hover_text)
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .clicked()
-                    {
-                        app.set_page(Page::Person(*pk));
-                    }
+                let entry = CoverageEntry::new(pk, name, count, relays);
+                if entry
+                    .show(ui, app)
+                    .on_hover_text(hover_text)
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    app.set_page(Page::Person(*pk));
                 }
+            }
 
-                // add one entry space at the bottom
-                ui.allocate_exact_size(
-                    vec2(ui.available_size_before_wrap().x, COVERAGE_ENTRY_HEIGHT),
-                    egui::Sense::hover(),
-                );
-            });
+            // add one entry space at the bottom
+            ui.allocate_exact_size(
+                vec2(ui.available_size_before_wrap().x, COVERAGE_ENTRY_HEIGHT),
+                egui::Sense::hover(),
+            );
+        });
     } else {
         ui.label("All followed people are fully covered.".to_owned());
     }

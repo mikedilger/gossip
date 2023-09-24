@@ -4,7 +4,7 @@ use crate::globals::{Globals, GLOBALS};
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::style::Margin;
-use egui::{Color32, Context, Frame, ScrollArea, Stroke, Ui, Vec2};
+use egui::{Color32, Context, Frame, Stroke, Ui};
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
@@ -20,12 +20,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.separator();
         ui.add_space(10.0);
 
-        ScrollArea::vertical()
+        app.vert_scroll_area()
             .id_source("your_keys")
-            .override_scroll_delta(Vec2 {
-                x: 0.0,
-                y: app.current_scroll_offset,
-            })
             .show(ui, |ui| {
                 if GLOBALS.signer.is_ready() {
                     ui.heading("Ready to sign events");
@@ -343,8 +339,6 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
                 app.import_priv.clone(),
                 app.password.clone(),
             ));
-            app.import_priv.zeroize();
-            app.import_priv = "".to_owned();
         }
         app.password.zeroize();
         app.password = "".to_owned();

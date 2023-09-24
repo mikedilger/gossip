@@ -1,12 +1,13 @@
-use super::types::{Settings1, Settings2};
+use super::types::{Person2, PersonRelay1, Settings1, Settings2};
 use super::Storage;
 use crate::error::{Error, ErrorKind};
+use crate::people::PersonList;
 use heed::RwTxn;
 use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 5;
+    const MAX_MIGRATION_LEVEL: u32 = 8;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -18,6 +19,9 @@ impl Storage {
         }
 
         while level < Self::MAX_MIGRATION_LEVEL {
+            // Trigger needed databases into existence before the migrate transaction starts
+            self.migrate_trigger(level)?;
+
             let mut txn = self.env.write_txn()?;
             self.migrate_inner(level, &mut txn)?;
             level += 1;
@@ -25,6 +29,32 @@ impl Storage {
             txn.commit()?;
         }
 
+        Ok(())
+    }
+
+    fn migrate_trigger(&self, level: u32) -> Result<(), Error> {
+        // Trigger database into existance BEFORE the migration rw_txn starts, so that they
+        // are visible within that transaction
+        match level {
+            1 => {
+                let _ = self.db_events1()?;
+            }
+            2 => {
+                let _ = self.db_relays1()?;
+            }
+            4 => {
+                let _ = self.db_events1()?;
+            }
+            5 => {
+                let _ = self.db_people1()?;
+                let _ = self.db_person_lists1()?;
+            }
+            6 => {
+                let _ = self.db_people1()?;
+                let _ = self.db_people2()?;
+            }
+            _ => {}
+        };
         Ok(())
     }
 
@@ -53,6 +83,18 @@ impl Storage {
             4 => {
                 tracing::info!("{prefix}: deleting decrypted rumors...");
                 self.delete_rumors(txn)?;
+            }
+            5 => {
+                tracing::info!("{prefix}: populating new lists...");
+                self.populate_new_lists(txn)?;
+            }
+            6 => {
+                tracing::info!("{prefix}: migrating person records...");
+                self.migrate_people(txn)?;
+            }
+            7 => {
+                tracing::info!("{prefix}: populating missing last_fetched data...");
+                self.populate_last_fetched(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -108,12 +150,12 @@ impl Storage {
 
     fn remove_invalid_relays<'a>(&'a self, rw_txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let bad_relays =
-            self.filter_relays(|relay| RelayUrl::try_from_str(&relay.url.0).is_err())?;
+            self.filter_relays1(|relay| RelayUrl::try_from_str(relay.url.as_str()).is_err())?;
 
         for relay in &bad_relays {
             tracing::info!("Deleting bad relay: {}", relay.url);
 
-            self.delete_relay(&relay.url, Some(rw_txn))?;
+            self.delete_relay1(&relay.url, Some(rw_txn))?;
         }
 
         tracing::info!("Deleted {} bad relays", bad_relays.len());
@@ -128,7 +170,13 @@ impl Storage {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // If something is under the old "settings" key
             if let Ok(Some(bytes)) = self.general.get(txn, b"settings") {
-                let settings1 = Settings1::read_from_buffer(bytes)?;
+                let settings1 = match Settings1::read_from_buffer(bytes) {
+                    Ok(s1) => s1,
+                    Err(_) => {
+                        tracing::error!("Settings are not deserializing. This is probably a code issue (although I have not found the bug yet). The best I can do is reset your settings to the default. This is better than the other option of wiping your entire database and starting over.");
+                        Settings1::default()
+                    }
+                };
 
                 // Convert it to the new Settings2 structure
                 let settings2: Settings2 = settings1.into();
@@ -164,7 +212,7 @@ impl Storage {
             None => match self.read_settings2_from_wrong_key()? {
                 Some(settings) => settings,
                 None => {
-                    if Self::MAX_MIGRATION_LEVEL <= 4 {
+                    if 4 >= Self::MAX_MIGRATION_LEVEL {
                         // At migraiton level < 4 we know this is safe to do:
                         let settings = crate::settings::Settings::default();
                         settings.save()?;
@@ -320,6 +368,112 @@ impl Storage {
 
         for id in ids {
             self.db_events1()?.delete(txn, id.as_slice())?;
+        }
+
+        Ok(())
+    }
+
+    pub fn populate_new_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let mut count: usize = 0;
+        let mut followed_count: usize = 0;
+        for person1 in self.filter_people1(|_| true)?.iter() {
+            let mut lists: Vec<PersonList> = Vec::new();
+            if person1.followed {
+                lists.push(PersonList::Followed);
+                followed_count += 1;
+            }
+            if person1.muted {
+                lists.push(PersonList::Muted);
+            }
+            if !lists.is_empty() {
+                self.write_person_lists1(&person1.pubkey, lists, Some(txn))?;
+                count += 1;
+            }
+        }
+
+        tracing::info!(
+            "{} people added to new lists, {} followed",
+            count,
+            followed_count
+        );
+
+        // This migration does not remove the old data. The next one will.
+        Ok(())
+    }
+
+    pub fn migrate_people<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let mut count: usize = 0;
+        for person1 in self.filter_people1(|_| true)?.drain(..) {
+            let person2 = Person2 {
+                pubkey: person1.pubkey,
+                petname: person1.petname,
+                metadata: person1.metadata,
+                metadata_created_at: person1.metadata_created_at,
+                metadata_last_received: person1.metadata_last_received,
+                nip05_valid: person1.nip05_valid,
+                nip05_last_checked: person1.nip05_last_checked,
+                relay_list_created_at: person1.relay_list_created_at,
+                relay_list_last_received: person1.relay_list_last_received,
+            };
+            self.write_person2(&person2, Some(txn))?;
+            count += 1;
+        }
+
+        tracing::info!("Migrated {} people", count);
+
+        // delete people1 database
+        self.db_people1()?.clear(txn)?;
+        // self.general.delete(txn, b"people")?; // LMDB doesn't allow this.
+
+        Ok(())
+    }
+
+    pub fn populate_last_fetched<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let total = self.get_event_seen_on_relay_len()?;
+        let mut count = 0;
+
+        // Since we failed to properly collect person_relay.last_fetched, we will
+        // use seen_on data to reconstruct it
+        let loop_txn = self.env.read_txn()?;
+
+        for result in self.db_event_seen_on_relay1()?.iter(&loop_txn)? {
+            let (key, val) = result?;
+
+            // Extract out the data
+            let id = Id(key[..32].try_into().unwrap());
+            let url = match RelayUrl::try_from_str(std::str::from_utf8(&key[32..])?) {
+                Ok(url) => url,
+                Err(_) => continue, // skip if relay url is bad. We will prune these in the future.
+            };
+
+            let time = u64::from_be_bytes(val[..8].try_into()?);
+
+            // Read event to get the person
+            if let Some(event) = self.read_event(id)? {
+                // Read (or create) person_relay
+                let (mut pr, update) = match self.read_person_relay(event.pubkey, &url)? {
+                    Some(pr) => match pr.last_fetched {
+                        Some(lf) => (pr, lf < time),
+                        None => (pr, true),
+                    },
+                    None => {
+                        let pr = PersonRelay1::new(event.pubkey, url.clone());
+                        (pr, true)
+                    }
+                };
+
+                if update {
+                    pr.last_fetched = Some(time);
+                    self.write_person_relay(&pr, Some(txn))?;
+                }
+            }
+
+            count += 1;
+            for checkpoint in &[10, 20, 30, 40, 50, 60, 70, 80, 90] {
+                if count == checkpoint * total / 100 {
+                    tracing::info!("{}% done", checkpoint);
+                }
+            }
         }
 
         Ok(())

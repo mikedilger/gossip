@@ -28,6 +28,10 @@ impl Notes {
         self.notes.remove(id);
     }
 
+    pub(super) fn cache_invalidate_all(&mut self) {
+        self.notes.clear();
+    }
+
     /// Drop all NoteData for a given person
     pub(in crate::ui) fn cache_invalidate_person(&mut self, pubkey: &PublicKey) {
         self.notes

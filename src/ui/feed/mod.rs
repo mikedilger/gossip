@@ -3,8 +3,9 @@ use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
+use egui::{Context, Frame, RichText, Ui, Vec2};
 use nostr_types::Id;
+use std::sync::atomic::Ordering;
 
 mod notedata;
 
@@ -25,20 +26,27 @@ struct FeedNoteParams {
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
-    // Do cache invalidations
-    if !GLOBALS.ui_notes_to_invalidate.read().is_empty() {
-        let mut handle = GLOBALS.ui_notes_to_invalidate.write();
-        for id in handle.iter() {
-            app.notes.cache_invalidate_note(id);
+    if GLOBALS.ui_invalidate_all.load(Ordering::Relaxed) {
+        app.notes.cache_invalidate_all();
+        GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
+    } else {
+        // Do per-note invalidations
+        if !GLOBALS.ui_notes_to_invalidate.read().is_empty() {
+            let mut handle = GLOBALS.ui_notes_to_invalidate.write();
+            for id in handle.iter() {
+                app.notes.cache_invalidate_note(id);
+            }
+            *handle = Vec::new();
         }
-        *handle = Vec::new();
-    }
-    if !GLOBALS.ui_people_to_invalidate.read().is_empty() {
-        let mut handle = GLOBALS.ui_people_to_invalidate.write();
-        for pkh in handle.iter() {
-            app.notes.cache_invalidate_person(pkh);
+
+        // Do per-person invalidations
+        if !GLOBALS.ui_people_to_invalidate.read().is_empty() {
+            let mut handle = GLOBALS.ui_people_to_invalidate.write();
+            for pkh in handle.iter() {
+                app.notes.cache_invalidate_person(pkh);
+            }
+            *handle = Vec::new();
         }
-        *handle = Vec::new();
     }
 
     let feed_kind = GLOBALS.feed.get_feed_kind();
@@ -150,6 +158,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string());
         }
         FeedKind::DmChat(channel) => {
+            if !GLOBALS.signer.is_ready() {
+                ui.add_space(10.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("You need to ");
+                    if ui.link("setup your identity").clicked() {
+                        app.set_page(Page::YourKeys);
+                    }
+                    ui.label(" to see DMs.");
+                });
+            }
+
             ui.horizontal(|ui| {
                 ui.label(format!("Private Chat with {}", channel.name()));
                 recompute_btn(app, ui);
@@ -178,12 +197,8 @@ fn render_a_feed(
         is_thread: threaded,
     };
 
-    ScrollArea::vertical()
+    app.vert_scroll_area()
         .id_source(scroll_area_id)
-        .override_scroll_delta(Vec2 {
-            x: 0.0,
-            y: app.current_scroll_offset * 2.0, // double speed
-        })
         .show(ui, |ui| {
             Frame::none()
                 .rounding(app.settings.theme.feed_scroll_rounding(&feed_properties))

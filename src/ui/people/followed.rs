@@ -4,14 +4,17 @@ use crate::globals::GLOBALS;
 use crate::people::Person;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Image, RichText, ScrollArea, Sense, Ui, Vec2};
+use egui::{Context, Image, RichText, Sense, Ui, Vec2};
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let mut people: Vec<Person> = match GLOBALS.storage.filter_people(|p| p.followed) {
-        Ok(people) => people,
-        Err(_) => return,
-    };
+    let followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
+    let mut people: Vec<Person> = Vec::new();
+    for pk in &followed_pubkeys {
+        if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+            people.push(person);
+        }
+    }
     people.sort_unstable();
 
     ui.add_space(12.0);
@@ -61,7 +64,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         if ui
             .button("↓ Merge ↓")
             .on_hover_text(
-                "This pulls down your contact list, merging it into what is already here",
+                "This pulls down your Contact List, merging it into what is already here",
             )
             .clicked()
         {
@@ -73,7 +76,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         if GLOBALS.signer.is_ready() {
             if ui
                 .button("↑ Publish ↑")
-                .on_hover_text("This publishes your contact list")
+                .on_hover_text("This publishes your Contact List")
                 .clicked()
             {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
@@ -112,8 +115,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(10.0);
 
     let last_contact_list_edit = match GLOBALS.storage.read_last_contact_list_edit() {
-        Ok(Some(date)) => date,
-        Ok(None) => 0,
+        Ok(date) => date,
         Err(e) => {
             tracing::error!("{}", e);
             0
@@ -149,43 +151,44 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.heading(format!("People Followed ({})", people.len()));
     ui.add_space(18.0);
 
-    ScrollArea::vertical()
-        .override_scroll_delta(Vec2 {
-            x: 0.0,
-            y: app.current_scroll_offset,
-        })
-        .show(ui, |ui| {
-            for person in people.iter() {
-                if !person.followed {
-                    continue;
-                }
+    app.vert_scroll_area().show(ui, |ui| {
+        for person in people.iter() {
+            ui.horizontal(|ui| {
+                // Avatar first
+                let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
+                    avatar
+                } else {
+                    app.placeholder_avatar.clone()
+                };
+                let size = AVATAR_SIZE_F32
+                    * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
+                    / 100.0;
+                if ui
+                    .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
+                    .clicked()
+                {
+                    app.set_page(Page::Person(person.pubkey));
+                };
 
-                ui.horizontal(|ui| {
-                    // Avatar first
-                    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
-                        avatar
-                    } else {
-                        app.placeholder_avatar.clone()
-                    };
-                    let size = AVATAR_SIZE_F32
-                        * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
-                        / 100.0;
-                    if ui
-                        .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
-                        .clicked()
+                ui.vertical(|ui| {
+                    ui.label(RichText::new(crate::names::pubkey_short(&person.pubkey)).weak());
+                    GossipUi::render_person_name_line(app, ui, person);
+                    if !GLOBALS
+                        .storage
+                        .have_persons_relays(person.pubkey)
+                        .unwrap_or(false)
                     {
-                        app.set_page(Page::Person(person.pubkey));
-                    };
-
-                    ui.vertical(|ui| {
-                        ui.label(RichText::new(crate::names::pubkey_short(&person.pubkey)).weak());
-                        GossipUi::render_person_name_line(app, ui, person);
-                    });
+                        ui.label(
+                            RichText::new("Relay list not found")
+                                .color(app.settings.theme.warning_marker_text_color()),
+                        );
+                    }
                 });
+            });
 
-                ui.add_space(4.0);
+            ui.add_space(4.0);
 
-                ui.separator();
-            }
-        });
+            ui.separator();
+        }
+    });
 }

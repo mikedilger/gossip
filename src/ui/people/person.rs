@@ -5,8 +5,8 @@ use crate::people::Person;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Frame, RichText, ScrollArea, TextEdit, Ui, Vec2};
-use nostr_types::PublicKey;
+use egui::{Context, Frame, RichText, TextEdit, Ui, Vec2};
+use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -24,12 +24,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    ScrollArea::vertical()
+    app.vert_scroll_area()
         .id_source("person page")
-        .override_scroll_delta(Vec2 {
-            x: 0.0,
-            y: app.current_scroll_offset,
-        })
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {
@@ -73,6 +69,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             GLOBALS.status_queue.write().write(format!("{}", e));
                         }
                         app.editing_petname = false;
+                        app.notes.cache_invalidate_person(&person.pubkey);
                     }
                     if ui.button("cancel").clicked() {
                         app.editing_petname = false;
@@ -84,6 +81,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             GLOBALS.status_queue.write().write(format!("{}", e));
                         }
                         app.editing_petname = false;
+                        app.notes.cache_invalidate_person(&person.pubkey);
                     }
                 } else {
                     match &person.petname {
@@ -99,6 +97,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 if let Err(e) = GLOBALS.storage.write_person(&person, None) {
                                     GLOBALS.status_queue.write().write(format!("{}", e));
                                 }
+                                app.notes.cache_invalidate_person(&person.pubkey);
                             }
                         }
                         None => {
@@ -255,6 +254,26 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             for (relay_url, score) in relays.iter() {
                 ui.label(format!("{} (score={})", relay_url, score));
             }
+
+            // Add a relay for them
+            ui.add_space(10.0);
+            ui.label("Manually specify a relay they use (read and write):");
+            ui.horizontal(|ui| {
+                ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
+                if ui.button("Add").clicked() {
+                    if let Ok(url) = RelayUrl::try_from_str(&app.add_relay) {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::AddPubkeyRelay(pubkey, url));
+                        app.add_relay = "".to_owned();
+                    } else {
+                        GLOBALS
+                            .status_queue
+                            .write()
+                            .write("Invalid Relay Url".to_string());
+                    }
+                }
+            });
         }
     }
     if need_to_set_active_person && !app.setting_active_person {

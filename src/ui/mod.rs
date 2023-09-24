@@ -30,7 +30,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
-use crate::people::Person;
+use crate::people::{Person, PersonList};
 use crate::settings::Settings;
 pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::ui::widgets::CopyButton;
@@ -38,13 +38,13 @@ use crate::ui::widgets::CopyButton;
 use core::cell::RefCell;
 use eframe::{egui, IconData};
 use egui::{
-    Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense, TextStyle,
+    Color32, ColorImage, Context, Image, ImageData, Label, RichText, ScrollArea, Sense, TextStyle,
     TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, UncheckedUrl, Url};
+use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -382,11 +382,11 @@ struct GossipUi {
     delegatee_tag_str: String,
 
     // User entry: general
-    nprofile_follow: String,
-    nip05follow: String,
-    follow_pubkey: String,
-    follow_pubkey_at_relay: String,
+    follow_someone: String,
+    add_relay: String, // dep
+
     follow_clear_needs_confirm: bool,
+    mute_clear_needs_confirm: bool,
     password: String,
     password2: String,
     password3: String,
@@ -401,6 +401,9 @@ struct GossipUi {
 
     // Collapsed threads
     collapsed: Vec<Id>,
+
+    // Fully opened posts
+    opened: HashSet<Id>,
 
     // Visisble Note IDs
     // (we resubscribe to reactions/zaps/deletes when this changes)
@@ -431,12 +434,15 @@ impl GossipUi {
         if let Some(dpi) = settings.override_dpi {
             let ppt: f32 = dpi as f32 / 72.0;
             cctx.egui_ctx.set_pixels_per_point(ppt);
-            tracing::debug!("Pixels per point: {}", ppt);
+            tracing::info!("Pixels per point (overridden): {}", ppt);
         } else if let Some(ppt) = cctx.integration_info.native_pixels_per_point {
             cctx.egui_ctx.set_pixels_per_point(ppt);
-            tracing::debug!("Pixels per point: {}", ppt);
+            tracing::info!("Pixels per point (native): {}", ppt);
         } else {
-            tracing::debug!("Pixels per point: {}", cctx.egui_ctx.pixels_per_point());
+            tracing::info!(
+                "Pixels per point (fallback): {}",
+                cctx.egui_ctx.pixels_per_point()
+            );
         }
 
         // Set global pixels_per_point_times_100, used for image scaling.
@@ -589,11 +595,10 @@ impl GossipUi {
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
-            nprofile_follow: "".to_owned(),
-            nip05follow: "".to_owned(),
-            follow_pubkey: "".to_owned(),
-            follow_pubkey_at_relay: "".to_owned(),
+            follow_someone: "".to_owned(),
+            add_relay: "".to_owned(),
             follow_clear_needs_confirm: false,
+            mute_clear_needs_confirm: false,
             password: "".to_owned(),
             password2: "".to_owned(),
             password3: "".to_owned(),
@@ -606,6 +611,7 @@ impl GossipUi {
             editing_petname: false,
             petname: "".to_owned(),
             collapsed: vec![],
+            opened: HashSet::new(),
             visible_note_ids: vec![],
             next_visible_note_ids: vec![],
             last_visible_update: Instant::now(),
@@ -666,80 +672,14 @@ impl GossipUi {
             }
             _ => {}
         }
+
+        // clear some search state
+        GLOBALS.events_being_searched_for.write().clear();
+
         self.page = page;
     }
-}
 
-impl eframe::App for GossipUi {
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
-        let max_fps = GLOBALS.storage.read_setting_max_fps() as f32;
-
-        if self.future_scroll_offset != 0.0 {
-            ctx.request_repaint();
-        } else {
-            // Wait until the next frame
-            std::thread::sleep(self.next_frame - Instant::now());
-            self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
-
-            // Redraw at least once per second
-            ctx.request_repaint_after(Duration::from_secs(1));
-        }
-
-        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-            frame.close();
-        }
-
-        // Smooth Scrolling
-        {
-            // Add the amount of scroll requested to the future
-            let mut requested_scroll: f32 = 0.0;
-            ctx.input(|i| {
-                requested_scroll = i.scroll_delta.y;
-            });
-
-            // use keys to scroll
-            ctx.input(|i| {
-                if i.key_pressed(egui::Key::ArrowDown) {
-                    requested_scroll -= 30.0;
-                }
-                if i.key_pressed(egui::Key::ArrowUp) {
-                    requested_scroll = 30.0;
-                }
-                if i.key_pressed(egui::Key::PageUp) {
-                    requested_scroll = 150.0;
-                }
-                if i.key_pressed(egui::Key::PageDown) {
-                    requested_scroll -= 150.0;
-                }
-            });
-
-            self.future_scroll_offset += requested_scroll;
-
-            // Move by 10% of future scroll offsets
-            self.current_scroll_offset = 0.1 * self.future_scroll_offset;
-            self.future_scroll_offset -= self.current_scroll_offset;
-
-            // Friction stop when slow enough
-            if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
-                self.future_scroll_offset = 0.0;
-            }
-        }
-
-        if self.settings.theme.follow_os_dark_mode {
-            // detect if the OS has changed dark/light mode
-            let os_dark_mode = ctx.style().visuals.dark_mode;
-            if os_dark_mode != self.settings.theme.dark_mode {
-                // switch to the OS setting
-                self.settings.theme.dark_mode = os_dark_mode;
-                theme::apply_theme(self.settings.theme, ctx);
-            }
-        }
-
-        // dialogues first
-        if relays::is_entry_dialog_active(self) {
-            relays::entry_dialog(ctx, self);
-        }
-
+    fn side_panel(&mut self, ctx: &Context) {
         egui::SidePanel::left("main-naviation-panel")
             .show_separator_line(false)
             .frame(
@@ -934,6 +874,93 @@ impl eframe::App for GossipUi {
                     });
                 }
             });
+    }
+}
+
+impl eframe::App for GossipUi {
+    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        let max_fps = GLOBALS.storage.read_setting_max_fps() as f32;
+
+        if self.future_scroll_offset != 0.0 {
+            ctx.request_repaint();
+        } else {
+            // Wait until the next frame
+            std::thread::sleep(self.next_frame - Instant::now());
+            self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
+
+            // Redraw at least once per second
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
+
+        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+            frame.close();
+        }
+
+        // How much scrolling has been requested by inputs during this frame?
+        let mut requested_scroll: f32 = 0.0;
+        ctx.input(|i| {
+            // Consider mouse inputs
+            requested_scroll = i.scroll_delta.y * self.settings.mouse_acceleration;
+
+            // Consider keyboard inputs
+            if i.key_pressed(egui::Key::ArrowDown) {
+                requested_scroll -= 50.0;
+            }
+            if i.key_pressed(egui::Key::ArrowUp) {
+                requested_scroll += 50.0;
+            }
+            if i.key_pressed(egui::Key::PageUp) {
+                let screen_rect = ctx.input(|i| i.screen_rect);
+                let window_height = screen_rect.max.y - screen_rect.min.y;
+                requested_scroll += window_height * 0.75;
+            }
+            if i.key_pressed(egui::Key::PageDown) {
+                let screen_rect = ctx.input(|i| i.screen_rect);
+                let window_height = screen_rect.max.y - screen_rect.min.y;
+                requested_scroll -= window_height * 0.75;
+            }
+        });
+
+        // Inertial scrolling
+        if self.settings.inertial_scrolling {
+            // Apply some of the requested scrolling, and save some for later so that
+            // scrolling is animated and not instantaneous.
+            {
+                self.future_scroll_offset += requested_scroll;
+
+                // Move by 10% of future scroll offsets
+                self.current_scroll_offset = 0.1 * self.future_scroll_offset;
+                self.future_scroll_offset -= self.current_scroll_offset;
+
+                // Friction stop when slow enough
+                if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
+                    self.future_scroll_offset = 0.0;
+                }
+            }
+        } else {
+            // Changes to the input state have no effect on the scrolling, because it was copied
+            // into a private FrameState at the start of the frame.
+            // So we have to use current_scroll_offset to do this
+            self.current_scroll_offset = requested_scroll;
+        }
+
+        if self.settings.theme.follow_os_dark_mode {
+            // detect if the OS has changed dark/light mode
+            let os_dark_mode = ctx.style().visuals.dark_mode;
+            if os_dark_mode != self.settings.theme.dark_mode {
+                // switch to the OS setting
+                self.settings.theme.dark_mode = os_dark_mode;
+                theme::apply_theme(self.settings.theme, ctx);
+            }
+        }
+
+        // dialogues first
+        if relays::is_entry_dialog_active(self) {
+            relays::entry_dialog(ctx, self);
+        }
+
+        // side panel
+        self.side_panel(ctx);
 
         egui::TopBottomPanel::top("top-area")
             .frame(
@@ -1058,6 +1085,14 @@ impl GossipUi {
                 }
             };
 
+            let followed = person.is_in_list(PersonList::Followed);
+            let muted = person.is_in_list(PersonList::Muted);
+            let is_self = if let Some(pubkey) = GLOBALS.signer.public_key() {
+                pubkey == person.pubkey
+            } else {
+                false
+            };
+
             ui.menu_button(name, |ui| {
                 if ui.button("View Person").clicked() {
                     app.set_page(Page::Person(person.pubkey));
@@ -1073,24 +1108,43 @@ impl GossipUi {
                         app.set_page(Page::Feed(FeedKind::DmChat(channel)));
                     }
                 }
-                if !person.followed && ui.button("Follow").clicked() {
+                if !followed && ui.button("Follow").clicked() {
                     let _ = GLOBALS.people.follow(&person.pubkey, true);
-                } else if person.followed && ui.button("Unfollow").clicked() {
+                } else if followed && ui.button("Unfollow").clicked() {
                     let _ = GLOBALS.people.follow(&person.pubkey, false);
                 }
-                let mute_label = if person.muted { "Unmute" } else { "Mute" };
-                if ui.button(mute_label).clicked() {
-                    let _ = GLOBALS.people.mute(&person.pubkey, !person.muted);
-                    app.notes.cache_invalidate_person(&person.pubkey);
+
+                // Do not show 'Mute' if this is yourself
+                if muted || !is_self {
+                    let mute_label = if muted { "Unmute" } else { "Mute" };
+                    if ui.button(mute_label).clicked() {
+                        let _ = GLOBALS.people.mute(&person.pubkey, !muted);
+                        app.notes.cache_invalidate_person(&person.pubkey);
+                    }
                 }
+
                 if ui.button("Update Metadata").clicked() {
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::UpdateMetadata(person.pubkey));
                 }
+
+                if ui.button("Copy web link").clicked() {
+                    ui.output_mut(|o| {
+                        let mut profile = Profile {
+                            pubkey: person.pubkey,
+                            relays: Vec::new(),
+                        };
+                        let relays = GLOBALS.people.get_active_person_write_relays();
+                        for (relay_url, _) in relays.iter().take(3) {
+                            profile.relays.push(UncheckedUrl(format!("{}", relay_url)));
+                        }
+                        o.copied_text = format!("https://njump.me/{}", profile.as_bech32_string())
+                    });
+                }
             });
 
-            if person.followed {
+            if followed {
                 ui.label("🚶");
             }
 
@@ -1167,8 +1221,11 @@ impl GossipUi {
         }
 
         if let Some(color_image) = GLOBALS.media.get_image(&url) {
-            let texture_handle =
-                ctx.load_texture(url.0.clone(), color_image, TextureOptions::default());
+            let texture_handle = ctx.load_texture(
+                url.as_str().to_owned(),
+                color_image,
+                TextureOptions::default(),
+            );
             self.images.insert(url, texture_handle.clone());
             Some(texture_handle)
         } else {
@@ -1472,5 +1529,13 @@ impl GossipUi {
         }
 
         self.show_post_area || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
+    }
+
+    #[inline]
+    fn vert_scroll_area(&self) -> ScrollArea {
+        ScrollArea::vertical().override_scroll_delta(Vec2 {
+            x: 0.0,
+            y: self.current_scroll_offset,
+        })
     }
 }

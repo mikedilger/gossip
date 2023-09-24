@@ -172,13 +172,18 @@ impl Feed {
     }
 
     pub fn set_feed_to_dmchat(&self, channel: DmChannel) {
-        *self.current_feed_kind.write() = FeedKind::DmChat(channel);
+        *self.current_feed_kind.write() = FeedKind::DmChat(channel.clone());
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
         self.sync_recompute();
 
         self.unlisten();
+
+        // Listen for DmChat channel events
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::SetDmChannel(channel));
     }
 
     pub fn get_feed_kind(&self) -> FeedKind {
