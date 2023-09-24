@@ -897,7 +897,7 @@ impl eframe::App for GossipUi {
         let mut requested_scroll: f32 = 0.0;
         ctx.input(|i| {
             // Consider mouse inputs
-            requested_scroll = i.scroll_delta.y;
+            requested_scroll = i.scroll_delta.y * self.settings.mouse_acceleration;
 
             // Consider keyboard inputs
             if i.key_pressed(egui::Key::ArrowDown) {

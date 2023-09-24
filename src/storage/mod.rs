@@ -672,6 +672,7 @@ impl Storage {
         "CatmullRom".to_owned()
     );
     def_setting!(inertial_scrolling, b"inertial_scrolling", bool, true);
+    def_setting!(mouse_acceleration, b"mouse_acceleration", f32, 1.0);
     def_setting!(
         relay_list_becomes_stale_hours,
         b"relay_list_becomes_stale_hours",
