@@ -671,6 +671,7 @@ impl Storage {
         String,
         "CatmullRom".to_owned()
     );
+    def_setting!(inertial_scrolling, b"inertial_scrolling", bool, true);
     def_setting!(
         relay_list_becomes_stale_hours,
         b"relay_list_becomes_stale_hours",

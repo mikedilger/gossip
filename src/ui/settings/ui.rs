@@ -75,4 +75,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         &mut app.settings.status_bar,
         "Show DEBUG statistics in sidebar",
     );
+
+    ui.add_space(20.0);
+    ui.checkbox(&mut app.settings.inertial_scrolling, "Inertial Scrolling");
 }
