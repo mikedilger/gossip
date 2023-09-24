@@ -3,7 +3,7 @@ use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, Frame, RichText, ScrollArea, Ui, Vec2};
+use egui::{Context, Frame, RichText, Ui, Vec2};
 use nostr_types::Id;
 use std::sync::atomic::Ordering;
 
@@ -197,12 +197,8 @@ fn render_a_feed(
         is_thread: threaded,
     };
 
-    ScrollArea::vertical()
+    app.vert_scroll_area()
         .id_source(scroll_area_id)
-        .override_scroll_delta(Vec2 {
-            x: 0.0,
-            y: app.current_scroll_offset * 2.0, // double speed
-        })
         .show(ui, |ui| {
             Frame::none()
                 .rounding(app.settings.theme.feed_scroll_rounding(&feed_properties))

@@ -86,6 +86,8 @@ pub struct Settings {
     pub posting_area_at_top: bool,
     pub status_bar: bool,
     pub image_resize_algorithm: String,
+    pub inertial_scrolling: bool,
+    pub mouse_acceleration: f32,
 
     // Staletime settings
     pub relay_list_becomes_stale_hours: u64,
@@ -157,6 +159,8 @@ impl Default for Settings {
             posting_area_at_top: default_setting!(posting_area_at_top),
             status_bar: default_setting!(status_bar),
             image_resize_algorithm: default_setting!(image_resize_algorithm),
+            inertial_scrolling: default_setting!(inertial_scrolling),
+            mouse_acceleration: default_setting!(mouse_acceleration),
             relay_list_becomes_stale_hours: default_setting!(relay_list_becomes_stale_hours),
             metadata_becomes_stale_hours: default_setting!(metadata_becomes_stale_hours),
             nip05_becomes_stale_if_valid_hours: default_setting!(
@@ -232,6 +236,8 @@ impl Settings {
             posting_area_at_top: load_setting!(posting_area_at_top),
             status_bar: load_setting!(status_bar),
             image_resize_algorithm: load_setting!(image_resize_algorithm),
+            inertial_scrolling: load_setting!(inertial_scrolling),
+            mouse_acceleration: load_setting!(mouse_acceleration),
             relay_list_becomes_stale_hours: load_setting!(relay_list_becomes_stale_hours),
             metadata_becomes_stale_hours: load_setting!(metadata_becomes_stale_hours),
             nip05_becomes_stale_if_valid_hours: load_setting!(nip05_becomes_stale_if_valid_hours),
@@ -303,6 +309,8 @@ impl Settings {
         save_setting!(posting_area_at_top, self, txn);
         save_setting!(status_bar, self, txn);
         save_setting!(image_resize_algorithm, self, txn);
+        save_setting!(inertial_scrolling, self, txn);
+        save_setting!(mouse_acceleration, self, txn);
         save_setting!(relay_list_becomes_stale_hours, self, txn);
         save_setting!(metadata_becomes_stale_hours, self, txn);
         save_setting!(nip05_becomes_stale_if_valid_hours, self, txn);

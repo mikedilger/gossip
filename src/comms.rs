@@ -1,12 +1,14 @@
 use crate::dm_channel::DmChannel;
 use nostr_types::{
-    Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, PublicKey, RelayUrl, Tag, UncheckedUrl,
+    Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, RelayUrl, Tag,
+    UncheckedUrl,
 };
 use std::fmt;
 
 /// This is a message sent to the Overlord
 #[derive(Debug, Clone)]
 pub enum ToOverlordMessage {
+    AddPubkeyRelay(PublicKey, RelayUrl),
     AddRelay(RelayUrl),
     AdjustRelayUsageBit(RelayUrl, u64, bool),
     AdvertiseRelayList,
@@ -21,9 +23,9 @@ pub enum ToOverlordMessage {
     DropRelay(RelayUrl),
     FetchEvent(Id, Vec<RelayUrl>),
     FetchEventAddr(EventAddr),
-    FollowPubkeyAndRelay(String, RelayUrl),
+    FollowPubkey(PublicKey),
     FollowNip05(String),
-    FollowNprofile(String),
+    FollowNprofile(Profile),
     GeneratePrivateKey(String),
     HideOrShowRelay(RelayUrl, bool),
     ImportPriv(String, String),

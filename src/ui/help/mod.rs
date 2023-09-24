@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::feed::FeedKind;
 use eframe::egui;
-use egui::{Context, ScrollArea, Ui, Vec2};
+use egui::{Context, Ui};
 
 mod about;
 mod stats;
@@ -14,7 +14,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add_space(12.0);
         ui.separator();
 
-        ScrollArea::vertical().override_scroll_delta(Vec2 { x: 0.0, y: app.current_scroll_offset }).show(ui, |ui| {
+        app.vert_scroll_area().show(ui, |ui| {
             ui.add_space(10.0);
 
             ui.heading("Existing Nostr Users:");

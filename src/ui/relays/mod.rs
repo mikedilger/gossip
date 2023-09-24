@@ -138,7 +138,7 @@ pub(super) fn relay_scroll_list(
     let is_editing = app.relays.edit.is_some();
     let enable_scroll = !is_editing && !egui::ScrollArea::is_scrolling(ui, id_source);
 
-    egui::ScrollArea::vertical()
+    app.vert_scroll_area()
         .id_source(id_source)
         .enable_scrolling(enable_scroll)
         .show(ui, |ui| {

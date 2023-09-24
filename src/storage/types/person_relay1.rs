@@ -100,11 +100,6 @@ impl PersonRelay1 {
 
         output.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
 
-        // prune everything below a score of 20, but only after the first 6 entries
-        while output.len() > 6 && output[output.len() - 1].1 < 20 {
-            let _ = output.pop();
-        }
-
         output
     }
 
@@ -158,10 +153,6 @@ impl PersonRelay1 {
 
         output.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
 
-        // prune everything below a score 20, but only after the first 6 entries
-        while output.len() > 6 && output[output.len() - 1].1 < 20 {
-            let _ = output.pop();
-        }
         output
     }
 }

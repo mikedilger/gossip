@@ -493,9 +493,12 @@ impl Overlord {
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
         match message {
-            ToOverlordMessage::AddRelay(relay_str) => {
-                let relay = Relay::new(relay_str);
-                GLOBALS.storage.write_relay(&relay, None)?;
+            ToOverlordMessage::AddPubkeyRelay(pubkey, relayurl) => {
+                self.add_pubkey_relay(pubkey, relayurl).await?;
+            }
+            ToOverlordMessage::AddRelay(relay_url) => {
+                // Create relay if missing
+                GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
             }
             ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
                 if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
@@ -603,8 +606,8 @@ impl Overlord {
                     }
                 }
             }
-            ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
-                self.follow_pubkey_and_relay(pubkeystr, relay).await?;
+            ToOverlordMessage::FollowPubkey(pubkey) => {
+                self.follow_pubkey(pubkey).await?;
             }
             ToOverlordMessage::FollowNip05(nip05) => {
                 std::mem::drop(tokio::spawn(async move {
@@ -614,10 +617,7 @@ impl Overlord {
                 }));
             }
             ToOverlordMessage::FollowNprofile(nprofile) => {
-                match Profile::try_from_bech32_string(nprofile.trim(), true) {
-                    Ok(np) => self.follow_nprofile(np).await?,
-                    Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
-                }
+                self.follow_nprofile(nprofile).await?;
             }
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
                 GLOBALS.signer.generate_private_key(&password)?;
@@ -918,6 +918,23 @@ impl Overlord {
         Ok(true)
     }
 
+    async fn add_pubkey_relay(&mut self, pubkey: PublicKey, relay: RelayUrl) -> Result<(), Error> {
+        // Save person_relay
+        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
+            Some(pr) => pr,
+            None => PersonRelay::new(pubkey, relay.clone()),
+        };
+        let now = Unixtime::now().unwrap().0 as u64;
+        pr.last_suggested_kind3 = Some(now); // not kind3, but we have no other field for this
+        pr.manually_paired_read = true;
+        pr.manually_paired_write = true;
+        GLOBALS.storage.write_person_relay(&pr, None)?;
+
+        self.pick_relays().await;
+
+        Ok(())
+    }
+
     fn maybe_disconnect_relay(&mut self, url: &RelayUrl) -> Result<(), Error> {
         if let Some(refmut) = GLOBALS.connected_relays.get_mut(url) {
             // If no job remains, disconnect the relay
@@ -944,40 +961,30 @@ impl Overlord {
         Ok(())
     }
 
-    async fn follow_pubkey_and_relay(
-        &mut self,
-        pubkeystr: String,
-        relay: RelayUrl,
-    ) -> Result<(), Error> {
-        let pubkey = match PublicKey::try_from_bech32_string(pubkeystr.trim(), true) {
-            Ok(pk) => pk,
-            Err(_) => PublicKey::try_from_hex_string(&pubkeystr, true)?,
-        };
+    async fn follow_pubkey(&mut self, pubkey: PublicKey) -> Result<(), Error> {
         GLOBALS.people.follow(&pubkey, true)?;
-
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
 
-        // Save relay
-        let db_relay = Relay::new(relay.clone());
-        GLOBALS.storage.write_relay(&db_relay, None)?;
-
-        let now = Unixtime::now().unwrap().0 as u64;
-
-        // Save person_relay
-        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
-            Some(pr) => pr,
-            None => PersonRelay::new(pubkey, relay.clone()),
-        };
-        pr.last_suggested_kind3 = Some(now);
-        pr.manually_paired_read = true;
-        pr.manually_paired_write = true;
-        GLOBALS.storage.write_person_relay(&pr, None)?;
-
-        // async_follow added them to the relay tracker.
-        // Pick relays to start tracking them now
-        self.pick_relays().await;
-
-        tracing::info!("Setup 1 relay for {}", &pubkey.as_hex_string());
+        // Discover their relays
+        let discover_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+        for relay_url in discover_relay_urls.iter() {
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::Discovery,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeDiscover(vec![pubkey]),
+                    },
+                }],
+            )
+            .await?;
+        }
 
         Ok(())
     }
@@ -1813,9 +1820,8 @@ impl Overlord {
         // Set their relays
         for relay in nprofile.relays.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
-                // Save relay
-                let db_relay = Relay::new(relay_url.clone());
-                GLOBALS.storage.write_relay(&db_relay, None)?;
+                // Create relay if missing
+                GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
 
                 // Save person_relay
                 let mut pr = match GLOBALS

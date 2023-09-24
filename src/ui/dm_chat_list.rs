@@ -3,7 +3,7 @@ use crate::dm_channel::DmChannelData;
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, Label, RichText, ScrollArea, Sense, Ui};
+use egui::{Context, Label, RichText, Sense, Ui};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let mut channels: Vec<DmChannelData> = match GLOBALS.storage.dm_channels() {
@@ -17,7 +17,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.heading("Direct Private Message Channels");
     ui.add_space(12.0);
 
-    ScrollArea::vertical()
+    app.vert_scroll_area()
         .id_source("dm_chat_list")
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])

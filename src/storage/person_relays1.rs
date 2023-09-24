@@ -105,6 +105,24 @@ impl Storage {
         Ok(output)
     }
 
+    pub fn have_persons_relays1(&self, pubkey: PublicKey) -> Result<bool, Error> {
+        let start_key = pubkey.to_bytes();
+        let txn = self.env.read_txn()?;
+        let iter = self.db_person_relays1()?.prefix_iter(&txn, &start_key)?;
+        for result in iter {
+            let (_key, val) = result?;
+            let person_relay = PersonRelay1::read_from_buffer(val)?;
+            if person_relay.write
+                || person_relay.read
+                || person_relay.manually_paired_read
+                || person_relay.manually_paired_write
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub fn delete_person_relays1<'a, F>(
         &'a self,
         filter: F,
