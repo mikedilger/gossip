@@ -408,7 +408,7 @@ fn render_note_inner(
                                 };
                                 ui.output_mut(|o| {
                                     o.copied_text = format!(
-                                        "https://nostr.com/{}",
+                                        "https://njump.me/{}",
                                         event_pointer.as_bech32_string()
                                     )
                                 });

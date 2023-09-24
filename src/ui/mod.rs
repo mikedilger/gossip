@@ -44,7 +44,7 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, PublicKey, UncheckedUrl, Url};
+use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -1112,6 +1112,24 @@ impl GossipUi {
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::UpdateMetadata(person.pubkey));
+                }
+
+                if ui.button("Copy web link").clicked() {
+                    ui.output_mut(|o| {
+
+                        let mut profile = Profile {
+                            pubkey: person.pubkey,
+                            relays: Vec::new(),
+                        };
+                        let relays = GLOBALS.people.get_active_person_write_relays();
+                        for (relay_url, _) in relays.iter().take(3) {
+                            profile.relays.push(UncheckedUrl(format!("{}", relay_url)));
+                        }
+                        o.copied_text = format!(
+                            "https://njump.me/{}",
+                            profile.as_bech32_string()
+                        )
+                    });
                 }
             });
 
