@@ -700,16 +700,20 @@ impl eframe::App for GossipUi {
             // use keys to scroll
             ctx.input(|i| {
                 if i.key_pressed(egui::Key::ArrowDown) {
-                    requested_scroll -= 30.0;
+                    requested_scroll -= 50.0;
                 }
                 if i.key_pressed(egui::Key::ArrowUp) {
-                    requested_scroll = 30.0;
+                    requested_scroll += 50.0;
                 }
                 if i.key_pressed(egui::Key::PageUp) {
-                    requested_scroll = 150.0;
+                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let window_height = screen_rect.max.y - screen_rect.min.y;
+                    requested_scroll += window_height * 0.75;
                 }
                 if i.key_pressed(egui::Key::PageDown) {
-                    requested_scroll -= 150.0;
+                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let window_height = screen_rect.max.y - screen_rect.min.y;
+                    requested_scroll -= window_height * 0.75;
                 }
             });
 
