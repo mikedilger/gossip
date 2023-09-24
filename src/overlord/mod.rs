@@ -134,26 +134,9 @@ impl Overlord {
         }
 
         // Separately subscribe to RelayList discovery for everyone we follow
-        let discover_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
+        // We just do this once at startup. Relay lists don't change that frequently.
         let followed = GLOBALS.people.get_followed_pubkeys();
-        for relay_url in discover_relay_urls.iter() {
-            self.engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::Discovery,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeDiscover(followed.clone()),
-                    },
-                }],
-            )
-            .await?;
-        }
+        self.discover_pubkey_relays(followed, None).await?;
 
         // Separately subscribe to our outbox events on our write relays
         let write_relay_urls: Vec<RelayUrl> = GLOBALS
@@ -976,15 +959,26 @@ impl Overlord {
 
     async fn follow_pubkey(&mut self, pubkey: PublicKey) -> Result<(), Error> {
         GLOBALS.people.follow(&pubkey, true)?;
+        self.discover_pubkey_relays(vec![pubkey], None).await?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
+        Ok(())
+    }
 
+    async fn discover_pubkey_relays(
+        &mut self,
+        pubkeys: Vec<PublicKey>,
+        relays: Option<Vec<RelayUrl>>,
+    ) -> Result<(), Error> {
         // Discover their relays
-        let discover_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
+        let discover_relay_urls: Vec<RelayUrl> = match relays {
+            Some(r) => r,
+            None => GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
+                .iter()
+                .map(|relay| relay.url.clone())
+                .collect(),
+        };
         for relay_url in discover_relay_urls.iter() {
             self.engage_minion(
                 relay_url.to_owned(),
@@ -992,7 +986,7 @@ impl Overlord {
                     reason: RelayConnectionReason::Discovery,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeDiscover(vec![pubkey]),
+                        detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
                     },
                 }],
             )
