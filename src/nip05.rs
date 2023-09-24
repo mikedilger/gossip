@@ -152,7 +152,7 @@ async fn update_relays(nip05: String, nip05file: Nip05, pubkey: &PublicKey) -> R
 }
 
 // returns user and domain
-fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
+pub fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
     let mut parts: Vec<&str> = nip05.split('@').collect();
 
     // Add the underscore as a username if they just specified a domain name.

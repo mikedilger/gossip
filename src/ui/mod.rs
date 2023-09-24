@@ -382,10 +382,9 @@ struct GossipUi {
     delegatee_tag_str: String,
 
     // User entry: general
-    nprofile_follow: String,
-    nip05follow: String,
-    follow_pubkey: String,
-    follow_pubkey_at_relay: String,
+    follow_someone: String,
+    add_relay: String, // dep
+
     follow_clear_needs_confirm: bool,
     mute_clear_needs_confirm: bool,
     password: String,
@@ -593,10 +592,8 @@ impl GossipUi {
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
-            nprofile_follow: "".to_owned(),
-            nip05follow: "".to_owned(),
-            follow_pubkey: "".to_owned(),
-            follow_pubkey_at_relay: "".to_owned(),
+            follow_someone: "".to_owned(),
+            add_relay: "".to_owned(),
             follow_clear_needs_confirm: false,
             mute_clear_needs_confirm: false,
             password: "".to_owned(),

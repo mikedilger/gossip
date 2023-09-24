@@ -617,10 +617,7 @@ impl Overlord {
                 }));
             }
             ToOverlordMessage::FollowNprofile(nprofile) => {
-                match Profile::try_from_bech32_string(nprofile.trim(), true) {
-                    Ok(np) => self.follow_nprofile(np).await?,
-                    Err(e) => GLOBALS.status_queue.write().write(format!("{}", e)),
-                }
+                self.follow_nprofile(nprofile).await?;
             }
             ToOverlordMessage::GeneratePrivateKey(mut password) => {
                 GLOBALS.signer.generate_private_key(&password)?;

@@ -263,13 +263,13 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
             ui.label("Manually specify a relay they use (read and write):");
             ui.horizontal(|ui| {
-                ui.add(text_edit_line!(app, app.follow_pubkey_at_relay).hint_text("wss://..."));
+                ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
                 if ui.button("Add").clicked() {
-                    if let Ok(url) = RelayUrl::try_from_str(&app.follow_pubkey_at_relay) {
+                    if let Ok(url) = RelayUrl::try_from_str(&app.add_relay) {
                         let _ = GLOBALS
                             .to_overlord
                             .send(ToOverlordMessage::AddPubkeyRelay(pubkey, url));
-                        app.follow_pubkey_at_relay = "".to_owned();
+                        app.add_relay = "".to_owned();
                     } else {
                         GLOBALS
                             .status_queue
