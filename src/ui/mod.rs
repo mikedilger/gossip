@@ -893,44 +893,52 @@ impl eframe::App for GossipUi {
             frame.close();
         }
 
-        // Smooth Scrolling
-        {
-            // Add the amount of scroll requested to the future
-            let mut requested_scroll: f32 = 0.0;
-            ctx.input(|i| {
-                requested_scroll = i.scroll_delta.y;
-            });
+        // How much scrolling has been requested by inputs during this frame?
+        let mut requested_scroll: f32 = 0.0;
+        ctx.input(|i| {
+            // Consider mouse inputs
+            requested_scroll = i.scroll_delta.y;
 
-            // use keys to scroll
-            ctx.input(|i| {
-                if i.key_pressed(egui::Key::ArrowDown) {
-                    requested_scroll -= 50.0;
-                }
-                if i.key_pressed(egui::Key::ArrowUp) {
-                    requested_scroll += 50.0;
-                }
-                if i.key_pressed(egui::Key::PageUp) {
-                    let screen_rect = ctx.input(|i| i.screen_rect);
-                    let window_height = screen_rect.max.y - screen_rect.min.y;
-                    requested_scroll += window_height * 0.75;
-                }
-                if i.key_pressed(egui::Key::PageDown) {
-                    let screen_rect = ctx.input(|i| i.screen_rect);
-                    let window_height = screen_rect.max.y - screen_rect.min.y;
-                    requested_scroll -= window_height * 0.75;
-                }
-            });
-
-            self.future_scroll_offset += requested_scroll;
-
-            // Move by 10% of future scroll offsets
-            self.current_scroll_offset = 0.1 * self.future_scroll_offset;
-            self.future_scroll_offset -= self.current_scroll_offset;
-
-            // Friction stop when slow enough
-            if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
-                self.future_scroll_offset = 0.0;
+            // Consider keyboard inputs
+            if i.key_pressed(egui::Key::ArrowDown) {
+                requested_scroll -= 50.0;
             }
+            if i.key_pressed(egui::Key::ArrowUp) {
+                requested_scroll += 50.0;
+            }
+            if i.key_pressed(egui::Key::PageUp) {
+                let screen_rect = ctx.input(|i| i.screen_rect);
+                let window_height = screen_rect.max.y - screen_rect.min.y;
+                requested_scroll += window_height * 0.75;
+            }
+            if i.key_pressed(egui::Key::PageDown) {
+                let screen_rect = ctx.input(|i| i.screen_rect);
+                let window_height = screen_rect.max.y - screen_rect.min.y;
+                requested_scroll -= window_height * 0.75;
+            }
+        });
+
+        // Inertial scrolling
+        if self.settings.inertial_scrolling {
+            // Apply some of the requested scrolling, and save some for later so that
+            // scrolling is animated and not instantaneous.
+            {
+                self.future_scroll_offset += requested_scroll;
+
+                // Move by 10% of future scroll offsets
+                self.current_scroll_offset = 0.1 * self.future_scroll_offset;
+                self.future_scroll_offset -= self.current_scroll_offset;
+
+                // Friction stop when slow enough
+                if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
+                    self.future_scroll_offset = 0.0;
+                }
+            }
+        } else {
+            // Changes to the input state have no effect on the scrolling, because it was copied
+            // into a private FrameState at the start of the frame.
+            // So we have to use current_scroll_offset to do this
+            self.current_scroll_offset = requested_scroll;
         }
 
         if self.settings.theme.follow_os_dark_mode {
