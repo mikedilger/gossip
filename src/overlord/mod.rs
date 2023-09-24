@@ -606,6 +606,9 @@ impl Overlord {
                     }
                 }
             }
+            ToOverlordMessage::FollowPubkey(pubkey) => {
+                self.follow_pubkey(pubkey).await?;
+            }
             ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
                 self.follow_pubkey_and_relay(pubkeystr, relay).await?;
             }
@@ -964,6 +967,34 @@ impl Overlord {
         Ok(())
     }
 
+    async fn follow_pubkey(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        GLOBALS.people.follow(&pubkey, true)?;
+        tracing::debug!("Followed {}", &pubkey.as_hex_string());
+
+        // Discover their relays
+        let discover_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+        for relay_url in discover_relay_urls.iter() {
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::Discovery,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeDiscover(vec![pubkey]),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
     async fn follow_pubkey_and_relay(
         &mut self,
         pubkeystr: String,
@@ -974,7 +1005,6 @@ impl Overlord {
             Err(_) => PublicKey::try_from_hex_string(&pubkeystr, true)?,
         };
         GLOBALS.people.follow(&pubkey, true)?;
-
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
 
         // Create relay if missing
