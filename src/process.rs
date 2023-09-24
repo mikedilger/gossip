@@ -21,16 +21,41 @@ pub async fn process_new_event(
 ) -> Result<(), Error> {
     let now = Unixtime::now()?;
 
-    // Save seen-on-relay information
-    if let Some(url) = &seen_on {
-        if seen_on.is_some() {
-            GLOBALS
-                .storage
-                .add_event_seen_on_relay(event.id, url, now, None)?;
+    // Bump count
+    GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);
+
+    // Verify the event, even if a duplicate (ID could be forged)
+    if verify {
+        let mut maxtime = now;
+        maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
+        if let Err(e) = event.verify(Some(maxtime)) {
+            tracing::error!("{}: VERIFY ERROR: {}", e, serde_json::to_string(&event)?);
+            return Ok(());
         }
     }
 
-    GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);
+    // Detect if duplicate. We still need to process some things even if a duplicate
+    let duplicate = GLOBALS.storage.has_event(event.id)?;
+
+    if let Some(url) = &seen_on {
+        // Save seen-on-relay information
+        GLOBALS
+            .storage
+            .add_event_seen_on_relay(event.id, url, now, None)?;
+
+        // Create the person if missing in the database
+        GLOBALS
+            .storage
+            .write_person_if_missing(&event.pubkey, None)?;
+
+        // Update person-relay information (seen them on this relay)
+        let mut pr = match GLOBALS.storage.read_person_relay(event.pubkey, url)? {
+            Some(pr) => pr,
+            None => PersonRelay::new(event.pubkey, url.clone()),
+        };
+        pr.last_fetched = Some(now.0 as u64);
+        GLOBALS.storage.write_person_relay(&pr, None)?;
+    }
 
     // Spam filter (displayable and author is not followed)
     if event.kind.is_feed_displayable() && !GLOBALS.people.is_followed(&event.pubkey) {
@@ -52,7 +77,6 @@ pub async fn process_new_event(
     }
 
     // Determine if we already had this event
-    let duplicate = GLOBALS.storage.has_event(event.id)?;
     if duplicate && !process_even_if_duplicate {
         tracing::trace!(
             "{}: Old Event: {} {:?} @{}",
@@ -62,16 +86,6 @@ pub async fn process_new_event(
             event.created_at
         );
         return Ok(()); // No more processing needed for existing event.
-    }
-
-    // Verify the event
-    if verify {
-        let mut maxtime = now;
-        maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
-        if let Err(e) = event.verify(Some(maxtime)) {
-            tracing::error!("{}: VERIFY ERROR: {}", e, serde_json::to_string(&event)?);
-            return Ok(());
-        }
     }
 
     // Save event
@@ -134,19 +148,6 @@ pub async fn process_new_event(
     }
 
     if seen_on.is_some() {
-        // Create the person if missing in the database
-        GLOBALS.people.create_all_if_missing(&[event.pubkey])?;
-
-        if let Some(ref url) = seen_on {
-            // Update person_relay.last_fetched
-            let mut pr = match GLOBALS.storage.read_person_relay(event.pubkey, url)? {
-                Some(pr) => pr,
-                None => PersonRelay::new(event.pubkey, url.clone()),
-            };
-            pr.last_fetched = Some(now.0 as u64);
-            GLOBALS.storage.write_person_relay(&pr, None)?;
-        }
-
         for tag in event.tags.iter() {
             match tag {
                 Tag::Event {
