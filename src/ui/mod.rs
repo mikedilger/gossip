@@ -439,7 +439,10 @@ impl GossipUi {
             cctx.egui_ctx.set_pixels_per_point(ppt);
             tracing::info!("Pixels per point (native): {}", ppt);
         } else {
-            tracing::info!("Pixels per point (fallback): {}", cctx.egui_ctx.pixels_per_point());
+            tracing::info!(
+                "Pixels per point (fallback): {}",
+                cctx.egui_ctx.pixels_per_point()
+            );
         }
 
         // Set global pixels_per_point_times_100, used for image scaling.
