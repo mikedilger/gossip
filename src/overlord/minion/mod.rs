@@ -656,7 +656,7 @@ impl Minion {
         Ok(())
     }
 
-    // Subscribe to the user's config which is on their own write relays
+    // Discover relay lists
     async fn subscribe_discover(
         &mut self,
         job_id: u64,
