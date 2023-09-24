@@ -609,9 +609,6 @@ impl Overlord {
             ToOverlordMessage::FollowPubkey(pubkey) => {
                 self.follow_pubkey(pubkey).await?;
             }
-            ToOverlordMessage::FollowPubkeyAndRelay(pubkeystr, relay) => {
-                self.follow_pubkey_and_relay(pubkeystr, relay).await?;
-            }
             ToOverlordMessage::FollowNip05(nip05) => {
                 std::mem::drop(tokio::spawn(async move {
                     if let Err(e) = crate::nip05::get_and_follow_nip05(nip05).await {
@@ -991,42 +988,6 @@ impl Overlord {
             )
             .await?;
         }
-
-        Ok(())
-    }
-
-    async fn follow_pubkey_and_relay(
-        &mut self,
-        pubkeystr: String,
-        relay: RelayUrl,
-    ) -> Result<(), Error> {
-        let pubkey = match PublicKey::try_from_bech32_string(pubkeystr.trim(), true) {
-            Ok(pk) => pk,
-            Err(_) => PublicKey::try_from_hex_string(&pubkeystr, true)?,
-        };
-        GLOBALS.people.follow(&pubkey, true)?;
-        tracing::debug!("Followed {}", &pubkey.as_hex_string());
-
-        // Create relay if missing
-        GLOBALS.storage.write_relay_if_missing(&relay, None)?;
-
-        let now = Unixtime::now().unwrap().0 as u64;
-
-        // Save person_relay
-        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
-            Some(pr) => pr,
-            None => PersonRelay::new(pubkey, relay.clone()),
-        };
-        pr.last_suggested_kind3 = Some(now);
-        pr.manually_paired_read = true;
-        pr.manually_paired_write = true;
-        GLOBALS.storage.write_person_relay(&pr, None)?;
-
-        // async_follow added them to the relay tracker.
-        // Pick relays to start tracking them now
-        self.pick_relays().await;
-
-        tracing::info!("Setup 1 relay for {}", &pubkey.as_hex_string());
 
         Ok(())
     }

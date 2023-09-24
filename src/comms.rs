@@ -23,7 +23,6 @@ pub enum ToOverlordMessage {
     FetchEvent(Id, Vec<RelayUrl>),
     FetchEventAddr(EventAddr),
     FollowPubkey(PublicKey),
-    FollowPubkeyAndRelay(String, RelayUrl),
     FollowNip05(String),
     FollowNprofile(String),
     GeneratePrivateKey(String),
