@@ -144,7 +144,14 @@ impl Storage {
         //       after the database has been launched.
         builder.map_size(1048576 * 1024 * 24); // 24 GB
 
-        let env = builder.open(Profile::current()?.lmdb_dir)?;
+        let dir = Profile::current()?.lmdb_dir;
+        let env = match builder.open(&dir) {
+            Ok(env) => env,
+            Err(e) => {
+                tracing::error!("Unable to open LMDB at {}", dir.display());
+                return Err(e.into());
+            }
+        };
 
         let mut txn = env.write_txn()?;
 
