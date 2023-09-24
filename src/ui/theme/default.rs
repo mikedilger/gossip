@@ -276,7 +276,7 @@ impl ThemeDef for DefaultTheme {
     fn get_on_accent_style(dark_mode: bool) -> Style {
         let mut style = Self::get_style(!dark_mode);
         if dark_mode {
-            todo!()
+            // TODO style dark mode
         } else {
             style.visuals.widgets.noninteractive.fg_stroke.color = Color32::WHITE;
             style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
