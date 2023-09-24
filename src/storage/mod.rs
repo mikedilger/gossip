@@ -1820,15 +1820,10 @@ impl Storage {
 
         let num_relays_per_person = self.read_setting_num_relays_per_person() as usize;
 
-        // If we can't get enough of them, extend with some of our relays
-        // at whatever the lowest score of their last one was
+        // If we can't get enough of them, extend with some of our relays at score=2
         if ranked_relays.len() < (num_relays_per_person + 1) {
             let how_many_more = (num_relays_per_person + 1) - ranked_relays.len();
-            let last_score = if ranked_relays.is_empty() {
-                20
-            } else {
-                ranked_relays[ranked_relays.len() - 1].1
-            };
+            let score = 2;
             match dir {
                 Direction::Write => {
                     // substitute our read relays
@@ -1839,7 +1834,7 @@ impl Storage {
                                 && r.has_usage_bits(Relay::READ)
                         })?
                         .iter()
-                        .map(|r| (r.url.clone(), last_score))
+                        .map(|r| (r.url.clone(), score))
                         .take(how_many_more)
                         .collect();
 
@@ -1854,7 +1849,7 @@ impl Storage {
                                 && r.has_usage_bits(Relay::WRITE)
                         })?
                         .iter()
-                        .map(|r| (r.url.clone(), last_score))
+                        .map(|r| (r.url.clone(), score))
                         .take(how_many_more)
                         .collect();
 
