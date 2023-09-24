@@ -434,12 +434,12 @@ impl GossipUi {
         if let Some(dpi) = settings.override_dpi {
             let ppt: f32 = dpi as f32 / 72.0;
             cctx.egui_ctx.set_pixels_per_point(ppt);
-            tracing::debug!("Pixels per point: {}", ppt);
+            tracing::info!("Pixels per point (overridden): {}", ppt);
         } else if let Some(ppt) = cctx.integration_info.native_pixels_per_point {
             cctx.egui_ctx.set_pixels_per_point(ppt);
-            tracing::debug!("Pixels per point: {}", ppt);
+            tracing::info!("Pixels per point (native): {}", ppt);
         } else {
-            tracing::debug!("Pixels per point: {}", cctx.egui_ctx.pixels_per_point());
+            tracing::info!("Pixels per point (fallback): {}", cctx.egui_ctx.pixels_per_point());
         }
 
         // Set global pixels_per_point_times_100, used for image scaling.
