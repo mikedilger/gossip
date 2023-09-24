@@ -5,7 +5,7 @@ use crate::people::Person;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Frame, RichText, ScrollArea, TextEdit, Ui, Vec2};
+use egui::{Context, Frame, RichText, TextEdit, Ui, Vec2};
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
 
@@ -24,12 +24,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    ScrollArea::vertical()
+    app.vert_scroll_area()
         .id_source("person page")
-        .override_scroll_delta(Vec2 {
-            x: 0.0,
-            y: app.current_scroll_offset,
-        })
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {

@@ -1,11 +1,11 @@
 use super::GossipUi;
 use crate::globals::GLOBALS;
 use eframe::egui;
-use egui::{Context, ScrollArea, Ui};
+use egui::{Context, Ui};
 use humansize::{format_size, DECIMAL};
 use std::sync::atomic::Ordering;
 
-pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(24.0);
     ui.heading("Statistics".to_string());
     ui.add_space(12.0);
@@ -13,7 +13,7 @@ pub(super) fn update(_app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::F
 
     ui.add_space(10.0);
 
-    ScrollArea::vertical().show(ui, |ui| {
+    app.vert_scroll_area().show(ui, |ui| {
         ui.add_space(10.0);
 
         ui.label(format!(

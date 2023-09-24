@@ -38,7 +38,7 @@ use crate::ui::widgets::CopyButton;
 use core::cell::RefCell;
 use eframe::{egui, IconData};
 use egui::{
-    Color32, ColorImage, Context, Image, ImageData, Label, RichText, Sense, TextStyle,
+    Color32, ColorImage, Context, Image, ImageData, Label, RichText, ScrollArea, Sense, TextStyle,
     TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
@@ -1116,7 +1116,6 @@ impl GossipUi {
 
                 if ui.button("Copy web link").clicked() {
                     ui.output_mut(|o| {
-
                         let mut profile = Profile {
                             pubkey: person.pubkey,
                             relays: Vec::new(),
@@ -1125,10 +1124,7 @@ impl GossipUi {
                         for (relay_url, _) in relays.iter().take(3) {
                             profile.relays.push(UncheckedUrl(format!("{}", relay_url)));
                         }
-                        o.copied_text = format!(
-                            "https://njump.me/{}",
-                            profile.as_bech32_string()
-                        )
+                        o.copied_text = format!("https://njump.me/{}", profile.as_bech32_string())
                     });
                 }
             });
@@ -1518,5 +1514,13 @@ impl GossipUi {
         }
 
         self.show_post_area || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
+    }
+
+    #[inline]
+    fn vert_scroll_area(&self) -> ScrollArea {
+        ScrollArea::vertical().override_scroll_delta(Vec2 {
+            x: 0.0,
+            y: self.current_scroll_offset,
+        })
     }
 }
