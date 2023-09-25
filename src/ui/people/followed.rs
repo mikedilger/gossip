@@ -13,6 +13,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     for pk in &followed_pubkeys {
         if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
             people.push(person);
+        } else {
+            let person = Person::new(pk.to_owned());
+            let _ = GLOBALS.storage.write_person(&person, None);
+            people.push(person);
         }
     }
     people.sort_unstable();
