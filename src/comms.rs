@@ -10,10 +10,8 @@ use std::fmt;
 pub enum ToOverlordMessage {
     AddPubkeyRelay(PublicKey, RelayUrl),
     AddRelay(RelayUrl),
-    AdjustRelayUsageBit(RelayUrl, u64, bool),
     AdvertiseRelayList,
     ChangePassphrase(String, String),
-    ClearAllUsageOnRelay(RelayUrl),
     ClearFollowing,
     ClearMuteList,
     DelegationReset,

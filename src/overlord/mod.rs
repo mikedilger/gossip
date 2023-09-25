@@ -483,30 +483,6 @@ impl Overlord {
                 // Create relay if missing
                 GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
             }
-            ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
-                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-                    // TODO: replace with dedicated method to clear all bits
-                    relay.clear_usage_bits(
-                        Relay::ADVERTISE
-                            | Relay::DISCOVER
-                            | Relay::INBOX
-                            | Relay::OUTBOX
-                            | Relay::READ
-                            | Relay::WRITE,
-                    );
-                    GLOBALS.storage.write_relay(&relay, None)?;
-                } else {
-                    tracing::error!("CODE OVERSIGHT - Attempt to clear relay usage bit for a relay not in memory. It will not be saved.");
-                }
-            }
-            ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
-                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-                    relay.adjust_usage_bit(bit, value);
-                    GLOBALS.storage.write_relay(&relay, None)?;
-                } else {
-                    tracing::error!("CODE OVERSIGHT - We are adjusting a relay usage bit for a relay not in memory, how did that happen? It will not be saved.");
-                }
-            }
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
             }

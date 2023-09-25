@@ -362,11 +362,20 @@ impl RelayEntry {
         let text = "Remove from personal list";
         let mut response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::ClearAllUsageOnRelay(
-                    self.relay.url.to_owned(),
-                ));
+            let _ = GLOBALS.storage.modify_relay(
+                &self.relay.url,
+                |relay| {
+                    relay.clear_usage_bits(
+                        Relay::ADVERTISE
+                            | Relay::DISCOVER
+                            | Relay::INBOX
+                            | Relay::OUTBOX
+                            | Relay::READ
+                            | Relay::WRITE,
+                    )
+                },
+                None,
+            );
         }
 
         let pos = pos + vec2(200.0, 0.0);
@@ -692,23 +701,19 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.relay.url.clone(),
-                        Relay::READ,
-                        self.usage.read,
-                    ));
+                let _ = GLOBALS.storage.modify_relay(
+                    &self.relay.url,
+                    |relay| relay.adjust_usage_bit(Relay::READ, self.usage.read),
+                    None,
+                );
                 if !self.usage.read {
                     // if read was turned off, inbox must also be turned off
                     self.usage.inbox = false;
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::AdjustRelayUsageBit(
-                            self.relay.url.clone(),
-                            Relay::INBOX,
-                            self.usage.inbox,
-                        ));
+                    let _ = GLOBALS.storage.modify_relay(
+                        &self.relay.url,
+                        |relay| relay.adjust_usage_bit(Relay::INBOX, self.usage.inbox),
+                        None,
+                    );
                 }
             }
             response.on_hover_text(READ_HOVER_TEXT);
@@ -756,13 +761,11 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.relay.url.clone(),
-                        Relay::INBOX,
-                        self.usage.inbox,
-                    ));
+                let _ = GLOBALS.storage.modify_relay(
+                    &self.relay.url,
+                    |relay| relay.adjust_usage_bit(Relay::INBOX, self.usage.inbox),
+                    None,
+                );
             }
             response.on_hover_text(INBOX_HOVER_TEXT);
             draw_text_at(
@@ -790,24 +793,19 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.relay.url.clone(),
-                        Relay::WRITE,
-                        self.usage.write,
-                    ));
-
+                let _ = GLOBALS.storage.modify_relay(
+                    &self.relay.url,
+                    |relay| relay.adjust_usage_bit(Relay::WRITE, self.usage.write),
+                    None,
+                );
                 if !self.usage.write {
                     // if write was turned off, outbox must also be turned off
                     self.usage.outbox = false;
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::AdjustRelayUsageBit(
-                            self.relay.url.clone(),
-                            Relay::OUTBOX,
-                            self.usage.outbox,
-                        ));
+                    let _ = GLOBALS.storage.modify_relay(
+                        &self.relay.url,
+                        |relay| relay.adjust_usage_bit(Relay::OUTBOX, self.usage.outbox),
+                        None,
+                    );
                 }
             }
             response.on_hover_text(WRITE_HOVER_TEXT);
@@ -855,13 +853,11 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.relay.url.clone(),
-                        Relay::OUTBOX,
-                        self.usage.outbox,
-                    ));
+                let _ = GLOBALS.storage.modify_relay(
+                    &self.relay.url,
+                    |relay| relay.adjust_usage_bit(Relay::OUTBOX, self.usage.outbox),
+                    None,
+                );
             }
             response.on_hover_text(OUTBOX_HOVER_TEXT);
             draw_text_at(
@@ -889,13 +885,11 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.relay.url.clone(),
-                        Relay::DISCOVER,
-                        self.usage.discover,
-                    ));
+                let _ = GLOBALS.storage.modify_relay(
+                    &self.relay.url,
+                    |relay| relay.adjust_usage_bit(Relay::DISCOVER, self.usage.discover),
+                    None,
+                );
             }
             response.on_hover_text(DISCOVER_HOVER_TEXT);
             draw_text_at(
@@ -923,13 +917,11 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdjustRelayUsageBit(
-                        self.relay.url.clone(),
-                        Relay::ADVERTISE,
-                        self.usage.advertise,
-                    ));
+                let _ = GLOBALS.storage.modify_relay(
+                    &self.relay.url,
+                    |relay| relay.adjust_usage_bit(Relay::ADVERTISE, self.usage.advertise),
+                    None,
+                );
             }
             response.on_hover_text(ADVERTISE_HOVER_TEXT);
             draw_text_at(
