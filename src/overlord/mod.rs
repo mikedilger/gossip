@@ -566,7 +566,9 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::FollowPubkey(pubkey) => {
-                self.follow_pubkey(pubkey).await?;
+                GLOBALS.people.follow(&pubkey, true)?;
+                self.discover_pubkey_relays(vec![pubkey], None).await?;
+                tracing::debug!("Followed {}", &pubkey.as_hex_string());
             }
             ToOverlordMessage::FollowNip05(nip05) => {
                 std::mem::drop(tokio::spawn(async move {
@@ -930,13 +932,6 @@ impl Overlord {
             }
         }
 
-        Ok(())
-    }
-
-    async fn follow_pubkey(&mut self, pubkey: PublicKey) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true)?;
-        self.discover_pubkey_relays(vec![pubkey], None).await?;
-        tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
 
