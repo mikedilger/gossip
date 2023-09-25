@@ -563,6 +563,10 @@ impl Minion {
             });
         }
 
+        if filters.is_empty() {
+            return Ok(());
+        }
+
         self.subscribe(filters, "mentions_feed", job_id).await?;
 
         if let Some(sub) = self.subscription_map.get_mut("mentions_feed") {
@@ -813,6 +817,11 @@ impl Minion {
         handle: &str,
         job_id: u64,
     ) -> Result<(), Error> {
+        if filters.is_empty() {
+            tracing::error!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
+            return Ok(());
+        }
+
         if let Some(sub) = self.subscription_map.get_mut(handle) {
             // Gratitously bump the EOSE as if the relay was finished, since it was
             // our fault the subscription is getting cut off.  This way we will pick up
