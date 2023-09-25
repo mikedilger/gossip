@@ -12,7 +12,17 @@ impl Storage {
         let mut txn = self.env.write_txn()?;
 
         // Progress the legacy database to the endpoint first
-        let mut db = legacy::init_database()?;
+        let mut db = match legacy::init_database() {
+            Ok(db) => db,
+            Err(_) => {
+                // Probably missing. Let's mock up default necessary data:
+                let settings: Settings1 = Default::default();
+                self.write_settings1(&settings, Some(&mut txn))?;
+                txn.commit()?;
+                self.sync()?;
+                return Ok(());
+            }
+        };
         legacy::setup_database(&mut db)?;
         tracing::info!("LDMB: setup");
 
