@@ -4,7 +4,7 @@ use gossip_relay_picker::Direction;
 use nostr_types::{Id, RelayInformationDocument, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Relay1 {
     pub url: RelayUrl,
     pub success_count: u64,
