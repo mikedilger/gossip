@@ -48,6 +48,7 @@ pub enum ToOverlordMessage {
     SetThreadFeed(Id, Id, Vec<RelayUrl>, Option<PublicKey>),
     SetDmChannel(DmChannel),
     SubscribeConfig(RelayUrl),
+    SubscribeDiscover(Vec<PublicKey>, Option<Vec<RelayUrl>>),
     Shutdown,
     UnlockKey(String),
     UpdateFollowing(bool),

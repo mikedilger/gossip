@@ -769,6 +769,10 @@ impl Overlord {
                 )
                 .await?;
             }
+            ToOverlordMessage::SubscribeDiscover(pubkeys, maybe_relayurls) => {
+                self.discover_pubkey_relays(pubkeys, maybe_relayurls)
+                    .await?;
+            }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
                 return Ok(false);
