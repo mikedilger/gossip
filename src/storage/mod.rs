@@ -589,6 +589,43 @@ impl Storage {
         }
     }
 
+    pub fn write_following_only<'a>(
+        &'a self,
+        following_only: bool,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = following_only.write_to_vec()?;
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general.put(txn, b"following_only", &bytes)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn read_following_only(&self) -> bool {
+        let txn = match self.env.read_txn() {
+            Ok(txn) => txn,
+            Err(_) => return false,
+        };
+
+        match self.general.get(&txn, b"following_only") {
+            Err(_) => false,
+            Ok(None) => false,
+            Ok(Some(bytes)) => bool::read_from_buffer(bytes).unwrap_or(false),
+        }
+    }
+
     // Settings ----------------------------------------------------------
 
     // This defines functions for read_{setting} and write_{setting} for each
