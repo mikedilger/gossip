@@ -45,7 +45,9 @@
 
 10. Upload release to github
 
-11. Announce release on nostr under gossip account
+11. Update the AUR packages
+
+12. Announce release on nostr under gossip account
 
 
 -----------------
