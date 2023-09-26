@@ -6,6 +6,7 @@ use crate::relay::Relay;
 use crate::ui::{you, FeedKind, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
+use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
@@ -290,20 +291,24 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         .max_height(window_height * 0.7)
         .show(ui, |ui| {
             if let Some(id) = app.draft_data.replying_to.or(app.draft_data.repost) {
-                super::note::render_note(
-                    app,
-                    ctx,
-                    frame,
-                    ui,
-                    FeedNoteParams {
-                        id,
-                        indent: 0,
-                        as_reply_to: true,
-                        threaded: false,
-                        is_first: true,
-                        is_last: true,
-                    },
-                );
+                CollapsingHeader::new("Replying to:")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        super::note::render_note(
+                            app,
+                            ctx,
+                            frame,
+                            ui,
+                            FeedNoteParams {
+                                id,
+                                indent: 0,
+                                as_reply_to: true,
+                                threaded: false,
+                                is_first: true,
+                                is_last: true,
+                            },
+                        );
+                    });
             }
 
             if app.draft_data.repost.is_none() {
