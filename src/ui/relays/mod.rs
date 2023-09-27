@@ -473,7 +473,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
     }
 
     let button_center_bottom = response.rect.center_bottom();
-    let seen_on_popup_position = button_center_bottom + vec2( -150.0, widgets::DROPDOWN_DISTANCE );
+    let seen_on_popup_position = button_center_bottom + vec2( -180.0, widgets::DROPDOWN_DISTANCE );
 
     let id: Id = "configure-list-menu".into();
     let mut frame = egui::Frame::popup(ui.style());
@@ -488,6 +488,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
             frame.fill = app.settings.theme.accent_color();
             frame.stroke = egui::Stroke::NONE;
             // frame.shadow = egui::epaint::Shadow::NONE;
+            frame.rounding = egui::Rounding::same(5.0);
             frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
             frame.show(ui, |ui| {
                 let path = PathShape::convex_polygon(
