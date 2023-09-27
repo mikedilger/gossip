@@ -565,6 +565,19 @@ impl Overlord {
                     }
                 }
             }
+            ToOverlordMessage::FetchPersonFollowed(pubkey) => {
+                self.engage_minion(
+                    relay_url.to_owned(),
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::FetchEvent,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::FetchEventAddr(ea.clone()),
+                        },
+                    }],
+                )
+                .await?;
+            }
             ToOverlordMessage::FollowPubkey(pubkey) => {
                 GLOBALS.people.follow(&pubkey, true)?;
                 self.discover_pubkey_relays(vec![pubkey], None).await?;
@@ -1369,7 +1382,8 @@ impl Overlord {
     }
 
     async fn push_following(&mut self) -> Result<(), Error> {
-        let event = GLOBALS.people.generate_contact_list_event().await?;
+        let pubkeys = GLOBALS.people.get_followed_pubkeys();
+        let event = GLOBALS.people.generate_contact_list_event(pubkeys).await?;
 
         // process event locally
         crate::process::process_new_event(&event, None, None, false, false).await?;
@@ -1910,7 +1924,7 @@ impl Overlord {
         Ok(())
     }
 
-    // This updates the actual following list (based on the follow flag in the person table)
+    // Update the actual following list (based on the follow flag in the person table)
     // from the last ContactList received
     async fn update_following(&mut self, merge: bool) -> Result<(), Error> {
         // Load the latest contact list from the database

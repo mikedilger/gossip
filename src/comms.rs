@@ -21,6 +21,7 @@ pub enum ToOverlordMessage {
     DropRelay(RelayUrl),
     FetchEvent(Id, Vec<RelayUrl>),
     FetchEventAddr(EventAddr),
+    FetchPersonFollowed(PublicKey),
     FollowPubkey(PublicKey),
     FollowNip05(String),
     FollowNprofile(Profile),

@@ -1,9 +1,9 @@
 use super::{GossipUi, Page};
-use crate::{comms::ToOverlordMessage, ui::PersonTab};
 use crate::globals::GLOBALS;
 use crate::people::Person;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
+use crate::{comms::ToOverlordMessage, ui::PersonTab};
 use eframe::egui;
 use egui::{Context, Frame, RichText, TextEdit, Ui, Vec2};
 use nostr_types::{PublicKey, RelayUrl};
@@ -251,8 +251,11 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
+                ui.selectable_value(&mut app.person_tab, PersonTab::Followed, "Followed");
                 ui.label("|");
+                ui.selectable_value(&mut app.person_tab, PersonTab::Followers, "Followers");
+                ui.label("|");
+                ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
             });
 
             ui.add_space(10.0);
@@ -260,33 +263,78 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
 
             match app.person_tab {
+                PersonTab::Followed => {}
+
+                PersonTab::Followers => {
+                    // app.vert_scroll_area().show(ui, |ui| {
+                    //     for person in GLOBALS.people.get_followed(pubkey) {
+                    //         ui.horizontal(|ui| {
+                    //             // Avatar first
+                    //             let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
+                    //                 avatar
+                    //             } else {
+                    //                 app.placeholder_avatar.clone()
+                    //             };
+                    //             let size = AVATAR_SIZE_F32
+                    //                 * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
+                    //                 / 100.0;
+                    //             if ui
+                    //                 .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
+                    //                 .clicked()
+                    //             {
+                    //                 app.set_page(Page::Person(person.pubkey));
+                    //             };
+                
+                    //             ui.vertical(|ui| {
+                    //                 ui.label(RichText::new(crate::names::pubkey_short(&person.pubkey)).weak());
+                    //                 GossipUi::render_person_name_line(app, ui, person);
+                    //                 if !GLOBALS
+                    //                     .storage
+                    //                     .have_persons_relays(person.pubkey)
+                    //                     .unwrap_or(false)
+                    //                 {
+                    //                     ui.label(
+                    //                         RichText::new("Relay list not found")
+                    //                             .color(app.settings.theme.warning_marker_text_color()),
+                    //                     );
+                    //                 }
+                    //             });
+                    //         });
+                
+                    //         ui.add_space(4.0);
+                
+                    //         ui.separator();
+                    //     }
+                    // });
+                }
+
                 PersonTab::Relays => {
-                    let relays = GLOBALS.people.get_active_person_write_relays();
-                    for (relay_url, score) in relays.iter() {
+                    for (relay_url, score) in GLOBALS.people.get_active_person_write_relays().iter()
+                    {
                         ui.label(format!("{} (score={})", relay_url, score));
                     }
-                },
-            }
 
-            // Add a relay for them
-            ui.add_space(10.0);
-            ui.label("Manually specify a relay they use (read and write):");
-            ui.horizontal(|ui| {
-                ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
-                if ui.button("Add").clicked() {
-                    if let Ok(url) = RelayUrl::try_from_str(&app.add_relay) {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::AddPubkeyRelay(pubkey, url));
-                        app.add_relay = "".to_owned();
-                    } else {
-                        GLOBALS
-                            .status_queue
-                            .write()
-                            .write("Invalid Relay Url".to_string());
-                    }
+                    // Add a relay for them
+                    ui.add_space(10.0);
+                    ui.label("Manually specify a relay they use (read and write):");
+                    ui.horizontal(|ui| {
+                        ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
+                        if ui.button("Add").clicked() {
+                            if let Ok(url) = RelayUrl::try_from_str(&app.add_relay) {
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::AddPubkeyRelay(pubkey, url));
+                                app.add_relay = "".to_owned();
+                            } else {
+                                GLOBALS
+                                    .status_queue
+                                    .write()
+                                    .write("Invalid Relay Url".to_string());
+                            }
+                        }
+                    });
                 }
-            });
+            }
         }
     }
     if need_to_set_active_person && !app.setting_active_person {

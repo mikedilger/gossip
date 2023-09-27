@@ -57,6 +57,8 @@ use self::widgets::NavItem;
 
 #[derive(Eq, Hash, PartialEq)]
 enum PersonTab {
+    Followed,
+    Followers,
     Relays,
 }
 
@@ -419,8 +421,7 @@ struct GossipUi {
     last_visible_update: Instant,
 
     // Zap state, computed once per frame instead of per note
-    // zap_state and note_being_zapped are computed from GLOBALS.current_zap and are
-    //   not authoratative.
+    // zap_state and note_being_zapped are computed from GLOBALS.current_zap and are not authoritative
     zap_state: ZapState,
     note_being_zapped: Option<Id>,
 }
