@@ -9,8 +9,7 @@ use nostr_types::{
 };
 use std::sync::atomic::Ordering;
 
-// This processes a new event, saving the results into the database
-// and also populating the GLOBALS maps.
+// Process a new event, saving the results into the database and also populating the GLOBALS maps
 #[async_recursion]
 pub async fn process_new_event(
     event: &Event,
@@ -373,11 +372,9 @@ pub async fn process_new_event(
 }
 
 async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
-    // We don't keep their contacts or show to the user yet.
-    // We only process the contents for (non-standard) relay list information.
-
+    // We process the contents for (non-standard) relay list information.
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
-    if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {
+    if let Ok(relay_list) = serde_json::from_str::<SimpleRelayList>(&event.content) {
         // Update that we received the relay list (and optionally bump forward the date
         // if this relay list happens to be newer)
         let newer = GLOBALS
@@ -391,7 +388,7 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
 
         let mut inbox_relays: Vec<RelayUrl> = Vec::new();
         let mut outbox_relays: Vec<RelayUrl> = Vec::new();
-        for (url, simple_relay_usage) in srl.0.iter() {
+        for (url, simple_relay_usage) in relay_list.0.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if simple_relay_usage.read {
                     inbox_relays.push(relay_url.clone());
@@ -404,6 +401,15 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
         GLOBALS
             .storage
             .set_relay_list(event.pubkey, inbox_relays, outbox_relays, None)?;
+    }
+
+    if event.created_at.0
+        > GLOBALS
+            .people
+            .last_contact_list_asof
+            .load(Ordering::Relaxed)
+    {
+        // GLOBALS.people.followers.insert(PublicKey)
     }
 
     Ok(())

@@ -52,6 +52,10 @@ pub struct People {
     active_person: RwLock<Option<PublicKey>>,
     active_persons_write_relays: RwLock<Vec<(RelayUrl, u64)>>,
 
+    // followed and followers of the active person
+    followed: DashSet<PublicKey>,
+    followers: DashSet<PublicKey>,
+
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
     // and hand them over. This way we can do the work that takes
@@ -97,13 +101,15 @@ impl People {
             active_persons_write_relays: RwLock::new(vec![]),
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
-            recheck_nip05: DashSet::new(),
-            need_metadata: DashSet::new(),
-            tried_metadata: DashSet::new(),
+            followed: DashSet::new(),
+            followers: DashSet::new(),
             last_contact_list_asof: AtomicI64::new(0),
             last_contact_list_size: AtomicUsize::new(0),
             last_mute_list_asof: AtomicI64::new(0),
             last_mute_list_size: AtomicUsize::new(0),
+            need_metadata: DashSet::new(),
+            recheck_nip05: DashSet::new(),
+            tried_metadata: DashSet::new(),
         }
     }
 
@@ -515,7 +521,7 @@ impl People {
     }
 
     /// This lets you start typing a name, and autocomplete the results for tagging
-    /// someone in a post.  It returns maximum 10 results.
+    /// someone in a post. It returns maximum 10 results.
     pub fn search_people_to_tag(&self, mut text: &str) -> Result<Vec<(String, PublicKey)>, Error> {
         // work with or without the @ symbol:
         if text.starts_with('@') {
@@ -590,10 +596,11 @@ impl People {
             .collect())
     }
 
-    pub async fn generate_contact_list_event(&self) -> Result<Event, Error> {
+    pub async fn generate_contact_list_event(
+        &self,
+        pubkeys: Vec<PublicKey>,
+    ) -> Result<Event, Error> {
         let mut p_tags: Vec<Tag> = Vec::new();
-
-        let pubkeys = self.get_followed_pubkeys();
 
         for pubkey in &pubkeys {
             // Get their petname
@@ -620,7 +627,6 @@ impl People {
 
         // Get the content from our latest ContactList.
         // We don't use the data, but we shouldn't clobber it.
-
         let content = match GLOBALS
             .storage
             .get_replaceable_event(public_key, EventKind::ContactList)?
@@ -662,7 +668,6 @@ impl People {
         // Get the content from our latest MuteList.
         // We don't use the data, but we shouldn't clobber it (it is for private mutes
         // that we have not implemented yet)
-
         let content = match GLOBALS
             .storage
             .get_replaceable_event(public_key, EventKind::MuteList)?
@@ -911,6 +916,13 @@ impl People {
 
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
         self.active_persons_write_relays.blocking_read().clone()
+    }
+
+    pub async fn get_followed(&self, pubkey: PublicKey) -> Result<(), Error> {
+        // let mut pubkey_vec: Vec<PublicKey> = Vec::new();
+        // pubkey_vec.push(pubkey);
+        // self.generate_contact_list_event(pubkey_vec);
+        Ok(())
     }
 }
 
