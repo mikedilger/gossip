@@ -6,6 +6,7 @@ use crate::relay::Relay;
 use crate::ui::{you, FeedKind, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
+use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
@@ -281,92 +282,101 @@ fn dm_posting_area(
 fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     // Maybe render post we are replying to or reposting
 
-    if let Some(id) = app.draft_data.replying_to.or(app.draft_data.repost) {
-        app.vert_scroll_area().max_height(200.0).show(ui, |ui| {
-            super::note::render_note(
-                app,
-                ctx,
-                frame,
-                ui,
-                FeedNoteParams {
-                    id,
-                    indent: 0,
-                    as_reply_to: true,
-                    threaded: false,
-                    is_first: true,
-                    is_last: true,
-                },
-            );
-        });
-    }
-
     let mut send_now: bool = false;
 
-    if app.draft_data.repost.is_none() {
-        // Text area
-        let theme = app.settings.theme;
-        let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-            let mut layout_job = textarea_highlighter(theme, text.to_owned());
-            layout_job.wrap.max_width = wrap_width;
-            ui.fonts(|f| f.layout_job(layout_job))
-        };
+    let screen_rect = ctx.input(|i| i.screen_rect);
+    let window_height = screen_rect.max.y - screen_rect.min.y;
 
-        if app.draft_data.include_subject && app.draft_data.replying_to.is_none() {
-            ui.horizontal(|ui| {
-                ui.label("Subject: ");
-                ui.add(
-                    text_edit_line!(app, app.draft_data.subject)
-                        .hint_text("Type subject here")
-                        .desired_width(f32::INFINITY),
-                );
-            });
-        }
-
-        if app.draft_data.include_content_warning {
-            ui.horizontal(|ui| {
-                ui.label("Content Warning: ");
-                ui.add(
-                    text_edit_line!(app, app.draft_data.content_warning)
-                        .hint_text("Type content warning here")
-                        .desired_width(f32::INFINITY),
-                );
-            });
-        }
-
-        let draft_response = ui.add(
-            text_edit_multiline!(app, app.draft_data.draft)
-                .id_source("compose_area")
-                .hint_text("Type your message here")
-                .desired_width(f32::INFINITY)
-                .lock_focus(true)
-                .interactive(app.draft_data.repost.is_none())
-                .layouter(&mut layouter),
-        );
-        if app.draft_needs_focus {
-            draft_response.request_focus();
-            app.draft_needs_focus = false;
-        }
-
-        if draft_response.has_focus() && !app.draft_data.draft.is_empty() {
-            let modifiers = if cfg!(target_os = "macos") {
-                Modifiers {
-                    command: true,
-                    ..Default::default()
-                }
-            } else {
-                Modifiers {
-                    ctrl: true,
-                    ..Default::default()
-                }
-            };
-
-            if ui.input_mut(|i| i.consume_key(modifiers, Key::Enter)) {
-                send_now = true;
+    app.vert_scroll_area()
+        .max_height(window_height * 0.7)
+        .show(ui, |ui| {
+            if let Some(id) = app.draft_data.replying_to.or(app.draft_data.repost) {
+                CollapsingHeader::new("Replying to:")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        super::note::render_note(
+                            app,
+                            ctx,
+                            frame,
+                            ui,
+                            FeedNoteParams {
+                                id,
+                                indent: 0,
+                                as_reply_to: true,
+                                threaded: false,
+                                is_first: true,
+                                is_last: true,
+                            },
+                        );
+                    });
             }
-        }
 
-        ui.add_space(8.0);
-    }
+            if app.draft_data.repost.is_none() {
+                // Text area
+                let theme = app.settings.theme;
+                let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
+                    let mut layout_job = textarea_highlighter(theme, text.to_owned());
+                    layout_job.wrap.max_width = wrap_width;
+                    ui.fonts(|f| f.layout_job(layout_job))
+                };
+
+                if app.draft_data.include_subject && app.draft_data.replying_to.is_none() {
+                    ui.horizontal(|ui| {
+                        ui.label("Subject: ");
+                        ui.add(
+                            text_edit_line!(app, app.draft_data.subject)
+                                .hint_text("Type subject here")
+                                .desired_width(f32::INFINITY),
+                        );
+                    });
+                }
+
+                if app.draft_data.include_content_warning {
+                    ui.horizontal(|ui| {
+                        ui.label("Content Warning: ");
+                        ui.add(
+                            text_edit_line!(app, app.draft_data.content_warning)
+                                .hint_text("Type content warning here")
+                                .desired_width(f32::INFINITY),
+                        );
+                    });
+                }
+
+                let draft_response = ui.add(
+                    text_edit_multiline!(app, app.draft_data.draft)
+                        .id_source("compose_area")
+                        .hint_text("Type your message here")
+                        .desired_width(f32::INFINITY)
+                        .lock_focus(true)
+                        .interactive(app.draft_data.repost.is_none())
+                        .layouter(&mut layouter),
+                );
+                if app.draft_needs_focus {
+                    draft_response.request_focus();
+                    app.draft_needs_focus = false;
+                }
+
+                if draft_response.has_focus() && !app.draft_data.draft.is_empty() {
+                    let modifiers = if cfg!(target_os = "macos") {
+                        Modifiers {
+                            command: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        Modifiers {
+                            ctrl: true,
+                            ..Default::default()
+                        }
+                    };
+
+                    if ui.input_mut(|i| i.consume_key(modifiers, Key::Enter)) {
+                        send_now = true;
+                    }
+                }
+
+                ui.add_space(8.0);
+            }
+        });
 
     ui.horizontal(|ui| {
         if ui.button("Cancel").clicked() {

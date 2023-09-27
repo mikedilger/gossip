@@ -130,12 +130,13 @@ impl Storage {
 
         let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let bytes = self.db_relays1()?.get(txn, key)?;
-            if let Some(bytes) = bytes {
-                let mut relay = serde_json::from_slice(bytes)?;
-                modify(&mut relay);
-                let bytes = serde_json::to_vec(&relay)?;
-                self.db_relays1()?.put(txn, key, &bytes)?;
-            }
+            let mut relay = match bytes {
+                Some(bytes) => serde_json::from_slice(bytes)?,
+                None => Relay1::new(url.to_owned()),
+            };
+            modify(&mut relay);
+            let bytes = serde_json::to_vec(&relay)?;
+            self.db_relays1()?.put(txn, key, &bytes)?;
             Ok(())
         };
 

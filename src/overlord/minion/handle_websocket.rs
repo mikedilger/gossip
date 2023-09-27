@@ -74,6 +74,11 @@ impl Minion {
             }
             RelayMessage::Notice(msg) => {
                 tracing::warn!("{}: NOTICE: {}", &self.url, msg);
+                tracing::warn!(
+                    "{}: last message sent was: {}",
+                    &self.url,
+                    &self.last_message_sent
+                );
             }
             RelayMessage::Eose(subid) => {
                 let handle = self
@@ -182,6 +187,7 @@ impl Minion {
                 let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
                 let msg = ClientMessage::Auth(Box::new(event));
                 let wire = serde_json::to_string(&msg)?;
+                self.last_message_sent = wire.clone();
                 let ws_stream = self.stream.as_mut().unwrap();
                 ws_stream.send(WsMessage::Text(wire)).await?;
                 tracing::info!("Authenticated to {}", &self.url);

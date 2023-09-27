@@ -134,26 +134,9 @@ impl Overlord {
         }
 
         // Separately subscribe to RelayList discovery for everyone we follow
-        let discover_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
+        // We just do this once at startup. Relay lists don't change that frequently.
         let followed = GLOBALS.people.get_followed_pubkeys();
-        for relay_url in discover_relay_urls.iter() {
-            self.engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::Discovery,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeDiscover(followed.clone()),
-                    },
-                }],
-            )
-            .await?;
-        }
+        self.discover_pubkey_relays(followed, None).await?;
 
         // Separately subscribe to our outbox events on our write relays
         let write_relay_urls: Vec<RelayUrl> = GLOBALS
@@ -500,30 +483,6 @@ impl Overlord {
                 // Create relay if missing
                 GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
             }
-            ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
-                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-                    // TODO: replace with dedicated method to clear all bits
-                    relay.clear_usage_bits(
-                        Relay::ADVERTISE
-                            | Relay::DISCOVER
-                            | Relay::INBOX
-                            | Relay::OUTBOX
-                            | Relay::READ
-                            | Relay::WRITE,
-                    );
-                    GLOBALS.storage.write_relay(&relay, None)?;
-                } else {
-                    tracing::error!("CODE OVERSIGHT - Attempt to clear relay usage bit for a relay not in memory. It will not be saved.");
-                }
-            }
-            ToOverlordMessage::AdjustRelayUsageBit(relay_url, bit, value) => {
-                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-                    relay.adjust_usage_bit(bit, value);
-                    GLOBALS.storage.write_relay(&relay, None)?;
-                } else {
-                    tracing::error!("CODE OVERSIGHT - We are adjusting a relay usage bit for a relay not in memory, how did that happen? It will not be saved.");
-                }
-            }
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
             }
@@ -607,7 +566,9 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::FollowPubkey(pubkey) => {
-                self.follow_pubkey(pubkey).await?;
+                GLOBALS.people.follow(&pubkey, true)?;
+                self.discover_pubkey_relays(vec![pubkey], None).await?;
+                tracing::debug!("Followed {}", &pubkey.as_hex_string());
             }
             ToOverlordMessage::FollowNip05(nip05) => {
                 std::mem::drop(tokio::spawn(async move {
@@ -795,6 +756,23 @@ impl Overlord {
             ToOverlordMessage::SetDmChannel(dmchannel) => {
                 self.set_dm_channel(dmchannel).await?;
             }
+            ToOverlordMessage::SubscribeConfig(relay_url) => {
+                self.engage_minion(
+                    relay_url.to_owned(),
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::Config,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::SubscribeOutbox,
+                        },
+                    }],
+                )
+                .await?;
+            }
+            ToOverlordMessage::SubscribeDiscover(pubkeys, maybe_relayurls) => {
+                self.discover_pubkey_relays(pubkeys, maybe_relayurls)
+                    .await?;
+            }
             ToOverlordMessage::Shutdown => {
                 tracing::info!("Overlord shutting down");
                 return Ok(false);
@@ -961,17 +939,21 @@ impl Overlord {
         Ok(())
     }
 
-    async fn follow_pubkey(&mut self, pubkey: PublicKey) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true)?;
-        tracing::debug!("Followed {}", &pubkey.as_hex_string());
-
+    async fn discover_pubkey_relays(
+        &mut self,
+        pubkeys: Vec<PublicKey>,
+        relays: Option<Vec<RelayUrl>>,
+    ) -> Result<(), Error> {
         // Discover their relays
-        let discover_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
+        let discover_relay_urls: Vec<RelayUrl> = match relays {
+            Some(r) => r,
+            None => GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
+                .iter()
+                .map(|relay| relay.url.clone())
+                .collect(),
+        };
         for relay_url in discover_relay_urls.iter() {
             self.engage_minion(
                 relay_url.to_owned(),
@@ -979,7 +961,7 @@ impl Overlord {
                     reason: RelayConnectionReason::Discovery,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeDiscover(vec![pubkey]),
+                        detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
                     },
                 }],
             )

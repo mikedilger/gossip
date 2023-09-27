@@ -49,6 +49,7 @@ pub struct Minion {
     keepgoing: bool,
     postings: HashSet<Id>,
     sought_events: HashMap<Id, EventSeekState>,
+    last_message_sent: String,
 }
 
 impl Minion {
@@ -76,6 +77,7 @@ impl Minion {
             keepgoing: true,
             postings: HashSet::new(),
             sought_events: HashMap::new(),
+            last_message_sent: String::new(),
         })
     }
 }
@@ -374,6 +376,7 @@ impl Minion {
                 let msg = ClientMessage::Event(event);
                 let wire = serde_json::to_string(&msg)?;
                 let ws_stream = self.stream.as_mut().unwrap();
+                self.last_message_sent = wire.clone();
                 ws_stream.send(WsMessage::Text(wire)).await?;
                 tracing::info!("Posted event to {}", &self.url);
                 self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
@@ -591,6 +594,10 @@ impl Minion {
                 since: Some(giftwrap_since),
                 ..Default::default()
             });
+        }
+
+        if filters.is_empty() {
+            return Ok(());
         }
 
         self.subscribe(filters, "mentions_feed", job_id).await?;
@@ -836,6 +843,7 @@ impl Minion {
         // Subscribe on the relay
         let websocket_stream = self.stream.as_mut().unwrap();
         let wire = serde_json::to_string(&req_message)?;
+        self.last_message_sent = wire.clone();
         websocket_stream.send(WsMessage::Text(wire.clone())).await?;
 
         tracing::trace!("{}: Sent {}", &self.url, &wire);
@@ -889,6 +897,11 @@ impl Minion {
         handle: &str,
         job_id: u64,
     ) -> Result<(), Error> {
+        if filters.is_empty() {
+            tracing::error!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
+            return Ok(());
+        }
+
         if let Some(sub) = self.subscription_map.get_mut(handle) {
             // Gratitously bump the EOSE as if the relay was finished, since it was
             // our fault the subscription is getting cut off.  This way we will pick up
@@ -930,6 +943,7 @@ impl Minion {
         let wire = serde_json::to_string(&req_message)?;
         let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
+        self.last_message_sent = wire.clone();
         websocket_stream.send(WsMessage::Text(wire.clone())).await?;
         Ok(())
     }
@@ -942,6 +956,7 @@ impl Minion {
         let wire = serde_json::to_string(&subscription.close_message())?;
         let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
+        self.last_message_sent = wire.clone();
         websocket_stream.send(WsMessage::Text(wire.clone())).await?;
         let id = self.subscription_map.remove(handle);
         if let Some(id) = id {

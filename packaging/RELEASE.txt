@@ -20,6 +20,12 @@
 
 4. Tag this as vVERSION, and push the tag
 
+4b. Tag again with -unstable,
+    build to get Cargo.lock,
+    commit both as next commit,
+    push,
+    checkout the release commit again for the rest.
+
 5. Build the debian:
 
    $ cd debian
@@ -45,7 +51,9 @@
 
 10. Upload release to github
 
-11. Announce release on nostr under gossip account
+11. Update the AUR packages
+
+12. Announce release on nostr under gossip account
 
 
 -----------------
