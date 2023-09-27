@@ -402,6 +402,7 @@ fn render_note_inner(
                                         Ok(vec) => vec
                                             .iter()
                                             .map(|(url, _)| url.to_unchecked_url())
+                                            .take(3) // Limit to 3 relay hints
                                             .collect(),
                                         Err(_) => vec![],
                                     },
