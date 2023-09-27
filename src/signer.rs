@@ -159,6 +159,14 @@ impl Signer {
             Some(pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
         *self.public.write() = Some(pk.public_key());
         *self.private.write() = Some(pk);
+
+        // and eventually save
+        task::spawn(async move {
+            if let Err(e) = GLOBALS.signer.save().await {
+                tracing::error!("{}", e);
+            }
+        });
+
         Ok(())
     }
 
