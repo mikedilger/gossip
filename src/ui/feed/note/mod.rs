@@ -270,14 +270,13 @@ fn render_note_inner(
                 // render avatar
                 if ui
                     .add(
-                        Image::new(
-                            &avatar,
-                            Vec2 {
+                        Image::new(&avatar)
+                            .max_size(Vec2 {
                                 x: avatar_size,
                                 y: avatar_size,
-                            },
-                        )
-                        .sense(Sense::click()),
+                            })
+                            .maintain_aspect_ratio(true)
+                            .sense(Sense::click()),
                     )
                     .clicked()
                 {

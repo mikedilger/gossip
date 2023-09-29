@@ -136,7 +136,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
                     / 100.0;
                 if ui
-                    .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
+                    .add(
+                        Image::new(&avatar)
+                            .max_size(Vec2 { x: size, y: size })
+                            .maintain_aspect_ratio(true)
+                            .sense(Sense::click()),
+                    )
                     .clicked()
                 {
                     app.set_page(Page::Person(person.pubkey));
