@@ -74,11 +74,7 @@ impl CopyButton {
 
 impl Widget for CopyButton {
     fn ui(self, ui: &mut Ui) -> Response {
-        let padding = ui.spacing().button_padding;
-        let space = Vec2 {
-            x: 16.0 + padding.x * 2.0,
-            y: 16.0 + padding.y * 2.0,
-        };
+        let space = Vec2 { x: 16.0, y: 16.0 };
         let (id, rect) = ui.allocate_space(space);
         let response = ui.interact(rect, id, Sense::click());
         let shift = if response.is_pointer_button_down_on() {
@@ -87,8 +83,8 @@ impl Widget for CopyButton {
             4.0
         };
         let pos = Pos2 {
-            x: rect.min.x + padding.x + shift,
-            y: rect.min.y + padding.y + shift,
+            x: rect.min.x + shift,
+            y: rect.min.y + shift,
         };
         Self::paint(ui, ui.painter().round_pos_to_pixels(pos));
 
