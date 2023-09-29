@@ -488,6 +488,10 @@ impl Overlord {
             ToOverlordMessage::AddRelay(relay_url) => {
                 // Create relay if missing
                 GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
+
+                // Then pick relays again (possibly including the one added)
+                GLOBALS.relay_picker.refresh_person_relay_scores().await?;
+                self.pick_relays().await;
             }
             ToOverlordMessage::ClearAllUsageOnRelay(relay_url) => {
                 if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
