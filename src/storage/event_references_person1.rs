@@ -5,6 +5,7 @@ use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
 use speedy::Readable;
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::ops::Bound;
 use std::sync::Mutex;
@@ -149,6 +150,14 @@ impl Storage {
                 }
             }
         }
+
+        // We have to sort these because (pubkey/unixtime) isn't unique.
+        // The sort should be pretty fast given they are already nearly sorted.
+        events.sort_by(|a, b| match b.created_at.cmp(&a.created_at) {
+            Ordering::Equal => b.id.cmp(&a.id),
+            ordered => ordered,
+        });
+
         Ok(events)
     }
 }
