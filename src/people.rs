@@ -53,9 +53,9 @@ pub struct People {
     active_person: RwLock<Option<PublicKey>>,
     active_persons_write_relays: RwLock<Vec<(RelayUrl, u64)>>,
 
-    // followed and followers of the active person
-    followed: DashSet<PublicKey>,
-    followers: DashSet<PublicKey>,
+    // followed and followers of a person keyed by pubkey
+    followed: DashMap<PublicKey, DashSet<PublicKey>>,
+    followers: DashMap<PublicKey, DashSet<PublicKey>>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
@@ -96,8 +96,8 @@ impl People {
             active_persons_write_relays: RwLock::new(vec![]),
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
-            followed: DashSet::new(),
-            followers: DashSet::new(),
+            followed: DashMap::new(),
+            followers: DashMap::new(),
             last_contact_list_asof: AtomicI64::new(0),
             last_contact_list_size: AtomicUsize::new(0),
             last_mute_list_asof: AtomicI64::new(0),
@@ -636,6 +636,8 @@ impl People {
             ots: None,
         };
 
+        tracing::debug!("----> PreEvent {:?}", pre_event);
+
         GLOBALS.signer.sign_preevent(pre_event, None, None)
     }
 
@@ -910,13 +912,6 @@ impl People {
 
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
         self.active_persons_write_relays.blocking_read().clone()
-    }
-
-    pub async fn get_followed(&self, pubkey: PublicKey) -> Result<(), Error> {
-        // let mut pubkey_vec: Vec<PublicKey> = Vec::new();
-        // pubkey_vec.push(pubkey);
-        // self.generate_contact_list_event(pubkey_vec);
-        Ok(())
     }
 }
 

@@ -267,6 +267,9 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 PersonTab::Followed => {}
 
                 PersonTab::Followers => {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FetchPersonContactList(person.pubkey));
                     // app.vert_scroll_area().show(ui, |ui| {
                     //     for person in GLOBALS.people.get_followed(pubkey) {
                     //         ui.horizontal(|ui| {
@@ -285,7 +288,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     //             {
                     //                 app.set_page(Page::Person(person.pubkey));
                     //             };
-                
+
                     //             ui.vertical(|ui| {
                     //                 ui.label(RichText::new(crate::names::pubkey_short(&person.pubkey)).weak());
                     //                 GossipUi::render_person_name_line(app, ui, person);
@@ -301,9 +304,9 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     //                 }
                     //             });
                     //         });
-                
+
                     //         ui.add_space(4.0);
-                
+
                     //         ui.separator();
                     //     }
                     // });

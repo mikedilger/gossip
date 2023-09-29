@@ -569,18 +569,9 @@ impl Overlord {
                     }
                 }
             }
-            ToOverlordMessage::FetchPersonFollowed(pubkey) => {
-                self.engage_minion(
-                    relay_url.to_owned(),
-                    vec![RelayJob {
-                        reason: RelayConnectionReason::FetchEvent,
-                        payload: ToMinionPayload {
-                            job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::FetchEventAddr(ea.clone()),
-                        },
-                    }],
-                )
-                .await?;
+            ToOverlordMessage::FetchPersonContactList(pubkey) => {
+                self.fetch_person_contact_list(pubkey).await?;
+                tracing::debug!("Fetch Person's ContactList {}", &pubkey.as_hex_string());
             }
             ToOverlordMessage::FollowPubkey(pubkey) => {
                 GLOBALS.people.follow(&pubkey, true)?;
@@ -1382,6 +1373,12 @@ impl Overlord {
         // Process the message for ourself
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
+        Ok(())
+    }
+
+    async fn fetch_person_contact_list(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write);
+        tracing::debug!("----> Event Contact List for --------> ");
         Ok(())
     }
 
