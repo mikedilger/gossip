@@ -5,7 +5,7 @@ use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use crate::{comms::ToOverlordMessage, ui::PersonTab};
 use eframe::egui;
-use egui::{Context, Frame, RichText, TextEdit, Ui, Vec2};
+use egui::{Context, Frame, Image, RichText, TextEdit, Ui, Vec2};
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
 
@@ -43,12 +43,13 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
         } else {
             app.placeholder_avatar.clone()
         };
-        ui.image(
-            &avatar,
-            Vec2 {
-                x: AVATAR_SIZE_F32 * 3.0,
-                y: AVATAR_SIZE_F32 * 3.0,
-            },
+        ui.add(
+            Image::new(&avatar)
+                .max_size(Vec2 {
+                    x: AVATAR_SIZE_F32 * 3.0,
+                    y: AVATAR_SIZE_F32 * 3.0,
+                })
+                .maintain_aspect_ratio(true),
         );
         ui.vertical(|ui| {
             let name = crate::names::display_name_from_person(&person);

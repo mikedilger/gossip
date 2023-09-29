@@ -1,12 +1,14 @@
 use super::GossipUi;
 use eframe::egui;
-use egui::{Align, Context, Layout, RichText, TextStyle, Ui};
+use egui::{Align, Context, Image, Layout, RichText, TextStyle, Ui};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.with_layout(Layout::top_down(Align::Center), |ui| {
         ui.add_space(30.0);
 
-        ui.image(&app.icon, app.icon.size_vec2());
+        ui.add(Image::new(&app.icon)
+               .max_size(app.icon.size_vec2())
+               .maintain_aspect_ratio(true));
 
         ui.add_space(15.0);
 

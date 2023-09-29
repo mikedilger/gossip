@@ -456,7 +456,12 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
             .fill(egui::Color32::TRANSPARENT)
             .rounding(ui.style().noninteractive().rounding)
             .show(ui, |ui| {
-                let response = ui.add(Image::new(&media, size).sense(egui::Sense::click()));
+                let response = ui.add(
+                    Image::new(&media)
+                        .max_size(size)
+                        .maintain_aspect_ratio(true)
+                        .sense(egui::Sense::click()),
+                );
                 if response.hovered() {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }

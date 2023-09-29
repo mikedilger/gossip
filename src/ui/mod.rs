@@ -487,7 +487,9 @@ impl GossipUi {
             let pixels = image_buffer.as_flat_samples();
             cctx.egui_ctx.load_texture(
                 "icon",
-                ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
+                ImageData::Color(
+                    ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()).into(),
+                ),
                 TextureOptions::default(), // magnification, minification
             )
         };
@@ -500,7 +502,9 @@ impl GossipUi {
             let pixels = image_buffer.as_flat_samples();
             cctx.egui_ctx.load_texture(
                 "placeholder_avatar",
-                ImageData::Color(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice())),
+                ImageData::Color(
+                    ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()).into(),
+                ),
                 TextureOptions::default(), // magnification, minification
             )
         };
@@ -1288,7 +1292,11 @@ impl GossipUi {
         // if we don't have it yet.  We also remember if there was an error and don't try again.
         match self.qr_codes.get(key) {
             Some(Ok((texture_handle, x, y))) => {
-                ui.add(Image::new(texture_handle, Vec2 { x: *x, y: *y }));
+                ui.add(
+                    Image::new(texture_handle)
+                        .max_size(Vec2 { x: *x, y: *y })
+                        .maintain_aspect_ratio(true),
+                );
             }
             Some(Err(error)) => {
                 ui.label(
