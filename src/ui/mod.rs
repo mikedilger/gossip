@@ -33,13 +33,12 @@ use crate::globals::{ZapState, GLOBALS};
 use crate::people::{Person, PersonList};
 use crate::settings::Settings;
 pub use crate::ui::theme::{Theme, ThemeVariant};
-use crate::ui::widgets::CopyButton;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
 use eframe::{egui, IconData};
 use egui::{
-    Color32, ColorImage, Context, Image, ImageData, Label, RichText, ScrollArea, Sense, TextStyle,
-    TextureHandle, TextureOptions, Ui, Vec2,
+    Align, Color32, ColorImage, Context, Image, ImageData, Label, Layout, RichText, ScrollArea,
+    Sense, TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
@@ -810,7 +809,7 @@ impl GossipUi {
                 }
 
                 // -- Status Area
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
 
                     // -- DEBUG status area
                     if self.settings.status_bar {
@@ -1144,8 +1143,14 @@ impl GossipUi {
                 }
             });
 
+            if person.petname.is_some() {
+                ui.label(RichText::new("†").color(app.settings.theme.accent_complementary_color()))
+                    .on_hover_text("trusted petname");
+            }
+
             if followed {
-                ui.label("🚶");
+                ui.label(RichText::new("🚶").small())
+                    .on_hover_text("followed");
             }
 
             if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
@@ -1153,20 +1158,18 @@ impl GossipUi {
                     nip05 = nip05.get(2..).unwrap().to_string();
                 }
 
-                if person.nip05_valid {
-                    ui.label(RichText::new(nip05).monospace().small());
-                } else {
-                    ui.label(RichText::new(nip05).monospace().small().strikethrough());
-                }
-            }
-
-            ui.label(RichText::new("🔑").text_style(TextStyle::Small).weak());
-            if ui
-                .add(CopyButton {})
-                .on_hover_text("Copy Public Key")
-                .clicked()
-            {
-                ui.output_mut(|o| o.copied_text = person.pubkey.as_bech32_string());
+                ui.with_layout(
+                    Layout::left_to_right(Align::Min)
+                        .with_cross_align(Align::Center)
+                        .with_cross_justify(true),
+                    |ui| {
+                        if person.nip05_valid {
+                            ui.label(RichText::new(nip05).monospace().small());
+                        } else {
+                            ui.label(RichText::new(nip05).monospace().small().strikethrough());
+                        }
+                    },
+                );
             }
         });
     }
