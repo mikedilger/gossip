@@ -32,11 +32,26 @@ impl Person2 {
     }
 
     pub fn display_name(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            if md.other.contains_key("display_name") {
+                if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
+                    if !s.is_empty() {
+                        return Some(s);
+                    }
+                }
+            }
+            md.name.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn tag_name(&self) -> Option<&str> {
         if let Some(pn) = &self.petname {
             Some(pn)
         } else if let Some(md) = &self.metadata {
-            if md.other.contains_key("display_name") {
-                if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
+            if md.other.contains_key("name") {
+                if let Some(serde_json::Value::String(s)) = md.other.get("name") {
                     if !s.is_empty() {
                         return Some(s);
                     }
@@ -96,7 +111,7 @@ impl PartialEq for Person2 {
 impl Eq for Person2 {}
 impl PartialOrd for Person2 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self.display_name(), other.display_name()) {
+        match (self.tag_name(), other.tag_name()) {
             (Some(a), Some(b)) => a.to_lowercase().partial_cmp(&b.to_lowercase()),
             _ => self.pubkey.partial_cmp(&other.pubkey),
         }
@@ -104,7 +119,7 @@ impl PartialOrd for Person2 {
 }
 impl Ord for Person2 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match (self.display_name(), other.display_name()) {
+        match (self.tag_name(), other.tag_name()) {
             (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
             _ => self.pubkey.cmp(&other.pubkey),
         }

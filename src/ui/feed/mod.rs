@@ -150,7 +150,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         FeedKind::Person(pubkey) => {
             ui.horizontal(|ui| {
-                ui.label(crate::names::display_name_from_pubkey_lookup(&pubkey));
+                ui.label(crate::names::tag_name_from_pubkey_lookup(&pubkey));
                 recompute_btn(app, ui);
             });
 

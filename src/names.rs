@@ -19,7 +19,6 @@ pub fn hex_id_short(idhex: &IdHex) -> String {
     idhex.as_str()[0..8].to_string()
 }
 
-/// A display name for a `Person`
 pub fn display_name_from_person(person: &Person) -> String {
     match person.display_name() {
         Some(name) => name.to_owned(),
@@ -27,9 +26,25 @@ pub fn display_name_from_person(person: &Person) -> String {
     }
 }
 
+/*
 pub fn display_name_from_pubkey_lookup(pubkey: &PublicKey) -> String {
     match GLOBALS.storage.read_person(pubkey) {
         Ok(Some(person)) => display_name_from_person(&person),
+        _ => pubkey_short(pubkey),
+    }
+}
+*/
+
+pub fn tag_name_from_person(person: &Person) -> String {
+    match person.tag_name() {
+        Some(name) => name.to_owned(),
+        None => pubkey_short(&person.pubkey),
+    }
+}
+
+pub fn tag_name_from_pubkey_lookup(pubkey: &PublicKey) -> String {
+    match GLOBALS.storage.read_person(pubkey) {
+        Ok(Some(person)) => tag_name_from_person(&person),
         _ => pubkey_short(pubkey),
     }
 }

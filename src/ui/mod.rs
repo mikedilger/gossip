@@ -137,7 +137,7 @@ impl Page {
             Page::PeopleFollow => (SubMenu::People.to_str(), "Follow new".into()),
             Page::PeopleMuted => (SubMenu::People.to_str(), "Muted".into()),
             Page::Person(pk) => {
-                let name = crate::names::display_name_from_pubkey_lookup(pk);
+                let name = crate::names::tag_name_from_pubkey_lookup(pk);
                 ("Profile", name)
             }
             Page::YourKeys => (SubMenu::Account.to_str(), "Keys".into()),
@@ -1077,18 +1077,6 @@ impl GossipUi {
         GLOBALS.people.person_of_interest(person.pubkey);
 
         ui.horizontal_wrapped(|ui| {
-            let name = match &person.petname {
-                // Highlight that this is our petname, not their chosen name
-                Some(pn) => {
-                    let name = format!("☰ {}", pn);
-                    RichText::new(name).italics().underline()
-                }
-                None => {
-                    let name = format!("☰ {}", crate::names::display_name_from_person(person));
-                    RichText::new(name)
-                }
-            };
-
             let followed = person.is_in_list(PersonList::Followed);
             let muted = person.is_in_list(PersonList::Muted);
             let is_self = if let Some(pubkey) = GLOBALS.signer.public_key() {
@@ -1097,7 +1085,15 @@ impl GossipUi {
                 false
             };
 
-            ui.menu_button(name, |ui| {
+            let tag_name_menu = {
+                let text = match &person.petname {
+                    Some(pn) => pn.to_owned(),
+                    None => crate::names::tag_name_from_person(person),
+                };
+                RichText::new(format!("☰ {}", text))
+            };
+
+            ui.menu_button(tag_name_menu, |ui| {
                 if ui.button("View Person").clicked() {
                     app.set_page(Page::Person(person.pubkey));
                 }

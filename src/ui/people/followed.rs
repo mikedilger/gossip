@@ -19,7 +19,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             people.push(person);
         }
     }
-    people.sort_unstable();
+    people.sort();
 
     ui.add_space(12.0);
 

@@ -52,8 +52,8 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 .maintain_aspect_ratio(true),
         );
         ui.vertical(|ui| {
-            let name = crate::names::display_name_from_person(&person);
-            ui.heading(name);
+            let display_name = crate::names::display_name_from_person(&person);
+            ui.heading(display_name);
             ui.label(RichText::new(crate::names::pubkey_short(&pubkey)).weak());
             GossipUi::render_person_name_line(app, ui, &person);
 
