@@ -24,8 +24,15 @@ pub async fn process_new_event(
     // Bump count
     GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);
 
-    // Verify the event, even if a duplicate (ID could be forged)
-    if verify {
+    // Detect if duplicate. We still need to process some things even if a duplicate
+    let duplicate = GLOBALS.storage.has_event(event.id)?;
+
+    // Verify the event,
+    // Don't verify if it is a duplicate:
+    //    NOTE: relays could send forged events with valid IDs of other events, but if
+    //          they do that in an event that is a duplicate of one we already have, this
+    //          duplicate will only affect seen-on information, it will not be saved.
+    if !duplicate && verify {
         let mut maxtime = now;
         maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
         if let Err(e) = event.verify(Some(maxtime)) {
@@ -33,9 +40,6 @@ pub async fn process_new_event(
             return Ok(());
         }
     }
-
-    // Detect if duplicate. We still need to process some things even if a duplicate
-    let duplicate = GLOBALS.storage.has_event(event.id)?;
 
     if let Some(url) = &seen_on {
         // Save seen-on-relay information
