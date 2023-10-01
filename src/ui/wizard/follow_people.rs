@@ -5,7 +5,7 @@ use crate::people::Person;
 use crate::ui::wizard::WizardPage;
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
-use egui::{Context, Ui};
+use egui::{Context, RichText, Ui};
 use gossip_relay_picker::Direction;
 use nostr_types::{Profile, PublicKey};
 
@@ -113,7 +113,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     }
 
     ui.add_space(20.0);
-    if ui.button("  >  Publish and Finish").clicked() {
+    if ui
+        .button(RichText::new("  >  Publish and Finish").color(app.settings.theme.accent_color()))
+        .clicked()
+    {
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
 
         let _ = GLOBALS.storage.write_wizard_complete(true, None);

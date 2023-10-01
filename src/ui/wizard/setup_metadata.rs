@@ -2,7 +2,7 @@ use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::people::Person;
 use crate::ui::wizard::WizardPage;
-use crate::ui::{GossipUi, Page};
+use crate::ui::{GossipUi, Page, RichText};
 use eframe::egui;
 use egui::{Context, Ui};
 use nostr_types::Metadata;
@@ -70,7 +70,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(15.0);
     ui.add_space(20.0);
-    if ui.button("  >  Save, Publish and Continue").clicked() {
+    if ui
+        .button(
+            RichText::new("  >  Save, Publish and Continue")
+                .color(app.settings.theme.accent_color()),
+        )
+        .clicked()
+    {
         // Copy from form and save
         save_metadata(app, you.clone(), metadata.clone());
 

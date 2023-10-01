@@ -3,7 +3,7 @@ use crate::globals::GLOBALS;
 use crate::ui::wizard::WizardPage;
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
-use egui::{Context, Ui};
+use egui::{Context, RichText, Ui};
 use zeroize::Zeroize;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -31,7 +31,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.add_space(20.0);
-    if ui.button("  >  Import").clicked() {
+    if ui
+        .button(RichText::new("  >  Import").color(app.settings.theme.accent_color()))
+        .clicked()
+    {
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
             app.import_priv.clone(),
             app.password.clone(),

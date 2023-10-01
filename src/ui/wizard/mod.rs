@@ -237,7 +237,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             ui.add_space(20.0);
             if wp != WizardPage::FollowPeople {
-                if ui.button("  >  Exit this Wizard").clicked() {
+                if ui.button("  X  Exit this Wizard").clicked() {
                     let _ = GLOBALS.storage.write_wizard_complete(true, None);
                     app.page = Page::Feed(FeedKind::Followed(false));
                 }
@@ -278,7 +278,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
                 ui.add_space(10.0);
                 ui.horizontal_wrapped(|ui| {
-                    ui.label("Adjust Zoom");
+                    ui.label("Adjust DPI");
                     ui.add(Slider::new(&mut app.override_dpi_value, 72..=200));
                     if ui.button("Apply").clicked() {
                         // Make it happen

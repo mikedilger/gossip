@@ -221,7 +221,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     if !need_more {
         ui.add_space(20.0);
-        if ui.button("  >  Publish and Continue").clicked() {
+        if ui
+            .button(
+                RichText::new("  >  Publish and Continue").color(app.settings.theme.accent_color()),
+            )
+            .clicked()
+        {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::AdvertiseRelayList);

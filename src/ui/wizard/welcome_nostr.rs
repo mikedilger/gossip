@@ -3,7 +3,7 @@ use crate::globals::GLOBALS;
 use crate::ui::wizard::WizardPage;
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
-use egui::{Context, Ui};
+use egui::{Context, RichText, Ui};
 use zeroize::Zeroize;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -37,7 +37,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.add_space(10.0);
-    if ui.button("  >  Generate Now").clicked() {
+    if ui
+        .button(RichText::new("  >  Generate Now").color(app.settings.theme.accent_color()))
+        .clicked()
+    {
         if app.password != app.password2 {
             GLOBALS
                 .status_queue
