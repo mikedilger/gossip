@@ -1377,8 +1377,27 @@ impl Overlord {
     }
 
     async fn fetch_person_contact_list(&mut self, pubkey: PublicKey) -> Result<(), Error> {
-        let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write);
+        let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+
+        for relay in relays {
+            self.engage_minion(
+                relay.0.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::PostContacts,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribePersonContactList(pubkey),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        // let event
         tracing::debug!("----> Event Contact List for --------> ");
+
+        // process the message for ourself
+        // crate::process::process_somebody_elses_contact_list(&event, None, None, false, false).await?;
         Ok(())
     }
 
