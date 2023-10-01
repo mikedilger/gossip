@@ -28,7 +28,12 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 21] = [
+const COMMANDS: [Command; 22] = [
+    Command {
+        cmd: "oneshot",
+        usage_params: "depends",
+        desc: "temporary oneshot action",
+    },
     Command {
         cmd: "add_person_relay",
         usage_params: "<hexOrBech32String> <relayurl>",
@@ -153,6 +158,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     };
 
     match command.cmd {
+        "oneshot" => oneshot(command, args)?,
         "add_person_relay" => add_person_relay(command, args)?,
         "bech32_decode" => bech32_decode(command, args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(command, args)?,
@@ -188,6 +194,11 @@ pub fn help(_cmd: Command) -> Result<(), Error> {
         println!("gossip {} {}", c.cmd, c.usage_params);
         println!("    {}", c.desc);
     }
+    Ok(())
+}
+
+pub fn oneshot(_cmd: Command, mut _args: env::Args) -> Result<(), Error> {
+    // This code area is reserved for doing things that do not get committed
     Ok(())
 }
 
