@@ -1133,7 +1133,6 @@ impl Overlord {
                     kind: EventKind::TextNote,
                     tags,
                     content,
-                    ots: None,
                 }
             }
         };
@@ -1256,7 +1255,6 @@ impl Overlord {
             kind: EventKind::RelayList,
             tags,
             content: "".to_string(),
-            ots: None,
         };
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
@@ -1328,7 +1326,6 @@ impl Overlord {
                 kind: EventKind::Reaction,
                 tags,
                 content: "+".to_owned(),
-                ots: None,
             };
 
             let powint = GLOBALS.storage.read_setting_pow();
@@ -1456,7 +1453,6 @@ impl Overlord {
             kind: EventKind::Metadata,
             tags: vec![],
             content: serde_json::to_string(&metadata)?,
-            ots: None,
         };
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
@@ -1588,7 +1584,6 @@ impl Overlord {
                 kind: EventKind::Repost,
                 tags,
                 content: serde_json::to_string(&reposted_event)?,
-                ots: None,
             };
 
             let powint = GLOBALS.storage.read_setting_pow();
@@ -1871,7 +1866,6 @@ impl Overlord {
                 kind: EventKind::EventDeletion,
                 tags,
                 content: "".to_owned(), // FIXME, option to supply a delete reason
-                ots: None,
             };
 
             // Should we add a pow? Maybe the relay needs it.
@@ -2417,7 +2411,6 @@ impl Overlord {
                 },
             ],
             content: comment,
-            ots: None,
         };
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
