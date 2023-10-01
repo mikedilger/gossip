@@ -272,7 +272,7 @@ pub(super) fn render_plain(
 }
 
 pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
-    let nam = crate::names::display_name_from_pubkey_lookup(pubkey);
+    let nam = crate::names::tag_name_from_pubkey_lookup(pubkey);
     let nam = format!("@{}", nam);
     if ui.link(&nam).clicked() {
         app.set_page(Page::Person(pubkey.to_owned()));

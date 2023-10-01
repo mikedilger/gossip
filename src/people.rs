@@ -532,7 +532,7 @@ impl People {
                 let mut result_name = String::from("");
 
                 // search for users by name
-                if let Some(name) = &person.display_name() {
+                if let Some(name) = &person.tag_name() {
                     let matchable = name.to_lowercase();
                     if matchable.starts_with(&search) {
                         score = 300;

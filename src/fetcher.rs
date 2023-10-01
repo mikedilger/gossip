@@ -167,11 +167,6 @@ impl Fetcher {
         //         file system calls. This might be pushing the limits of what we should
         //         be blocking on.
 
-        // Do not fetch if offline
-        if GLOBALS.storage.read_setting_offline() {
-            return Ok(None);
-        }
-
         // Get state
         let fetch_result: Option<FetchState> = self.urls.read().unwrap().get(url).copied();
 
