@@ -252,11 +252,22 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut app.person_tab, PersonTab::Followed, "Followed");
+                let tab_followed = ui.selectable_value(&mut app.person_tab, PersonTab::Followed, "Followed");
+                if tab_followed.clicked() {
+                    let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::FetchPersonContactList(person.pubkey));
+                }
+
                 ui.label("|");
-                ui.selectable_value(&mut app.person_tab, PersonTab::Followers, "Followers");
+
+                let tab_followers = ui.selectable_value(&mut app.person_tab, PersonTab::Followers, "Followers");
+                if tab_followers.clicked() {}
+                
                 ui.label("|");
-                ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
+                
+                let tab_relays = ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
+                if tab_relays.clicked() {}
             });
 
             ui.add_space(10.0);
@@ -264,52 +275,13 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
 
             match app.person_tab {
-                PersonTab::Followed => {}
+                PersonTab::Followed => {
+                    for followed in GLOBALS.people.get_followed(person.pubkey).iter() {
+                      tracing::debug!("Followed pubkey: {:?}", followed);
+                    }
+                }
 
                 PersonTab::Followers => {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::FetchPersonContactList(person.pubkey));
-                    // app.vert_scroll_area().show(ui, |ui| {
-                    //     for person in GLOBALS.people.get_followed(pubkey) {
-                    //         ui.horizontal(|ui| {
-                    //             // Avatar first
-                    //             let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
-                    //                 avatar
-                    //             } else {
-                    //                 app.placeholder_avatar.clone()
-                    //             };
-                    //             let size = AVATAR_SIZE_F32
-                    //                 * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
-                    //                 / 100.0;
-                    //             if ui
-                    //                 .add(Image::new(&avatar, Vec2 { x: size, y: size }).sense(Sense::click()))
-                    //                 .clicked()
-                    //             {
-                    //                 app.set_page(Page::Person(person.pubkey));
-                    //             };
-
-                    //             ui.vertical(|ui| {
-                    //                 ui.label(RichText::new(crate::names::pubkey_short(&person.pubkey)).weak());
-                    //                 GossipUi::render_person_name_line(app, ui, person);
-                    //                 if !GLOBALS
-                    //                     .storage
-                    //                     .have_persons_relays(person.pubkey)
-                    //                     .unwrap_or(false)
-                    //                 {
-                    //                     ui.label(
-                    //                         RichText::new("Relay list not found")
-                    //                             .color(app.settings.theme.warning_marker_text_color()),
-                    //                     );
-                    //                 }
-                    //             });
-                    //         });
-
-                    //         ui.add_space(4.0);
-
-                    //         ui.separator();
-                    //     }
-                    // });
                 }
 
                 PersonTab::Relays => {
