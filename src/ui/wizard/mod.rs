@@ -7,7 +7,6 @@ use egui::widgets::{Button, Label, Slider};
 use egui::{Align, Context, Layout, RichText, Sense};
 
 mod follow_people;
-mod import_encrypted_private_key;
 mod import_keys;
 mod import_private_key;
 mod import_public_key;
@@ -48,7 +47,6 @@ pub(super) enum WizardPage {
     WelcomeGossip,
     WelcomeNostr,
     ImportKeys,
-    ImportEncryptedPrivateKey,
     ImportPrivateKey,
     ImportPublicKey,
     ReadNostrConfig,
@@ -63,7 +61,6 @@ impl WizardPage {
             WizardPage::WelcomeGossip => "Welcome to Gossip",
             WizardPage::WelcomeNostr => "Welcome to Nostr",
             WizardPage::ImportKeys => "Import Keys",
-            WizardPage::ImportEncryptedPrivateKey => "Import an Encrypted Private Key",
             WizardPage::ImportPrivateKey => "Import a Private Key",
             WizardPage::ImportPublicKey => "Import only a Public Key",
             WizardPage::ReadNostrConfig => "Read your Nostr Configuration Data",
@@ -226,7 +223,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 WizardPage::WelcomeGossip => welcome_gossip::update(app, ctx, frame, ui),
                 WizardPage::WelcomeNostr => welcome_nostr::update(app, ctx, frame, ui),
                 WizardPage::ImportKeys => import_keys::update(app, ctx, frame, ui),
-                WizardPage::ImportEncryptedPrivateKey => import_encrypted_private_key::update(app, ctx, frame, ui),
                 WizardPage::ImportPrivateKey => import_private_key::update(app, ctx, frame, ui),
                 WizardPage::ImportPublicKey => import_public_key::update(app, ctx, frame, ui),
                 WizardPage::ReadNostrConfig => read_nostr_config::update(app, ctx, frame, ui),

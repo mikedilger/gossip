@@ -11,21 +11,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(20.0);
     if ui
-        .button(
-            RichText::new("  >  Import an Encrypted Private Key")
-                .color(app.settings.theme.accent_color()),
-        )
-        .clicked()
-    {
-        app.page = Page::Wizard(WizardPage::ImportEncryptedPrivateKey);
-    }
-
-    ui.add_space(20.0);
-    if ui
-        .button(
-            RichText::new("  >  Import a Naked Private Key")
-                .color(app.settings.theme.accent_color()),
-        )
+        .button(RichText::new("  >  Import a Private Key").color(app.settings.theme.accent_color()))
         .clicked()
     {
         app.page = Page::Wizard(WizardPage::ImportPrivateKey);
