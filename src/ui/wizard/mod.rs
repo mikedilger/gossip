@@ -3,8 +3,8 @@ use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
-use egui::widgets::{Button, Label, Slider};
-use egui::{Align, Context, Layout, RichText, Sense};
+use egui::widgets::{Button, Slider};
+use egui::{Align, Context, Layout};
 
 mod follow_people;
 mod import_keys;
@@ -20,26 +20,26 @@ mod wizard_state;
 pub use wizard_state::WizardState;
 
 static DEFAULT_RELAYS: [&str; 20] = [
-    "wss://nostr.zbd.gg/",
     "wss://nostr.einundzwanzig.space/",
-    "wss://christpill.nostr1.com/",
     "wss://nostr.mutinywallet.com/",
     "wss://relay.nostrplebs.com/",
-    "wss://bevo.nostr1.com/",
-    "wss://relay.shitforce.one/",
-    "wss://nostr.naut.social/",
-    "wss://nostrsatva.net/",
-    "wss://lightningrelay.com/",
-    "wss://nostr.688.org/",
-    "wss://xmr.usenostr.org/",
-    "wss://knostr.neutrine.com/",
-    "wss://relay.current.fyi/",
-    "wss://e.nos.lol/",
-    "wss://nostr.thesamecat.io/",
+    "wss://christpill.nostr1.com/",
     "wss://nostr-pub.wellorder.net/",
-    "wss://nostr.sovbit.host/",
-    "wss://relay.nostr.jabber.ch/",
     "wss://relay.damus.io/",
+    "wss://bevo.nostr1.com/",
+    "wss://relay.snort.social/",
+    "wss://public.relaying.io/",
+    "wss://nostrue.com/",
+    "wss://relay.noswhere.com/",
+    "wss://relay.primal.net/",
+    "wss://relay.nostr.jabber.ch/",
+    "wss://relay.nostr.band/",
+    "wss://relay.wellorder.net/",
+    "wss://nostr.coinfundit.com/",
+    "wss://relay.nostrich.de/",
+    "wss://verbiricha.nostr1.com/",
+    "wss://nostr21.com/",
+    "wss://nostr.bitcoiner.social/",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -163,46 +163,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     // Update the wizard state
     app.wizard_state.update();
 
-    egui::TopBottomPanel::bottom("wizard-messages")
-        .show_separator_line(false)
-        .frame(
-            egui::Frame::none()
-                .inner_margin({
-                    #[cfg(not(target_os = "macos"))]
-                    let margin = egui::Margin::symmetric(20.0, 20.0);
-                    #[cfg(target_os = "macos")]
-                    let margin = egui::Margin {
-                        left: 20.0,
-                        right: 20.0,
-                        top: 35.0,
-                        bottom: 20.0,
-                    };
-                    margin
-                })
-                .fill(app.settings.theme.navigation_bg_fill()),
-        )
-        .show(ctx, |ui| {
-            let messages = GLOBALS.status_queue.read().read_all();
-            if ui
-                .add(Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click()))
-                .clicked()
-            {
-                GLOBALS.status_queue.write().dismiss(0);
-            }
-            if ui
-                .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
-                .clicked()
-            {
-                GLOBALS.status_queue.write().dismiss(1);
-            }
-            if ui
-                .add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click()))
-                .clicked()
-            {
-                GLOBALS.status_queue.write().dismiss(2);
-            }
-        });
-
     egui::CentralPanel::default()
         .frame({
             let frame = egui::Frame::central_panel(&app.settings.theme.get_style());
@@ -217,6 +177,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(24.0);
             ui.heading(wp.as_str());
             ui.add_space(12.0);
+            /*
+            if let Some(err) = app.wizard_state.error {
+            ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+            ui.add_space(12.0);
+            }
+            */
             ui.separator();
 
             match wp {

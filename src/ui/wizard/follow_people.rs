@@ -15,53 +15,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         return;
     }
 
-    // Here we should merge in the contact list event, if existing
-
-    ui.horizontal(|ui| {
-        ui.label("Follow Someone:");
-        ui.add(text_edit_line!(app, app.follow_someone).hint_text(
-            "Enter a key (bech32 npub1 or hex), or an nprofile, or a DNS id (user@domain)",
-        ));
-        if ui.button("follow").clicked() {
-            if let Ok(pubkey) = PublicKey::try_from_bech32_string(app.follow_someone.trim(), true) {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowPubkey(pubkey));
-            } else if let Ok(pubkey) =
-                PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowPubkey(pubkey));
-            } else if let Ok(profile) =
-                Profile::try_from_bech32_string(app.follow_someone.trim(), true)
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowNprofile(profile));
-            } else if crate::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
-                    app.follow_someone.trim().to_owned(),
-                ));
-            } else {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Invalid pubkey.".to_string());
-            }
-            app.follow_someone = "".to_owned();
-        }
-    });
+    // Merge in their contacts data
+    if app.wizard_state.contacts_sought {
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::UpdateFollowing(false));
+        app.wizard_state.contacts_sought = false;
+    }
 
     ui.add_space(10.0);
-    ui.label("We accept:");
-    ui.label("  • Public key (npub1..)");
-    ui.label("  • Public key (hex)");
-    ui.label("  • Profile (nprofile1..)");
-    ui.label("  • DNS ID (user@domain)");
-
-    ui.add_space(10.0);
-    ui.heading("Followed");
+    ui.heading("Followed:");
     let mut limit = 10;
     for pk in &app.wizard_state.followed {
         let person = match GLOBALS.storage.read_person(pk) {
@@ -107,16 +70,76 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         limit -= 1;
         if limit == 0 && app.wizard_state.followed.len() > 10 {
-            ui.label(format!("and {} more", app.wizard_state.followed.len() - 10));
+            ui.add_space(10.0);
+            ui.label(format!(
+                "...and {} more",
+                app.wizard_state.followed.len() - 10
+            ));
             break;
         }
     }
 
+    ui.add_space(10.0);
+    ui.separator();
     ui.add_space(20.0);
-    if ui
-        .button(RichText::new("  >  Publish and Finish").color(app.settings.theme.accent_color()))
-        .clicked()
-    {
+
+    ui.horizontal(|ui| {
+        ui.label("Follow Someone:");
+        if ui
+            .add(text_edit_line!(app, app.follow_someone).hint_text(
+                "Enter a key (bech32 npub1 or hex), or an nprofile, or a DNS id (user@domain)",
+            ))
+            .changed()
+        {
+            app.wizard_state.error = None;
+        }
+        if ui.button("follow").clicked() {
+            if let Ok(pubkey) = PublicKey::try_from_bech32_string(app.follow_someone.trim(), true) {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::FollowPubkey(pubkey));
+            } else if let Ok(pubkey) =
+                PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::FollowPubkey(pubkey));
+            } else if let Ok(profile) =
+                Profile::try_from_bech32_string(app.follow_someone.trim(), true)
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::FollowNprofile(profile));
+            } else if crate::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
+                    app.follow_someone.trim().to_owned(),
+                ));
+            } else {
+                app.wizard_state.error = Some("ERROR: Invalid pubkey".to_owned());
+            }
+            app.follow_someone = "".to_owned();
+        }
+    });
+
+    // error block
+    if let Some(err) = &app.wizard_state.error {
+        ui.add_space(10.0);
+        ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+    }
+
+    ui.add_space(10.0);
+    ui.label("We accept:");
+    ui.label("  • Public key (npub1..)");
+    ui.label("  • Public key (hex)");
+    ui.label("  • Profile (nprofile1..)");
+    ui.label("  • DNS ID (user@domain)");
+
+    ui.add_space(20.0);
+    let mut label = RichText::new("  >  Publish and Finish");
+    if app.wizard_state.new_user {
+        label = label.color(app.settings.theme.accent_color());
+    }
+    if ui.button(label).clicked() {
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
 
         let _ = GLOBALS.storage.write_wizard_complete(true, None);
@@ -124,7 +147,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     }
 
     ui.add_space(20.0);
-    if ui.button("  >  Finish without publishing").clicked() {
+    let mut label = RichText::new("  >  Finish without publishing");
+    if !app.wizard_state.new_user {
+        label = label.color(app.settings.theme.accent_color());
+    }
+    if ui.button(label).clicked() {
         let _ = GLOBALS.storage.write_wizard_complete(true, None);
         app.page = Page::Feed(FeedKind::Followed(false));
     }

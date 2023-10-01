@@ -21,18 +21,33 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal_wrapped(|ui| {
         ui.label("Enter your public key");
-        ui.add(text_edit_line!(app, app.import_pub).desired_width(f32::INFINITY));
+        if ui
+            .add(text_edit_line!(app, app.import_pub).desired_width(f32::INFINITY))
+            .changed()
+        {
+            app.wizard_state.error = None;
+        }
     });
 
-    ui.add_space(10.0);
-    if ui
-        .button(RichText::new("  >  Import").color(app.settings.theme.accent_color()))
-        .clicked()
-    {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::ImportPub(app.import_pub.clone()));
-        app.import_pub = "".to_owned();
+    // error block
+    if let Some(err) = &app.wizard_state.error {
+        ui.add_space(10.0);
+        ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+    }
+
+    let ready = !app.import_pub.is_empty();
+
+    if ready {
+        ui.add_space(10.0);
+        if ui
+            .button(RichText::new("  >  Import").color(app.settings.theme.accent_color()))
+            .clicked()
+        {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::ImportPub(app.import_pub.clone()));
+            app.import_pub = "".to_owned();
+        }
     }
 
     ui.add_space(20.0);

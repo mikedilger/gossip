@@ -53,30 +53,50 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Name:");
-        ui.add(text_edit_line!(app, app.wizard_state.metadata_name));
+        if ui
+            .add(text_edit_line!(app, app.wizard_state.metadata_name))
+            .changed()
+        {
+            app.wizard_state.error = None;
+        }
     });
 
     ui.add_space(15.0);
     ui.horizontal(|ui| {
         ui.label("About:");
-        ui.add(text_edit_multiline!(app, app.wizard_state.metadata_about));
+        if ui
+            .add(text_edit_multiline!(app, app.wizard_state.metadata_about))
+            .changed()
+        {
+            app.wizard_state.error = None;
+        }
     });
 
     ui.add_space(15.0);
     ui.horizontal(|ui| {
         ui.label("Picture:");
-        ui.add(text_edit_multiline!(app, app.wizard_state.metadata_picture));
+        if ui
+            .add(text_edit_multiline!(app, app.wizard_state.metadata_picture))
+            .changed()
+        {
+            app.wizard_state.error = None;
+        }
     });
 
+    // error block
+    if let Some(err) = &app.wizard_state.error {
+        ui.add_space(10.0);
+        ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+    }
+
     ui.add_space(15.0);
+
     ui.add_space(20.0);
-    if ui
-        .button(
-            RichText::new("  >  Save, Publish and Continue")
-                .color(app.settings.theme.accent_color()),
-        )
-        .clicked()
-    {
+    let mut label = RichText::new("  >  Save, Publish and Continue");
+    if app.wizard_state.new_user {
+        label = label.color(app.settings.theme.accent_color());
+    }
+    if ui.button(label).clicked() {
         // Copy from form and save
         save_metadata(app, you.clone(), metadata.clone());
 
@@ -100,10 +120,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     }
 
     ui.add_space(20.0);
-    if ui
-        .button("  >  Continue without saving or publishing")
-        .clicked()
-    {
+    let mut label = RichText::new("  >  Continue without saving or publishing");
+    if !app.wizard_state.new_user {
+        label = label.color(app.settings.theme.accent_color());
+    }
+    if ui.button(label).clicked() {
         app.page = Page::Wizard(WizardPage::FollowPeople);
     }
 }

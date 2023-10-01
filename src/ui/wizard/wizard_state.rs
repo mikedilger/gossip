@@ -3,8 +3,10 @@ use crate::relay::Relay;
 use nostr_types::{Event, EventKind, PublicKey, RelayUrl};
 use std::collections::HashSet;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WizardState {
+    pub error: Option<String>,
+    pub last_status_queue_message: String,
     pub new_user: bool,
     pub follow_only: bool,
     pub relay_url: String,
@@ -21,8 +23,34 @@ pub struct WizardState {
     pub relays: Vec<Relay>,
     pub followed: Vec<PublicKey>,
     pub followed_getting_metadata: HashSet<PublicKey>,
+    pub contacts_sought: bool,
 }
 
+impl Default for WizardState {
+    fn default() -> WizardState {
+        WizardState {
+            error: None,
+            last_status_queue_message: "".to_owned(),
+            new_user: false,
+            follow_only: false,
+            relay_url: "wss://purplepag.es/".to_owned(),
+            relay_list_sought: true,
+            metadata_copied: false,
+            metadata_name: "".to_owned(),
+            metadata_about: "".to_owned(),
+            metadata_picture: "".to_owned(),
+            pubkey: None,
+            has_private_key: false,
+            metadata_events: Vec::new(),
+            contact_list_events: Vec::new(),
+            relay_list_events: Vec::new(),
+            relays: Vec::new(),
+            followed: Vec::new(),
+            followed_getting_metadata: HashSet::new(),
+            contacts_sought: true,
+        }
+    }
+}
 impl WizardState {
     pub fn update(&mut self) {
         self.follow_only = GLOBALS.storage.read_following_only();
@@ -61,6 +89,15 @@ impl WizardState {
                 |relay| relay.set_usage_bits(Relay::DISCOVER),
                 None,
             );
+        }
+
+        // Copy any new status queue messages into our local error variable
+        let last_status_queue_message = GLOBALS.status_queue.read().read_last();
+        if last_status_queue_message != self.last_status_queue_message {
+            if !last_status_queue_message.starts_with("Welcome to Gossip") {
+                self.error = Some(last_status_queue_message.clone());
+                self.last_status_queue_message = last_status_queue_message;
+            }
         }
     }
 

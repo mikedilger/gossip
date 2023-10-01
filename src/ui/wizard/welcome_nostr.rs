@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // If already generated, advance
     if app.wizard_state.has_private_key {
-        app.page = Page::Wizard(WizardPage::ReadNostrConfig);
+        app.page = Page::Wizard(WizardPage::SetupRelays);
     }
 
     ui.add_space(10.0);
@@ -27,34 +27,51 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
     ui.horizontal(|ui| {
         ui.label("Enter a passphrase to keep it encrypted under");
-        ui.add(text_edit_line!(app, app.password).password(true));
+        if ui
+            .add(text_edit_line!(app, app.password).password(true))
+            .changed()
+        {
+            app.wizard_state.error = None;
+        }
     });
 
     ui.add_space(10.0);
     ui.horizontal(|ui| {
         ui.label("Repeat that passphrase");
-        ui.add(text_edit_line!(app, app.password2).password(true));
+        if ui
+            .add(text_edit_line!(app, app.password2).password(true))
+            .changed()
+        {
+            app.wizard_state.error = None;
+        }
     });
 
-    ui.add_space(10.0);
-    if ui
-        .button(RichText::new("  >  Generate Now").color(app.settings.theme.accent_color()))
-        .clicked()
-    {
-        if app.password != app.password2 {
-            GLOBALS
-                .status_queue
-                .write()
-                .write("Passwords do not match".to_owned());
-        } else {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::GeneratePrivateKey(app.password.clone()));
+    // error block
+    if let Some(err) = &app.wizard_state.error {
+        ui.add_space(10.0);
+        ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+    }
+
+    let ready = !app.password.is_empty() && !app.password2.is_empty();
+
+    if ready {
+        ui.add_space(10.0);
+        if ui
+            .button(RichText::new("  >  Generate Now").color(app.settings.theme.accent_color()))
+            .clicked()
+        {
+            if app.password != app.password2 {
+                app.wizard_state.error = Some("ERROR: Passwords do not match".to_owned());
+            } else {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::GeneratePrivateKey(app.password.clone()));
+            }
+            app.password.zeroize();
+            app.password = "".to_owned();
+            app.password2.zeroize();
+            app.password2 = "".to_owned();
         }
-        app.password.zeroize();
-        app.password = "".to_owned();
-        app.password2.zeroize();
-        app.password2 = "".to_owned();
     }
 
     ui.add_space(20.0);

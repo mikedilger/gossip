@@ -98,43 +98,32 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(20.0);
         ui.horizontal_wrapped(|ui| {
             ui.label("Enter Relay URL");
-            ui.add(text_edit_line!(app, app.wizard_state.relay_url));
+            if ui
+                .add(text_edit_line!(app, app.wizard_state.relay_url))
+                .changed()
+            {
+                app.wizard_state.error = None;
+            }
         });
 
-        ui.add_space(20.0);
-        if ui.button("  >  Fetch From This Relay").clicked() {
-            if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::SubscribeConfig(rurl.to_owned()));
-                app.wizard_state.relay_url = String::new();
-            } else {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Invalid Relay URL".to_string());
-            }
+        // error block
+        if let Some(err) = &app.wizard_state.error {
+            ui.add_space(10.0);
+            ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
         }
 
-        if app.wizard_state.need_relay_list() {
+        let ready = !app.wizard_state.relay_url.is_empty();
+
+        if ready {
             ui.add_space(20.0);
-            if ui
-                .button("  >  Look up my relay list from this Relay")
-                .clicked()
-            {
+            if ui.button("  >  Fetch From This Relay").clicked() {
                 if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
                     let _ = GLOBALS
                         .to_overlord
-                        .send(ToOverlordMessage::SubscribeDiscover(
-                            vec![pubkey],
-                            Some(vec![rurl.to_owned()]),
-                        ));
+                        .send(ToOverlordMessage::SubscribeConfig(rurl.to_owned()));
                     app.wizard_state.relay_url = String::new();
                 } else {
-                    GLOBALS
-                        .status_queue
-                        .write()
-                        .write("Invalid Relay URL".to_string());
+                    app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
                 }
             }
         }

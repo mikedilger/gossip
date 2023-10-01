@@ -156,7 +156,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(15.0);
     ui.horizontal_wrapped(|ui| {
         ui.label("Enter Relay URL");
-        ui.add(text_edit_line!(app, app.wizard_state.relay_url));
+        if ui
+            .add(text_edit_line!(app, app.wizard_state.relay_url))
+            .changed
+        {
+            app.wizard_state.error = None;
+        }
         ui.label("or");
         ui.menu_button("▼ Pick from Top Relays", |ui| {
             for (url, _relay) in relay_options.iter() {
@@ -167,66 +172,66 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
     });
 
-    ui.add_space(15.0);
+    // error block
+    if let Some(err) = &app.wizard_state.error {
+        ui.add_space(10.0);
+        ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+    }
 
-    ui.horizontal(|ui| {
-        if ui.button("  ^  Add to Outbox").clicked() {
-            if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
-                if !relay_options.contains_key(&rurl) {
-                    relay_options.insert(rurl.clone(), read_relay(&rurl));
-                }
-                let r = relay_options.get_mut(&rurl).unwrap();
-                r.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
-                let _ = GLOBALS.storage.write_relay(r, None);
-            } else {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Invalid Relay URL".to_string());
-            }
-        }
+    let ready = !app.wizard_state.relay_url.is_empty();
 
-        if ui.button("  ^  Add to Inbox").clicked() {
-            if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
-                if !relay_options.contains_key(&rurl) {
-                    relay_options.insert(rurl.clone(), read_relay(&rurl));
-                }
-                let r = relay_options.get_mut(&rurl).unwrap();
-                r.set_usage_bits(Relay::INBOX | Relay::READ);
-                let _ = GLOBALS.storage.write_relay(r, None);
-            } else {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Invalid Relay URL".to_string());
-            }
-        }
+    if ready {
+        ui.add_space(15.0);
 
-        if ui.button("  ^  Add to Discovery").clicked() {
-            if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
-                if !relay_options.contains_key(&rurl) {
-                    relay_options.insert(rurl.clone(), read_relay(&rurl));
+        ui.horizontal(|ui| {
+            if ui.button("  ^  Add to Outbox").clicked() {
+                if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
+                    if !relay_options.contains_key(&rurl) {
+                        relay_options.insert(rurl.clone(), read_relay(&rurl));
+                    }
+                    let r = relay_options.get_mut(&rurl).unwrap();
+                    r.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
+                    let _ = GLOBALS.storage.write_relay(r, None);
+                } else {
+                    app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
                 }
-                let r = relay_options.get_mut(&rurl).unwrap();
-                r.set_usage_bits(Relay::DISCOVER | Relay::ADVERTISE);
-                let _ = GLOBALS.storage.write_relay(r, None);
-            } else {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Invalid Relay URL".to_string());
             }
-        }
-    });
+
+            if ui.button("  ^  Add to Inbox").clicked() {
+                if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
+                    if !relay_options.contains_key(&rurl) {
+                        relay_options.insert(rurl.clone(), read_relay(&rurl));
+                    }
+                    let r = relay_options.get_mut(&rurl).unwrap();
+                    r.set_usage_bits(Relay::INBOX | Relay::READ);
+                    let _ = GLOBALS.storage.write_relay(r, None);
+                } else {
+                    app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
+                }
+            }
+
+            if ui.button("  ^  Add to Discovery").clicked() {
+                if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
+                    if !relay_options.contains_key(&rurl) {
+                        relay_options.insert(rurl.clone(), read_relay(&rurl));
+                    }
+                    let r = relay_options.get_mut(&rurl).unwrap();
+                    r.set_usage_bits(Relay::DISCOVER | Relay::ADVERTISE);
+                    let _ = GLOBALS.storage.write_relay(r, None);
+                } else {
+                    app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
+                }
+            }
+        });
+    }
 
     if !need_more {
         ui.add_space(20.0);
-        if ui
-            .button(
-                RichText::new("  >  Publish and Continue").color(app.settings.theme.accent_color()),
-            )
-            .clicked()
-        {
+        let mut label = RichText::new("  >  Publish and Continue");
+        if app.wizard_state.new_user {
+            label = label.color(app.settings.theme.accent_color());
+        }
+        if ui.button(label).clicked() {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::AdvertiseRelayList);
@@ -234,7 +239,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
 
         ui.add_space(20.0);
-        if ui.button("  >  Continue without publishing").clicked() {
+        let mut label = RichText::new("  >  Continue without publishing");
+        if !app.wizard_state.new_user {
+            label = label.color(app.settings.theme.accent_color());
+        }
+        if ui.button(label).clicked() {
             app.page = Page::Wizard(WizardPage::SetupMetadata);
         };
     }
