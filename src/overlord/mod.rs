@@ -1725,7 +1725,7 @@ impl Overlord {
 
         let mut missing_ancestors_hex: Vec<IdHex> =
             missing_ancestors.iter().map(|id| (*id).into()).collect();
-        missing_ancestors_hex.sort_by(|a,b| a.as_str().cmp(b.as_str()));
+        missing_ancestors_hex.sort_by(|a, b| a.as_str().cmp(b.as_str()));
         missing_ancestors_hex.dedup();
 
         // Subscribe on relays
