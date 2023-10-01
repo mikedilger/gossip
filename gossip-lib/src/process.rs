@@ -403,14 +403,7 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
             .set_relay_list(event.pubkey, inbox_relays, outbox_relays, None)?;
     }
 
-    if event.created_at.0
-        > GLOBALS
-            .people
-            .last_contact_list_asof
-            .load(Ordering::Relaxed)
-    {
-        // GLOBALS.people.followers.insert(PublicKey)
-    }
+    tracing::debug!("process_somebody_elses_contact_list ----_> Event {}", serde_json::to_string(&event)?);
 
     Ok(())
 }
