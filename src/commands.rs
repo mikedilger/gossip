@@ -1,6 +1,7 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
+use crate::person_relay::PersonRelay;
 use bech32::FromBase32;
 use nostr_types::{
     Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, RelayUrl,
@@ -18,6 +19,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     println!("*** COMMAND = {} ***\n", command);
 
     match &*command {
+        "add_person_relay" => add_person_relay(args)?,
         "bech32_decode" => bech32_decode(args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(args)?,
         "decrypt" => decrypt(args)?,
@@ -47,6 +49,8 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
 }
 
 pub fn help() -> Result<(), Error> {
+    println!("gossip add_person_relay <hexOrBech32String> <relayurl>");
+    println!("    add the relay as a read and write relay for the person");
     println!("gossip bech32_decode <bech32string>");
     println!("    decode the bech32 string.");
     println!("gossip bech32_encode_event_addr <kind> <pubkeyhex> <d> [<relayurl>, ...]");
@@ -85,6 +89,45 @@ pub fn help() -> Result<(), Error> {
     println!("    Verify if the given event signature is valid");
     println!("gossip verify_json <event_json>");
     println!("    Verify if the passed in event JSON's signature is valid");
+
+    Ok(())
+}
+
+pub fn add_person_relay(mut args: env::Args) -> Result<(), Error> {
+    let pubkey = match args.next() {
+        Some(s) => match PublicKey::try_from_hex_string(&s, true) {
+            Ok(pk) => pk,
+            Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
+        },
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing hexOrBech32String parameter".to_string(),
+                "add_person_relay <hexOrBech32String> <relayurl>".to_string(),
+            )
+            .into())
+        }
+    };
+
+    let relay_url = match args.next() {
+        Some(s) => RelayUrl::try_from_str(&s)?,
+        None => {
+            return Err(ErrorKind::Usage(
+                "Missing relayurl parameter".to_string(),
+                "add_person_relay <hexOrBech32String> <relayurl>".to_string(),
+            )
+            .into())
+        }
+    };
+
+    let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay_url) {
+        Ok(None) => PersonRelay::new(pubkey, relay_url),
+        Ok(Some(pr)) => pr,
+        Err(_) => PersonRelay::new(pubkey, relay_url),
+    };
+
+    pr.manually_paired_read = true;
+    pr.manually_paired_write = true;
+    GLOBALS.storage.write_person_relay(&pr, None)?;
 
     Ok(())
 }
