@@ -35,11 +35,6 @@ const COMMANDS: [Command; 21] = [
         desc: "add the relay as a read and write relay for the person",
     },
     Command {
-        cmd: "add_person_relay",
-        usage_params: "<hexOrBech32String> <relayurl>",
-        desc: "add the relay as a read and write relay for the person",
-    },
-    Command {
         cmd: "bech32_decode",
         usage_params: "<bech32string>",
         desc: "decode the bech32 string.",
@@ -93,6 +88,11 @@ const COMMANDS: [Command; 21] = [
         cmd: "print_muted",
         usage_params: "",
         desc: "print every pubkey that is muted",
+    },
+    Command {
+        cmd: "print_person",
+        usage_params: "<pubkeyHexOrBech32>",
+        desc: "print the given person",
     },
     Command {
         cmd: "print_person_relays",
@@ -168,6 +168,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "print_event" => print_event(command, args)?,
         "print_followed" => print_followed(command)?,
         "print_muted" => print_muted(command)?,
+        "print_person" => print_person(command, args)?,
         "print_person_relays" => print_person_relays(command, args)?,
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
@@ -407,6 +408,20 @@ pub fn print_muted(_cmd: Command) -> Result<(), Error> {
     for pk in &pubkeys {
         println!("{}", pk.as_hex_string());
     }
+    Ok(())
+}
+
+pub fn print_person(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let pubkey = match args.next() {
+        Some(s) => match PublicKey::try_from_hex_string(&s, true) {
+            Ok(pk) => pk,
+            Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
+        },
+        None => return cmd.usage("Missing pubkeyHexOrBech32 parameter".to_string()),
+    };
+
+    let person = GLOBALS.storage.read_person(&pubkey)?;
+    println!("{}", serde_json::to_string(&person)?);
     Ok(())
 }
 
