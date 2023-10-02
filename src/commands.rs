@@ -28,7 +28,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 22] = [
+const COMMANDS: [Command; 23] = [
     Command {
         cmd: "oneshot",
         usage_params: "depends",
@@ -73,6 +73,11 @@ const COMMANDS: [Command; 22] = [
         cmd: "help",
         usage_params: "",
         desc: "show this list",
+    },
+    Command {
+        cmd: "import_event",
+        usage_params: "<event_json>",
+        desc: "import and process a JSON event",
     },
     Command {
         cmd: "login",
@@ -167,6 +172,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "giftwrap_ids" => giftwrap_ids(command)?,
         "help" => help(command)?,
+        "import_event" => import_event(command, args, runtime)?,
         "login" => {
             login(command)?;
             return Ok(false);
@@ -365,6 +371,29 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let plaintext = String::from_utf8_lossy(&plaintext_bytes);
     println!("{}", plaintext);
 
+    Ok(())
+}
+
+pub fn import_event(cmd: Command, mut args: env::Args, runtime: &Runtime) -> Result<(), Error> {
+    let event = match args.next() {
+        Some(json) => {
+            let e: Event = serde_json::from_str(&json)?;
+            e
+        }
+        None => return cmd.usage("Missing event parameter".to_string()),
+    };
+
+    login(cmd.clone())?;
+
+    let job = tokio::task::spawn(async move {
+        if let Err(e) = crate::process::process_new_event(&event, None, None, false, true).await {
+            println!("ERROR: {}", e);
+        }
+    });
+
+    runtime.block_on(job)?;
+
+    println!("Ok.");
     Ok(())
 }
 
