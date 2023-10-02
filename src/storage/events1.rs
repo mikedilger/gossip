@@ -59,6 +59,10 @@ impl Storage {
             self.write_event_ek_pk_index(event, Some(txn))?;
             self.write_event_ek_c_index(event, Some(txn))?;
             self.write_event_references_person(event, Some(txn))?;
+            for hashtag in event.hashtags() {
+                if hashtag.is_empty() { continue; } // upstream bug
+                self.add_hashtag(&hashtag, event.id, Some(txn))?;
+            }
             Ok(())
         };
 

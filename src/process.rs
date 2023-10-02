@@ -189,14 +189,6 @@ pub async fn process_new_event(
         }
     }
 
-    // Save event_hashtags
-    if seen_on.is_some() {
-        let hashtags = event.hashtags();
-        for hashtag in hashtags {
-            GLOBALS.storage.add_hashtag(&hashtag, event.id, None)?;
-        }
-    }
-
     // Save event relationships (whether from a relay or not)
     let invalid_ids = GLOBALS
         .storage
