@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
+use heed::{DatabaseFlags, types::UnalignedSlice};
 use std::sync::Mutex;
 
 // EventKind:PublicKey -> Id
@@ -32,6 +32,7 @@ impl Storage {
                     .env
                     .database_options()
                     .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
                     .name("event_ek_pk_index")
                     .create(&mut txn)?;
                 txn.commit()?;

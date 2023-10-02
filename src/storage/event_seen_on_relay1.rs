@@ -33,6 +33,7 @@ impl Storage {
                     .env
                     .database_options()
                     .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    // no .flags needed
                     .name("event_seen_on_relay")
                     .create(&mut txn)?;
                 txn.commit()?;

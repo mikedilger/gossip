@@ -33,6 +33,7 @@ impl Storage {
                     .env
                     .database_options()
                     .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    // no .flags needed
                     .name("event_viewed")
                     .create(&mut txn)?;
                 txn.commit()?;

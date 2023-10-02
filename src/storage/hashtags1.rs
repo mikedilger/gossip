@@ -1,7 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
-use heed::RwTxn;
+use heed::{DatabaseFlags, RwTxn, types::UnalignedSlice};
 use nostr_types::Id;
 use std::sync::Mutex;
 
@@ -34,6 +33,7 @@ impl Storage {
                     .env
                     .database_options()
                     .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
                     .name("hashtags")
                     .create(&mut txn)?;
                 txn.commit()?;

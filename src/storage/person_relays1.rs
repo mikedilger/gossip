@@ -35,6 +35,7 @@ impl Storage {
                     .env
                     .database_options()
                     .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    // no .flags needed
                     .name("person_relays")
                     .create(&mut txn)?;
                 txn.commit()?;

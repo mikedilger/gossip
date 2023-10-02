@@ -1,8 +1,7 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
-use heed::RwTxn;
+use heed::{DatabaseFlags, RwTxn, types::UnalignedSlice};
 use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
 use speedy::Readable;
 use std::cmp::Ordering;
@@ -41,6 +40,7 @@ impl Storage {
                     .env
                     .database_options()
                     .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
                     .name("event_references_person")
                     .create(&mut txn)?;
                 txn.commit()?;
