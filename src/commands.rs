@@ -626,7 +626,7 @@ pub fn verify_json(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 pub fn rebuild_indices(cmd: Command) -> Result<(), Error> {
     login(cmd.clone())?;
 
-    GLOBALS.storage.rebuild_event_indices()?;
+    GLOBALS.storage.rebuild_event_indices(None)?;
     Ok(())
 }
 
