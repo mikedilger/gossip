@@ -2010,22 +2010,34 @@ impl Storage {
         Ok(output.iter().map(|e| e.id).collect())
     }
 
-    pub fn rebuild_event_indices(&self) -> Result<(), Error> {
-        let mut wtxn = self.env.write_txn()?;
-        let mut last_key = Id([0; 32]);
-        while let Some((key, val)) = self
-            .db_events()?
-            .get_greater_than(&wtxn, last_key.as_slice())?
-        {
-            let id = Id::read_from_buffer(key)?;
-            let event = Event::read_from_buffer(val)?;
-            self.write_event_ek_pk_index(&event, Some(&mut wtxn))?;
-            self.write_event_ek_c_index(&event, Some(&mut wtxn))?;
-            self.write_event_references_person(&event, Some(&mut wtxn))?;
-            last_key = id;
-        }
-        wtxn.commit()?;
-        self.sync()?;
+    pub fn rebuild_event_indices<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>
+    ) -> Result<(), Error> {
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let loop_txn = self.env.read_txn()?;
+            for result in self.db_events()?.iter(&loop_txn)? {
+                let (_key, val) = result?;
+                let event = Event::read_from_buffer(val)?;
+                self.write_event_ek_pk_index(&event, Some(txn))?;
+                self.write_event_ek_c_index(&event, Some(txn))?;
+                self.write_event_references_person(&event, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
