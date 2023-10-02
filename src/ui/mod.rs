@@ -437,18 +437,19 @@ impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
         let mut settings = Settings::load();
 
-        if let Some(dpi) = settings.override_dpi {
-            let ppt: f32 = dpi as f32 / 72.0;
+        let dpi: u32;
+        if let Some(override_dpi) = settings.override_dpi {
+            let ppt: f32 = override_dpi as f32 / 72.0;
             cctx.egui_ctx.set_pixels_per_point(ppt);
-            tracing::info!("Pixels per point (overridden): {}", ppt);
+            dpi = (ppt * 72.0) as u32;
+            tracing::info!("DPI (overridden): {}", dpi);
         } else if let Some(ppt) = cctx.integration_info.native_pixels_per_point {
             cctx.egui_ctx.set_pixels_per_point(ppt);
-            tracing::info!("Pixels per point (native): {}", ppt);
+            dpi = (ppt * 72.0) as u32;
+            tracing::info!("DPI (native): {}", dpi);
         } else {
-            tracing::info!(
-                "Pixels per point (fallback): {}",
-                cctx.egui_ctx.pixels_per_point()
-            );
+            dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;
+            tracing::info!("DPI (fallback): {}", dpi);
         }
 
         // Set global pixels_per_point_times_100, used for image scaling.
@@ -536,11 +537,11 @@ impl GossipUi {
                 .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
 
-        let current_dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;
         let (override_dpi, override_dpi_value): (bool, u32) = match settings.override_dpi {
             Some(v) => (true, v),
-            None => (false, current_dpi),
+            None => (false, dpi),
         };
+        tracing::error!("DEBUG override_dpi_value = {}", override_dpi_value);
 
         let start_page = if GLOBALS.first_run.load(Ordering::Relaxed) {
             Page::HelpHelp

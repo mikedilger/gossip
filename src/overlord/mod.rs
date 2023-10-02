@@ -1137,7 +1137,6 @@ impl Overlord {
                     kind: EventKind::TextNote,
                     tags,
                     content,
-                    ots: None,
                 }
             }
         };
@@ -1260,7 +1259,6 @@ impl Overlord {
             kind: EventKind::RelayList,
             tags,
             content: "".to_string(),
-            ots: None,
         };
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
@@ -1332,7 +1330,6 @@ impl Overlord {
                 kind: EventKind::Reaction,
                 tags,
                 content: "+".to_owned(),
-                ots: None,
             };
 
             let powint = GLOBALS.storage.read_setting_pow();
@@ -1486,7 +1483,6 @@ impl Overlord {
             kind: EventKind::Metadata,
             tags: vec![],
             content: serde_json::to_string(&metadata)?,
-            ots: None,
         };
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
@@ -1618,7 +1614,6 @@ impl Overlord {
                 kind: EventKind::Repost,
                 tags,
                 content: serde_json::to_string(&reposted_event)?,
-                ots: None,
             };
 
             let powint = GLOBALS.storage.read_setting_pow();
@@ -1758,8 +1753,10 @@ impl Overlord {
             }
         }
 
-        let missing_ancestors_hex: Vec<IdHex> =
+        let mut missing_ancestors_hex: Vec<IdHex> =
             missing_ancestors.iter().map(|id| (*id).into()).collect();
+        missing_ancestors_hex.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        missing_ancestors_hex.dedup();
 
         // Subscribe on relays
         if relays.is_empty() {
@@ -1899,7 +1896,6 @@ impl Overlord {
                 kind: EventKind::EventDeletion,
                 tags,
                 content: "".to_owned(), // FIXME, option to supply a delete reason
-                ots: None,
             };
 
             // Should we add a pow? Maybe the relay needs it.
@@ -2445,7 +2441,6 @@ impl Overlord {
                 },
             ],
             content: comment,
-            ots: None,
         };
 
         let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;

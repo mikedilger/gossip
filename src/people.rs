@@ -632,7 +632,6 @@ impl People {
             kind: EventKind::ContactList,
             tags: p_tags,
             content,
-            ots: None,
         };
 
         tracing::debug!("----> PreEvent {:?}", pre_event);
@@ -676,7 +675,6 @@ impl People {
             kind: EventKind::MuteList,
             tags: p_tags,
             content,
-            ots: None,
         };
 
         GLOBALS.signer.sign_preevent(pre_event, None, None)
