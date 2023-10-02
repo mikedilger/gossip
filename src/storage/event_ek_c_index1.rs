@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::{DatabaseFlags, types::UnalignedSlice};
+use heed::{types::UnalignedSlice, DatabaseFlags};
 use std::sync::Mutex;
 
 // EventKind::ReverseUnixtime -> Id

@@ -1,7 +1,7 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::storage::{RawDatabase, Storage};
-use heed::{DatabaseFlags, RwTxn, types::UnalignedSlice};
+use heed::{types::UnalignedSlice, DatabaseFlags, RwTxn};
 use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
 use speedy::Readable;
 use std::cmp::Ordering;
