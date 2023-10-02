@@ -423,7 +423,7 @@ pub fn print_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         }
         Ok(())
     } else {
-        return cmd.usage("Missing url parameter".to_string());
+        cmd.usage("Missing url parameter".to_string())
     }
 }
 
