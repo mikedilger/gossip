@@ -541,7 +541,6 @@ impl GossipUi {
             Some(v) => (true, v),
             None => (false, dpi),
         };
-        tracing::error!("DEBUG override_dpi_value = {}", override_dpi_value);
 
         let start_page = if GLOBALS.first_run.load(Ordering::Relaxed) {
             Page::HelpHelp
