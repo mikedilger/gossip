@@ -2012,9 +2012,8 @@ impl Storage {
 
     pub fn rebuild_event_indices<'a>(
         &'a self,
-        rw_txn: Option<&mut RwTxn<'a>>
+        rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let loop_txn = self.env.read_txn()?;
             for result in self.db_events()?.iter(&loop_txn)? {
@@ -2024,7 +2023,9 @@ impl Storage {
                 self.write_event_ek_c_index(&event, Some(txn))?;
                 self.write_event_references_person(&event, Some(txn))?;
                 for hashtag in event.hashtags() {
-                    if hashtag.is_empty() { continue; } // upstream bug
+                    if hashtag.is_empty() {
+                        continue;
+                    } // upstream bug
                     self.add_hashtag(&hashtag, event.id, Some(txn))?;
                 }
             }

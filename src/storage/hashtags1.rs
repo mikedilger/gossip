@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::storage::{RawDatabase, Storage};
-use heed::{DatabaseFlags, RwTxn, types::UnalignedSlice};
+use heed::{types::UnalignedSlice, DatabaseFlags, RwTxn};
 use nostr_types::Id;
 use std::sync::Mutex;
 
