@@ -8,7 +8,11 @@ use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
+<<<<<<< HEAD
     const MAX_MIGRATION_LEVEL: u32 = 12;
+=======
+    const MAX_MIGRATION_LEVEL: u32 = 11;
+>>>>>>> storage: migration to populate event_tag_index
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -119,10 +123,13 @@ impl Storage {
                 tracing::info!("{prefix}: populating event tag index...");
                 self.populate_event_tag_index(txn)?;
             }
+<<<<<<< HEAD
             11 => {
                 tracing::info!("{prefix}: removing now unused event_references_person index...");
                 self.remove_event_references_person(txn)?;
             }
+=======
+>>>>>>> storage: migration to populate event_tag_index
             _ => panic!("Unreachable migration level"),
         };
 
@@ -536,24 +543,6 @@ impl Storage {
             let event = Event::read_from_buffer(val)?;
             self.write_event_tag_index(&event, Some(txn))?;
         }
-
-        Ok(())
-    }
-
-    pub fn remove_event_references_person<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        {
-            let db = self
-                .env
-                .database_options()
-                .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-                .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
-                .name("event_references_person")
-                .create(txn)?;
-
-            db.clear(txn)?;
-        }
-
-        // heed doesn't expose mdb_drop(1) yet, so we can't actually remove this database.
 
         Ok(())
     }
