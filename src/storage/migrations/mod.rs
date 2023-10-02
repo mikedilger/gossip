@@ -7,7 +7,7 @@ use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 8;
+    const MAX_MIGRATION_LEVEL: u32 = 9;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -53,6 +53,13 @@ impl Storage {
                 let _ = self.db_people1()?;
                 let _ = self.db_people2()?;
             }
+            8 => {
+                let _ = self.db_events1()?;
+                let _ = self.db_event_ek_pk_index1()?;
+                let _ = self.db_event_ek_c_index1()?;
+                let _ = self.db_event_references_person1()?;
+                let _ = self.db_hashtags1()?;
+            }
             _ => {}
         };
         Ok(())
@@ -95,6 +102,10 @@ impl Storage {
             7 => {
                 tracing::info!("{prefix}: populating missing last_fetched data...");
                 self.populate_last_fetched(txn)?;
+            }
+            8 => {
+                tracing::info!("{prefix}: rebuilding event indices...");
+                self.rebuild_event_indices(Some(txn))?;
             }
             _ => panic!("Unreachable migration level"),
         };
