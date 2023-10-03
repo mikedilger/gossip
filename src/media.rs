@@ -1,22 +1,22 @@
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use dashmap::{DashMap, DashSet};
-use eframe::egui::{Color32, ColorImage};
-use egui_extras::image::FitTo;
 use image::imageops;
 use image::imageops::FilterType;
-use image::DynamicImage;
+use image::{DynamicImage, Rgba, RgbaImage};
 use nostr_types::{UncheckedUrl, Url};
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::sync::RwLock;
+use usvg::TreeParsing;
 
 pub struct Media {
     // We fetch (with Fetcher), process, and temporarily hold media
     // until the UI next asks for them, at which point we remove them
     // and hand them over. This way we can do the work that takes
     // longer and the UI can do as little work as possible.
-    image_temp: DashMap<Url, ColorImage>,
+    image_temp: DashMap<Url, RgbaImage>,
     data_temp: DashMap<Url, Vec<u8>>,
     media_pending_processing: DashSet<Url>,
     failed_media: RwLock<HashSet<UncheckedUrl>>,
@@ -53,7 +53,7 @@ impl Media {
         self.failed_media.blocking_write().remove(unchecked_url);
     }
 
-    pub fn get_image(&self, url: &Url) -> Option<ColorImage> {
+    pub fn get_image(&self, url: &Url) -> Option<RgbaImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.image_temp.remove(url) {
             return Some(th.1);
@@ -149,47 +149,48 @@ pub(crate) fn load_image_bytes(
     default_size: u32,
     force_resize: bool,
     round: bool,
-) -> Result<ColorImage, String> {
-    let mut color_image = match image::load_from_memory(image_bytes) {
-        Ok(mut image) => {
-            image = adjust_orientation(image_bytes, image);
-            if square {
-                image = crop_square(image);
-            }
-            if force_resize || image.width() > 16384 || image.height() > 16384 {
-                // https://docs.rs/image/latest/image/imageops/enum.FilterType.html
-                let algo = match &*GLOBALS.storage.read_setting_image_resize_algorithm() {
-                    "Nearest" => FilterType::Nearest,
-                    "Triangle" => FilterType::Triangle,
-                    "CatmullRom" => FilterType::CatmullRom,
-                    "Gaussian" => FilterType::Gaussian,
-                    "Lanczos3" => FilterType::Lanczos3,
-                    _ => FilterType::Triangle,
-                };
-
-                // This preserves aspect ratio. The sizes represent bounds.
-                image = image.resize(default_size, default_size, algo);
-            }
-            let current_size = [image.width() as _, image.height() as _];
-            let image_buffer = image.into_rgba8();
-            let pixels = image_buffer.as_flat_samples();
-            ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice())
+) -> Result<RgbaImage, Error> {
+    if let Ok(mut image) = image::load_from_memory(image_bytes) {
+        image = adjust_orientation(image_bytes, image);
+        if square {
+            image = crop_square(image);
         }
-        Err(_) => {
-            // With SVG, we set the size so no resize.
-            // And there is no exif orientation data.
-            egui_extras::image::load_svg_bytes_with_size(
-                image_bytes,
-                FitTo::Size(default_size, default_size),
-            )?
-        }
-    };
+        if force_resize || image.width() > 16384 || image.height() > 16384 {
+            // https://docs.rs/image/latest/image/imageops/enum.FilterType.html
+            let algo = match &*GLOBALS.storage.read_setting_image_resize_algorithm() {
+                "Nearest" => FilterType::Nearest,
+                "Triangle" => FilterType::Triangle,
+                "CatmullRom" => FilterType::CatmullRom,
+                "Gaussian" => FilterType::Gaussian,
+                "Lanczos3" => FilterType::Lanczos3,
+                _ => FilterType::Triangle,
+            };
 
-    if round {
-        round_image(&mut color_image);
+            // This preserves aspect ratio. The sizes represent bounds.
+            image = image.resize(default_size, default_size, algo);
+        }
+        let mut image = image.into_rgba8();
+        if round {
+            round_image(&mut image);
+        }
+        Ok(image)
+    } else {
+        let opt = usvg::Options::default();
+        let rtree = usvg::Tree::from_data(image_bytes, &opt)?;
+        let pixmap_size = rtree.size.to_int_size();
+        let [w, h] = if force_resize || pixmap_size.width() > 16384 || pixmap_size.height() > 16384 {
+            [default_size, default_size]
+        } else {
+            [pixmap_size.width(), pixmap_size.height()]
+        };
+        let mut pixmap = tiny_skia::Pixmap::new(w, h)
+            .ok_or::<Error>(ErrorKind::General("Invalid image size".to_owned()).into())?;
+        let tree = resvg::Tree::from_usvg(&rtree);
+        tree.render(Default::default(), &mut pixmap.as_mut());
+        let image = RgbaImage::from_raw(w, h, pixmap.take())
+            .ok_or::<Error>(ErrorKind::ImageFailure.into())?;
+        Ok(image)
     }
-
-    Ok(color_image)
 }
 
 fn adjust_orientation(image_bytes: &[u8], image: DynamicImage) -> DynamicImage {
@@ -240,19 +241,20 @@ fn crop_square(image: DynamicImage) -> DynamicImage {
     }
 }
 
-fn round_image(image: &mut ColorImage) {
+fn round_image(image: &mut RgbaImage) {
     // The radius to the edge of of the avatar circle
-    let edge_radius = image.size[0] as f32 / 2.0;
+    let edge_radius = image.width() as f32 / 2.0;
     let edge_radius_squared = edge_radius * edge_radius;
 
-    for (pixnum, pixel) in image.pixels.iter_mut().enumerate() {
+    let w = image.width();
+    for (pixnum, pixel) in image.pixels_mut().enumerate() {
         // y coordinate
-        let uy = pixnum / image.size[0];
+        let uy = pixnum as u32 / w;
         let y = uy as f32;
         let y_offset = edge_radius - y;
 
         // x coordinate
-        let ux = pixnum % image.size[0];
+        let ux = pixnum as u32 % w;
         let x = ux as f32;
         let x_offset = edge_radius - x;
 
@@ -270,16 +272,16 @@ fn round_image(image: &mut ColorImage) {
             // be 100% of the original color, and right on the edge should be
             // 0% of the original color.
             if distance <= 1.0 {
-                *pixel = Color32::from_rgba_premultiplied(
-                    (pixel.r() as f32 * distance) as u8,
-                    (pixel.g() as f32 * distance) as u8,
-                    (pixel.b() as f32 * distance) as u8,
-                    (pixel.a() as f32 * distance) as u8,
-                );
+                *pixel = Rgba([
+                    (pixel[0] as f32 * distance) as u8,
+                    (pixel[1] as f32 * distance) as u8,
+                    (pixel[2] as f32 * distance) as u8,
+                    (pixel[3] as f32 * distance) as u8,
+                ]);
             }
         } else {
             // Outside of the avatar circle
-            *pixel = Color32::TRANSPARENT;
+            *pixel = Rgba([0,0,0,0]);
         }
     }
 }

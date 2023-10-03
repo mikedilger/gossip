@@ -41,6 +41,7 @@ use egui::{
     Align, Color32, ColorImage, Context, Image, ImageData, Label, Layout, RichText, ScrollArea,
     Sense, TextureHandle, TextureOptions, Ui, Vec2,
 };
+use egui_extras::image::FitTo;
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
@@ -527,7 +528,7 @@ impl GossipUi {
             let bytes = include_bytes!("../../assets/option.svg");
             let color_image = egui_extras::image::load_svg_bytes_with_size(
                 bytes,
-                egui_extras::image::FitTo::Size(
+                FitTo::Size(
                     (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
                     (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
                 ),
@@ -1211,7 +1212,10 @@ impl GossipUi {
             return Some(th.to_owned());
         }
 
-        if let Some(color_image) = GLOBALS.people.get_avatar(pubkey, self.theme.round_image()) {
+        if let Some(rgba_image) = GLOBALS.people.get_avatar(pubkey, self.theme.round_image()) {
+            let current_size = [rgba_image.width() as usize,rgba_image.height() as usize];
+            let pixels = rgba_image.as_flat_samples();
+            let color_image = ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());
             let texture_handle = ctx.load_texture(
                 pubkey.as_hex_string(),
                 color_image,
@@ -1250,7 +1254,10 @@ impl GossipUi {
             return Some(th.to_owned());
         }
 
-        if let Some(color_image) = GLOBALS.media.get_image(&url) {
+        if let Some(rgba_image) = GLOBALS.media.get_image(&url) {
+            let current_size = [rgba_image.width() as usize,rgba_image.height() as usize];
+            let pixels = rgba_image.as_flat_samples();
+            let color_image = ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());
             let texture_handle = ctx.load_texture(
                 url.as_str().to_owned(),
                 color_image,

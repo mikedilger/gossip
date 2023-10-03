@@ -19,6 +19,7 @@ pub enum ErrorKind {
     NoPrivateKey,
     NoRelay,
     Image(image::error::ImageError),
+    ImageFailure,
     Io(std::io::Error),
     Internal(String),
     InvalidUriParts(http::uri::InvalidUriParts),
@@ -34,6 +35,7 @@ pub enum ErrorKind {
     SerdeJson(serde_json::Error),
     SliceError(std::array::TryFromSliceError),
     Speedy(speedy::Error),
+    Svg(usvg::Error),
     Timeout(tokio::time::error::Elapsed),
     UnknownCommand(String),
     UrlHasEmptyHostname,
@@ -82,6 +84,7 @@ impl std::fmt::Display for Error {
             NoPrivateKey => write!(f, "No private key available."),
             NoRelay => write!(f, "Could not determine a relay to use."),
             Image(e) => write!(f, "Image: {e}"),
+            ImageFailure => write!(f, "Image Failure"),
             Io(e) => write!(f, "I/O Error: {e}"),
             Internal(s) => write!(f, "INTERNAL: {s}"),
             InvalidUriParts(e) => write!(f, "Invalid URI parts: {e}"),
@@ -97,6 +100,7 @@ impl std::fmt::Display for Error {
             SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
             SliceError(e) => write!(f, "Slice: {e}"),
             Speedy(e) => write!(f, "Speedy: {e}"),
+            Svg(e) => write!(f, "SVG: {e}"),
             Timeout(e) => write!(f, "Timeout: {e}"),
             UnknownCommand(s) => write!(f, "Unknown command: {s}"),
             UrlHasEmptyHostname => write!(f, "URL has empty hostname"),
@@ -259,6 +263,12 @@ impl From<std::array::TryFromSliceError> for ErrorKind {
 impl From<speedy::Error> for ErrorKind {
     fn from(e: speedy::Error) -> ErrorKind {
         ErrorKind::Speedy(e)
+    }
+}
+
+impl From<usvg::Error> for ErrorKind {
+    fn from(e: usvg::Error) -> ErrorKind {
+        ErrorKind::Svg(e)
     }
 }
 

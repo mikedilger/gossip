@@ -3,8 +3,8 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
-use eframe::egui::ColorImage;
 use gossip_relay_picker::Direction;
+use image::RgbaImage;
 use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
@@ -57,7 +57,7 @@ pub struct People {
     // until the UI next asks for them, at which point we remove them
     // and hand them over. This way we can do the work that takes
     // longer and the UI can do as little work as possible.
-    avatars_temp: DashMap<PublicKey, ColorImage>,
+    avatars_temp: DashMap<PublicKey, RgbaImage>,
     avatars_pending_processing: DashSet<PublicKey>,
 
     // When we manually ask for updating metadata, we want to recheck
@@ -412,7 +412,7 @@ impl People {
         Ok(())
     }
 
-    pub fn get_avatar(&self, pubkey: &PublicKey, rounded: bool) -> Option<ColorImage> {
+    pub fn get_avatar(&self, pubkey: &PublicKey, rounded: bool) -> Option<RgbaImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.avatars_temp.remove(pubkey) {
             return Some(th.1);
