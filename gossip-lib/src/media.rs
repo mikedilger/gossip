@@ -22,6 +22,13 @@ pub struct Media {
     failed_media: RwLock<HashSet<UncheckedUrl>>,
 }
 
+impl Default for Media {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+
 impl Media {
     pub fn new() -> Media {
         Media {

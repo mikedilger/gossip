@@ -55,6 +55,12 @@ pub struct Feed {
     thread_parent: RwLock<Option<Id>>,
 }
 
+impl Default for Feed {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Feed {
     pub fn new() -> Feed {
         Feed {

@@ -85,6 +85,12 @@ pub struct People {
     pub last_mute_list_size: AtomicUsize,
 }
 
+impl Default for People {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl People {
     pub fn new() -> People {
         People {
