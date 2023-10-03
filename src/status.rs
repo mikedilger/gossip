@@ -21,10 +21,14 @@ impl StatusQueue {
 
     pub fn read_all(&self) -> [String; 3] {
         [
-            self.messages[self.head].to_owned(),
-            self.messages[(self.head + 1) % 3].to_owned(),
-            self.messages[(self.head + 2) % 3].to_owned(),
+            self.messages[self.head].clone(),
+            self.messages[(self.head + 1) % 3].clone(),
+            self.messages[(self.head + 2) % 3].clone(),
         ]
+    }
+
+    pub fn read_last(&self) -> String {
+        self.messages[self.head].clone()
     }
 
     pub fn write(&mut self, message: String) {

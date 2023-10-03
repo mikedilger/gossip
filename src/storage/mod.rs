@@ -626,6 +626,43 @@ impl Storage {
         }
     }
 
+    pub fn write_wizard_complete<'a>(
+        &'a self,
+        wizard_complete: bool,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = wizard_complete.write_to_vec()?;
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general.put(txn, b"wizard_complete", &bytes)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn read_wizard_complete(&self) -> bool {
+        let txn = match self.env.read_txn() {
+            Ok(txn) => txn,
+            Err(_) => return false,
+        };
+
+        match self.general.get(&txn, b"wizard_complete") {
+            Err(_) => false,
+            Ok(None) => false,
+            Ok(Some(bytes)) => bool::read_from_buffer(bytes).unwrap_or(false),
+        }
+    }
+
     // Settings ----------------------------------------------------------
 
     // This defines functions for read_{setting} and write_{setting} for each
