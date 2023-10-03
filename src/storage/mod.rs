@@ -2015,6 +2015,13 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+
+            // Erase all indices first
+            self.db_event_ek_pk_index()?.clear(txn)?;
+            self.db_event_ek_c_index()?.clear(txn)?;
+            self.db_event_references_person()?.clear(txn)?;
+            self.db_hashtags()?.clear(txn)?;
+
             let loop_txn = self.env.read_txn()?;
             for result in self.db_events()?.iter(&loop_txn)? {
                 let (_key, val) = result?;
