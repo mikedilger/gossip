@@ -2015,7 +2015,6 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-
             // Erase all indices first
             self.db_event_ek_pk_index()?.clear(txn)?;
             self.db_event_ek_c_index()?.clear(txn)?;
