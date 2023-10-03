@@ -921,13 +921,15 @@ impl People {
         self.active_persons_write_relays.blocking_read().clone()
     }
 
-    pub fn get_followed(&self, pubkey: PublicKey) ->  Result<HashSet<PublicKey>, Error> {
+    pub fn get_followed(&self, pubkey: PublicKey) -> Result<HashSet<PublicKey>, Error> {
         let mut my_hash: HashSet<PublicKey> = HashSet::new();
-        my_hash.insert(  PublicKey::try_from_hex_string(
-            "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49",
-            true,
-        )
-        .unwrap());
+        my_hash.insert(
+            PublicKey::try_from_hex_string(
+                "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49",
+                true,
+            )
+            .unwrap(),
+        );
         Ok(my_hash)
     }
 }

@@ -403,7 +403,10 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
             .set_relay_list(event.pubkey, inbox_relays, outbox_relays, None)?;
     }
 
-    tracing::debug!("process_somebody_elses_contact_list ----_> Event {}", serde_json::to_string(&event)?);
+    tracing::debug!(
+        "|||||||||||||||||||||||||||||||||||||| process.rs -> Event {}",
+        serde_json::to_string(&event)?
+    );
 
     Ok(())
 }

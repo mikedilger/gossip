@@ -570,8 +570,8 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::FetchPersonContactList(pubkey) => {
-                self.fetch_person_contact_list(pubkey).await?;
                 tracing::debug!("Fetch Person's ContactList {}", &pubkey.as_hex_string());
+                self.fetch_person_contact_list(pubkey).await?;
             }
             ToOverlordMessage::FollowPubkey(pubkey) => {
                 GLOBALS.people.follow(&pubkey, true)?;
@@ -1374,7 +1374,10 @@ impl Overlord {
     }
 
     async fn fetch_person_contact_list(&mut self, pubkey: PublicKey) -> Result<(), Error> {
-        let event = GLOBALS.people.generate_contact_list_event(vec![pubkey]).await?;
+        let event = GLOBALS
+            .people
+            .generate_contact_list_event(vec![pubkey])
+            .await?;
 
         let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
 
@@ -1393,7 +1396,7 @@ impl Overlord {
         }
 
         // let event
-        tracing::debug!("----> My EVENT --------> {:?}", event);
+        tracing::debug!("fetch_person_contact_list - event {:?}", event);
 
         // process the message for ourself
         crate::process::process_new_event(&event, None, None, false, false).await?;

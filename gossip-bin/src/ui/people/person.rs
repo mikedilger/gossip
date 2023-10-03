@@ -254,21 +254,25 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
-                let tab_followed = ui.selectable_value(&mut app.person_tab, PersonTab::Followed, "Followed");
+                let tab_followed =
+                    ui.selectable_value(&mut app.person_tab, PersonTab::Followed, "Followed");
                 if tab_followed.clicked() {
+                    tracing::debug!("tab_followed.clicked()");
                     let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FetchPersonContactList(person.pubkey));
+                        .to_overlord
+                        .send(ToOverlordMessage::FetchPersonContactList(person.pubkey));
                 }
 
                 ui.label("|");
 
-                let tab_followers = ui.selectable_value(&mut app.person_tab, PersonTab::Followers, "Followers");
+                let tab_followers =
+                    ui.selectable_value(&mut app.person_tab, PersonTab::Followers, "Followers");
                 if tab_followers.clicked() {}
-                
+
                 ui.label("|");
-                
-                let tab_relays = ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
+
+                let tab_relays =
+                    ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
                 if tab_relays.clicked() {}
             });
 
@@ -279,12 +283,11 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             match app.person_tab {
                 PersonTab::Followed => {
                     for followed in GLOBALS.people.get_followed(person.pubkey).iter() {
-                      tracing::debug!("Followed pubkey: {:?}", followed);
+                        tracing::debug!("Followed pubkey: {:?}", followed);
                     }
                 }
 
-                PersonTab::Followers => {
-                }
+                PersonTab::Followers => {}
 
                 PersonTab::Relays => {
                     for (relay_url, score) in GLOBALS.people.get_active_person_write_relays().iter()
