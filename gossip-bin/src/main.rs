@@ -21,10 +21,9 @@ macro_rules! rtry {
 }
  */
 
-
-use gossip::comms::ToOverlordMessage;
-use gossip::error::Error;
-use gossip::globals::GLOBALS;
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::error::Error;
+use gossip_lib::globals::GLOBALS;
 use std::ops::DerefMut;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -59,7 +58,7 @@ fn main() -> Result<(), Error> {
     // If we were handed a command, execute the command and return
     let args = env::args();
     if args.len() > 1 {
-        match gossip::commands::handle_command(args, &rt) {
+        match gossip_lib::commands::handle_command(args, &rt) {
             Err(e) => {
                 println!("{}", e);
                 return Ok(());
@@ -79,7 +78,7 @@ fn main() -> Result<(), Error> {
         rt.block_on(tokio_main());
     });
 
-    if let Err(e) = gossip::ui::run() {
+    if let Err(e) = gossip_lib::ui::run() {
         tracing::error!("{}", e);
     }
 
@@ -110,7 +109,7 @@ async fn tokio_main() {
     .unwrap();
 
     // Run the overlord
-    let mut overlord = gossip::overlord::Overlord::new(overlord_receiver);
+    let mut overlord = gossip_lib::overlord::Overlord::new(overlord_receiver);
     overlord.run().await;
 }
 

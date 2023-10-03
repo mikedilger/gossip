@@ -413,25 +413,25 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "DejaVuSans".to_owned(),
-        FontData::from_static(include_bytes!("../../../fonts/DejaVuSansSansEmoji.ttf")),
+        FontData::from_static(include_bytes!("../../../../fonts/DejaVuSansSansEmoji.ttf")),
     );
     font_data.insert(
         "DejaVuSansBold".to_owned(),
         FontData::from_static(include_bytes!(
-            "../../../fonts/DejaVuSans-Bold-SansEmoji.ttf"
+            "../../../../fonts/DejaVuSans-Bold-SansEmoji.ttf"
         )),
     );
 
     if cfg!(feature = "lang-cjk") {
         font_data.insert(
             "NotoSansCJK".to_owned(),
-            FontData::from_static(include_bytes!("../../../fonts/NotoSansCJK-Regular.ttc")),
+            FontData::from_static(include_bytes!("../../../../fonts/NotoSansCJK-Regular.ttc")),
         );
     }
 
     font_data.insert(
         "Inconsolata".to_owned(),
-        FontData::from_static(include_bytes!("../../../fonts/Inconsolata-Regular.ttf")).tweak(
+        FontData::from_static(include_bytes!("../../../../fonts/Inconsolata-Regular.ttf")).tweak(
             FontTweak {
                 scale: 1.22,            // This font is smaller than DejaVuSans
                 y_offset_factor: -0.18, // and too low
@@ -444,7 +444,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
     // Some good looking emojis. Use as first priority:
     font_data.insert(
         "NotoEmoji-Regular".to_owned(),
-        FontData::from_static(include_bytes!("../../../fonts/NotoEmoji-Regular.ttf")).tweak(
+        FontData::from_static(include_bytes!("../../../../fonts/NotoEmoji-Regular.ttf")).tweak(
             FontTweak {
                 scale: 1.1, // make them a touch larger
                 y_offset_factor: 0.0,

@@ -1,0 +1,40 @@
+[package]
+name = "gossip"
+version = "0.9.0-unstable"
+description = "A social media client for nostr"
+authors = ["Mike Dilger <mike@mikedilger.com>", "fiatjaf <fiatjaf@gmail.com>", "Nate Levin <natelevincycling@gmail.com>", "Nethanja Focking <nethanja@nethanja.de>", "Daniele Tonon <tonon@vitamino.it>", "jeremyd (@jeremyd)"]
+license = "MIT"
+repository = "https://github.com/mikedilger/gossip"
+homepage = "https://github.com/mikedilger/gossip"
+default-run = "gossip"
+edition = "2021"
+
+[features]
+default = [ "rustls-tls" ]
+lang-cjk = [ "gossip-lib/lang-cjk" ]
+video-ffmpeg = [ "gossip-lib/egui-video", "gossip-lib/sdl2" ]
+native-tls = [ "gossip-lib/native-tls" ]
+rustls-tls = [ "gossip-lib/rustls-tls" ]
+
+[dependencies]
+bech32 = "0.9"
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "61ed6d8ab07363ee5861e7460e795b32b131460a", features = [ "speedy" ] }
+gossip-lib = { path = "../gossip-lib" }
+rpassword = "7.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
+zeroize = "1.6"
+
+[package.metadata.deb]
+section = "web"
+assets = [
+    ["target/release/gossip", "/usr/bin/", "755"],
+    ["packaging/debian/gossip.desktop", "/usr/share/applications/gossip.desktop", "644"],
+]
+features = [ "lang-cjk" ]
+
+[package.metadata.appimage]
+auto_link = true
