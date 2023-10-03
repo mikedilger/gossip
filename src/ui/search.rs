@@ -1,8 +1,8 @@
 use super::{GossipUi, Page};
 use crate::comms::ToOverlordMessage;
 use crate::feed::FeedKind;
+use crate::globals::GLOBALS;
 use crate::AVATAR_SIZE_F32;
-use crate::GLOBALS;
 use eframe::{egui, Frame};
 use egui::widgets::Button;
 use egui::{Context, Image, Label, RichText, Sense, Ui, Vec2};

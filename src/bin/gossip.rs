@@ -21,49 +21,13 @@ macro_rules! rtry {
 }
  */
 
-#[macro_use]
-extern crate lazy_static;
 
-mod about;
-mod commands;
-mod comms;
-mod date_ago;
-mod delegation;
-mod dm_channel;
-mod error;
-mod feed;
-mod fetcher;
-mod filter;
-mod globals;
-mod media;
-mod names;
-mod nip05;
-mod overlord;
-mod people;
-mod person_relay;
-mod process;
-mod profile;
-mod relationship;
-mod relay;
-mod relay_picker_hooks;
-mod settings;
-mod signer;
-mod status;
-mod storage;
-mod tags;
-mod ui;
-
-use crate::comms::ToOverlordMessage;
-use crate::error::Error;
-use crate::globals::GLOBALS;
+use gossip::comms::ToOverlordMessage;
+use gossip::error::Error;
+use gossip::globals::GLOBALS;
 use std::ops::DerefMut;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-
-pub const AVATAR_SIZE: u32 = 48; // points, not pixels
-pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
-
-static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 fn main() -> Result<(), Error> {
     if env::var("RUST_LOG").is_err() {
@@ -95,7 +59,7 @@ fn main() -> Result<(), Error> {
     // If we were handed a command, execute the command and return
     let args = env::args();
     if args.len() > 1 {
-        match crate::commands::handle_command(args, &rt) {
+        match gossip::commands::handle_command(args, &rt) {
             Err(e) => {
                 println!("{}", e);
                 return Ok(());
@@ -115,7 +79,7 @@ fn main() -> Result<(), Error> {
         rt.block_on(tokio_main());
     });
 
-    if let Err(e) = ui::run() {
+    if let Err(e) = gossip::ui::run() {
         tracing::error!("{}", e);
     }
 
@@ -146,7 +110,7 @@ async fn tokio_main() {
     .unwrap();
 
     // Run the overlord
-    let mut overlord = crate::overlord::Overlord::new(overlord_receiver);
+    let mut overlord = gossip::overlord::Overlord::new(overlord_receiver);
     overlord.run().await;
 }
 
