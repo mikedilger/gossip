@@ -42,12 +42,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         can_post: false,
     };
     Frame::none()
-        .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
-        .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
-        .rounding(app.settings.theme.feed_frame_rounding(&render_data))
-        .shadow(app.settings.theme.feed_frame_shadow(&render_data))
-        .fill(app.settings.theme.feed_frame_fill(&render_data))
-        .stroke(app.settings.theme.feed_frame_stroke(&render_data))
+        .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
+        .outer_margin(app.theme.feed_frame_outer_margin(&render_data))
+        .rounding(app.theme.feed_frame_rounding(&render_data))
+        .shadow(app.theme.feed_frame_shadow(&render_data))
+        .fill(app.theme.feed_frame_fill(&render_data))
+        .stroke(app.theme.feed_frame_stroke(&render_data))
         .show(ui, |ui| {
             ui.heading("Note Background");
             ui.label("(with note margins)");
@@ -68,12 +68,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         can_post: false,
     };
     Frame::none()
-        .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
-        .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
-        .rounding(app.settings.theme.feed_frame_rounding(&render_data))
-        .shadow(app.settings.theme.feed_frame_shadow(&render_data))
-        .fill(app.settings.theme.feed_frame_fill(&render_data))
-        .stroke(app.settings.theme.feed_frame_stroke(&render_data))
+        .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
+        .outer_margin(app.theme.feed_frame_outer_margin(&render_data))
+        .rounding(app.theme.feed_frame_rounding(&render_data))
+        .shadow(app.theme.feed_frame_shadow(&render_data))
+        .fill(app.theme.feed_frame_fill(&render_data))
+        .stroke(app.theme.feed_frame_stroke(&render_data))
         .show(ui, |ui| {
             ui.heading("Unread Note Background");
             ui.label("(with note margins)");
@@ -82,7 +82,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     // On Input Background
     Frame::none()
-        .fill(app.settings.theme.get_style().visuals.extreme_bg_color)
+        .fill(app.theme.get_style().visuals.extreme_bg_color)
         .inner_margin(Margin::symmetric(20.0, 20.0))
         .show(ui, |ui| {
             ui.heading("Input Background");
@@ -91,7 +91,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 }
 
 fn inner(app: &mut GossipUi, ui: &mut Ui, background: Background) {
-    let theme = app.settings.theme;
+    let theme = app.theme;
     let accent = RichText::new("accent").color(theme.accent_color());
     let accent_complementary = RichText::new("accent complimentary (indirectly used)")
         .color(theme.accent_complementary_color());

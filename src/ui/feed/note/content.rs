@@ -29,7 +29,7 @@ pub(super) fn render_content(
 
     if let Ok(note) = note_ref.try_borrow() {
         if let Some(error) = &note.error_content {
-            let color = app.settings.theme.notice_marker_text_color();
+            let color = app.theme.notice_marker_text_color();
             ui.label(RichText::new(error).color(color));
             ui.end_row();
             // fall through in case there is also shattered content to display
@@ -42,7 +42,7 @@ pub(super) fn render_content(
                 if !app.opened.contains(&note.event.id) {
                     ui.end_row();
                     ui.end_row();
-                    let text_color = if app.settings.theme.dark_mode {
+                    let text_color = if app.theme.dark_mode {
                         Color32::WHITE
                     } else {
                         Color32::BLACK
@@ -241,7 +241,7 @@ pub(super) fn render_plain(
             if !app.opened.contains(&note.event.id) {
                 ui.end_row();
                 ui.end_row();
-                let text_color = if app.settings.theme.dark_mode {
+                let text_color = if app.theme.dark_mode {
                     Color32::WHITE
                 } else {
                     Color32::BLACK

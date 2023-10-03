@@ -109,7 +109,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         // error block
         if let Some(err) = &app.wizard_state.error {
             ui.add_space(10.0);
-            ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+            ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
         }
 
         let ready = !app.wizard_state.relay_url.is_empty();

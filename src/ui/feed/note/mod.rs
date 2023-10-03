@@ -114,19 +114,19 @@ pub(super) fn render_note(
 
             let inner_response = ui.horizontal(|ui| {
                 // Outer indents first
-                app.settings.theme.feed_post_outer_indent(ui, &render_data);
+                app.theme.feed_post_outer_indent(ui, &render_data);
 
                 Frame::none()
-                    .inner_margin(app.settings.theme.feed_frame_inner_margin(&render_data))
-                    .outer_margin(app.settings.theme.feed_frame_outer_margin(&render_data))
-                    .rounding(app.settings.theme.feed_frame_rounding(&render_data))
-                    .shadow(app.settings.theme.feed_frame_shadow(&render_data))
-                    .fill(app.settings.theme.feed_frame_fill(&render_data))
-                    .stroke(app.settings.theme.feed_frame_stroke(&render_data))
+                    .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
+                    .outer_margin(app.theme.feed_frame_outer_margin(&render_data))
+                    .rounding(app.theme.feed_frame_rounding(&render_data))
+                    .shadow(app.theme.feed_frame_shadow(&render_data))
+                    .fill(app.theme.feed_frame_fill(&render_data))
+                    .stroke(app.theme.feed_frame_stroke(&render_data))
                     .show(ui, |ui| {
                         ui.horizontal_wrapped(|ui| {
                             // Inner indents first
-                            app.settings.theme.feed_post_inner_indent(ui, &render_data);
+                            app.theme.feed_post_inner_indent(ui, &render_data);
 
                             render_note_inner(
                                 app,
@@ -162,7 +162,7 @@ pub(super) fn render_note(
 
             thin_separator(
                 ui,
-                app.settings.theme.feed_post_separator_stroke(&render_data),
+                app.theme.feed_post_separator_stroke(&render_data),
             );
         }
 
@@ -225,7 +225,7 @@ fn render_note_inner(
             }
         };
 
-        let inner_margin = app.settings.theme.feed_frame_inner_margin(render_data);
+        let inner_margin = app.theme.feed_frame_inner_margin(render_data);
 
         let avatar_margin_left = if parent_repost.is_none() {
             match note.repost {
@@ -314,24 +314,24 @@ fn render_note_inner(
 
                     match &note.delegation {
                         EventDelegation::InvalidDelegation(why) => {
-                            let color = app.settings.theme.warning_marker_text_color();
+                            let color = app.theme.warning_marker_text_color();
                             ui.add(Label::new(RichText::new("INVALID DELEGATION").color(color)))
                                 .on_hover_text(why);
                         }
                         EventDelegation::DelegatedBy(_) => {
-                            let color = app.settings.theme.notice_marker_text_color();
+                            let color = app.theme.notice_marker_text_color();
                             ui.label(RichText::new("DELEGATED").color(color));
                         }
                         _ => {}
                     }
 
                     if note.deletion.is_some() {
-                        let color = app.settings.theme.warning_marker_text_color();
+                        let color = app.theme.warning_marker_text_color();
                         ui.label(RichText::new("DELETED").color(color));
                     }
 
                     if note.event.kind == EventKind::Repost {
-                        let color = app.settings.theme.notice_marker_text_color();
+                        let color = app.theme.notice_marker_text_color();
                         ui.label(RichText::new("REPOSTED").color(color));
                     }
 
@@ -339,7 +339,7 @@ fn render_note_inner(
                         // don't show ENCRYPTED DM or SECURE in the dm channel itself
                     } else {
                         if note.event.kind.is_direct_message_related() {
-                            let color = app.settings.theme.notice_marker_text_color();
+                            let color = app.theme.notice_marker_text_color();
                             if note.secure {
                                 ui.label(RichText::new("Private Chat (Gift Wrapped)").color(color));
                             } else {
@@ -453,7 +453,7 @@ fn render_note_inner(
 
                     if is_thread_view && note.event.replies_to().is_some() {
                         if collapsed {
-                            let color = app.settings.theme.warning_marker_text_color();
+                            let color = app.theme.warning_marker_text_color();
                             if ui
                                 .button(RichText::new("▼").size(13.0).color(color))
                                 .on_hover_text("Expand thread")
@@ -516,7 +516,7 @@ fn render_note_inner(
                             .constrain(true)
                             .show(ctx, |ui| {
                                 ui.set_min_width(200.0);
-                                egui::Frame::popup(&app.settings.theme.get_style()).show(
+                                egui::Frame::popup(&app.theme.get_style()).show(
                                     ui,
                                     |ui| {
                                         if let Ok(seen_on) =
@@ -593,7 +593,7 @@ fn render_note_inner(
                             top: 8.0,
                         })
                         .show(ui, |ui| {
-                            let color = app.settings.theme.accent_complementary_color();
+                            let color = app.theme.accent_complementary_color();
                             ui.horizontal_wrapped(|ui| {
                                 ui.add(Label::new(
                                     RichText::new(format!("proxied from {}: ", proxy)).color(color),
@@ -1067,32 +1067,29 @@ fn render_repost(
 
         ui.vertical(|ui| {
             Frame::none()
-                .inner_margin(app.settings.theme.repost_inner_margin(&render_data))
+                .inner_margin(app.theme.repost_inner_margin(&render_data))
                 .outer_margin({
-                    let mut margin = app.settings.theme.repost_outer_margin(&render_data);
+                    let mut margin = app.theme.repost_outer_margin(&render_data);
                     margin.left -= content_margin_left;
                     margin.top += push_top;
                     margin
                 })
-                .rounding(app.settings.theme.repost_rounding(&render_data))
-                .shadow(app.settings.theme.repost_shadow(&render_data))
-                .fill(app.settings.theme.repost_fill(&render_data))
-                .stroke(app.settings.theme.repost_stroke(&render_data))
+                .rounding(app.theme.repost_rounding(&render_data))
+                .shadow(app.theme.repost_shadow(&render_data))
+                .fill(app.theme.repost_fill(&render_data))
+                .stroke(app.theme.repost_stroke(&render_data))
                 .show(ui, |ui| {
                     ui.add_space(
-                        app.settings
-                            .theme
+                        app.theme
                             .repost_space_above_separator_before(&render_data),
                     );
                     thin_separator(
                         ui,
-                        app.settings
-                            .theme
+                        app.theme
                             .repost_separator_before_stroke(&render_data),
                     );
                     ui.add_space(
-                        app.settings
-                            .theme
+                        app.theme
                             .repost_space_below_separator_before(&render_data),
                     );
                     ui.horizontal_wrapped(|ui| {
@@ -1122,19 +1119,16 @@ fn render_repost(
                         }
                     });
                     ui.add_space(
-                        app.settings
-                            .theme
+                        app.theme
                             .repost_space_above_separator_after(&render_data),
                     );
                     thin_separator(
                         ui,
-                        app.settings
-                            .theme
+                        app.theme
                             .repost_separator_after_stroke(&render_data),
                     );
                     ui.add_space(
-                        app.settings
-                            .theme
+                        app.theme
                             .repost_space_below_separator_after(&render_data),
                     );
                 });

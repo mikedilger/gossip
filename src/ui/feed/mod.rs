@@ -201,9 +201,9 @@ fn render_a_feed(
         .id_source(scroll_area_id)
         .show(ui, |ui| {
             Frame::none()
-                .rounding(app.settings.theme.feed_scroll_rounding(&feed_properties))
-                .fill(app.settings.theme.feed_scroll_fill(&feed_properties))
-                .stroke(app.settings.theme.feed_scroll_stroke(&feed_properties))
+                .rounding(app.theme.feed_scroll_rounding(&feed_properties))
+                .fill(app.theme.feed_scroll_fill(&feed_properties))
+                .stroke(app.theme.feed_scroll_stroke(&feed_properties))
                 .show(ui, |ui| {
                     let iter = feed.iter();
                     let first = feed.first();

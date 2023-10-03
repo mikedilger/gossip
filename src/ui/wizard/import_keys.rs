@@ -11,7 +11,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(20.0);
     if ui
-        .button(RichText::new("  >  Import a Private Key").color(app.settings.theme.accent_color()))
+        .button(RichText::new("  >  Import a Private Key").color(app.theme.accent_color()))
         .clicked()
     {
         app.page = Page::Wizard(WizardPage::ImportPrivateKey);
@@ -20,7 +20,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(20.0);
     if ui
         .button(
-            RichText::new("  >  Import a Public Key only").color(app.settings.theme.accent_color()),
+            RichText::new("  >  Import a Public Key only").color(app.theme.accent_color()),
         )
         .clicked()
     {

@@ -22,7 +22,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            let color = app.settings.theme.accent_color();
+            let color = app.theme.accent_color();
             for channeldata in channels.drain(..) {
                 ui.horizontal_wrapped(|ui| {
                     let channel_name = channeldata.dm_channel.name();

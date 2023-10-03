@@ -19,29 +19,29 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(20.0);
     ui.horizontal(|ui| {
         ui.label("Theme:");
-        if !app.settings.theme.follow_os_dark_mode {
-            if app.settings.theme.dark_mode {
+        if !app.theme.follow_os_dark_mode {
+            if app.theme.dark_mode {
                 if ui.add(Button::new("🌙 Dark")).on_hover_text("Switch to light mode").clicked() {
-                    app.settings.theme.dark_mode = false;
-                    crate::ui::theme::apply_theme(app.settings.theme, ctx);
+                    app.theme.dark_mode = false;
+                    crate::ui::theme::apply_theme(&app.theme, ctx);
                 }
             } else {
                 if ui.add(Button::new("☀ Light")).on_hover_text("Switch to dark mode").clicked() {
-                    app.settings.theme.dark_mode = true;
-                    crate::ui::theme::apply_theme(app.settings.theme, ctx);
+                    app.theme.dark_mode = true;
+                    crate::ui::theme::apply_theme(&app.theme, ctx);
                 }
             }
         }
         let theme_combo = egui::ComboBox::from_id_source("Theme");
-        theme_combo.selected_text(app.settings.theme.name()).show_ui(ui, |ui| {
+        theme_combo.selected_text(app.theme.name()).show_ui(ui, |ui| {
             for theme_variant in ThemeVariant::all() {
-                if ui.add(egui::widgets::SelectableLabel::new(*theme_variant == app.settings.theme.variant, theme_variant.name())).clicked() {
-                    app.settings.theme.variant = *theme_variant;
-                    crate::ui::theme::apply_theme(app.settings.theme, ctx);
+                if ui.add(egui::widgets::SelectableLabel::new(*theme_variant == app.theme.variant, theme_variant.name())).clicked() {
+                    app.theme.variant = *theme_variant;
+                    crate::ui::theme::apply_theme(&app.theme, ctx);
                 };
             }
         });
-        ui.checkbox(&mut app.settings.theme.follow_os_dark_mode, "Follow OS dark-mode").on_hover_text("Follow the operating system setting for dark-mode (requires app-restart to take effect)");
+        ui.checkbox(&mut app.theme.follow_os_dark_mode, "Follow OS dark-mode").on_hover_text("Follow the operating system setting for dark-mode (requires app-restart to take effect)");
     });
 
     ui.add_space(20.0);

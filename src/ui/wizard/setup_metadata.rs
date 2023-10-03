@@ -86,7 +86,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     // error block
     if let Some(err) = &app.wizard_state.error {
         ui.add_space(10.0);
-        ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+        ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
     }
 
     ui.add_space(15.0);
@@ -94,7 +94,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(20.0);
     let mut label = RichText::new("  >  Save, Publish and Continue");
     if app.wizard_state.new_user {
-        label = label.color(app.settings.theme.accent_color());
+        label = label.color(app.theme.accent_color());
     }
     if ui.button(label).clicked() {
         // Copy from form and save
@@ -122,7 +122,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(20.0);
     let mut label = RichText::new("  >  Continue without saving or publishing");
     if !app.wizard_state.new_user {
-        label = label.color(app.settings.theme.accent_color());
+        label = label.color(app.theme.accent_color());
     }
     if ui.button(label).clicked() {
         app.page = Page::Wizard(WizardPage::FollowPeople);

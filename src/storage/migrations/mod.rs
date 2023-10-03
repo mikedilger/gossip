@@ -1,4 +1,4 @@
-use super::types::{Person2, PersonRelay1, Settings1, Settings2};
+use super::types::{Person2, PersonRelay1, Settings1, Settings2, Theme1, ThemeVariant1};
 use super::Storage;
 use crate::error::{Error, ErrorKind};
 use crate::people::PersonList;
@@ -7,7 +7,7 @@ use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 9;
+    const MAX_MIGRATION_LEVEL: u32 = 10;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -106,6 +106,10 @@ impl Storage {
             8 => {
                 tracing::info!("{prefix}: rebuilding event indices...");
                 self.rebuild_event_indices(Some(txn))?;
+            }
+            9 => {
+                tracing::info!("{prefix}: rewriting theme settings...");
+                self.rewrite_theme_settings(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -486,6 +490,29 @@ impl Storage {
                 }
             }
         }
+
+        Ok(())
+    }
+
+    pub fn rewrite_theme_settings<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        const DEF: Theme1 = Theme1 {
+            variant: ThemeVariant1::Default,
+            dark_mode: false,
+            follow_os_dark_mode: true
+        };
+
+        let theme = match self.general.get(txn, b"theme") {
+            Err(_) => DEF,
+            Ok(None) => DEF,
+            Ok(Some(bytes)) => match Theme1::read_from_buffer(bytes) {
+                Ok(val) => val,
+                Err(_) => DEF,
+            }
+        };
+
+        self.write_setting_theme_variant(&theme.variant.name().to_owned(), Some(txn))?;
+        self.write_setting_dark_mode(&theme.dark_mode, Some(txn))?;
+        self.write_setting_follow_os_dark_mode(&theme.follow_os_dark_mode, Some(txn))?;
 
         Ok(())
     }

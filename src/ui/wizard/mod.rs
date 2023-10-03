@@ -165,7 +165,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     egui::CentralPanel::default()
         .frame({
-            let frame = egui::Frame::central_panel(&app.settings.theme.get_style());
+            let frame = egui::Frame::central_panel(&app.theme.get_style());
             frame.inner_margin(egui::Margin {
                 left: 20.0,
                 right: 10.0,
@@ -179,7 +179,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(12.0);
             /*
             if let Some(err) = app.wizard_state.error {
-            ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+            ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
             ui.add_space(12.0);
             }
             */
@@ -214,14 +214,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.add_space(20.0);
                 ui.horizontal_wrapped(|ui| {
                     ui.label("Switch to");
-                    if app.settings.theme.dark_mode {
+                    if app.theme.dark_mode {
                         if ui
                             .add(Button::new("☀ Light"))
                             .on_hover_text("Switch to light mode")
                             .clicked()
                         {
-                            app.settings.theme.dark_mode = false;
-                            crate::ui::theme::apply_theme(app.settings.theme, ctx);
+                            app.theme.dark_mode = false;
+                            crate::ui::theme::apply_theme(&app.theme, ctx);
                             let _ = app.settings.save();
                         }
                     } else {
@@ -230,8 +230,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             .on_hover_text("Switch to dark mode")
                             .clicked()
                         {
-                            app.settings.theme.dark_mode = true;
-                            crate::ui::theme::apply_theme(app.settings.theme, ctx);
+                            app.theme.dark_mode = true;
+                            crate::ui::theme::apply_theme(&app.theme, ctx);
                             let _ = app.settings.save();
                         }
                     }

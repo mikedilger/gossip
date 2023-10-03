@@ -49,7 +49,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     // error block
     if let Some(err) = &app.wizard_state.error {
         ui.add_space(10.0);
-        ui.label(RichText::new(err).color(app.settings.theme.warning_marker_text_color()));
+        ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
     }
 
     let ready = !app.password.is_empty() && !app.password2.is_empty();
@@ -57,7 +57,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if ready {
         ui.add_space(10.0);
         if ui
-            .button(RichText::new("  >  Generate Now").color(app.settings.theme.accent_color()))
+            .button(RichText::new("  >  Generate Now").color(app.theme.accent_color()))
             .clicked()
         {
             if app.password != app.password2 {

@@ -1,14 +1,14 @@
 macro_rules! text_edit_line {
     ($app:ident, $var:expr) => {
         egui::widgets::TextEdit::singleline(&mut $var)
-            .text_color($app.settings.theme.input_text_color())
+            .text_color($app.theme.input_text_color())
     };
 }
 
 macro_rules! text_edit_multiline {
     ($app:ident, $var:expr) => {
         egui::widgets::TextEdit::multiline(&mut $var)
-            .text_color($app.settings.theme.input_text_color())
+            .text_color($app.theme.input_text_color())
     };
 }
 
@@ -66,7 +66,7 @@ pub fn run() -> Result<(), Error> {
         #[cfg(target_os = "macos")]
         fullsize_content: true,
         drag_and_drop_support: true,
-        default_theme: if GLOBALS.storage.read_setting_theme().dark_mode {
+        default_theme: if GLOBALS.storage.read_setting_dark_mode() {
             eframe::Theme::Dark
         } else {
             eframe::Theme::Light
@@ -80,7 +80,7 @@ pub fn run() -> Result<(), Error> {
         resizable: true,
         centered: true,
         vsync: true,
-        follow_system_theme: GLOBALS.storage.read_setting_theme().follow_os_dark_mode,
+        follow_system_theme: GLOBALS.storage.read_setting_follow_os_dark_mode(),
         ..Default::default()
     };
 
@@ -362,6 +362,7 @@ struct GossipUi {
     placeholder_avatar: TextureHandle,
     options_symbol: TextureHandle,
     settings: Settings,
+    theme: Theme,
     avatars: HashMap<PublicKey, TextureHandle>,
     images: HashMap<Url, TextureHandle>,
     /// used when settings.show_media=false to explicitly show
@@ -552,11 +553,18 @@ impl GossipUi {
             }
         }
 
-        // Apply current theme
-        if settings.theme.follow_os_dark_mode {
-            settings.theme.dark_mode = cctx.egui_ctx.style().visuals.dark_mode;
+        // Honor sys dark mode, if set
+        if settings.follow_os_dark_mode {
+            let sys_dark_mode = cctx.egui_ctx.style().visuals.dark_mode;
+            if settings.dark_mode != sys_dark_mode {
+                settings.dark_mode = sys_dark_mode;
+                let _ = GLOBALS.storage.write_setting_dark_mode(&sys_dark_mode, None);
+            }
         }
-        theme::apply_theme(settings.theme, &cctx.egui_ctx);
+
+        // Apply current theme
+        let theme = Theme::from_settings(&settings);
+        theme::apply_theme(&theme, &cctx.egui_ctx);
 
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]
@@ -596,6 +604,7 @@ impl GossipUi {
             placeholder_avatar: placeholder_avatar_texture_handle,
             options_symbol,
             settings,
+            theme,
             avatars: HashMap::new(),
             images: HashMap::new(),
             media_show_list: HashSet::new(),
@@ -706,21 +715,21 @@ impl GossipUi {
                         let margin = egui::Margin { left: 20.0, right: 20.0, top: 35.0, bottom: 20.0 };
                         margin
                     })
-                    .fill(self.settings.theme.navigation_bg_fill()),
+                    .fill(self.theme.navigation_bg_fill()),
             )
             .show(ctx, |ui| {
                 self.begin_ui(ui);
 
                 // cut indentation
                 ui.style_mut().spacing.indent = 0.0;
-                ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.settings.theme.navigation_text_color();
-                ui.style_mut().visuals.widgets.hovered.fg_stroke.color = self.settings.theme.navigation_text_hover_color();
+                ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.theme.navigation_text_color();
+                ui.style_mut().visuals.widgets.hovered.fg_stroke.color = self.theme.navigation_text_hover_color();
                 ui.style_mut().visuals.widgets.hovered.fg_stroke.width = 1.0;
-                ui.style_mut().visuals.widgets.active.fg_stroke.color = self.settings.theme.navigation_text_active_color();
+                ui.style_mut().visuals.widgets.active.fg_stroke.color = self.theme.navigation_text_active_color();
 
                 ui.add_space(4.0);
                 let back_label_text = RichText::new("‹ Back");
-                let label = if self.history.is_empty() { Label::new(back_label_text.color(Color32::from_white_alpha(8))) } else { Label::new(back_label_text.color(self.settings.theme.navigation_text_color())).sense(Sense::click()) };
+                let label = if self.history.is_empty() { Label::new(back_label_text.color(Color32::from_white_alpha(8))) } else { Label::new(back_label_text.color(self.theme.navigation_text_color())).sense(Sense::click()) };
                 let response = ui.add(label);
                 let response = if let Some(page) = self.history.last() {
                     response.on_hover_text(format!("back to {}", page.to_short_string()))
@@ -779,10 +788,10 @@ impl GossipUi {
                         self.add_menu_item_page(ui, Page::RelaysKnownNetwork);
                         ui.vertical(|ui| {
                             ui.spacing_mut().button_padding *= 2.0;
-                            ui.visuals_mut().widgets.inactive.weak_bg_fill = self.settings.theme.accent_color().linear_multiply(0.2);
+                            ui.visuals_mut().widgets.inactive.weak_bg_fill = self.theme.accent_color().linear_multiply(0.2);
                             ui.visuals_mut().widgets.inactive.fg_stroke.width = 1.0;
-                            ui.visuals_mut().widgets.hovered.weak_bg_fill = self.settings.theme.navigation_text_color();
-                            ui.visuals_mut().widgets.hovered.fg_stroke.color = self.settings.theme.accent_color();
+                            ui.visuals_mut().widgets.hovered.weak_bg_fill = self.theme.navigation_text_color();
+                            ui.visuals_mut().widgets.hovered.fg_stroke.color = self.theme.accent_color();
                             if ui.button(RichText::new("Add Relay")).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                                 relays::start_entry_dialog(self);
                             }
@@ -828,23 +837,23 @@ impl GossipUi {
                         let in_flight = GLOBALS.fetcher.requests_in_flight();
                         let queued = GLOBALS.fetcher.requests_queued();
                         let m = format!("HTTP: {} / {}", in_flight, queued);
-                        ui.add(Label::new(RichText::new(m).color(self.settings.theme.notice_marker_text_color())));
+                        ui.add(Label::new(RichText::new(m).color(self.theme.notice_marker_text_color())));
 
                         let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
                         let m = format!("RELAY SUBSC {}", subs);
-                        ui.add(Label::new(RichText::new(m).color(self.settings.theme.notice_marker_text_color())));
+                        ui.add(Label::new(RichText::new(m).color(self.theme.notice_marker_text_color())));
 
                         let relays = GLOBALS.connected_relays.len();
                         let m = format!("RELAYS CONN {}", relays);
-                        ui.add(Label::new(RichText::new(m).color(self.settings.theme.notice_marker_text_color())));
+                        ui.add(Label::new(RichText::new(m).color(self.theme.notice_marker_text_color())));
 
                         let events = GLOBALS.storage.get_event_len().unwrap_or(0);
                         let m = format!("EVENTS STOR {}", events);
-                        ui.add(Label::new(RichText::new(m).color(self.settings.theme.notice_marker_text_color())));
+                        ui.add(Label::new(RichText::new(m).color(self.theme.notice_marker_text_color())));
 
                         let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
                         let m = format!("EVENTS RECV {}", processed);
-                        ui.add(Label::new(RichText::new(m).color(self.settings.theme.notice_marker_text_color())));
+                        ui.add(Label::new(RichText::new(m).color(self.theme.notice_marker_text_color())));
 
                         ui.separator();
                     }
@@ -868,14 +877,14 @@ impl GossipUi {
 
                     egui::Area::new(ui.next_auto_id()).movable(false).interactable(true).fixed_pos(pos).constrain(true).show(ctx, |ui| {
                         self.begin_ui(ui);
-                        egui::Frame::popup(&self.settings.theme.get_style())
+                        egui::Frame::popup(&self.theme.get_style())
                             .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32 / 2.0)) // need the rounding for the shadow
                             .stroke(egui::Stroke::NONE)
                             .fill(Color32::TRANSPARENT)
                             .shadow(egui::epaint::Shadow::NONE)
                             .show(ui, |ui| {
                                 let text = if GLOBALS.signer.is_ready() { RichText::new("+").size(22.5) } else { RichText::new("\u{1f513}").size(20.0) };
-                                let response = ui.add_sized([crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32], egui::Button::new(text.color(self.settings.theme.navigation_text_color())).stroke(egui::Stroke::NONE).rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32)).fill(self.settings.theme.navigation_bg_fill()));
+                                let response = ui.add_sized([crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32], egui::Button::new(text.color(self.theme.navigation_text_color())).stroke(egui::Stroke::NONE).rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32)).fill(self.theme.navigation_bg_fill()));
                                 if response.clicked() {
                                     self.show_post_area = true;
                                     if GLOBALS.signer.is_ready() {
@@ -959,13 +968,13 @@ impl eframe::App for GossipUi {
             self.current_scroll_offset = requested_scroll;
         }
 
-        if self.settings.theme.follow_os_dark_mode {
+        if self.theme.follow_os_dark_mode {
             // detect if the OS has changed dark/light mode
             let os_dark_mode = ctx.style().visuals.dark_mode;
-            if os_dark_mode != self.settings.theme.dark_mode {
+            if os_dark_mode != self.theme.dark_mode {
                 // switch to the OS setting
-                self.settings.theme.dark_mode = os_dark_mode;
-                theme::apply_theme(self.settings.theme, ctx);
+                self.theme.dark_mode = os_dark_mode;
+                theme::apply_theme(&self.theme, ctx);
             }
         }
 
@@ -984,7 +993,7 @@ impl eframe::App for GossipUi {
 
         egui::TopBottomPanel::top("top-area")
             .frame(
-                egui::Frame::side_top_panel(&self.settings.theme.get_style()).inner_margin(
+                egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(
                     egui::Margin {
                         left: 20.0,
                         right: 15.0,
@@ -1009,7 +1018,7 @@ impl eframe::App for GossipUi {
 
         egui::TopBottomPanel::bottom("status")
             .frame({
-                let frame = egui::Frame::side_top_panel(&self.settings.theme.get_style());
+                let frame = egui::Frame::side_top_panel(&self.theme.get_style());
                 frame.inner_margin(if !self.settings.posting_area_at_top {
                     egui::Margin {
                         left: 20.0,
@@ -1048,7 +1057,7 @@ impl eframe::App for GossipUi {
 
         egui::CentralPanel::default()
             .frame({
-                let frame = egui::Frame::central_panel(&self.settings.theme.get_style());
+                let frame = egui::Frame::central_panel(&self.theme.get_style());
                 frame.inner_margin(egui::Margin {
                     left: 20.0,
                     right: 10.0,
@@ -1162,7 +1171,7 @@ impl GossipUi {
             });
 
             if person.petname.is_some() {
-                ui.label(RichText::new("†").color(app.settings.theme.accent_complementary_color()))
+                ui.label(RichText::new("†").color(app.theme.accent_complementary_color()))
                     .on_hover_text("trusted petname");
             }
 
@@ -1202,7 +1211,7 @@ impl GossipUi {
             return Some(th.to_owned());
         }
 
-        if let Some(color_image) = GLOBALS.people.get_avatar(pubkey) {
+        if let Some(color_image) = GLOBALS.people.get_avatar(pubkey, self.theme.round_image()) {
             let texture_handle = ctx.load_texture(
                 pubkey.as_hex_string(),
                 color_image,
@@ -1399,17 +1408,17 @@ impl GossipUi {
 
     fn new_header_label(&self, is_open: bool, text: &str) -> NavItem {
         NavItem::new(text, is_open)
-            .color(self.settings.theme.navigation_text_color())
-            .active_color(self.settings.theme.navigation_header_active_color())
-            .hover_color(self.settings.theme.navigation_text_hover_color())
+            .color(self.theme.navigation_text_color())
+            .active_color(self.theme.navigation_header_active_color())
+            .hover_color(self.theme.navigation_text_hover_color())
             .sense(Sense::click())
     }
 
     fn new_selected_label(&self, selected: bool, text: &str) -> NavItem {
         NavItem::new(text, selected)
-            .color(self.settings.theme.navigation_text_color())
-            .active_color(self.settings.theme.navigation_text_active_color())
-            .hover_color(self.settings.theme.navigation_text_hover_color())
+            .color(self.theme.navigation_text_color())
+            .active_color(self.theme.navigation_text_active_color())
+            .hover_color(self.theme.navigation_text_hover_color())
             .sense(Sense::click())
     }
 

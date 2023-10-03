@@ -20,7 +20,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if ui
         .button(
             RichText::new("  >  Create a New Nostr Account")
-                .color(app.settings.theme.accent_color()),
+                .color(app.theme.accent_color()),
         )
         .clicked()
     {
@@ -32,7 +32,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if ui
         .button(
             RichText::new("  >  I Already have a Nostr Account")
-                .color(app.settings.theme.accent_color()),
+                .color(app.theme.accent_color()),
         )
         .clicked()
     {

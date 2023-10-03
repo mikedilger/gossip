@@ -60,7 +60,7 @@ impl<'a> CoverageEntry<'a> {
                 .size(list_entry::TITLE_FONT_SIZE)
                 .into(),
             Align::LEFT,
-            Some(app.settings.theme.accent_color()),
+            Some(app.theme.accent_color()),
             None,
         );
 
@@ -147,14 +147,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.add_space(10.0);
             {
                 let visuals = ui.visuals_mut();
-                visuals.widgets.inactive.weak_bg_fill = app.settings.theme.accent_color();
+                visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
                 visuals.widgets.inactive.fg_stroke.width = 1.0;
                 visuals.widgets.inactive.fg_stroke.color =
-                    app.settings.theme.get_style().visuals.extreme_bg_color;
-                visuals.widgets.hovered.weak_bg_fill = app.settings.theme.navigation_text_color();
-                visuals.widgets.hovered.fg_stroke.color = app.settings.theme.accent_color();
+                    app.theme.get_style().visuals.extreme_bg_color;
+                visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
+                visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
                 visuals.widgets.inactive.fg_stroke.color =
-                    app.settings.theme.get_style().visuals.extreme_bg_color;
+                    app.theme.get_style().visuals.extreme_bg_color;
 
                 if ui
                     .button(Page::RelaysActivityMonitor.name())

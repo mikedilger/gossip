@@ -1,5 +1,6 @@
 use super::feed::NoteRenderData;
 use super::HighlightType;
+use crate::settings::Settings;
 use eframe::egui::{
     Color32, Context, FontData, FontDefinitions, FontTweak, Margin, Rounding, Stroke, Style,
     TextFormat, TextStyle, Ui,
@@ -18,7 +19,7 @@ pub use default::DefaultTheme;
 mod roundy;
 pub use roundy::RoundyTheme;
 
-pub fn apply_theme(theme: Theme, ctx: &Context) {
+pub fn apply_theme(theme: &Theme, ctx: &Context) {
     ctx.set_style(theme.get_style());
     ctx.set_fonts(theme.font_definitions());
     let mut style: eframe::egui::Style = (*ctx.style()).clone();
@@ -40,6 +41,22 @@ pub struct Theme {
     pub dark_mode: bool,
     pub follow_os_dark_mode: bool,
 }
+
+impl Theme {
+    pub fn from_settings(settings: &Settings) -> Theme {
+        Theme {
+            variant: match &*settings.theme_variant {
+                "Classic" => ThemeVariant::Classic,
+                "Default" => ThemeVariant::Default,
+                "Roundy" => ThemeVariant::Roundy,
+                _ => ThemeVariant::Default,
+            },
+            dark_mode: settings.dark_mode,
+            follow_os_dark_mode: settings.follow_os_dark_mode,
+        }
+    }
+}
+
 pub struct FeedProperties {
     /// This is a thread
     pub is_thread: bool,

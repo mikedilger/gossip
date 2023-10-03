@@ -1,7 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::storage::Storage;
-use crate::ui::Theme;
 use nostr_types::PublicKey;
 use paste::paste;
 use serde::{Deserialize, Serialize};
@@ -80,7 +79,9 @@ pub struct Settings {
     pub max_fps: u32,
     pub recompute_feed_periodically: bool,
     pub feed_recompute_interval_ms: u32,
-    pub theme: Theme,
+    pub theme_variant: String,
+    pub dark_mode: bool,
+    pub follow_os_dark_mode: bool,
     pub override_dpi: Option<u32>,
     pub highlight_unread_events: bool,
     pub posting_area_at_top: bool,
@@ -153,7 +154,9 @@ impl Default for Settings {
             max_fps: default_setting!(max_fps),
             recompute_feed_periodically: default_setting!(recompute_feed_periodically),
             feed_recompute_interval_ms: default_setting!(feed_recompute_interval_ms),
-            theme: default_setting!(theme),
+            theme_variant: default_setting!(theme_variant),
+            dark_mode: default_setting!(dark_mode),
+            follow_os_dark_mode: default_setting!(follow_os_dark_mode),
             override_dpi: default_setting!(override_dpi),
             highlight_unread_events: default_setting!(highlight_unread_events),
             posting_area_at_top: default_setting!(posting_area_at_top),
@@ -230,7 +233,9 @@ impl Settings {
             max_fps: load_setting!(max_fps),
             recompute_feed_periodically: load_setting!(recompute_feed_periodically),
             feed_recompute_interval_ms: load_setting!(feed_recompute_interval_ms),
-            theme: load_setting!(theme),
+            theme_variant: load_setting!(theme_variant),
+            dark_mode: load_setting!(dark_mode),
+            follow_os_dark_mode: load_setting!(follow_os_dark_mode),
             override_dpi: load_setting!(override_dpi),
             highlight_unread_events: load_setting!(highlight_unread_events),
             posting_area_at_top: load_setting!(posting_area_at_top),
@@ -303,7 +308,9 @@ impl Settings {
         save_setting!(max_fps, self, txn);
         save_setting!(recompute_feed_periodically, self, txn);
         save_setting!(feed_recompute_interval_ms, self, txn);
-        save_setting!(theme, self, txn);
+        save_setting!(theme_variant, self, txn);
+        save_setting!(dark_mode, self, txn);
+        save_setting!(follow_os_dark_mode, self, txn);
         save_setting!(override_dpi, self, txn);
         save_setting!(highlight_unread_events, self, txn);
         save_setting!(posting_area_at_top, self, txn);

@@ -61,7 +61,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 ui.add_space(12.0);
                 ui.label("Pet name:");
                 if app.editing_petname {
-                    let edit_color = app.settings.theme.input_text_color();
+                    let edit_color = app.theme.input_text_color();
                     ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
                     if ui.button("save").clicked() {
                         let mut person = person.clone();

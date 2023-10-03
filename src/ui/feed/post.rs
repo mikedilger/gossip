@@ -121,7 +121,7 @@ fn dm_posting_area(
     let mut send_now: bool = false;
 
     // Text area
-    let theme = app.settings.theme;
+    let theme = app.theme;
     let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
         let mut layout_job = textarea_highlighter(theme, text.to_owned());
         layout_job.wrap.max_width = wrap_width;
@@ -313,7 +313,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             if app.draft_data.repost.is_none() {
                 // Text area
-                let theme = app.settings.theme;
+                let theme = app.theme;
                 let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
                     let mut layout_job = textarea_highlighter(theme, text.to_owned());
                     layout_job.wrap.max_width = wrap_width;

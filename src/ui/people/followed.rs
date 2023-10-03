@@ -189,7 +189,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     {
                         ui.label(
                             RichText::new("Relay list not found")
-                                .color(app.settings.theme.warning_marker_text_color()),
+                                .color(app.theme.warning_marker_text_color()),
                         );
                     }
                 });

@@ -355,10 +355,10 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
         egui::Layout::left_to_right(egui::Align::Min),
         |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                ui.visuals_mut().widgets.inactive.weak_bg_fill = app.settings.theme.accent_color();
+                ui.visuals_mut().widgets.inactive.weak_bg_fill = app.theme.accent_color();
                 ui.visuals_mut().widgets.hovered.weak_bg_fill = {
                     let mut hsva: egui::ecolor::HsvaGamma =
-                        app.settings.theme.accent_color().into();
+                        app.theme.accent_color().into();
                     hsva.v *= 0.8;
                     hsva.into()
                 };
@@ -415,10 +415,10 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
         // if the overlord has added the relay, we are done for now
         if GLOBALS.storage.read_relay(&url).is_ok() {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                ui.visuals_mut().widgets.inactive.weak_bg_fill = app.settings.theme.accent_color();
+                ui.visuals_mut().widgets.inactive.weak_bg_fill = app.theme.accent_color();
                 ui.visuals_mut().widgets.hovered.weak_bg_fill = {
                     let mut hsva: egui::ecolor::HsvaGamma =
-                        app.settings.theme.accent_color().into();
+                        app.theme.accent_color().into();
                     hsva.v *= 0.8;
                     hsva.into()
                 };
@@ -453,7 +453,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
         .on_hover_text("Configure List View");
     let btn_rect = response.rect;
     let color = if response.hovered() {
-        app.settings.theme.accent_color()
+        app.theme.accent_color()
     } else {
         ui.visuals().text_color()
     };

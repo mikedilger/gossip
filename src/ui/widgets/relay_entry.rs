@@ -153,7 +153,7 @@ pub struct RelayEntry {
 impl RelayEntry {
     pub(in crate::ui) fn new(relay: Relay, app: &mut GossipUi) -> Self {
         let usage = UsageBits::from_usage_bits(relay.usage_bits);
-        let accent = app.settings.theme.accent_color();
+        let accent = app.theme.accent_color();
         let mut hsva: ecolor::HsvaGamma = accent.into();
         hsva.v *= 0.8;
         let accent_hover: Color32 = hsva.into();

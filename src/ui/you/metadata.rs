@@ -52,7 +52,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     }
 
-    let edit_color = app.settings.theme.input_text_color();
+    let edit_color = app.theme.input_text_color();
     if app.editing_metadata {
         edit_line(ui, "Name", &mut app.metadata.name, edit_color);
         ui.add_space(18.0);

@@ -412,7 +412,7 @@ impl People {
         Ok(())
     }
 
-    pub fn get_avatar(&self, pubkey: &PublicKey) -> Option<ColorImage> {
+    pub fn get_avatar(&self, pubkey: &PublicKey, rounded: bool) -> Option<ColorImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.avatars_temp.remove(pubkey) {
             return Some(th.1);
@@ -477,13 +477,12 @@ impl People {
                             .load(Ordering::Relaxed)
                         / 100;
 
-                    let round_image = GLOBALS.storage.read_setting_theme().round_image();
                     match crate::media::load_image_bytes(
                         &bytes,
                         true, // crop square
                         size, // default size,
                         true, // force to that size
-                        round_image,
+                        rounded,
                     ) {
                         Ok(color_image) => {
                             GLOBALS.people.avatars_temp.insert(apubkey, color_image);
