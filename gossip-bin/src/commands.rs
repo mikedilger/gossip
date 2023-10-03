@@ -1,7 +1,7 @@
-use crate::error::{Error, ErrorKind};
-use crate::globals::GLOBALS;
-use crate::people::PersonList;
-use crate::person_relay::PersonRelay;
+use gossip_lib::error::{Error, ErrorKind};
+use gossip_lib::globals::GLOBALS;
+use gossip_lib::people::PersonList;
+use gossip_lib::person_relay::PersonRelay;
 use bech32::FromBase32;
 use nostr_types::{
     Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, RelayUrl,
@@ -386,7 +386,7 @@ pub fn import_event(cmd: Command, mut args: env::Args, runtime: &Runtime) -> Res
     login(cmd.clone())?;
 
     let job = tokio::task::spawn(async move {
-        if let Err(e) = crate::process::process_new_event(&event, None, None, false, true).await {
+        if let Err(e) = gossip_lib::process::process_new_event(&event, None, None, false, true).await {
             println!("ERROR: {}", e);
         }
     });
@@ -575,7 +575,7 @@ pub fn reprocess_recent(cmd: Command, runtime: &Runtime) -> Result<(), Error> {
 
         let mut count = 0;
         for event in events.iter() {
-            if let Err(e) = crate::process::process_new_event(event, None, None, false, true).await
+            if let Err(e) = gossip_lib::process::process_new_event(event, None, None, false, true).await
             {
                 println!("ERROR: {}", e);
             }

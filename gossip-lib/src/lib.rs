@@ -5,7 +5,6 @@
 #![allow(clippy::uninlined_format_args)]
 
 pub mod about;
-pub mod commands;
 pub mod comms;
 pub mod date_ago;
 pub mod delegation;

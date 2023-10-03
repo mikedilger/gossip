@@ -4,6 +4,8 @@
 // TEMPORARILY
 #![allow(clippy::uninlined_format_args)]
 
+mod commands;
+
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::error::Error;
 use gossip_lib::globals::GLOBALS;
@@ -41,7 +43,7 @@ fn main() -> Result<(), Error> {
     // If we were handed a command, execute the command and return
     let args = env::args();
     if args.len() > 1 {
-        match gossip_lib::commands::handle_command(args, &rt) {
+        match commands::handle_command(args, &rt) {
             Err(e) => {
                 println!("{}", e);
                 return Ok(());
