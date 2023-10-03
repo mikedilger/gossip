@@ -41,7 +41,6 @@ use egui::{
     Align, Color32, ColorImage, Context, Image, ImageData, Label, Layout, RichText, ScrollArea,
     Sense, TextureHandle, TextureOptions, Ui, Vec2,
 };
-use egui_extras::image::FitTo;
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
@@ -51,6 +50,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
+use usvg::TreeParsing;
 use zeroize::Zeroize;
 
 use self::feed::Notes;
@@ -526,14 +526,16 @@ impl GossipUi {
         // how to load an svg
         let options_symbol = {
             let bytes = include_bytes!("../../assets/option.svg");
-            let color_image = egui_extras::image::load_svg_bytes_with_size(
-                bytes,
-                FitTo::Size(
-                    (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
-                    (cctx.egui_ctx.pixels_per_point() * 40.0) as u32,
-                ),
-            )
-            .unwrap();
+            let opt = usvg::Options {
+                dpi: dpi as f32,
+                .. Default::default()
+            };
+            let rtree = usvg::Tree::from_data(bytes, &opt).unwrap();
+            let [w, h] = [20_u32, 20_u32];
+            let mut pixmap = tiny_skia::Pixmap::new(w, h).unwrap();
+            let tree = resvg::Tree::from_usvg(&rtree);
+            tree.render(Default::default(), &mut pixmap.as_mut());
+            let color_image = ColorImage::from_rgba_unmultiplied([w as _, h as _], pixmap.data());
             cctx.egui_ctx
                 .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
