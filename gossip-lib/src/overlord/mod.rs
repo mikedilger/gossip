@@ -2161,7 +2161,7 @@ impl Overlord {
         Ok(())
     }
 
-    /// Subscribe to the multiple user's relay lists (optionally on the given relays, otherwise using
+  /// Subscribe to the multiple user's relay lists (optionally on the given relays, otherwise using
     /// theconfigured discover relays)
     pub async fn subscribe_discover(
         &mut self,
