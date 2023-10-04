@@ -1,84 +1,9 @@
-[package]
-name = "gossip"
-version = "0.9.0-unstable"
-description = "A social media client for nostr"
-authors = ["Mike Dilger <mike@mikedilger.com>", "fiatjaf <fiatjaf@gmail.com>", "Nate Levin <natelevincycling@gmail.com>", "Nethanja Focking <nethanja@nethanja.de>", "Daniele Tonon <tonon@vitamino.it>", "jeremyd (@jeremyd)"]
-license = "MIT"
-repository = "https://github.com/mikedilger/gossip"
-homepage = "https://github.com/mikedilger/gossip"
-default-run = "gossip"
-edition = "2021"
-
-[features]
-default = ["rustls-tls"]
-lang-cjk = []
-video-ffmpeg = [ "egui-video", "sdl2" ]
-
-native-tls = [ "reqwest/native-tls", "tungstenite/native-tls", "tokio-tungstenite/native-tls"]
-rustls-tls = [ "reqwest/rustls-tls", "tungstenite/rustls-tls-webpki-roots", "tokio-tungstenite/rustls-tls-webpki-roots"]
-
-[patch.crates-io]
-# override egui crate for egui_video dependency
-egui = { git =  "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452" }
-# Use the master branch of SDL2 to include a fix related to clang (and XCode after 14.2)
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "27cd1fd67c811e06b9d997a77bb6089a1b65070d" }
-
-[dependencies]
-async-recursion = "1.0"
-async-trait = "0.1"
-base64 = "0.21"
-bech32 = "0.9"
-dashmap = "5.4"
-dirs = "5.0"
-eframe = { git = "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452", features = [ "persistence" ] }
-egui-winit = { git = "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452", features = [ "default" ] }
-egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "81cc3ee58818754272582397161cc55ff11bde18",  features = [ "from_bytes" ], optional = true }
-encoding_rs = "0.8"
-fallible-iterator = "0.2"
-filetime = "0.2"
-futures = "0.3"
-futures-util = "0.3"
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "39f9c14b1c201842c512754920f4da4987cd68b6" }
-heed = { git = "https://github.com/meilisearch/heed", rev = "02030e3bf3d26ee98d4f5343fc086a7b63289159" }
-hex = "0.4"
-http = "0.2"
-humansize = "2.1"
-image = { version = "0.24.6", features = [ "png", "jpeg" ] }
-kamadak-exif = "0.5"
-lazy_static = "1.4"
-linkify = "0.9"
-memoize = "0.4"
-mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "61ed6d8ab07363ee5861e7460e795b32b131460a", features = [ "speedy" ] }
-parking_lot = "0.12"
-paste = "1.0"
-qrcode = { git = "https://github.com/mikedilger/qrcode-rust", rev = "519b77b3efa3f84961169b47d3de08c5ddd86548" }
-rand = "0.8"
-regex = "1.8"
-reqwest = { version = "0.11", default-features=false, features = ["brotli", "deflate", "gzip", "json"] }
-resvg = "0.35.0"
-rhai = { version = "1.15", features = [ "std", "sync" ]}
-rpassword = "7.2"
-rusqlite = { version = "0.29", features = ["bundled", "chrono", "serde_json"] }
-sdl2 = { version = "0.35.2", features = ["bundled"], optional = true }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sha2 = "0.10"
-speedy = { git = "https://github.com/mikedilger/speedy", rev = "b8b713a7006958616dd3ef3ba63217740b4b09c2" }
-time = { version = "0.3", features = [ "formatting", "macros" ] }
-tiny-skia = "0.10.0"
-tokio = { version = "1", features = ["full"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
-tokio-tungstenite = { version = "0.19", default-features = false, features = [ "connect", "handshake" ] }
-tungstenite = { version = "0.19", default-features = false }
-url = "2.4"
-usvg = "0.35.0"
-vecmap-rs = "0.1"
-zeroize = "1.6"
-
-[target.'cfg(windows)'.dependencies]
-normpath = "1.1"
+[workspace]
+members = [
+  "gossip-lib",
+  "gossip-bin",
+]
+resolver = "2"
 
 # Force scrypt to build with release-like speed even in dev mode
 [profile.dev.package.scrypt]
@@ -86,13 +11,8 @@ opt-level = 3
 debug-assertions = false
 overflow-checks = false
 
-[package.metadata.deb]
-section = "web"
-assets = [
-    ["target/release/gossip", "/usr/bin/", "755"],
-    ["packaging/debian/gossip.desktop", "/usr/share/applications/gossip.desktop", "644"],
-]
-features = [ "lang-cjk" ]
-
-[package.metadata.appimage]
-auto_link = true
+[patch.crates-io]
+# override egui crate for egui_video dependency
+egui = { git =  "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452" }
+# Use the master branch of SDL2 to include a fix related to clang (and XCode after 14.2)
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "27cd1fd67c811e06b9d997a77bb6089a1b65070d" }

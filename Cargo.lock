@@ -1825,15 +1825,43 @@ dependencies = [
 name = "gossip"
 version = "0.9.0-unstable"
 dependencies = [
+ "bech32",
+ "eframe",
+ "egui-video",
+ "egui-winit",
+ "gossip-lib",
+ "gossip-relay-picker",
+ "humansize",
+ "image",
+ "lazy_static",
+ "memoize",
+ "nostr-types",
+ "qrcode",
+ "resvg",
+ "rpassword",
+ "sdl2",
+ "serde",
+ "serde_json",
+ "time",
+ "tiny-skia 0.10.0",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "usvg",
+ "zeroize",
+]
+
+[[package]]
+name = "gossip-lib"
+version = "0.9.0-unstable"
+dependencies = [
  "async-recursion",
  "async-trait",
  "base64",
  "bech32",
  "dashmap",
  "dirs",
- "eframe",
- "egui-video",
- "egui-winit",
  "encoding_rs",
  "fallible-iterator",
  "filetime",
@@ -1843,40 +1871,33 @@ dependencies = [
  "heed",
  "hex",
  "http",
- "humansize",
  "image",
  "kamadak-exif",
  "lazy_static",
  "linkify",
- "memoize",
  "mime",
  "normpath",
  "nostr-types",
  "parking_lot",
  "paste",
- "qrcode",
  "rand",
  "regex",
  "reqwest",
  "resvg",
  "rhai",
- "rpassword",
  "rusqlite",
  "sdl2",
  "serde",
  "serde_json",
  "sha2",
  "speedy",
- "time",
  "tiny-skia 0.10.0",
  "tokio",
  "tokio-tungstenite",
  "tracing",
- "tracing-subscriber",
  "tungstenite",
  "url",
  "usvg",
- "vecmap-rs",
  "zeroize",
 ]
 
@@ -4718,12 +4739,6 @@ name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
-
-[[package]]
-name = "vecmap-rs"
-version = "0.1.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cad664eb33a8dd1f8d70a8fdab8f65ec0cca43b3b0151b3ff8a1e19f5f2a1d57"
 
 [[package]]
 name = "version-compare"
