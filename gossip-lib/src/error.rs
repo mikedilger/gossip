@@ -1,6 +1,6 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
 
-/// Error kinds that can occur in gossip-lib
+/// Errors that can occur in gossip-lib
 #[derive(Debug)]
 pub enum ErrorKind {
     BroadcastSend(String),
