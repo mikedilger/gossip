@@ -3,8 +3,8 @@ use eframe::egui;
 use egui::widgets::Slider;
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::settings::Settings;
+use gossip_lib::Settings;
+use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Storage Settings");

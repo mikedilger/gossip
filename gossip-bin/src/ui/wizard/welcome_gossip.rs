@@ -2,7 +2,7 @@ use crate::ui::wizard::WizardPage;
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.wizard_state.pubkey.is_some() {

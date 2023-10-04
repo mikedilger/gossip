@@ -5,11 +5,12 @@
 #![allow(clippy::uninlined_format_args)]
 
 mod commands;
+mod date_ago;
 mod ui;
 
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::error::Error;
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::Error;
+use gossip_lib::GLOBALS;
 use std::ops::DerefMut;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -98,7 +99,7 @@ async fn tokio_main() {
     .unwrap();
 
     // Run the overlord
-    let mut overlord = gossip_lib::overlord::Overlord::new(overlord_receiver);
+    let mut overlord = gossip_lib::Overlord::new(overlord_receiver);
     overlord.run().await;
 }
 

@@ -11,9 +11,9 @@ use crate::ui::widgets::CopyButton;
 use crate::ui::{GossipUi, Page};
 use crate::AVATAR_SIZE_F32;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::dm_channel::DmChannel;
-use gossip_lib::feed::FeedKind;
-use gossip_lib::globals::{ZapState, GLOBALS};
+use gossip_lib::DmChannel;
+use gossip_lib::FeedKind;
+use gossip_lib::{ZapState, GLOBALS};
 pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
 use eframe::egui::{self, Margin};
 use egui::{
@@ -528,7 +528,7 @@ fn render_note_inner(
                     }
 
                     ui.label(
-                        RichText::new(gossip_lib::date_ago::date_ago(note.event.created_at))
+                        RichText::new(crate::date_ago::date_ago(note.event.created_at))
                             .italics()
                             .weak(),
                     )
@@ -789,7 +789,7 @@ fn render_note_inner(
 
                                     // To zap, the user must have a lnurl, and the event must have been
                                     // seen on some relays
-                                    let mut zap_lnurl = None;
+                                    let mut zap_lnurl: Option<String> = None;
                                     if let Some(ref metadata) = note.author.metadata {
                                         if let Some(lnurl) = metadata.lnurl() {
                                             zap_lnurl = Some(lnurl);

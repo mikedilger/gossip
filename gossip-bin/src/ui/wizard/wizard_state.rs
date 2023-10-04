@@ -1,5 +1,5 @@
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::relay::Relay;
+use gossip_lib::Relay;
+use gossip_lib::GLOBALS;
 use nostr_types::{Event, EventKind, PublicKey, RelayUrl};
 use std::collections::HashSet;
 

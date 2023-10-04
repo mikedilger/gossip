@@ -2,9 +2,9 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
-use gossip_lib::feed::FeedKind;
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::relay::Relay;
+use gossip_lib::FeedKind;
+use gossip_lib::Relay;
+use gossip_lib::GLOBALS;
 
 mod follow_people;
 mod import_keys;

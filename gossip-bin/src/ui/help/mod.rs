@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
-use gossip_lib::feed::FeedKind;
+use gossip_lib::FeedKind;
 
 mod about;
 mod stats;

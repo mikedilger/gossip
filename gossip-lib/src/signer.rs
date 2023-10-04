@@ -8,6 +8,7 @@ use nostr_types::{
 use parking_lot::RwLock;
 use tokio::task;
 
+/// The signer which holds the user's identity and signs things on their behalf.
 #[derive(Default)]
 pub struct Signer {
     public: RwLock<Option<PublicKey>>,

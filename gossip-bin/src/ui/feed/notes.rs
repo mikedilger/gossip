@@ -1,5 +1,5 @@
 use super::notedata::NoteData;
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::GLOBALS;
 use nostr_types::{Id, PublicKey};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 

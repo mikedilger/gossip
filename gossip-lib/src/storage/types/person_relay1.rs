@@ -2,35 +2,38 @@ use nostr_types::{PublicKey, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
+/// A person-relay association
 #[derive(Debug, Readable, Writable, Serialize, Deserialize)]
 pub struct PersonRelay1 {
-    // The person
+    /// The person
     pub pubkey: PublicKey,
 
-    // The relay associated with that person
+    /// The relay associated with that person
     pub url: RelayUrl,
 
-    // The last time we fetched one of the person's events from this relay
+    /// The last time we fetched one of the person's events from this relay
     pub last_fetched: Option<u64>,
 
-    // When we follow someone at a relay
+    /// When we follow someone at a relay
     pub last_suggested_kind3: Option<u64>,
 
-    // When we get their nip05 and it specifies this relay
+    /// When we get their nip05 and it specifies this relay
     pub last_suggested_nip05: Option<u64>,
 
-    // Updated when a 'p' tag on any event associates this person and relay via the
-    // recommended_relay_url field
+    /// Updated when a 'p' tag on any event associates this person and relay via the
+    /// recommended_relay_url field
     pub last_suggested_bytag: Option<u64>,
 
+    /// If they set 'read' on their relay list
     pub read: bool,
 
+    /// If they set 'write' on their relay list
     pub write: bool,
 
-    // When we follow someone at a relay, this is set true
+    /// If the user manaully specified 'read' for this association
     pub manually_paired_read: bool,
 
-    // When we follow someone at a relay, this is set true
+    /// If the user manaully specified 'write' for this association
     pub manually_paired_write: bool,
 }
 

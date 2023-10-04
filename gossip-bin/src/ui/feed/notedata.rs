@@ -1,5 +1,5 @@
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::people::{Person, PersonList};
+use gossip_lib::GLOBALS;
+use gossip_lib::{Person, PersonList};
 
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,

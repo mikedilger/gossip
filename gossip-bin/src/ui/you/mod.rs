@@ -4,7 +4,7 @@ use eframe::egui;
 use egui::style::Margin;
 use egui::{Color32, Context, Frame, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::globals::{Globals, GLOBALS};
+use gossip_lib::{Globals, GLOBALS};
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
@@ -250,10 +250,10 @@ fn offer_change_password(app: &mut GossipUi, ui: &mut Ui) {
         } else {
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::ChangePassphrase(
-                    app.password.clone(),
-                    app.password2.clone(),
-                ));
+                .send(ToOverlordMessage::ChangePassphrase {
+                    old: app.password.clone(),
+                    new: app.password2.clone(),
+                });
             app.password.zeroize();
             app.password = "".to_owned();
             app.password2.zeroize();
@@ -335,10 +335,10 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
                 .write()
                 .write("Passwords do not match".to_owned());
         } else {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
-                app.import_priv.clone(),
-                app.password.clone(),
-            ));
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv {
+                privkey: app.import_priv.clone(),
+                password: app.password.clone(),
+            });
         }
         app.password.zeroize();
         app.password = "".to_owned();
@@ -366,10 +366,10 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         ui.add(text_edit_line!(app, app.password).password(true));
     });
     if ui.button("import").clicked() {
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
-            app.import_priv.clone(),
-            app.password.clone(),
-        ));
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv {
+            privkey: app.import_priv.clone(),
+            password: app.password.clone(),
+        });
         app.import_priv = "".to_owned();
         app.password.zeroize();
         app.password = "".to_owned();

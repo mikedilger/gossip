@@ -3,16 +3,37 @@ use crate::people::PersonList;
 use nostr_types::{Metadata, PublicKey};
 use serde::{Deserialize, Serialize};
 
+/// A person record
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Person2 {
+    /// Public key
     pub pubkey: PublicKey,
+
+    /// Petname
     pub petname: Option<String>,
+
+    /// Metadata
     pub metadata: Option<Metadata>,
+
+    /// When the metadata was created
     pub metadata_created_at: Option<i64>,
+
+    /// When the metadata was last received (to determine if we need to check
+    /// for an update)
     pub metadata_last_received: i64,
+
+    /// If nip05 checked out to be valid
     pub nip05_valid: bool,
+
+    /// When the nip05 was last checked (to determine if we need to check again)
     pub nip05_last_checked: Option<u64>,
+
+    /// When their relay list was created (to determine if we need to check
+    /// for an update)
     pub relay_list_created_at: Option<i64>,
+
+    /// When their relay list was last received (to determine if we need to
+    /// check for an update)
     pub relay_list_last_received: i64,
 }
 

@@ -1,7 +1,7 @@
 use super::GossipUi;
 use eframe::egui;
 use egui::{Context, Ui};
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::GLOBALS;
 use humansize::{format_size, DECIMAL};
 use std::sync::atomic::Ordering;
 

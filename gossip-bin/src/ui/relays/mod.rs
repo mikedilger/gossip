@@ -4,7 +4,7 @@ use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, Rect, RichText};
-use gossip_lib::{comms::ToOverlordMessage, globals::GLOBALS, relay::Relay};
+use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
 use nostr_types::RelayUrl;
 
 mod active;

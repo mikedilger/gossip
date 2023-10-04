@@ -3,8 +3,8 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Color32, Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::relay::Relay;
+use gossip_lib::Relay;
+use gossip_lib::GLOBALS;
 use gossip_relay_picker::Direction;
 use nostr_types::RelayUrl;
 

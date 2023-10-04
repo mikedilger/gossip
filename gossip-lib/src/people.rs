@@ -13,6 +13,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task;
 
+/// Person type, aliased to the latest version
 pub type Person = crate::storage::types::Person2;
 
 /// Lists people can be added to
@@ -47,6 +48,8 @@ impl From<PersonList> for u8 {
     }
 }
 
+/// Handles people and remembers what needs to be done for each, such as fetching
+/// metadata or avatars.
 pub struct People {
     // active person's relays (pull from db as needed)
     active_person: RwLock<Option<PublicKey>>,
@@ -91,7 +94,7 @@ impl Default for People {
 }
 
 impl People {
-    pub fn new() -> People {
+    pub(crate) fn new() -> People {
         People {
             active_person: RwLock::new(None),
             active_persons_write_relays: RwLock::new(vec![]),
@@ -108,7 +111,7 @@ impl People {
     }
 
     // Start the periodic task management
-    pub fn start() {
+    pub(crate) fn start() {
         if let Some(pk) = GLOBALS.signer.public_key() {
             // Load our contact list from the database in order to populate
             // last_contact_list_asof and last_contact_list_size

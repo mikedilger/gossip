@@ -1,8 +1,8 @@
 use bech32::FromBase32;
-use gossip_lib::error::{Error, ErrorKind};
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::people::PersonList;
-use gossip_lib::person_relay::PersonRelay;
+use gossip_lib::PersonList;
+use gossip_lib::PersonRelay;
+use gossip_lib::GLOBALS;
+use gossip_lib::{Error, ErrorKind};
 use nostr_types::{
     Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, RelayUrl,
     UncheckedUrl, Unixtime,
