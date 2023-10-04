@@ -30,12 +30,8 @@ pub mod signer;
 pub mod status;
 pub mod storage;
 pub mod tags;
-pub mod ui;
 
 #[macro_use]
 extern crate lazy_static;
-
-pub const AVATAR_SIZE: u32 = 48; // points, not pixels
-pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
 
 pub static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));

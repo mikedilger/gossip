@@ -1,7 +1,6 @@
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::AVATAR_SIZE;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::Direction;
 use image::RgbaImage;
@@ -418,7 +417,12 @@ impl People {
         Ok(())
     }
 
-    pub fn get_avatar(&self, pubkey: &PublicKey, rounded: bool) -> Option<RgbaImage> {
+    pub fn get_avatar(
+        &self,
+        pubkey: &PublicKey,
+        rounded: bool,
+        avatar_size: u32,
+    ) -> Option<RgbaImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.avatars_temp.remove(pubkey) {
             return Some(th.1);
@@ -477,7 +481,7 @@ impl People {
                 // Finish this later (spawn)
                 let apubkey = *pubkey;
                 tokio::spawn(async move {
-                    let size = AVATAR_SIZE * 3 // 3x feed size, 1x people page size
+                    let size = avatar_size * 3 // 3x feed size, 1x people page size
                         * GLOBALS
                             .pixels_per_point_times_100
                             .load(Ordering::Relaxed)

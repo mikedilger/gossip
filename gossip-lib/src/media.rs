@@ -28,7 +28,6 @@ impl Default for Media {
     }
 }
 
-
 impl Media {
     pub fn new() -> Media {
         Media {

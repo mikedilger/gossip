@@ -5,6 +5,7 @@
 #![allow(clippy::uninlined_format_args)]
 
 mod commands;
+mod ui;
 
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::error::Error;
@@ -12,6 +13,9 @@ use gossip_lib::globals::GLOBALS;
 use std::ops::DerefMut;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
+
+pub const AVATAR_SIZE: u32 = 48; // points, not pixels
+pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
 
 fn main() -> Result<(), Error> {
     if env::var("RUST_LOG").is_err() {
@@ -63,7 +67,7 @@ fn main() -> Result<(), Error> {
         rt.block_on(tokio_main());
     });
 
-    if let Err(e) = gossip_lib::ui::run() {
+    if let Err(e) = ui::run() {
         tracing::error!("{}", e);
     }
 
