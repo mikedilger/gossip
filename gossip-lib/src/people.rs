@@ -2,13 +2,13 @@ use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use dashmap::{DashMap, DashSet};
-use egui_winit::egui::ahash::{HashSet, HashSetExt};
 use gossip_relay_picker::Direction;
 use image::RgbaImage;
 use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::sync::RwLock;

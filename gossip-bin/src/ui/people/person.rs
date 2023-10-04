@@ -1,8 +1,7 @@
 use super::{GossipUi, Page};
 use crate::ui::widgets::CopyButton;
-use crate::ui::PersonTab;
 use crate::AVATAR_SIZE_F32;
-use crate::{comms::ToOverlordMessage, ui::PersonTab};
+use crate::ui::PersonTab;
 use eframe::egui;
 use egui::{Context, Frame, Image, RichText, TextEdit, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
