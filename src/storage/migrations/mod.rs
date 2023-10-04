@@ -498,7 +498,7 @@ impl Storage {
         const DEF: Theme1 = Theme1 {
             variant: ThemeVariant1::Default,
             dark_mode: false,
-            follow_os_dark_mode: true
+            follow_os_dark_mode: true,
         };
 
         let theme = match self.general.get(txn, b"theme") {
@@ -507,7 +507,7 @@ impl Storage {
             Ok(Some(bytes)) => match Theme1::read_from_buffer(bytes) {
                 Ok(val) => val,
                 Err(_) => DEF,
-            }
+            },
         };
 
         self.write_setting_theme_variant(&theme.variant.name().to_owned(), Some(txn))?;

@@ -178,7 +178,8 @@ pub(crate) fn load_image_bytes(
         let opt = usvg::Options::default();
         let rtree = usvg::Tree::from_data(image_bytes, &opt)?;
         let pixmap_size = rtree.size.to_int_size();
-        let [w, h] = if force_resize || pixmap_size.width() > 16384 || pixmap_size.height() > 16384 {
+        let [w, h] = if force_resize || pixmap_size.width() > 16384 || pixmap_size.height() > 16384
+        {
             [default_size, default_size]
         } else {
             [pixmap_size.width(), pixmap_size.height()]
@@ -281,7 +282,7 @@ fn round_image(image: &mut RgbaImage) {
             }
         } else {
             // Outside of the avatar circle
-            *pixel = Rgba([0,0,0,0]);
+            *pixel = Rgba([0, 0, 0, 0]);
         }
     }
 }

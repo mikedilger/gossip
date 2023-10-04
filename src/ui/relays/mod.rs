@@ -357,8 +357,7 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 ui.visuals_mut().widgets.inactive.weak_bg_fill = app.theme.accent_color();
                 ui.visuals_mut().widgets.hovered.weak_bg_fill = {
-                    let mut hsva: egui::ecolor::HsvaGamma =
-                        app.theme.accent_color().into();
+                    let mut hsva: egui::ecolor::HsvaGamma = app.theme.accent_color().into();
                     hsva.v *= 0.8;
                     hsva.into()
                 };
@@ -417,8 +416,7 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 ui.visuals_mut().widgets.inactive.weak_bg_fill = app.theme.accent_color();
                 ui.visuals_mut().widgets.hovered.weak_bg_fill = {
-                    let mut hsva: egui::ecolor::HsvaGamma =
-                        app.theme.accent_color().into();
+                    let mut hsva: egui::ecolor::HsvaGamma = app.theme.accent_color().into();
                     hsva.v *= 0.8;
                     hsva.into()
                 };

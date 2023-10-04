@@ -160,10 +160,7 @@ pub(super) fn render_note(
                 }
             }
 
-            thin_separator(
-                ui,
-                app.theme.feed_post_separator_stroke(&render_data),
-            );
+            thin_separator(ui, app.theme.feed_post_separator_stroke(&render_data));
         }
 
         // even if muted, continue rendering thread children
@@ -516,20 +513,17 @@ fn render_note_inner(
                             .constrain(true)
                             .show(ctx, |ui| {
                                 ui.set_min_width(200.0);
-                                egui::Frame::popup(&app.theme.get_style()).show(
-                                    ui,
-                                    |ui| {
-                                        if let Ok(seen_on) =
-                                            GLOBALS.storage.get_event_seen_on_relay(note.event.id)
-                                        {
-                                            for (url, _) in seen_on.iter() {
-                                                ui.label(url.as_str());
-                                            }
-                                        } else {
-                                            ui.label("unknown");
+                                egui::Frame::popup(&app.theme.get_style()).show(ui, |ui| {
+                                    if let Ok(seen_on) =
+                                        GLOBALS.storage.get_event_seen_on_relay(note.event.id)
+                                    {
+                                        for (url, _) in seen_on.iter() {
+                                            ui.label(url.as_str());
                                         }
-                                    },
-                                );
+                                    } else {
+                                        ui.label("unknown");
+                                    }
+                                });
                             });
                     }
 
@@ -1079,19 +1073,9 @@ fn render_repost(
                 .fill(app.theme.repost_fill(&render_data))
                 .stroke(app.theme.repost_stroke(&render_data))
                 .show(ui, |ui| {
-                    ui.add_space(
-                        app.theme
-                            .repost_space_above_separator_before(&render_data),
-                    );
-                    thin_separator(
-                        ui,
-                        app.theme
-                            .repost_separator_before_stroke(&render_data),
-                    );
-                    ui.add_space(
-                        app.theme
-                            .repost_space_below_separator_before(&render_data),
-                    );
+                    ui.add_space(app.theme.repost_space_above_separator_before(&render_data));
+                    thin_separator(ui, app.theme.repost_separator_before_stroke(&render_data));
+                    ui.add_space(app.theme.repost_space_below_separator_before(&render_data));
                     ui.horizontal_wrapped(|ui| {
                         let top = ui.next_widget_position();
 
@@ -1118,19 +1102,9 @@ fn render_repost(
                             }
                         }
                     });
-                    ui.add_space(
-                        app.theme
-                            .repost_space_above_separator_after(&render_data),
-                    );
-                    thin_separator(
-                        ui,
-                        app.theme
-                            .repost_separator_after_stroke(&render_data),
-                    );
-                    ui.add_space(
-                        app.theme
-                            .repost_space_below_separator_after(&render_data),
-                    );
+                    ui.add_space(app.theme.repost_space_above_separator_after(&render_data));
+                    thin_separator(ui, app.theme.repost_separator_after_stroke(&render_data));
+                    ui.add_space(app.theme.repost_space_below_separator_after(&render_data));
                 });
         });
 

@@ -726,7 +726,12 @@ impl Storage {
         u32,
         8000
     );
-    def_setting!(theme_variant, b"theme_variant", String, "Default".to_owned());
+    def_setting!(
+        theme_variant,
+        b"theme_variant",
+        String,
+        "Default".to_owned()
+    );
     def_setting!(dark_mode, b"dark_mode", bool, false);
     def_setting!(follow_os_dark_mode, b"follow_os_dark_mode", bool, true);
     def_setting!(override_dpi, b"override_dpi", Option::<u32>, None);
@@ -2044,7 +2049,6 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-
             // Erase all indices first
             self.db_event_ek_pk_index()?.clear(txn)?;
             self.db_event_ek_c_index()?.clear(txn)?;

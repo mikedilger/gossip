@@ -18,10 +18,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(20.0);
     if ui
-        .button(
-            RichText::new("  >  Create a New Nostr Account")
-                .color(app.theme.accent_color()),
-        )
+        .button(RichText::new("  >  Create a New Nostr Account").color(app.theme.accent_color()))
         .clicked()
     {
         app.wizard_state.new_user = true;
@@ -31,8 +28,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(20.0);
     if ui
         .button(
-            RichText::new("  >  I Already have a Nostr Account")
-                .color(app.theme.accent_color()),
+            RichText::new("  >  I Already have a Nostr Account").color(app.theme.accent_color()),
         )
         .clicked()
     {

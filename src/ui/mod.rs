@@ -1,14 +1,12 @@
 macro_rules! text_edit_line {
     ($app:ident, $var:expr) => {
-        egui::widgets::TextEdit::singleline(&mut $var)
-            .text_color($app.theme.input_text_color())
+        egui::widgets::TextEdit::singleline(&mut $var).text_color($app.theme.input_text_color())
     };
 }
 
 macro_rules! text_edit_multiline {
     ($app:ident, $var:expr) => {
-        egui::widgets::TextEdit::multiline(&mut $var)
-            .text_color($app.theme.input_text_color())
+        egui::widgets::TextEdit::multiline(&mut $var).text_color($app.theme.input_text_color())
     };
 }
 
@@ -528,7 +526,7 @@ impl GossipUi {
             let bytes = include_bytes!("../../assets/option.svg");
             let opt = usvg::Options {
                 dpi: dpi as f32,
-                .. Default::default()
+                ..Default::default()
             };
             let rtree = usvg::Tree::from_data(bytes, &opt).unwrap();
             let [w, h] = [20_u32, 20_u32];
@@ -561,7 +559,9 @@ impl GossipUi {
             let sys_dark_mode = cctx.egui_ctx.style().visuals.dark_mode;
             if settings.dark_mode != sys_dark_mode {
                 settings.dark_mode = sys_dark_mode;
-                let _ = GLOBALS.storage.write_setting_dark_mode(&sys_dark_mode, None);
+                let _ = GLOBALS
+                    .storage
+                    .write_setting_dark_mode(&sys_dark_mode, None);
             }
         }
 
@@ -996,14 +996,12 @@ impl eframe::App for GossipUi {
 
         egui::TopBottomPanel::top("top-area")
             .frame(
-                egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(
-                    egui::Margin {
-                        left: 20.0,
-                        right: 15.0,
-                        top: 10.0,
-                        bottom: 10.0,
-                    },
-                ),
+                egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 15.0,
+                    top: 10.0,
+                    bottom: 10.0,
+                }),
             )
             .resizable(true)
             .show_animated(
@@ -1215,7 +1213,7 @@ impl GossipUi {
         }
 
         if let Some(rgba_image) = GLOBALS.people.get_avatar(pubkey, self.theme.round_image()) {
-            let current_size = [rgba_image.width() as usize,rgba_image.height() as usize];
+            let current_size = [rgba_image.width() as usize, rgba_image.height() as usize];
             let pixels = rgba_image.as_flat_samples();
             let color_image = ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());
             let texture_handle = ctx.load_texture(
@@ -1257,7 +1255,7 @@ impl GossipUi {
         }
 
         if let Some(rgba_image) = GLOBALS.media.get_image(&url) {
-            let current_size = [rgba_image.width() as usize,rgba_image.height() as usize];
+            let current_size = [rgba_image.width() as usize, rgba_image.height() as usize];
             let pixels = rgba_image.as_flat_samples();
             let color_image = ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());
             let texture_handle = ctx.load_texture(

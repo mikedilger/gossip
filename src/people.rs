@@ -478,8 +478,7 @@ impl People {
                         / 100;
 
                     match crate::media::load_image_bytes(
-                        &bytes,
-                        true, // crop square
+                        &bytes, true, // crop square
                         size, // default size,
                         true, // force to that size
                         rounded,
