@@ -32,11 +32,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     ));
 
                     ui.label(
-                        RichText::new(crate::date_ago::date_ago(
-                            channeldata.latest_message_created_at,
-                        ))
-                        .italics()
-                        .weak(),
+                        RichText::new(crate::date_ago::date_ago(channeldata.latest_message))
+                            .italics()
+                            .weak(),
                     )
                     .on_hover_ui(|ui| {
                         if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(
