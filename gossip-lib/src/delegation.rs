@@ -3,6 +3,7 @@ use crate::globals::GLOBALS;
 use nostr_types::{PublicKey, Tag};
 use parking_lot::RwLock;
 
+/// A delegation tag to use when posting events on another's behalf
 #[derive(Default)]
 pub struct Delegation {
     // Delegatee NIP-26 delegation tag, optional

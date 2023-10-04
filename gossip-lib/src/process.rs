@@ -9,7 +9,9 @@ use nostr_types::{
 };
 use std::sync::atomic::Ordering;
 
-// Process a new event, saving the results into the database and also populating the GLOBALS maps
+/// This is mainly used internally to gossip-lib, but you can use it to stuff events
+/// into gossip from other sources. This processes a new event, saving the results into
+/// the database and also populating the GLOBALS maps.
 #[async_recursion]
 pub async fn process_new_event(
     event: &Event,

@@ -5,7 +5,7 @@ use eframe::egui::{
     TextFormat, TextStyle, Ui,
 };
 use eframe::epaint::{FontFamily, FontId, Shadow};
-use gossip_lib::settings::Settings;
+use gossip_lib::Settings;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

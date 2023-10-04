@@ -4,8 +4,8 @@ use eframe::{egui, Frame};
 use egui::widgets::Button;
 use egui::{Context, Image, Label, RichText, Sense, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::feed::FeedKind;
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::FeedKind;
+use gossip_lib::GLOBALS;
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
@@ -95,7 +95,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
 
                 ui.horizontal(|ui| {
                     ui.label(
-                        RichText::new(gossip_lib::date_ago::date_ago(event.created_at))
+                        RichText::new(crate::date_ago::date_ago(event.created_at))
                             .italics()
                             .weak(),
                     );

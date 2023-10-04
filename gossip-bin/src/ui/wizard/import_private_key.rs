@@ -3,7 +3,7 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::GLOBALS;
 use zeroize::Zeroize;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -78,10 +78,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             if !ncryptsec && app.password != app.password2 {
                 app.wizard_state.error = Some("ERROR: Passwords do not match".to_owned());
             } else {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv(
-                    app.import_priv.clone(),
-                    app.password.clone(),
-                ));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv {
+                    privkey: app.import_priv.clone(),
+                    password: app.password.clone(),
+                });
                 app.import_priv.zeroize();
                 app.import_priv = "".to_owned();
             }

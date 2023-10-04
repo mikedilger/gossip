@@ -1,7 +1,7 @@
 use crate::ui::{GossipUi, SettingsTab};
 use eframe::egui;
 use egui::{Align, Context, Layout, Ui};
-use gossip_lib::settings::Settings;
+use gossip_lib::Settings;
 
 mod content;
 mod database;

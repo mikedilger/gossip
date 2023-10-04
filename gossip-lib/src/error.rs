@@ -1,8 +1,9 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
 
+/// Errors that can occur in gossip-lib
 #[derive(Debug)]
 pub enum ErrorKind {
-    BroadcastSend(tokio::sync::broadcast::error::SendError<ToMinionMessage>),
+    BroadcastSend(String),
     BroadcastReceive(tokio::sync::broadcast::error::RecvError),
     Delegation(String),
     Empty(String),
@@ -64,7 +65,7 @@ impl std::fmt::Display for Error {
             write!(f, "{line}:")?;
         }
         match &self.kind {
-            BroadcastSend(e) => write!(f, "Error broadcasting: {e}"),
+            BroadcastSend(s) => write!(f, "Error broadcasting: {s}"),
             BroadcastReceive(e) => write!(f, "Error receiving broadcast: {e}"),
             Delegation(s) => write!(f, "NIP-26 Delegation Error: {s}"),
             Empty(s) => write!(f, "{s} is empty"),
@@ -142,7 +143,7 @@ where
 
 impl From<tokio::sync::broadcast::error::SendError<ToMinionMessage>> for ErrorKind {
     fn from(e: tokio::sync::broadcast::error::SendError<ToMinionMessage>) -> ErrorKind {
-        ErrorKind::BroadcastSend(e)
+        ErrorKind::BroadcastSend(format!("{}", e))
     }
 }
 

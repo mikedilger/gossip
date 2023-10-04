@@ -118,6 +118,9 @@ macro_rules! def_setting {
 
 type RawDatabase = Database<UnalignedSlice<u8>, UnalignedSlice<u8>>;
 
+/// The LMDB storage engine.
+///
+/// All calls are synchronous but fast so callers can just wait on them.
 pub struct Storage {
     env: Env,
 

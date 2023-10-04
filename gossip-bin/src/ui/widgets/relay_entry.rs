@@ -3,7 +3,7 @@ use eframe::egui::{self, *};
 use nostr_types::{PublicKeyHex, Unixtime};
 
 use crate::ui::{components, GossipUi};
-use gossip_lib::{comms::ToOverlordMessage, globals::GLOBALS, relay::Relay};
+use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
 
 use super::{
     list_entry::{
@@ -238,7 +238,7 @@ impl RelayEntry {
         let (color, tooltip) = if self.connected {
             let mut text = "Connected".to_string();
             if let Some(at) = self.relay.last_connected_at {
-                let ago = gossip_lib::date_ago::date_ago(Unixtime(at as i64));
+                let ago = crate::date_ago::date_ago(Unixtime(at as i64));
                 text = format!("Connected since {}", ago);
             }
             (egui::Color32::from_rgb(0x63, 0xc8, 0x56), text) // green
@@ -456,7 +456,7 @@ impl RelayEntry {
             let pos = pos + vec2(STATS_COL_3_X, 0.0);
             let mut ago = "".to_string();
             if let Some(at) = self.relay.last_general_eose_at {
-                ago += gossip_lib::date_ago::date_ago(Unixtime(at as i64)).as_str();
+                ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
             } else {
                 ago += "?";
             }
@@ -474,7 +474,7 @@ impl RelayEntry {
             let pos = pos + vec2(STATS_COL_4_X, 0.0);
             let mut ago = "".to_string();
             if let Some(at) = self.relay.last_connected_at {
-                ago += gossip_lib::date_ago::date_ago(Unixtime(at as i64)).as_str();
+                ago += crate::date_ago::date_ago(Unixtime(at as i64)).as_str();
             } else {
                 ago += "?";
             }

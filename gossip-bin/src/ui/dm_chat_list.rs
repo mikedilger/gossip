@@ -1,9 +1,9 @@
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Label, RichText, Sense, Ui};
-use gossip_lib::dm_channel::DmChannelData;
-use gossip_lib::feed::FeedKind;
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::DmChannelData;
+use gossip_lib::FeedKind;
+use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let mut channels: Vec<DmChannelData> = match GLOBALS.storage.dm_channels() {
@@ -32,7 +32,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     ));
 
                     ui.label(
-                        RichText::new(gossip_lib::date_ago::date_ago(channeldata.latest_message))
+                        RichText::new(crate::date_ago::date_ago(channeldata.latest_message))
                             .italics()
                             .weak(),
                     )

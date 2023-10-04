@@ -3,8 +3,8 @@ use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Image, RichText, Sense, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::people::Person;
+use gossip_lib::Person;
+use gossip_lib::GLOBALS;
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -63,7 +63,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::UpdateFollowing(false));
+                .send(ToOverlordMessage::UpdateFollowing { merge: false });
         }
         if ui
             .button("↓ Merge ↓")
@@ -74,7 +74,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::UpdateFollowing(true));
+                .send(ToOverlordMessage::UpdateFollowing { merge: true });
         }
 
         if GLOBALS.signer.is_ready() {

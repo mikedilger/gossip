@@ -16,7 +16,7 @@ use std::sync::RwLock;
 use std::time::{Duration, SystemTime};
 
 #[derive(Copy, Clone, Debug)]
-pub enum FetchState {
+enum FetchState {
     Queued,
     QueuedStale, // Queued, only fetching because cache is stale
     InFlight,
@@ -24,6 +24,7 @@ pub enum FetchState {
     // If it succeeds, it is removed entirely.
 }
 
+/// System that fetches HTTP resources
 #[derive(Debug, Default)]
 pub struct Fetcher {
     cache_dir: RwLock<PathBuf>,
@@ -40,13 +41,13 @@ pub struct Fetcher {
 }
 
 impl Fetcher {
-    pub fn new() -> Fetcher {
+    pub(crate) fn new() -> Fetcher {
         Fetcher {
             ..Default::default()
         }
     }
 
-    pub fn start() -> Result<(), Error> {
+    pub(crate) fn start() -> Result<(), Error> {
         // Setup the cache directory
         *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::current()?.cache_dir;
 

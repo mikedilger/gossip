@@ -6,8 +6,8 @@ use eframe::{
 };
 use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::feed::FeedKind;
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::FeedKind;
+use gossip_lib::GLOBALS;
 use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Tag, Url};
 use std::{
     cell::{Ref, RefCell},

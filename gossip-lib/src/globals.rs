@@ -19,6 +19,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
+/// The state that a Zap is in (it moves through 5 states before it is complete)
 #[derive(Debug, Clone)]
 pub enum ZapState {
     None,
@@ -28,22 +29,19 @@ pub enum ZapState {
     ReadyToPay(Id, String), // String is the Zap Invoice as a string, to be shown as a QR code
 }
 
-/// Only one of these is ever created, via lazy_static!, and represents
-/// global state for the rust application
+/// Global data shared between threads. Access via the static ref `GLOBALS`.
 pub struct Globals {
-    /// Is this the first run?
-    pub first_run: AtomicBool,
-
     /// This is a broadcast channel. All Minions should listen on it.
     /// To create a receiver, just run .subscribe() on it.
-    pub to_minions: broadcast::Sender<ToMinionMessage>,
+    pub(crate) to_minions: broadcast::Sender<ToMinionMessage>,
 
     /// This is a mpsc channel. The Overlord listens on it.
     /// To create a sender, just clone() it.
     pub to_overlord: mpsc::UnboundedSender<ToOverlordMessage>,
 
     /// This is ephemeral. It is filled during lazy_static initialization,
-    /// and stolen away when the Overlord is created.
+    /// and needs to be stolen away and given to the Overlord when the Overlord
+    /// is created.
     pub tmp_overlord_receiver: Mutex<Option<mpsc::UnboundedReceiver<ToOverlordMessage>>>,
 
     /// All nostr people records currently loaded into memory, keyed by pubkey
@@ -123,11 +121,12 @@ pub struct Globals {
     pub events_processed: AtomicU32,
 
     /// Filter
-    pub filter_engine: Engine,
-    pub filter: Option<AST>,
+    pub(crate) filter_engine: Engine,
+    pub(crate) filter: Option<AST>,
 }
 
 lazy_static! {
+    /// A static reference to global data shared between threads.
     pub static ref GLOBALS: Globals = {
 
         // Setup a communications channel from the Overlord to the Minions.
@@ -145,7 +144,6 @@ lazy_static! {
         let filter = crate::filter::load_script(&filter_engine);
 
         Globals {
-            first_run: AtomicBool::new(false),
             to_minions,
             to_overlord,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),

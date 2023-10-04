@@ -4,17 +4,40 @@ use gossip_relay_picker::Direction;
 use nostr_types::{Id, RelayInformationDocument, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 
+/// A relay record
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Relay1 {
+    /// The url
     pub url: RelayUrl,
+
+    /// How many times we successfully connected
     pub success_count: u64,
+
+    /// How many times we failed to connect, plus we also count when
+    /// the relay drops us without us requesting that
     pub failure_count: u64,
+
+    /// When we last connected to the relay
     pub last_connected_at: Option<u64>,
+
+    /// When the relay last gave us an EOSE on the general feed
     pub last_general_eose_at: Option<u64>,
+
+    /// What rank the user applied to this relay.
+    /// Valid ranks go from 0 to 9, with a default of 3. 0 means do not use.
     pub rank: u64,
+
+    /// If this should be hidden in the UI
     pub hidden: bool,
+
+    /// What usage this relay provides to the user
     pub usage_bits: u64,
+
+    /// The NIP-11 for this relay
     pub nip11: Option<RelayInformationDocument>,
+
+    /// The last time we attempted to fetch the NIP-11 for this relay
+    /// (in unixtime seconds)
     pub last_attempt_nip11: Option<u64>,
 }
 

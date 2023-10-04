@@ -3,9 +3,9 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::feed::FeedKind;
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::people::Person;
+use gossip_lib::FeedKind;
+use gossip_lib::Person;
+use gossip_lib::GLOBALS;
 use gossip_relay_picker::Direction;
 use nostr_types::{Profile, PublicKey};
 
@@ -19,7 +19,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if app.wizard_state.contacts_sought {
         let _ = GLOBALS
             .to_overlord
-            .send(ToOverlordMessage::UpdateFollowing(false));
+            .send(ToOverlordMessage::UpdateFollowing { merge: false });
         app.wizard_state.contacts_sought = false;
     }
 

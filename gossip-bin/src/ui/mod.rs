@@ -34,14 +34,14 @@ use egui::{
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
-use gossip_lib::about::About;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::dm_channel::DmChannel;
-use gossip_lib::error::Error;
-use gossip_lib::feed::FeedKind;
-use gossip_lib::globals::{ZapState, GLOBALS};
-use gossip_lib::people::{Person, PersonList};
-use gossip_lib::settings::Settings;
+use gossip_lib::About;
+use gossip_lib::DmChannel;
+use gossip_lib::Error;
+use gossip_lib::FeedKind;
+use gossip_lib::Settings;
+use gossip_lib::{Person, PersonList};
+use gossip_lib::{ZapState, GLOBALS};
 use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
@@ -610,7 +610,7 @@ impl GossipUi {
             submenu_ids,
             submenu_state: SubMenuState::new(),
             settings_tab: SettingsTab::Id,
-            about: gossip_lib::about::about(),
+            about: About::new(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
             options_symbol,

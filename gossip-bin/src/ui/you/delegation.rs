@@ -2,7 +2,7 @@ use super::GossipUi;
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::{Context, Ui};
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::GLOBALS;
 use tokio::task;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {

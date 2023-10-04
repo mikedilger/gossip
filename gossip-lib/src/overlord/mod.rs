@@ -18,9 +18,9 @@ use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, IdHex, Metadata, MilliSatoshi, NostrBech32,
-    PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag, UncheckedUrl,
-    Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, Id, IdHex, Metadata, MilliSatoshi,
+    NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag,
+    UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -33,6 +33,14 @@ use zeroize::Zeroize;
 
 type MinionResult = Result<(), Error>;
 
+/// The overlord handles any operation that involves talking to relays, and a few more.
+///
+/// There are two ways to engage the Overlord to do something:
+///
+/// 1. Call a function on it. This works from an async context.
+/// 2. Send it a message using `GLOBALS.to_overlord`. This works from a synchronous
+///    context, but does not wait for or deliver a result. This is how the canonical
+///    immediate-mode renderer (egui) engages the Overlord.
 pub struct Overlord {
     to_minions: Sender<ToMinionMessage>,
     inbox: UnboundedReceiver<ToOverlordMessage>,
@@ -45,6 +53,27 @@ pub struct Overlord {
 }
 
 impl Overlord {
+    /// To create an Overlord (and you should really only create one, even though we have
+    /// not forced this to be a singleton), you'll want to call this `new` function and
+    /// pass one half of the unbounded_channel to the overlord. You will have to steal this
+    /// from GLOBALS as follows:
+    ///
+    /// ````
+    /// let overlord_receiver = {
+    ///   let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
+    ///   mutex_option.deref_mut().take()
+    /// }.unwrap();
+    ///
+    /// let mut overlord = gossip_lib::Overlord::new(overlord_receifver);
+    /// ````
+    ///
+    /// Once you have created an overlord, run it and await on it. This will block your thread.
+    /// You may use other `tokio` or `futures` combinators, or spawn it on it's own thread
+    /// if you wish.
+    ///
+    /// ````
+    /// overlord.run().await();
+    /// ````
     pub fn new(inbox: UnboundedReceiver<ToOverlordMessage>) -> Overlord {
         let to_minions = GLOBALS.to_minions.clone();
         Overlord {
@@ -55,6 +84,8 @@ impl Overlord {
         }
     }
 
+    /// This runs the overlord. This blocks for the entire duration and only exits
+    /// when the overlord receives a signal to shutdown.
     pub async fn run(&mut self) {
         if let Err(e) = self.run_inner().await {
             tracing::error!("{}", e);
@@ -108,7 +139,7 @@ impl Overlord {
         tracing::info!("Overlord confirms all minions have shutdown");
     }
 
-    pub async fn run_inner(&mut self) -> Result<(), Error> {
+    async fn run_inner(&mut self) -> Result<(), Error> {
         // Start the fetcher
         crate::fetcher::Fetcher::start()?;
 
@@ -136,7 +167,7 @@ impl Overlord {
         // Separately subscribe to RelayList discovery for everyone we follow
         // We just do this once at startup. Relay lists don't change that frequently.
         let followed = GLOBALS.people.get_followed_pubkeys();
-        self.discover_pubkey_relays(followed, None).await?;
+        self.subscribe_discover(followed, None).await?;
 
         // Separately subscribe to our outbox events on our write relays
         let write_relay_urls: Vec<RelayUrl> = GLOBALS
@@ -183,16 +214,12 @@ impl Overlord {
         }
 
         'mainloop: loop {
-            match self.loop_handler().await {
-                Ok(keepgoing) => {
-                    if !keepgoing {
-                        break 'mainloop;
-                    }
-                }
-                Err(e) => {
-                    // Log them and keep looping
-                    tracing::error!("{}", e);
-                }
+            if let Err(e) = self.loop_handler().await {
+                tracing::error!("{}", e);
+            }
+
+            if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+                break 'mainloop;
             }
         }
 
@@ -304,9 +331,7 @@ impl Overlord {
     }
 
     #[allow(unused_assignments)]
-    async fn loop_handler(&mut self) -> Result<bool, Error> {
-        let mut keepgoing: bool = true;
-
+    async fn loop_handler(&mut self) -> Result<(), Error> {
         tracing::trace!("overlord looping");
 
         if self.minions.is_empty() {
@@ -316,10 +341,11 @@ impl Overlord {
                 Some(bm) => bm,
                 None => {
                     // All senders dropped, or one of them closed.
-                    return Ok(false);
+                    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+                    return Ok(());
                 }
             };
-            keepgoing = self.handle_message(message).await?;
+            self.handle_message(message).await?;
         } else {
             // Listen on inbox, and dying minions
             select! {
@@ -328,10 +354,11 @@ impl Overlord {
                         Some(bm) => bm,
                         None => {
                             // All senders dropped, or one of them closed.
-                            return Ok(false);
+                            GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+                            return Ok(());
                         }
                     };
-                    keepgoing = self.handle_message(message).await?;
+                    self.handle_message(message).await?;
                 },
                 task_nextjoined = self.minions.join_next_with_id() => {
                     self.handle_task_nextjoined(task_nextjoined).await;
@@ -339,7 +366,7 @@ impl Overlord {
             }
         }
 
-        Ok(keepgoing)
+        Ok(())
     }
 
     async fn handle_task_nextjoined(
@@ -474,26 +501,19 @@ impl Overlord {
         }
     }
 
-    async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<bool, Error> {
+    async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<(), Error> {
         match message {
             ToOverlordMessage::AddPubkeyRelay(pubkey, relayurl) => {
                 self.add_pubkey_relay(pubkey, relayurl).await?;
             }
             ToOverlordMessage::AddRelay(relay_url) => {
-                // Create relay if missing
-                GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
-
-                // Then pick relays again (possibly including the one added)
-                GLOBALS.relay_picker.refresh_person_relay_scores().await?;
-                self.pick_relays().await;
+                self.add_relay(relay_url).await?;
             }
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
             }
-            ToOverlordMessage::ChangePassphrase(mut old, mut new) => {
-                GLOBALS.signer.change_passphrase(&old, &new)?;
-                old.zeroize();
-                new.zeroize();
+            ToOverlordMessage::ChangePassphrase { old, new } => {
+                Self::change_passphrase(old, new).await?;
             }
             ToOverlordMessage::ClearFollowing => {
                 self.clear_following().await?;
@@ -505,153 +525,57 @@ impl Overlord {
                 Self::delegation_reset().await?;
             }
             ToOverlordMessage::DeletePost(id) => {
-                self.delete(id).await?;
+                self.delete_post(id).await?;
             }
             ToOverlordMessage::DeletePriv => {
-                GLOBALS.signer.delete_identity();
-                Self::delegation_reset().await?;
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Identity deleted.".to_string());
+                Self::delete_priv().await?;
             }
             ToOverlordMessage::DeletePub => {
-                GLOBALS.signer.clear_public_key();
-                Self::delegation_reset().await?;
-                GLOBALS.signer.save().await?;
+                Self::delete_pub().await?;
             }
             ToOverlordMessage::DropRelay(relay_url) => {
-                let _ = self.to_minions.send(ToMinionMessage {
-                    target: relay_url.as_str().to_owned(),
-                    payload: ToMinionPayload {
-                        job_id: 0,
-                        detail: ToMinionPayloadDetail::Shutdown,
-                    },
-                });
+                self.drop_relay(relay_url).await?;
             }
             ToOverlordMessage::FetchEvent(id, relay_urls) => {
-                // Don't do this if we already have the event
-                if GLOBALS.storage.has_event(id)? {
-                    return Ok(true);
-                }
-
-                // Note: minions will remember if they get the same id multiple times
-                //       not to fetch it multiple times.
-
-                for url in relay_urls.iter() {
-                    self.engage_minion(
-                        url.to_owned(),
-                        vec![RelayJob {
-                            reason: RelayConnectionReason::FetchEvent,
-                            payload: ToMinionPayload {
-                                job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::FetchEvent(id),
-                            },
-                        }],
-                    )
-                    .await?;
-                }
+                self.fetch_event(id, relay_urls).await?;
             }
             ToOverlordMessage::FetchEventAddr(ea) => {
-                for unchecked_url in ea.relays.iter() {
-                    if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(unchecked_url) {
-                        self.engage_minion(
-                            relay_url.to_owned(),
-                            vec![RelayJob {
-                                reason: RelayConnectionReason::FetchEvent,
-                                payload: ToMinionPayload {
-                                    job_id: rand::random::<u64>(),
-                                    detail: ToMinionPayloadDetail::FetchEventAddr(ea.clone()),
-                                },
-                            }],
-                        )
-                        .await?;
-                    }
-                }
+                self.fetch_event_addr(ea).await?;
             }
             ToOverlordMessage::FetchPersonContactList(pubkey) => {
                 tracing::debug!("Fetch Person's ContactList {}", &pubkey.as_hex_string());
                 self.fetch_person_contact_list(pubkey).await?;
             }
             ToOverlordMessage::FollowPubkey(pubkey) => {
-                GLOBALS.people.follow(&pubkey, true)?;
-                self.discover_pubkey_relays(vec![pubkey], None).await?;
-                tracing::debug!("Followed {}", &pubkey.as_hex_string());
+                self.follow_pubkey(pubkey).await?;
             }
             ToOverlordMessage::FollowNip05(nip05) => {
-                std::mem::drop(tokio::spawn(async move {
-                    if let Err(e) = crate::nip05::get_and_follow_nip05(nip05).await {
-                        tracing::error!("{}", e);
-                    }
-                }));
+                Self::follow_nip05(nip05).await?;
             }
             ToOverlordMessage::FollowNprofile(nprofile) => {
                 self.follow_nprofile(nprofile).await?;
             }
-            ToOverlordMessage::GeneratePrivateKey(mut password) => {
-                GLOBALS.signer.generate_private_key(&password)?;
-                password.zeroize();
-                GLOBALS.signer.save().await?;
+            ToOverlordMessage::GeneratePrivateKey(password) => {
+                Self::generate_private_key(password).await?;
             }
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
-                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-                    relay.hidden = hidden;
-                    GLOBALS.storage.write_relay(&relay, None)?;
-                }
+                Self::hide_or_show_relay(relay_url, hidden).await?;
             }
-            ToOverlordMessage::ImportPriv(mut import_priv, mut password) => {
-                if import_priv.starts_with("ncryptsec") {
-                    let epk = EncryptedPrivateKey(import_priv);
-                    GLOBALS.signer.set_encrypted_private_key(epk);
-                    if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
-                        password.zeroize();
-                        GLOBALS
-                            .status_queue
-                            .write()
-                            .write(format!("Private key failed to decrypt: {}", e));
-                    } else {
-                        password.zeroize();
-                        GLOBALS.signer.save().await?;
-                    }
-                } else {
-                    let maybe_pk1 = PrivateKey::try_from_bech32_string(import_priv.trim());
-                    let maybe_pk2 = PrivateKey::try_from_hex_string(import_priv.trim());
-                    import_priv.zeroize();
-                    if maybe_pk1.is_err() && maybe_pk2.is_err() {
-                        password.zeroize();
-                        GLOBALS
-                            .status_queue
-                            .write()
-                            .write("Private key not recognized.".to_owned());
-                    } else {
-                        let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-                        GLOBALS.signer.set_private_key(privkey, &password)?;
-                        password.zeroize();
-                        GLOBALS.signer.save().await?;
-                    }
-                }
+            ToOverlordMessage::ImportPriv { privkey, password } => {
+                Self::import_priv(privkey, password).await?;
             }
             ToOverlordMessage::ImportPub(pubstr) => {
-                let maybe_pk1 = PublicKey::try_from_bech32_string(pubstr.trim(), true);
-                let maybe_pk2 = PublicKey::try_from_hex_string(pubstr.trim(), true);
-                if maybe_pk1.is_err() && maybe_pk2.is_err() {
-                    GLOBALS
-                        .status_queue
-                        .write()
-                        .write("Public key not recognized.".to_owned());
-                } else {
-                    let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-                    GLOBALS.signer.set_public_key(pubkey);
-                    GLOBALS.signer.save().await?;
-                }
+                Self::import_pub(pubstr).await?;
             }
             ToOverlordMessage::Like(id, pubkey) => {
-                self.post_like(id, pubkey).await?;
+                self.like(id, pubkey).await?;
             }
             ToOverlordMessage::MinionIsReady => {
+                // internal
                 // currently ignored
             }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
+                // internal
                 // Complete the job if not persistent
                 if job_id != 0 {
                     if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
@@ -663,6 +587,7 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::MinionJobUpdated(url, old_job_id, new_job_id) => {
+                // internal
                 if old_job_id != 0 && new_job_id != 0 {
                     if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
                         refmut.value_mut().retain_mut(|job| {
@@ -680,55 +605,24 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::PickRelays => {
-                // When manually doing this, we refresh person_relay scores first which
-                // often change if the user just added follows.
-                GLOBALS.relay_picker.refresh_person_relay_scores().await?;
-
-                // Then pick
-                self.pick_relays().await;
+                self.pick_relays_cmd().await?;
+            }
+            ToOverlordMessage::Post {
+                content,
+                tags,
+                in_reply_to,
+                dm_channel,
+            } => {
+                self.post(content, tags, in_reply_to, dm_channel).await?;
             }
             ToOverlordMessage::PruneCache => {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Pruning cache, please be patient..".to_owned());
-
-                let age = Duration::new(
-                    GLOBALS.storage.read_setting_cache_prune_period_days() * 60 * 60 * 24,
-                    0,
-                );
-
-                let count = GLOBALS.fetcher.prune(age).await?;
-
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write(format!("Cache has been pruned. {} files removed.", count));
+                Self::prune_cache().await?;
             }
             ToOverlordMessage::PruneDatabase => {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Pruning database, please be patient..".to_owned());
-
-                let now = Unixtime::now().unwrap();
-                let then = now
-                    - Duration::new(
-                        GLOBALS.storage.read_setting_prune_period_days() * 60 * 60 * 24,
-                        0,
-                    );
-                let count = GLOBALS.storage.prune(then)?;
-
-                GLOBALS.status_queue.write().write(format!(
-                    "Database has been pruned. {} events removed.",
-                    count
-                ));
-            }
-            ToOverlordMessage::Post(content, tags, reply_to, dm_channel) => {
-                self.post(content, tags, reply_to, dm_channel).await?;
+                Self::prune_database().await?;
             }
             ToOverlordMessage::PushFollow => {
-                self.push_following().await?;
+                self.push_follow().await?;
             }
             ToOverlordMessage::PushMetadata(metadata) => {
                 self.push_metadata(metadata).await?;
@@ -737,10 +631,7 @@ impl Overlord {
                 self.push_mute_list().await?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
-                if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-                    relay.rank = rank as u64;
-                    GLOBALS.storage.write_relay(&relay, None)?;
-                }
+                Self::rank_relay(relay_url, rank).await?;
             }
             ToOverlordMessage::ReengageMinion(url, persistent_jobs) => {
                 self.engage_minion(url, persistent_jobs).await?;
@@ -752,12 +643,17 @@ impl Overlord {
                 self.repost(id).await?;
             }
             ToOverlordMessage::Search(text) => {
-                Overlord::search(text).await?;
+                Self::search(text).await?;
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
-                GLOBALS.people.set_active_person(pubkey).await?;
+                Self::set_active_person(pubkey).await?;
             }
-            ToOverlordMessage::SetThreadFeed(id, referenced_by, relays, author) => {
+            ToOverlordMessage::SetThreadFeed {
+                id,
+                referenced_by,
+                relays,
+                author,
+            } => {
                 self.set_thread_feed(id, referenced_by, relays, author)
                     .await?;
             }
@@ -765,133 +661,31 @@ impl Overlord {
                 self.set_dm_channel(dmchannel).await?;
             }
             ToOverlordMessage::SubscribeConfig(relay_url) => {
-                self.engage_minion(
-                    relay_url.to_owned(),
-                    vec![RelayJob {
-                        reason: RelayConnectionReason::Config,
-                        payload: ToMinionPayload {
-                            job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::SubscribeOutbox,
-                        },
-                    }],
-                )
-                .await?;
+                self.subscribe_config(relay_url).await?;
             }
             ToOverlordMessage::SubscribeDiscover(pubkeys, maybe_relayurls) => {
-                self.discover_pubkey_relays(pubkeys, maybe_relayurls)
-                    .await?;
+                self.subscribe_discover(pubkeys, maybe_relayurls).await?;
             }
             ToOverlordMessage::Shutdown => {
-                tracing::info!("Overlord shutting down");
-                return Ok(false);
+                Self::shutdown().await?;
             }
-            ToOverlordMessage::UnlockKey(mut password) => {
-                if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
-                    tracing::error!("{}", e);
-                    GLOBALS
-                        .status_queue
-                        .write()
-                        .write("Could not decrypt key with that password.".to_owned());
-                };
-                password.zeroize();
-
-                // Update public key from private key
-                let public_key = GLOBALS.signer.public_key().unwrap();
-                GLOBALS
-                    .storage
-                    .write_setting_public_key(&Some(public_key), None)?;
+            ToOverlordMessage::UnlockKey(password) => {
+                Self::unlock_key(password).await?;
             }
-            ToOverlordMessage::UpdateFollowing(merge) => {
+            ToOverlordMessage::UpdateFollowing { merge } => {
                 self.update_following(merge).await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
-                let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
-                let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-
-                // we do 1 more than num_relays_per_person, which is really for main posts,
-                // since metadata is more important and I didn't want to bother with
-                // another setting.
-                for (relay_url, _score) in
-                    best_relays.iter().take(num_relays_per_person as usize + 1)
-                {
-                    self.engage_minion(
-                        relay_url.to_owned(),
-                        vec![RelayJob {
-                            reason: RelayConnectionReason::FetchMetadata,
-                            payload: ToMinionPayload {
-                                job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![pubkey]),
-                            },
-                        }],
-                    )
-                    .await?;
-                }
-
-                // Mark in globals that we want to recheck their nip-05 when that metadata
-                // comes in
-                GLOBALS.people.recheck_nip05_on_update_metadata(&pubkey);
+                self.update_metadata(pubkey).await?;
             }
-            ToOverlordMessage::UpdateMetadataInBulk(mut pubkeys) => {
-                let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-                let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
-                for pubkey in pubkeys.drain(..) {
-                    let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
-                    for (relay_url, _score) in
-                        best_relays.iter().take(num_relays_per_person as usize + 1)
-                    {
-                        map.entry(relay_url.to_owned())
-                            .and_modify(|entry| entry.push(pubkey))
-                            .or_insert_with(|| vec![pubkey]);
-                    }
-                }
-                for (relay_url, pubkeys) in map.drain() {
-                    self.engage_minion(
-                        relay_url.clone(),
-                        vec![RelayJob {
-                            reason: RelayConnectionReason::FetchMetadata,
-                            payload: ToMinionPayload {
-                                job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys),
-                            },
-                        }],
-                    )
-                    .await?;
-                }
+            ToOverlordMessage::UpdateMetadataInBulk(pubkeys) => {
+                self.update_metadata_in_bulk(pubkeys).await?;
             }
-            ToOverlordMessage::UpdateMuteList(merge) => {
+            ToOverlordMessage::UpdateMuteList { merge } => {
                 self.update_mute_list(merge).await?;
             }
             ToOverlordMessage::VisibleNotesChanged(visible) => {
-                let visible: Vec<IdHex> = visible.iter().map(|i| (*i).into()).collect();
-
-                let mut persistent_relay_urls: Vec<RelayUrl> = GLOBALS
-                    .connected_relays
-                    .iter()
-                    .filter_map(|r| {
-                        for job in r.value() {
-                            if job.reason.persistent() {
-                                return Some(r.key().clone());
-                            }
-                        }
-                        None
-                    })
-                    .collect();
-
-                // Resubscribe to augments on all relays that have
-                // any feed-event subscriptions (see filter above)
-                for url in persistent_relay_urls.drain(..) {
-                    self.engage_minion(
-                        url,
-                        vec![RelayJob {
-                            reason: RelayConnectionReason::FetchAugments,
-                            payload: ToMinionPayload {
-                                job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::SubscribeAugments(visible.clone()),
-                            },
-                        }],
-                    )
-                    .await?;
-                }
+                self.visible_notes_changed(visible).await?;
             }
             ToOverlordMessage::ZapStart(id, pubkey, lnurl) => {
                 self.zap_start(id, pubkey, lnurl).await?;
@@ -901,10 +695,18 @@ impl Overlord {
             }
         }
 
-        Ok(true)
+        Ok(())
     }
 
-    async fn add_pubkey_relay(&mut self, pubkey: PublicKey, relay: RelayUrl) -> Result<(), Error> {
+    /// Manually associate a relay with a person. This sets both read and write, and
+    /// remembers that they were manual associations (not from a relay list) so they
+    /// have less weight. This is so the user can make these associations manually if
+    /// gossip can't find them.
+    pub async fn add_pubkey_relay(
+        &mut self,
+        pubkey: PublicKey,
+        relay: RelayUrl,
+    ) -> Result<(), Error> {
         // Save person_relay
         let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
             Some(pr) => pr,
@@ -917,6 +719,405 @@ impl Overlord {
         GLOBALS.storage.write_person_relay(&pr, None)?;
 
         self.pick_relays().await;
+
+        Ok(())
+    }
+
+    /// Add a new relay to gossip
+    pub async fn add_relay(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Create relay if missing
+        GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
+
+        // Then pick relays again (possibly including the one added)
+        GLOBALS.relay_picker.refresh_person_relay_scores().await?;
+        self.pick_relays().await;
+
+        Ok(())
+    }
+
+    /// Advertise the user's current relay list
+    pub async fn advertise_relay_list(&mut self) -> Result<(), Error> {
+        let public_key = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("No public key! Not posting");
+                return Ok(());
+            }
+        };
+
+        let inbox_or_outbox_relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX))?;
+        let mut tags: Vec<Tag> = Vec::new();
+        for relay in inbox_or_outbox_relays.iter() {
+            tags.push(Tag::Reference {
+                url: relay.url.to_unchecked_url(),
+                marker: if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX)
+                {
+                    None
+                } else if relay.has_usage_bits(Relay::INBOX) {
+                    Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
+                } else if relay.has_usage_bits(Relay::OUTBOX) {
+                    Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
+                } else {
+                    unreachable!()
+                },
+                trailing: Vec::new(),
+            });
+        }
+
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::RelayList,
+            tags,
+            content: "".to_string(),
+        };
+
+        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+
+        let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::ADVERTISE) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+
+        for relay_url in advertise_to_relay_urls {
+            // Send it the event to post
+            tracing::debug!("Asking {} to post", &relay_url);
+
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::Advertising,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Change the user's passphrase.
+    pub async fn change_passphrase(mut old: String, mut new: String) -> Result<(), Error> {
+        GLOBALS.signer.change_passphrase(&old, &new)?;
+        old.zeroize();
+        new.zeroize();
+        Ok(())
+    }
+
+    /// Clear the user's following list. This wipes everybody. But it doesn't publish
+    /// the empty list. You should probably double-check that the user is certain.
+    pub async fn clear_following(&mut self) -> Result<(), Error> {
+        GLOBALS.people.follow_none()?;
+        Ok(())
+    }
+
+    /// Clear the user's mute list. This wipes everybody. But it doesn't publish
+    /// the empty list. You should probably double-check that the user is certain.
+    pub async fn clear_mute_list(&mut self) -> Result<(), Error> {
+        GLOBALS.people.clear_mute_list()?;
+        Ok(())
+    }
+
+    /// Remove any key delegation setup
+    pub async fn delegation_reset() -> Result<(), Error> {
+        if GLOBALS.delegation.reset() {
+            // save and statusmsg
+            GLOBALS.delegation.save().await?;
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Delegation tag removed".to_string());
+        }
+        Ok(())
+    }
+
+    /// Delete a post
+    pub async fn delete_post(&mut self, id: Id) -> Result<(), Error> {
+        let tags: Vec<Tag> = vec![Tag::Event {
+            id,
+            recommended_relay_url: None,
+            marker: None,
+            trailing: Vec::new(),
+        }];
+
+        let event = {
+            let public_key = match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => {
+                    tracing::warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::EventDeletion,
+                tags,
+                content: "".to_owned(), // FIXME, option to supply a delete reason
+            };
+
+            // Should we add a pow? Maybe the relay needs it.
+            GLOBALS.signer.sign_preevent(pre_event, None, None)?
+        };
+
+        // Process this event locally
+        crate::process::process_new_event(&event, None, None, false, false).await?;
+
+        // Determine which relays to post this to
+        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        {
+            // Get all of the relays that we write to
+            let write_relays: Vec<RelayUrl> = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
+                .iter()
+                .map(|relay| relay.url.clone())
+                .collect();
+            relay_urls.extend(write_relays);
+
+            // Get all of the relays this event was seen on
+            let seen_on: Vec<RelayUrl> = GLOBALS
+                .storage
+                .get_event_seen_on_relay(id)?
+                .iter()
+                .map(|(url, _time)| url.to_owned())
+                .collect();
+            relay_urls.extend(seen_on);
+
+            relay_urls.sort();
+            relay_urls.dedup();
+        }
+
+        for url in relay_urls {
+            // Send it the event to post
+            tracing::debug!("Asking {} to delete", &url);
+
+            self.engage_minion(
+                url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::PostEvent,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Delete private key and any delegation setup
+    pub async fn delete_priv() -> Result<(), Error> {
+        GLOBALS.signer.delete_identity();
+        Self::delegation_reset().await?;
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Identity deleted.".to_string());
+        Ok(())
+    }
+
+    /// Delete public key (only if no private key exists) and any delegation setup
+    pub async fn delete_pub() -> Result<(), Error> {
+        GLOBALS.signer.clear_public_key();
+        Self::delegation_reset().await?;
+        GLOBALS.signer.save().await?;
+        Ok(())
+    }
+
+    /// Disconnect from the specified relay. This may not happen immediately if the minion
+    /// handling that relay is stuck waiting for a timeout.
+    pub async fn drop_relay(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        let _ = self.to_minions.send(ToMinionMessage {
+            target: relay_url.as_str().to_owned(),
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::Shutdown,
+            },
+        });
+
+        Ok(())
+    }
+
+    /// Fetch an event from a specific relay by event `Id`
+    pub async fn fetch_event(&mut self, id: Id, relay_urls: Vec<RelayUrl>) -> Result<(), Error> {
+        // Don't do this if we already have the event
+        if !GLOBALS.storage.has_event(id)? {
+            // Note: minions will remember if they get the same id multiple times
+            //       not to fetch it multiple times.
+
+            for url in relay_urls.iter() {
+                self.engage_minion(
+                    url.to_owned(),
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::FetchEvent,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::FetchEvent(id),
+                        },
+                    }],
+                )
+                .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Fetch an event based on an `EventAddr`
+    pub async fn fetch_event_addr(&mut self, ea: EventAddr) -> Result<(), Error> {
+        for unchecked_url in ea.relays.iter() {
+            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(unchecked_url) {
+                self.engage_minion(
+                    relay_url.to_owned(),
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::FetchEvent,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::FetchEventAddr(ea.clone()),
+                        },
+                    }],
+                )
+                .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Follow a person by `PublicKey`
+    pub async fn follow_pubkey(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        GLOBALS.people.follow(&pubkey, true)?;
+        self.subscribe_discover(vec![pubkey], None).await?;
+        tracing::debug!("Followed {}", &pubkey.as_hex_string());
+        Ok(())
+    }
+
+    /// Follow a person by a nip-05 address
+    pub async fn follow_nip05(nip05: String) -> Result<(), Error> {
+        std::mem::drop(tokio::spawn(async move {
+            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05).await {
+                tracing::error!("{}", e);
+            }
+        }));
+        Ok(())
+    }
+
+    /// Follow a person by a `Profile` (nprofile1...)
+    pub async fn follow_nprofile(&mut self, nprofile: Profile) -> Result<(), Error> {
+        GLOBALS.people.follow(&nprofile.pubkey, true)?;
+
+        // Set their relays
+        for relay in nprofile.relays.iter() {
+            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
+                // Create relay if missing
+                GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
+
+                // Save person_relay
+                let mut pr = match GLOBALS
+                    .storage
+                    .read_person_relay(nprofile.pubkey, &relay_url)?
+                {
+                    Some(pr) => pr,
+                    None => PersonRelay::new(nprofile.pubkey, relay_url.clone()),
+                };
+                pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
+                GLOBALS.storage.write_person_relay(&pr, None)?;
+            }
+        }
+
+        GLOBALS
+            .status_queue
+            .write()
+            .write(format!("Followed user at {} relays", nprofile.relays.len()));
+
+        // async_follow added them to the relay tracker.
+        // Pick relays to start tracking them now
+        self.pick_relays().await;
+
+        Ok(())
+    }
+
+    /// Generate an identity (private key) and keep encrypted under the given passphrase
+    pub async fn generate_private_key(mut password: String) -> Result<(), Error> {
+        GLOBALS.signer.generate_private_key(&password)?;
+        password.zeroize();
+        GLOBALS.signer.save().await?;
+
+        Ok(())
+    }
+
+    /// Hide or Show a relay. This adjusts the `hidden` a flag on the `Relay` record
+    /// (You could easily do this yourself by talking to GLOBALS.storage directly too)
+    pub async fn hide_or_show_relay(relay_url: RelayUrl, hidden: bool) -> Result<(), Error> {
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+            relay.hidden = hidden;
+            GLOBALS.storage.write_relay(&relay, None)?;
+        }
+
+        Ok(())
+    }
+
+    /// Import a private key
+    pub async fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
+        if privkey.starts_with("ncryptsec") {
+            let epk = EncryptedPrivateKey(privkey);
+            GLOBALS.signer.set_encrypted_private_key(epk);
+            if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
+                password.zeroize();
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write(format!("Private key failed to decrypt: {}", e));
+            } else {
+                password.zeroize();
+                GLOBALS.signer.save().await?;
+            }
+        } else {
+            let maybe_pk1 = PrivateKey::try_from_bech32_string(privkey.trim());
+            let maybe_pk2 = PrivateKey::try_from_hex_string(privkey.trim());
+            privkey.zeroize();
+            if maybe_pk1.is_err() && maybe_pk2.is_err() {
+                password.zeroize();
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Private key not recognized.".to_owned());
+            } else {
+                let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
+                GLOBALS.signer.set_private_key(privkey, &password)?;
+                password.zeroize();
+                GLOBALS.signer.save().await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Import a public key only (npub or hex)
+    pub async fn import_pub(pubstr: String) -> Result<(), Error> {
+        let maybe_pk1 = PublicKey::try_from_bech32_string(pubstr.trim(), true);
+        let maybe_pk2 = PublicKey::try_from_hex_string(pubstr.trim(), true);
+        if maybe_pk1.is_err() && maybe_pk2.is_err() {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Public key not recognized.".to_owned());
+        } else {
+            let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
+            GLOBALS.signer.set_public_key(pubkey);
+            GLOBALS.signer.save().await?;
+        }
 
         Ok(())
     }
@@ -947,39 +1148,105 @@ impl Overlord {
         Ok(())
     }
 
-    async fn discover_pubkey_relays(
-        &mut self,
-        pubkeys: Vec<PublicKey>,
-        relays: Option<Vec<RelayUrl>>,
-    ) -> Result<(), Error> {
-        // Discover their relays
-        let discover_relay_urls: Vec<RelayUrl> = match relays {
-            Some(r) => r,
-            None => GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect(),
+    /// Like a post. The backend doesn't read the event, so you have to supply the
+    /// pubkey author too.
+    pub async fn like(&mut self, id: Id, pubkey: PublicKey) -> Result<(), Error> {
+        let event = {
+            let public_key = match GLOBALS.signer.public_key() {
+                Some(pk) => pk,
+                None => {
+                    tracing::warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            let mut tags: Vec<Tag> = vec![
+                Tag::Event {
+                    id,
+                    recommended_relay_url: Relay::recommended_relay_for_reply(id)
+                        .await?
+                        .map(|rr| rr.to_unchecked_url()),
+                    marker: None,
+                    trailing: Vec::new(),
+                },
+                Tag::Pubkey {
+                    pubkey: pubkey.into(),
+                    recommended_relay_url: None,
+                    petname: None,
+                    trailing: Vec::new(),
+                },
+            ];
+
+            if GLOBALS.storage.read_setting_set_client_tag() {
+                tags.push(Tag::Other {
+                    tag: "client".to_owned(),
+                    data: vec!["gossip".to_owned()],
+                });
+            }
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::Reaction,
+                tags,
+                content: "+".to_owned(),
+            };
+
+            let powint = GLOBALS.storage.read_setting_pow();
+            let pow = if powint > 0 { Some(powint) } else { None };
+            let (work_sender, work_receiver) = mpsc::channel();
+
+            std::thread::spawn(move || {
+                work_logger(work_receiver, powint);
+            });
+
+            GLOBALS
+                .signer
+                .sign_preevent(pre_event, pow, Some(work_sender))?
         };
-        for relay_url in discover_relay_urls.iter() {
+
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
+        // FIXME - post it to relays we have seen it on.
+
+        for relay in relays {
+            // Send it the event to post
+            tracing::debug!("Asking {} to post", &relay.url);
+
             self.engage_minion(
-                relay_url.to_owned(),
+                relay.url.clone(),
                 vec![RelayJob {
-                    reason: RelayConnectionReason::Discovery,
+                    reason: RelayConnectionReason::PostLike,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
+                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
                 }],
             )
             .await?;
         }
 
+        // Process the message for ourself
+        crate::process::process_new_event(&event, None, None, false, false).await?;
+
         Ok(())
     }
 
-    async fn post(
+    /// Trigger the relay picker to find relays for people not fully covered
+    pub async fn pick_relays_cmd(&mut self) -> Result<(), Error> {
+        // When manually doing this, we refresh person_relay scores first which
+        // often change if the user just added follows.
+        GLOBALS.relay_picker.refresh_person_relay_scores().await?;
+
+        // Then pick
+        self.pick_relays().await;
+
+        Ok(())
+    }
+
+    /// Post a TextNote (kind 1) event
+    pub async fn post(
         &mut self,
         content: String,
         mut tags: Vec<Tag>,
@@ -1223,152 +1490,47 @@ impl Overlord {
         Ok(())
     }
 
-    async fn advertise_relay_list(&mut self) -> Result<(), Error> {
-        let public_key = match GLOBALS.signer.public_key() {
-            Some(pk) => pk,
-            None => {
-                tracing::warn!("No public key! Not posting");
-                return Ok(());
-            }
-        };
+    /// Prune the cache (downloaded files)
+    pub async fn prune_cache() -> Result<(), Error> {
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Pruning cache, please be patient..".to_owned());
 
-        let inbox_or_outbox_relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX))?;
-        let mut tags: Vec<Tag> = Vec::new();
-        for relay in inbox_or_outbox_relays.iter() {
-            tags.push(Tag::Reference {
-                url: relay.url.to_unchecked_url(),
-                marker: if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX)
-                {
-                    None
-                } else if relay.has_usage_bits(Relay::INBOX) {
-                    Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
-                } else if relay.has_usage_bits(Relay::OUTBOX) {
-                    Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
-                } else {
-                    unreachable!()
-                },
-                trailing: Vec::new(),
-            });
-        }
+        let age = Duration::new(
+            GLOBALS.storage.read_setting_cache_prune_period_days() * 60 * 60 * 24,
+            0,
+        );
 
-        let pre_event = PreEvent {
-            pubkey: public_key,
-            created_at: Unixtime::now().unwrap(),
-            kind: EventKind::RelayList,
-            tags,
-            content: "".to_string(),
-        };
+        let count = GLOBALS.fetcher.prune(age).await?;
 
-        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
-
-        let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::ADVERTISE) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
-
-        for relay_url in advertise_to_relay_urls {
-            // Send it the event to post
-            tracing::debug!("Asking {} to post", &relay_url);
-
-            self.engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::Advertising,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
-                    },
-                }],
-            )
-            .await?;
-        }
+        GLOBALS
+            .status_queue
+            .write()
+            .write(format!("Cache has been pruned. {} files removed.", count));
 
         Ok(())
     }
 
-    async fn post_like(&mut self, id: Id, pubkey: PublicKey) -> Result<(), Error> {
-        let event = {
-            let public_key = match GLOBALS.signer.public_key() {
-                Some(pk) => pk,
-                None => {
-                    tracing::warn!("No public key! Not posting");
-                    return Ok(());
-                }
-            };
+    /// Prune the database (events and more)
+    pub async fn prune_database() -> Result<(), Error> {
+        GLOBALS
+            .status_queue
+            .write()
+            .write("Pruning database, please be patient..".to_owned());
 
-            let mut tags: Vec<Tag> = vec![
-                Tag::Event {
-                    id,
-                    recommended_relay_url: Relay::recommended_relay_for_reply(id)
-                        .await?
-                        .map(|rr| rr.to_unchecked_url()),
-                    marker: None,
-                    trailing: Vec::new(),
-                },
-                Tag::Pubkey {
-                    pubkey: pubkey.into(),
-                    recommended_relay_url: None,
-                    petname: None,
-                    trailing: Vec::new(),
-                },
-            ];
+        let now = Unixtime::now().unwrap();
+        let then = now
+            - Duration::new(
+                GLOBALS.storage.read_setting_prune_period_days() * 60 * 60 * 24,
+                0,
+            );
+        let count = GLOBALS.storage.prune(then)?;
 
-            if GLOBALS.storage.read_setting_set_client_tag() {
-                tags.push(Tag::Other {
-                    tag: "client".to_owned(),
-                    data: vec!["gossip".to_owned()],
-                });
-            }
-
-            let pre_event = PreEvent {
-                pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
-                kind: EventKind::Reaction,
-                tags,
-                content: "+".to_owned(),
-            };
-
-            let powint = GLOBALS.storage.read_setting_pow();
-            let pow = if powint > 0 { Some(powint) } else { None };
-            let (work_sender, work_receiver) = mpsc::channel();
-
-            std::thread::spawn(move || {
-                work_logger(work_receiver, powint);
-            });
-
-            GLOBALS
-                .signer
-                .sign_preevent(pre_event, pow, Some(work_sender))?
-        };
-
-        let relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
-        // FIXME - post it to relays we have seen it on.
-
-        for relay in relays {
-            // Send it the event to post
-            tracing::debug!("Asking {} to post", &relay.url);
-
-            self.engage_minion(
-                relay.url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostLike,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
-                    },
-                }],
-            )
-            .await?;
-        }
-
-        // Process the message for ourself
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        GLOBALS.status_queue.write().write(format!(
+            "Database has been pruned. {} events removed.",
+            count
+        ));
 
         Ok(())
     }
@@ -1403,7 +1565,8 @@ impl Overlord {
         Ok(())
     }
 
-    async fn push_following(&mut self) -> Result<(), Error> {
+    /// Publish the user's following list
+    pub async fn push_follow(&mut self) -> Result<(), Error> {
         let pubkeys = GLOBALS.people.get_followed_pubkeys();
         let event = GLOBALS.people.generate_contact_list_event(pubkeys).await?;
 
@@ -1435,48 +1598,8 @@ impl Overlord {
         Ok(())
     }
 
-    async fn clear_following(&mut self) -> Result<(), Error> {
-        GLOBALS.people.follow_none()?;
-        Ok(())
-    }
-
-    async fn push_mute_list(&mut self) -> Result<(), Error> {
-        let event = GLOBALS.people.generate_mute_list_event().await?;
-
-        // process event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
-
-        // Push to all of the relays we post to
-        let relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
-
-        for relay in relays {
-            // Send it the event to pull our followers
-            tracing::debug!("Pushing MuteList to {}", &relay.url);
-
-            self.engage_minion(
-                relay.url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostMuteList,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
-                    },
-                }],
-            )
-            .await?;
-        }
-
-        Ok(())
-    }
-
-    async fn clear_mute_list(&mut self) -> Result<(), Error> {
-        GLOBALS.people.clear_mute_list()?;
-        Ok(())
-    }
-
-    async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
+    /// Publish the user's metadata
+    pub async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
         let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
             None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
@@ -1517,8 +1640,52 @@ impl Overlord {
         Ok(())
     }
 
-    // This gets it whether we had it or not. Because it might have changed.
-    async fn refresh_followed_metadata(&mut self) -> Result<(), Error> {
+    /// Publish the user's mute list
+    pub async fn push_mute_list(&mut self) -> Result<(), Error> {
+        let event = GLOBALS.people.generate_mute_list_event().await?;
+
+        // process event locally
+        crate::process::process_new_event(&event, None, None, false, false).await?;
+
+        // Push to all of the relays we post to
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
+
+        for relay in relays {
+            // Send it the event to pull our followers
+            tracing::debug!("Pushing MuteList to {}", &relay.url);
+
+            self.engage_minion(
+                relay.url.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::PostMuteList,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Rank a relay from 0 to 9.  The default rank is 3.  A rank of 0 means the relay will not be used.
+    /// This represent a user's judgement, and is factored into how suitable a relay is for various
+    /// purposes.
+    pub async fn rank_relay(relay_url: RelayUrl, rank: u8) -> Result<(), Error> {
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+            relay.rank = rank as u64;
+            GLOBALS.storage.write_relay(&relay, None)?;
+        }
+        Ok(())
+    }
+
+    /// Refresh metadata for everybody who is followed
+    /// This gets it whether we had it or not. Because it might have changed.
+    pub async fn refresh_followed_metadata(&mut self) -> Result<(), Error> {
         let mut pubkeys = GLOBALS.people.get_followed_pubkeys();
 
         // add own pubkey as well
@@ -1561,7 +1728,8 @@ impl Overlord {
         Ok(())
     }
 
-    async fn repost(&mut self, id: Id) -> Result<(), Error> {
+    /// Repost a post by `Id`
+    pub async fn repost(&mut self, id: Id) -> Result<(), Error> {
         let reposted_event = match GLOBALS.storage.read_event(id)? {
             Some(event) => event,
             None => {
@@ -1669,6 +1837,139 @@ impl Overlord {
             .await?;
         }
 
+        Ok(())
+    }
+
+    /// Search people and notes in the local database.
+    /// Search results eventually arrive in `GLOBALS.people_search_results` and `GLOBALS.note_search_results`
+    pub async fn search(mut text: String) -> Result<(), Error> {
+        if text.len() < 2 {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("You must enter at least 2 characters to search.".to_string());
+            return Ok(());
+        }
+        text = text.to_lowercase();
+
+        let mut people_search_results: Vec<Person> = Vec::new();
+        let mut note_search_results: Vec<Event> = Vec::new();
+
+        // If a nostr: url, strip the 'nostr:' part
+        if text.len() >= 6 && &text[0..6] == "nostr:" {
+            text = text.split_off(6);
+        }
+
+        if let Some(nb32) = NostrBech32::try_from_string(&text) {
+            match nb32 {
+                NostrBech32::EventAddr(ea) => {
+                    if let Some(event) = GLOBALS
+                        .storage
+                        .find_events(
+                            &[ea.kind],
+                            &[ea.author],
+                            None,
+                            |event| {
+                                event.tags.iter().any(|tag| {
+                                    if let Tag::Identifier { d, .. } = tag {
+                                        if *d == ea.d {
+                                            return true;
+                                        }
+                                    }
+                                    false
+                                })
+                            },
+                            true,
+                        )?
+                        .get(1)
+                    {
+                        note_search_results.push(event.clone());
+                    } else {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::FetchEventAddr(ea.to_owned()));
+
+                        // FIXME - this requires eventaddr comparision on process.rs
+                        // Remember we are searching for this event, so when it comes in
+                        // it can get added to GLOBALS.note_search_results
+                        // GLOBALS.event_addrs_being_searched_for.write().push(ea.to_owned());
+                    }
+                }
+                NostrBech32::EventPointer(ep) => {
+                    if let Some(event) = GLOBALS.storage.read_event(ep.id)? {
+                        note_search_results.push(event);
+                    } else {
+                        let relays: Vec<RelayUrl> = ep
+                            .relays
+                            .iter()
+                            .filter_map(|r| RelayUrl::try_from_unchecked_url(r).ok())
+                            .collect();
+
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::FetchEvent(ep.id, relays));
+
+                        // Remember we are searching for this event, so when it comes in
+                        // it can get added to GLOBALS.note_search_results
+                        GLOBALS.events_being_searched_for.write().push(ep.id);
+                    }
+                }
+                NostrBech32::Id(id) => {
+                    if let Some(event) = GLOBALS.storage.read_event(id)? {
+                        note_search_results.push(event);
+                    }
+                    // else we can't go find it, we don't know which relays to ask.
+                }
+                NostrBech32::Profile(prof) => {
+                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey)? {
+                        people_search_results.push(person);
+                    } else {
+                        // Create person from profile
+                        // fetch data on person
+                    }
+                }
+                NostrBech32::Pubkey(pk) => {
+                    if let Some(person) = GLOBALS.storage.read_person(&pk)? {
+                        people_search_results.push(person);
+                    } else {
+                        // Create person from pubkey
+                        // fetch data on person
+                    }
+                }
+                NostrBech32::Relay(_relay) => (),
+            }
+        }
+
+        people_search_results.extend(GLOBALS.storage.filter_people(|p| {
+            if let Some(metadata) = &p.metadata {
+                if let Ok(s) = serde_json::to_string(&metadata) {
+                    if s.to_lowercase().contains(&text) {
+                        return true;
+                    }
+                }
+            }
+
+            if let Some(petname) = &p.petname {
+                if petname.to_lowercase().contains(&text) {
+                    return true;
+                }
+            }
+
+            false
+        })?);
+
+        note_search_results.extend(GLOBALS.storage.search_events(&text)?);
+
+        *GLOBALS.people_search_results.write() = people_search_results;
+        *GLOBALS.note_search_results.write() = note_search_results;
+
+        Ok(())
+    }
+
+    /// Set a particular person as active in the `People` structure. This affects the results of
+    /// some functions of that structure
+    pub async fn set_active_person(pubkey: PublicKey) -> Result<(), Error> {
+        GLOBALS.people.set_active_person(pubkey).await?;
         Ok(())
     }
 
@@ -1832,120 +2133,48 @@ impl Overlord {
         Ok(())
     }
 
-    async fn follow_nprofile(&mut self, nprofile: Profile) -> Result<(), Error> {
-        GLOBALS.people.follow(&nprofile.pubkey, true)?;
-
-        // Set their relays
-        for relay in nprofile.relays.iter() {
-            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
-                // Create relay if missing
-                GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
-
-                // Save person_relay
-                let mut pr = match GLOBALS
-                    .storage
-                    .read_person_relay(nprofile.pubkey, &relay_url)?
-                {
-                    Some(pr) => pr,
-                    None => PersonRelay::new(nprofile.pubkey, relay_url.clone()),
-                };
-                pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
-                GLOBALS.storage.write_person_relay(&pr, None)?;
-            }
-        }
-
-        GLOBALS
-            .status_queue
-            .write()
-            .write(format!("Followed user at {} relays", nprofile.relays.len()));
-
-        // async_follow added them to the relay tracker.
-        // Pick relays to start tracking them now
-        self.pick_relays().await;
+    /// Subscribe to the user's configuration events from the given relay
+    pub async fn subscribe_config(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        self.engage_minion(
+            relay_url.to_owned(),
+            vec![RelayJob {
+                reason: RelayConnectionReason::Config,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeOutbox,
+                },
+            }],
+        )
+        .await?;
 
         Ok(())
     }
 
-    async fn delegation_reset() -> Result<(), Error> {
-        if GLOBALS.delegation.reset() {
-            // save and statusmsg
-            GLOBALS.delegation.save().await?;
-            GLOBALS
-                .status_queue
-                .write()
-                .write("Delegation tag removed".to_string());
-        }
-        Ok(())
-    }
-
-    async fn delete(&mut self, id: Id) -> Result<(), Error> {
-        let tags: Vec<Tag> = vec![Tag::Event {
-            id,
-            recommended_relay_url: None,
-            marker: None,
-            trailing: Vec::new(),
-        }];
-
-        let event = {
-            let public_key = match GLOBALS.signer.public_key() {
-                Some(pk) => pk,
-                None => {
-                    tracing::warn!("No public key! Not posting");
-                    return Ok(());
-                }
-            };
-
-            let pre_event = PreEvent {
-                pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
-                kind: EventKind::EventDeletion,
-                tags,
-                content: "".to_owned(), // FIXME, option to supply a delete reason
-            };
-
-            // Should we add a pow? Maybe the relay needs it.
-            GLOBALS.signer.sign_preevent(pre_event, None, None)?
-        };
-
-        // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
-
-        // Determine which relays to post this to
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
-        {
-            // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = GLOBALS
+    /// Subscribe to the multiple user's relay lists (optionally on the given relays, otherwise using
+    /// theconfigured discover relays)
+    pub async fn subscribe_discover(
+        &mut self,
+        pubkeys: Vec<PublicKey>,
+        relays: Option<Vec<RelayUrl>>,
+    ) -> Result<(), Error> {
+        // Discover their relays
+        let discover_relay_urls: Vec<RelayUrl> = match relays {
+            Some(r) => r,
+            None => GLOBALS
                 .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
+                .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
                 .iter()
                 .map(|relay| relay.url.clone())
-                .collect();
-            relay_urls.extend(write_relay_urls);
-
-            // Get all of the relays this event was seen on
-            let seen_on: Vec<RelayUrl> = GLOBALS
-                .storage
-                .get_event_seen_on_relay(id)?
-                .iter()
-                .map(|(url, _time)| url.to_owned())
-                .collect();
-            relay_urls.extend(seen_on);
-
-            relay_urls.sort();
-            relay_urls.dedup();
-        }
-
-        for url in relay_urls {
-            // Send it the event to post
-            tracing::debug!("Asking {} to delete", &url);
-
+                .collect(),
+        };
+        for relay_url in discover_relay_urls.iter() {
             self.engage_minion(
-                url.to_owned(),
+                relay_url.to_owned(),
                 vec![RelayJob {
-                    reason: RelayConnectionReason::PostEvent,
+                    reason: RelayConnectionReason::Discovery,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
                     },
                 }],
             )
@@ -1955,9 +2184,36 @@ impl Overlord {
         Ok(())
     }
 
-    // Update the actual following list (based on the follow flag in the person table)
-    // from the last ContactList received
-    async fn update_following(&mut self, merge: bool) -> Result<(), Error> {
+    /// Shutdown gossip
+    pub async fn shutdown() -> Result<(), Error> {
+        tracing::info!("Overlord shutting down");
+        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    /// Unlock the private key with the given passphrase so that gossip can use it.
+    /// This is akin to logging in.
+    pub async fn unlock_key(mut password: String) -> Result<(), Error> {
+        if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
+            tracing::error!("{}", e);
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Could not decrypt key with that password.".to_owned());
+        };
+        password.zeroize();
+
+        // Update public key from private key
+        let public_key = GLOBALS.signer.public_key().unwrap();
+        GLOBALS
+            .storage
+            .write_setting_public_key(&Some(public_key), None)?;
+
+        Ok(())
+    }
+
+    /// Update the local following list from the last ContactList event received.
+    pub async fn update_following(&mut self, merge: bool) -> Result<(), Error> {
         // Load the latest contact list from the database
         let our_contact_list = {
             let pubkey = match GLOBALS.signer.public_key() {
@@ -2077,8 +2333,69 @@ impl Overlord {
         Ok(())
     }
 
-    // This updates the actual mute list from the last MuteList received
-    async fn update_mute_list(&mut self, merge: bool) -> Result<(), Error> {
+    /// Subscribe, fetch, and update metadata for the person
+    pub async fn update_metadata(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+
+        // we do 1 more than num_relays_per_person, which is really for main posts,
+        // since metadata is more important and I didn't want to bother with
+        // another setting.
+        for (relay_url, _score) in best_relays.iter().take(num_relays_per_person as usize + 1) {
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchMetadata,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![pubkey]),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        // Mark in globals that we want to recheck their nip-05 when that metadata
+        // comes in
+        GLOBALS.people.recheck_nip05_on_update_metadata(&pubkey);
+
+        Ok(())
+    }
+
+    /// Subscribe, fetch, and update metadata for the people
+    pub async fn update_metadata_in_bulk(
+        &mut self,
+        mut pubkeys: Vec<PublicKey>,
+    ) -> Result<(), Error> {
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+        let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
+        for pubkey in pubkeys.drain(..) {
+            let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+            for (relay_url, _score) in best_relays.iter().take(num_relays_per_person as usize + 1) {
+                map.entry(relay_url.to_owned())
+                    .and_modify(|entry| entry.push(pubkey))
+                    .or_insert_with(|| vec![pubkey]);
+            }
+        }
+        for (relay_url, pubkeys) in map.drain() {
+            self.engage_minion(
+                relay_url.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchMetadata,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Update the local mute list from the last ContactList event received.
+    pub async fn update_mute_list(&mut self, merge: bool) -> Result<(), Error> {
         // Load the latest MuteList from the database
         let our_mute_list = {
             let pubkey = match GLOBALS.signer.public_key() {
@@ -2124,131 +2441,50 @@ impl Overlord {
         Ok(())
     }
 
-    async fn search(mut text: String) -> Result<(), Error> {
-        if text.len() < 2 {
-            GLOBALS
-                .status_queue
-                .write()
-                .write("You must enter at least 2 characters to search.".to_string());
-            return Ok(());
+    /// Set which notes are currently visible to the user. This is used to modify subscriptions
+    /// that query for likes, zaps, and deletions. Such subscriptions only query for that data
+    /// for events currently in view, to keep them small.
+    ///
+    /// WARNING: DO NOT CALL TOO OFTEN or relays will hate you.
+    pub async fn visible_notes_changed(&mut self, visible: Vec<Id>) -> Result<(), Error> {
+        let visible: Vec<IdHex> = visible.iter().map(|i| (*i).into()).collect();
+
+        let mut persistent_relay_urls: Vec<RelayUrl> = GLOBALS
+            .connected_relays
+            .iter()
+            .filter_map(|r| {
+                for job in r.value() {
+                    if job.reason.persistent() {
+                        return Some(r.key().clone());
+                    }
+                }
+                None
+            })
+            .collect();
+
+        // Resubscribe to augments on all relays that have
+        // any feed-event subscriptions (see filter above)
+        for url in persistent_relay_urls.drain(..) {
+            self.engage_minion(
+                url,
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchAugments,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeAugments(visible.clone()),
+                    },
+                }],
+            )
+            .await?;
         }
-        text = text.to_lowercase();
-
-        let mut people_search_results: Vec<Person> = Vec::new();
-        let mut note_search_results: Vec<Event> = Vec::new();
-
-        // If a nostr: url, strip the 'nostr:' part
-        if text.len() >= 6 && &text[0..6] == "nostr:" {
-            text = text.split_off(6);
-        }
-
-        if let Some(nb32) = NostrBech32::try_from_string(&text) {
-            match nb32 {
-                NostrBech32::EventAddr(ea) => {
-                    if let Some(event) = GLOBALS
-                        .storage
-                        .find_events(
-                            &[ea.kind],
-                            &[ea.author],
-                            None,
-                            |event| {
-                                event.tags.iter().any(|tag| {
-                                    if let Tag::Identifier { d, .. } = tag {
-                                        if *d == ea.d {
-                                            return true;
-                                        }
-                                    }
-                                    false
-                                })
-                            },
-                            true,
-                        )?
-                        .get(1)
-                    {
-                        note_search_results.push(event.clone());
-                    } else {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::FetchEventAddr(ea.to_owned()));
-
-                        // FIXME - this requires eventaddr comparision on process.rs
-                        // Remember we are searching for this event, so when it comes in
-                        // it can get added to GLOBALS.note_search_results
-                        // GLOBALS.event_addrs_being_searched_for.write().push(ea.to_owned());
-                    }
-                }
-                NostrBech32::EventPointer(ep) => {
-                    if let Some(event) = GLOBALS.storage.read_event(ep.id)? {
-                        note_search_results.push(event);
-                    } else {
-                        let relays: Vec<RelayUrl> = ep
-                            .relays
-                            .iter()
-                            .filter_map(|r| RelayUrl::try_from_unchecked_url(r).ok())
-                            .collect();
-
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::FetchEvent(ep.id, relays));
-
-                        // Remember we are searching for this event, so when it comes in
-                        // it can get added to GLOBALS.note_search_results
-                        GLOBALS.events_being_searched_for.write().push(ep.id);
-                    }
-                }
-                NostrBech32::Id(id) => {
-                    if let Some(event) = GLOBALS.storage.read_event(id)? {
-                        note_search_results.push(event);
-                    }
-                    // else we can't go find it, we don't know which relays to ask.
-                }
-                NostrBech32::Profile(prof) => {
-                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey)? {
-                        people_search_results.push(person);
-                    } else {
-                        // Create person from profile
-                        // fetch data on person
-                    }
-                }
-                NostrBech32::Pubkey(pk) => {
-                    if let Some(person) = GLOBALS.storage.read_person(&pk)? {
-                        people_search_results.push(person);
-                    } else {
-                        // Create person from pubkey
-                        // fetch data on person
-                    }
-                }
-                NostrBech32::Relay(_relay) => (),
-            }
-        }
-
-        people_search_results.extend(GLOBALS.storage.filter_people(|p| {
-            if let Some(metadata) = &p.metadata {
-                if let Ok(s) = serde_json::to_string(&metadata) {
-                    if s.to_lowercase().contains(&text) {
-                        return true;
-                    }
-                }
-            }
-
-            if let Some(petname) = &p.petname {
-                if petname.to_lowercase().contains(&text) {
-                    return true;
-                }
-            }
-
-            false
-        })?);
-
-        note_search_results.extend(GLOBALS.storage.search_events(&text)?);
-
-        *GLOBALS.people_search_results.write() = people_search_results;
-        *GLOBALS.note_search_results.write() = note_search_results;
 
         Ok(())
     }
 
-    async fn zap_start(
+    /// Start a Zap on the note with Id and author PubKey, at the given lnurl.
+    /// This eventually sets `GLOBALS.current_zap`, after which you can complete it
+    /// with Zap()
+    pub async fn zap_start(
         &mut self,
         id: Id,
         target_pubkey: PublicKey,
@@ -2306,7 +2542,8 @@ impl Overlord {
         Ok(())
     }
 
-    async fn zap(
+    /// Complete a zap on the note with Id and author PublicKey by setting a value and a comment.
+    pub async fn zap(
         &mut self,
         id: Id,
         target_pubkey: PublicKey,

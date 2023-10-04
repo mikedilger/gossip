@@ -2,8 +2,8 @@ use super::theme::FeedProperties;
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Frame, RichText, Ui, Vec2};
-use gossip_lib::feed::FeedKind;
-use gossip_lib::globals::GLOBALS;
+use gossip_lib::FeedKind;
+use gossip_lib::GLOBALS;
 use nostr_types::Id;
 use std::sync::atomic::Ordering;
 

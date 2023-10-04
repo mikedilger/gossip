@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tokio::task;
 
+/// Kinds of feeds, with configuration parameteers
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FeedKind {
     Followed(bool), // with replies
@@ -38,6 +39,7 @@ impl std::fmt::Display for FeedKind {
     }
 }
 
+/// The system that computes feeds as an ordered list of event Ids.
 pub struct Feed {
     pub recompute_lock: AtomicBool,
 
@@ -150,12 +152,12 @@ impl Feed {
         self.unlisten();
 
         // Listen for Thread events
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed(
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed {
             id,
             referenced_by,
             relays,
             author,
-        ));
+        });
     }
 
     pub fn set_feed_to_person(&self, pubkey: PublicKey) {

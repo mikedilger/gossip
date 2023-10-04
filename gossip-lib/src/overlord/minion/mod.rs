@@ -83,7 +83,7 @@ impl Minion {
 }
 
 impl Minion {
-    pub async fn handle(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
+    pub(crate) async fn handle(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
         // minion will log when it connects
         tracing::trace!("{}: Minion handling started", &self.url);
 
@@ -353,7 +353,10 @@ impl Minion {
         Ok(())
     }
 
-    pub async fn handle_overlord_message(&mut self, message: ToMinionPayload) -> Result<(), Error> {
+    pub(crate) async fn handle_overlord_message(
+        &mut self,
+        message: ToMinionPayload,
+    ) -> Result<(), Error> {
         match message.detail {
             ToMinionPayloadDetail::FetchEvent(id) => {
                 self.sought_events

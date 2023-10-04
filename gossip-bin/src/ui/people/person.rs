@@ -5,8 +5,8 @@ use crate::ui::PersonTab;
 use eframe::egui;
 use egui::{Context, Frame, Image, RichText, TextEdit, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::people::Person;
+use gossip_lib::Person;
+use gossip_lib::GLOBALS;
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
 

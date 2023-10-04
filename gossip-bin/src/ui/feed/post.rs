@@ -5,9 +5,9 @@ use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::dm_channel::DmChannel;
-use gossip_lib::globals::GLOBALS;
-use gossip_lib::relay::Relay;
+use gossip_lib::DmChannel;
+use gossip_lib::Relay;
+use gossip_lib::GLOBALS;
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 
@@ -244,12 +244,12 @@ fn dm_posting_area(
             });
         }
 
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-            app.dm_draft_data.draft.clone(),
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+            content: app.dm_draft_data.draft.clone(),
             tags,
-            None,
-            Some(dm_channel.to_owned()),
-        ));
+            in_reply_to: None,
+            dm_channel: Some(dm_channel.to_owned()),
+        });
 
         app.reset_draft();
     }
@@ -475,12 +475,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         match app.draft_data.replying_to {
             Some(replying_to_id) => {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-                    app.draft_data.draft.clone(),
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+                    content: app.draft_data.draft.clone(),
                     tags,
-                    Some(replying_to_id),
-                    None,
-                ));
+                    in_reply_to: Some(replying_to_id),
+                    dm_channel: None,
+                });
             }
             None => {
                 if let Some(event_id) = app.draft_data.repost {
@@ -488,12 +488,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         .to_overlord
                         .send(ToOverlordMessage::Repost(event_id));
                 } else {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post(
-                        app.draft_data.draft.clone(),
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+                        content: app.draft_data.draft.clone(),
                         tags,
-                        None,
-                        None,
-                    ));
+                        in_reply_to: None,
+                        dm_channel: None,
+                    });
                 }
             }
         }

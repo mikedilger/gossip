@@ -7,7 +7,7 @@ use crate::ui::{
     GossipUi, Page, SettingsTab,
 };
 use egui_winit::egui::{self, vec2, Align, Context, Id, Response, RichText, Ui};
-use gossip_lib::{comms::ToOverlordMessage, globals::GLOBALS};
+use gossip_lib::{comms::ToOverlordMessage, GLOBALS};
 use nostr_types::{PublicKey, RelayUrl};
 
 const COVERAGE_ENTRY_HEIGHT: f32 = 2.0 * TEXT_TOP + 1.5 * TITLE_FONT_SIZE + 14.0;

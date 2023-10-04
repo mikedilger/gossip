@@ -11,6 +11,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use usvg::TreeParsing;
 
+/// System that processes media fetched from the internet
 pub struct Media {
     // We fetch (with Fetcher), process, and temporarily hold media
     // until the UI next asks for them, at which point we remove them
