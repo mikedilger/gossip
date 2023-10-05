@@ -19,7 +19,7 @@ Copy the binary to the packaging diretory
 Copy the gossip.png here
 
 ````
-  cp ..\..\gossip.png .
+  cp ..\..\logo\gossip.png .
 ````
 
 For new versions of gossip, update gossip.wxs
