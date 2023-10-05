@@ -68,6 +68,8 @@ pub fn run() -> Result<(), Error> {
     let (icon_width, icon_height) = icon.dimensions();
 
     let options = eframe::NativeOptions {
+        #[cfg(target_os = "linux")]
+        app_id: Some("gossip".to_string()),
         decorated: true,
         #[cfg(target_os = "macos")]
         fullsize_content: true,
