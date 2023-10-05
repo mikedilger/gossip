@@ -41,7 +41,7 @@ This issue will be ameliorated somewhat in the future when you can have differen
 Gossip should be compiled in release mode. You can also compile it for your individual processor to squeeze out the most performance (the following line leaves out feature flags, you'll wnat to determine which ones are right for you):
 
 ````bash
-$ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
+RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
 ````
 
 ### Dumb Programmers
