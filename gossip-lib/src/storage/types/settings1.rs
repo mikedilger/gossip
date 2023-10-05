@@ -84,7 +84,7 @@ impl Default for Settings1 {
 
 impl Storage {
     #[allow(dead_code)]
-    pub fn write_settings1<'a>(
+    pub(crate) fn write_settings1<'a>(
         &'a self,
         settings: &Settings1,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -109,7 +109,7 @@ impl Storage {
     }
 
     #[allow(dead_code)]
-    pub fn read_settings1(&self) -> Result<Option<Settings1>, Error> {
+    pub(crate) fn read_settings1(&self) -> Result<Option<Settings1>, Error> {
         let txn = self.env.read_txn()?;
 
         match self.general.get(&txn, b"settings")? {

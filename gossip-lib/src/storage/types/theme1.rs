@@ -41,7 +41,7 @@ impl ThemeVariant1 {
 
 impl Storage {
     #[allow(dead_code)]
-    pub fn write_setting_theme1<'a>(
+    pub(crate) fn write_setting_theme1<'a>(
         &'a self,
         theme: &Theme1,
         rw_txn: Option<&mut RwTxn<'a>>,

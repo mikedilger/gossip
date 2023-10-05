@@ -234,7 +234,7 @@ impl From<Settings1> for Settings2 {
 
 impl Storage {
     #[allow(dead_code)]
-    pub fn write_settings2<'a>(
+    pub(crate) fn write_settings2<'a>(
         &'a self,
         settings: &Settings2,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -259,7 +259,7 @@ impl Storage {
     }
 
     #[allow(dead_code)]
-    pub fn read_settings2(&self) -> Result<Option<Settings2>, Error> {
+    pub(crate) fn read_settings2(&self) -> Result<Option<Settings2>, Error> {
         let txn = self.env.read_txn()?;
 
         match self.general.get(&txn, b"settings2")? {
@@ -269,7 +269,7 @@ impl Storage {
     }
 
     #[allow(dead_code)]
-    pub fn read_settings2_from_wrong_key(&self) -> Result<Option<Settings2>, Error> {
+    pub(crate) fn read_settings2_from_wrong_key(&self) -> Result<Option<Settings2>, Error> {
         let txn = self.env.read_txn()?;
 
         match self.general.get(&txn, b"settings")? {

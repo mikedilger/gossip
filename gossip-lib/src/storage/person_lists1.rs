@@ -43,7 +43,7 @@ impl Storage {
         }
     }
 
-    pub fn read_person_lists1(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
+    pub(crate) fn read_person_lists1(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
         let key: Vec<u8> = pubkey.to_bytes();
         let txn = self.env.read_txn()?;
         Ok(match self.db_person_lists1()?.get(&txn, &key)? {
@@ -52,7 +52,7 @@ impl Storage {
         })
     }
 
-    pub fn write_person_lists1<'a>(
+    pub(crate) fn write_person_lists1<'a>(
         &'a self,
         pubkey: &PublicKey,
         lists: Vec<PersonList>,
@@ -78,7 +78,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn get_people_in_list1(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
+    pub(crate) fn get_people_in_list1(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
         let txn = self.env.read_txn()?;
         let mut pubkeys: Vec<PublicKey> = Vec::new();
         for result in self.db_person_lists1()?.iter(&txn)? {
@@ -92,7 +92,7 @@ impl Storage {
         Ok(pubkeys)
     }
 
-    pub fn clear_person_list1<'a>(
+    pub(crate) fn clear_person_list1<'a>(
         &'a self,
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,

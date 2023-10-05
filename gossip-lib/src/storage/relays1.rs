@@ -44,13 +44,13 @@ impl Storage {
         }
     }
 
-    pub fn get_relays1_len(&self) -> Result<u64, Error> {
+    pub(crate) fn get_relays1_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_relays1()?.len(&txn)?)
     }
 
     #[allow(dead_code)]
-    pub fn write_relay1<'a>(
+    pub(crate) fn write_relay1<'a>(
         &'a self,
         relay: &Relay1,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -81,7 +81,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn delete_relay1<'a>(
+    pub(crate) fn delete_relay1<'a>(
         &'a self,
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -115,7 +115,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn modify_relay1<'a, M>(
+    pub(crate) fn modify_relay1<'a, M>(
         &'a self,
         url: &RelayUrl,
         mut modify: M,
@@ -153,7 +153,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn modify_all_relays1<'a, M>(
+    pub(crate) fn modify_all_relays1<'a, M>(
         &'a self,
         mut modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -189,7 +189,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn read_relay1(&self, url: &RelayUrl) -> Result<Option<Relay1>, Error> {
+    pub(crate) fn read_relay1(&self, url: &RelayUrl) -> Result<Option<Relay1>, Error> {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
@@ -204,7 +204,7 @@ impl Storage {
         }
     }
 
-    pub fn filter_relays1<F>(&self, f: F) -> Result<Vec<Relay1>, Error>
+    pub(crate) fn filter_relays1<F>(&self, f: F) -> Result<Vec<Relay1>, Error>
     where
         F: Fn(&Relay1) -> bool,
     {

@@ -50,7 +50,7 @@ impl Storage {
         }
     }
 
-    pub fn write_event_references_person1<'a>(
+    pub(crate) fn write_event_references_person1<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -119,7 +119,7 @@ impl Storage {
     }
 
     // Read all events referencing a given person in reverse time order
-    pub fn read_events_referencing_person1<F>(
+    pub(crate) fn read_events_referencing_person1<F>(
         &self,
         pubkey: &PublicKey,
         since: Unixtime,

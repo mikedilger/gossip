@@ -44,7 +44,7 @@ impl Storage {
         }
     }
 
-    pub fn write_event1<'a>(
+    pub(crate) fn write_event1<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -80,7 +80,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn read_event1(&self, id: Id) -> Result<Option<Event>, Error> {
+    pub(crate) fn read_event1(&self, id: Id) -> Result<Option<Event>, Error> {
         let txn = self.env.read_txn()?;
         match self.db_events1()?.get(&txn, id.as_slice())? {
             None => Ok(None),
@@ -88,7 +88,7 @@ impl Storage {
         }
     }
 
-    pub fn has_event1(&self, id: Id) -> Result<bool, Error> {
+    pub(crate) fn has_event1(&self, id: Id) -> Result<bool, Error> {
         let txn = self.env.read_txn()?;
         match self.db_events1()?.get(&txn, id.as_slice())? {
             None => Ok(false),
@@ -96,7 +96,7 @@ impl Storage {
         }
     }
 
-    pub fn delete_event1<'a>(
+    pub(crate) fn delete_event1<'a>(
         &'a self,
         id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,

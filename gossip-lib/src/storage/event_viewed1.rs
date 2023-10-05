@@ -43,12 +43,12 @@ impl Storage {
         }
     }
 
-    pub fn get_event_viewed1_len(&self) -> Result<u64, Error> {
+    pub(crate) fn get_event_viewed1_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_viewed1()?.len(&txn)?)
     }
 
-    pub fn mark_event_viewed1<'a>(
+    pub(crate) fn mark_event_viewed1<'a>(
         &'a self,
         id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -72,7 +72,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn is_event_viewed1(&self, id: Id) -> Result<bool, Error> {
+    pub(crate) fn is_event_viewed1(&self, id: Id) -> Result<bool, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_viewed1()?.get(&txn, id.as_slice())?.is_some())
     }
