@@ -55,6 +55,7 @@ The following features make gossip different than most other nostr clients so fa
 - [x] NIP-21 - nostr: URL scheme
 - [x] NIP-22 - Event created_at Limits
 - [ ] NIP-23 - Long-form Content [Optional viewing, but not creating]
+- [ ] NIP-24 - Extra metadata fields and tags
 - [x] NIP-25 - Reactions
 - [x] NIP-26 - Delegated Event Signing
 - [x] NIP-27 - Text Note References
