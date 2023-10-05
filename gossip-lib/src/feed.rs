@@ -2,7 +2,7 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{EventDelegation, EventKind, Id, PublicKey, RelayUrl, Unixtime};
+use nostr_types::{EventDelegation, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -353,43 +353,48 @@ impl Feed {
                     let since =
                         now - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
 
+                    let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
+
                     let inbox_events: Vec<Id> = GLOBALS
                         .storage
-                        .read_events_referencing_person(&my_pubkey, since, |e| {
-                            if e.created_at > now {
-                                return false;
-                            } // no future events
-                            if dismissed.contains(&e.id) {
-                                return false;
-                            } // not dismissed
-                              //if e.pubkey == my_pubkey {
-                              //    return false;
-                              //} // not self-authored
-
-                            // Always include gift wrap and DMs
-                            if e.kind == EventKind::GiftWrap
-                                || e.kind == EventKind::EncryptedDirectMessage
-                            {
-                                return true;
-                            }
-
-                            // Include if it directly replies to one of my events
-                            if let Some((id, _)) = e.replies_to() {
-                                if my_event_ids.contains(&id) {
+                        .find_tagged_events(
+                            "p",
+                            Some(my_pubkeyhex.as_str()),
+                            |e| {
+                                if e.created_at < since || e.created_at > now {
+                                    return false;
+                                }
+                                if ! kinds_with_dms.contains(&e.kind) {
+                                    return false;
+                                }
+                                if dismissed.contains(&e.id) {
+                                    return false;
+                                }
+                                if e.kind == EventKind::GiftWrap
+                                    || e.kind == EventKind::EncryptedDirectMessage
+                                {
                                     return true;
                                 }
-                            }
 
-                            if indirect {
-                                // Include if it tags me
-                                e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
-                            } else {
-                                // Include if it directly references me in the content
-                                e.people_referenced_in_content()
-                                    .iter()
-                                    .any(|p| *p == my_pubkey)
-                            }
-                        })?
+                                // Include if it directly replies to one of my events
+                                if let Some((id, _)) = e.replies_to() {
+                                    if my_event_ids.contains(&id) {
+                                        return true;
+                                    }
+                                }
+
+                                if indirect {
+                                    // Include if it tags me
+                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                                } else {
+                                    // Include if it directly references me in the content
+                                    e.people_referenced_in_content()
+                                        .iter()
+                                        .any(|p| *p == my_pubkey)
+                                }
+                            },
+                            true,
+                        )?
                         .iter()
                         .map(|e| e.id)
                         .collect();
