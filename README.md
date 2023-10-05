@@ -8,9 +8,11 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 ### Installing
 
-- **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) on the AUR
-- **Debian**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-ARCH.deb.zip`
-- **Microsoft Windows**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION.msi.zip`
+- **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) or [`gossip-bin`](https://aur.archlinux.org/packages/gossip-bin) on the AUR
+- **Debian**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-ARCH.deb`
+- **Any Linux**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip.VERSION.AppImage`
+- **Microsoft Windows**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip.VERSION.msi`
+- **MacOS**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-Darwin-arm64.dmg` or `gossip-VERSION-Darwin-x86_64.dmg`
 
 or choose to [Build from Source](#building-from-source)
 
