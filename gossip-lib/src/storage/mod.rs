@@ -242,6 +242,11 @@ impl Storage {
     }
 
     #[inline]
+    pub(crate) fn db_event_tag_index(&self) -> Result<RawDatabase, Error> {
+        self.db_event_tag_index1()
+    }
+
+    #[inline]
     pub(crate) fn db_events(&self) -> Result<RawDatabase, Error> {
         self.db_events1()
     }
@@ -345,6 +350,12 @@ impl Storage {
     pub fn get_event_references_person_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_references_person()?.len(&txn)?)
+    }
+
+    /// The number of records in the event_tag index table
+    pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_event_tag_index()?.len(&txn)?)
     }
 
     /// The number of records in the relationships table
@@ -1716,7 +1727,7 @@ impl Storage {
         }
 
         if sort {
-            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
+            events.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         }
 
         Ok(events)
@@ -2219,6 +2230,37 @@ impl Storage {
                     } // upstream bug
                     self.add_hashtag(&hashtag, event.id, Some(txn))?;
                 }
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn rebuild_event_tags_index<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Erase the index first
+            self.db_event_tag_index()?.clear(txn)?;
+
+            let loop_txn = self.env.read_txn()?;
+            for result in self.db_events()?.iter(&loop_txn)? {
+                let (_key, val) = result?;
+                let event = Event::read_from_buffer(val)?;
+                self.write_event_tag_index(&event, Some(txn))?;
             }
             Ok(())
         };
