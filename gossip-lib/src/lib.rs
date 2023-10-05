@@ -29,14 +29,17 @@
 //!
 //! # Gossip Startup
 //!
-//! Gossip starts up in two phases.
+//! Gossip starts up in three phases.
 //!
 //! The first phase happens at static initialization.
 //! The globally available GLOBALS variable is initialized when first accessed, lazily.
 //! You don't have to do anything special to make this happen, and you can start using
 //! `GLOBALS` whenever you wish.
 //!
-//! The second phase is creating and starting the `Overlord`. This needs to be spawned on
+//! The second phase is where you have to initialize a few things such as `Storage::init()`.
+//! There may be others.
+//!
+//! The third phase is creating and starting the `Overlord`. This needs to be spawned on
 //! a rust async executor such as `tokio`. See [Overlord::new](crate::Overlord::new) for the
 //! details of how to start it. The overlord will start anything else that needs starting,
 //! and will manage connections to relays.

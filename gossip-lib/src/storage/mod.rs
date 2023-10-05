@@ -233,8 +233,8 @@ impl Storage {
     }
 
     #[inline]
-    pub(crate) fn db_event_tag_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_tag_index1()
+    pub(crate) fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
+        self.db_event_references_person1()
     }
 
     #[inline]
@@ -337,8 +337,8 @@ impl Storage {
         Ok(self.db_event_ek_c_index()?.len(&txn)?)
     }
 
-    /// The number of records in the event_tag index table
-    pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
+    /// The number of records in the event_references_person index table
+    pub fn get_event_references_person_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_tag_index()?.len(&txn)?)
     }
@@ -1664,9 +1664,9 @@ impl Storage {
         self.write_event_tag_index1(event, rw_txn)
     }
 
-    /// Find events having a given tag, and passing the filter.
-    /// Only some tags are indxed: "a", "d", "delegation", and "p" for the gossip user only
-    pub fn find_tagged_events<F>(
+    /// Read all events referencing a given person in reverse time order
+    #[inline]
+    pub fn read_events_referencing_person<F>(
         &self,
         tagname: &str,
         tagvalue: Option<&str>,
@@ -2207,37 +2207,6 @@ impl Storage {
                     } // upstream bug
                     self.add_hashtag(&hashtag, event.id, Some(txn))?;
                 }
-            }
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub fn rebuild_event_tags_index<'a>(
-        &'a self,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Erase the index first
-            self.db_event_tag_index()?.clear(txn)?;
-
-            let loop_txn = self.env.read_txn()?;
-            for result in self.db_events()?.iter(&loop_txn)? {
-                let (_key, val) = result?;
-                let event = Event::read_from_buffer(val)?;
-                self.write_event_tag_index(&event, Some(txn))?;
             }
             Ok(())
         };
