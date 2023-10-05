@@ -141,7 +141,7 @@ This binary should be portable to similar systems with similar hardware and oper
 If you want a binary optimized for your exact processor with the newest CPU features enabled, and all gossip features enabled:
 
 ````bash
-$ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --features=lang-cjk,video-ffmpeg --release
+RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
 ````
 
 Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
@@ -225,8 +225,6 @@ MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 ### Contribution
 
 All contributions welcome, please check the [development guidelines](docs/DEVELOPING.md) before starting to code.
-
-Please join [Gossip Telegram Channel](https://t.me/gossipclient).
 
 Anyone interested in replacing the GUI with something much better, or keeping it as egui but making it much better, would be greatly appreciated.
 
