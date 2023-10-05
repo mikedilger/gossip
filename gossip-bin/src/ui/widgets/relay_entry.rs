@@ -377,16 +377,17 @@ impl RelayEntry {
         let pos = pos + vec2(200.0, 0.0);
         let id = self.make_id("disconnect_link");
         let text = "Force disconnect";
-        response |= draw_link_at(
+        let can_disconnect = self.enabled && self.connected;
+        let disconnect_response = draw_link_at(
             ui,
             id,
             pos,
             text.into(),
             Align::Min,
-            self.enabled && self.connected,
+            can_disconnect,
             true,
         );
-        if response.clicked() {
+        if can_disconnect && disconnect_response.clicked() {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::DropRelay(self.relay.url.to_owned()));
