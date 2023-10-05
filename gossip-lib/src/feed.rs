@@ -310,6 +310,9 @@ impl Feed {
 
                 let since = now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
+                // FIXME we don't include delegated events. We should look for all events
+                // delegated to people we follow and include those in the feed too.
+
                 let followed_events: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
