@@ -159,7 +159,7 @@ impl Signer {
         }
     }
 
-    pub(crate) async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
+    pub async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
         let maybe_encrypted = self.encrypted.read().to_owned();
         match maybe_encrypted {
             Some(epk) => {
@@ -173,7 +173,7 @@ impl Signer {
                     .write()
                     .write("Passphrase changed.".to_owned());
                 Ok(())
-            }
+            },
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }

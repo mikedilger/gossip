@@ -534,7 +534,7 @@ impl Overlord {
                 Self::delete_pub().await?;
             }
             ToOverlordMessage::DropRelay(relay_url) => {
-                self.drop_relay(relay_url).await?;
+                self.drop_relay(relay_url)?;
             }
             ToOverlordMessage::FetchEvent(id, relay_urls) => {
                 self.fetch_event(id, relay_urls).await?;
@@ -555,7 +555,7 @@ impl Overlord {
                 Self::generate_private_key(password).await?;
             }
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
-                Self::hide_or_show_relay(relay_url, hidden).await?;
+                Self::hide_or_show_relay(relay_url, hidden)?;
             }
             ToOverlordMessage::ImportPriv { privkey, password } => {
                 Self::import_priv(privkey, password).await?;
@@ -615,7 +615,7 @@ impl Overlord {
                 Self::prune_cache().await?;
             }
             ToOverlordMessage::PruneDatabase => {
-                Self::prune_database().await?;
+                Self::prune_database()?;
             }
             ToOverlordMessage::PushFollow => {
                 self.push_follow().await?;
@@ -627,7 +627,7 @@ impl Overlord {
                 self.push_mute_list().await?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
-                Self::rank_relay(relay_url, rank).await?;
+                Self::rank_relay(relay_url, rank)?;
             }
             ToOverlordMessage::ReengageMinion(url, persistent_jobs) => {
                 self.engage_minion(url, persistent_jobs).await?;
@@ -663,10 +663,10 @@ impl Overlord {
                 self.subscribe_discover(pubkeys, maybe_relayurls).await?;
             }
             ToOverlordMessage::Shutdown => {
-                Self::shutdown().await?;
+                Self::shutdown()?;
             }
             ToOverlordMessage::UnlockKey(password) => {
-                Self::unlock_key(password).await?;
+                Self::unlock_key(password)?;
             }
             ToOverlordMessage::UpdateFollowing { merge } => {
                 self.update_following(merge).await?;
@@ -801,7 +801,7 @@ impl Overlord {
 
     /// Change the user's passphrase.
     pub async fn change_passphrase(mut old: String, mut new: String) -> Result<(), Error> {
-        GLOBALS.signer.change_passphrase(&old, &new)?;
+        GLOBALS.signer.change_passphrase(&old, &new).await?;
         old.zeroize();
         new.zeroize();
         Ok(())
@@ -809,14 +809,14 @@ impl Overlord {
 
     /// Clear the user's following list. This wipes everybody. But it doesn't publish
     /// the empty list. You should probably double-check that the user is certain.
-    pub async fn clear_following(&mut self) -> Result<(), Error> {
+    pub fn clear_following(&mut self) -> Result<(), Error> {
         GLOBALS.people.follow_none()?;
         Ok(())
     }
 
     /// Clear the user's mute list. This wipes everybody. But it doesn't publish
     /// the empty list. You should probably double-check that the user is certain.
-    pub async fn clear_mute_list(&mut self) -> Result<(), Error> {
+    pub fn clear_mute_list(&mut self) -> Result<(), Error> {
         GLOBALS.people.clear_mute_list()?;
         Ok(())
     }
@@ -933,7 +933,7 @@ impl Overlord {
 
     /// Disconnect from the specified relay. This may not happen immediately if the minion
     /// handling that relay is stuck waiting for a timeout.
-    pub async fn drop_relay(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+    pub fn drop_relay(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
         let _ = self.to_minions.send(ToMinionMessage {
             target: relay_url.as_str().to_owned(),
             payload: ToMinionPayload {
@@ -1055,7 +1055,7 @@ impl Overlord {
 
     /// Hide or Show a relay. This adjusts the `hidden` a flag on the `Relay` record
     /// (You could easily do this yourself by talking to GLOBALS.storage directly too)
-    pub async fn hide_or_show_relay(relay_url: RelayUrl, hidden: bool) -> Result<(), Error> {
+    pub fn hide_or_show_relay(relay_url: RelayUrl, hidden: bool) -> Result<(), Error> {
         if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
             relay.hidden = hidden;
             GLOBALS.storage.write_relay(&relay, None)?;
@@ -1509,7 +1509,7 @@ impl Overlord {
     }
 
     /// Prune the database (events and more)
-    pub async fn prune_database() -> Result<(), Error> {
+    pub fn prune_database() -> Result<(), Error> {
         GLOBALS
             .status_queue
             .write()
@@ -1639,7 +1639,7 @@ impl Overlord {
     /// Rank a relay from 0 to 9.  The default rank is 3.  A rank of 0 means the relay will not be used.
     /// This represent a user's judgement, and is factored into how suitable a relay is for various
     /// purposes.
-    pub async fn rank_relay(relay_url: RelayUrl, rank: u8) -> Result<(), Error> {
+    pub fn rank_relay(relay_url: RelayUrl, rank: u8) -> Result<(), Error> {
         if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
             relay.rank = rank as u64;
             GLOBALS.storage.write_relay(&relay, None)?;
@@ -2159,7 +2159,7 @@ impl Overlord {
     }
 
     /// Shutdown gossip
-    pub async fn shutdown() -> Result<(), Error> {
+    pub fn shutdown() -> Result<(), Error> {
         tracing::info!("Overlord shutting down");
         GLOBALS.shutting_down.store(true, Ordering::Relaxed);
         Ok(())
@@ -2167,7 +2167,7 @@ impl Overlord {
 
     /// Unlock the private key with the given passphrase so that gossip can use it.
     /// This is akin to logging in.
-    pub async fn unlock_key(mut password: String) -> Result<(), Error> {
+    pub fn unlock_key(mut password: String) -> Result<(), Error> {
         if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
             tracing::error!("{}", e);
             GLOBALS
