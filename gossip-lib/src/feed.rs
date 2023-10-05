@@ -2,7 +2,7 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{EventDelegation, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -417,31 +417,47 @@ impl Feed {
                 let since =
                     now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
 
-                let events: Vec<Id> = GLOBALS
+                let pphex: PublicKeyHex = person_pubkey.into();
+
+                let filter = |e: &Event| {
+                    if dismissed.contains(&e.id) {
+                        return false;
+                    }
+                    if ! kinds_without_dms.contains(&e.kind) {
+                        return false;
+                    }
+                    true
+                };
+
+                let mut events: Vec<Event> = GLOBALS
                     .storage
                     .find_events(
                         &kinds_without_dms,
-                        &[], // any person (due to delegation condition) // FIXME
+                        &[person_pubkey],
                         Some(since),
-                        |e| {
-                            if dismissed.contains(&e.id) {
-                                return false;
-                            } // not dismissed
-                            if e.pubkey == person_pubkey {
-                                true
-                            } else {
-                                if let EventDelegation::DelegatedBy(pk) = e.delegation() {
-                                    pk == person_pubkey
-                                } else {
-                                    false
-                                }
-                            }
-                        },
-                        true,
+                        filter,
+                        false
                     )?
                     .iter()
-                    .map(|e| e.id)
+                    .chain(
+                        GLOBALS
+                            .storage
+                            .find_tagged_events(
+                                "delegation",
+                                Some(pphex.as_str()),
+                                filter,
+                                false
+                            )?
+                            .iter()
+                    )
+                    .map(|e| e.to_owned())
                     .collect();
+
+                events.sort_by(|a,b| b.created_at.cmp(&a.created_at).then(
+                    b.id.cmp(&a.id)
+                ));
+
+                let events: Vec<Id> = events.iter().map(|e| e.id).collect();
 
                 *self.person_feed.write() = events;
             }
