@@ -55,6 +55,7 @@ The following features make gossip different than most other nostr clients so fa
 - [x] NIP-21 - nostr: URL scheme
 - [x] NIP-22 - Event created_at Limits
 - [ ] NIP-23 - Long-form Content [Optional viewing, but not creating]
+- [ ] NIP-24 - Extra metadata fields and tags
 - [x] NIP-25 - Reactions
 - [x] NIP-26 - Delegated Event Signing
 - [x] NIP-27 - Text Note References
@@ -137,10 +138,10 @@ The output will be a binary executable in `target/release/gossip`
 
 This binary should be portable to similar systems with similar hardware and operating system.
 
-If you want a binary optimized for your exact processor with the newest features enabled:
+If you want a binary optimized for your exact processor with the newest CPU features enabled, and all gossip features enabled:
 
 ````bash
-RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
+RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --features=lang-cjk,video-ffmpeg --release
 ````
 
 Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
