@@ -137,10 +137,10 @@ The output will be a binary executable in `target/release/gossip`
 
 This binary should be portable to similar systems with similar hardware and operating system.
 
-If you want a binary optimized for your exact processor with the newest features enabled:
+If you want a binary optimized for your exact processor with the newest CPU features enabled, and all gossip features enabled:
 
 ````bash
-$ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
+$ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --features=lang-cjk,video-ffmpeg --release
 ````
 
 Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
