@@ -12,6 +12,8 @@ mod coverage;
 mod known;
 mod mine;
 
+pub const RELAY_URL_PREPOPULATE: &str = "wss://";
+
 pub(super) struct RelayUi {
     /// text of search field
     search: String,
@@ -53,7 +55,7 @@ impl RelayUi {
             edit_done: None,
             edit_needs_scroll: false,
             add_dialog_step: AddRelayDialogStep::Inactive,
-            new_relay_url: "".to_string(),
+            new_relay_url: RELAY_URL_PREPOPULATE.to_string(),
             configure_list_menu_active: false,
         }
     }
@@ -257,7 +259,7 @@ pub(super) fn start_entry_dialog(app: &mut GossipUi) {
 }
 
 pub(super) fn stop_entry_dialog(app: &mut GossipUi) {
-    app.relays.new_relay_url = "".to_string();
+    app.relays.new_relay_url = RELAY_URL_PREPOPULATE.to_string();
     app.relays.add_dialog_step = AddRelayDialogStep::Inactive;
 }
 
@@ -389,7 +391,7 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
 
                         // go to next step
                         app.relays.add_dialog_step = AddRelayDialogStep::Step2AwaitOverlord;
-                        app.relays.new_relay_url = "".to_owned();
+                        app.relays.new_relay_url = RELAY_URL_PREPOPULATE.to_owned();
                     } else {
                         GLOBALS
                             .status_queue
