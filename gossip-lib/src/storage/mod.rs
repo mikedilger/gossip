@@ -21,6 +21,7 @@ mod event_ek_c_index1;
 mod event_ek_pk_index1;
 mod event_references_person1;
 mod event_seen_on_relay1;
+mod event_tag_index1;
 mod event_viewed1;
 mod events1;
 mod hashtags1;
@@ -51,6 +52,8 @@ use paste::paste;
 use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use std::ops::Bound;
+
+use self::event_tag_index1::INDEXED_TAGS;
 
 // Macro to define read-and-write into "general" database, largely for settings
 // The type must implemented Speedy Readable and Writable
@@ -179,6 +182,7 @@ impl Storage {
         let _ = self.db_event_ek_c_index()?;
         let _ = self.db_event_ek_pk_index()?;
         let _ = self.db_event_references_person()?;
+        let _ = self.db_event_tag_index()?;
         let _ = self.db_events()?;
         let _ = self.db_event_seen_on_relay()?;
         let _ = self.db_event_viewed()?;
@@ -233,6 +237,11 @@ impl Storage {
     #[inline]
     pub(crate) fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
         self.db_event_references_person1()
+    }
+
+    #[inline]
+    pub(crate) fn db_event_tag_index(&self) -> Result<RawDatabase, Error> {
+        self.db_event_tag_index1()
     }
 
     #[inline]
@@ -339,6 +348,12 @@ impl Storage {
     pub fn get_event_references_person_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_references_person()?.len(&txn)?)
+    }
+
+    /// The number of records in the event_tag index table
+    pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_event_tag_index()?.len(&txn)?)
     }
 
     /// The number of records in the relationships table
@@ -1654,6 +1669,68 @@ impl Storage {
         Ok(())
     }
 
+    fn write_event_tag_index<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.write_event_tag_index1(event, rw_txn)
+    }
+
+    /// Find events having a given tag, and passing the filter.
+    /// Only some tags are indxed: "a", "d", "delegation", and "p" for the gossip user only
+    pub fn find_tagged_events<F>(
+        &self,
+        tagname: &str,
+        tagvalue: Option<&str>,
+        f: F,
+        sort: bool,
+    ) -> Result<Vec<Event>, Error>
+    where
+        F: Fn(&Event) -> bool,
+    {
+        // Make sure we are asking for something that we have indexed
+        if !INDEXED_TAGS.contains(&tagname) {
+            return Err(ErrorKind::TagNotIndexed(tagname.to_owned()).into());
+        }
+
+        let mut ids: HashSet<Id> = HashSet::new();
+        let txn = self.env.read_txn()?;
+
+        let mut start_key: Vec<u8> = tagname.as_bytes().to_owned();
+        start_key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
+        if let Some(tv) = tagvalue {
+            start_key.extend(tv.as_bytes());
+        }
+        let start_key = key!(&start_key); // limit the size
+        let iter = self.db_event_tag_index()?.prefix_iter(&txn, start_key)?;
+        for result in iter {
+            let (_key, val) = result?;
+            // Take the event
+            let id = Id(val[0..32].try_into()?);
+            ids.insert(id);
+        }
+
+        // Now that we have that Ids, fetch and filter the events
+        let txn = self.env.read_txn()?;
+        let mut events: Vec<Event> = Vec::new();
+        for id in ids {
+            // this is like self.read_event(), but we supply our existing transaction
+            if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                let event = Event::read_from_buffer(bytes)?;
+                if f(&event) {
+                    events.push(event);
+                }
+            }
+        }
+
+        if sort {
+            events.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        }
+
+        Ok(events)
+    }
+
     // We don't call this externally. Whenever we write an event, we do this.
     #[inline]
     fn write_event_references_person<'a>(
@@ -2133,6 +2210,7 @@ impl Storage {
             // Erase all indices first
             self.db_event_ek_pk_index()?.clear(txn)?;
             self.db_event_ek_c_index()?.clear(txn)?;
+            self.db_event_tag_index()?.clear(txn)?;
             self.db_event_references_person()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
@@ -2142,6 +2220,7 @@ impl Storage {
                 let event = Event::read_from_buffer(val)?;
                 self.write_event_ek_pk_index(&event, Some(txn))?;
                 self.write_event_ek_c_index(&event, Some(txn))?;
+                self.write_event_tag_index(&event, Some(txn))?;
                 self.write_event_references_person(&event, Some(txn))?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
@@ -2149,6 +2228,37 @@ impl Storage {
                     } // upstream bug
                     self.add_hashtag(&hashtag, event.id, Some(txn))?;
                 }
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn rebuild_event_tags_index<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Erase the index first
+            self.db_event_tag_index()?.clear(txn)?;
+
+            let loop_txn = self.env.read_txn()?;
+            for result in self.db_events()?.iter(&loop_txn)? {
+                let (_key, val) = result?;
+                let event = Event::read_from_buffer(val)?;
+                self.write_event_tag_index(&event, Some(txn))?;
             }
             Ok(())
         };
