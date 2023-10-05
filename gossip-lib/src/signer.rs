@@ -131,7 +131,7 @@ impl Signer {
         }
     }
 
-    pub fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
+    pub async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
         let maybe_encrypted = self.encrypted.read().to_owned();
         match maybe_encrypted {
             Some(epk) => {
@@ -139,17 +139,13 @@ impl Signer {
                 let pk = epk.decrypt(old)?;
                 let epk = pk.export_encrypted(new, GLOBALS.storage.read_setting_log_n())?;
                 *self.encrypted.write() = Some(epk);
-                task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save().await {
-                        tracing::error!("{}", e);
-                    }
-                    GLOBALS
-                        .status_queue
-                        .write()
-                        .write("Passphrase changed.".to_owned())
-                });
+                self.save().await?;
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Passphrase changed.".to_owned());
                 Ok(())
-            }
+            },
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
