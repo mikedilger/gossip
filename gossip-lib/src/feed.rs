@@ -2,7 +2,7 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{EventDelegation, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -426,7 +426,11 @@ impl Feed {
                     if dismissed.contains(&e.id) {
                         return false;
                     }
+<<<<<<< HEAD
                     if !kinds_without_dms.contains(&e.kind) {
+=======
+                    if ! kinds_without_dms.contains(&e.kind) {
+>>>>>>> Use event_tag_index to find delegated events in Person feed
                         return false;
                     }
                     true
@@ -439,19 +443,39 @@ impl Feed {
                         &[person_pubkey],
                         Some(since),
                         filter,
+<<<<<<< HEAD
                         false,
+=======
+                        false
+>>>>>>> Use event_tag_index to find delegated events in Person feed
                     )?
                     .iter()
                     .chain(
                         GLOBALS
                             .storage
+<<<<<<< HEAD
                             .find_tagged_events("delegation", Some(pphex.as_str()), filter, false)?
                             .iter(),
+=======
+                            .find_tagged_events(
+                                "delegation",
+                                Some(pphex.as_str()),
+                                filter,
+                                false
+                            )?
+                            .iter()
+>>>>>>> Use event_tag_index to find delegated events in Person feed
                     )
                     .map(|e| e.to_owned())
                     .collect();
 
+<<<<<<< HEAD
                 events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
+=======
+                events.sort_by(|a,b| b.created_at.cmp(&a.created_at).then(
+                    b.id.cmp(&a.id)
+                ));
+>>>>>>> Use event_tag_index to find delegated events in Person feed
 
                 let events: Vec<Id> = events.iter().map(|e| e.id).collect();
 
