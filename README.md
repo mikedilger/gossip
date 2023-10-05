@@ -1,8 +1,8 @@
 # Gossip
 
-## Gossip is a desktop client for nostr.
+## Gossip is a desktop client for NOSTR
 
-Nostr is an open social media protocol empowering lots of software such as this client. The experience is kind of like Twitter except that you control your own account, and you can post to many different independent places called "relays". People are finding many additional uses for nostr that go far beyond micro-blogging or chatting, but this client is focused on those.
+Nostr is an open social media protocol empowering lots of software such as this client. The experience is kind of like Twitter except that you control your own account, and you can post to many different independent places called "relays". People are finding many additional uses for NOSTR that go far beyond micro-blogging or chatting, but this client is focused on those.
 
 Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
@@ -91,8 +91,8 @@ The following features make gossip different than most other nostr clients so fa
 If when you pull gossip it doesn't pull cleanly, I may have done a rare force-push. Run these commands to reset your master branch:
 
 ````bash
-$ git fetch
-$ git reset --hard origin/master
+git fetch
+git reset --hard origin/master
 ````
 
 ### Step 1 - Install Rust
@@ -112,25 +112,25 @@ Most dependencies are probably already installed in your base operating system. 
 
 #### macOS
 
-a. Install rust with rust-up: https://rustup.rs/
-b. Install homebrew if you don't have it yet https://brew.sh/
+a. Install rust with rust-up: <https://rustup.rs/>
+b. Install homebrew if you don't have it yet <https://brew.sh/>
 c. Install these dependencies:
 
-```
+```bash
 brew install cmake sdl2 pkg-config ffmpeg
 ```
 
 ### Step 3 - Clone this Repository
 
 ````bash
-$ git clone https://github.com/mikedilger/gossip
+git clone https://github.com/mikedilger/gossip
 ````
 
 ### Step 4 - Compile
 
 ````bash
-$ cd gossip
-$ cargo build --release
+cd gossip
+cargo build --release
 ````
 
 The output will be a binary executable in `target/release/gossip`
@@ -140,7 +140,7 @@ This binary should be portable to similar systems with similar hardware and oper
 If you want a binary optimized for your exact processor with the newest features enabled:
 
 ````bash
-$ RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
+RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
 ````
 
 Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
@@ -148,7 +148,7 @@ Everything gossip needs (fonts, icons) is baked into this executable. It doesn't
 To make the binary smaller,
 
 ````bash
-$ strip gossip
+strip gossip
 ````
 
 ### Step 5 - Do it all again
@@ -156,10 +156,10 @@ $ strip gossip
 The `master` branch changes quickly.  When you want to update, do it all again, something like this:
 
 ````bash
-$ git pull
-$ cargo build --release
-$ strip ./target/release/gossip
-$ ./target/release/gossip
+git pull
+cargo build --release
+strip ./target/release/gossip
+./target/release/gossip
 ````
 
 ## Compile Options
@@ -178,7 +178,6 @@ If you wish to switch to your native TLS provider, use the following compile opt
 ````
 
 ### Language Support
-
 
 #### Chinese, Japanese and Korean character sets
 
@@ -206,7 +205,7 @@ Compile with
 
 ### Performance issues
 
-If you are having performance issues, please see [PERFORMANCE.md](PERFORMANCE.md).
+If you are having performance issues, please see [PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ## Technology Involved
 
@@ -220,11 +219,11 @@ If you are having performance issues, please see [PERFORMANCE.md](PERFORMANCE.md
 
 ## License
 
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 ### Contribution
 
-All contributions welcome, please check the [development guidelines](DEVELOPING.md) before starting to code.
+All contributions welcome, please check the [development guidelines](docs/DEVELOPING.md) before starting to code.
 
 Anyone interested in replacing the GUI with something much better, or keeping it as egui but making it much better, would be greatly appreciated.
 
@@ -232,13 +231,13 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 ## On Nostr
 
-### The official gossip account:
+### The official gossip account
 
 nprofile1qqsrjerj9rhamu30sjnuudk3zxeh3njl852mssqng7z4up9jfj8yupqpzamhxue69uhhyetvv9ujumn0wd68ytnfdenx7tcpz4mhxue69uhkummnw3ezummcw3ezuer9wchszxmhwden5te0dehhxarj9ekkj6m9v35kcem9wghxxmmd9uq3xamnwvaz7tm0venxx6rpd9hzuur4vghsz8nhwden5te0dehhxarj94c82c3wwajkcmr0wfjx2u3wdejhgtcsfx2xk
 
 npub189j8y280mhezlp98ecmdzydn0r8970g4hpqpx3u9tcztynywfczqqr3tg8
 
-### Mike Dilger:
+### Mike Dilger
 
 nprofile1qqswuyd9ml6qcxd92h6pleptfrcqucvvjy39vg4wx7mv9wm8kakyujgpzamhxue69uhhyetvv9ujumn0wd68ytnfdenx7tcprpmhxue69uhkzapwdehhxarjwahhy6mn9e3k7mf0qyt8wumn8ghj7etyv4hzumn0wd68ytnvv9hxgtcprdmhxue69uhkummnw3ezumtfddjkg6tvvajhytnrdakj7qgnwaehxw309ahkvenrdpskjm3wwp6kytcpremhxue69uhkummnw3ez6ur4vgh8wetvd3hhyer9wghxuet59uq32amnwvaz7tmwdaehgu3wdau8gu3wv3jhvtct8l34m
 
@@ -248,4 +247,4 @@ You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you
 
 I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term keypair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
 
-You can tip me at my Bitcoin Lighting address: decentbun13@walletofsatoshi.com == lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
+You can tip me at my Bitcoin Lighting address: <decentbun13@walletofsatoshi.com> == lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
