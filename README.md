@@ -137,10 +137,10 @@ The output will be a binary executable in `target/release/gossip`
 
 This binary should be portable to similar systems with similar hardware and operating system.
 
-If you want a binary optimized for your exact processor with the newest features enabled:
+If you want a binary optimized for your exact processor with the newest CPU features enabled, and all gossip features enabled:
 
 ````bash
-RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --release
+RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --features=lang-cjk,video-ffmpeg --release
 ````
 
 Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
@@ -250,3 +250,5 @@ You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you
 I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term keypair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
 
 You can tip me at my Bitcoin Lighting address: <decentbun13@walletofsatoshi.com> == lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
+
+            let mut petname: Option<String> = None;
