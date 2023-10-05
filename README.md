@@ -225,6 +225,8 @@ MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 All contributions welcome, please check the [development guidelines](docs/DEVELOPING.md) before starting to code.
 
+Please join [Gossip Telegram Channel](https://t.me/gossipclient).
+
 Anyone interested in replacing the GUI with something much better, or keeping it as egui but making it much better, would be greatly appreciated.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, shall be licensed as above, without any additional terms or conditions.
