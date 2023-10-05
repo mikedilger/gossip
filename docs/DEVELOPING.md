@@ -50,13 +50,13 @@ The flow generally happens like this:
 
 I prefer that you run and make pass:
 
-````sh
+````bash
 cargo clippy
 ````
 
 and then
 
-````sh
+````bash
 cargo fmt
 ````
 
