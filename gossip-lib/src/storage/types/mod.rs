@@ -14,7 +14,7 @@ mod settings1;
 pub(crate) use settings1::Settings1;
 
 mod settings2;
-pub use settings2::Settings2;
+pub(crate) use settings2::Settings2;
 
 mod theme1;
 pub(crate) use theme1::{Theme1, ThemeVariant1};
