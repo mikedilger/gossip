@@ -159,7 +159,7 @@ impl Signer {
         }
     }
 
-    pub async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
+    pub(crate) async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
         let maybe_encrypted = self.encrypted.read().to_owned();
         match maybe_encrypted {
             Some(epk) => {
