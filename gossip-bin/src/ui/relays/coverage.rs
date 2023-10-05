@@ -142,15 +142,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             }
             ui.add_space(10.0);
             {
-                let visuals = ui.visuals_mut();
-                visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
-                visuals.widgets.inactive.fg_stroke.width = 1.0;
-                visuals.widgets.inactive.fg_stroke.color =
-                    app.theme.get_style().visuals.extreme_bg_color;
-                visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
-                visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
-                visuals.widgets.inactive.fg_stroke.color =
-                    app.theme.get_style().visuals.extreme_bg_color;
+                widgets::set_important_button_visuals(ui, app);
 
                 if ui
                     .button(Page::RelaysActivityMonitor.name())

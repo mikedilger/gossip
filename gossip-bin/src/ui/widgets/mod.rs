@@ -9,6 +9,8 @@ pub use nav_item::NavItem;
 mod relay_entry;
 pub use relay_entry::{RelayEntry, RelayEntryView};
 
+use super::GossipUi;
+
 // pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {
 //     let mut job = text.into().into_text_job(
 //         ui.style(),
@@ -59,4 +61,16 @@ pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Respo
     }
 
     response
+}
+
+pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
+    let visuals = ui.visuals_mut();
+    visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
+    visuals.widgets.inactive.fg_stroke.width = 1.0;
+    visuals.widgets.inactive.fg_stroke.color =
+        app.theme.get_style().visuals.extreme_bg_color;
+    visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
+    visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
+    visuals.widgets.inactive.fg_stroke.color =
+        app.theme.get_style().visuals.extreme_bg_color;
 }

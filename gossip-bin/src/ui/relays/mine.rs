@@ -23,7 +23,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.add_space(20.0);
             widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
             ui.add_space(200.0); // search_field somehow doesn't "take up" space
+            widgets::set_important_button_visuals(ui, app);
             if ui.button("Advertise Relay List")
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .on_hover_text("Advertise my relays. Will send 10002 kind to all relays that have 'ADVERTISE' usage enabled")
                 .clicked() {
                 let _ = GLOBALS
