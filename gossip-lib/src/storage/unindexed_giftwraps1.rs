@@ -64,6 +64,7 @@ impl Storage {
                 self.write_event_ek_pk_index(&event, Some(&mut txn))?;
                 self.write_event_ek_c_index(&event, Some(&mut txn))?;
                 self.write_event_tag_index(&event, Some(&mut txn))?;
+                self.write_event_references_person(&event, Some(&mut txn))?;
             }
             self.db_unindexed_giftwraps1()?
                 .delete(&mut txn, id.as_slice())?;
