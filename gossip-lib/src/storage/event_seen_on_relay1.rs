@@ -43,12 +43,12 @@ impl Storage {
         }
     }
 
-    pub fn get_event_seen_on_relay1_len(&self) -> Result<u64, Error> {
+    pub(crate) fn get_event_seen_on_relay1_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_seen_on_relay1()?.len(&txn)?)
     }
 
-    pub fn add_event_seen_on_relay1<'a>(
+    pub(crate) fn add_event_seen_on_relay1<'a>(
         &'a self,
         id: Id,
         url: &RelayUrl,
@@ -77,7 +77,10 @@ impl Storage {
         Ok(())
     }
 
-    pub fn get_event_seen_on_relay1(&self, id: Id) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
+    pub(crate) fn get_event_seen_on_relay1(
+        &self,
+        id: Id,
+    ) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
         let start_key: Vec<u8> = id.as_slice().to_owned();
         let txn = self.env.read_txn()?;
         let mut output: Vec<(RelayUrl, Unixtime)> = Vec::new();

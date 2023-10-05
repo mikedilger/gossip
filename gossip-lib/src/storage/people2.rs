@@ -44,13 +44,13 @@ impl Storage {
         }
     }
 
-    pub fn get_people2_len(&self) -> Result<u64, Error> {
+    pub(crate) fn get_people2_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_people2()?.len(&txn)?)
     }
 
     #[allow(dead_code)]
-    pub fn write_person2<'a>(
+    pub(crate) fn write_person2<'a>(
         &'a self,
         person: &Person2,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -78,7 +78,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn read_person2(&self, pubkey: &PublicKey) -> Result<Option<Person2>, Error> {
+    pub(crate) fn read_person2(&self, pubkey: &PublicKey) -> Result<Option<Person2>, Error> {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization
         // should work though: Consider bincode.
@@ -90,7 +90,7 @@ impl Storage {
         })
     }
 
-    pub fn filter_people2<F>(&self, f: F) -> Result<Vec<Person2>, Error>
+    pub(crate) fn filter_people2<F>(&self, f: F) -> Result<Vec<Person2>, Error>
     where
         F: Fn(&Person2) -> bool,
     {

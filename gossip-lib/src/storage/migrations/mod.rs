@@ -370,7 +370,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn delete_rumors<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(crate) fn delete_rumors<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let mut ids: Vec<Id> = Vec::new();
         let iter = self.db_events1()?.iter(txn)?;
         for result in iter {
@@ -388,7 +388,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn populate_new_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(crate) fn populate_new_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let mut count: usize = 0;
         let mut followed_count: usize = 0;
         for person1 in self.filter_people1(|_| true)?.iter() {
@@ -416,7 +416,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn migrate_people<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(crate) fn migrate_people<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let mut count: usize = 0;
         for person1 in self.filter_people1(|_| true)?.drain(..) {
             let person2 = Person2 {
@@ -443,7 +443,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn populate_last_fetched<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(crate) fn populate_last_fetched<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let total = self.get_event_seen_on_relay_len()?;
         let mut count = 0;
 
@@ -494,7 +494,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn rewrite_theme_settings<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(crate) fn rewrite_theme_settings<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         const DEF: Theme1 = Theme1 {
             variant: ThemeVariant1::Default,
             dark_mode: false,

@@ -43,7 +43,7 @@ impl Storage {
         }
     }
 
-    pub fn index_unindexed_giftwraps1(&self) -> Result<(), Error> {
+    pub(crate) fn index_unindexed_giftwraps1(&self) -> Result<(), Error> {
         if !GLOBALS.signer.is_ready() {
             return Err(ErrorKind::NoPrivateKey.into());
         }

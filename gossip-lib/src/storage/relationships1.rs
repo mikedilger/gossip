@@ -45,7 +45,7 @@ impl Storage {
         }
     }
 
-    pub fn write_relationship1<'a>(
+    pub(crate) fn write_relationship1<'a>(
         &'a self,
         id: Id,
         related: Id,
@@ -73,7 +73,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn find_relationships1(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
+    pub(crate) fn find_relationships1(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
         let start_key = id.as_slice();
         let txn = self.env.read_txn()?;
         let iter = self.db_relationships1()?.prefix_iter(&txn, start_key)?;

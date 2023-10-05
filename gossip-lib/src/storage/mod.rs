@@ -101,7 +101,7 @@ macro_rules! def_setting {
             }
 
             #[allow(dead_code)]
-            pub fn [<set_default_setting_ $field>]<'a>(
+            pub(crate) fn [<set_default_setting_ $field>]<'a>(
                 &'a self,
                 rw_txn: Option<&mut RwTxn<'a>>
             ) -> Result<(), Error> {
@@ -109,7 +109,7 @@ macro_rules! def_setting {
             }
 
             #[allow(dead_code)]
-            pub fn [<get_default_setting_ $field>]() -> $type {
+            pub(crate) fn [<get_default_setting_ $field>]() -> $type {
                 $default
             }
         }
@@ -129,7 +129,7 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn new() -> Result<Storage, Error> {
+    pub(crate) fn new() -> Result<Storage, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
             builder.flags(EnvFlags::NO_SYNC | EnvFlags::NO_TLS);
@@ -167,8 +167,8 @@ impl Storage {
         Ok(Storage { env, general })
     }
 
-    // Run this after GLOBALS lazy static initialisation, so functions within storage can
-    // access GLOBALS without hanging.
+    /// Run this after GLOBALS lazy static initialisation, so functions within storage can
+    /// access GLOBALS without hanging.
     pub fn init(&self) -> Result<(), Error> {
         // We have to trigger all of the current-version databases into existence
         // because otherwise there will be MVCC visibility problems later having
@@ -205,10 +205,14 @@ impl Storage {
         Ok(())
     }
 
+    /// Get a write transaction. With it, you can do multiple writes before you commit it.
+    /// Bundling multiple writes together is more efficient.
     pub fn get_write_txn(&self) -> Result<RwTxn<'_>, Error> {
         Ok(self.env.write_txn()?)
     }
 
+    /// Sync the data to disk. This happens periodically, but sometimes it's useful to force
+    /// it.
     pub fn sync(&self) -> Result<(), Error> {
         self.env.force_sync()?;
         Ok(())
@@ -217,132 +221,145 @@ impl Storage {
     // Database getters ---------------------------------
 
     #[inline]
-    pub fn db_event_ek_c_index(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_event_ek_c_index(&self) -> Result<RawDatabase, Error> {
         self.db_event_ek_c_index1()
     }
 
     #[inline]
-    pub fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
         self.db_event_ek_pk_index1()
     }
 
     #[inline]
-    pub fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
         self.db_event_references_person1()
     }
 
     #[inline]
-    pub fn db_events(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_events(&self) -> Result<RawDatabase, Error> {
         self.db_events1()
     }
 
     #[inline]
-    pub fn db_event_seen_on_relay(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_event_seen_on_relay(&self) -> Result<RawDatabase, Error> {
         self.db_event_seen_on_relay1()
     }
 
     #[inline]
-    pub fn db_event_viewed(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_event_viewed(&self) -> Result<RawDatabase, Error> {
         self.db_event_viewed1()
     }
 
     #[inline]
-    pub fn db_hashtags(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_hashtags(&self) -> Result<RawDatabase, Error> {
         self.db_hashtags1()
     }
 
     #[inline]
-    pub fn db_people(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_people(&self) -> Result<RawDatabase, Error> {
         self.db_people2()
     }
 
     #[inline]
-    pub fn db_person_relays(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_person_relays(&self) -> Result<RawDatabase, Error> {
         self.db_person_relays1()
     }
 
     #[inline]
-    pub fn db_relationships(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_relationships(&self) -> Result<RawDatabase, Error> {
         self.db_relationships1()
     }
 
     #[inline]
-    pub fn db_relays(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_relays(&self) -> Result<RawDatabase, Error> {
         self.db_relays1()
     }
 
     #[inline]
-    pub fn db_unindexed_giftwraps(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_unindexed_giftwraps(&self) -> Result<RawDatabase, Error> {
         self.db_unindexed_giftwraps1()
     }
 
     #[inline]
-    pub fn db_person_lists(&self) -> Result<RawDatabase, Error> {
+    pub(crate) fn db_person_lists(&self) -> Result<RawDatabase, Error> {
         self.db_person_lists1()
     }
 
     // Database length functions ---------------------------------
 
+    /// The number of records in the general table
     pub fn get_general_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.general.len(&txn)?)
     }
 
+    /// The number of records in the event_seen_on table
     #[inline]
     pub fn get_event_seen_on_relay_len(&self) -> Result<u64, Error> {
         self.get_event_seen_on_relay1_len()
     }
 
+    /// The number of records in the event_viewed table
     #[inline]
     pub fn get_event_viewed_len(&self) -> Result<u64, Error> {
         self.get_event_viewed1_len()
     }
 
+    /// The number of records in the hashtags table
     pub fn get_hashtags_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_hashtags()?.len(&txn)?)
     }
 
+    /// The number of records in the relays table
     #[inline]
     pub fn get_relays_len(&self) -> Result<u64, Error> {
         self.get_relays1_len()
     }
 
+    /// The number of records in the event table
     pub fn get_event_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_events()?.len(&txn)?)
     }
 
+    /// The number of records in the event_ek_pk_index table
     pub fn get_event_ek_pk_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_ek_pk_index()?.len(&txn)?)
     }
 
+    /// The number of records in the event_ek_c_index table
     pub fn get_event_ek_c_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_ek_c_index()?.len(&txn)?)
     }
 
+    /// The number of records in the event_references_person index table
     pub fn get_event_references_person_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_references_person()?.len(&txn)?)
     }
 
+    /// The number of records in the relationships table
     pub fn get_relationships_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_relationships()?.len(&txn)?)
     }
 
+    /// The number of records in the people table
     #[inline]
     pub fn get_people_len(&self) -> Result<u64, Error> {
         self.get_people2_len()
     }
 
+    /// The number of records in the person_relays table
     #[inline]
     pub fn get_person_relays_len(&self) -> Result<u64, Error> {
         self.get_person_relays1_len()
     }
 
+    /// The number of records in the person_lists table
     pub fn get_person_lists_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_person_lists()?.len(&txn)?)
@@ -350,7 +367,8 @@ impl Storage {
 
     // Prune -------------------------------------------------------
 
-    // Remove all events (and related data) with a created_at before `from`
+    /// Remove all events (and related data) with a created_at before `from`
+    /// and all related indexes.
     pub fn prune(&self, from: Unixtime) -> Result<usize, Error> {
         // Extract the Ids to delete.
         let txn = self.env.read_txn()?;
@@ -445,7 +463,7 @@ impl Storage {
 
     // General key-value functions --------------------------------------------------
 
-    pub fn write_migration_level<'a>(
+    pub(crate) fn write_migration_level<'a>(
         &'a self,
         migration_level: u32,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -470,7 +488,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn read_migration_level(&self) -> Result<Option<u32>, Error> {
+    pub(crate) fn read_migration_level(&self) -> Result<Option<u32>, Error> {
         let txn = self.env.read_txn()?;
 
         Ok(self
@@ -479,6 +497,7 @@ impl Storage {
             .map(|bytes| u32::from_be_bytes(bytes[..4].try_into().unwrap())))
     }
 
+    /// Write the user's encrypted private key
     pub fn write_encrypted_private_key<'a>(
         &'a self,
         epk: &Option<EncryptedPrivateKey>,
@@ -503,6 +522,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Read the user's encrypted private key
     pub fn read_encrypted_private_key(&self) -> Result<Option<EncryptedPrivateKey>, Error> {
         let txn = self.env.read_txn()?;
 
@@ -515,6 +535,7 @@ impl Storage {
         }
     }
 
+    /// Write the user's last ContactList edit time
     pub fn write_last_contact_list_edit<'a>(
         &'a self,
         when: i64,
@@ -540,6 +561,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Read the user's last ContactList edit time
     pub fn read_last_contact_list_edit(&self) -> Result<i64, Error> {
         let txn = self.env.read_txn()?;
 
@@ -553,6 +575,7 @@ impl Storage {
         }
     }
 
+    /// Write the user's last MuteList edit time
     pub fn write_last_mute_list_edit<'a>(
         &'a self,
         when: i64,
@@ -578,6 +601,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Read the user's last MuteList edit time
     pub fn read_last_mute_list_edit(&self) -> Result<i64, Error> {
         let txn = self.env.read_txn()?;
 
@@ -591,6 +615,7 @@ impl Storage {
         }
     }
 
+    /// Write a flag, whether the user is only following people with no account (or not)
     pub fn write_following_only<'a>(
         &'a self,
         following_only: bool,
@@ -615,6 +640,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Read a flag, whether the user is only following people with no account (or not)
     pub fn read_following_only(&self) -> bool {
         let txn = match self.env.read_txn() {
             Ok(txn) => txn,
@@ -628,6 +654,7 @@ impl Storage {
         }
     }
 
+    /// Write a flag, whether the onboarding wizard has completed
     pub fn write_wizard_complete<'a>(
         &'a self,
         wizard_complete: bool,
@@ -652,6 +679,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Read a flag, whether the onboarding wizard has completed
     pub fn read_wizard_complete(&self) -> bool {
         let txn = match self.env.read_txn() {
             Ok(txn) => txn,
@@ -869,6 +897,7 @@ impl Storage {
 
     // -------------------------------------------------------------------
 
+    /// Add event seen on relay
     #[inline]
     pub fn add_event_seen_on_relay<'a>(
         &'a self,
@@ -880,11 +909,13 @@ impl Storage {
         self.add_event_seen_on_relay1(id, url, when, rw_txn)
     }
 
+    /// Get event seen on relay
     #[inline]
     pub fn get_event_seen_on_relay(&self, id: Id) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
         self.get_event_seen_on_relay1(id)
     }
 
+    /// Mark event viewed
     #[inline]
     pub fn mark_event_viewed<'a>(
         &'a self,
@@ -894,11 +925,13 @@ impl Storage {
         self.mark_event_viewed1(id, rw_txn)
     }
 
+    /// Is an event viewed?
     #[inline]
     pub fn is_event_viewed(&self, id: Id) -> Result<bool, Error> {
         self.is_event_viewed1(id)
     }
 
+    /// Associate a hashtag to an event
     #[inline]
     pub fn add_hashtag<'a>(
         &'a self,
@@ -909,12 +942,17 @@ impl Storage {
         self.add_hashtag1(hashtag, id, rw_txn)
     }
 
+    /// Get events with a given hashtag
     #[inline]
     #[allow(dead_code)]
     pub fn get_event_ids_with_hashtag(&self, hashtag: &String) -> Result<Vec<Id>, Error> {
         self.get_event_ids_with_hashtag1(hashtag)
     }
 
+    /// Write a relay record.
+    ///
+    /// NOTE: this overwrites. You may wish to read first, or you might prefer
+    /// [modify_relay](Storage::modify_relay)
     #[inline]
     pub fn write_relay<'a>(
         &'a self,
@@ -924,6 +962,7 @@ impl Storage {
         self.write_relay1(relay, rw_txn)
     }
 
+    /// Delete a relay record
     #[inline]
     #[allow(dead_code)]
     pub fn delete_relay<'a>(
@@ -934,6 +973,7 @@ impl Storage {
         self.delete_relay1(url, rw_txn)
     }
 
+    /// Write a new relay record only if it is missing
     pub fn write_relay_if_missing<'a>(
         &'a self,
         url: &RelayUrl,
@@ -946,6 +986,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Modify a relay record
     #[inline]
     pub fn modify_relay<'a, M>(
         &'a self,
@@ -959,6 +1000,7 @@ impl Storage {
         self.modify_relay1(url, modify, rw_txn)
     }
 
+    //// Modify all relay records
     #[inline]
     pub fn modify_all_relays<'a, M>(
         &'a self,
@@ -971,11 +1013,13 @@ impl Storage {
         self.modify_all_relays1(modify, rw_txn)
     }
 
+    /// Read a relay record
     #[inline]
     pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
         self.read_relay1(url)
     }
 
+    /// Read matching relay records
     #[inline]
     pub fn filter_relays<F>(&self, f: F) -> Result<Vec<Relay>, Error>
     where
@@ -984,6 +1028,7 @@ impl Storage {
         self.filter_relays1(f)
     }
 
+    /// Process a relay list event
     pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
         let mut txn = self.env.write_txn()?;
 
@@ -1096,6 +1141,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Set the user's relay list
     pub fn set_relay_list<'a>(
         &'a self,
         pubkey: PublicKey,
@@ -1147,6 +1193,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Write an event
     #[inline]
     pub fn write_event<'a>(
         &'a self,
@@ -1156,21 +1203,26 @@ impl Storage {
         self.write_event1(event, rw_txn)
     }
 
+    /// Read an event
     #[inline]
     pub fn read_event(&self, id: Id) -> Result<Option<Event>, Error> {
         self.read_event1(id)
     }
 
+    /// If we have th event
     #[inline]
     pub fn has_event(&self, id: Id) -> Result<bool, Error> {
         self.has_event1(id)
     }
 
+    /// Delete the event
     #[inline]
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
         self.delete_event1(id, rw_txn)
     }
 
+    /// Replace any existing event with the passed in event, if it is of a replaceable kind
+    /// and is newer.
     pub fn replace_event<'a>(
         &'a self,
         event: &Event,
@@ -1205,7 +1257,8 @@ impl Storage {
         Ok(true)
     }
 
-    // TBD: optimize this by storing better event indexes
+    /// Get the matching replaceable event
+    /// TBD: optimize this by storing better event indexes
     pub fn get_replaceable_event(
         &self,
         pubkey: PublicKey,
@@ -1217,6 +1270,8 @@ impl Storage {
             .cloned())
     }
 
+    /// Get the matching parameterized replaceable event
+    /// TBD: use forthcoming event_tags index
     pub fn get_parameterized_replaceable_event(
         &self,
         event_addr: &EventAddr,
@@ -1240,6 +1295,8 @@ impl Storage {
         Ok(maybe_event)
     }
 
+    /// Replace the matching parameterized event with the given event if it is parameterized
+    /// replaceable and is newer.
     pub fn replace_parameterized_event<'a>(
         &'a self,
         event: &Event,
@@ -1291,8 +1348,8 @@ impl Storage {
         Ok(true)
     }
 
-    // You must supply kinds.
-    // You can skip the pubkeys and then only kinds will matter.
+    /// Find events of given kinds and pubkeys.
+    /// You must supply kinds. You can skip the pubkeys and then only kinds will matter.
     fn find_ek_pk_events(
         &self,
         kinds: &[EventKind],
@@ -1337,7 +1394,7 @@ impl Storage {
         Ok(ids)
     }
 
-    // You must supply kinds and since
+    /// Find events of given kinds and after the given time.
     fn find_ek_c_events(&self, kinds: &[EventKind], since: Unixtime) -> Result<HashSet<Id>, Error> {
         if kinds.is_empty() {
             return Err(ErrorKind::General(
@@ -1369,15 +1426,15 @@ impl Storage {
         Ok(ids)
     }
 
-    // Find events of interest.
-    //
-    // You must specify some event kinds.
-    // If pubkeys is empty, they won't matter.
-    // If since is None, it won't matter.
-    //
-    // The function f is run after the matching-so-far events have been deserialized
-    // to finish filtering, and optionally they are sorted in reverse chronological
-    // order.
+    /// Find events of interest.
+    ///
+    /// You must specify some event kinds.
+    /// If pubkeys is empty, they won't matter.
+    /// If since is None, it won't matter.
+    ///
+    /// The function f is run after the matching-so-far events have been deserialized
+    /// to finish filtering, and optionally they are sorted in reverse chronological
+    /// order.
     pub fn find_events<F>(
         &self,
         kinds: &[EventKind],
@@ -1411,16 +1468,16 @@ impl Storage {
         Ok(events)
     }
 
-    // Find events of interest. This is just like find_events() but it just gives the Ids,
-    // unsorted.
-    //
-    // You must specify some event kinds.
-    // If pubkeys is empty, they won't matter.
-    // If since is None, it won't matter.
-    //
-    // The function f is run after the matching-so-far events have been deserialized
-    // to finish filtering, and optionally they are sorted in reverse chronological
-    // order.
+    /// Find events of interest. This is just like find_events() but it just gives the Ids,
+    /// unsorted.
+    ///
+    /// You must specify some event kinds.
+    /// If pubkeys is empty, they won't matter.
+    /// If since is None, it won't matter.
+    ///
+    /// The function f is run after the matching-so-far events have been deserialized
+    /// to finish filtering, and optionally they are sorted in reverse chronological
+    /// order.
     pub fn find_event_ids(
         &self,
         kinds: &[EventKind],
@@ -1449,6 +1506,8 @@ impl Storage {
         Ok(ids)
     }
 
+    /// Search all events for the text, case insensitive. Both content and tags
+    /// are searched.
     pub fn search_events(&self, text: &str) -> Result<Vec<Event>, Error> {
         let event_kinds = crate::feed::feed_displayable_event_kinds(true);
 
@@ -1605,7 +1664,7 @@ impl Storage {
         self.write_event_references_person1(event, rw_txn)
     }
 
-    // Read all events referencing a given person in reverse time order
+    /// Read all events referencing a given person in reverse time order
     #[inline]
     pub fn read_events_referencing_person<F>(
         &self,
@@ -1620,11 +1679,11 @@ impl Storage {
     }
 
     #[inline]
-    pub fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
+    pub(crate) fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
         self.index_unindexed_giftwraps1()
     }
 
-    pub fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {
+    pub(crate) fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {
         let event = match self.read_event(id)? {
             Some(event) => event,
             None => return Ok(None),
@@ -1637,8 +1696,9 @@ impl Storage {
         }
     }
 
+    /// Write a relationship between two events
     #[inline]
-    pub fn write_relationship<'a>(
+    pub(crate) fn write_relationship<'a>(
         &'a self,
         id: Id,
         related: Id,
@@ -1648,11 +1708,13 @@ impl Storage {
         self.write_relationship1(id, related, relationship, rw_txn)
     }
 
+    /// Find relationships belonging to the given event
     #[inline]
     pub fn find_relationships(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
         self.find_relationships1(id)
     }
 
+    /// Get replies to the given event
     pub fn get_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
         Ok(self
             .find_relationships(id)?
@@ -1702,6 +1764,7 @@ impl Storage {
         Ok((v, self_already_reacted))
     }
 
+    /// Get the zap total of a given event
     pub fn get_zap_total(&self, id: Id) -> Result<MilliSatoshi, Error> {
         let mut total = MilliSatoshi(0);
         for (_, rel) in self.find_relationships(id)? {
@@ -1712,6 +1775,7 @@ impl Storage {
         Ok(total)
     }
 
+    /// Get whether an event was deleted, and if so the optional reason
     pub fn get_deletion(&self, id: Id) -> Result<Option<String>, Error> {
         for (_, rel) in self.find_relationships(id)? {
             if let Relationship::Deletion(deletion) = rel {
@@ -1721,7 +1785,8 @@ impl Storage {
         Ok(None)
     }
 
-    // This returns IDs that should be UI invalidated
+    /// Process relationships of an event.
+    /// This returns IDs that should be UI invalidated (must be redrawn)
     pub fn process_relationships_of_event<'a>(
         &'a self,
         event: &Event,
@@ -1794,6 +1859,7 @@ impl Storage {
         Ok(invalidate)
     }
 
+    /// Write a person record
     #[inline]
     pub fn write_person<'a>(
         &'a self,
@@ -1803,11 +1869,13 @@ impl Storage {
         self.write_person2(person, rw_txn)
     }
 
+    /// Read a person record
     #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
         self.read_person2(pubkey)
     }
 
+    /// Write a new person record only if missing
     pub fn write_person_if_missing<'a>(
         &'a self,
         pubkey: &PublicKey,
@@ -1820,6 +1888,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Read people matching the filter
     #[inline]
     pub fn filter_people<F>(&self, f: F) -> Result<Vec<Person>, Error>
     where
@@ -1828,6 +1897,7 @@ impl Storage {
         self.filter_people2(f)
     }
 
+    /// Write a PersonRelay record
     #[inline]
     pub fn write_person_relay<'a>(
         &'a self,
@@ -1837,6 +1907,7 @@ impl Storage {
         self.write_person_relay1(person_relay, rw_txn)
     }
 
+    /// Read a PersonRelay record
     #[inline]
     pub fn read_person_relay(
         &self,
@@ -1846,16 +1917,19 @@ impl Storage {
         self.read_person_relay1(pubkey, url)
     }
 
+    /// get PersonRelay records for a person
     #[inline]
     pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
         self.get_person_relays1(pubkey)
     }
 
+    /// Do we have any PersonRelay records for the person?
     #[inline]
     pub fn have_persons_relays(&self, pubkey: PublicKey) -> Result<bool, Error> {
         self.have_persons_relays1(pubkey)
     }
 
+    /// Delete PersonRelay records that match the filter
     #[inline]
     pub fn delete_person_relays<'a, F>(
         &'a self,
@@ -1868,6 +1942,8 @@ impl Storage {
         self.delete_person_relays1(filter, rw_txn)
     }
 
+    /// Get the best relays for a person, given a direction.
+    ///
     /// This returns the relays for a person, along with a score, in order of score
     pub fn get_best_relays(
         &self,
@@ -2047,6 +2123,8 @@ impl Storage {
         Ok(output.iter().map(|e| e.id).collect())
     }
 
+    /// Rebuild all the event indices. This is generally internal, but might be used
+    /// to fix a broken database.
     pub fn rebuild_event_indices<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -2089,11 +2167,12 @@ impl Storage {
         Ok(())
     }
 
+    /// Read person lists
     pub fn read_person_lists(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
         self.read_person_lists1(pubkey)
     }
 
-    // Well known lists: 'followed', 'muted'
+    /// Write person lists
     pub fn write_person_lists<'a>(
         &'a self,
         pubkey: &PublicKey,
@@ -2103,11 +2182,12 @@ impl Storage {
         self.write_person_lists1(pubkey, lists, rw_txn)
     }
 
-    // Well known lists: 'followed', 'muted'
+    /// Get people in a person list
     pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
         self.get_people_in_list1(list)
     }
 
+    /// Empty a person list
     #[inline]
     pub fn clear_person_list<'a>(
         &'a self,
@@ -2117,12 +2197,13 @@ impl Storage {
         self.clear_person_list1(list, rw_txn)
     }
 
+    /// Is a person in a list?
     pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> Result<bool, Error> {
         let lists = self.read_person_lists(pubkey)?;
         Ok(lists.contains(&list))
     }
 
-    // Well known lists: 'followed', 'muted'
+    /// Add a person to a list
     pub fn add_person_to_list<'a>(
         &'a self,
         pubkey: &PublicKey,
@@ -2136,7 +2217,7 @@ impl Storage {
         self.write_person_lists(pubkey, lists, rw_txn)
     }
 
-    // Well known lists: 'followed', 'muted'
+    /// Remove a person from a list
     pub fn remove_person_from_list<'a>(
         &'a self,
         pubkey: &PublicKey,

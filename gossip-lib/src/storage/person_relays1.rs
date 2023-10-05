@@ -45,13 +45,13 @@ impl Storage {
         }
     }
 
-    pub fn get_person_relays1_len(&self) -> Result<u64, Error> {
+    pub(crate) fn get_person_relays1_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_person_relays1()?.len(&txn)?)
     }
 
     #[allow(dead_code)]
-    pub fn write_person_relay1<'a>(
+    pub(crate) fn write_person_relay1<'a>(
         &'a self,
         person_relay: &PersonRelay1,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -78,7 +78,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn read_person_relay1(
+    pub(crate) fn read_person_relay1(
         &self,
         pubkey: PublicKey,
         url: &RelayUrl,
@@ -93,7 +93,7 @@ impl Storage {
         })
     }
 
-    pub fn get_person_relays1(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay1>, Error> {
+    pub(crate) fn get_person_relays1(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay1>, Error> {
         let start_key = pubkey.to_bytes();
         let txn = self.env.read_txn()?;
         let iter = self.db_person_relays1()?.prefix_iter(&txn, &start_key)?;
@@ -106,7 +106,7 @@ impl Storage {
         Ok(output)
     }
 
-    pub fn have_persons_relays1(&self, pubkey: PublicKey) -> Result<bool, Error> {
+    pub(crate) fn have_persons_relays1(&self, pubkey: PublicKey) -> Result<bool, Error> {
         let start_key = pubkey.to_bytes();
         let txn = self.env.read_txn()?;
         let iter = self.db_person_relays1()?.prefix_iter(&txn, &start_key)?;
@@ -124,7 +124,7 @@ impl Storage {
         Ok(false)
     }
 
-    pub fn delete_person_relays1<'a, F>(
+    pub(crate) fn delete_person_relays1<'a, F>(
         &'a self,
         filter: F,
         rw_txn: Option<&mut RwTxn<'a>>,
