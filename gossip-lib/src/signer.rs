@@ -17,7 +17,7 @@ pub struct Signer {
 }
 
 impl Signer {
-    pub fn load_from_settings(&self) -> Result<(), Error> {
+    pub(crate) fn load_from_settings(&self) -> Result<(), Error> {
         if self.public.read().is_none() {
             *self.public.write() = GLOBALS.storage.read_setting_public_key();
         }
@@ -29,7 +29,7 @@ impl Signer {
         Ok(())
     }
 
-    pub async fn save(&self) -> Result<(), Error> {
+    pub(crate) async fn save(&self) -> Result<(), Error> {
         GLOBALS
             .storage
             .write_setting_public_key(&self.public.read(), None)?;
@@ -40,7 +40,7 @@ impl Signer {
         Ok(())
     }
 
-    pub fn set_public_key(&self, pk: PublicKey) {
+    pub(crate) fn set_public_key(&self, pk: PublicKey) {
         if self.private.read().is_some() {
             GLOBALS
                 .status_queue
@@ -51,7 +51,7 @@ impl Signer {
         }
     }
 
-    pub fn clear_public_key(&self) {
+    pub(crate) fn clear_public_key(&self) {
         if self.private.read().is_some() {
             GLOBALS
                 .status_queue
@@ -62,6 +62,9 @@ impl Signer {
         }
     }
 
+    /// Set the encrypted private key
+    ///
+    /// Prefer the overlord's import_priv
     pub fn set_encrypted_private_key(&self, epk: EncryptedPrivateKey) {
         if self.private.read().is_some() && self.encrypted.read().is_some() {
             // ignore, epk supercedes
@@ -70,7 +73,7 @@ impl Signer {
         }
     }
 
-    pub fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
+    pub(crate) fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
         *self.encrypted.write() =
             Some(pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
         *self.public.write() = Some(pk.public_key());
@@ -78,6 +81,9 @@ impl Signer {
         Ok(())
     }
 
+    /// Unlock the encrypted private key
+    ///
+    /// Prefer the overlord's unlock_key
     pub fn unlock_encrypted_private_key(&self, pass: &str) -> Result<(), Error> {
         if self.private.read().is_some() {
             // ignore, already unlocked
@@ -131,7 +137,7 @@ impl Signer {
         }
     }
 
-    pub async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
+    pub(crate) async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
         let maybe_encrypted = self.encrypted.read().to_owned();
         match maybe_encrypted {
             Some(epk) => {
@@ -150,7 +156,7 @@ impl Signer {
         }
     }
 
-    pub fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
+    pub(crate) fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
         let pk = PrivateKey::generate();
         *self.encrypted.write() =
             Some(pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
@@ -167,27 +173,35 @@ impl Signer {
         Ok(())
     }
 
+    /// Is the private key loaded (possibly still encrypted)?
     pub fn is_loaded(&self) -> bool {
         self.encrypted.read().is_some() || self.private.read().is_some()
     }
 
+    /// Is the private key unlocked and ready for signing?
     pub fn is_ready(&self) -> bool {
         self.private.read().is_some()
     }
 
+    /// Get the public key
+    ///
+    /// Often you'll want to get this from Settings instead, especially if you need to see
+    /// if it exists even before a user logs in.
     pub fn public_key(&self) -> Option<PublicKey> {
         *self.public.read()
     }
 
+    /// Get the encrypted private key
     pub fn encrypted_private_key(&self) -> Option<EncryptedPrivateKey> {
         self.encrypted.read().clone()
     }
 
+    /// How secure is the private key? Dig into `KeySecurity` to understand this better.
     pub fn key_security(&self) -> Option<KeySecurity> {
         self.private.read().as_ref().map(|pk| pk.key_security())
     }
 
-    pub fn sign_preevent(
+    pub(crate) fn sign_preevent(
         &self,
         preevent: PreEvent,
         pow: Option<u8>,
@@ -202,7 +216,7 @@ impl Signer {
         }
     }
 
-    pub fn new_nip04(
+    pub(crate) fn new_nip04(
         &self,
         recipient_public_key: PublicKey,
         message: &str,
@@ -213,6 +227,7 @@ impl Signer {
         }
     }
 
+    /// Export the private key as bech32 (decrypted!)
     pub fn export_private_key_bech32(&self, pass: &str) -> Result<String, Error> {
         let maybe_encrypted = self.encrypted.read().to_owned();
         match maybe_encrypted {
@@ -238,6 +253,7 @@ impl Signer {
         }
     }
 
+    /// Export the private key as hex (decrypted!)
     pub fn export_private_key_hex(&self, pass: &str) -> Result<String, Error> {
         let maybe_encrypted = self.encrypted.read().to_owned();
         match maybe_encrypted {
@@ -263,7 +279,7 @@ impl Signer {
         }
     }
 
-    pub fn delete_identity(&self) {
+    pub(crate) fn delete_identity(&self) {
         *self.private.write() = None;
         *self.encrypted.write() = None;
         *self.public.write() = None;
@@ -275,6 +291,7 @@ impl Signer {
         });
     }
 
+    /// Decrypt an event
     pub fn decrypt_message(&self, event: &Event) -> Result<String, Error> {
         match &*self.private.read() {
             Some(private) => Ok(event.decrypted_contents(private)?),
@@ -282,6 +299,7 @@ impl Signer {
         }
     }
 
+    /// Unwrap a giftwrap event
     pub fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
         match &*self.private.read() {
             Some(private) => Ok(event.giftwrap_unwrap(private, false)?),
@@ -289,6 +307,7 @@ impl Signer {
         }
     }
 
+    /// Decrypt a NIP-44 event (version 1)
     pub fn nip44_decrypt(
         &self,
         other: &PublicKey,

@@ -191,6 +191,7 @@ impl People {
         });
     }
 
+    /// Get all the pubkeys that the user follows
     pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
         match GLOBALS.storage.get_people_in_list(PersonList::Followed) {
             Ok(list) => list,
@@ -201,6 +202,7 @@ impl People {
         }
     }
 
+    /// Get all the pubkeys that the user mutes
     pub fn get_muted_pubkeys(&self) -> Vec<PublicKey> {
         match GLOBALS.storage.get_people_in_list(PersonList::Muted) {
             Ok(list) => list,
@@ -211,10 +213,12 @@ impl People {
         }
     }
 
+    /// Is the given pubkey followed?
     pub fn is_followed(&self, pubkey: &PublicKey) -> bool {
         self.get_followed_pubkeys().contains(pubkey)
     }
 
+    /// Get all the pubkeys that need relay lists (from the given set)
     pub fn get_followed_pubkeys_needing_relay_lists(
         &self,
         among_these: &[PublicKey],
@@ -236,12 +240,14 @@ impl People {
         }
     }
 
+    /// Create person record for this pubkey, if missing
     pub fn create_if_missing(&self, pubkey: PublicKey) {
         if let Err(e) = self.create_all_if_missing(&[pubkey]) {
             tracing::error!("{}", e);
         }
     }
 
+    /// Create person records for these pubkeys, if missing
     pub fn create_all_if_missing(&self, pubkeys: &[PublicKey]) -> Result<(), Error> {
         for pubkey in pubkeys {
             GLOBALS.storage.write_person_if_missing(pubkey, None)?;
@@ -250,8 +256,8 @@ impl People {
         Ok(())
     }
 
-    // If this person doesn't have metadata, and we are automatically fetching
-    // metadata, then add this person to the list of people that need metadata.
+    /// If this person doesn't have metadata, and we are automatically fetching
+    /// metadata, then add this person to the list of people that need metadata.
     pub fn person_of_interest(&self, pubkey: PublicKey) {
         // Don't get metadata if disabled
         if !GLOBALS.storage.read_setting_automatically_fetch_metadata() {
@@ -295,8 +301,8 @@ impl People {
         }
     }
 
-    // This is run periodically. It checks the database first, only then does it
-    // ask the overlord to update the metadata from the relays.
+    /// This is run periodically. It checks the database first, only then does it
+    /// ask the overlord to update the metadata from the relays.
     async fn maybe_fetch_metadata(&self) {
         let mut verified_need: Vec<PublicKey> = Vec::new();
 
@@ -323,11 +329,11 @@ impl People {
             .send(ToOverlordMessage::UpdateMetadataInBulk(verified_need));
     }
 
-    pub fn recheck_nip05_on_update_metadata(&self, pubkey: &PublicKey) {
+    pub(crate) fn recheck_nip05_on_update_metadata(&self, pubkey: &PublicKey) {
         self.recheck_nip05.insert(pubkey.to_owned());
     }
 
-    pub async fn update_metadata(
+    pub(crate) async fn update_metadata(
         &self,
         pubkey: &PublicKey,
         metadata: Metadata,
@@ -427,6 +433,13 @@ impl People {
         Ok(())
     }
 
+    /// Get the avatar `RgbaImage` for the person.
+    ///
+    /// This usually returns None when first called, and eventually returns the image.
+    /// Once the image is returned, it will return None ever after, because the image is
+    /// moved, not copied.
+    ///
+    /// FIXME this API is not good for async front ends.
     pub fn get_avatar(
         &self,
         pubkey: &PublicKey,
@@ -600,10 +613,7 @@ impl People {
             .collect())
     }
 
-    pub async fn generate_contact_list_event(
-        &self,
-        pubkeys: Vec<PublicKey>,
-    ) -> Result<Event, Error> {
+    pub(crate) async fn generate_contact_list_event(&self, pubkeys: Vec<PublicKey>,) -> Result<Event, Error> {
         let mut p_tags: Vec<Tag> = Vec::new();
 
         for pubkey in &pubkeys {
@@ -652,7 +662,7 @@ impl People {
         GLOBALS.signer.sign_preevent(pre_event, None, None)
     }
 
-    pub async fn generate_mute_list_event(&self) -> Result<Event, Error> {
+    pub(crate) async fn generate_mute_list_event(&self) -> Result<Event, Error> {
         let mut p_tags: Vec<Tag> = Vec::new();
 
         let muted_pubkeys = self.get_muted_pubkeys();
@@ -693,6 +703,7 @@ impl People {
         GLOBALS.signer.sign_preevent(pre_event, None, None)
     }
 
+    /// Follow (or unfollow) the public key
     pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
@@ -718,7 +729,9 @@ impl People {
         Ok(())
     }
 
-    pub fn follow_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
+    /// Follow all these public keys.
+    /// This does not publish any events.
+    pub(crate) fn follow_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if !merge {
@@ -748,7 +761,9 @@ impl People {
         Ok(())
     }
 
-    pub fn follow_none(&self) -> Result<(), Error> {
+    /// Empty the following list.
+    /// This does not publish any events.
+    pub(crate) fn follow_none(&self) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         GLOBALS
@@ -765,7 +780,9 @@ impl People {
         Ok(())
     }
 
-    pub fn clear_mute_list(&self) -> Result<(), Error> {
+    /// Empty the mute list
+    /// This does not publish any events
+    pub(crate) fn clear_mute_list(&self) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         GLOBALS
@@ -782,6 +799,7 @@ impl People {
         Ok(())
     }
 
+    /// Mute (or unmute) a public key
     pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
@@ -812,7 +830,7 @@ impl People {
         Ok(())
     }
 
-    pub fn mute_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
+    pub(crate) fn mute_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if !merge {
@@ -838,7 +856,7 @@ impl People {
     }
 
     // Returns true if the date passed in is newer than what we already had
-    pub async fn update_relay_list_stamps(
+    pub(crate) async fn update_relay_list_stamps(
         &self,
         pubkey: PublicKey,
         created_at: i64,
@@ -868,7 +886,7 @@ impl People {
         Ok(retval)
     }
 
-    pub async fn update_nip05_last_checked(&self, pubkey: PublicKey) -> Result<(), Error> {
+    pub(crate) async fn update_nip05_last_checked(&self, pubkey: PublicKey) -> Result<(), Error> {
         let now = Unixtime::now().unwrap().0;
 
         if let Some(mut person) = GLOBALS.storage.read_person(&pubkey)? {
@@ -879,7 +897,7 @@ impl People {
         Ok(())
     }
 
-    pub async fn upsert_nip05_validity(
+    pub(crate) async fn upsert_nip05_validity(
         &self,
         pubkey: &PublicKey,
         nip05: Option<String>,
@@ -905,7 +923,7 @@ impl People {
         Ok(())
     }
 
-    pub async fn set_active_person(&self, pubkey: PublicKey) -> Result<(), Error> {
+    pub(crate) async fn set_active_person(&self, pubkey: PublicKey) -> Result<(), Error> {
         // Set the active person
         *self.active_person.write().await = Some(pubkey);
 
