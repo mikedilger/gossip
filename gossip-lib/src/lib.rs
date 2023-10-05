@@ -12,7 +12,48 @@
 //! improve that. Please submit PRs if you want to help. This interface will change.
 //! fairly rapidly for a while and then settle down.
 //!
-//! Further general documentation TBD.
+//! # Using gossip-lib
+//!
+//! To use gossip-lib, depend on it in your Cargo.toml
+//!
+//! ````
+//! gossip-lib = { git = "https://github.com/mikedilger/gossip" }
+//! ````
+//!
+//! You may specify optional features including:
+//!
+//! * Choose between `rustls-tls` and `native-tls`
+//! * `lang-cjk` to include Chinese, Japanese, and Korean fonts (which grow the binary size significantly)
+//!
+//! # Gossip Startup
+//!
+//! Gossip starts up in two phases.
+//!
+//! The first phase of three happens at static initialization.
+//! The globally available GLOBALS variable is initialized when first accessed, lazily.
+//! You don't have to do anything special to make this happen, and you can start using
+//! `GLOBALS` whenever you wish.
+//!
+//! The second phase is creating and starting the `Overlord`. This needs to be spawned on
+//! a rust async executor such as `tokio`. See [Overlord::new](crate::Overlord::new) for the
+//! details of how to start it.
+//!
+//! # User Interfaces
+//!
+//! The canonical gossip user interface is egui-based, and is thus immediate mode. It runs on
+//! the main thread and is not asynchronous. Every call it makes must return immediately so that
+//! it can paint the next frame. For this reason, the `Overlord` can be sent messages through a
+//! global message queue `GLOBALS.to_overlord`.
+//!
+//! But if your UI is asynchronous, you're probably better off calling `Overlord` functions directly,
+//! and when they return, seeking out the result, which is almost always a side-effect in the
+//! GLOBALS data or in the database.
+//!
+//! # Storage
+//!
+//! Besides talking to the `Overlord`, the most common thing a front-end needs to do is interact with
+//! the storage engine. In some cases, the `Overlord` has more complex code for doing this, but in
+//! many cases, you can interact with `GLOBALS.storage` directly.
 
 mod about;
 pub use about::About;
@@ -53,7 +94,7 @@ mod overlord;
 pub use overlord::Overlord;
 
 mod people;
-pub use people::{Person, PersonList};
+pub use people::{People, Person, PersonList};
 
 mod person_relay;
 pub use person_relay::PersonRelay;
@@ -69,6 +110,7 @@ mod relay;
 pub use relay::Relay;
 
 mod relay_picker_hooks;
+pub use relay_picker_hooks::Hooks;
 
 mod settings;
 pub use settings::Settings;
@@ -77,6 +119,7 @@ mod signer;
 pub use signer::Signer;
 
 mod status;
+pub use status::StatusQueue;
 
 mod storage;
 pub use storage::types::*;
