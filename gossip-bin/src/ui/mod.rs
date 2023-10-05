@@ -63,7 +63,7 @@ enum PersonTab {
 }
 
 pub fn run() -> Result<(), Error> {
-    let icon_bytes = include_bytes!("../../../gossip.png");
+    let icon_bytes = include_bytes!("../../../logo/gossip.png");
     let icon = image::load_from_memory(icon_bytes)?.to_rgba8();
     let (icon_width, icon_height) = icon.dimensions();
 
@@ -486,7 +486,7 @@ impl GossipUi {
         submenu_ids.insert(SubMenu::Help, egui::Id::new(SubMenu::Help.to_id_str()));
 
         let icon_texture_handle = {
-            let bytes = include_bytes!("../../../gossip.png");
+            let bytes = include_bytes!("../../../logo/gossip.png");
             let image = image::load_from_memory(bytes).unwrap();
             let size = [image.width() as _, image.height() as _];
             let image_buffer = image.to_rgba8();
