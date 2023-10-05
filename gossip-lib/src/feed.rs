@@ -2,7 +2,7 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{EventDelegation, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -367,7 +367,7 @@ impl Feed {
                                 if e.created_at < since || e.created_at > now {
                                     return false;
                                 }
-                                if !kinds_with_dms.contains(&e.kind) {
+                                if ! kinds_with_dms.contains(&e.kind) {
                                     return false;
                                 }
                                 if dismissed.contains(&e.id) {
