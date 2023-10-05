@@ -6,20 +6,20 @@ Prerequisite for packaging:
 
 Compile:
 
-````sh
+````dos
   rustup update
   cargo build --features=lang-cjk --release
 ````
 
 Copy the binary to the packaging diretory
 
-````sh
+````dos
   cp ..\..\target\release\gossip.exe .
 ````
 
 Copy the gossip.png here
 
-````sh
+````dos
   cp ..\..\logo\gossip.png .
 ````
 
@@ -32,7 +32,7 @@ For new versions of gossip, update `gossip.wxs`:
 
 Packaging:
 
-````sh
+````dos
   wix build gossip.VERSION.wxs
 ````
 
@@ -41,12 +41,12 @@ Upload to github releases.
 ----
 To install the package, either double-click the MSI, or
 
-````sh
+````dos
   msiexec gossip.msi
 ````
 
 To remove the package from your windows computer:
 
-````sh
+````dos
   msiexec /x gossip.msi
 ````
