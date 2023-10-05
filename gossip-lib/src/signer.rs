@@ -173,7 +173,7 @@ impl Signer {
                     .write()
                     .write("Passphrase changed.".to_owned());
                 Ok(())
-            },
+            }
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
