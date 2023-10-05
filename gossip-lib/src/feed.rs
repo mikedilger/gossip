@@ -41,6 +41,8 @@ impl std::fmt::Display for FeedKind {
 
 /// The system that computes feeds as an ordered list of event Ids.
 pub struct Feed {
+    /// Consumers of gossip-lib should only read this, not write to it.
+    /// It will be true if the feed is being recomputed.
     pub recompute_lock: AtomicBool,
 
     current_feed_kind: RwLock<FeedKind>,
@@ -64,7 +66,7 @@ impl Default for Feed {
 }
 
 impl Feed {
-    pub fn new() -> Feed {
+    pub(crate) fn new() -> Feed {
         Feed {
             recompute_lock: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::Followed(false)),
@@ -106,6 +108,7 @@ impl Feed {
         }
     }
 
+    /// Change the feed to the main `followed` feed
     pub fn set_feed_to_followed(&self, with_replies: bool) {
         // We are always subscribed to the general feed. Don't resubscribe here
         // because it won't have changed, but the relays will shower you with
@@ -119,6 +122,7 @@ impl Feed {
         self.unlisten();
     }
 
+    /// Change the feed to the user's `inbox`
     pub fn set_feed_to_inbox(&self, indirect: bool) {
         *self.current_feed_kind.write() = FeedKind::Inbox(indirect);
         *self.thread_parent.write() = None;
@@ -129,6 +133,7 @@ impl Feed {
         self.unlisten();
     }
 
+    /// Change the feed to a thread
     pub fn set_feed_to_thread(
         &self,
         id: Id,
@@ -160,6 +165,7 @@ impl Feed {
         });
     }
 
+    /// Change the feed to a particular person's notes
     pub fn set_feed_to_person(&self, pubkey: PublicKey) {
         *self.current_feed_kind.write() = FeedKind::Person(pubkey);
         *self.thread_parent.write() = None;
@@ -179,6 +185,7 @@ impl Feed {
         });
     }
 
+    /// Change the feed to a DmChat channel
     pub fn set_feed_to_dmchat(&self, channel: DmChannel) {
         *self.current_feed_kind.write() = FeedKind::DmChat(channel.clone());
         *self.thread_parent.write() = None;
@@ -194,43 +201,50 @@ impl Feed {
             .send(ToOverlordMessage::SetDmChannel(channel));
     }
 
+    /// Get the kind of the current feed
     pub fn get_feed_kind(&self) -> FeedKind {
         self.current_feed_kind.read().to_owned()
     }
 
+    /// Read the followed feed
     pub fn get_followed(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
         self.followed_feed.read().clone()
     }
 
+    /// Read the inbox
     pub fn get_inbox(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
         self.inbox_feed.read().clone()
     }
 
+    /// Read the person feed
     pub fn get_person_feed(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
         self.person_feed.read().clone()
     }
 
+    /// Read the DmChat feed
     pub fn get_dm_chat_feed(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
         self.dm_chat_feed.read().clone()
     }
 
+    /// Get the parent of the current thread feed.
+    /// The children should be recursively found via `GLOBALS.storage.get_replies(id)`
     pub fn get_thread_parent(&self) -> Option<Id> {
         self.sync_maybe_periodic_recompute();
         *self.thread_parent.read()
     }
 
-    // Overlord climbs and sets this
-    pub fn set_thread_parent(&self, id: Id) {
+    /// Overlord climbs and sets this
+    pub(crate) fn set_thread_parent(&self, id: Id) {
         *self.thread_parent.write() = Some(id);
     }
 
-    // This recomputes only if periodic recomputation is enabled, and it has been
-    // at least one period since the last (for any reason) recomputation.
-    pub fn sync_maybe_periodic_recompute(&self) {
+    /// This recomputes only if periodic recomputation is enabled, and it has been
+    /// at least one period since the last (for any reason) recomputation.
+    pub(crate) fn sync_maybe_periodic_recompute(&self) {
         // Only if we recompute periodically
         if !GLOBALS.storage.read_setting_recompute_feed_periodically() {
             return;
@@ -249,6 +263,10 @@ impl Feed {
         }
     }
 
+    /// Recompute the feed
+    ///
+    /// This may happen periodically based on settings. But when a user changes feed, it
+    /// is useful to recompute it right away.
     pub fn sync_recompute(&self) {
         task::spawn(async move {
             if let Err(e) = GLOBALS.feed.recompute().await {
@@ -257,7 +275,7 @@ impl Feed {
         });
     }
 
-    pub async fn recompute(&self) -> Result<(), Error> {
+    pub(crate) async fn recompute(&self) -> Result<(), Error> {
         // If some other process is already recomputing, just return as if
         // the recompute was successful.  Otherwise set to true.
         if self.recompute_lock.fetch_or(true, Ordering::Relaxed) {
