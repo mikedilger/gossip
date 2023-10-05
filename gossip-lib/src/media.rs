@@ -30,7 +30,7 @@ impl Default for Media {
 }
 
 impl Media {
-    pub fn new() -> Media {
+    pub(crate) fn new() -> Media {
         Media {
             image_temp: DashMap::new(),
             data_temp: DashMap::new(),
@@ -39,6 +39,7 @@ impl Media {
         }
     }
 
+    /// Check if a Url is a valid HTTP Url
     pub fn check_url(&self, unchecked_url: UncheckedUrl) -> Option<Url> {
         // Fail permanently if the URL is bad
         let url = match Url::try_from_unchecked_url(&unchecked_url) {
@@ -52,14 +53,22 @@ impl Media {
         Some(url)
     }
 
+    /// Check if a Url has failed
     pub fn has_failed(&self, unchecked_url: &UncheckedUrl) -> bool {
         return self.failed_media.blocking_read().contains(unchecked_url);
     }
 
+    /// Retry a failed Url
     pub fn retry_failed(&self, unchecked_url: &UncheckedUrl) {
         self.failed_media.blocking_write().remove(unchecked_url);
     }
 
+    /// Get an image by Url
+    ///
+    /// This returns immediately, usually with None if never called on that Url before.
+    /// Call it again later to try to pick up the result.
+    ///
+    /// FIXME: this API doesn't serve async clients well.
     pub fn get_image(&self, url: &Url) -> Option<RgbaImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.image_temp.remove(url) {
@@ -108,6 +117,12 @@ impl Media {
         }
     }
 
+    /// Get data by Url
+    ///
+    /// This returns immediately, usually with None if never called on that Url before.
+    /// Call it again later to try to pick up the result.
+    ///
+    /// FIXME: this API doesn't serve async clients well.
     pub fn get_data(&self, url: &Url) -> Option<Vec<u8>> {
         // If it failed before, error out now
         if self

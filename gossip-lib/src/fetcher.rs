@@ -88,6 +88,7 @@ impl Fetcher {
         Ok(())
     }
 
+    /// Count of HTTP requests queued for future fetching
     pub fn requests_queued(&self) -> usize {
         self.urls
             .read()
@@ -99,6 +100,7 @@ impl Fetcher {
             .count()
     }
 
+    /// Count of HTTP requests currently being serviced
     pub fn requests_in_flight(&self) -> usize {
         self.urls
             .read()
@@ -108,7 +110,7 @@ impl Fetcher {
             .count()
     }
 
-    pub async fn process_queue(&self) {
+    pub(crate) async fn process_queue(&self) {
         if GLOBALS.storage.read_setting_offline() {
             return;
         }
@@ -154,7 +156,7 @@ impl Fetcher {
         while (futures.next().await).is_some() {}
     }
 
-    /// This is where external code attempts to get the bytes of a file.
+    /// This is where other parts of the library attempt to get the bytes of a file.
     ///
     /// If it is missing:  You'll get an `Ok(None)` response, but the fetcher will then
     /// work in the background to try to make it available for a future call.
@@ -163,7 +165,7 @@ impl Fetcher {
     /// If you call it over and over rapidly (e.g. from the UI), it will read from the filesystem
     /// over and over again, which is bad. So the UI caller should have it's own means of
     /// caching the results from this call.
-    pub fn try_get(&self, url: &Url, max_age: Duration) -> Result<Option<Vec<u8>>, Error> {
+    pub(crate) fn try_get(&self, url: &Url, max_age: Duration) -> Result<Option<Vec<u8>>, Error> {
         // FIXME - this function is called synchronously, but it makes several
         //         file system calls. This might be pushing the limits of what we should
         //         be blocking on.
@@ -565,7 +567,7 @@ impl Fetcher {
         }
     }
 
-    pub async fn prune(&self, age: Duration) -> Result<usize, Error> {
+    pub(crate) async fn prune(&self, age: Duration) -> Result<usize, Error> {
         let mut count: usize = 0;
         let cache_path = self.cache_dir.read().unwrap().to_owned();
         let mut entries = tokio::fs::read_dir(cache_path.as_path()).await?;
