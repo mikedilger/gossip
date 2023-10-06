@@ -112,7 +112,8 @@ impl DmChannel {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DmChannelData {
     pub dm_channel: DmChannel,
-    pub latest_message: Unixtime,
+    pub latest_message_created_at: Unixtime,
+    pub latest_message_content: String,
     pub message_count: usize,
     pub unread_message_count: usize,
 }

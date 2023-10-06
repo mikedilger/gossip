@@ -2096,18 +2096,25 @@ impl Storage {
                     Some(dmc) => dmc,
                     None => continue,
                 };
-                map.entry(dmchannel.clone())
-                    .and_modify(|d| {
-                        d.latest_message = d.latest_message.max(time);
-                        d.message_count += 1;
-                        d.unread_message_count += unread;
-                    })
-                    .or_insert(DmChannelData {
-                        dm_channel: dmchannel,
-                        latest_message: time,
-                        message_count: 1,
-                        unread_message_count: unread,
-                    });
+                if let Some(dmcdata) = map.get_mut(&dmchannel) {
+                    if time > dmcdata.latest_message_created_at {
+                        dmcdata.latest_message_created_at = time;
+                        dmcdata.latest_message_content = GLOBALS.signer.decrypt_message(event)?;
+                    }
+                    dmcdata.message_count += 1;
+                    dmcdata.unread_message_count += unread;
+                } else {
+                    map.insert(
+                        dmchannel.clone(),
+                        DmChannelData {
+                            dm_channel: dmchannel,
+                            latest_message_created_at: time,
+                            latest_message_content: GLOBALS.signer.decrypt_message(event)?,
+                            message_count: 1,
+                            unread_message_count: unread,
+                        },
+                    );
+                }
             } else if event.kind == EventKind::GiftWrap {
                 if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
                     let rumor_event = rumor.into_event_with_bad_signature();
@@ -2116,24 +2123,35 @@ impl Storage {
                         Some(dmc) => dmc,
                         None => continue,
                     };
-                    map.entry(dmchannel.clone())
-                        .and_modify(|d| {
-                            d.latest_message = d.latest_message.max(time);
-                            d.message_count += 1;
-                            d.unread_message_count += unread;
-                        })
-                        .or_insert(DmChannelData {
-                            dm_channel: dmchannel,
-                            latest_message: time,
-                            message_count: 1,
-                            unread_message_count: unread,
-                        });
+                    if let Some(dmcdata) = map.get_mut(&dmchannel) {
+                        if time > dmcdata.latest_message_created_at {
+                            dmcdata.latest_message_created_at = time;
+                            dmcdata.latest_message_content = rumor_event.content.clone();
+                        }
+                        dmcdata.message_count += 1;
+                        dmcdata.unread_message_count += unread;
+                    } else {
+                        map.insert(
+                            dmchannel.clone(),
+                            DmChannelData {
+                                dm_channel: dmchannel,
+                                latest_message_created_at: time,
+                                latest_message_content: rumor_event.content.clone(),
+                                message_count: 1,
+                                unread_message_count: unread,
+                            },
+                        );
+                    }
                 }
             }
         }
 
         let mut output: Vec<DmChannelData> = map.drain().map(|e| e.1).collect();
-        output.sort_by(|a, b| b.latest_message.cmp(&a.latest_message));
+        output.sort_by(|a, b| {
+            b.latest_message_created_at
+                .cmp(&a.latest_message_created_at)
+                .then(b.unread_message_count.cmp(&a.unread_message_count))
+        });
         Ok(output)
     }
 
