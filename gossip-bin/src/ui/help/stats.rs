@@ -83,15 +83,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Index (References Person): {} records",
-            GLOBALS
-                .storage
-                .get_event_references_person_len()
-                .unwrap_or(0)
-        ));
-        ui.add_space(6.0);
-
-        ui.label(format!(
             "Event Relationships: {} records",
             GLOBALS.storage.get_relationships_len().unwrap_or(0)
         ));
