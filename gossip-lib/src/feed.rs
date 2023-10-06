@@ -367,7 +367,7 @@ impl Feed {
                                 if e.created_at < since || e.created_at > now {
                                     return false;
                                 }
-                                if ! kinds_with_dms.contains(&e.kind) {
+                                if !kinds_with_dms.contains(&e.kind) {
                                     return false;
                                 }
                                 if dismissed.contains(&e.id) {
@@ -426,7 +426,7 @@ impl Feed {
                     if dismissed.contains(&e.id) {
                         return false;
                     }
-                    if ! kinds_without_dms.contains(&e.kind) {
+                    if !kinds_without_dms.contains(&e.kind) {
                         return false;
                     }
                     true
@@ -439,26 +439,19 @@ impl Feed {
                         &[person_pubkey],
                         Some(since),
                         filter,
-                        false
+                        false,
                     )?
                     .iter()
                     .chain(
                         GLOBALS
                             .storage
-                            .find_tagged_events(
-                                "delegation",
-                                Some(pphex.as_str()),
-                                filter,
-                                false
-                            )?
-                            .iter()
+                            .find_tagged_events("delegation", Some(pphex.as_str()), filter, false)?
+                            .iter(),
                     )
                     .map(|e| e.to_owned())
                     .collect();
 
-                events.sort_by(|a,b| b.created_at.cmp(&a.created_at).then(
-                    b.id.cmp(&a.id)
-                ));
+                events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
 
                 let events: Vec<Id> = events.iter().map(|e| e.id).collect();
 
