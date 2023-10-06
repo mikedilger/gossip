@@ -180,7 +180,6 @@ impl Storage {
         // triggered into existence if their migration is necessary.
         let _ = self.db_event_ek_c_index()?;
         let _ = self.db_event_ek_pk_index()?;
-        let _ = self.db_event_references_person()?;
         let _ = self.db_event_tag_index()?;
         let _ = self.db_events()?;
         let _ = self.db_event_seen_on_relay()?;
@@ -231,11 +230,6 @@ impl Storage {
     #[inline]
     pub(crate) fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
         self.db_event_ek_pk_index1()
-    }
-
-    #[inline]
-    pub(crate) fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
-        self.db_event_references_person1()
     }
 
     #[inline]
@@ -343,12 +337,15 @@ impl Storage {
         Ok(self.db_event_ek_c_index()?.len(&txn)?)
     }
 
+<<<<<<< HEAD
     /// The number of records in the event_references_person index table
     pub fn get_event_references_person_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_tag_index()?.len(&txn)?)
     }
 
+=======
+>>>>>>> storage: migration 11: Remove event_references_person
     /// The number of records in the event_tag index table
     pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
@@ -1730,6 +1727,7 @@ impl Storage {
         Ok(events)
     }
 
+<<<<<<< HEAD
     // We don't call this externally. Whenever we write an event, we do this.
     #[inline]
     fn write_event_references_person<'a>(
@@ -1794,6 +1792,8 @@ impl Storage {
         Ok(events)
     }
 
+=======
+>>>>>>> storage: migration 11: Remove event_references_person
     #[inline]
     pub(crate) fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
         self.index_unindexed_giftwraps1()
@@ -2268,7 +2268,6 @@ impl Storage {
             self.db_event_ek_pk_index()?.clear(txn)?;
             self.db_event_ek_c_index()?.clear(txn)?;
             self.db_event_tag_index()?.clear(txn)?;
-            self.db_event_references_person()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
             let loop_txn = self.env.read_txn()?;
@@ -2278,7 +2277,6 @@ impl Storage {
                 self.write_event_ek_pk_index(&event, Some(txn))?;
                 self.write_event_ek_c_index(&event, Some(txn))?;
                 self.write_event_tag_index(&event, Some(txn))?;
-                self.write_event_references_person(&event, Some(txn))?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
                         continue;
