@@ -2,12 +2,13 @@ use super::types::{Person2, PersonRelay1, Settings1, Settings2, Theme1, ThemeVar
 use super::Storage;
 use crate::error::{Error, ErrorKind};
 use crate::people::PersonList;
-use heed::RwTxn;
+use heed::types::UnalignedSlice;
+use heed::{DatabaseFlags, RwTxn};
 use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 10;
+    const MAX_MIGRATION_LEVEL: u32 = 12;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -57,8 +58,11 @@ impl Storage {
                 let _ = self.db_events1()?;
                 let _ = self.db_event_ek_pk_index1()?;
                 let _ = self.db_event_ek_c_index1()?;
-                let _ = self.db_event_references_person1()?;
                 let _ = self.db_hashtags1()?;
+            }
+            10 => {
+                let _ = self.db_events1()?;
+                let _ = self.db_event_tag_index1()?;
             }
             _ => {}
         };
@@ -110,6 +114,14 @@ impl Storage {
             9 => {
                 tracing::info!("{prefix}: rewriting theme settings...");
                 self.rewrite_theme_settings(txn)?;
+            }
+            10 => {
+                tracing::info!("{prefix}: populating event tag index...");
+                self.populate_event_tag_index(txn)?;
+            }
+            11 => {
+                tracing::info!("{prefix}: removing now unused event_references_person index...");
+                self.remove_event_references_person(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -513,6 +525,35 @@ impl Storage {
         self.write_setting_theme_variant(&theme.variant.name().to_owned(), Some(txn))?;
         self.write_setting_dark_mode(&theme.dark_mode, Some(txn))?;
         self.write_setting_follow_os_dark_mode(&theme.follow_os_dark_mode, Some(txn))?;
+
+        Ok(())
+    }
+
+    pub fn populate_event_tag_index<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let loop_txn = self.env.read_txn()?;
+        for result in self.db_events1()?.iter(&loop_txn)? {
+            let (_key, val) = result?;
+            let event = Event::read_from_buffer(val)?;
+            self.write_event_tag_index(&event, Some(txn))?;
+        }
+
+        Ok(())
+    }
+
+    pub fn remove_event_references_person<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        {
+            let db = self
+                .env
+                .database_options()
+                .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
+                .name("event_references_person")
+                .create(txn)?;
+
+            db.clear(txn)?;
+        }
+
+        // heed doesn't expose mdb_drop(1) yet, so we can't actually remove this database.
 
         Ok(())
     }

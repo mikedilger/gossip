@@ -1,3 +1,4 @@
+use super::widgets::safe_truncate;
 use super::{GossipUi, Page, widgets};
 use eframe::egui;
 use egui::{Context, Label, RichText, Sense, Ui};
@@ -43,10 +44,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                                 ui.label(
-                                    crate::date_ago::date_ago(channeldata.latest_message),
+                                    crate::date_ago::date_ago(channeldata.latest_message_created_at),
                                     ).on_hover_ui(|ui| {
                                     if let Ok(stamp) =
-                                        time::OffsetDateTime::from_unix_timestamp(channeldata.latest_message.0)
+                                        time::OffsetDateTime::from_unix_timestamp(channeldata.latest_message_created_at.0)
                                     {
                                         if let Ok(formatted) =
                                             stamp.format(&time::format_description::well_known::Rfc2822)
@@ -66,10 +67,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
                         ui.horizontal_wrapped(|ui| {
                             if is_signer_ready {
-                            // TODO
-                            // if let Some(message) = channeldata.last_message {
-                            //     ui.label(safe_truncate(message, 200));
-                            // }
+                                if channeldata.latest_message_content.len() > 0 {
+                                    // TODO replace with UI aware truncate
+                                    ui.label(safe_truncate(channeldata.latest_message_content.as_str(), 100));
+                                }
                             }
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {

@@ -58,7 +58,7 @@ impl Storage {
             // also index the event
             self.write_event_ek_pk_index(event, Some(txn))?;
             self.write_event_ek_c_index(event, Some(txn))?;
-            self.write_event_references_person(event, Some(txn))?;
+            self.write_event_tag_index(event, Some(txn))?;
             for hashtag in event.hashtags() {
                 if hashtag.is_empty() {
                     continue;
