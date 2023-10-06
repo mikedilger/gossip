@@ -200,12 +200,3 @@ pub(crate) fn draw_link_at(
     draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
     response
 }
-
-/// UTF-8 safe truncate (String::truncate() can panic)
-#[inline]
-pub(crate) fn safe_truncate(s: &str, max_chars: usize) -> &str {
-    match s.char_indices().nth(max_chars) {
-        None => s,
-        Some((idx, _)) => &s[..idx],
-    }
-}

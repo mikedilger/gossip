@@ -8,8 +8,9 @@ use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
 use super::{
     list_entry::{
         self, allocate_text_at, draw_link_at, draw_text_at, draw_text_galley_at, paint_hline,
-        safe_truncate, TEXT_BOTTOM, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE,
+        TEXT_BOTTOM, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE,
     },
+    safe_truncate,
     CopyButton, COPY_SYMBOL_SIZE,
 };
 

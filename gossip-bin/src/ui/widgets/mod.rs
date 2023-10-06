@@ -60,3 +60,12 @@ pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Respo
 
     response
 }
+
+/// UTF-8 safe truncate (String::truncate() can panic)
+#[inline]
+pub fn safe_truncate(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars) {
+        None => s,
+        Some((idx, _)) => &s[..idx],
+    }
+}

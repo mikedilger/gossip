@@ -20,6 +20,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
     ui.add_space(10.0);
 
+    let is_signer_ready = GLOBALS.signer.is_ready();
+
     app.vert_scroll_area()
         .id_source("dm_chat_list")
         .max_width(f32::INFINITY)
@@ -30,47 +32,60 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 widgets::list_entry::make_frame(ui)
                     .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
-                    ui.horizontal_wrapped(|ui| {
-                        let rect = egui::Rect::from_min_size(
-                            ui.next_widget_position(),
-                            ui.available_size()
-                        );
-                        widgets::list_entry::paint_frame(ui, &rect, None);
-
-                        let channel_name = channeldata.dm_channel.name();
-                        ui.label(format!(
-                            "({}/{})",
-                            channeldata.unread_message_count, channeldata.message_count
-                        ));
-
-                        ui.label(
-                            RichText::new(crate::date_ago::date_ago(channeldata.latest_message))
-                                .italics()
-                                .weak(),
-                        )
-                        .on_hover_ui(|ui| {
-                            if let Ok(stamp) =
-                                time::OffsetDateTime::from_unix_timestamp(channeldata.latest_message.0)
+                    ui.vertical(|ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            let channel_name = channeldata.dm_channel.name();
+                            if ui.add(
+                                Label::new(RichText::new(channel_name)
+                                        .heading()
+                                        .color(color))
+                                        .sense(Sense::click()),
+                                )
+                                .clicked()
                             {
-                                if let Ok(formatted) =
-                                    stamp.format(&time::format_description::well_known::Rfc2822)
-                                {
-                                    ui.label(formatted);
-                                }
+                                app.set_page(Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())));
+                                app.dm_draft_data.clear();
+                                app.draft_needs_focus = true;
                             }
+
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                                ui.label(
+                                    crate::date_ago::date_ago(channeldata.latest_message),
+                                    ).on_hover_ui(|ui| {
+                                    if let Ok(stamp) =
+                                        time::OffsetDateTime::from_unix_timestamp(channeldata.latest_message.0)
+                                    {
+                                        if let Ok(formatted) =
+                                            stamp.format(&time::format_description::well_known::Rfc2822)
+                                        {
+                                            ui.label(formatted);
+                                        }
+                                    }
+                                });
+                                ui.label(" - ");
+                                ui.label(
+                                    RichText::new(
+                                        format!("{} unread", channeldata.unread_message_count))
+                                    .color(app.theme.accent_color())
+                                );
+                            });
                         });
 
-                        if ui
-                            .add(
-                                Label::new(RichText::new(channel_name).color(color))
-                                    .sense(Sense::click()),
-                            )
-                            .clicked()
-                        {
-                            app.set_page(Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())));
-                            app.dm_draft_data.clear();
-                            app.draft_needs_focus = true;
-                        }
+                        ui.horizontal_wrapped(|ui| {
+                            if is_signer_ready {
+                            // TODO
+                            // if let Some(message) = channeldata.last_message {
+                            //     ui.label(safe_truncate(message, 200));
+                            // }
+                            }
+
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                                ui.label(
+                                    RichText::new(format!("{} messages", channeldata.message_count))
+                                        .weak()
+                                );
+                            });
+                        });
                     });
                 });
             }
