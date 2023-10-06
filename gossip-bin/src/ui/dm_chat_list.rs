@@ -29,24 +29,17 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .show(ui, |ui| {
             let color = app.theme.accent_color();
             for channeldata in channels.drain(..) {
-                widgets::list_entry::make_frame(ui)
+                let row_response = widgets::list_entry::make_frame(ui)
                     .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
                     ui.vertical(|ui| {
                         ui.horizontal_wrapped(|ui| {
                             let channel_name = channeldata.dm_channel.name();
-                            if ui.add(
+                            ui.add(
                                 Label::new(RichText::new(channel_name)
                                         .heading()
-                                        .color(color))
-                                        .sense(Sense::click()),
-                                )
-                                .clicked()
-                            {
-                                app.set_page(Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())));
-                                app.dm_draft_data.clear();
-                                app.draft_needs_focus = true;
-                            }
+                                        .color(color)),
+                                );
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                                 ui.label(
@@ -88,6 +81,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         });
                     });
                 });
+                if row_response.response.interact(Sense::click()).clicked() {
+                    app.set_page(Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())));
+                    app.dm_draft_data.clear();
+                    app.draft_needs_focus = true;
+                }
             }
         });
 }
