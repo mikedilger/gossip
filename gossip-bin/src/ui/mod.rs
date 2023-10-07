@@ -1108,7 +1108,7 @@ impl GossipUi {
         ui.set_enabled(!relays::is_entry_dialog_active(self));
     }
 
-    pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &Person) {
+    pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &Person, profile_page: bool) {
         // Let the 'People' manager know that we are interested in displaying this person.
         // It will take all actions necessary to make the data eventually available.
         GLOBALS.people.person_of_interest(person.pubkey);
@@ -1123,16 +1123,22 @@ impl GossipUi {
             };
 
             let tag_name_menu = {
-                let text = match &person.petname {
-                    Some(pn) => pn.to_owned(),
-                    None => gossip_lib::names::tag_name_from_person(person),
+                let text = if !profile_page {
+                    match &person.petname {
+                        Some(pn) => pn.to_owned(),
+                        None => gossip_lib::names::tag_name_from_person(person),
+                    }
+                } else {
+                    "ACTIONS".to_string()
                 };
                 RichText::new(format!("☰ {}", text))
             };
 
             ui.menu_button(tag_name_menu, |ui| {
-                if ui.button("View Person").clicked() {
-                    app.set_page(Page::Person(person.pubkey));
+                if !profile_page {
+                    if ui.button("View Person").clicked() {
+                        app.set_page(Page::Person(person.pubkey));
+                    }
                 }
                 if app.page != Page::Feed(FeedKind::Person(person.pubkey)) {
                     if ui.button("View Their Posts").clicked() {
@@ -1191,23 +1197,25 @@ impl GossipUi {
                     .on_hover_text("followed");
             }
 
-            if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
-                if nip05.starts_with("_@") {
-                    nip05 = nip05.get(2..).unwrap().to_string();
-                }
+            if !profile_page {
+                if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
+                    if nip05.starts_with("_@") {
+                        nip05 = nip05.get(2..).unwrap().to_string();
+                    }
 
-                ui.with_layout(
-                    Layout::left_to_right(Align::Min)
-                        .with_cross_align(Align::Center)
-                        .with_cross_justify(true),
-                    |ui| {
-                        if person.nip05_valid {
-                            ui.label(RichText::new(nip05).monospace().small());
-                        } else {
-                            ui.label(RichText::new(nip05).monospace().small().strikethrough());
-                        }
-                    },
-                );
+                    ui.with_layout(
+                        Layout::left_to_right(Align::Min)
+                            .with_cross_align(Align::Center)
+                            .with_cross_justify(true),
+                        |ui| {
+                            if person.nip05_valid {
+                                ui.label(RichText::new(nip05).monospace().small());
+                            } else {
+                                ui.label(RichText::new(nip05).monospace().small().strikethrough());
+                            }
+                        },
+                    );
+                }
             }
         });
     }

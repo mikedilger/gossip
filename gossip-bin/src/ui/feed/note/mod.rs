@@ -284,7 +284,7 @@ fn render_note_inner(
 
                 ui.add_space(3.0);
 
-                GossipUi::render_person_name_line(app, ui, &note.author);
+                GossipUi::render_person_name_line(app, ui, &note.author, false);
 
                 ui.horizontal_wrapped(|ui| {
                     if let Some((irt, _)) = note.event.replies_to() {
