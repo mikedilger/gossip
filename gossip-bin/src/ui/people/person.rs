@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::ui::widgets::CopyButton;
-use crate::AVATAR_SIZE_F32;
 use crate::ui::PersonTab;
+use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Frame, Image, RichText, TextEdit, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
@@ -101,7 +101,8 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     if ui.button("remove").clicked() {
                                         let mut person = person.clone();
                                         person.petname = None;
-                                        if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                                        if let Err(e) = GLOBALS.storage.write_person(&person, None)
+                                        {
                                             GLOBALS.status_queue.write().write(format!("{}", e));
                                         }
                                         app.notes.cache_invalidate_person(&person.pubkey);
@@ -117,21 +118,21 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             }
                         }
                     });
-                    
+
                     ui.add_space(10.0);
                     {
                         let visuals = ui.visuals_mut();
                         visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
                         visuals.widgets.inactive.fg_stroke.width = 1.0;
                         visuals.widgets.inactive.fg_stroke.color =
-                        app.theme.get_style().visuals.extreme_bg_color;
+                            app.theme.get_style().visuals.extreme_bg_color;
                         visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
                         visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
                         visuals.widgets.inactive.fg_stroke.color =
-                        app.theme.get_style().visuals.extreme_bg_color;
+                            app.theme.get_style().visuals.extreme_bg_color;
                         GossipUi::render_person_name_line(app, ui, &person, true);
                     }
-                    
+
                     if let Some(about) = person.about() {
                         ui.add_space(10.0);
                         ui.separator();
@@ -146,7 +147,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 });
             },
         );
-        
     });
 
     ui.add_space(10.0);
@@ -280,7 +280,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 let tab_followed =
                     ui.selectable_value(&mut app.person_tab, PersonTab::Followed, "Followed");
                 if tab_followed.clicked() {
-                    tracing::debug!("tab_followed.clicked()");
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::FetchPersonContactList(person.pubkey));
@@ -290,13 +289,17 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                 let tab_followers =
                     ui.selectable_value(&mut app.person_tab, PersonTab::Followers, "Followers");
-                if tab_followers.clicked() {}
+                if tab_followers.clicked() {
+                    // TODO
+                }
 
                 ui.label("|");
 
                 let tab_relays =
                     ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
-                if tab_relays.clicked() {}
+                if tab_relays.clicked() {
+                    // TODO
+                }
             });
 
             ui.add_space(10.0);
