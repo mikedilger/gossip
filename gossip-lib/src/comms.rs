@@ -51,6 +51,9 @@ pub enum ToOverlordMessage {
     /// Calls [fetch_event_addr](crate::Overlord::fetch_event_addr)
     FetchEventAddr(EventAddr),
 
+    //  Calls [fetch_person_contact_list](crate::Overlord::fetch_person_contact_list)
+    FetchPersonContactList(PublicKey),
+
     /// Calls [follow_pubkey](crate::Overlord::follow_pubkey)
     FollowPubkey(PublicKey),
 

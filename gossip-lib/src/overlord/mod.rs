@@ -542,6 +542,10 @@ impl Overlord {
             ToOverlordMessage::FetchEventAddr(ea) => {
                 self.fetch_event_addr(ea).await?;
             }
+            ToOverlordMessage::FetchPersonContactList(pubkey) => {
+                tracing::debug!("Fetch Person's ContactList {}", &pubkey.as_hex_string());
+                self.fetch_person_contact_list(pubkey).await?;
+            }
             ToOverlordMessage::FollowPubkey(pubkey) => {
                 self.follow_pubkey(pubkey).await?;
             }
@@ -1531,9 +1535,41 @@ impl Overlord {
         Ok(())
     }
 
+    /// Get a person's contact list
+    async fn fetch_person_contact_list(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        let event = GLOBALS
+            .people
+            .generate_contact_list_event(vec![pubkey])
+            .await?;
+
+        let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+
+        for relay in relays {
+            self.engage_minion(
+                relay.0.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchContacts,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribePersonContactList(pubkey),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        // let event
+        tracing::debug!("fetch_person_contact_list - event {:?}", event);
+
+        // process the message for ourself
+        crate::process::process_new_event(&event, None, None, false, false).await?;
+        Ok(())
+    }
+
     /// Publish the user's following list
     pub async fn push_follow(&mut self) -> Result<(), Error> {
-        let event = GLOBALS.people.generate_contact_list_event().await?;
+        let pubkeys = GLOBALS.people.get_followed_pubkeys();
+        let event = GLOBALS.people.generate_contact_list_event(pubkeys).await?;
 
         // process event locally
         crate::process::process_new_event(&event, None, None, false, false).await?;

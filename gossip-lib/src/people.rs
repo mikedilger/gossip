@@ -613,7 +613,7 @@ impl People {
             .collect())
     }
 
-    pub(crate) async fn generate_contact_list_event(&self) -> Result<Event, Error> {
+    pub(crate) async fn generate_contact_list_event(&self,pubkeys: Vec<PublicKey>,) -> Result<Event, Error> {
         let mut p_tags: Vec<Tag> = Vec::new();
 
         for pubkey in &pubkeys {
