@@ -1108,12 +1108,7 @@ impl GossipUi {
         ui.set_enabled(!relays::is_entry_dialog_active(self));
     }
 
-    pub fn render_person_name_line(
-        app: &mut GossipUi,
-        ui: &mut Ui,
-        person: &Person,
-        profile_page: bool,
-    ) {
+    pub fn render_person_name_line(app: &mut GossipUi, ui: &mut Ui, person: &Person, profile_page: bool) {
         // Let the 'People' manager know that we are interested in displaying this person.
         // It will take all actions necessary to make the data eventually available.
         GLOBALS.people.person_of_interest(person.pubkey);
