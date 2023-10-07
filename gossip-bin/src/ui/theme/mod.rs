@@ -4,7 +4,7 @@ use eframe::egui::{
     Color32, Context, FontData, FontDefinitions, FontTweak, Margin, Rounding, Stroke, Style,
     TextFormat, TextStyle, Ui,
 };
-use eframe::epaint::{FontFamily, FontId, Shadow};
+use eframe::epaint::{ecolor, FontFamily, FontId, Shadow};
 use gossip_lib::Settings;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -412,6 +412,12 @@ pub trait ThemeDef: Send + Sync {
 
     // image rounding
     fn round_image() -> bool;
+
+    fn darken_color(color: Color32, factor: f32) -> Color32 {
+        let mut hsva: ecolor::HsvaGamma = color.into();
+        hsva.v = (hsva.v * factor).max(0.0).min(1.0);
+        hsva.into()
+    }
 }
 
 pub(super) fn font_definitions() -> FontDefinitions {

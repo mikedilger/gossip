@@ -487,7 +487,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
             frame.stroke = egui::Stroke::NONE;
             // frame.shadow = egui::epaint::Shadow::NONE;
             frame.rounding = egui::Rounding::same(5.0);
-            frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
+            frame.inner_margin = egui::Margin::symmetric(20.0, 16.0);
             frame.show(ui, |ui| {
                 let path = PathShape::convex_polygon(
             [ button_center_bottom,
@@ -506,6 +506,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
                     crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);
                     ui.label("Show details");
                 });
+                ui.add_space(8.0);
                 ui.horizontal(|ui|{
                     crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size);
                     ui.label("Show hidden relays");
