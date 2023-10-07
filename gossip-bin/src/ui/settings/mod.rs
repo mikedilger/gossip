@@ -11,6 +11,7 @@ mod posting;
 mod ui;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
+    ui.add_space(10.0);
     ui.heading("Settings");
 
     ui.with_layout(Layout::right_to_left(Align::Min), |ui| {

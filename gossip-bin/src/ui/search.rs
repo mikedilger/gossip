@@ -9,6 +9,7 @@ use gossip_lib::GLOBALS;
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
+    ui.add_space(10.0);
     ui.heading("Search notes and users");
 
     ui.add_space(12.0);
