@@ -1538,27 +1538,28 @@ impl Overlord {
         // process event locally
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
-        let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+        // Push to all of the relays we post to
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
 
         for relay in relays {
+            // Send it the event to pull our followers
+            tracing::debug!("Pushing ContactList to {}", &relay.url);
+
             self.engage_minion(
-                relay.0.clone(),
+                relay.url.clone(),
                 vec![RelayJob {
-                    reason: RelayConnectionReason::FetchContacts,
+                    reason: RelayConnectionReason::PostContacts,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribePersonContactList(pubkey),
+                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
                     },
                 }],
             )
             .await?;
         }
 
-        // let event
-        tracing::debug!("fetch_person_contact_list - event {:?}", event);
-
-        // process the message for ourself
-        crate::process::process_new_event(&event, None, None, false, false).await?;
         Ok(())
     }
 

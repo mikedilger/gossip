@@ -104,7 +104,6 @@ macro_rules! def_setting {
 
             #[allow(dead_code)]
             pub(crate) fn [<set_default_setting_ $field>]<'a>(
-            pub(crate) fn [<set_default_setting_ $field>]<'a>(
                 &'a self,
                 rw_txn: Option<&mut RwTxn<'a>>
             ) -> Result<(), Error> {
@@ -112,7 +111,6 @@ macro_rules! def_setting {
             }
 
             #[allow(dead_code)]
-            pub(crate) fn [<get_default_setting_ $field>]() -> $type {
             pub(crate) fn [<get_default_setting_ $field>]() -> $type {
                 $default
             }
