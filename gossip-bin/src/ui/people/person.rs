@@ -299,6 +299,8 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     }
                 }
             });
+
+            ui.add_space(10.0);
         }
     }
     if need_to_set_active_person && !app.setting_active_person {
