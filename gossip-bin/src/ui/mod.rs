@@ -973,14 +973,24 @@ impl eframe::App for GossipUi {
             self.current_scroll_offset = requested_scroll;
         }
 
-        if self.theme.follow_os_dark_mode {
+        let mut reapply = false;
+        let mut theme = Theme::from_settings(&self.settings);
+        if theme.follow_os_dark_mode {
             // detect if the OS has changed dark/light mode
             let os_dark_mode = ctx.style().visuals.dark_mode;
-            if os_dark_mode != self.theme.dark_mode {
+            if os_dark_mode != theme.dark_mode {
                 // switch to the OS setting
-                self.theme.dark_mode = os_dark_mode;
-                theme::apply_theme(&self.theme, ctx);
+                self.settings.dark_mode = os_dark_mode;
+                theme.dark_mode = os_dark_mode;
+                reapply = true;
             }
+        }
+        if self.theme != theme {
+            self.theme = theme;
+            reapply = true;
+        }
+        if reapply {
+            theme::apply_theme(&self.theme, ctx);
         }
 
         // dialogues first
