@@ -149,6 +149,12 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn navigation_text_deactivated_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::navigation_text_deactivated_color(self.dark_mode), )+
+                }
+            }
+
             pub fn navigation_text_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::navigation_text_color(self.dark_mode), )+
@@ -367,6 +373,7 @@ pub trait ThemeDef: Send + Sync {
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32;
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32;
+    fn navigation_text_deactivated_color(dark_mode: bool) -> eframe::egui::Color32;
     fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32;
     fn navigation_text_active_color(dark_mode: bool) -> eframe::egui::Color32;
     fn navigation_text_hover_color(dark_mode: bool) -> eframe::egui::Color32;
