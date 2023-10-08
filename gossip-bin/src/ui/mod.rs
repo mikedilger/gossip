@@ -734,7 +734,7 @@ impl GossipUi {
 
                 ui.add_space(4.0);
                 let back_label_text = RichText::new("‹ Back");
-                let label = if self.history.is_empty() { Label::new(back_label_text.color(Color32::from_white_alpha(8))) } else { Label::new(back_label_text.color(self.theme.navigation_text_color())).sense(Sense::click()) };
+                let label = if self.history.is_empty() { Label::new(back_label_text.color(self.theme.navigation_text_deactivated_color())) } else { Label::new(back_label_text.color(self.theme.navigation_text_color())).sense(Sense::click()) };
                 let response = ui.add(label);
                 let response = if let Some(page) = self.history.last() {
                     response.on_hover_text(format!("back to {}", page.to_short_string()))
@@ -889,7 +889,7 @@ impl GossipUi {
                             .shadow(egui::epaint::Shadow::NONE)
                             .show(ui, |ui| {
                                 let text = if GLOBALS.signer.is_ready() { RichText::new("+").size(22.5) } else { RichText::new("\u{1f513}").size(20.0) };
-                                let response = ui.add_sized([crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32], egui::Button::new(text.color(self.theme.navigation_text_color())).stroke(egui::Stroke::NONE).rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32)).fill(self.theme.navigation_bg_fill()));
+                                let response = ui.add_sized([crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32], egui::Button::new(text.color(self.theme.get_style().visuals.panel_fill)).stroke(egui::Stroke::NONE).rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32)).fill(self.theme.accent_color()));
                                 if response.clicked() {
                                     self.show_post_area = true;
                                     if GLOBALS.signer.is_ready() {
