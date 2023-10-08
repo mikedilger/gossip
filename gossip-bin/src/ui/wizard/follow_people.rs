@@ -52,7 +52,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                             .to_overlord
                             .send(ToOverlordMessage::UpdateMetadata(*pk));
                         // then remember we did so we don't keep doing it over and over again
-                        tracing::error!("DEBUGGING: fetching metadata for {}", pk.as_hex_string());
                         app.wizard_state
                             .followed_getting_metadata
                             .insert(pk.to_owned());
@@ -134,25 +133,35 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.label("  • Profile (nprofile1..)");
     ui.label("  • DNS ID (user@domain)");
 
-    ui.add_space(20.0);
-    let mut label = RichText::new("  >  Publish and Finish");
-    if app.wizard_state.new_user {
-        label = label.color(app.theme.accent_color());
-    }
-    if ui.button(label).clicked() {
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
+    if app.wizard_state.has_private_key {
+        ui.add_space(20.0);
+        let mut label = RichText::new("  >  Publish and Finish");
+        if app.wizard_state.new_user {
+            label = label.color(app.theme.accent_color());
+        }
+        if ui.button(label).clicked() {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
 
-        let _ = GLOBALS.storage.write_wizard_complete(true, None);
-        app.page = Page::Feed(FeedKind::Followed(false));
-    }
+            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            app.page = Page::Feed(FeedKind::Followed(false));
+        }
 
-    ui.add_space(20.0);
-    let mut label = RichText::new("  >  Finish without publishing");
-    if !app.wizard_state.new_user {
+        ui.add_space(20.0);
+        let mut label = RichText::new("  >  Finish without publishing");
+        if !app.wizard_state.new_user {
+            label = label.color(app.theme.accent_color());
+        }
+        if ui.button(label).clicked() {
+            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            app.page = Page::Feed(FeedKind::Followed(false));
+        }
+    } else {
+        ui.add_space(20.0);
+        let mut label = RichText::new("  >  Finish");
         label = label.color(app.theme.accent_color());
-    }
-    if ui.button(label).clicked() {
-        let _ = GLOBALS.storage.write_wizard_complete(true, None);
-        app.page = Page::Feed(FeedKind::Followed(false));
+        if ui.button(label).clicked() {
+            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            app.page = Page::Feed(FeedKind::Followed(false));
+        }
     }
 }

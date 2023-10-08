@@ -226,47 +226,34 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     }
 
     if !need_more {
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Publish and Continue");
-        if app.wizard_state.new_user {
-            label = label.color(app.theme.accent_color());
-        }
-        if ui.button(label).clicked() {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::AdvertiseRelayList);
-            app.page = Page::Wizard(WizardPage::SetupMetadata);
-        }
+        if app.wizard_state.has_private_key {
+            ui.add_space(20.0);
+            let mut label = RichText::new("  >  Publish and Continue");
+            if app.wizard_state.new_user {
+                label = label.color(app.theme.accent_color());
+            }
+            if ui.button(label).clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdvertiseRelayList);
+                app.page = Page::Wizard(WizardPage::SetupMetadata);
+            }
 
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Continue without publishing");
-        if !app.wizard_state.new_user {
+            ui.add_space(20.0);
+            let mut label = RichText::new("  >  Continue without publishing");
+            if !app.wizard_state.new_user {
+                label = label.color(app.theme.accent_color());
+            }
+            if ui.button(label).clicked() {
+                app.page = Page::Wizard(WizardPage::SetupMetadata);
+            };
+        } else {
+            ui.add_space(20.0);
+            let mut label = RichText::new("  >  Continue");
             label = label.color(app.theme.accent_color());
+            if ui.button(label).clicked() {
+                app.page = Page::Wizard(WizardPage::SetupMetadata);
+            };
         }
-        if ui.button(label).clicked() {
-            app.page = Page::Wizard(WizardPage::SetupMetadata);
-        };
     }
-
-    /*
-     [only if privatekey]
-
-    Please select several relays that you will publish your notes to. We recommend at
-    least 2, but no more than 10.
-
-    Enter a Relay URL: _____________________  [ADD]
-
-    You may also pick from this list of popular relays, however be aware that this
-    list may go out of date rapidly.
-      ---
-      ---
-      ---
-
-    (  Continue  )  ( 40 )
-    (   Go Back)  ( 1 or 20, dep if they are new or not, which we have to save in a UI var )
-    (   Exit this Wizard)
-
-    (You can change your relays by visiting the RELAYS page)
-
-       */
 }
