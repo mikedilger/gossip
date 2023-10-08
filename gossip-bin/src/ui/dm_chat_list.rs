@@ -2,12 +2,17 @@ use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Label, RichText, Sense, Ui};
 use gossip_lib::DmChannelData;
+use gossip_lib::{Error, ErrorKind};
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let mut channels: Vec<DmChannelData> = match GLOBALS.storage.dm_channels() {
         Ok(channels) => channels,
+        Err(Error { kind: ErrorKind::NoPrivateKey, .. }) => {
+            ui.label("Private Key Not Available");
+            return;
+        },
         Err(_) => {
             ui.label("ERROR");
             return;
