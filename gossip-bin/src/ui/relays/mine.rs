@@ -11,6 +11,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     let is_editing = app.relays.edit.is_some();
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
+        ui.add_space(2.0);
         ui.heading(Page::RelaysMine.name());
         ui.set_enabled(!is_editing);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {

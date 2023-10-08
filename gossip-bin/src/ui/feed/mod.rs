@@ -55,17 +55,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         FeedKind::Followed(with_replies) => {
             let feed = GLOBALS.feed.get_followed();
             let id = if with_replies { "main" } else { "general" };
-
+            ui.add_space(10.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
-                    ui.label("Main Feed");
+                    ui.heading("Main feed");
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(16.0);
+                        ui.add_space(10.0);
                         ui.label(RichText::new("Include replies").size(11.0));
                         let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
                         if crate::ui::components::switch_with_size(
@@ -89,7 +89,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     });
                 },
             );
-            ui.add_space(4.0);
+            ui.add_space(6.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Inbox(indirect) => {
@@ -104,17 +104,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
             let feed = GLOBALS.feed.get_inbox();
             let id = if indirect { "activity" } else { "inbox" };
-
+            ui.add_space(10.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
-                    ui.label("Inbox");
+                    ui.heading("Inbox");
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(16.0);
+                        ui.add_space(10.0);
                         ui.label(RichText::new("Everything").size(11.0));
                         let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
                         if crate::ui::components::switch_with_size(
@@ -136,23 +136,26 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     });
                 },
             );
-            ui.add_space(4.0);
+            ui.add_space(6.0);
             render_a_feed(app, ctx, frame, ui, feed, false, id);
         }
         FeedKind::Thread { id, .. } => {
-            ui.horizontal(|ui| {
-                ui.label("Thread");
-                recompute_btn(app, ui);
-            });
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
                 render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string());
             }
         }
         FeedKind::Person(pubkey) => {
+            ui.add_space(10.0);
             ui.horizontal(|ui| {
-                ui.label(gossip_lib::names::tag_name_from_pubkey_lookup(&pubkey));
+                add_left_space(ui);
+                if Some(pubkey) == GLOBALS.signer.public_key() {
+                    ui.heading("My notes");
+                } else {
+                    ui.heading(gossip_lib::names::tag_name_from_pubkey_lookup(&pubkey));
+                }
                 recompute_btn(app, ui);
             });
+            ui.add_space(6.0);
 
             let feed = GLOBALS.feed.get_person_feed();
             render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string());

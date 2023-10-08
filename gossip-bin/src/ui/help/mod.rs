@@ -9,7 +9,7 @@ mod theme;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.page == Page::HelpHelp {
-        ui.add_space(24.0);
+        ui.add_space(10.0);
         ui.heading("Help - Getting Started");
         ui.add_space(12.0);
         ui.separator();
