@@ -307,30 +307,50 @@ fn render_note_inner(
 
                     if note.event.pow() > 0 {
                         let color = app.theme.notice_marker_text_color();
-                        ui.label(RichText::new(format!("POW={}", note.event.pow())).color(color).text_style(TextStyle::Small));
+                        ui.label(
+                            RichText::new(format!("POW={}", note.event.pow()))
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
                     }
 
                     match &note.delegation {
                         EventDelegation::InvalidDelegation(why) => {
                             let color = app.theme.warning_marker_text_color();
-                            ui.add(Label::new(RichText::new("INVALID DELEGATION").color(color).text_style(TextStyle::Small)))
-                                .on_hover_text(why);
+                            ui.add(Label::new(
+                                RichText::new("INVALID DELEGATION")
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            ))
+                            .on_hover_text(why);
                         }
                         EventDelegation::DelegatedBy(_) => {
                             let color = app.theme.notice_marker_text_color();
-                            ui.label(RichText::new("DELEGATED").color(color).text_style(TextStyle::Small));
+                            ui.label(
+                                RichText::new("DELEGATED")
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            );
                         }
                         _ => {}
                     }
 
                     if note.deletion.is_some() {
                         let color = app.theme.warning_marker_text_color();
-                        ui.label(RichText::new("DELETED").color(color).text_style(TextStyle::Small));
+                        ui.label(
+                            RichText::new("DELETED")
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
                     }
 
                     if note.event.kind == EventKind::Repost {
                         let color = app.theme.notice_marker_text_color();
-                        ui.label(RichText::new("REPOSTED").color(color).text_style(TextStyle::Small));
+                        ui.label(
+                            RichText::new("REPOSTED")
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
                     }
 
                     if let Page::Feed(FeedKind::DmChat(_)) = app.page {
@@ -339,9 +359,17 @@ fn render_note_inner(
                         if note.event.kind.is_direct_message_related() {
                             let color = app.theme.notice_marker_text_color();
                             if note.secure {
-                                ui.label(RichText::new("PRIVATE CHAT (GIFT WRAPPED)").color(color).text_style(TextStyle::Small));
+                                ui.label(
+                                    RichText::new("PRIVATE CHAT (GIFT WRAPPED)")
+                                        .color(color)
+                                        .text_style(TextStyle::Small),
+                                );
                             } else {
-                                ui.label(RichText::new("PRIVATE CHAT").color(color).text_style(TextStyle::Small));
+                                ui.label(
+                                    RichText::new("PRIVATE CHAT")
+                                        .color(color)
+                                        .text_style(TextStyle::Small),
+                                );
                             }
                         }
                     }

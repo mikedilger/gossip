@@ -84,4 +84,3 @@ fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
     relays
 }
-

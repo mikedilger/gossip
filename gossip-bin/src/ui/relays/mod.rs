@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use super::{GossipUi, Page, widgets};
+use super::{widgets, GossipUi, Page};
 use eframe::{egui, epaint::PathShape};
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, Rect, RichText};
@@ -471,7 +471,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
     }
 
     let button_center_bottom = response.rect.center_bottom();
-    let seen_on_popup_position = button_center_bottom + vec2( -180.0, widgets::DROPDOWN_DISTANCE );
+    let seen_on_popup_position = button_center_bottom + vec2(-180.0, widgets::DROPDOWN_DISTANCE);
 
     let id: Id = "configure-list-menu".into();
     let mut frame = egui::Frame::popup(ui.style());
@@ -490,24 +490,29 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
             frame.inner_margin = egui::Margin::symmetric(20.0, 16.0);
             frame.show(ui, |ui| {
                 let path = PathShape::convex_polygon(
-            [ button_center_bottom,
-                        button_center_bottom + vec2(widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
-                        button_center_bottom + vec2(-widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE)]
-                        .to_vec(),
+                    [
+                        button_center_bottom,
+                        button_center_bottom
+                            + vec2(widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
+                        button_center_bottom
+                            + vec2(-widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
+                    ]
+                    .to_vec(),
                     app.theme.accent_color(),
-                    egui::Stroke::NONE);
+                    egui::Stroke::NONE,
+                );
                 ui.painter().add(path);
                 let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
 
                 // since we are displaying over an accent color background, load that style
                 *ui.style_mut() = app.theme.get_on_accent_style();
 
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);
                     ui.label("Show details");
                 });
                 ui.add_space(8.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size);
                     ui.label("Show hidden relays");
                 });

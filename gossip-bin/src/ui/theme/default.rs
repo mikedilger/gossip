@@ -456,7 +456,7 @@ impl ThemeDef for DefaultTheme {
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
         let mut hsva: ecolor::HsvaGamma = Self::get_style(dark_mode).visuals.panel_fill.into();
         let delta = if dark_mode { 1.3 } else { 0.90 };
-        hsva.v = hsva.v * delta;
+        hsva.v *= delta;
         hsva.into()
     }
 
