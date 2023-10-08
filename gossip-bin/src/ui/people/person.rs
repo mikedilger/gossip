@@ -100,7 +100,8 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     if ui.button("remove").clicked() {
                                         let mut person = person.clone();
                                         person.petname = None;
-                                        if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                                        if let Err(e) = GLOBALS.storage.write_person(&person, None)
+                                        {
                                             GLOBALS.status_queue.write().write(format!("{}", e));
                                         }
                                         app.notes.cache_invalidate_person(&person.pubkey);
@@ -116,21 +117,21 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             }
                         }
                     });
-                    
+
                     ui.add_space(10.0);
                     {
                         let visuals = ui.visuals_mut();
                         visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
                         visuals.widgets.inactive.fg_stroke.width = 1.0;
                         visuals.widgets.inactive.fg_stroke.color =
-                        app.theme.get_style().visuals.extreme_bg_color;
+                            app.theme.get_style().visuals.extreme_bg_color;
                         visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
                         visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
                         visuals.widgets.inactive.fg_stroke.color =
-                        app.theme.get_style().visuals.extreme_bg_color;
+                            app.theme.get_style().visuals.extreme_bg_color;
                         GossipUi::render_person_name_line(app, ui, &person, true);
                     }
-                    
+
                     if let Some(about) = person.about() {
                         ui.add_space(10.0);
                         ui.separator();
@@ -145,7 +146,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 });
             },
         );
-        
     });
 
     ui.add_space(10.0);
