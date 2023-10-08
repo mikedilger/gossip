@@ -9,14 +9,8 @@ use gossip_lib::Settings;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-mod classic;
-pub use classic::ClassicTheme;
-
 mod default;
 pub use default::DefaultTheme;
-
-mod roundy;
-pub use roundy::RoundyTheme;
 
 pub fn apply_theme(theme: &Theme, ctx: &Context) {
     ctx.set_style(theme.get_style());
@@ -29,9 +23,7 @@ pub fn apply_theme(theme: &Theme, ctx: &Context) {
 // note: if we store anything inside the variants, we can't use macro_rules.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ThemeVariant {
-    Classic,
     Default,
-    Roundy,
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,9 +37,7 @@ impl Theme {
     pub fn from_settings(settings: &Settings) -> Theme {
         Theme {
             variant: match &*settings.theme_variant {
-                "Classic" => ThemeVariant::Classic,
                 "Default" => ThemeVariant::Default,
-                "Roundy" => ThemeVariant::Roundy,
                 _ => ThemeVariant::Default,
             },
             dark_mode: settings.dark_mode,
@@ -344,17 +334,7 @@ macro_rules! theme_dispatch {
     }
 }
 
-theme_dispatch!(
-    ThemeVariant::Classic,
-    ClassicTheme,
-    "Classic",
-    ThemeVariant::Default,
-    DefaultTheme,
-    "Default",
-    ThemeVariant::Roundy,
-    RoundyTheme,
-    "Roundy"
-);
+theme_dispatch!(ThemeVariant::Default, DefaultTheme, "Default");
 
 pub trait ThemeDef: Send + Sync {
     // User facing name

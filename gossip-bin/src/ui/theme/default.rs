@@ -282,21 +282,25 @@ impl ThemeDef for DefaultTheme {
         if dark_mode {
             style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.window_fill;
             style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
-            style.visuals.widgets.inactive.fg_stroke = Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
+            style.visuals.widgets.inactive.fg_stroke =
+                Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
             style.visuals.widgets.active.bg_fill = Color32::from_black_alpha(20);
             style.visuals.widgets.active.fg_stroke.color = style.visuals.window_fill;
             style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
-            style.visuals.widgets.hovered.fg_stroke.color = style.visuals.panel_fill.gamma_multiply(0.6);
+            style.visuals.widgets.hovered.fg_stroke.color =
+                style.visuals.panel_fill.gamma_multiply(0.6);
             style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
             style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.window_fill);
         } else {
             style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.panel_fill;
             style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
-            style.visuals.widgets.inactive.fg_stroke = Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
+            style.visuals.widgets.inactive.fg_stroke =
+                Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
             style.visuals.widgets.active.bg_fill = style.visuals.panel_fill.gamma_multiply(0.6);
             style.visuals.widgets.active.fg_stroke.color = style.visuals.window_fill;
             style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
-            style.visuals.widgets.hovered.fg_stroke.color = style.visuals.panel_fill.gamma_multiply(0.6);
+            style.visuals.widgets.hovered.fg_stroke.color =
+                style.visuals.panel_fill.gamma_multiply(0.6);
             style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
             style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.panel_fill);
         }
@@ -451,11 +455,7 @@ impl ThemeDef for DefaultTheme {
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
         let mut hsva: ecolor::HsvaGamma = Self::get_style(dark_mode).visuals.panel_fill.into();
-        let delta = if dark_mode {
-            1.3
-        } else {
-            0.90
-        };
+        let delta = if dark_mode { 1.3 } else { 0.90 };
         hsva.v = hsva.v * delta;
         hsva.into()
     }
