@@ -337,15 +337,6 @@ impl Storage {
         Ok(self.db_event_ek_c_index()?.len(&txn)?)
     }
 
-<<<<<<< HEAD
-    /// The number of records in the event_references_person index table
-    pub fn get_event_references_person_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.db_event_tag_index()?.len(&txn)?)
-    }
-
-=======
->>>>>>> storage: migration 11: Remove event_references_person
     /// The number of records in the event_tag index table
     pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
@@ -1727,73 +1718,6 @@ impl Storage {
         Ok(events)
     }
 
-<<<<<<< HEAD
-    // We don't call this externally. Whenever we write an event, we do this.
-    #[inline]
-    fn write_event_references_person<'a>(
-        &'a self,
-        event: &Event,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        self.write_event_tag_index1(event, rw_txn)
-    }
-
-    /// Read all events referencing a given person in reverse time order
-    #[inline]
-    pub fn read_events_referencing_person<F>(
-        &self,
-        tagname: &str,
-        tagvalue: Option<&str>,
-        f: F,
-        sort: bool,
-    ) -> Result<Vec<Event>, Error>
-    where
-        F: Fn(&Event) -> bool,
-    {
-        // Make sure we are asking for something that we have indexed
-        if !INDEXED_TAGS.contains(&tagname) {
-            return Err(ErrorKind::TagNotIndexed(tagname.to_owned()).into());
-        }
-
-        let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env.read_txn()?;
-
-        let mut start_key: Vec<u8> = tagname.as_bytes().to_owned();
-        start_key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
-        if let Some(tv) = tagvalue {
-            start_key.extend(tv.as_bytes());
-        }
-        let start_key = key!(&start_key); // limit the size
-        let iter = self.db_event_tag_index()?.prefix_iter(&txn, start_key)?;
-        for result in iter {
-            let (_key, val) = result?;
-            // Take the event
-            let id = Id(val[0..32].try_into()?);
-            ids.insert(id);
-        }
-
-        // Now that we have that Ids, fetch and filter the events
-        let txn = self.env.read_txn()?;
-        let mut events: Vec<Event> = Vec::new();
-        for id in ids {
-            // this is like self.read_event(), but we supply our existing transaction
-            if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
-                let event = Event::read_from_buffer(bytes)?;
-                if f(&event) {
-                    events.push(event);
-                }
-            }
-        }
-
-        if sort {
-            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
-        }
-
-        Ok(events)
-    }
-
-=======
->>>>>>> storage: migration 11: Remove event_references_person
     #[inline]
     pub(crate) fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
         self.index_unindexed_giftwraps1()

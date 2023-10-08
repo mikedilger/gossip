@@ -426,15 +426,7 @@ impl Feed {
                     if dismissed.contains(&e.id) {
                         return false;
                     }
-<<<<<<< HEAD
-<<<<<<< HEAD
                     if !kinds_without_dms.contains(&e.kind) {
-=======
-                    if ! kinds_without_dms.contains(&e.kind) {
->>>>>>> Use event_tag_index to find delegated events in Person feed
-=======
-                    if !kinds_without_dms.contains(&e.kind) {
->>>>>>> storage: migration 11: Remove event_references_person
                         return false;
                     }
                     true
@@ -447,52 +439,19 @@ impl Feed {
                         &[person_pubkey],
                         Some(since),
                         filter,
-<<<<<<< HEAD
-<<<<<<< HEAD
                         false,
-=======
-                        false
->>>>>>> Use event_tag_index to find delegated events in Person feed
-=======
-                        false,
->>>>>>> storage: migration 11: Remove event_references_person
                     )?
                     .iter()
                     .chain(
                         GLOBALS
                             .storage
-<<<<<<< HEAD
-<<<<<<< HEAD
                             .find_tagged_events("delegation", Some(pphex.as_str()), filter, false)?
                             .iter(),
-=======
-                            .find_tagged_events(
-                                "delegation",
-                                Some(pphex.as_str()),
-                                filter,
-                                false
-                            )?
-                            .iter()
->>>>>>> Use event_tag_index to find delegated events in Person feed
-=======
-                            .find_tagged_events("delegation", Some(pphex.as_str()), filter, false)?
-                            .iter(),
->>>>>>> storage: migration 11: Remove event_references_person
                     )
                     .map(|e| e.to_owned())
                     .collect();
 
-<<<<<<< HEAD
-<<<<<<< HEAD
                 events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
-=======
-                events.sort_by(|a,b| b.created_at.cmp(&a.created_at).then(
-                    b.id.cmp(&a.id)
-                ));
->>>>>>> Use event_tag_index to find delegated events in Person feed
-=======
-                events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
->>>>>>> storage: migration 11: Remove event_references_person
 
                 let events: Vec<Id> = events.iter().map(|e| e.id).collect();
 

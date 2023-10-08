@@ -8,15 +8,7 @@ use nostr_types::{Event, Id, RelayUrl, Signature};
 use speedy::{Readable, Writable};
 
 impl Storage {
-<<<<<<< HEAD
-<<<<<<< HEAD
     const MAX_MIGRATION_LEVEL: u32 = 12;
-=======
-    const MAX_MIGRATION_LEVEL: u32 = 11;
->>>>>>> storage: migration to populate event_tag_index
-=======
-    const MAX_MIGRATION_LEVEL: u32 = 12;
->>>>>>> storage: migration 11: Remove event_references_person
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -127,19 +119,10 @@ impl Storage {
                 tracing::info!("{prefix}: populating event tag index...");
                 self.populate_event_tag_index(txn)?;
             }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> storage: migration 11: Remove event_references_person
             11 => {
                 tracing::info!("{prefix}: removing now unused event_references_person index...");
                 self.remove_event_references_person(txn)?;
             }
-<<<<<<< HEAD
-=======
->>>>>>> storage: migration to populate event_tag_index
-=======
->>>>>>> storage: migration 11: Remove event_references_person
             _ => panic!("Unreachable migration level"),
         };
 
