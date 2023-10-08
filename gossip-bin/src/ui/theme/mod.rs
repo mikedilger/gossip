@@ -4,7 +4,7 @@ use eframe::egui::{
     Color32, Context, FontData, FontDefinitions, FontTweak, Margin, Rounding, Stroke, Style,
     TextFormat, TextStyle, Ui,
 };
-use eframe::epaint::{FontFamily, FontId, Shadow};
+use eframe::epaint::{ecolor, FontFamily, FontId, Shadow};
 use gossip_lib::Settings;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -107,6 +107,12 @@ macro_rules! theme_dispatch {
             pub fn get_style(&self) -> Style {
                 match self.variant {
                     $( $variant => $class::get_style(self.dark_mode), )+
+                }
+            }
+
+            pub fn get_on_accent_style(&self) -> Style {
+                match self.variant {
+                    $( $variant => $class::get_on_accent_style(self.dark_mode), )+
                 }
             }
 
@@ -365,6 +371,8 @@ pub trait ThemeDef: Send + Sync {
     // These styles are used by egui by default for widgets if you don't override them
     // in place.
     fn get_style(dark_mode: bool) -> Style;
+    /// the style to use when displaying on-top of an accent-colored background
+    fn get_on_accent_style(dark_mode: bool) -> Style;
 
     fn font_definitions() -> FontDefinitions;
     fn text_styles() -> BTreeMap<TextStyle, FontId>;
@@ -412,6 +420,12 @@ pub trait ThemeDef: Send + Sync {
 
     // image rounding
     fn round_image() -> bool;
+
+    fn darken_color(color: Color32, factor: f32) -> Color32 {
+        let mut hsva: ecolor::HsvaGamma = color.into();
+        hsva.v = (hsva.v * factor).max(0.0).min(1.0);
+        hsva.into()
+    }
 }
 
 pub(super) fn font_definitions() -> FontDefinitions {

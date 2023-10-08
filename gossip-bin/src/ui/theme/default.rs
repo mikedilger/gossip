@@ -276,6 +276,33 @@ impl ThemeDef for DefaultTheme {
         style
     }
 
+    /// the style to use when displaying on-top of an accent-colored background
+    fn get_on_accent_style(dark_mode: bool) -> Style {
+        let mut style = Self::get_style(dark_mode);
+        if dark_mode {
+            style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.window_fill;
+            style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
+            style.visuals.widgets.active.bg_fill = Color32::from_black_alpha(20);
+            style.visuals.widgets.active.fg_stroke.color = style.visuals.window_fill;
+            style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
+            style.visuals.widgets.hovered.fg_stroke.color = style.visuals.panel_fill.gamma_multiply(0.6);
+            style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
+            style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.window_fill);
+        } else {
+            style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.panel_fill;
+            style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
+            style.visuals.widgets.active.bg_fill = style.visuals.panel_fill.gamma_multiply(0.6);
+            style.visuals.widgets.active.fg_stroke.color = style.visuals.window_fill;
+            style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
+            style.visuals.widgets.hovered.fg_stroke.color = style.visuals.panel_fill.gamma_multiply(0.6);
+            style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
+            style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.panel_fill);
+        }
+        style
+    }
+
     fn font_definitions() -> FontDefinitions {
         super::font_definitions() // use default gossip font definitions
     }
