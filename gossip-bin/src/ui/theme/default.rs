@@ -442,9 +442,9 @@ impl ThemeDef for DefaultTheme {
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
         let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
         if dark_mode {
-            hsva.v = (hsva.v + 0.2).min(1.0); // lighten
+            hsva.v = (hsva.v - 0.2).min(1.0); // darken++
         } else {
-            hsva.v = (hsva.v - 0.2).max(0.0); // darken
+            hsva.v = (hsva.v - 0.1).max(0.0); // darken
         }
         hsva.into()
     }
