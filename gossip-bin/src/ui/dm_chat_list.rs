@@ -90,7 +90,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         });
                     });
                 });
-                if row_response.response.interact(Sense::click()).clicked() {
+                if row_response.response.interact(Sense::click())
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked() {
                     app.set_page(Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())));
                     app.dm_draft_data.clear();
                     app.draft_needs_focus = true;
