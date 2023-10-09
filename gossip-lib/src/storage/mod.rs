@@ -19,8 +19,8 @@ pub mod types;
 // database implementations
 mod event_ek_c_index1;
 mod event_ek_pk_index1;
-mod event_references_person1;
 mod event_seen_on_relay1;
+mod event_tag_index1;
 mod event_viewed1;
 mod events1;
 mod hashtags1;
@@ -51,6 +51,8 @@ use paste::paste;
 use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use std::ops::Bound;
+
+use self::event_tag_index1::INDEXED_TAGS;
 
 // Macro to define read-and-write into "general" database, largely for settings
 // The type must implemented Speedy Readable and Writable
@@ -178,7 +180,7 @@ impl Storage {
         // triggered into existence if their migration is necessary.
         let _ = self.db_event_ek_c_index()?;
         let _ = self.db_event_ek_pk_index()?;
-        let _ = self.db_event_references_person()?;
+        let _ = self.db_event_tag_index()?;
         let _ = self.db_events()?;
         let _ = self.db_event_seen_on_relay()?;
         let _ = self.db_event_viewed()?;
@@ -231,8 +233,8 @@ impl Storage {
     }
 
     #[inline]
-    pub(crate) fn db_event_references_person(&self) -> Result<RawDatabase, Error> {
-        self.db_event_references_person1()
+    pub(crate) fn db_event_tag_index(&self) -> Result<RawDatabase, Error> {
+        self.db_event_tag_index1()
     }
 
     #[inline]
@@ -335,10 +337,10 @@ impl Storage {
         Ok(self.db_event_ek_c_index()?.len(&txn)?)
     }
 
-    /// The number of records in the event_references_person index table
-    pub fn get_event_references_person_len(&self) -> Result<u64, Error> {
+    /// The number of records in the event_tag index table
+    pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_references_person()?.len(&txn)?)
+        Ok(self.db_event_tag_index()?.len(&txn)?)
     }
 
     /// The number of records in the relationships table
@@ -1462,7 +1464,7 @@ impl Storage {
         }
 
         if sort {
-            events.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
         }
 
         Ok(events)
@@ -1548,7 +1550,7 @@ impl Storage {
 
         events.sort_by(|a, b| {
             // ORDER created_at desc
-            b.created_at.cmp(&a.created_at)
+            b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id))
         });
 
         Ok(events)
@@ -1654,28 +1656,66 @@ impl Storage {
         Ok(())
     }
 
-    // We don't call this externally. Whenever we write an event, we do this.
-    #[inline]
-    fn write_event_references_person<'a>(
+    fn write_event_tag_index<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event_references_person1(event, rw_txn)
+        self.write_event_tag_index1(event, rw_txn)
     }
 
-    /// Read all events referencing a given person in reverse time order
-    #[inline]
-    pub fn read_events_referencing_person<F>(
+    /// Find events having a given tag, and passing the filter.
+    /// Only some tags are indxed: "a", "d", "delegation", and "p" for the gossip user only
+    pub fn find_tagged_events<F>(
         &self,
-        pubkey: &PublicKey,
-        since: Unixtime,
+        tagname: &str,
+        tagvalue: Option<&str>,
         f: F,
+        sort: bool,
     ) -> Result<Vec<Event>, Error>
     where
         F: Fn(&Event) -> bool,
     {
-        self.read_events_referencing_person1(pubkey, since, f)
+        // Make sure we are asking for something that we have indexed
+        if !INDEXED_TAGS.contains(&tagname) {
+            return Err(ErrorKind::TagNotIndexed(tagname.to_owned()).into());
+        }
+
+        let mut ids: HashSet<Id> = HashSet::new();
+        let txn = self.env.read_txn()?;
+
+        let mut start_key: Vec<u8> = tagname.as_bytes().to_owned();
+        start_key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
+        if let Some(tv) = tagvalue {
+            start_key.extend(tv.as_bytes());
+        }
+        let start_key = key!(&start_key); // limit the size
+        let iter = self.db_event_tag_index()?.prefix_iter(&txn, start_key)?;
+        for result in iter {
+            let (_key, val) = result?;
+            // Take the event
+            let id = Id(val[0..32].try_into()?);
+            ids.insert(id);
+        }
+
+        // Now that we have that Ids, fetch and filter the events
+        let txn = self.env.read_txn()?;
+        let mut events: Vec<Event> = Vec::new();
+        for id in ids {
+            // this is like self.read_event(), but we supply our existing transaction
+            if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                let event = Event::read_from_buffer(bytes)?;
+                if f(&event) {
+                    events.push(event);
+                }
+            }
+        }
+
+        if sort {
+            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
+        }
+
+        Ok(events)
     }
 
     #[inline]
@@ -2054,18 +2094,25 @@ impl Storage {
                     Some(dmc) => dmc,
                     None => continue,
                 };
-                map.entry(dmchannel.clone())
-                    .and_modify(|d| {
-                        d.latest_message = d.latest_message.max(time);
-                        d.message_count += 1;
-                        d.unread_message_count += unread;
-                    })
-                    .or_insert(DmChannelData {
-                        dm_channel: dmchannel,
-                        latest_message: time,
-                        message_count: 1,
-                        unread_message_count: unread,
-                    });
+                if let Some(dmcdata) = map.get_mut(&dmchannel) {
+                    if time > dmcdata.latest_message_created_at {
+                        dmcdata.latest_message_created_at = time;
+                        dmcdata.latest_message_content = GLOBALS.signer.decrypt_message(event)?;
+                    }
+                    dmcdata.message_count += 1;
+                    dmcdata.unread_message_count += unread;
+                } else {
+                    map.insert(
+                        dmchannel.clone(),
+                        DmChannelData {
+                            dm_channel: dmchannel,
+                            latest_message_created_at: time,
+                            latest_message_content: GLOBALS.signer.decrypt_message(event)?,
+                            message_count: 1,
+                            unread_message_count: unread,
+                        },
+                    );
+                }
             } else if event.kind == EventKind::GiftWrap {
                 if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
                     let rumor_event = rumor.into_event_with_bad_signature();
@@ -2074,24 +2121,35 @@ impl Storage {
                         Some(dmc) => dmc,
                         None => continue,
                     };
-                    map.entry(dmchannel.clone())
-                        .and_modify(|d| {
-                            d.latest_message = d.latest_message.max(time);
-                            d.message_count += 1;
-                            d.unread_message_count += unread;
-                        })
-                        .or_insert(DmChannelData {
-                            dm_channel: dmchannel,
-                            latest_message: time,
-                            message_count: 1,
-                            unread_message_count: unread,
-                        });
+                    if let Some(dmcdata) = map.get_mut(&dmchannel) {
+                        if time > dmcdata.latest_message_created_at {
+                            dmcdata.latest_message_created_at = time;
+                            dmcdata.latest_message_content = rumor_event.content.clone();
+                        }
+                        dmcdata.message_count += 1;
+                        dmcdata.unread_message_count += unread;
+                    } else {
+                        map.insert(
+                            dmchannel.clone(),
+                            DmChannelData {
+                                dm_channel: dmchannel,
+                                latest_message_created_at: time,
+                                latest_message_content: rumor_event.content.clone(),
+                                message_count: 1,
+                                unread_message_count: unread,
+                            },
+                        );
+                    }
                 }
             }
         }
 
         let mut output: Vec<DmChannelData> = map.drain().map(|e| e.1).collect();
-        output.sort_by(|a, b| b.latest_message.cmp(&a.latest_message));
+        output.sort_by(|a, b| {
+            b.latest_message_created_at
+                .cmp(&a.latest_message_created_at)
+                .then(b.unread_message_count.cmp(&a.unread_message_count))
+        });
         Ok(output)
     }
 
@@ -2118,7 +2176,7 @@ impl Storage {
         )?;
 
         // sort
-        output.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        output.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
 
         Ok(output.iter().map(|e| e.id).collect())
     }
@@ -2133,7 +2191,7 @@ impl Storage {
             // Erase all indices first
             self.db_event_ek_pk_index()?.clear(txn)?;
             self.db_event_ek_c_index()?.clear(txn)?;
-            self.db_event_references_person()?.clear(txn)?;
+            self.db_event_tag_index()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
             let loop_txn = self.env.read_txn()?;
@@ -2142,13 +2200,44 @@ impl Storage {
                 let event = Event::read_from_buffer(val)?;
                 self.write_event_ek_pk_index(&event, Some(txn))?;
                 self.write_event_ek_c_index(&event, Some(txn))?;
-                self.write_event_references_person(&event, Some(txn))?;
+                self.write_event_tag_index(&event, Some(txn))?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
                         continue;
                     } // upstream bug
                     self.add_hashtag(&hashtag, event.id, Some(txn))?;
                 }
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn rebuild_event_tags_index<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Erase the index first
+            self.db_event_tag_index()?.clear(txn)?;
+
+            let loop_txn = self.env.read_txn()?;
+            for result in self.db_events()?.iter(&loop_txn)? {
+                let (_key, val) = result?;
+                let event = Event::read_from_buffer(val)?;
+                self.write_event_tag_index(&event, Some(txn))?;
             }
             Ok(())
         };

@@ -15,6 +15,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            ui.add_space(2.0);
             ui.heading(Page::RelaysActivityMonitor.name());
             ui.set_enabled(!is_editing);
         });

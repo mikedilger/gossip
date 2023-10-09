@@ -6,7 +6,7 @@ use humansize::{format_size, DECIMAL};
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(24.0);
+    ui.add_space(10.0);
     ui.heading("Statistics".to_string());
     ui.add_space(12.0);
     ui.separator();
@@ -77,11 +77,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Index (References Person): {} records",
-            GLOBALS
-                .storage
-                .get_event_references_person_len()
-                .unwrap_or(0)
+            "Event Index (Tags): {} records",
+            GLOBALS.storage.get_event_tag_index_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 

@@ -1,3 +1,4 @@
+# RELEASE
 
 0. DON'T update dependencies. DON'T 'cargo update'.  Do that kind of stuff right after
    releasing. Because that stuff presents risk.
@@ -9,9 +10,11 @@
 
 2. Stabilize the code. Make all these happy:
 
-   $ cargo clippy
-   $ cargo fmt
-   $ cargo test
+   ````bash
+      cargo clippy
+      cargo fmt
+      cargo test
+   ````
 
 3. Edit Cargo.toml and change the version (remove the -unstable).
    Compile so you get a new Cargo.lock
@@ -28,24 +31,33 @@
 
 5. Build the debian:
 
-   $ cd debian
-   $ ./deb.sh
+   ````bash
+      cd debian
+      ./deb.sh
+   ````
 
-6. Build the appimage
+6. Build the appimage:
 
-   $ cd appimage
-   $ cargo appimage --features="lang-cjk,video-ffmpeg"
+   ````bash
+      cd appimage
+      cargo appimage --features="lang-cjk,video-ffmpeg"
+   ````
 
-7. Build the windows
+7. Build the windows:
 
-   $ cd windows
-   Follow the windows/README.txt
+   ````bash
+      cd windows
+   ````
 
-8. Build the macos
+   and follow the [Windows README](windows/README.md)
 
-   $ cd macos
-   $ ./build_macos.sh
-   $ ./build_macos_intel.sh
+8. Build the macos:
+
+   ````bash
+      cd macos
+      ./build_macos.sh
+      ./build_macos_intel.sh
+   ````
 
 9. Bundle the files, create SHA256 hashes
 
@@ -55,9 +67,7 @@
 
 12. Announce release on nostr under gossip account
 
-
 -----------------
-
 
 This is a draft of the steps taken to make a release.
 I intend to flesh this out as I actually make releases.
@@ -77,10 +87,9 @@ gossip
 ├── nostr-types
 └── qrcode
 
-
 Try to push our dependency changes upstream:
-  https://github.com/mikedilger/qrcode-rust  (unlikely, stale for >3 years)
-  https://github.com/mikedilger/egui
+  <https://github.com/mikedilger/qrcode-rust>  (unlikely, stale for >3 years)
+  <https://github.com/mikedilger/egui>
 
 nostr-types
    -- cargo update, and check for new versions, maybe update dependencies
@@ -118,19 +127,23 @@ gossip
    -- master
       -- version 0.N+1.0-unstable
 
------------------------------
+-----------------
+
 Package & Publish of gossip:
 
 Package for windows:
- * main version, as .msi
- * main version with lang-cjk, as .msi
+
+* main version, as .msi
+* main version with lang-cjk, as .msi
 
 Package for debian:
- * main version, as .msi
- * main version with lang-cjk, as .msi
+
+* main version, as .msi
+* main version with lang-cjk, as .msi
 
 Create github release (it will create source tar files)
- * Post the windows .msi files
- * Post the debian .deb files
+
+* Post the windows .msi files
+* Post the debian .deb files
 
 Update aur.archlinux.org PKGBUILD

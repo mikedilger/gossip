@@ -48,6 +48,13 @@ impl Signer {
                 .write("Ignored setting of public key (private key supercedes)".to_string());
         } else {
             *self.public.write() = Some(pk);
+
+            // Reubild the event tag index, since the 'p' tags it need to index just changed.
+            task::spawn(async move {
+                if let Err(e) = GLOBALS.storage.rebuild_event_tags_index(None) {
+                    tracing::error!("{}", e);
+                }
+            });
         }
     }
 
@@ -71,6 +78,13 @@ impl Signer {
         } else {
             *self.encrypted.write() = Some(epk);
         }
+
+        // Reubild the event tag index, since the 'p' tags it need to index just changed.
+        task::spawn(async move {
+            if let Err(e) = GLOBALS.storage.rebuild_event_tags_index(None) {
+                tracing::error!("{}", e);
+            }
+        });
     }
 
     pub(crate) fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
@@ -78,6 +92,14 @@ impl Signer {
             Some(pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
         *self.public.write() = Some(pk.public_key());
         *self.private.write() = Some(pk);
+
+        // Reubild the event tag index, since the 'p' tags it need to index just changed.
+        task::spawn(async move {
+            if let Err(e) = GLOBALS.storage.rebuild_event_tags_index(None) {
+                tracing::error!("{}", e);
+            }
+        });
+
         Ok(())
     }
 
@@ -166,6 +188,11 @@ impl Signer {
         // and eventually save
         task::spawn(async move {
             if let Err(e) = GLOBALS.signer.save().await {
+                tracing::error!("{}", e);
+            }
+
+            // Reubild the event tag index, since the 'p' tags it need to index just changed.
+            if let Err(e) = GLOBALS.storage.rebuild_event_tags_index(None) {
                 tracing::error!("{}", e);
             }
         });

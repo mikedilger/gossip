@@ -2,7 +2,7 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{EventDelegation, EventKind, Id, PublicKey, RelayUrl, Unixtime};
+use nostr_types::{Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -310,6 +310,9 @@ impl Feed {
 
                 let since = now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
+                // FIXME we don't include delegated events. We should look for all events
+                // delegated to people we follow and include those in the feed too.
+
                 let followed_events: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
@@ -353,43 +356,48 @@ impl Feed {
                     let since =
                         now - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
 
+                    let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
+
                     let inbox_events: Vec<Id> = GLOBALS
                         .storage
-                        .read_events_referencing_person(&my_pubkey, since, |e| {
-                            if e.created_at > now {
-                                return false;
-                            } // no future events
-                            if dismissed.contains(&e.id) {
-                                return false;
-                            } // not dismissed
-                              //if e.pubkey == my_pubkey {
-                              //    return false;
-                              //} // not self-authored
-
-                            // Always include gift wrap and DMs
-                            if e.kind == EventKind::GiftWrap
-                                || e.kind == EventKind::EncryptedDirectMessage
-                            {
-                                return true;
-                            }
-
-                            // Include if it directly replies to one of my events
-                            if let Some((id, _)) = e.replies_to() {
-                                if my_event_ids.contains(&id) {
+                        .find_tagged_events(
+                            "p",
+                            Some(my_pubkeyhex.as_str()),
+                            |e| {
+                                if e.created_at < since || e.created_at > now {
+                                    return false;
+                                }
+                                if !kinds_with_dms.contains(&e.kind) {
+                                    return false;
+                                }
+                                if dismissed.contains(&e.id) {
+                                    return false;
+                                }
+                                if e.kind == EventKind::GiftWrap
+                                    || e.kind == EventKind::EncryptedDirectMessage
+                                {
                                     return true;
                                 }
-                            }
 
-                            if indirect {
-                                // Include if it tags me
-                                e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
-                            } else {
-                                // Include if it directly references me in the content
-                                e.people_referenced_in_content()
-                                    .iter()
-                                    .any(|p| *p == my_pubkey)
-                            }
-                        })?
+                                // Include if it directly replies to one of my events
+                                if let Some((id, _)) = e.replies_to() {
+                                    if my_event_ids.contains(&id) {
+                                        return true;
+                                    }
+                                }
+
+                                if indirect {
+                                    // Include if it tags me
+                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                                } else {
+                                    // Include if it directly references me in the content
+                                    e.people_referenced_in_content()
+                                        .iter()
+                                        .any(|p| *p == my_pubkey)
+                                }
+                            },
+                            true,
+                        )?
                         .iter()
                         .map(|e| e.id)
                         .collect();
@@ -412,31 +420,40 @@ impl Feed {
                 let since =
                     now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
 
-                let events: Vec<Id> = GLOBALS
+                let pphex: PublicKeyHex = person_pubkey.into();
+
+                let filter = |e: &Event| {
+                    if dismissed.contains(&e.id) {
+                        return false;
+                    }
+                    if !kinds_without_dms.contains(&e.kind) {
+                        return false;
+                    }
+                    true
+                };
+
+                let mut events: Vec<Event> = GLOBALS
                     .storage
                     .find_events(
                         &kinds_without_dms,
-                        &[], // any person (due to delegation condition) // FIXME
+                        &[person_pubkey],
                         Some(since),
-                        |e| {
-                            if dismissed.contains(&e.id) {
-                                return false;
-                            } // not dismissed
-                            if e.pubkey == person_pubkey {
-                                true
-                            } else {
-                                if let EventDelegation::DelegatedBy(pk) = e.delegation() {
-                                    pk == person_pubkey
-                                } else {
-                                    false
-                                }
-                            }
-                        },
-                        true,
+                        filter,
+                        false,
                     )?
                     .iter()
-                    .map(|e| e.id)
+                    .chain(
+                        GLOBALS
+                            .storage
+                            .find_tagged_events("delegation", Some(pphex.as_str()), filter, false)?
+                            .iter(),
+                    )
+                    .map(|e| e.to_owned())
                     .collect();
+
+                events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
+
+                let events: Vec<Id> = events.iter().map(|e| e.id).collect();
 
                 *self.person_feed.write() = events;
             }
