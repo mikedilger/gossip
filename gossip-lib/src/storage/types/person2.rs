@@ -3,6 +3,8 @@ use crate::people::PersonList;
 use nostr_types::{Metadata, PublicKey};
 use serde::{Deserialize, Serialize};
 
+// THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
+
 /// A person record
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Person2 {

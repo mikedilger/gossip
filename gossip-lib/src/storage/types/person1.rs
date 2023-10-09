@@ -1,6 +1,8 @@
 use nostr_types::{Metadata, PublicKey};
 use serde::{Deserialize, Serialize};
 
+// THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Person1 {
     pub pubkey: PublicKey,

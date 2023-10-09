@@ -6,7 +6,8 @@ use nostr_types::PublicKey;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
-// THIS IS HISTORICAL FOR MIGRATIONS. DO NOT EDIT.
+// THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
+
 #[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable)]
 pub struct Settings1 {
     pub feed_chunk: u64,
