@@ -9,6 +9,7 @@ use gossip_lib::GLOBALS;
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
+    ui.add_space(10.0);
     ui.heading("Search notes and users");
 
     ui.add_space(12.0);
@@ -81,7 +82,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                         ui.label(
                             RichText::new(gossip_lib::names::pubkey_short(&person.pubkey)).weak(),
                         );
-                        GossipUi::render_person_name_line(app, ui, person);
+                        GossipUi::render_person_name_line(app, ui, person, false);
                     });
                 });
             }
@@ -101,7 +102,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                     );
 
                     if let Ok(Some(person)) = GLOBALS.storage.read_person(&event.pubkey) {
-                        GossipUi::render_person_name_line(app, ui, &person);
+                        GossipUi::render_person_name_line(app, ui, &person, false);
                     } else {
                         ui.label(event.pubkey.as_bech32_string());
                     }

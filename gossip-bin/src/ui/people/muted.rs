@@ -9,9 +9,14 @@ use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let muted_pubkeys = GLOBALS.people.get_muted_pubkeys();
+
     let mut people: Vec<Person> = Vec::new();
     for pk in &muted_pubkeys {
         if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+            people.push(person);
+        } else {
+            let person = Person::new(pk.to_owned());
+            let _ = GLOBALS.storage.write_person(&person, None);
             people.push(person);
         }
     }
@@ -149,7 +154,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 ui.vertical(|ui| {
                     ui.label(RichText::new(gossip_lib::names::pubkey_short(&person.pubkey)).weak());
-                    GossipUi::render_person_name_line(app, ui, person);
+                    GossipUi::render_person_name_line(app, ui, person, false);
 
                     if ui.button("UNMUTE").clicked() {
                         let _ = GLOBALS.people.mute(&person.pubkey, false);

@@ -14,8 +14,12 @@ lazy_static! {
 }
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(24.0);
-
+    ui.add_space(10.0);
+    ui.horizontal_wrapped(|ui| {
+        // ui.add_space(2.0);
+        ui.heading("My profile");
+    });
+    ui.add_space(10.0);
     let public_key = match GLOBALS.signer.public_key() {
         Some(pk) => pk,
         None => {

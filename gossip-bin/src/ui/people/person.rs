@@ -2,7 +2,7 @@ use super::{GossipUi, Page};
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Frame, Image, RichText, TextEdit, Ui, Vec2};
+use egui::{Context, Image, RichText, TextEdit, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Person;
 use gossip_lib::GLOBALS;
@@ -34,63 +34,51 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 }
 
 fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, person: Person) {
-    ui.add_space(24.0);
-
-    ui.horizontal(|ui| {
-        // Avatar first
-        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pubkey) {
-            avatar
-        } else {
-            app.placeholder_avatar.clone()
-        };
-        ui.add(
-            Image::new(&avatar)
-                .max_size(Vec2 {
-                    x: AVATAR_SIZE_F32 * 3.0,
-                    y: AVATAR_SIZE_F32 * 3.0,
-                })
-                .maintain_aspect_ratio(true),
-        );
-        ui.vertical(|ui| {
-            let display_name = gossip_lib::names::display_name_from_person(&person);
-            ui.heading(display_name);
-            ui.label(RichText::new(gossip_lib::names::pubkey_short(&pubkey)).weak());
-            GossipUi::render_person_name_line(app, ui, &person);
-
-            ui.horizontal(|ui| {
-                ui.add_space(12.0);
-                ui.label("Pet name:");
-                if app.editing_petname {
-                    let edit_color = app.theme.input_text_color();
-                    ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
-                    if ui.button("save").clicked() {
-                        let mut person = person.clone();
-                        person.petname = Some(app.petname.clone());
-                        if let Err(e) = GLOBALS.storage.write_person(&person, None) {
-                            GLOBALS.status_queue.write().write(format!("{}", e));
-                        }
-                        app.editing_petname = false;
-                        app.notes.cache_invalidate_person(&person.pubkey);
-                    }
-                    if ui.button("cancel").clicked() {
-                        app.editing_petname = false;
-                    }
-                    if ui.button("remove").clicked() {
-                        let mut person = person.clone();
-                        person.petname = None;
-                        if let Err(e) = GLOBALS.storage.write_person(&person, None) {
-                            GLOBALS.status_queue.write().write(format!("{}", e));
-                        }
-                        app.editing_petname = false;
-                        app.notes.cache_invalidate_person(&person.pubkey);
-                    }
-                } else {
-                    match &person.petname {
-                        Some(pn) => {
-                            ui.label(pn);
-                            if ui.button("edit").clicked() {
-                                app.editing_petname = true;
-                                app.petname = pn.to_owned();
+    ui.vertical(|ui| {
+        ui.add_space(10.0);
+        ui.allocate_ui_with_layout(
+            Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
+            egui::Layout::right_to_left(egui::Align::Center),
+            |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pubkey) {
+                        avatar
+                    } else {
+                        app.placeholder_avatar.clone()
+                    };
+                    ui.horizontal(|ui| {
+                        ui.add_space(20.0);
+                        ui.add(
+                            Image::new(&avatar)
+                                .max_size(Vec2 {
+                                    x: AVATAR_SIZE_F32 * 3.0,
+                                    y: AVATAR_SIZE_F32 * 3.0,
+                                })
+                                .maintain_aspect_ratio(true),
+                        );
+                    });
+                });
+                ui.vertical(|ui| {
+                    let display_name = gossip_lib::names::display_name_from_person(&person);
+                    ui.heading(display_name);
+                    ui.label(RichText::new(gossip_lib::names::pubkey_short(&pubkey)));
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.label("Pet name:");
+                        if app.editing_petname {
+                            let edit_color = app.theme.input_text_color();
+                            ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
+                            if ui.button("save").clicked() {
+                                let mut person = person.clone();
+                                person.petname = Some(app.petname.clone());
+                                if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                                    GLOBALS.status_queue.write().write(format!("{}", e));
+                                }
+                                app.editing_petname = false;
+                                app.notes.cache_invalidate_person(&person.pubkey);
+                            }
+                            if ui.button("cancel").clicked() {
+                                app.editing_petname = false;
                             }
                             if ui.button("remove").clicked() {
                                 let mut person = person.clone();
@@ -98,23 +86,71 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 if let Err(e) = GLOBALS.storage.write_person(&person, None) {
                                     GLOBALS.status_queue.write().write(format!("{}", e));
                                 }
+                                app.editing_petname = false;
                                 app.notes.cache_invalidate_person(&person.pubkey);
                             }
-                        }
-                        None => {
-                            ui.label(RichText::new("none").italics());
-                            if ui.button("add").clicked() {
-                                app.editing_petname = true;
-                                app.petname = "".to_owned();
+                        } else {
+                            match &person.petname {
+                                Some(pn) => {
+                                    ui.label(pn);
+                                    if ui.button("edit").clicked() {
+                                        app.editing_petname = true;
+                                        app.petname = pn.to_owned();
+                                    }
+                                    if ui.button("remove").clicked() {
+                                        let mut person = person.clone();
+                                        person.petname = None;
+                                        if let Err(e) = GLOBALS.storage.write_person(&person, None)
+                                        {
+                                            GLOBALS.status_queue.write().write(format!("{}", e));
+                                        }
+                                        app.notes.cache_invalidate_person(&person.pubkey);
+                                    }
+                                }
+                                None => {
+                                    ui.label(RichText::new("none").italics());
+                                    if ui.button("add").clicked() {
+                                        app.editing_petname = true;
+                                        app.petname = "".to_owned();
+                                    }
+                                }
                             }
                         }
+                    });
+
+                    ui.add_space(10.0);
+                    {
+                        let visuals = ui.visuals_mut();
+                        visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
+                        visuals.widgets.inactive.fg_stroke.width = 1.0;
+                        visuals.widgets.inactive.fg_stroke.color =
+                            app.theme.get_style().visuals.extreme_bg_color;
+                        visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
+                        visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
+                        visuals.widgets.inactive.fg_stroke.color =
+                            app.theme.get_style().visuals.extreme_bg_color;
+                        GossipUi::render_person_name_line(app, ui, &person, true);
                     }
-                }
-            });
-        });
+
+                    if let Some(about) = person.about() {
+                        ui.add_space(10.0);
+                        ui.separator();
+                        ui.add_space(10.0);
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(about);
+                            if ui.add(CopyButton {}).on_hover_text("Copy About").clicked() {
+                                ui.output_mut(|o| o.copied_text = about.to_owned());
+                            }
+                        });
+                    }
+                });
+            },
+        );
     });
 
-    ui.add_space(12.0);
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(10.0);
 
     let npub = pubkey.as_bech32_string();
     ui.horizontal_wrapped(|ui| {
@@ -140,18 +176,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             if ui.add(CopyButton {}).on_hover_text("Copy Name").clicked() {
                 ui.output_mut(|o| o.copied_text = name.to_owned());
             }
-        });
-    }
-
-    if let Some(about) = person.about() {
-        ui.label(RichText::new("About: ").strong());
-        Frame::group(ui.style()).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(about);
-                if ui.add(CopyButton {}).on_hover_text("Copy About").clicked() {
-                    ui.output_mut(|o| o.copied_text = about.to_owned());
-                }
-            });
         });
     }
 
@@ -275,6 +299,8 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     }
                 }
             });
+
+            ui.add_space(10.0);
         }
     }
     if need_to_set_active_person && !app.setting_active_person {
