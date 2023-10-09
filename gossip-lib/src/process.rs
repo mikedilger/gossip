@@ -209,40 +209,7 @@ pub async fn process_new_event(
     }
 
     if event.kind == EventKind::ContactList {
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            if event.pubkey == pubkey {
-                // We do not process our own contact list automatically.
-                // Instead we only process it on user command.
-                // See Overlord::update_following()
-                //
-                // But we do update people.last_contact_list_asof and _size
-                if event.created_at.0
-                    > GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .load(Ordering::Relaxed)
-                {
-                    GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
-                    let size = event
-                        .tags
-                        .iter()
-                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                        .count();
-                    GLOBALS
-                        .people
-                        .last_contact_list_size
-                        .store(size, Ordering::Relaxed);
-                }
-                return Ok(());
-            } else {
-                process_somebody_elses_contact_list(event).await?;
-            }
-        } else {
-            process_somebody_elses_contact_list(event).await?;
-        }
+        process_contact_list(event).await?;
     } else if event.kind == EventKind::MuteList {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
@@ -373,7 +340,37 @@ pub async fn process_new_event(
     Ok(())
 }
 
-async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
+async fn process_contact_list(event: &Event) -> Result<(), Error> {
+    if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if event.pubkey == pubkey {
+            // We do not process our own contact list automatically.
+            // Instead we only process it on user command.
+            // See Overlord::update_following()
+            //
+            // But we do update people.last_contact_list_asof and _size
+            if event.created_at.0
+                > GLOBALS
+                    .people
+                    .last_contact_list_asof
+                    .load(Ordering::Relaxed)
+            {
+                GLOBALS
+                    .people
+                    .last_contact_list_asof
+                    .store(event.created_at.0, Ordering::Relaxed);
+                let size = event
+                    .tags
+                    .iter()
+                    .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                    .count();
+                GLOBALS
+                    .people
+                    .last_contact_list_size
+                    .store(size, Ordering::Relaxed);
+            }
+            return Ok(());
+        }
+    }
     // We process the contents for (non-standard) relay list information.
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
     if let Ok(relay_list) = serde_json::from_str::<SimpleRelayList>(&event.content) {
