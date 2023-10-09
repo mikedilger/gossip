@@ -351,6 +351,8 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
         )
     });
 
+    edit_response.inner.request_focus();
+
     ui.add_space(10.0);
     ui.allocate_ui_with_layout(
         vec2(edit_response.inner.rect.width(), 30.0),
