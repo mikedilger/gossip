@@ -68,7 +68,7 @@ pub(super) fn render_note(
         // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
-            let skip = (note_data.muted()
+            let skip = ((note_data.muted() && app.settings.hide_mutes_entirely)
                 && !matches!(app.page, Page::Feed(FeedKind::DmChat(_)))
                 && !matches!(app.page, Page::Feed(FeedKind::Person(_))))
                 || (note_data.deletion.is_some() && !app.settings.show_deleted_events);
@@ -995,6 +995,13 @@ fn render_content(
                 ui.horizontal_wrapped(|ui| {
                     if app.render_raw == Some(event.id) {
                         ui.label(serde_json::to_string_pretty(&event).unwrap());
+                    } else if note.muted() {
+                        let color = app.theme.notice_marker_text_color();
+                        ui.label(
+                            RichText::new("MUTED")
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
                     } else if app.render_qr == Some(event.id) {
                         app.render_qr(ui, ctx, "feedqr", event.content.trim());
                     // FIXME should this be the unmodified content (event.content)?
