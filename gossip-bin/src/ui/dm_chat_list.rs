@@ -75,9 +75,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
                         ui.horizontal_wrapped(|ui| {
                             if is_signer_ready {
-                                if channeldata.latest_message_content.len() > 0 {
+                                if let Some(message) = channeldata.latest_message_content {
                                     // TODO replace with UI aware truncate
-                                    ui.label(safe_truncate(channeldata.latest_message_content.as_str(), 100));
+                                    ui.label(safe_truncate(message.as_str(), 100));
                                 }
                             }
 

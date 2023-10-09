@@ -113,7 +113,7 @@ impl DmChannel {
 pub struct DmChannelData {
     pub dm_channel: DmChannel,
     pub latest_message_created_at: Unixtime,
-    pub latest_message_content: String,
+    pub latest_message_content: Option<String>,
     pub message_count: usize,
     pub unread_message_count: usize,
 }
