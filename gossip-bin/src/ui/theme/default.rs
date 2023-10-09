@@ -129,7 +129,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_white_alpha(4),
                         bg_fill: Color32::from_white_alpha(20),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(1)),
+                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(240)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
@@ -214,7 +214,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_black_alpha(10),
                         bg_fill: Color32::from_black_alpha(10),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_black_alpha(20)),
+                        fg_stroke: Stroke::new(1.5, Color32::from_black_alpha(240)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
