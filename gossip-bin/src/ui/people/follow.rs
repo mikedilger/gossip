@@ -6,9 +6,12 @@ use gossip_lib::GLOBALS;
 use nostr_types::{Profile, PublicKey};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(30.0);
+    ui.add_space(10.0);
+    ui.horizontal_wrapped(|ui| {
+        ui.add_space(2.0);
+        ui.heading("Follow Someone");
+    });
 
-    ui.heading("Follow Someone");
     ui.add_space(10.0);
 
     ui.label(

@@ -129,7 +129,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_white_alpha(4),
                         bg_fill: Color32::from_white_alpha(20),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Self::accent_color(dark_mode)),
+                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(1)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
@@ -137,7 +137,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(55),
                         bg_fill: Color32::from_gray(55),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_gray(220)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(10)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
@@ -194,7 +194,7 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(248),
                         bg_fill: Color32::from_black_alpha(20),
-                        bg_stroke: Stroke::new(2.0, Color32::from_white_alpha(5)),
+                        bg_stroke: Stroke::new(2.0, Color32::from_white_alpha(1)),
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(80)), // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
@@ -214,7 +214,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_black_alpha(10),
                         bg_fill: Color32::from_black_alpha(10),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Self::accent_color(dark_mode)),
+                        fg_stroke: Stroke::new(1.5, Color32::from_black_alpha(20)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
                     },
@@ -222,7 +222,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(165),
                         bg_fill: Color32::from_black_alpha(50),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_gray(30)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_black_alpha(40)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
@@ -272,6 +272,37 @@ impl ThemeDef for DefaultTheme {
                 interact_cursor: None,
                 image_loading_spinners: true,
             };
+        }
+        style
+    }
+
+    /// the style to use when displaying on-top of an accent-colored background
+    fn get_on_accent_style(dark_mode: bool) -> Style {
+        let mut style = Self::get_style(dark_mode);
+        if dark_mode {
+            style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.window_fill;
+            style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
+            style.visuals.widgets.inactive.fg_stroke =
+                Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
+            style.visuals.widgets.active.bg_fill = Color32::from_black_alpha(20);
+            style.visuals.widgets.active.fg_stroke.color = style.visuals.window_fill;
+            style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
+            style.visuals.widgets.hovered.fg_stroke.color =
+                style.visuals.panel_fill.gamma_multiply(0.6);
+            style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
+            style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.window_fill);
+        } else {
+            style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.panel_fill;
+            style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
+            style.visuals.widgets.inactive.fg_stroke =
+                Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
+            style.visuals.widgets.active.bg_fill = style.visuals.panel_fill.gamma_multiply(0.6);
+            style.visuals.widgets.active.fg_stroke.color = style.visuals.window_fill;
+            style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
+            style.visuals.widgets.hovered.fg_stroke.color =
+                style.visuals.panel_fill.gamma_multiply(0.6);
+            style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
+            style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.panel_fill);
         }
         style
     }
@@ -415,49 +446,54 @@ impl ThemeDef for DefaultTheme {
     fn notice_marker_text_color(dark_mode: bool) -> eframe::egui::Color32 {
         let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
         if dark_mode {
-            hsva.v = (hsva.v + 0.2).min(1.0); // lighten
+            hsva.v = (hsva.v - 0.2).min(1.0); // darken++
         } else {
-            hsva.v = (hsva.v - 0.2).max(0.0); // darken
+            hsva.v = (hsva.v - 0.1).max(0.0); // darken
         }
         hsva.into()
     }
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
-        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-        hsva.s *= 0.7;
-        hsva.v = if dark_mode { 0.23 } else { 0.56 };
+        let mut hsva: ecolor::HsvaGamma = Self::get_style(dark_mode).visuals.panel_fill.into();
+        let delta = if dark_mode { 1.3 } else { 0.90 };
+        hsva.v *= delta;
         hsva.into()
+    }
+
+    fn navigation_text_deactivated_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::from_white_alpha(10)
+        } else {
+            Color32::from_black_alpha(100)
+        }
     }
 
     fn navigation_text_color(dark_mode: bool) -> eframe::egui::Color32 {
-        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-        hsva.s = 0.05;
-        hsva.v = if dark_mode { 0.56 } else { 0.86 };
-        hsva.into()
+        if dark_mode {
+            Color32::from_white_alpha(40)
+        } else {
+            Color32::from_black_alpha(140)
+        }
     }
 
     fn navigation_text_active_color(dark_mode: bool) -> eframe::egui::Color32 {
-        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-        hsva.s = 0.05;
-        hsva.v = if dark_mode { 0.86 } else { 0.97 };
-        hsva.into()
+        if dark_mode {
+            Color32::from_white_alpha(140)
+        } else {
+            Color32::from_black_alpha(200)
+        }
     }
 
     fn navigation_text_hover_color(dark_mode: bool) -> eframe::egui::Color32 {
-        let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-        hsva.s = 0.05;
-        hsva.v = 1.00;
-        hsva.into()
+        Self::accent_color(dark_mode)
     }
 
     fn navigation_header_active_color(dark_mode: bool) -> eframe::egui::Color32 {
-        let mut hsva: ecolor::HsvaGamma = Self::accent_color(false).into();
         if dark_mode {
-            hsva.v = (hsva.v + 0.1).min(1.0); // lighten
+            Color32::from_white_alpha(80)
         } else {
-            hsva.v = (hsva.v - 0.2).max(0.0); // darken
+            Color32::from_black_alpha(80)
         }
-        hsva.into()
     }
 
     fn input_text_color(dark_mode: bool) -> eframe::egui::Color32 {

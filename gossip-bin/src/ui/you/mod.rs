@@ -14,7 +14,7 @@ mod metadata;
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.page == Page::YourKeys {
         ui.add_space(10.0);
-        ui.heading("Your Keys");
+        ui.heading("My Keys");
 
         ui.add_space(10.0);
         ui.separator();

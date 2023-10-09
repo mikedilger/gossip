@@ -3,7 +3,7 @@ use crate::ui::widgets::CopyButton;
 use crate::ui::PersonTab;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Frame, Image, RichText, TextEdit, Ui, Vec2};
+use egui::{Context, Image, RichText, TextEdit, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Person;
 use gossip_lib::GLOBALS;

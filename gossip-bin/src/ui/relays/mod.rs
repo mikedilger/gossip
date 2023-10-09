@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
-use super::{GossipUi, Page};
-use eframe::egui;
+use super::{widgets, GossipUi, Page};
+use eframe::{egui, epaint::PathShape};
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, Rect, RichText};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
@@ -446,9 +446,12 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
 ///
 pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
     let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
-    let response = response
-        .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Configure List View");
+    let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let response = if !app.relays.configure_list_menu_active {
+        response.on_hover_text("Configure List View")
+    } else {
+        response
+    };
     let btn_rect = response.rect;
     let color = if response.hovered() {
         app.theme.accent_color()
@@ -467,9 +470,8 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
         app.relays.configure_list_menu_active ^= true;
     }
 
-    let mut seen_on_popup_position = response.rect.center_bottom();
-    seen_on_popup_position.x -= 150.0;
-    seen_on_popup_position.y += 18.0; // drop below the icon itself
+    let button_center_bottom = response.rect.center_bottom();
+    let seen_on_popup_position = button_center_bottom + vec2(-180.0, widgets::DROPDOWN_DISTANCE);
 
     let id: Id = "configure-list-menu".into();
     let mut frame = egui::Frame::popup(ui.style());
@@ -481,14 +483,39 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
         .constrain(true);
     if app.relays.configure_list_menu_active {
         let menuresp = area.show(ui.ctx(), |ui| {
-            frame.fill = ui.visuals().extreme_bg_color;
-            frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
+            frame.fill = app.theme.accent_color();
+            frame.stroke = egui::Stroke::NONE;
+            // frame.shadow = egui::epaint::Shadow::NONE;
+            frame.rounding = egui::Rounding::same(5.0);
+            frame.inner_margin = egui::Margin::symmetric(20.0, 16.0);
             frame.show(ui, |ui| {
+                let path = PathShape::convex_polygon(
+                    [
+                        button_center_bottom,
+                        button_center_bottom
+                            + vec2(widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
+                        button_center_bottom
+                            + vec2(-widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
+                    ]
+                    .to_vec(),
+                    app.theme.accent_color(),
+                    egui::Stroke::NONE,
+                );
+                ui.painter().add(path);
                 let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-                crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);
-                ui.label("Show details");
-                crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size);
-                ui.label("Show hidden relays");
+
+                // since we are displaying over an accent color background, load that style
+                *ui.style_mut() = app.theme.get_on_accent_style();
+
+                ui.horizontal(|ui| {
+                    crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);
+                    ui.label("Show details");
+                });
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size);
+                    ui.label("Show hidden relays");
+                });
             });
         });
         if menuresp.response.clicked_elsewhere() && !response.clicked() {
