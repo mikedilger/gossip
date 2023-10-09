@@ -766,7 +766,7 @@ impl GossipUi {
                         self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
                     }
                 }
-                if GLOBALS.signer.public_key().is_some() {
+                if GLOBALS.signer.is_ready() {
                     if self.add_selected_label(ui, self.page == Page::DmChatList, "Private chats").clicked() {
                         self.set_page(Page::DmChatList);
                     }
