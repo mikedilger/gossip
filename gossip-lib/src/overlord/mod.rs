@@ -1490,51 +1490,6 @@ impl Overlord {
         Ok(())
     }
 
-    /// Prune the cache (downloaded files)
-    pub async fn prune_cache() -> Result<(), Error> {
-        GLOBALS
-            .status_queue
-            .write()
-            .write("Pruning cache, please be patient..".to_owned());
-
-        let age = Duration::new(
-            GLOBALS.storage.read_setting_cache_prune_period_days() * 60 * 60 * 24,
-            0,
-        );
-
-        let count = GLOBALS.fetcher.prune(age).await?;
-
-        GLOBALS
-            .status_queue
-            .write()
-            .write(format!("Cache has been pruned. {} files removed.", count));
-
-        Ok(())
-    }
-
-    /// Prune the database (events and more)
-    pub fn prune_database() -> Result<(), Error> {
-        GLOBALS
-            .status_queue
-            .write()
-            .write("Pruning database, please be patient..".to_owned());
-
-        let now = Unixtime::now().unwrap();
-        let then = now
-            - Duration::new(
-                GLOBALS.storage.read_setting_prune_period_days() * 60 * 60 * 24,
-                0,
-            );
-        let count = GLOBALS.storage.prune(then)?;
-
-        GLOBALS.status_queue.write().write(format!(
-            "Database has been pruned. {} events removed.",
-            count
-        ));
-
-        Ok(())
-    }
-
     /// Get a person's contact list
     async fn fetch_person_contact_list(&mut self, pubkey: PublicKey) -> Result<(), Error> {
         let event = GLOBALS
@@ -1605,8 +1560,6 @@ impl Overlord {
             count
         ));
 
-        // process the message for ourself
-        crate::process::process_new_event(&event, None, None, false, false).await?;
         Ok(())
     }
 
