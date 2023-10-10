@@ -1904,7 +1904,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=39f9c14b1c201842c512754920f4da4987cd68b6#39f9c14b1c201842c512754920f4da4987cd68b6"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=975c0b0ec482907b876b42428fba27c0a2c9714e#975c0b0ec482907b876b42428fba27c0a2c9714e"
 dependencies = [
  "async-trait",
  "dashmap",
