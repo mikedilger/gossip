@@ -227,6 +227,25 @@ impl Overlord {
     }
 
     async fn pick_relays(&mut self) {
+        // Garbage collect
+        match GLOBALS.relay_picker.garbage_collect().await {
+            Ok(mut idle) => {
+                // Finish those jobs, maybe disconnecting those relays
+                for relay_url in idle.drain(..) {
+                    if let Err(e) =
+                        self.finish_job(relay_url, None, Some(RelayConnectionReason::Follow))
+                    {
+                        tracing::error!("{}", e);
+                        // continue with others
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("{}", e);
+                // continue trying
+            }
+        };
+
         loop {
             match GLOBALS.relay_picker.pick().await {
                 Err(failure) => {
@@ -571,16 +590,7 @@ impl Overlord {
                 // currently ignored
             }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
-                // internal
-                // Complete the job if not persistent
-                if job_id != 0 {
-                    if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
-                        refmut
-                            .value_mut()
-                            .retain(|job| job.payload.job_id != job_id);
-                    }
-                    self.maybe_disconnect_relay(&url)?;
-                }
+                self.finish_job(url, Some(job_id), None)?;
             }
             ToOverlordMessage::MinionJobUpdated(url, old_job_id, new_job_id) => {
                 // internal
@@ -1237,6 +1247,36 @@ impl Overlord {
 
         // Then pick
         self.pick_relays().await;
+
+        Ok(())
+    }
+
+    pub fn finish_job(
+        &mut self,
+        relay_url: RelayUrl,
+        job_id: Option<u64>,                   // if by job id
+        reason: Option<RelayConnectionReason>, // by reason
+    ) -> Result<(), Error> {
+        if let Some(job_id) = job_id {
+            if job_id == 0 {
+                return Ok(());
+            }
+
+            if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&relay_url) {
+                // Remove job by job_id
+                refmut
+                    .value_mut()
+                    .retain(|job| job.payload.job_id != job_id);
+            }
+        } else if let Some(reason) = reason {
+            if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&relay_url) {
+                // Remove job by reason
+                refmut.value_mut().retain(|job| job.reason != reason);
+            }
+        }
+
+        // Maybe disconnect the relay
+        self.maybe_disconnect_relay(&relay_url)?;
 
         Ok(())
     }
