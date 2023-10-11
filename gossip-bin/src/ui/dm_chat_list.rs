@@ -1,4 +1,3 @@
-use super::widgets::safe_truncate;
 use super::{GossipUi, Page, widgets};
 use eframe::egui;
 use egui::{Context, Label, RichText, Sense, Ui};
@@ -73,11 +72,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                             });
                         });
 
-                        ui.horizontal_wrapped(|ui| {
+                        ui.horizontal(|ui| {
                             if is_signer_ready {
                                 if let Some(message) = channeldata.latest_message_content {
-                                    // TODO replace with UI aware truncate
-                                    ui.label(safe_truncate(message.as_str(), 100));
+                                    widgets::truncated_label(ui, message, ui.available_width() - 100.0);
                                 }
                             }
 
