@@ -83,6 +83,19 @@ pub(crate) fn text_to_galley(ui: &mut Ui, text: WidgetText, align: Align) -> Wid
     ui.fonts(|f| text_job.into_galley(f))
 }
 
+pub(crate) fn text_to_galley_max_width(ui: &mut Ui, text: WidgetText, align: Align, max_width: f32) -> WidgetTextGalley {
+    let mut text_job = text.into_text_job(
+        ui.style(),
+        FontSelection::Default,
+        ui.layout().vertical_align(),
+    );
+    text_job.job.halign = align;
+    text_job.job.wrap.break_anywhere = true;
+    text_job.job.wrap.max_rows = 1;
+    text_job.job.wrap.max_width = max_width;
+    ui.fonts(|f| text_job.into_galley(f))
+}
+
 pub(crate) fn allocate_text_at(
     ui: &mut Ui,
     pos: Pos2,

@@ -83,28 +83,28 @@ pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Respo
     response
 }
 
-/// UTF-8 safe truncate (String::truncate() can panic)
-#[inline]
-pub fn safe_truncate(s: &str, max_chars: usize) -> &str {
-    let v: Vec<&str> = s.split('\n').collect();
-    let s = v.first().unwrap_or(&s);
-    match s.char_indices().nth(max_chars) {
-        None => s,
-        Some((idx, _)) => &s[..idx],
-    }
-}
+// /// UTF-8 safe truncate (String::truncate() can panic)
+// #[inline]
+// pub fn safe_truncate(s: &str, max_chars: usize) -> &str {
+//     let v: Vec<&str> = s.split('\n').collect();
+//     let s = v.first().unwrap_or(&s);
+//     match s.char_indices().nth(max_chars) {
+//         None => s,
+//         Some((idx, _)) => &s[..idx],
+//     }
+// }
 
 
-#[test]
-fn safe_truncate_single_line() {
-    let input = "0123456789";
-    let output = safe_truncate(input, 5);
-    assert_eq!(&input[0..5], output);
-}
+// #[test]
+// fn safe_truncate_single_line() {
+//     let input = "0123456789";
+//     let output = safe_truncate(input, 5);
+//     assert_eq!(&input[0..5], output);
+// }
 
-#[test]
-fn safe_truncate_multi_line() {
-    let input = "1234567890\nabcdefg\nhijklmn";
-    let output = safe_truncate(input, 20);
-    assert_eq!(&input[0..10], output);
-}
+// #[test]
+// fn safe_truncate_multi_line() {
+//     let input = "1234567890\nabcdefg\nhijklmn";
+//     let output = safe_truncate(input, 20);
+//     assert_eq!(&input[0..10], output);
+// }

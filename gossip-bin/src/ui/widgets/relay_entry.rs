@@ -10,7 +10,6 @@ use super::{
         self, allocate_text_at, draw_link_at, draw_text_at, draw_text_galley_at, paint_hline,
         TEXT_BOTTOM, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE,
     },
-    safe_truncate,
     CopyButton, COPY_SYMBOL_SIZE,
 };
 
@@ -52,8 +51,6 @@ const NIP11_Y_SPACING: f32 = 20.0;
 const STATUS_SYMBOL: &str = "\u{25CF}";
 /// Space reserved for status symbol before title
 const STATUS_SYMBOL_SPACE: f32 = 18.0;
-/// Max length of title string
-const TITLE_MAX_LEN: usize = 50;
 /// First stat column x location
 const STATS_COL_1_X: f32 = TEXT_LEFT;
 /// 2. stat column x offset
@@ -220,13 +217,10 @@ impl RelayEntry {
 impl RelayEntry {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
         let title = self.relay.url.host();
-        let mut title = safe_truncate(&title, TITLE_MAX_LEN).to_string();
-        if self.relay.url.as_str().len() > TITLE_MAX_LEN {
-            title.push('\u{2026}'); // append ellipsis
-        }
         let text = RichText::new(title).size(list_entry::TITLE_FONT_SIZE);
+        let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, rect.width() - 200.0);
         let pos = rect.min + vec2(TEXT_LEFT + STATUS_SYMBOL_SPACE, TEXT_TOP);
-        let rect = draw_text_at(ui, pos, text.into(), Align::LEFT, Some(self.accent), None);
+        let rect = draw_text_galley_at(ui, pos, galley,Some(self.accent), None);
         ui.interact(rect, ui.next_auto_id(), Sense::hover())
             .on_hover_text(self.relay.url.as_str());
 
@@ -604,6 +598,7 @@ impl RelayEntry {
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
         let align = egui::Align::LEFT;
+        let max_width = rect.width() - TEXT_RIGHT - TEXT_LEFT - USAGE_SWITCH_PULL_RIGHT - 30.0;
         let pos = rect.left_top() + vec2(TEXT_LEFT, DETAIL_SECTION_TOP);
         if let Some(doc) = &self.relay.nip11 {
             if let Some(contact) = &doc.contact {
@@ -629,8 +624,8 @@ impl RelayEntry {
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(desc) = &doc.description {
-                let desc_tr = safe_truncate(desc.as_str(), 70); // TODO is this a good number?
-                let rect = draw_text_at(ui, pos, desc_tr.into(), align, None, None);
+                let galley = list_entry::text_to_galley_max_width(ui, desc.into(), align, max_width);
+                let rect = draw_text_galley_at(ui, pos, galley, None, None);
                 ui.interact(rect, self.make_id("nip11desc"), Sense::hover())
                     .on_hover_ui(|ui| {
                         ui.horizontal_wrapped(|ui| {
@@ -643,7 +638,8 @@ impl RelayEntry {
             if let Some(pubkey) = &doc.pubkey {
                 if let Ok(pubhex) = PublicKeyHex::try_from_str(pubkey.as_str()) {
                     let npub = pubhex.as_bech32_string();
-                    let rect = draw_text_at(ui, pos, npub.clone().into(), align, None, None);
+                    let galley = list_entry::text_to_galley_max_width(ui, npub.clone().into(), align, max_width - COPY_SYMBOL_SIZE.x);
+                    let rect = draw_text_galley_at(ui, pos, galley, None, None);
                     let id = self.make_id("copy_nip11_npub");
                     let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
                     let response = ui.interact(
