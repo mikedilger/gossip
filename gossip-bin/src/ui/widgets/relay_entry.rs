@@ -354,9 +354,10 @@ impl RelayEntry {
     fn paint_lower_buttons(&self, ui: &mut Ui, rect: &Rect) -> Response {
         let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
         let pos = rect.left_bottom() + vec2(TEXT_LEFT, -TEXT_BOTTOM - line_height);
+        let is_personal = self.relay.usage_bits != 0;
         let id = self.make_id("remove_link");
         let text = "Remove from personal list";
-        let mut response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled && is_personal, true);
         if response.clicked() {
             let _ = GLOBALS.storage.modify_relay(
                 &self.relay.url,
@@ -400,7 +401,7 @@ impl RelayEntry {
         } else {
             "Hide Relay"
         };
-        response |= draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
         if response.clicked() {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::HideOrShowRelay(
                 self.relay.url.to_owned(),
