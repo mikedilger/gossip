@@ -32,8 +32,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     app.vert_scroll_area()
         .id_source("dm_chat_list")
-        .max_width(f32::INFINITY)
-        .auto_shrink([false, false])
         .show(ui, |ui| {
             let color = app.theme.accent_color();
             for channeldata in channels.drain(..) {
