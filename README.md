@@ -8,13 +8,27 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 ### Installing
 
-- **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) or [`gossip-bin`](https://aur.archlinux.org/packages/gossip-bin) on the AUR
+See instructions for [Build from Source](#building-from-source).
+
+#### With Release Builds
+
 - **Debian**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-ARCH.deb`
 - **Any Linux**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip.VERSION.AppImage`
 - **Microsoft Windows**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip.VERSION.msi`
 - **MacOS**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-Darwin-arm64.dmg` or `gossip-VERSION-Darwin-x86_64.dmg`
 
-or choose to [Build from Source](#building-from-source)
+#### With Package Managers
+
+On **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) or [`gossip-bin`](https://aur.archlinux.org/packages/gossip-bin) on the AUR
+
+On **Macos**: `brew install gossip` from [`homebrew-core`](https://github.com/Homebrew/homebrew-core), or for more options `brew install nostorg/nostr/gossip` from [`homebrew-nostr`](https://github.com/nostorg/homebrew-nostr)
+
+On **Microsoft Windows**: `gossip` from [`scoop-nostr`](https://github.com/nostorg/scoop-nostr)
+
+```
+scoop bucket add nostr https://github.com/nostorg/scoop-nostr
+scoop install gossip
+```
 
 ### Points of Difference
 
