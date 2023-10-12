@@ -21,7 +21,7 @@ See instructions for [Build from Source](#building-from-source).
 
 On **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) or [`gossip-bin`](https://aur.archlinux.org/packages/gossip-bin) on the AUR
 
-On **Macos**: `brew install gossip` from [`homebrew-core`](https://github.com/Homebrew/homebrew-core), or for more options `brew install nostorg/nostr/gossip` from [`homebrew-nostr`](https://github.com/nostorg/homebrew-nostr)
+On **MacOS** or **Linux**: `brew install gossip` from [`homebrew-core`](https://github.com/Homebrew/homebrew-core), or for more options `brew install nostorg/nostr/gossip` from [`homebrew-nostr`](https://github.com/nostorg/homebrew-nostr)
 
 On **Microsoft Windows**: `gossip` from [`scoop-nostr`](https://github.com/nostorg/scoop-nostr)
 
