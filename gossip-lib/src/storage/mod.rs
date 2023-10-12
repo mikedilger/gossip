@@ -2071,7 +2071,7 @@ impl Storage {
         let events = self.find_events(
             &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
             &[],
-            Some(Unixtime(0)),
+            None,
             |event| {
                 if event.kind == EventKind::EncryptedDirectMessage {
                     event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
