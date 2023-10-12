@@ -19,11 +19,11 @@ See instructions for [Build from Source](#building-from-source).
 
 #### With Package Managers
 
-On **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) or [`gossip-bin`](https://aur.archlinux.org/packages/gossip-bin) on the AUR
+On **Arch Linux** with `pacman`: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) or [`gossip-bin`](https://aur.archlinux.org/packages/gossip-bin) on the AUR
 
-On **MacOS** or **Linux**: `brew install gossip` from [`homebrew-core`](https://github.com/Homebrew/homebrew-core), or for more options `brew install nostorg/nostr/gossip` from [`homebrew-nostr`](https://github.com/nostorg/homebrew-nostr)
+On **MacOS** or **Linux** with [homebrew](https://brew.sh/): `brew install gossip` from [`homebrew-core`](https://github.com/Homebrew/homebrew-core), or for more options `brew install nostorg/nostr/gossip` from [`homebrew-nostr`](https://github.com/nostorg/homebrew-nostr)
 
-On **Microsoft Windows**: `gossip` from [`scoop-nostr`](https://github.com/nostorg/scoop-nostr)
+On **Microsoft Windows** with [scoop](https://scoop.sh/): `gossip` from [`scoop-nostr`](https://github.com/nostorg/scoop-nostr)
 
 ```
 scoop bucket add nostr https://github.com/nostorg/scoop-nostr
