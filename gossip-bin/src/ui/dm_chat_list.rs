@@ -1,26 +1,41 @@
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Label, RichText, Sense, Ui};
-use gossip_lib::DmChannelData;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
+use std::time::{Duration, Instant};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let mut channels: Vec<DmChannelData> = match GLOBALS.storage.dm_channels() {
-        Ok(channels) => channels,
-        Err(Error {
-            kind: ErrorKind::NoPrivateKey,
-            ..
-        }) => {
-            ui.label("Private Key Not Available");
-            return;
-        }
-        Err(_) => {
-            ui.label("ERROR");
-            return;
-        }
-    };
+    // Possibly refresh DM channels (every 5 seconds)
+    if app.dm_channel_next_refresh < Instant::now() {
+        app.dm_channel_cache = match GLOBALS.storage.dm_channels() {
+            Ok(channels) => {
+                app.dm_channel_error = None;
+                channels
+            }
+            Err(Error {
+                kind: ErrorKind::NoPrivateKey,
+                ..
+            }) => {
+                app.dm_channel_error = Some("Private Key Not Available".to_owned());
+                vec![]
+            }
+            Err(e) => {
+                app.dm_channel_error = Some(format!("{}", e));
+                vec![]
+            }
+        };
+
+        app.dm_channel_next_refresh = Instant::now() + Duration::new(5, 0);
+    }
+
+    if let Some(err) = &app.dm_channel_error {
+        ui.label(err);
+        return;
+    }
+
+    let mut channels = app.dm_channel_cache.clone();
 
     ui.heading("Direct Private Message Channels");
     ui.add_space(12.0);
