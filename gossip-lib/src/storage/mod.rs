@@ -2098,7 +2098,7 @@ impl Storage {
                 if let Some(dmcdata) = map.get_mut(&dmchannel) {
                     if time > dmcdata.latest_message_created_at {
                         dmcdata.latest_message_created_at = time;
-                        dmcdata.latest_message_content = GLOBALS.signer.decrypt_message(event)?;
+                        dmcdata.latest_message_content = GLOBALS.signer.decrypt_message(event).ok();
                     }
                     dmcdata.message_count += 1;
                     dmcdata.unread_message_count += unread;
@@ -2108,7 +2108,7 @@ impl Storage {
                         DmChannelData {
                             dm_channel: dmchannel,
                             latest_message_created_at: time,
-                            latest_message_content: GLOBALS.signer.decrypt_message(event)?,
+                            latest_message_content: GLOBALS.signer.decrypt_message(event).ok(),
                             message_count: 1,
                             unread_message_count: unread,
                         },
@@ -2125,7 +2125,7 @@ impl Storage {
                     if let Some(dmcdata) = map.get_mut(&dmchannel) {
                         if time > dmcdata.latest_message_created_at {
                             dmcdata.latest_message_created_at = time;
-                            dmcdata.latest_message_content = rumor_event.content.clone();
+                            dmcdata.latest_message_content = Some(rumor_event.content.clone());
                         }
                         dmcdata.message_count += 1;
                         dmcdata.unread_message_count += unread;
@@ -2135,7 +2135,7 @@ impl Storage {
                             DmChannelData {
                                 dm_channel: dmchannel,
                                 latest_message_created_at: time,
-                                latest_message_content: rumor_event.content.clone(),
+                                latest_message_content: Some(rumor_event.content.clone()),
                                 message_count: 1,
                                 unread_message_count: unread,
                             },

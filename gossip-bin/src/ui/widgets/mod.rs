@@ -23,6 +23,26 @@ pub const DROPDOWN_DISTANCE: f32 = 10.0;
 //     ui.label(job.job);
 // }
 
+/// Create a label which truncates after max_width
+pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32) {
+    let mut job = text.into().into_text_job(
+        ui.style(),
+        FontSelection::Default,
+        ui.layout().vertical_align(),
+    );
+    job.job.sections.first_mut().unwrap().format.color =
+        ui.style().visuals.widgets.noninteractive.fg_stroke.color;
+    job.job.wrap.break_anywhere = true;
+    job.job.wrap.max_width = max_width;
+    job.job.wrap.max_rows = 1;
+    let wgalley = ui.fonts(|fonts| {
+        job.into_galley(fonts)
+    });
+    // the only way to force egui to respect all our above settings
+    // is to pass in the galley directly
+    ui.label(wgalley.galley);
+}
+
 pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url: impl ToString) {
     let mut job = text.into().into_text_job(
         ui.style(),
@@ -62,3 +82,29 @@ pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Respo
 
     response
 }
+
+// /// UTF-8 safe truncate (String::truncate() can panic)
+// #[inline]
+// pub fn safe_truncate(s: &str, max_chars: usize) -> &str {
+//     let v: Vec<&str> = s.split('\n').collect();
+//     let s = v.first().unwrap_or(&s);
+//     match s.char_indices().nth(max_chars) {
+//         None => s,
+//         Some((idx, _)) => &s[..idx],
+//     }
+// }
+
+
+// #[test]
+// fn safe_truncate_single_line() {
+//     let input = "0123456789";
+//     let output = safe_truncate(input, 5);
+//     assert_eq!(&input[0..5], output);
+// }
+
+// #[test]
+// fn safe_truncate_multi_line() {
+//     let input = "1234567890\nabcdefg\nhijklmn";
+//     let output = safe_truncate(input, 20);
+//     assert_eq!(&input[0..10], output);
+// }
