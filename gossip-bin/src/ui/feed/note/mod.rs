@@ -203,7 +203,10 @@ fn render_note_inner(
         let collapsed = app.collapsed.contains(&note.event.id);
 
         // Load avatar texture
-        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
+        let avatar = if note.muted() {
+            // no avatars for muted people
+            app.placeholder_avatar.clone()
+        } else if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
             avatar
         } else {
             app.placeholder_avatar.clone()
@@ -813,7 +816,7 @@ fn render_note_inner(
                                     }
                                 }
 
-                                if app.settings.enable_zap_receipts {
+                                if app.settings.enable_zap_receipts && !note.muted() {
                                     ui.add_space(24.0);
 
                                     // To zap, the user must have a lnurl, and the event must have been
@@ -876,7 +879,7 @@ fn render_note_inner(
                                 ui.add_space(24.0);
 
                                 // Buttons to react and reaction counts
-                                if app.settings.reactions {
+                                if app.settings.reactions && !note.muted() {
                                     let default_reaction_icon = match note.self_already_reacted {
                                         true => "♥",
                                         false => "♡",
