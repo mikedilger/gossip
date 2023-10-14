@@ -35,9 +35,7 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
     job.job.wrap.break_anywhere = true;
     job.job.wrap.max_width = max_width;
     job.job.wrap.max_rows = 1;
-    let wgalley = ui.fonts(|fonts| {
-        job.into_galley(fonts)
-    });
+    let wgalley = ui.fonts(|fonts| job.into_galley(fonts));
     // the only way to force egui to respect all our above settings
     // is to pass in the galley directly
     ui.label(wgalley.galley);
@@ -93,7 +91,6 @@ pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Respo
 //         Some((idx, _)) => &s[..idx],
 //     }
 // }
-
 
 // #[test]
 // fn safe_truncate_single_line() {

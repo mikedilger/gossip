@@ -120,9 +120,9 @@ impl NoteData {
             EventKind::DmChat => (event.content.clone(), None),
             EventKind::GiftWrap => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
             EventKind::ChannelMessage => (event.content.clone(), None),
-            EventKind::LiveChatMessage =>  (event.content.clone(), None),
-            EventKind::CommunityPost =>  (event.content.clone(), None),
-            EventKind::DraftLongFormContent =>  (event.content.clone(), None),
+            EventKind::LiveChatMessage => (event.content.clone(), None),
+            EventKind::CommunityPost => (event.content.clone(), None),
+            EventKind::DraftLongFormContent => (event.content.clone(), None),
             _ => {
                 let mut dc = "UNSUPPORTED EVENT KIND".to_owned();
                 // support the 'alt' tag of NIP-31:

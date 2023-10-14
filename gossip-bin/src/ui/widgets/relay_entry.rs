@@ -218,9 +218,14 @@ impl RelayEntry {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
         let title = self.relay.url.host();
         let text = RichText::new(title).size(list_entry::TITLE_FONT_SIZE);
-        let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, rect.width() - 200.0);
+        let galley = list_entry::text_to_galley_max_width(
+            ui,
+            text.into(),
+            Align::LEFT,
+            rect.width() - 200.0,
+        );
         let pos = rect.min + vec2(TEXT_LEFT + STATUS_SYMBOL_SPACE, TEXT_TOP);
-        let rect = draw_text_galley_at(ui, pos, galley,Some(self.accent), None);
+        let rect = draw_text_galley_at(ui, pos, galley, Some(self.accent), None);
         ui.interact(rect, ui.next_auto_id(), Sense::hover())
             .on_hover_text(self.relay.url.as_str());
 
@@ -624,7 +629,8 @@ impl RelayEntry {
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(desc) = &doc.description {
-                let galley = list_entry::text_to_galley_max_width(ui, desc.into(), align, max_width);
+                let galley =
+                    list_entry::text_to_galley_max_width(ui, desc.into(), align, max_width);
                 let rect = draw_text_galley_at(ui, pos, galley, None, None);
                 ui.interact(rect, self.make_id("nip11desc"), Sense::hover())
                     .on_hover_ui(|ui| {
@@ -638,7 +644,12 @@ impl RelayEntry {
             if let Some(pubkey) = &doc.pubkey {
                 if let Ok(pubhex) = PublicKeyHex::try_from_str(pubkey.as_str()) {
                     let npub = pubhex.as_bech32_string();
-                    let galley = list_entry::text_to_galley_max_width(ui, npub.clone().into(), align, max_width - COPY_SYMBOL_SIZE.x);
+                    let galley = list_entry::text_to_galley_max_width(
+                        ui,
+                        npub.clone().into(),
+                        align,
+                        max_width - COPY_SYMBOL_SIZE.x,
+                    );
                     let rect = draw_text_galley_at(ui, pos, galley, None, None);
                     let id = self.make_id("copy_nip11_npub");
                     let pos = pos + vec2(rect.width() + ui.spacing().item_spacing.x, 0.0);
