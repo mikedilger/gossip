@@ -705,7 +705,6 @@ impl Minion {
         let pkh: PublicKeyHex = pubkey.into();
 
         let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
-        let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
 
         // Read back in things that we wrote out to our write relays
         let filters: Vec<Filter> = vec![
@@ -715,17 +714,10 @@ impl Minion {
                 kinds: vec![EventKind::ContactList],
                 // these are all replaceable, no since required
                 ..Default::default()
-            },
-            // ContactList to me, recent only
-            Filter {
-                authors: vec![pkh.clone().into()],
-                kinds: vec![EventKind::ContactList],
-                since: Some(giftwrap_since),
-                ..Default::default()
-            },
+            }
         ];
 
-        tracing::trace!(
+        tracing::debug!(
             "subscribe_person_contactlist pkh {} - since {} - filters {:?}",
             pkh,
             since,
