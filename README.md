@@ -1,5 +1,7 @@
 # Gossip
 
+![Gossip](./logo/gossip.png)
+
 ## Gossip is a desktop client for NOSTR
 
 Nostr is an open social media protocol empowering lots of software such as this client. The experience is kind of like Twitter except that you control your own account, and you can post to many different independent places called "relays". People are finding many additional uses for NOSTR that go far beyond micro-blogging or chatting, but this client is focused on those.
