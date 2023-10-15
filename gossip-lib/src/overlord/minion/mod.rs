@@ -704,23 +704,17 @@ impl Minion {
     ) -> Result<(), Error> {
         let pkh: PublicKeyHex = pubkey.into();
 
-        let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
-
         // Read back in things that we wrote out to our write relays
-        let filters: Vec<Filter> = vec![
-            // Actual config stuff
-            Filter {
-                authors: vec![pkh.clone().into()],
-                kinds: vec![EventKind::ContactList],
-                // these are all replaceable, no since required
-                ..Default::default()
-            }
-        ];
+        let filters: Vec<Filter> = vec![Filter {
+            authors: vec![pkh.clone().into()],
+            kinds: vec![EventKind::ContactList],
+            // these are all replaceable, no since required
+            ..Default::default()
+        }];
 
         tracing::debug!(
-            "subscribe_person_contactlist pkh {} - since {} - filters {:?}",
+            "subscribe_person_contactlist pkh {} - filters {:?}",
             pkh,
-            since,
             filters
         );
 

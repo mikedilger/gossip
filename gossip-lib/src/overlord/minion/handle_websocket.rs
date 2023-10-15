@@ -8,8 +8,7 @@ use tungstenite::protocol::Message as WsMessage;
 
 impl Minion {
     pub(super) async fn handle_nostr_message(&mut self, ws_message: String) -> Result<(), Error> {
-        // TODO: pull out the raw event without any deserialization to be sure we don't mangle
-        //       it.
+        // TODO: pull out the raw event without any deserialization to be sure we don't mangle it
 
         let relay_message: RelayMessage = match serde_json::from_str(&ws_message) {
             Ok(rm) => rm,

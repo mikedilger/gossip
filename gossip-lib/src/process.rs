@@ -341,11 +341,12 @@ pub async fn process_new_event(
 }
 
 async fn process_contact_list(event: &Event) -> Result<(), Error> {
-    for  tag in event.tags.iter() {
+    for tag in event.tags.iter() {
+        tracing::debug!("Tag in event {:?}", tag);
         if let Tag::Pubkey { pubkey, .. } = tag {
-            tracing::debug!("Contact List Event - pubkey {:?}", pubkey);
+            tracing::debug!("Contact List of {:?} - pubkey {:?}", event.pubkey, pubkey);
         }
-        
+
         // put list in GLOBALS
     }
 
@@ -377,6 +378,15 @@ async fn process_contact_list(event: &Event) -> Result<(), Error> {
                     .store(size, Ordering::Relaxed);
             }
             return Ok(());
+        }
+    } else {
+        for tag in event.tags.iter() {
+            tracing::debug!("Tag in event {:?}", tag);
+            if let Tag::Pubkey { pubkey, .. } = tag {
+                tracing::debug!("Contact List of {:?} - pubkey {:?}", event.pubkey, pubkey);
+            }
+
+            // put list in GLOBALS
         }
     }
     // We process the contents for (non-standard) relay list information.
