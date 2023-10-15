@@ -93,7 +93,7 @@ impl NoteData {
         };
 
         let embedded_event = {
-            if event.kind == EventKind::Repost {
+            if event.effective_kind() == EventKind::Repost {
                 if !event.content.trim().is_empty() {
                     if let Ok(event) = serde_json::from_str::<Event>(&event.content) {
                         Some(event)
@@ -109,7 +109,7 @@ impl NoteData {
         };
 
         // Compute the content to our needs
-        let (display_content, error_content) = match event.kind {
+        let (display_content, error_content) = match event.effective_kind() {
             EventKind::TextNote => (event.content.trim().to_string(), None),
             EventKind::Repost => ("".to_owned(), None),
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
@@ -119,6 +119,10 @@ impl NoteData {
             EventKind::LongFormContent => (event.content.clone(), None),
             EventKind::DmChat => (event.content.clone(), None),
             EventKind::GiftWrap => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
+            EventKind::ChannelMessage => (event.content.clone(), None),
+            EventKind::LiveChatMessage => (event.content.clone(), None),
+            EventKind::CommunityPost => (event.content.clone(), None),
+            EventKind::DraftLongFormContent => (event.content.clone(), None),
             _ => {
                 let mut dc = "UNSUPPORTED EVENT KIND".to_owned();
                 // support the 'alt' tag of NIP-31:

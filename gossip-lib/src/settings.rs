@@ -66,6 +66,7 @@ pub struct Settings {
     pub future_allowance_secs: u64,
 
     // Event Content Settings
+    pub hide_mutes_entirely: bool,
     pub reactions: bool,
     pub enable_zap_receipts: bool,
     pub show_media: bool,
@@ -145,6 +146,7 @@ impl Default for Settings {
             show_mentions: default_setting!(show_mentions),
             direct_messages: default_setting!(direct_messages),
             future_allowance_secs: default_setting!(future_allowance_secs),
+            hide_mutes_entirely: default_setting!(hide_mutes_entirely),
             reactions: default_setting!(reactions),
             enable_zap_receipts: default_setting!(enable_zap_receipts),
             show_media: default_setting!(show_media),
@@ -224,6 +226,7 @@ impl Settings {
             show_mentions: load_setting!(show_mentions),
             direct_messages: load_setting!(direct_messages),
             future_allowance_secs: load_setting!(future_allowance_secs),
+            hide_mutes_entirely: load_setting!(hide_mutes_entirely),
             reactions: load_setting!(reactions),
             enable_zap_receipts: load_setting!(enable_zap_receipts),
             show_media: load_setting!(show_media),
@@ -299,6 +302,7 @@ impl Settings {
         save_setting!(show_mentions, self, txn);
         save_setting!(direct_messages, self, txn);
         save_setting!(future_allowance_secs, self, txn);
+        save_setting!(hide_mutes_entirely, self, txn);
         save_setting!(reactions, self, txn);
         save_setting!(enable_zap_receipts, self, txn);
         save_setting!(show_media, self, txn);

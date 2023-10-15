@@ -732,6 +732,7 @@ impl Storage {
         u64,
         60 * 15
     );
+    def_setting!(hide_mutes_entirely, b"hide_mutes_entirely", bool, false);
     def_setting!(reactions, b"reactions", bool, true);
     def_setting!(enable_zap_receipts, b"enable_zap_receipts", bool, true);
     def_setting!(show_media, b"show_media", bool, true);
@@ -1585,7 +1586,8 @@ impl Storage {
                 }
             }
 
-            let ek: u32 = event.kind.into();
+            // Index by the effective kind:
+            let ek: u32 = event.effective_kind().into();
             let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
             key.extend(event.pubkey.as_bytes()); // pubkey
             let bytes = event.id.as_slice();
@@ -1635,7 +1637,8 @@ impl Storage {
                 }
             }
 
-            let ek: u32 = event.kind.into();
+            // Index by the effective kind:
+            let ek: u32 = event.effective_kind().into();
             let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
             key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
             let bytes = event.id.as_slice();
@@ -2070,7 +2073,7 @@ impl Storage {
         let events = self.find_events(
             &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
             &[],
-            Some(Unixtime(0)),
+            None,
             |event| {
                 if event.kind == EventKind::EncryptedDirectMessage {
                     event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
@@ -2097,7 +2100,7 @@ impl Storage {
                 if let Some(dmcdata) = map.get_mut(&dmchannel) {
                     if time > dmcdata.latest_message_created_at {
                         dmcdata.latest_message_created_at = time;
-                        dmcdata.latest_message_content = GLOBALS.signer.decrypt_message(event)?;
+                        dmcdata.latest_message_content = GLOBALS.signer.decrypt_message(event).ok();
                     }
                     dmcdata.message_count += 1;
                     dmcdata.unread_message_count += unread;
@@ -2107,7 +2110,7 @@ impl Storage {
                         DmChannelData {
                             dm_channel: dmchannel,
                             latest_message_created_at: time,
-                            latest_message_content: GLOBALS.signer.decrypt_message(event)?,
+                            latest_message_content: GLOBALS.signer.decrypt_message(event).ok(),
                             message_count: 1,
                             unread_message_count: unread,
                         },
@@ -2124,7 +2127,7 @@ impl Storage {
                     if let Some(dmcdata) = map.get_mut(&dmchannel) {
                         if time > dmcdata.latest_message_created_at {
                             dmcdata.latest_message_created_at = time;
-                            dmcdata.latest_message_content = rumor_event.content.clone();
+                            dmcdata.latest_message_content = Some(rumor_event.content.clone());
                         }
                         dmcdata.message_count += 1;
                         dmcdata.unread_message_count += unread;
@@ -2134,7 +2137,7 @@ impl Storage {
                             DmChannelData {
                                 dm_channel: dmchannel,
                                 latest_message_created_at: time,
-                                latest_message_content: rumor_event.content.clone(),
+                                latest_message_content: Some(rumor_event.content.clone()),
                                 message_count: 1,
                                 unread_message_count: unread,
                             },

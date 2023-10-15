@@ -63,7 +63,7 @@ pub async fn process_new_event(
     }
 
     // Spam filter (displayable and author is not followed)
-    if event.kind.is_feed_displayable() && !GLOBALS.people.is_followed(&event.pubkey) {
+    if event.effective_kind().is_feed_displayable() && !GLOBALS.people.is_followed(&event.pubkey) {
         let author = GLOBALS.storage.read_person(&event.pubkey)?;
         match crate::filter::filter(event.clone(), author) {
             EventFilterAction::Allow => {}
@@ -282,7 +282,7 @@ pub async fn process_new_event(
         }
     }
 
-    if event.kind.is_feed_displayable() {
+    if event.effective_kind().is_feed_displayable() {
         // Process the content for references to things we might want
         for bech32 in NostrBech32::find_all_in_string(&event.content) {
             match bech32 {

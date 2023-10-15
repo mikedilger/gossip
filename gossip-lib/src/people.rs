@@ -16,37 +16,8 @@ use tokio::task;
 /// Person type, aliased to the latest version
 pub type Person = crate::storage::types::Person2;
 
-/// Lists people can be added to
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-#[repr(u8)]
-pub enum PersonList {
-    Muted = 0,
-    Followed = 1,
-    Priority = 2,
-    Custom(u8),
-}
-
-impl From<u8> for PersonList {
-    fn from(u: u8) -> Self {
-        match u {
-            0 => PersonList::Muted,
-            1 => PersonList::Followed,
-            2 => PersonList::Priority,
-            u => PersonList::Custom(u),
-        }
-    }
-}
-
-impl From<PersonList> for u8 {
-    fn from(e: PersonList) -> u8 {
-        match e {
-            PersonList::Muted => 0,
-            PersonList::Followed => 1,
-            PersonList::Priority => 2,
-            PersonList::Custom(u) => u,
-        }
-    }
-}
+/// PersonList type, aliased to the latest version
+pub type PersonList = crate::storage::types::PersonList1;
 
 /// Handles people and remembers what needs to be done for each, such as fetching
 /// metadata or avatars.

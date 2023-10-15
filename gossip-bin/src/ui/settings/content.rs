@@ -71,6 +71,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.checkbox(&mut app.settings.show_media, "Render all media inline automatically").on_hover_text("If off, you have to click to (potentially fetch and) render media inline. If on, all media referenced by posts in your feed will be (potentially fetched and) rendered. However, if Fetch Media is disabled, only cached media can be shown as media will not be fetched.");
     ui.checkbox(&mut app.settings.approve_content_warning, "Approve all content-warning tagged media automatically")
         .on_hover_text("If off, you have to click to show content-warning tagged media. If on, all content-warning tagged media in your feed will be rendered.");
+
+    ui.checkbox(
+        &mut app.settings.hide_mutes_entirely,
+        "Hide muted events entirely, including replies to them",
+    )
+        .on_hover_text("If on, muted events wont be in the feed at all. If off, they will be in the feed, but the content will be replaced with the word MUTED. You will see replies to them, and you can peek at the content by viewing the note in raw form.");
+
     ui.checkbox(
         &mut app.settings.show_deleted_events,
         "Render delete events, but labeled as deleted",

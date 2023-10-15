@@ -172,10 +172,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 });
             }
 
+            ui.add_space(10.0);
             ui.horizontal(|ui| {
-                ui.label(format!("Private Chat with {}", channel.name()));
+                ui.heading(channel.name());
                 recompute_btn(app, ui);
             });
+            ui.add_space(10.0);
 
             let feed = GLOBALS.feed.get_dm_chat_feed();
             let id = channel.unique_id();

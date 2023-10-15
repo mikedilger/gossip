@@ -36,10 +36,10 @@ use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Response;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::About;
-use gossip_lib::DmChannel;
 use gossip_lib::Error;
 use gossip_lib::FeedKind;
 use gossip_lib::Settings;
+use gossip_lib::{DmChannel, DmChannelData};
 use gossip_lib::{Person, PersonList};
 use gossip_lib::{ZapState, GLOBALS};
 use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
@@ -424,6 +424,11 @@ struct GossipUi {
     note_being_zapped: Option<Id>,
 
     wizard_state: WizardState,
+
+    // Cached DM Channels
+    dm_channel_cache: Vec<DmChannelData>,
+    dm_channel_next_refresh: Instant,
+    dm_channel_error: Option<String>,
 }
 
 impl Drop for GossipUi {
@@ -646,6 +651,9 @@ impl GossipUi {
             zap_state: ZapState::None,
             note_being_zapped: None,
             wizard_state,
+            dm_channel_cache: vec![],
+            dm_channel_next_refresh: Instant::now(),
+            dm_channel_error: None,
         }
     }
 
@@ -766,7 +774,7 @@ impl GossipUi {
                         self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
                     }
                 }
-                if GLOBALS.signer.public_key().is_some() {
+                if GLOBALS.signer.is_ready() {
                     if self.add_selected_label(ui, self.page == Page::DmChatList, "Private chats").clicked() {
                         self.set_page(Page::DmChatList);
                     }

@@ -2,6 +2,8 @@ use nostr_types::{PublicKey, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
+// THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
+
 /// A person-relay association
 #[derive(Debug, Readable, Writable, Serialize, Deserialize)]
 pub struct PersonRelay1 {

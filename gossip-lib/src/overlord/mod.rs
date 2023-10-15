@@ -11,8 +11,8 @@ use crate::people::Person;
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
-    add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
-    add_subject_to_tags_if_missing,
+    add_addr_to_tags, add_event_parent_to_tags, add_event_to_tags, add_pubkey_hex_to_tags,
+    add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
 use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
@@ -227,6 +227,25 @@ impl Overlord {
     }
 
     async fn pick_relays(&mut self) {
+        // Garbage collect
+        match GLOBALS.relay_picker.garbage_collect().await {
+            Ok(mut idle) => {
+                // Finish those jobs, maybe disconnecting those relays
+                for relay_url in idle.drain(..) {
+                    if let Err(e) =
+                        self.finish_job(relay_url, None, Some(RelayConnectionReason::Follow))
+                    {
+                        tracing::error!("{}", e);
+                        // continue with others
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("{}", e);
+                // continue trying
+            }
+        };
+
         loop {
             match GLOBALS.relay_picker.pick().await {
                 Err(failure) => {
@@ -571,16 +590,7 @@ impl Overlord {
                 // currently ignored
             }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
-                // internal
-                // Complete the job if not persistent
-                if job_id != 0 {
-                    if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
-                        refmut
-                            .value_mut()
-                            .retain(|job| job.payload.job_id != job_id);
-                    }
-                    self.maybe_disconnect_relay(&url)?;
-                }
+                self.finish_job(url, Some(job_id), None)?;
             }
             ToOverlordMessage::MinionJobUpdated(url, old_job_id, new_job_id) => {
                 // internal
@@ -1241,6 +1251,36 @@ impl Overlord {
         Ok(())
     }
 
+    pub fn finish_job(
+        &mut self,
+        relay_url: RelayUrl,
+        job_id: Option<u64>,                   // if by job id
+        reason: Option<RelayConnectionReason>, // by reason
+    ) -> Result<(), Error> {
+        if let Some(job_id) = job_id {
+            if job_id == 0 {
+                return Ok(());
+            }
+
+            if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&relay_url) {
+                // Remove job by job_id
+                refmut
+                    .value_mut()
+                    .retain(|job| job.payload.job_id != job_id);
+            }
+        } else if let Some(reason) = reason {
+            if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&relay_url) {
+                // Remove job by reason
+                refmut.value_mut().retain(|job| job.reason != reason);
+            }
+        }
+
+        // Maybe disconnect the relay
+        self.maybe_disconnect_relay(&relay_url)?;
+
+        Ok(())
+    }
+
     /// Post a TextNote (kind 1) event
     pub async fn post(
         &mut self,
@@ -1367,17 +1407,19 @@ impl Overlord {
                         // Add an 'e' tag for the root
                         add_event_to_tags(&mut tags, root, "root").await;
 
-                        // Add an 'e' tag for the note we are replying to
+                        // Add an 'e' and 'E' tag for the note we are replying to
                         add_event_to_tags(&mut tags, parent_id, "reply").await;
+                        add_event_parent_to_tags(&mut tags, parent_id).await;
                     } else {
                         let ancestors = parent.referred_events();
                         if ancestors.is_empty() {
                             // parent is the root
                             add_event_to_tags(&mut tags, parent_id, "root").await;
                         } else {
-                            // Add an 'e' tag for the note we are replying to
+                            // Add an 'e' and 'E' tag for the note we are replying to
                             // (and we don't know about the root, the parent is malformed).
                             add_event_to_tags(&mut tags, parent_id, "reply").await;
+                            add_event_parent_to_tags(&mut tags, parent_id).await;
                         }
                     }
 

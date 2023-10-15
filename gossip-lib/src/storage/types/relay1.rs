@@ -4,6 +4,8 @@ use gossip_relay_picker::Direction;
 use nostr_types::{Id, RelayInformationDocument, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 
+// THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
+
 /// A relay record
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Relay1 {
