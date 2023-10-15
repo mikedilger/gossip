@@ -712,11 +712,7 @@ impl Minion {
             ..Default::default()
         }];
 
-        tracing::debug!(
-            "subscribe_person_contactlist pkh {} - filters {:?}",
-            pkh,
-            filters
-        );
+        tracing::debug!("subscribe_person_contactlist pkh {}", pkh );
 
         self.subscribe(filters, "temp_person_contactlist", job_id)
             .await?;
