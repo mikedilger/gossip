@@ -341,6 +341,14 @@ pub async fn process_new_event(
 }
 
 async fn process_contact_list(event: &Event) -> Result<(), Error> {
+    for  tag in event.tags.iter() {
+        if let Tag::Pubkey { pubkey, .. } = tag {
+            tracing::debug!("Contact List Event - pubkey {:?}", pubkey);
+        }
+        
+        // put list in GLOBALS
+    }
+
     if let Some(pubkey) = GLOBALS.signer.public_key() {
         if event.pubkey == pubkey {
             // We do not process our own contact list automatically.

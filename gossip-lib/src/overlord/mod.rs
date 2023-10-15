@@ -543,7 +543,6 @@ impl Overlord {
                 self.fetch_event_addr(ea).await?;
             }
             ToOverlordMessage::FetchPersonContactList(pubkey) => {
-                tracing::debug!("Fetch Person's ContactList {}", &pubkey.as_hex_string());
                 self.fetch_person_contact_list(pubkey).await?;
             }
             ToOverlordMessage::FollowPubkey(pubkey) => {
@@ -1492,11 +1491,6 @@ impl Overlord {
 
     /// Get a person's contact list
     async fn fetch_person_contact_list(&mut self, pubkey: PublicKey) -> Result<(), Error> {
-        let event = GLOBALS
-            .people
-            .generate_contact_list_event(vec![pubkey])
-            .await?;
-
         let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
 
         for relay in relays {
@@ -1513,8 +1507,6 @@ impl Overlord {
             .await?;
         }
 
-        // let event
-        tracing::debug!("fetch_person_contact_list - event {:?}", event);
         Ok(())
     }
 

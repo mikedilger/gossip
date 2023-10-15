@@ -309,7 +309,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             match app.person_tab {
                 PersonTab::Followed => {
                     for followed in GLOBALS.people.get_followed(person.pubkey).iter() {
-                        tracing::debug!("Followed pubkey: {:?}", followed);
+                        // tracing::debug!("Followed pubkey: {:?}", followed);
                     }
                 }
 
