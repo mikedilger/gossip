@@ -1,11 +1,13 @@
 # Developing
 
+![Gossip Architecture](./assets/architecture.png)
+
 Gossip is architected with the following components:
 
 - A User Interface thread, synchronous
 - Tokio asynchronous runtime running
-  - An overlord (handles most jobs)
-  - A set of minions (each one handles one relay)
+  - An overlord: handles any operation that involves talking to relays, and a few more
+  - A set of minions: each one contacts a proper relay to get data, composing the filter and sending it to the relay
 
 ## Keeping the UI responsive
 
@@ -48,7 +50,7 @@ The flow generally happens like this:
 
 ## Pull Requests
 
-I prefer that you run and make pass:
+Before issuing a Pull Request, please run and make pass:
 
 ````bash
 cargo clippy
@@ -60,6 +62,4 @@ and then
 cargo fmt
 ````
 
-before you issue a pull request. Otherwise I'll have to do it for you.
-
-Also, I don't like branches that have a lot of commits that are messed up, but happen to end up in a good state due to the last commit.  If you have a branch like this, create a new branch and one-by-one create a series of commits, each one a single logical step, each one compiling, each one passing clippy and rustfmt, each one documented, and each one doing something useful, such that this series of commits ends up where you originally got to (or somewhere even better). This not only makes it much easier to evaluate the PR, but it makes it possible to revert logical units later on if anything needs to be reverted, without necessarily reverting the entire branch.
+Avoid branches that have a lot of commits that are messed up, but happen to end up in a good state due to the last commit.  If you have a branch like this, create a new branch and one-by-one create a series of commits, each one a single logical step, each one compiling, each one passing clippy and rustfmt, each one documented, and each one doing something useful, such that this series of commits ends up where you originally got to (or somewhere even better). This not only makes it much easier to evaluate the PR, but it makes it possible to revert logical units later on if anything needs to be reverted, without necessarily reverting the entire branch.
