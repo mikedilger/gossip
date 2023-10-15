@@ -52,16 +52,20 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     let feed_kind = GLOBALS.feed.get_feed_kind();
 
     match feed_kind {
-        FeedKind::Followed(with_replies) => {
+        FeedKind::List(list, with_replies) => {
             let feed = GLOBALS.feed.get_followed();
-            let id = if with_replies { "main" } else { "general" };
+            let id = format!(
+                "{} {}",
+                Into::<u8>::into(list),
+                if with_replies { "main" } else { "general" }
+            );
             ui.add_space(10.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
-                    ui.heading("Main feed");
+                    ui.heading(list.name());
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -75,7 +79,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         )
                         .clicked()
                         {
-                            app.set_page(Page::Feed(FeedKind::Followed(
+                            app.set_page(Page::Feed(FeedKind::List(
+                                list,
                                 app.mainfeed_include_nonroot,
                             )));
                             ctx.data_mut(|d| {
@@ -90,7 +95,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, id);
+            render_a_feed(app, ctx, frame, ui, feed, false, &id);
         }
         FeedKind::Inbox(indirect) => {
             if app.settings.public_key.is_none() {

@@ -2,9 +2,7 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
-use gossip_lib::FeedKind;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{FeedKind, PersonList, Relay, GLOBALS};
 
 mod follow_people;
 mod import_keys;
@@ -201,7 +199,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             if wp != WizardPage::FollowPeople {
                 if ui.button("  X  Exit this Wizard").clicked() {
                     let _ = GLOBALS.storage.write_wizard_complete(true, None);
-                    app.page = Page::Feed(FeedKind::Followed(false));
+                    app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
                 }
             }
 

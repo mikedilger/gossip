@@ -550,7 +550,7 @@ impl GossipUi {
             None => (false, dpi),
         };
 
-        let mut start_page = Page::Feed(FeedKind::Followed(false));
+        let mut start_page = Page::Feed(FeedKind::List(PersonList::Followed, false));
 
         // Possibly enter the wizard instead
         let mut wizard_state: WizardState = Default::default();
@@ -683,8 +683,8 @@ impl GossipUi {
     fn set_page_inner(&mut self, page: Page) {
         // Setting the page often requires some associated actions:
         match &page {
-            Page::Feed(FeedKind::Followed(with_replies)) => {
-                GLOBALS.feed.set_feed_to_followed(*with_replies);
+            Page::Feed(FeedKind::List(list, with_replies)) => {
+                GLOBALS.feed.set_feed_to_main(*list, *with_replies);
             }
             Page::Feed(FeedKind::Inbox(indirect)) => {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
@@ -763,8 +763,8 @@ impl GossipUi {
                 ui.separator();
                 ui.add_space(4.0);
 
-                if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::Followed(_))), "Main Feed").clicked() {
-                    self.set_page(Page::Feed(FeedKind::Followed(self.mainfeed_include_nonroot)));
+                if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::List(PersonList::Followed, _))), "Main Feed").clicked() {
+                    self.set_page(Page::Feed(FeedKind::List(PersonList::Followed, self.mainfeed_include_nonroot)));
                 }
                 if let Some(pubkey) = GLOBALS.signer.public_key() {
                     if self.add_selected_label(ui, matches!(&self.page, Page::Feed(FeedKind::Person(key)) if *key == pubkey), "My Notes").clicked() {

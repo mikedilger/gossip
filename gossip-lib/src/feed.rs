@@ -2,6 +2,7 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::people::PersonList;
 use nostr_types::{Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
@@ -12,8 +13,8 @@ use tokio::task;
 /// Kinds of feeds, with configuration parameteers
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FeedKind {
-    Followed(bool), // with replies
-    Inbox(bool),    // indirect
+    List(PersonList, bool), // with replies
+    Inbox(bool),            // indirect
     Thread {
         id: Id,
         referenced_by: Id,
@@ -27,7 +28,7 @@ impl std::fmt::Display for FeedKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FeedKind::DmChat(channel) => write!(f, "{}", channel.name()),
-            FeedKind::Followed(_) => write!(f, "Following"),
+            FeedKind::List(pl, _) => write!(f, "{}", pl.name()),
             FeedKind::Inbox(_) => write!(f, "Inbox"),
             FeedKind::Thread {
                 id: _,
@@ -69,7 +70,7 @@ impl Feed {
     pub(crate) fn new() -> Feed {
         Feed {
             recompute_lock: AtomicBool::new(false),
-            current_feed_kind: RwLock::new(FeedKind::Followed(false)),
+            current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
             followed_feed: RwLock::new(Vec::new()),
             inbox_feed: RwLock::new(Vec::new()),
             person_feed: RwLock::new(Vec::new()),
@@ -108,12 +109,12 @@ impl Feed {
         }
     }
 
-    /// Change the feed to the main `followed` feed
-    pub fn set_feed_to_followed(&self, with_replies: bool) {
+    /// Change the feed to the main feed
+    pub fn set_feed_to_main(&self, list: PersonList, with_replies: bool) {
         // We are always subscribed to the general feed. Don't resubscribe here
         // because it won't have changed, but the relays will shower you with
         // all those events again.
-        *self.current_feed_kind.write() = FeedKind::Followed(with_replies);
+        *self.current_feed_kind.write() = FeedKind::List(list, with_replies);
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
@@ -301,11 +302,11 @@ impl Feed {
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
-            FeedKind::Followed(with_replies) => {
-                let mut followed_pubkeys: Vec<PublicKey> = GLOBALS.people.get_followed_pubkeys();
+            FeedKind::List(list, with_replies) => {
+                let mut pubkeys: Vec<PublicKey> = GLOBALS.storage.get_people_in_list(list)?;
 
                 if let Some(pubkey) = GLOBALS.signer.public_key() {
-                    followed_pubkeys.push(pubkey); // add the user
+                    pubkeys.push(pubkey); // add the user
                 }
 
                 let since = now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
@@ -313,11 +314,11 @@ impl Feed {
                 // FIXME we don't include delegated events. We should look for all events
                 // delegated to people we follow and include those in the feed too.
 
-                let followed_events: Vec<Id> = GLOBALS
+                let events: Vec<Id> = GLOBALS
                     .storage
                     .find_events(
                         &kinds_without_dms,
-                        &followed_pubkeys, // pubkeys
+                        &pubkeys, // pubkeys
                         Some(since),
                         |e| {
                             e.created_at <= now // no future events
@@ -336,7 +337,7 @@ impl Feed {
                     .map(|e| e.id)
                     .collect();
 
-                *self.followed_feed.write() = followed_events;
+                *self.followed_feed.write() = events;
             }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.signer.public_key() {

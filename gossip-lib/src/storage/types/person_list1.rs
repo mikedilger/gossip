@@ -5,6 +5,8 @@ pub enum PersonList1 {
     Muted = 0,
     Followed = 1,
     Priority = 2,
+
+    // custom starts at 10 to leave space
     Custom(u8),
 }
 
@@ -26,6 +28,17 @@ impl From<PersonList1> for u8 {
             PersonList1::Followed => 1,
             PersonList1::Priority => 2,
             PersonList1::Custom(u) => u,
+        }
+    }
+}
+
+impl PersonList1 {
+    pub fn name(&self) -> String {
+        match *self {
+            PersonList1::Muted => "Muted".to_string(),
+            PersonList1::Followed => "Followed".to_string(),
+            PersonList1::Priority => "Priority".to_string(),
+            PersonList1::Custom(u) => format!("Custom {}", u - 9),
         }
     }
 }
