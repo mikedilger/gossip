@@ -660,7 +660,7 @@ impl Minion {
                 },
             ];
 
-            self.subscribe(filters, "temp_config_feed", job_id).await?;
+            self.subscribe(filters, "config_feed", job_id).await?;
         }
 
         Ok(())
