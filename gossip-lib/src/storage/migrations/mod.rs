@@ -1,14 +1,14 @@
-use super::types::{Person2, PersonRelay1, Settings1, Settings2, Theme1, ThemeVariant1};
+use super::types::{Person2, PersonList1, PersonRelay1, Settings1, Settings2, Theme1, ThemeVariant1};
 use super::Storage;
 use crate::error::{Error, ErrorKind};
-use crate::people::PersonList;
 use heed::types::UnalignedSlice;
 use heed::{DatabaseFlags, RwTxn};
-use nostr_types::{Event, Id, RelayUrl, Signature};
+use nostr_types::{Event, Id, PublicKey, RelayUrl, Signature};
 use speedy::{Readable, Writable};
+use std::collections::HashMap;
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 12;
+    const MAX_MIGRATION_LEVEL: u32 = 13;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -63,6 +63,10 @@ impl Storage {
             10 => {
                 let _ = self.db_events1()?;
                 let _ = self.db_event_tag_index1()?;
+            }
+            12 => {
+                let _ = self.db_person_lists1()?;
+                let _ = self.db_person_lists2()?;
             }
             _ => {}
         };
@@ -122,6 +126,10 @@ impl Storage {
             11 => {
                 tracing::info!("{prefix}: removing now unused event_references_person index...");
                 self.remove_event_references_person(txn)?;
+            }
+            12 => {
+                tracing::info!("{prefix}: migrating lists...");
+                self.migrate_lists(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -404,13 +412,13 @@ impl Storage {
         let mut count: usize = 0;
         let mut followed_count: usize = 0;
         for person1 in self.filter_people1(|_| true)?.iter() {
-            let mut lists: Vec<PersonList> = Vec::new();
+            let mut lists: Vec<PersonList1> = Vec::new();
             if person1.followed {
-                lists.push(PersonList::Followed);
+                lists.push(PersonList1::Followed);
                 followed_count += 1;
             }
             if person1.muted {
-                lists.push(PersonList::Muted);
+                lists.push(PersonList1::Muted);
             }
             if !lists.is_empty() {
                 self.write_person_lists1(&person1.pubkey, lists, Some(txn))?;
@@ -554,6 +562,32 @@ impl Storage {
         }
 
         // heed doesn't expose mdb_drop(1) yet, so we can't actually remove this database.
+
+        Ok(())
+    }
+
+    pub fn migrate_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let loop_txn = self.env.read_txn()?;
+        for result in self.db_person_lists1()?.iter(&loop_txn)? {
+            let (key, val) = result?;
+            let pubkey = PublicKey::from_bytes(key, true)?;
+            let mut person_lists = val
+                .iter()
+                .map(|u| (*u).into())
+                .collect::<Vec<PersonList1>>();
+            let new_person_lists: HashMap<PersonList1, bool> = person_lists
+                .drain(..)
+                .map(|l| (l, true))
+                .collect();
+
+            self.write_person_lists2(&pubkey, new_person_lists, Some(txn))?;
+        }
+
+        // remove db_person_lists1
+        {
+            self.db_person_lists1()?.clear(txn)?;
+            // heed doesn't expose mdb_drop(1) yet, so we can't actually remove this database.
+        }
 
         Ok(())
     }
