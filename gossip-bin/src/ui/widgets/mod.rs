@@ -19,7 +19,7 @@ pub const DROPDOWN_DISTANCE: f32 = 10.0;
 //         ui.layout().vertical_align(),
 //     );
 //     job.job.sections.first_mut().unwrap().format.color =
-//         ui.style().visuals.widgets.noninteractive.fg_stroke.color;
+//         ui.visuals().widgets.noninteractive.fg_stroke.color;
 //     job.job.wrap.break_anywhere = true;
 //     ui.label(job.job);
 // }
@@ -32,7 +32,7 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
         ui.layout().vertical_align(),
     );
     job.job.sections.first_mut().unwrap().format.color =
-        ui.style().visuals.widgets.noninteractive.fg_stroke.color;
+        ui.visuals().widgets.noninteractive.fg_stroke.color;
     job.job.wrap.break_anywhere = true;
     job.job.wrap.max_width = max_width;
     job.job.wrap.max_rows = 1;

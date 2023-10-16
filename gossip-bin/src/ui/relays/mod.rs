@@ -334,14 +334,14 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
     let is_url_valid = RelayUrl::try_from_str(&app.relays.new_relay_url).is_ok();
 
     let edit_response = ui.horizontal(|ui| {
-        ui.style_mut().visuals.widgets.inactive.bg_stroke.width = 1.0;
-        ui.style_mut().visuals.widgets.hovered.bg_stroke.width = 1.0;
+        ui.visuals_mut().widgets.inactive.bg_stroke.width = 1.0;
+        ui.visuals_mut().widgets.hovered.bg_stroke.width = 1.0;
 
         // change frame color to error when url is invalid
         if !is_url_valid {
-            ui.style_mut().visuals.widgets.inactive.bg_stroke.color =
-                ui.style().visuals.error_fg_color;
-            ui.style_mut().visuals.selection.stroke.color = ui.style().visuals.error_fg_color;
+            ui.visuals_mut().widgets.inactive.bg_stroke.color =
+                ui.visuals().error_fg_color;
+            ui.visuals_mut().selection.stroke.color = ui.visuals().error_fg_color;
         }
 
         ui.add(

@@ -735,10 +735,10 @@ impl GossipUi {
 
                 // cut indentation
                 ui.style_mut().spacing.indent = 0.0;
-                ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.theme.navigation_text_color();
-                ui.style_mut().visuals.widgets.hovered.fg_stroke.color = self.theme.navigation_text_hover_color();
-                ui.style_mut().visuals.widgets.hovered.fg_stroke.width = 1.0;
-                ui.style_mut().visuals.widgets.active.fg_stroke.color = self.theme.navigation_text_active_color();
+                ui.visuals_mut().widgets.inactive.fg_stroke.color = self.theme.navigation_text_color();
+                ui.visuals_mut().widgets.hovered.fg_stroke.color = self.theme.navigation_text_hover_color();
+                ui.visuals_mut().widgets.hovered.fg_stroke.width = 1.0;
+                ui.visuals_mut().widgets.active.fg_stroke.color = self.theme.navigation_text_active_color();
 
                 ui.add_space(4.0);
                 let back_label_text = RichText::new("‹ Back");
