@@ -1,4 +1,6 @@
-use super::types::{Person2, PersonList1, PersonRelay1, Settings1, Settings2, Theme1, ThemeVariant1};
+use super::types::{
+    Person2, PersonList1, PersonRelay1, Settings1, Settings2, Theme1, ThemeVariant1,
+};
 use super::Storage;
 use crate::error::{Error, ErrorKind};
 use heed::types::UnalignedSlice;
@@ -575,10 +577,8 @@ impl Storage {
                 .iter()
                 .map(|u| (*u).into())
                 .collect::<Vec<PersonList1>>();
-            let new_person_lists: HashMap<PersonList1, bool> = person_lists
-                .drain(..)
-                .map(|l| (l, true))
-                .collect();
+            let new_person_lists: HashMap<PersonList1, bool> =
+                person_lists.drain(..).map(|l| (l, true)).collect();
 
             self.write_person_lists2(&pubkey, new_person_lists, Some(txn))?;
         }

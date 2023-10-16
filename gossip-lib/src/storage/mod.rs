@@ -285,7 +285,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_person_lists(&self) -> Result<RawDatabase, Error> {
-        self.db_person_lists1()
+        self.db_person_lists2()
     }
 
     // Database length functions ---------------------------------
@@ -2261,23 +2261,30 @@ impl Storage {
     }
 
     /// Read person lists
-    pub fn read_person_lists(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
-        self.read_person_lists1(pubkey)
+    pub fn read_person_lists(
+        &self,
+        pubkey: &PublicKey,
+    ) -> Result<HashMap<PersonList, bool>, Error> {
+        self.read_person_lists2(pubkey)
     }
 
     /// Write person lists
     pub fn write_person_lists<'a>(
         &'a self,
         pubkey: &PublicKey,
-        lists: Vec<PersonList>,
+        lists: HashMap<PersonList, bool>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_person_lists1(pubkey, lists, rw_txn)
+        self.write_person_lists2(pubkey, lists, rw_txn)
     }
 
     /// Get people in a person list
-    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
-        self.get_people_in_list1(list)
+    pub fn get_people_in_list(
+        &self,
+        list: PersonList,
+        public: Option<bool>,
+    ) -> Result<Vec<PublicKey>, Error> {
+        self.get_people_in_list2(list, public)
     }
 
     /// Empty a person list
@@ -2287,13 +2294,13 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.clear_person_list1(list, rw_txn)
+        self.clear_person_list2(list, rw_txn)
     }
 
     /// Is a person in a list?
     pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> Result<bool, Error> {
         let lists = self.read_person_lists(pubkey)?;
-        Ok(lists.contains(&list))
+        Ok(lists.contains_key(&list))
     }
 
     /// Add a person to a list
@@ -2301,12 +2308,11 @@ impl Storage {
         &'a self,
         pubkey: &PublicKey,
         list: PersonList,
+        public: bool,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut lists = self.read_person_lists(pubkey)?;
-        if !lists.iter().any(|s| *s == list) {
-            lists.push(list.to_owned());
-        }
+        lists.insert(list, public);
         self.write_person_lists(pubkey, lists, rw_txn)
     }
 
@@ -2318,7 +2324,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut lists = self.read_person_lists(pubkey)?;
-        let lists: Vec<PersonList> = lists.drain(..).filter(|s| *s != list).collect();
+        lists.remove(&list);
         self.write_person_lists(pubkey, lists, rw_txn)
     }
 }
