@@ -406,6 +406,10 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
             }
+            ToMinionPayloadDetail::SubscribePersonContactList(pubkey) => {
+                self.subscribe_person_contactlist(message.job_id, pubkey)
+                    .await?;
+            }
             ToMinionPayloadDetail::SubscribePersonFeed(pubkey) => {
                 self.subscribe_person_feed(message.job_id, pubkey).await?;
             }
@@ -688,6 +692,30 @@ impl Minion {
             self.subscribe(filters, "temp_discover_feed", job_id)
                 .await?;
         }
+
+        Ok(())
+    }
+
+    // Subscribe to a person's contactlist which is on their own write relays
+    async fn subscribe_person_contactlist(
+        &mut self,
+        job_id: u64,
+        pubkey: PublicKey,
+    ) -> Result<(), Error> {
+        let pkh: PublicKeyHex = pubkey.into();
+
+        // Read back in things that we wrote out to our write relays
+        let filters: Vec<Filter> = vec![Filter {
+            authors: vec![pkh.clone().into()],
+            kinds: vec![EventKind::ContactList],
+            // these are all replaceable, no since required
+            ..Default::default()
+        }];
+
+        tracing::debug!("subscribe_person_contactlist pkh {}", pkh );
+
+        self.subscribe(filters, "temp_person_contactlist", job_id)
+            .await?;
 
         Ok(())
     }

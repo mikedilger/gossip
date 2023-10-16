@@ -209,40 +209,7 @@ pub async fn process_new_event(
     }
 
     if event.kind == EventKind::ContactList {
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            if event.pubkey == pubkey {
-                // We do not process our own contact list automatically.
-                // Instead we only process it on user command.
-                // See Overlord::update_following()
-                //
-                // But we do update people.last_contact_list_asof and _size
-                if event.created_at.0
-                    > GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .load(Ordering::Relaxed)
-                {
-                    GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
-                    let size = event
-                        .tags
-                        .iter()
-                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                        .count();
-                    GLOBALS
-                        .people
-                        .last_contact_list_size
-                        .store(size, Ordering::Relaxed);
-                }
-                return Ok(());
-            } else {
-                process_somebody_elses_contact_list(event).await?;
-            }
-        } else {
-            process_somebody_elses_contact_list(event).await?;
-        }
+        process_contact_list(event).await?;
     } else if event.kind == EventKind::MuteList {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
@@ -373,12 +340,58 @@ pub async fn process_new_event(
     Ok(())
 }
 
-async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
-    // We don't keep their contacts or show to the user yet.
-    // We only process the contents for (non-standard) relay list information.
+async fn process_contact_list(event: &Event) -> Result<(), Error> {
+    for tag in event.tags.iter() {
+        tracing::debug!("Tag in event {:?}", tag);
+        if let Tag::Pubkey { pubkey, .. } = tag {
+            tracing::debug!("Contact List of {:?} - pubkey {:?}", event.pubkey, pubkey);
+        }
 
+        // put list in GLOBALS
+    }
+
+    if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if event.pubkey == pubkey {
+            // We do not process our own contact list automatically.
+            // Instead we only process it on user command.
+            // See Overlord::update_following()
+            //
+            // But we do update people.last_contact_list_asof and _size
+            if event.created_at.0
+                > GLOBALS
+                    .people
+                    .last_contact_list_asof
+                    .load(Ordering::Relaxed)
+            {
+                GLOBALS
+                    .people
+                    .last_contact_list_asof
+                    .store(event.created_at.0, Ordering::Relaxed);
+                let size = event
+                    .tags
+                    .iter()
+                    .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                    .count();
+                GLOBALS
+                    .people
+                    .last_contact_list_size
+                    .store(size, Ordering::Relaxed);
+            }
+            return Ok(());
+        }
+    } else {
+        for tag in event.tags.iter() {
+            tracing::debug!("Tag in event {:?}", tag);
+            if let Tag::Pubkey { pubkey, .. } = tag {
+                tracing::debug!("Contact List of {:?} - pubkey {:?}", event.pubkey, pubkey);
+            }
+
+            // put list in GLOBALS
+        }
+    }
+    // We process the contents for (non-standard) relay list information.
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
-    if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {
+    if let Ok(relay_list) = serde_json::from_str::<SimpleRelayList>(&event.content) {
         // Update that we received the relay list (and optionally bump forward the date
         // if this relay list happens to be newer)
         let newer = GLOBALS
@@ -392,7 +405,7 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
 
         let mut inbox_relays: Vec<RelayUrl> = Vec::new();
         let mut outbox_relays: Vec<RelayUrl> = Vec::new();
-        for (url, simple_relay_usage) in srl.0.iter() {
+        for (url, simple_relay_usage) in relay_list.0.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if simple_relay_usage.read {
                     inbox_relays.push(relay_url.clone());

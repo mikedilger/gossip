@@ -1,5 +1,6 @@
 use super::{GossipUi, Page};
 use crate::ui::widgets::CopyButton;
+use crate::ui::PersonTab;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Image, RichText, TextEdit, Ui, Vec2};
@@ -274,33 +275,73 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.add_space(10.0);
             ui.separator();
             ui.add_space(10.0);
-            ui.heading("Relays");
-            let relays = GLOBALS.people.get_active_person_write_relays();
-            for (relay_url, score) in relays.iter() {
-                ui.label(format!("{} (score={})", relay_url, score));
-            }
 
-            // Add a relay for them
-            ui.add_space(10.0);
-            ui.label("Manually specify a relay they use (read and write):");
             ui.horizontal(|ui| {
-                ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
-                if ui.button("Add").clicked() {
-                    if let Ok(url) = RelayUrl::try_from_str(&app.add_relay) {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::AddPubkeyRelay(pubkey, url));
-                        app.add_relay = "".to_owned();
-                    } else {
-                        GLOBALS
-                            .status_queue
-                            .write()
-                            .write("Invalid Relay Url".to_string());
-                    }
+                let tab_followed =
+                    ui.selectable_value(&mut app.person_tab, PersonTab::Followed, "Followed");
+                if tab_followed.clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FetchPersonContactList(person.pubkey));
+                }
+
+                ui.label("|");
+
+                let tab_followers =
+                    ui.selectable_value(&mut app.person_tab, PersonTab::Followers, "Followers");
+                if tab_followers.clicked() {
+                    // TODO
+                }
+
+                ui.label("|");
+
+                let tab_relays =
+                    ui.selectable_value(&mut app.person_tab, PersonTab::Relays, "Relays");
+                if tab_relays.clicked() {
+                    // TODO
                 }
             });
 
             ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            match app.person_tab {
+                PersonTab::Followed => {
+                    for followed in GLOBALS.people.get_followed(person.pubkey).iter() {
+                        // tracing::debug!("Followed pubkey: {:?}", followed);
+                    }
+                }
+
+                PersonTab::Followers => {}
+
+                PersonTab::Relays => {
+                    for (relay_url, score) in GLOBALS.people.get_active_person_write_relays().iter()
+                    {
+                        ui.label(format!("{} (score={})", relay_url, score));
+                    }
+
+                    // Add a relay for them
+                    ui.add_space(10.0);
+                    ui.label("Manually specify a relay they use (read and write):");
+                    ui.horizontal(|ui| {
+                        ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
+                        if ui.button("Add").clicked() {
+                            if let Ok(url) = RelayUrl::try_from_str(&app.add_relay) {
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::AddPubkeyRelay(pubkey, url));
+                                app.add_relay = "".to_owned();
+                            } else {
+                                GLOBALS
+                                    .status_queue
+                                    .write()
+                                    .write("Invalid Relay Url".to_string());
+                            }
+                        }
+                    });
+                }
+            }
         }
     }
     if need_to_set_active_person && !app.setting_active_person {

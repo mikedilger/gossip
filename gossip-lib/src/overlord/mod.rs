@@ -561,6 +561,9 @@ impl Overlord {
             ToOverlordMessage::FetchEventAddr(ea) => {
                 self.fetch_event_addr(ea).await?;
             }
+            ToOverlordMessage::FetchPersonContactList(pubkey) => {
+                self.fetch_person_contact_list(pubkey).await?;
+            }
             ToOverlordMessage::FollowPubkey(pubkey) => {
                 self.follow_pubkey(pubkey).await?;
             }
@@ -1528,6 +1531,27 @@ impl Overlord {
         Ok(())
     }
 
+    /// Get a person's contact list
+    async fn fetch_person_contact_list(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+
+        for relay in relays {
+            self.engage_minion(
+                relay.0.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchContacts,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribePersonContactList(pubkey),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
     /// Prune the cache (downloaded files)
     pub async fn prune_cache() -> Result<(), Error> {
         GLOBALS
@@ -1575,7 +1599,8 @@ impl Overlord {
 
     /// Publish the user's following list
     pub async fn push_follow(&mut self) -> Result<(), Error> {
-        let event = GLOBALS.people.generate_contact_list_event().await?;
+        let pubkeys = GLOBALS.people.get_followed_pubkeys();
+        let event = GLOBALS.people.generate_contact_list_event(pubkeys).await?;
 
         // process event locally
         crate::process::process_new_event(&event, None, None, false, false).await?;
@@ -1587,12 +1612,12 @@ impl Overlord {
 
         for relay in relays {
             // Send it the event to pull our followers
-            tracing::debug!("Pushing ContactList to {}", &relay.url);
+            tracing::debug!("Pushing Metadata to {}", &relay.url);
 
             self.engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
-                    reason: RelayConnectionReason::PostContacts,
+                    reason: RelayConnectionReason::PostMetadata,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
@@ -1823,6 +1848,16 @@ impl Overlord {
                 .map(|relay| relay.url.clone())
                 .collect();
             relay_urls.extend(write_relay_urls);
+
+            // Get all of the relays this event was seen on
+            let seen_on: Vec<RelayUrl> = GLOBALS
+                .storage
+                .get_event_seen_on_relay(id)?
+                .iter()
+                .map(|(url, _time)| url.to_owned())
+                .collect();
+            relay_urls.extend(seen_on);
+
             relay_urls.sort();
             relay_urls.dedup();
         }

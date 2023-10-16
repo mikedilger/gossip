@@ -22,7 +22,10 @@ pub enum ToOverlordMessage {
     AdvertiseRelayList,
 
     /// Calls [change_passphrase](crate::Overlord::change_passphrase)
-    ChangePassphrase { old: String, new: String },
+    ChangePassphrase {
+        old: String,
+        new: String,
+    },
 
     /// Calls [clear_following](crate::Overlord::clear_following)
     ClearFollowing,
@@ -50,6 +53,9 @@ pub enum ToOverlordMessage {
 
     /// Calls [fetch_event_addr](crate::Overlord::fetch_event_addr)
     FetchEventAddr(EventAddr),
+
+    //  Calls [fetch_person_contact_list](crate::Overlord::fetch_person_contact_list)
+    FetchPersonContactList(PublicKey),
 
     /// Calls [follow_pubkey](crate::Overlord::follow_pubkey)
     FollowPubkey(PublicKey),
@@ -156,7 +162,9 @@ pub enum ToOverlordMessage {
     UnlockKey(String),
 
     /// Calls [update_following](crate::Overlord::update_following)
-    UpdateFollowing { merge: bool },
+    UpdateFollowing {
+        merge: bool,
+    },
 
     /// Calls [update_metadata](crate::Overlord::update_metadata)
     UpdateMetadata(PublicKey),
@@ -165,7 +173,9 @@ pub enum ToOverlordMessage {
     UpdateMetadataInBulk(Vec<PublicKey>),
 
     /// Calls [update_mute_list](crate::Overlord::update_mute_list)
-    UpdateMuteList { merge: bool },
+    UpdateMuteList {
+        merge: bool,
+    },
 
     /// Calls [visible_notes_changed](crate::Overlord::visible_notes_changed)
     VisibleNotesChanged(Vec<Id>),
@@ -207,6 +217,7 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeDiscover(Vec<PublicKey>),
     SubscribeGeneralFeed(Vec<PublicKey>),
     SubscribeMentions,
+    SubscribePersonContactList(PublicKey),
     SubscribePersonFeed(PublicKey),
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
     SubscribeDmChannel(DmChannel),

@@ -8,6 +8,7 @@ use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -25,6 +26,10 @@ pub struct People {
     // active person's relays (pull from db as needed)
     active_person: RwLock<Option<PublicKey>>,
     active_persons_write_relays: RwLock<Vec<(RelayUrl, u64)>>,
+
+    // followed and followers of a person keyed by pubkey
+    followed: DashMap<PublicKey, DashSet<PublicKey>>,
+    followers: DashMap<PublicKey, DashSet<PublicKey>>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
@@ -71,13 +76,15 @@ impl People {
             active_persons_write_relays: RwLock::new(vec![]),
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
-            recheck_nip05: DashSet::new(),
-            need_metadata: DashSet::new(),
-            tried_metadata: DashSet::new(),
+            followed: DashMap::new(),
+            followers: DashMap::new(),
             last_contact_list_asof: AtomicI64::new(0),
             last_contact_list_size: AtomicUsize::new(0),
             last_mute_list_asof: AtomicI64::new(0),
             last_mute_list_size: AtomicUsize::new(0),
+            need_metadata: DashSet::new(),
+            recheck_nip05: DashSet::new(),
+            tried_metadata: DashSet::new(),
         }
     }
 
@@ -502,7 +509,7 @@ impl People {
     }
 
     /// This lets you start typing a name, and autocomplete the results for tagging
-    /// someone in a post.  It returns maximum 10 results.
+    /// someone in a post. It returns maximum 10 results.
     pub fn search_people_to_tag(&self, mut text: &str) -> Result<Vec<(String, PublicKey)>, Error> {
         // work with or without the @ symbol:
         if text.starts_with('@') {
@@ -577,10 +584,11 @@ impl People {
             .collect())
     }
 
-    pub(crate) async fn generate_contact_list_event(&self) -> Result<Event, Error> {
+    pub(crate) async fn generate_contact_list_event(
+        &self,
+        pubkeys: Vec<PublicKey>,
+    ) -> Result<Event, Error> {
         let mut p_tags: Vec<Tag> = Vec::new();
-
-        let pubkeys = self.get_followed_pubkeys();
 
         for pubkey in &pubkeys {
             // Get their petname
@@ -607,7 +615,6 @@ impl People {
 
         // Get the content from our latest ContactList.
         // We don't use the data, but we shouldn't clobber it.
-
         let content = match GLOBALS
             .storage
             .get_replaceable_event(public_key, EventKind::ContactList)?
@@ -623,6 +630,8 @@ impl People {
             tags: p_tags,
             content,
         };
+
+        tracing::debug!("----> PreEvent {:?}", pre_event);
 
         GLOBALS.signer.sign_preevent(pre_event, None, None)
     }
@@ -649,7 +658,6 @@ impl People {
         // Get the content from our latest MuteList.
         // We don't use the data, but we shouldn't clobber it (it is for private mutes
         // that we have not implemented yet)
-
         let content = match GLOBALS
             .storage
             .get_replaceable_event(public_key, EventKind::MuteList)?
@@ -906,6 +914,18 @@ impl People {
 
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
         self.active_persons_write_relays.blocking_read().clone()
+    }
+
+    pub fn get_followed(&self, pubkey: PublicKey) -> Result<HashSet<PublicKey>, Error> {
+        let mut my_hash: HashSet<PublicKey> = HashSet::new();
+        my_hash.insert(
+            PublicKey::try_from_hex_string(
+                "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49",
+                true,
+            )
+            .unwrap(),
+        );
+        Ok(my_hash)
     }
 }
 
