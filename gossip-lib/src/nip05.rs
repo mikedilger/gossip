@@ -91,7 +91,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
+pub async fn get_and_follow_nip05(nip05: String, public: bool) -> Result<(), Error> {
     // Split their DNS ID
     let (user, domain) = parse_nip05(&nip05)?;
 
@@ -115,8 +115,8 @@ pub async fn get_and_follow_nip05(nip05: String) -> Result<(), Error> {
         )
         .await?;
 
-    // Mark as followed
-    GLOBALS.people.follow(&pubkey, true)?;
+    // Mark as followed, publicly
+    GLOBALS.people.follow(&pubkey, true, public)?;
 
     tracing::info!("Followed {}", &nip05);
 

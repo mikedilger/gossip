@@ -157,7 +157,10 @@ impl People {
 
     /// Get all the pubkeys that the user follows
     pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        match GLOBALS.storage.get_people_in_list(PersonList::Followed) {
+        match GLOBALS
+            .storage
+            .get_people_in_list(PersonList::Followed, None)
+        {
             Ok(list) => list,
             Err(e) => {
                 tracing::error!("{}", e);
@@ -168,7 +171,7 @@ impl People {
 
     /// Get all the pubkeys that the user mutes
     pub fn get_muted_pubkeys(&self) -> Vec<PublicKey> {
-        match GLOBALS.storage.get_people_in_list(PersonList::Muted) {
+        match GLOBALS.storage.get_people_in_list(PersonList::Muted, None) {
             Ok(list) => list,
             Err(e) => {
                 tracing::error!("{}", e);
@@ -670,13 +673,16 @@ impl People {
     }
 
     /// Follow (or unfollow) the public key
-    pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
+    pub fn follow(&self, pubkey: &PublicKey, follow: bool, public: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if follow {
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Followed,
+                public,
+                Some(&mut txn),
+            )?;
         } else {
             GLOBALS.storage.remove_person_from_list(
                 pubkey,
@@ -697,7 +703,12 @@ impl People {
 
     /// Follow all these public keys.
     /// This does not publish any events.
-    pub(crate) fn follow_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
+    pub(crate) fn follow_all(
+        &self,
+        pubkeys: &[PublicKey],
+        public: bool,
+        merge: bool,
+    ) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if !merge {
@@ -707,9 +718,12 @@ impl People {
         }
 
         for pubkey in pubkeys {
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Followed,
+                public,
+                Some(&mut txn),
+            )?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
@@ -766,7 +780,7 @@ impl People {
     }
 
     /// Mute (or unmute) a public key
-    pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
+    pub fn mute(&self, pubkey: &PublicKey, mute: bool, public: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if mute {
@@ -776,9 +790,12 @@ impl People {
                 }
             }
 
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Muted, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Muted,
+                public,
+                Some(&mut txn),
+            )?;
         } else {
             GLOBALS
                 .storage
@@ -796,7 +813,12 @@ impl People {
         Ok(())
     }
 
-    pub(crate) fn mute_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
+    pub(crate) fn mute_all(
+        &self,
+        pubkeys: &[PublicKey],
+        merge: bool,
+        public: bool,
+    ) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if !merge {
@@ -806,9 +828,12 @@ impl People {
         }
 
         for pubkey in pubkeys {
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Muted, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Muted,
+                public,
+                Some(&mut txn),
+            )?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
