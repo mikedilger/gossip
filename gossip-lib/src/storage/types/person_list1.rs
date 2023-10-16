@@ -1,5 +1,7 @@
+use speedy::{Readable, Writable};
+
 /// Lists people can be added to
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Readable, Writable)]
 #[repr(u8)]
 pub enum PersonList1 {
     Muted = 0,
