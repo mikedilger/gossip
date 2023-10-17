@@ -94,22 +94,23 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             if let Ok(pubkey) = PublicKey::try_from_bech32_string(app.follow_someone.trim(), true) {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::FollowPubkey(pubkey));
+                    .send(ToOverlordMessage::FollowPubkey(pubkey, true));
             } else if let Ok(pubkey) =
                 PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
             {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::FollowPubkey(pubkey));
+                    .send(ToOverlordMessage::FollowPubkey(pubkey, true));
             } else if let Ok(profile) =
                 Profile::try_from_bech32_string(app.follow_someone.trim(), true)
             {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::FollowNprofile(profile));
+                    .send(ToOverlordMessage::FollowNprofile(profile, true));
             } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                     app.follow_someone.trim().to_owned(),
+                    true,
                 ));
             } else {
                 app.wizard_state.error = Some("ERROR: Invalid pubkey".to_owned());

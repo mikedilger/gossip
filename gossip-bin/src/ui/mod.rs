@@ -1167,16 +1167,16 @@ impl GossipUi {
                     }
                 }
                 if !followed && ui.button("Follow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, true);
+                    let _ = GLOBALS.people.follow(&person.pubkey, true, true);
                 } else if followed && ui.button("Unfollow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, false);
+                    let _ = GLOBALS.people.follow(&person.pubkey, false, true);
                 }
 
                 // Do not show 'Mute' if this is yourself
                 if muted || !is_self {
                     let mute_label = if muted { "Unmute" } else { "Mute" };
                     if ui.button(mute_label).clicked() {
-                        let _ = GLOBALS.people.mute(&person.pubkey, !muted);
+                        let _ = GLOBALS.people.mute(&person.pubkey, !muted, true);
                         app.notes.cache_invalidate_person(&person.pubkey);
                     }
                 }

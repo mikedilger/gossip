@@ -561,14 +561,14 @@ impl Overlord {
             ToOverlordMessage::FetchEventAddr(ea) => {
                 self.fetch_event_addr(ea).await?;
             }
-            ToOverlordMessage::FollowPubkey(pubkey) => {
-                self.follow_pubkey(pubkey).await?;
+            ToOverlordMessage::FollowPubkey(pubkey, public) => {
+                self.follow_pubkey(pubkey, public).await?;
             }
-            ToOverlordMessage::FollowNip05(nip05) => {
-                Self::follow_nip05(nip05).await?;
+            ToOverlordMessage::FollowNip05(nip05, public) => {
+                Self::follow_nip05(nip05, public).await?;
             }
-            ToOverlordMessage::FollowNprofile(nprofile) => {
-                self.follow_nprofile(nprofile).await?;
+            ToOverlordMessage::FollowNprofile(nprofile, public) => {
+                self.follow_nprofile(nprofile, public).await?;
             }
             ToOverlordMessage::GeneratePrivateKey(password) => {
                 Self::generate_private_key(password).await?;
@@ -1002,17 +1002,17 @@ impl Overlord {
     }
 
     /// Follow a person by `PublicKey`
-    pub async fn follow_pubkey(&mut self, pubkey: PublicKey) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true)?;
+    pub async fn follow_pubkey(&mut self, pubkey: PublicKey, public: bool) -> Result<(), Error> {
+        GLOBALS.people.follow(&pubkey, true, public)?;
         self.subscribe_discover(vec![pubkey], None).await?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
 
     /// Follow a person by a nip-05 address
-    pub async fn follow_nip05(nip05: String) -> Result<(), Error> {
+    pub async fn follow_nip05(nip05: String, public: bool) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(async move {
-            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05).await {
+            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, public).await {
                 tracing::error!("{}", e);
             }
         }));
@@ -1020,8 +1020,8 @@ impl Overlord {
     }
 
     /// Follow a person by a `Profile` (nprofile1...)
-    pub async fn follow_nprofile(&mut self, nprofile: Profile) -> Result<(), Error> {
-        GLOBALS.people.follow(&nprofile.pubkey, true)?;
+    pub async fn follow_nprofile(&mut self, nprofile: Profile, public: bool) -> Result<(), Error> {
+        GLOBALS.people.follow(&nprofile.pubkey, true, public)?;
 
         // Set their relays
         for relay in nprofile.relays.iter() {
@@ -2315,8 +2315,8 @@ impl Overlord {
 
         txn.commit()?;
 
-        // Follow all those pubkeys, and unfollow everbody else if merge=false
-        GLOBALS.people.follow_all(&pubkeys, merge)?;
+        // Follow all those pubkeys publicly, and unfollow everbody else if merge=false
+        GLOBALS.people.follow_all(&pubkeys, merge, true)?;
 
         // Update last_contact_list_edit
         let last_edit = if merge {
@@ -2432,8 +2432,8 @@ impl Overlord {
             }
         }
 
-        // Mute all those pubkeys, and unmute everbody else if merge=false
-        GLOBALS.people.mute_all(&pubkeys, merge)?;
+        // Mute all those pubkeys publicly, and unmute everbody else if merge=false
+        GLOBALS.people.mute_all(&pubkeys, merge, true)?;
 
         // Update last_must_list_edit
         let last_edit = if merge {

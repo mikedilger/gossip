@@ -303,7 +303,7 @@ impl Feed {
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
             FeedKind::List(list, with_replies) => {
-                let mut pubkeys: Vec<PublicKey> = GLOBALS.storage.get_people_in_list(list)?;
+                let mut pubkeys: Vec<PublicKey> = GLOBALS.storage.get_people_in_list(list, None)?;
 
                 if let Some(pubkey) = GLOBALS.signer.public_key() {
                     pubkeys.push(pubkey); // add the user

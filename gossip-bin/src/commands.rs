@@ -438,7 +438,9 @@ pub fn print_relays(_cmd: Command) -> Result<(), Error> {
 }
 
 pub fn print_followed(_cmd: Command) -> Result<(), Error> {
-    let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
+    let pubkeys = GLOBALS
+        .storage
+        .get_people_in_list(PersonList::Followed, None)?;
     for pk in &pubkeys {
         println!("{}", pk.as_hex_string());
     }
@@ -446,7 +448,9 @@ pub fn print_followed(_cmd: Command) -> Result<(), Error> {
 }
 
 pub fn print_muted(_cmd: Command) -> Result<(), Error> {
-    let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
+    let pubkeys = GLOBALS
+        .storage
+        .get_people_in_list(PersonList::Muted, None)?;
     for pk in &pubkeys {
         println!("{}", pk.as_hex_string());
     }
