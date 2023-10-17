@@ -157,7 +157,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     GossipUi::render_person_name_line(app, ui, person, false);
 
                     if ui.button("UNMUTE").clicked() {
-                        let _ = GLOBALS.people.mute(&person.pubkey, false);
+                        let _ = GLOBALS.people.mute(&person.pubkey, false, true);
                     }
                 });
             });

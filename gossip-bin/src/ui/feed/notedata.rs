@@ -1,5 +1,6 @@
 use gossip_lib::GLOBALS;
 use gossip_lib::{Person, PersonList};
+use std::collections::HashMap;
 
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
@@ -27,7 +28,7 @@ pub(super) struct NoteData {
     /// Author of this note (considers delegation)
     pub(super) author: Person,
     /// Lists the author is on
-    pub(super) lists: Vec<PersonList>,
+    pub(super) lists: HashMap<PersonList, bool>,
     /// Deletion reason if any
     pub(super) deletion: Option<String>,
     /// Do we consider this note as being a repost of another?
@@ -197,7 +198,7 @@ impl NoteData {
 
         let lists = match GLOBALS.storage.read_person_lists(&author_pubkey) {
             Ok(lists) => lists,
-            _ => vec![],
+            _ => HashMap::new(),
         };
 
         NoteData {
@@ -232,10 +233,10 @@ impl NoteData {
 
     #[allow(dead_code)]
     pub(super) fn followed(&self) -> bool {
-        self.lists.contains(&PersonList::Followed)
+        self.lists.contains_key(&PersonList::Followed)
     }
 
     pub(super) fn muted(&self) -> bool {
-        self.lists.contains(&PersonList::Muted)
+        self.lists.contains_key(&PersonList::Muted)
     }
 }
