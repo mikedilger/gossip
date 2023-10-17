@@ -240,9 +240,6 @@ impl Minion {
             self.handle_overlord_message(message).await?;
         }
 
-        // Tell the overlord we are ready to receive commands
-        self.tell_overlord_we_are_ready().await?;
-
         'relayloop: loop {
             match self.loop_handler().await {
                 Ok(_) => {
@@ -428,11 +425,6 @@ impl Minion {
             }
         }
 
-        Ok(())
-    }
-
-    async fn tell_overlord_we_are_ready(&self) -> Result<(), Error> {
-        self.to_overlord.send(ToOverlordMessage::MinionIsReady)?;
         Ok(())
     }
 

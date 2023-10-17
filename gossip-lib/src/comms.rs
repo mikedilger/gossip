@@ -80,9 +80,6 @@ pub enum ToOverlordMessage {
     Like(Id, PublicKey),
 
     /// internal (minions use this channel too)
-    MinionIsReady,
-
-    /// internal (minions use this channel too)
     MinionJobComplete(RelayUrl, u64),
 
     /// internal (minions use this channel too)

@@ -585,10 +585,6 @@ impl Overlord {
             ToOverlordMessage::Like(id, pubkey) => {
                 self.like(id, pubkey).await?;
             }
-            ToOverlordMessage::MinionIsReady => {
-                // internal
-                // currently ignored
-            }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
                 self.finish_job(url, Some(job_id), None)?;
             }
