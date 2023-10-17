@@ -157,11 +157,10 @@ impl People {
 
     /// Get all the pubkeys that the user follows
     pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        match GLOBALS
-            .storage
-            .get_people_in_list(PersonList::Followed, None)
-        {
-            Ok(list) => list,
+        // We subscribe to all people in all lists.
+        // This is no longer synonomous with the ContactList list
+        match GLOBALS.storage.get_people_in_all_followed_lists() {
+            Ok(people) => people,
             Err(e) => {
                 tracing::error!("{}", e);
                 vec![]

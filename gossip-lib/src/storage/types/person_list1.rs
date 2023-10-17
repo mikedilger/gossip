@@ -43,4 +43,13 @@ impl PersonList1 {
             PersonList1::Custom(u) => format!("Custom {}", u - 9),
         }
     }
+
+    pub fn subscribe(&self) -> bool {
+        match *self {
+            PersonList1::Muted => false,
+            PersonList1::Followed => true,
+            PersonList1::Priority => true,
+            PersonList1::Custom(_) => true,
+        }
+    }
 }

@@ -47,8 +47,6 @@ impl RelayPickerHooks for Hooks {
 
     /// Returns the public keys of all the people followed
     fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        // CHANGE TO GET THIS FROM THE CURRENT FEED
-
         GLOBALS.people.get_followed_pubkeys()
     }
 

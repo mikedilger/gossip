@@ -2287,6 +2287,10 @@ impl Storage {
         self.get_people_in_list2(list, public)
     }
 
+    pub fn get_people_in_all_followed_lists(&self) -> Result<Vec<PublicKey>, Error> {
+        self.get_people_in_all_followed_lists2()
+    }
+
     /// Empty a person list
     #[inline]
     pub fn clear_person_list<'a>(

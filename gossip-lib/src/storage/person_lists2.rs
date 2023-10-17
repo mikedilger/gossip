@@ -83,6 +83,20 @@ impl Storage {
         Ok(())
     }
 
+    pub(crate) fn get_people_in_all_followed_lists2(&self) -> Result<Vec<PublicKey>, Error> {
+        let txn = self.env.read_txn()?;
+        let mut pubkeys: Vec<PublicKey> = Vec::new();
+        for result in self.db_person_lists2()?.iter(&txn)? {
+            let (key, val) = result?;
+            let pubkey = PublicKey::from_bytes(key, true)?;
+            let map = HashMap::<PersonList1, bool>::read_from_buffer(val)?;
+            if map.keys().any(|list| list.subscribe()) {
+                pubkeys.push(pubkey);
+            }
+        }
+        Ok(pubkeys)
+    }
+
     pub(crate) fn get_people_in_list2(
         &self,
         list: PersonList1,
