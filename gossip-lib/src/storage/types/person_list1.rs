@@ -1,3 +1,4 @@
+use crate::globals::GLOBALS;
 use speedy::{Readable, Writable};
 
 /// Lists people can be added to
@@ -40,7 +41,15 @@ impl PersonList1 {
             PersonList1::Muted => "Muted".to_string(),
             PersonList1::Followed => "Followed".to_string(),
             PersonList1::Priority => "Priority".to_string(),
-            PersonList1::Custom(u) => format!("Custom {}", u - 9),
+            PersonList1::Custom(u) => {
+                if (10..=19).contains(&u) {
+                    GLOBALS.storage.read_setting_custom_person_list_names()[u as usize - 10].clone()
+                } else if u > 19 {
+                    format!("Custom List {}", u - 9) // humans count from 1
+                } else {
+                    format!("Undefined list in slot={}", u)
+                }
+            }
         }
     }
 

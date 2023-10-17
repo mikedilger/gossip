@@ -96,7 +96,7 @@ macro_rules! def_setting {
                 match self.general.get(&txn, $string) {
                     Err(_) => $default,
                     Ok(None) => $default,
-                    Ok(Some(bytes)) => match $type::read_from_buffer(bytes) {
+                    Ok(Some(bytes)) => match <$type>::read_from_buffer(bytes) {
                         Ok(val) => val,
                         Err(_) => $default,
                     }
@@ -723,6 +723,23 @@ impl Storage {
         60 * 60 * 24 * 30
     );
     def_setting!(overlap, b"overlap", u64, 300);
+    def_setting!(
+        custom_person_list_names,
+        b"custom_person_list_names",
+        [String; 10],
+        [
+            "Custom List 1".to_owned(),
+            "Custom List 2".to_owned(),
+            "Custom List 3".to_owned(),
+            "Custom List 4".to_owned(),
+            "Custom List 5".to_owned(),
+            "Custom List 6".to_owned(),
+            "Custom List 7".to_owned(),
+            "Custom List 8".to_owned(),
+            "Custom List 9".to_owned(),
+            "Custom List 10".to_owned(),
+        ]
+    );
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);

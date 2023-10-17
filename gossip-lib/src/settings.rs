@@ -57,6 +57,7 @@ pub struct Settings {
     pub replies_chunk: u64,
     pub person_feed_chunk: u64,
     pub overlap: u64,
+    pub custom_person_list_names: [String; 10],
 
     // Event Selection
     pub reposts: bool,
@@ -141,6 +142,7 @@ impl Default for Settings {
             replies_chunk: default_setting!(replies_chunk),
             person_feed_chunk: default_setting!(person_feed_chunk),
             overlap: default_setting!(overlap),
+            custom_person_list_names: default_setting!(custom_person_list_names),
             reposts: default_setting!(reposts),
             show_long_form: default_setting!(show_long_form),
             show_mentions: default_setting!(show_mentions),
@@ -221,6 +223,7 @@ impl Settings {
             replies_chunk: load_setting!(replies_chunk),
             person_feed_chunk: load_setting!(person_feed_chunk),
             overlap: load_setting!(overlap),
+            custom_person_list_names: load_setting!(custom_person_list_names),
             reposts: load_setting!(reposts),
             show_long_form: load_setting!(show_long_form),
             show_mentions: load_setting!(show_mentions),
@@ -297,6 +300,7 @@ impl Settings {
         save_setting!(replies_chunk, self, txn);
         save_setting!(person_feed_chunk, self, txn);
         save_setting!(overlap, self, txn);
+        save_setting!(custom_person_list_names, self, txn);
         save_setting!(reposts, self, txn);
         save_setting!(show_long_form, self, txn);
         save_setting!(show_mentions, self, txn);
