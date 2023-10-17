@@ -1795,10 +1795,19 @@ impl Storage {
         // Whether or not the Gossip user already reacted to this event
         let mut self_already_reacted = false;
 
+        // Get the event (once self-reactions get deleted we can remove this)
+        let maybe_target_event = self.read_event(id)?;
+
         // Collect up to one reaction per pubkey
         let mut phase1: HashMap<PublicKey, char> = HashMap::new();
         for (_, rel) in self.find_relationships(id)? {
             if let Relationship::Reaction(pubkey, reaction) = rel {
+                if let Some(target_event) = &maybe_target_event {
+                    if target_event.pubkey == pubkey {
+                        // Do not let people like their own post
+                        continue;
+                    }
+                }
                 let symbol: char = if let Some(ch) = reaction.chars().next() {
                     ch
                 } else {
@@ -1838,9 +1847,19 @@ impl Storage {
 
     /// Get whether an event was deleted, and if so the optional reason
     pub fn get_deletion(&self, id: Id) -> Result<Option<String>, Error> {
-        for (_, rel) in self.find_relationships(id)? {
+        for (target_id, rel) in self.find_relationships(id)? {
             if let Relationship::Deletion(deletion) = rel {
-                return Ok(Some(deletion));
+                if let Some(delete_event) = self.read_event(id)? {
+                    if let Some(target_event) = self.read_event(target_id)? {
+                        // Only if the authors match
+                        if target_event.pubkey == delete_event.pubkey {
+                            return Ok(Some(deletion));
+                        }
+                    } else {
+                        // presume the authors will match for now
+                        return Ok(Some(deletion));
+                    }
+                }
             }
         }
         Ok(None)
@@ -1862,30 +1881,58 @@ impl Storage {
             }
 
             // reacts to
-            if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-                self.write_relationship(
-                    id,
-                    event.id,
-                    Relationship::Reaction(event.pubkey, reaction),
-                    Some(txn),
-                )?;
-
-                invalidate.push(id);
+            if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
+                if let Some(reacted_to_event) = self.read_event(reacted_to_id)? {
+                    // Only if they are different people (no liking your own posts)
+                    if reacted_to_event.pubkey != event.pubkey {
+                        self.write_relationship(
+                            reacted_to_id, // event reacted to
+                            event.id,      // the reaction event id
+                            Relationship::Reaction(event.pubkey, reaction),
+                            Some(txn),
+                        )?;
+                    }
+                    invalidate.push(reacted_to_id);
+                } else {
+                    // Store the reaction to the event we dont have yet.
+                    // We filter bad ones when reading them back too, so even if this
+                    // turns out to be a reaction by the author, they can't like
+                    // their own post
+                    self.write_relationship(
+                        reacted_to_id, // event reacted to
+                        event.id,      // the reaction event id
+                        Relationship::Reaction(event.pubkey, reaction),
+                        Some(txn),
+                    )?;
+                    invalidate.push(reacted_to_id);
+                }
             }
 
             // deletes
-            if let Some((ids, reason)) = event.deletes() {
-                invalidate.extend(&ids);
-
-                for id in ids {
+            if let Some((deleted_event_ids, reason)) = event.deletes() {
+                invalidate.extend(&deleted_event_ids);
+                for deleted_event_id in deleted_event_ids {
                     // since it is a delete, we don't actually desire the event.
-
-                    self.write_relationship(
-                        id,
-                        event.id,
-                        Relationship::Deletion(reason.clone()),
-                        Some(txn),
-                    )?;
+                    if let Some(deleted_event) = self.read_event(deleted_event_id)? {
+                        // Only if it is the same author
+                        if deleted_event.pubkey == event.pubkey {
+                            self.write_relationship(
+                                deleted_event_id,
+                                event.id,
+                                Relationship::Deletion(reason.clone()),
+                                Some(txn),
+                            )?;
+                        }
+                    } else {
+                        // We don't have the deleted event. Presume it is okay. We check again
+                        // when we read these back
+                        self.write_relationship(
+                            deleted_event_id,
+                            event.id,
+                            Relationship::Deletion(reason.clone()),
+                            Some(txn),
+                        )?;
+                    }
                 }
             }
 
