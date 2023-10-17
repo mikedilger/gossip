@@ -2307,6 +2307,12 @@ impl Storage {
         Ok(lists.contains_key(&list))
     }
 
+    /// Is the person in any list we subscribe to?
+    pub fn is_person_subscribed_to(&self, pubkey: &PublicKey) -> Result<bool, Error> {
+        let lists = self.read_person_lists(pubkey)?;
+        Ok(lists.iter().any(|l| l.0.subscribe()))
+    }
+
     /// Add a person to a list
     pub fn add_person_to_list<'a>(
         &'a self,

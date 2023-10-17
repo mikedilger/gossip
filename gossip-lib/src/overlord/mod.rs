@@ -166,7 +166,7 @@ impl Overlord {
 
         // Separately subscribe to RelayList discovery for everyone we follow
         // We just do this once at startup. Relay lists don't change that frequently.
-        let followed = GLOBALS.people.get_followed_pubkeys();
+        let followed = GLOBALS.people.get_subscribed_pubkeys();
         self.subscribe_discover(followed, None).await?;
 
         // Separately subscribe to our outbox events on our write relays
@@ -642,8 +642,8 @@ impl Overlord {
             ToOverlordMessage::ReengageMinion(url, persistent_jobs) => {
                 self.engage_minion(url, persistent_jobs).await?;
             }
-            ToOverlordMessage::RefreshFollowedMetadata => {
-                self.refresh_followed_metadata().await?;
+            ToOverlordMessage::RefreshSubscribedMetadata => {
+                self.refresh_subscribed_metadata().await?;
             }
             ToOverlordMessage::Repost(id) => {
                 self.repost(id).await?;
@@ -1692,8 +1692,8 @@ impl Overlord {
 
     /// Refresh metadata for everybody who is followed
     /// This gets it whether we had it or not. Because it might have changed.
-    pub async fn refresh_followed_metadata(&mut self) -> Result<(), Error> {
-        let mut pubkeys = GLOBALS.people.get_followed_pubkeys();
+    pub async fn refresh_subscribed_metadata(&mut self) -> Result<(), Error> {
+        let mut pubkeys = GLOBALS.people.get_subscribed_pubkeys();
 
         // add own pubkey as well
         if let Some(pubkey) = GLOBALS.signer.public_key() {

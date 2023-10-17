@@ -112,7 +112,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::RefreshFollowedMetadata);
+                .send(ToOverlordMessage::RefreshSubscribedMetadata);
         }
     });
 

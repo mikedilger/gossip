@@ -120,8 +120,8 @@ pub enum ToOverlordMessage {
     /// internal (the overlord sends messages to itself sometimes!)
     ReengageMinion(RelayUrl, Vec<RelayJob>),
 
-    /// Calls [reresh_followed_metadata](crate::Overlord::refresh_followed_metadata)
-    RefreshFollowedMetadata,
+    /// Calls [reresh_subscribed_metadata](crate::Overlord::refresh_subscribed_metadata)
+    RefreshSubscribedMetadata,
 
     /// Calls [repost](crate::Overlord::repost)
     Repost(Id),

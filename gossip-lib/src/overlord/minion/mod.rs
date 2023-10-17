@@ -513,7 +513,7 @@ impl Minion {
             // in the last 8 hours (so we don't do it every client restart).
             let keys_needing_relay_lists: Vec<PublicKeyHexPrefix> = GLOBALS
                 .people
-                .get_followed_pubkeys_needing_relay_lists(&followed_pubkeys)
+                .get_subscribed_pubkeys_needing_relay_lists(&followed_pubkeys)
                 .drain(..)
                 .map(|pk| Into::<PublicKeyHex>::into(pk).prefix(16)) // quarter-size
                 .collect();

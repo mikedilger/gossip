@@ -46,8 +46,10 @@ impl RelayPickerHooks for Hooks {
     }
 
     /// Returns the public keys of all the people followed
+    // this API name has become difficult..
     fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        GLOBALS.people.get_followed_pubkeys()
+        // ..We actually want all the people subscribed, which is a bigger list
+        GLOBALS.people.get_subscribed_pubkeys()
     }
 
     /// Adjusts the score for a given relay, perhaps based on relay-specific metrics
