@@ -53,21 +53,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .cloned()
         .collect();
 
-    let mut discovery_relays: Vec<Relay> = relays
+    let discovery_relays: Vec<Relay> = relays
         .iter()
         .filter(|relay| relay.has_usage_bits(Relay::DISCOVER))
         .cloned()
         .collect();
-
-    if !discovery_relays
-        .iter()
-        .any(|r| r.url.as_str() == "wss://purplepag.es/")
-    {
-        let mut purple_pages = read_relay(&RelayUrl::try_from_str("wss://purplepag.es/").unwrap());
-        purple_pages.set_usage_bits(Relay::DISCOVER);
-        let _ = GLOBALS.storage.write_relay(&purple_pages, None);
-        discovery_relays.push(purple_pages);
-    }
 
     let mut need_more = false;
 
@@ -141,7 +131,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             for relay in discovery_relays.iter() {
                 ui.horizontal(|ui| {
                     if ui.button("🗑").clicked() {
-                        unimplemented!();
+                        let mut r = relay.clone();
+                        r.clear_usage_bits(Relay::DISCOVER | Relay::ADVERTISE);
+                        let _ = GLOBALS.storage.write_relay(&r, None);
                     }
                     ui.label(relay.url.as_str());
                 });
