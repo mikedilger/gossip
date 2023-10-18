@@ -2372,14 +2372,14 @@ impl Storage {
 
     /// Is a person in a list?
     pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> Result<bool, Error> {
-        let lists = self.read_person_lists(pubkey)?;
-        Ok(lists.contains_key(&list))
+        let map = self.read_person_lists(pubkey)?;
+        Ok(map.contains_key(&list))
     }
 
     /// Is the person in any list we subscribe to?
     pub fn is_person_subscribed_to(&self, pubkey: &PublicKey) -> Result<bool, Error> {
-        let lists = self.read_person_lists(pubkey)?;
-        Ok(lists.iter().any(|l| l.0.subscribe()))
+        let map = self.read_person_lists(pubkey)?;
+        Ok(map.iter().any(|l| l.0.subscribe()))
     }
 
     /// Add a person to a list
@@ -2390,9 +2390,9 @@ impl Storage {
         public: bool,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut lists = self.read_person_lists(pubkey)?;
-        lists.insert(list, public);
-        self.write_person_lists(pubkey, lists, rw_txn)
+        let mut map = self.read_person_lists(pubkey)?;
+        map.insert(list, public);
+        self.write_person_lists(pubkey, map, rw_txn)
     }
 
     /// Remove a person from a list
@@ -2402,8 +2402,8 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut lists = self.read_person_lists(pubkey)?;
-        lists.remove(&list);
-        self.write_person_lists(pubkey, lists, rw_txn)
+        let mut map = self.read_person_lists(pubkey)?;
+        map.remove(&list);
+        self.write_person_lists(pubkey, map, rw_txn)
     }
 }
