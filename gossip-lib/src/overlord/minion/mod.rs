@@ -486,7 +486,7 @@ impl Minion {
         if !followed_pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
                 .iter()
-                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(16)) // quarter-size
+                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(64))
                 .collect();
 
             // feed related by people followed
@@ -507,7 +507,7 @@ impl Minion {
                 .people
                 .get_subscribed_pubkeys_needing_relay_lists(&followed_pubkeys)
                 .drain(..)
-                .map(|pk| Into::<PublicKeyHex>::into(pk).prefix(16)) // quarter-size
+                .map(|pk| Into::<PublicKeyHex>::into(pk).prefix(64))
                 .collect();
 
             if !keys_needing_relay_lists.is_empty() {
@@ -667,8 +667,8 @@ impl Minion {
         if !pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHexPrefix> = pubkeys
                 .iter()
-                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(16))
-                .collect(); // quarter-size prefix
+                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(64))
+                .collect();
 
             let filters: Vec<Filter> = vec![Filter {
                 authors: pkp,
@@ -692,7 +692,7 @@ impl Minion {
         let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
         let filters: Vec<Filter> = vec![Filter {
-            authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(16)],
+            authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(64)],
             kinds: event_kinds,
             // No since, just a limit on quantity of posts
             limit: Some(25),
@@ -728,7 +728,7 @@ impl Minion {
             let idhp: Vec<IdHexPrefix> = vec_ids
                 .iter()
                 .map(
-                    |id| id.prefix(16), // quarter-size
+                    |id| id.prefix(64),
                 )
                 .collect();
 
@@ -779,9 +779,9 @@ impl Minion {
             .keys()
             .iter()
             .map(Into::<PublicKeyHex>::into)
-            .map(|k| k.prefix(32))
+            .map(|k| k.prefix(64))
             .collect();
-        authors.push(pkh.prefix(32)); // add the user themselves
+        authors.push(pkh.prefix(64));
 
         let filters: Vec<Filter> = vec![Filter {
             authors,
@@ -854,7 +854,7 @@ impl Minion {
         // build the filter
         let mut filter = Filter::new();
         let pkh: PublicKeyHex = ea.author.into();
-        filter.authors = vec![pkh.prefix(32)]; // half-size
+        filter.authors = vec![pkh.prefix(64)];
         filter.kinds = vec![ea.kind];
         filter.d = vec![ea.d];
 
@@ -869,7 +869,7 @@ impl Minion {
         let pkhp: Vec<PublicKeyHexPrefix> = pubkeys
             .drain(..)
             .map(
-                |pk| Into::<PublicKeyHex>::into(pk).prefix(16), // quarter-size
+                |pk| Into::<PublicKeyHex>::into(pk).prefix(64),
             )
             .collect();
 
