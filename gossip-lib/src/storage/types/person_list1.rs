@@ -7,7 +7,6 @@ use speedy::{Readable, Writable};
 pub enum PersonList1 {
     Muted = 0,
     Followed = 1,
-    Priority = 2,
 
     // custom starts at 10 to leave space
     Custom(u8),
@@ -18,7 +17,6 @@ impl From<u8> for PersonList1 {
         match u {
             0 => PersonList1::Muted,
             1 => PersonList1::Followed,
-            2 => PersonList1::Priority,
             u => PersonList1::Custom(u),
         }
     }
@@ -29,18 +27,25 @@ impl From<PersonList1> for u8 {
         match e {
             PersonList1::Muted => 0,
             PersonList1::Followed => 1,
-            PersonList1::Priority => 2,
             PersonList1::Custom(u) => u,
         }
     }
 }
 
 impl PersonList1 {
+    /// Custom lists (from 0-9, humans number them from 1-10)
+    pub fn custom(index: u8) -> Option<PersonList1> {
+        if index>9 {
+            None
+        } else {
+            Some(PersonList1::Custom(index + 10))
+        }
+    }
+
     pub fn name(&self) -> String {
         match *self {
             PersonList1::Muted => "Muted".to_string(),
             PersonList1::Followed => "Followed".to_string(),
-            PersonList1::Priority => "Priority".to_string(),
             PersonList1::Custom(u) => {
                 if (10..=19).contains(&u) {
                     GLOBALS.storage.read_setting_custom_person_list_names()[u as usize - 10].clone()
@@ -57,7 +62,6 @@ impl PersonList1 {
         match *self {
             PersonList1::Muted => false,
             PersonList1::Followed => true,
-            PersonList1::Priority => true,
             PersonList1::Custom(_) => true,
         }
     }

@@ -728,7 +728,7 @@ impl Storage {
         b"custom_person_list_names",
         [String; 10],
         [
-            "Custom List 1".to_owned(),
+            "Priority".to_owned(),
             "Custom List 2".to_owned(),
             "Custom List 3".to_owned(),
             "Custom List 4".to_owned(),
