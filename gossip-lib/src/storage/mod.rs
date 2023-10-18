@@ -135,7 +135,7 @@ impl Storage {
     pub(crate) fn new() -> Result<Storage, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
-            builder.flags(EnvFlags::NO_SYNC | EnvFlags::NO_TLS);
+            builder.flags(EnvFlags::NO_TLS);
         }
         // builder.max_readers(126); // this is the default
         builder.max_dbs(32);
