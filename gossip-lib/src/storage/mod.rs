@@ -2155,7 +2155,12 @@ impl Storage {
         let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
 
         for event in &events {
-            let unread = 1 - self.is_event_viewed(event.id)? as usize;
+            let unread: usize = if event.pubkey == my_pubkey {
+                // Do not count self-authored events as unread, irrespective of whether they are viewed
+                0
+            } else {
+                1 - self.is_event_viewed(event.id)? as usize
+            };
             if event.kind == EventKind::EncryptedDirectMessage {
                 let time = event.created_at;
                 let dmchannel = match DmChannel::from_event(event, Some(my_pubkey)) {
