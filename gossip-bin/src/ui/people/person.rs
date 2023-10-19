@@ -272,15 +272,21 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
     }); // horizontal
 
     // Render a modal with QR based on selections made above
+    const DLG_SIZE: Vec2 = egui::vec2(300.0, 200.0);
     match app.person_qr {
         Some("npub") => {
-            let ret = widgets::modal_popup(ui, "Public Key (npub)", |ui| {
+            let ret = widgets::modal_popup(ui, DLG_SIZE, |ui| {
                     ui.vertical_centered(|ui|{
+                        ui.add_space(10.0);
+                        ui.heading("Public Key (npub)");
                         ui.add_space(10.0);
                         app.render_qr(ui, ctx, "person_qr", &npub);
                         ui.add_space(10.0);
                         ui.label(&npub);
                         ui.add_space(10.0);
+                        if ui.link("copy npub").clicked() {
+                            ui.output_mut(|o| o.copied_text = npub.to_owned());
+                        }
                     });
                 });
             if ret.inner.clicked() {
@@ -288,13 +294,18 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             }
         }
         Some("lud06") => {
-            let ret = widgets::modal_popup(ui, "Lightning Network Address (lud06)", |ui| {
+            let ret = widgets::modal_popup(ui, DLG_SIZE, |ui| {
                 ui.vertical_centered(|ui|{
+                        ui.add_space(10.0);
+                        ui.heading("Lightning Network Address (lud06)");
                         ui.add_space(10.0);
                         app.render_qr(ui, ctx, "person_qr", &lud06);
                         ui.add_space(10.0);
                         ui.label(&lud06);
                         ui.add_space(10.0);
+                        if ui.link("copy lud06").clicked() {
+                            ui.output_mut(|o| o.copied_text = lud06.to_owned());
+                        }
                     });
                 });
             if ret.inner.clicked() {
@@ -302,13 +313,18 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             }
         }
         Some("lud16") => {
-            let ret = widgets::modal_popup(ui, "Lightning Network Address (lud16)", |ui| {
-                ui.vertical_centered(|ui|{
+            let ret = widgets::modal_popup(ui, DLG_SIZE, |ui| {
+                ui.vertical_centered(|ui| {
+                        ui.add_space(10.0);
+                        ui.heading("Lightning Network Address (lud16)");
                         ui.add_space(10.0);
                         app.render_qr(ui, ctx, "person_qr", &lud16);
                         ui.add_space(10.0);
                         ui.label(&lud16);
                         ui.add_space(10.0);
+                        if ui.link("copy lud16").clicked() {
+                            ui.output_mut(|o| o.copied_text = lud16.to_owned());
+                        }
                     });
                 });
             if ret.inner.clicked() {
@@ -325,7 +341,6 @@ fn profile_item(ui: &mut Ui, label: impl Into<String>, content: impl Into<String
     let response = profile_item_frame(ui, label, &content, CopyButton{}).response;
 
     if response
-        .on_hover_text("copy to clipboard")
         .clicked() {
         ui.output_mut(|o| o.copied_text = content.to_owned());
     }
@@ -336,7 +351,6 @@ fn profile_item_qr(ui: &mut Ui, app: &mut GossipUi, label: impl Into<String>, di
     let response = profile_item_frame(ui, label, display_content, egui::Label::new("⚃")).response;
 
     if response
-        .on_hover_text("show QR or copy to clipboard")
         .clicked() {
         app.qr_codes.remove("person_qr");
         app.person_qr = Some(qr_content);
