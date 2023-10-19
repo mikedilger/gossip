@@ -9,6 +9,9 @@ pub use nav_item::NavItem;
 mod relay_entry;
 pub use relay_entry::{RelayEntry, RelayEntryView};
 
+mod modal_popup;
+pub use modal_popup::modal_popup;
+
 use super::GossipUi;
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 

@@ -1115,7 +1115,9 @@ impl eframe::App for GossipUi {
 impl GossipUi {
     fn begin_ui(&self, ui: &mut Ui) {
         // if a dialog is open, disable the rest of the UI
-        ui.set_enabled(!relays::is_entry_dialog_active(self));
+        ui.set_enabled(
+            !relays::is_entry_dialog_active(self) &&
+                    self.person_qr.is_none());
     }
 
     pub fn render_person_name_line(
