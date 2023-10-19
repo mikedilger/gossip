@@ -10,7 +10,7 @@ use speedy::{Readable, Writable};
 use std::collections::HashMap;
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 13;
+    const MAX_MIGRATION_LEVEL: u32 = 14;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -132,6 +132,10 @@ impl Storage {
             12 => {
                 tracing::info!("{prefix}: migrating lists...");
                 self.migrate_lists(txn)?;
+            }
+            13 => {
+                tracing::info!("{prefix}: removing a retired setting...");
+                self.remove_setting_custom_person_list_names(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -589,6 +593,11 @@ impl Storage {
             // heed doesn't expose mdb_drop(1) yet, so we can't actually remove this database.
         }
 
+        Ok(())
+    }
+
+    pub fn remove_setting_custom_person_list_names<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        self.general.delete(txn, b"custom_person_list_names")?;
         Ok(())
     }
 }
