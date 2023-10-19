@@ -1825,6 +1825,16 @@ impl Overlord {
                 .map(|relay| relay.url.clone())
                 .collect();
             relay_urls.extend(write_relay_urls);
+
+            // Get all of the relays this event was seen on
+            let seen_on: Vec<RelayUrl> = GLOBALS
+                .storage
+                .get_event_seen_on_relay(id)?
+                .iter()
+                .map(|(url, _time)| url.to_owned())
+                .collect();
+            relay_urls.extend(seen_on);
+
             relay_urls.sort();
             relay_urls.dedup();
         }
