@@ -42,7 +42,7 @@ use gossip_lib::Settings;
 use gossip_lib::{DmChannel, DmChannelData};
 use gossip_lib::{Person, PersonList};
 use gossip_lib::{ZapState, GLOBALS};
-use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
+use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -1497,7 +1497,7 @@ impl GossipUi {
                 "VISIBLE = {:?}",
                 self.visible_note_ids
                     .iter()
-                    .map(|id| Into::<IdHex>::into(*id).prefix(10).into_string())
+                    .map(|id| id.as_hex_string().as_str().get(0..10).unwrap().to_owned())
                     .collect::<Vec<_>>()
             );
 

@@ -35,7 +35,7 @@ impl From<PersonList1> for u8 {
 impl PersonList1 {
     /// Custom lists (from 0-9, humans number them from 1-10)
     pub fn custom(index: u8) -> Option<PersonList1> {
-        if index>9 {
+        if index > 9 {
             None
         } else {
             Some(PersonList1::Custom(index + 10))

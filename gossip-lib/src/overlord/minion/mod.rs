@@ -16,8 +16,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKey, PublicKeyHex,
-    PublicKeyHexPrefix, RelayInformationDocument, RelayUrl, Unixtime,
+    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, PublicKey, PublicKeyHex,
+    RelayInformationDocument, RelayUrl, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -484,10 +484,7 @@ impl Minion {
         let event_kinds = crate::feed::feed_related_event_kinds(true);
 
         if !followed_pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
-                .iter()
-                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(64))
-                .collect();
+            let pkp: Vec<PublicKeyHex> = followed_pubkeys.iter().map(|pk| pk.into()).collect();
 
             // feed related by people followed
             filters.push(Filter {
@@ -503,11 +500,11 @@ impl Minion {
             //   divine relays people write to (if using a client that does that).
             // BUT ONLY for people where this kind of data hasn't been received
             // in the last 8 hours (so we don't do it every client restart).
-            let keys_needing_relay_lists: Vec<PublicKeyHexPrefix> = GLOBALS
+            let keys_needing_relay_lists: Vec<PublicKeyHex> = GLOBALS
                 .people
                 .get_subscribed_pubkeys_needing_relay_lists(&followed_pubkeys)
                 .drain(..)
-                .map(|pk| Into::<PublicKeyHex>::into(pk).prefix(64))
+                .map(|pk| pk.into())
                 .collect();
 
             if !keys_needing_relay_lists.is_empty() {
@@ -625,7 +622,7 @@ impl Minion {
             let filters: Vec<Filter> = vec![
                 // Actual config stuff
                 Filter {
-                    authors: vec![pkh.clone().into()],
+                    authors: vec![pkh.clone()],
                     kinds: vec![
                         EventKind::Metadata,
                         //EventKind::RecommendRelay,
@@ -638,14 +635,14 @@ impl Minion {
                 },
                 // GiftWraps to me, recent only
                 Filter {
-                    authors: vec![pkh.clone().into()],
+                    authors: vec![pkh.clone()],
                     kinds: vec![EventKind::GiftWrap],
                     since: Some(giftwrap_since),
                     ..Default::default()
                 },
                 // Posts I wrote recently
                 Filter {
-                    authors: vec![pkh.into()],
+                    authors: vec![pkh],
                     kinds: crate::feed::feed_related_event_kinds(false), // not DMs
                     since: Some(since),
                     ..Default::default()
@@ -665,10 +662,7 @@ impl Minion {
         pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         if !pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHexPrefix> = pubkeys
-                .iter()
-                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(64))
-                .collect();
+            let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
 
             let filters: Vec<Filter> = vec![Filter {
                 authors: pkp,
@@ -692,7 +686,7 @@ impl Minion {
         let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
         let filters: Vec<Filter> = vec![Filter {
-            authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(64)],
+            authors: vec![pubkey.into()],
             kinds: event_kinds,
             // No since, just a limit on quantity of posts
             limit: Some(25),
@@ -725,16 +719,9 @@ impl Minion {
         let mut filters: Vec<Filter> = Vec::new();
 
         if !vec_ids.is_empty() {
-            let idhp: Vec<IdHexPrefix> = vec_ids
-                .iter()
-                .map(
-                    |id| id.prefix(64),
-                )
-                .collect();
-
             // Get ancestors we know of so far
             filters.push(Filter {
-                ids: idhp,
+                ids: vec_ids.clone(),
                 ..Default::default()
             });
 
@@ -775,13 +762,8 @@ impl Minion {
         // note: giftwraps can't be subscribed by channel. they are subscribed more
         // globally, and have to be limited to recent ones.
 
-        let mut authors: Vec<PublicKeyHexPrefix> = dmchannel
-            .keys()
-            .iter()
-            .map(Into::<PublicKeyHex>::into)
-            .map(|k| k.prefix(64))
-            .collect();
-        authors.push(pkh.prefix(64));
+        let mut authors: Vec<PublicKeyHex> = dmchannel.keys().iter().map(|k| k.into()).collect();
+        authors.push(pkh);
 
         let filters: Vec<Filter> = vec![Filter {
             authors,
@@ -815,7 +797,7 @@ impl Minion {
 
         // create the filter
         let mut filter = Filter::new();
-        filter.ids = ids.drain(..).map(|idhex| idhex.into()).collect();
+        filter.ids = ids;
 
         tracing::trace!("{}: Event Filter: {} events", &self.url, filter.ids.len());
 
@@ -854,7 +836,7 @@ impl Minion {
         // build the filter
         let mut filter = Filter::new();
         let pkh: PublicKeyHex = ea.author.into();
-        filter.authors = vec![pkh.prefix(64)];
+        filter.authors = vec![pkh];
         filter.kinds = vec![ea.kind];
         filter.d = vec![ea.d];
 
@@ -866,12 +848,7 @@ impl Minion {
         job_id: u64,
         mut pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
-        let pkhp: Vec<PublicKeyHexPrefix> = pubkeys
-            .drain(..)
-            .map(
-                |pk| Into::<PublicKeyHex>::into(pk).prefix(64),
-            )
-            .collect();
+        let pkhp: Vec<PublicKeyHex> = pubkeys.drain(..).map(|pk| pk.into()).collect();
 
         tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
 
