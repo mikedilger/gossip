@@ -1548,7 +1548,7 @@ impl Storage {
         }
 
         if sort {
-            events.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
         }
 
         Ok(events)
@@ -1632,7 +1632,7 @@ impl Storage {
 
         events.sort_by(|a, b| {
             // ORDER created_at desc
-            b.created_at.cmp(&a.created_at)
+            b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id))
         });
 
         Ok(events)
@@ -2402,7 +2402,7 @@ impl Storage {
         )?;
 
         // sort
-        output.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        output.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
 
         Ok(output.iter().map(|e| e.id).collect())
     }
