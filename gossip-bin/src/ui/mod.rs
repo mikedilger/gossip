@@ -42,7 +42,7 @@ use gossip_lib::Settings;
 use gossip_lib::{DmChannel, DmChannelData};
 use gossip_lib::{Person, PersonList};
 use gossip_lib::{ZapState, GLOBALS};
-use nostr_types::{Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
+use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
@@ -550,7 +550,7 @@ impl GossipUi {
             None => (false, dpi),
         };
 
-        let mut start_page = Page::Feed(FeedKind::Followed(false));
+        let mut start_page = Page::Feed(FeedKind::List(PersonList::Followed, false));
 
         // Possibly enter the wizard instead
         let mut wizard_state: WizardState = Default::default();
@@ -683,8 +683,8 @@ impl GossipUi {
     fn set_page_inner(&mut self, page: Page) {
         // Setting the page often requires some associated actions:
         match &page {
-            Page::Feed(FeedKind::Followed(with_replies)) => {
-                GLOBALS.feed.set_feed_to_followed(*with_replies);
+            Page::Feed(FeedKind::List(list, with_replies)) => {
+                GLOBALS.feed.set_feed_to_main(*list, *with_replies);
             }
             Page::Feed(FeedKind::Inbox(indirect)) => {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
@@ -763,8 +763,8 @@ impl GossipUi {
                 ui.separator();
                 ui.add_space(4.0);
 
-                if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::Followed(_))), "Main Feed").clicked() {
-                    self.set_page(Page::Feed(FeedKind::Followed(self.mainfeed_include_nonroot)));
+                if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::List(PersonList::Followed, _))), "Main Feed").clicked() {
+                    self.set_page(Page::Feed(FeedKind::List(PersonList::Followed, self.mainfeed_include_nonroot)));
                 }
                 if let Some(pubkey) = GLOBALS.signer.public_key() {
                     if self.add_selected_label(ui, matches!(&self.page, Page::Feed(FeedKind::Person(key)) if *key == pubkey), "My Notes").clicked() {
@@ -1167,16 +1167,16 @@ impl GossipUi {
                     }
                 }
                 if !followed && ui.button("Follow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, true);
+                    let _ = GLOBALS.people.follow(&person.pubkey, true, true);
                 } else if followed && ui.button("Unfollow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, false);
+                    let _ = GLOBALS.people.follow(&person.pubkey, false, true);
                 }
 
                 // Do not show 'Mute' if this is yourself
                 if muted || !is_self {
                     let mute_label = if muted { "Unmute" } else { "Mute" };
                     if ui.button(mute_label).clicked() {
-                        let _ = GLOBALS.people.mute(&person.pubkey, !muted);
+                        let _ = GLOBALS.people.mute(&person.pubkey, !muted, true);
                         app.notes.cache_invalidate_person(&person.pubkey);
                     }
                 }
@@ -1497,7 +1497,7 @@ impl GossipUi {
                 "VISIBLE = {:?}",
                 self.visible_note_ids
                     .iter()
-                    .map(|id| Into::<IdHex>::into(*id).prefix(10).into_string())
+                    .map(|id| id.as_hex_string().as_str().get(0..10).unwrap().to_owned())
                     .collect::<Vec<_>>()
             );
 

@@ -155,10 +155,28 @@ impl People {
         });
     }
 
-    /// Get all the pubkeys that the user follows
+    /// Get all the pubkeys that the user subscribes to in any list
+    pub fn get_subscribed_pubkeys(&self) -> Vec<PublicKey> {
+        // We subscribe to all people in all lists.
+        // This is no longer synonomous with the ContactList list
+        match GLOBALS.storage.get_people_in_all_followed_lists() {
+            Ok(people) => people,
+            Err(e) => {
+                tracing::error!("{}", e);
+                vec![]
+            }
+        }
+    }
+
+    /// Get all the pubkeys in the Followed list
     pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        match GLOBALS.storage.get_people_in_list(PersonList::Followed) {
-            Ok(list) => list,
+        // We subscribe to all people in all lists.
+        // This is no longer synonomous with the ContactList list
+        match GLOBALS
+            .storage
+            .get_people_in_list(PersonList::Followed, None)
+        {
+            Ok(people) => people,
             Err(e) => {
                 tracing::error!("{}", e);
                 vec![]
@@ -168,8 +186,8 @@ impl People {
 
     /// Get all the pubkeys that the user mutes
     pub fn get_muted_pubkeys(&self) -> Vec<PublicKey> {
-        match GLOBALS.storage.get_people_in_list(PersonList::Muted) {
-            Ok(list) => list,
+        match GLOBALS.storage.get_people_in_list(PersonList::Muted, None) {
+            Ok(people) => people,
             Err(e) => {
                 tracing::error!("{}", e);
                 vec![]
@@ -179,11 +197,25 @@ impl People {
 
     /// Is the given pubkey followed?
     pub fn is_followed(&self, pubkey: &PublicKey) -> bool {
-        self.get_followed_pubkeys().contains(pubkey)
+        match GLOBALS
+            .storage
+            .is_person_in_list(pubkey, PersonList::Followed)
+        {
+            Ok(answer) => answer,
+            _ => false,
+        }
+    }
+
+    /// Is the given pubkey muted?
+    pub fn is_muted(&self, pubkey: &PublicKey) -> bool {
+        match GLOBALS.storage.is_person_in_list(pubkey, PersonList::Muted) {
+            Ok(answer) => answer,
+            _ => false,
+        }
     }
 
     /// Get all the pubkeys that need relay lists (from the given set)
-    pub fn get_followed_pubkeys_needing_relay_lists(
+    pub fn get_subscribed_pubkeys_needing_relay_lists(
         &self,
         among_these: &[PublicKey],
     ) -> Vec<PublicKey> {
@@ -670,13 +702,16 @@ impl People {
     }
 
     /// Follow (or unfollow) the public key
-    pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
+    pub fn follow(&self, pubkey: &PublicKey, follow: bool, public: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if follow {
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Followed,
+                public,
+                Some(&mut txn),
+            )?;
         } else {
             GLOBALS.storage.remove_person_from_list(
                 pubkey,
@@ -697,7 +732,12 @@ impl People {
 
     /// Follow all these public keys.
     /// This does not publish any events.
-    pub(crate) fn follow_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
+    pub(crate) fn follow_all(
+        &self,
+        pubkeys: &[PublicKey],
+        public: bool,
+        merge: bool,
+    ) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if !merge {
@@ -707,9 +747,12 @@ impl People {
         }
 
         for pubkey in pubkeys {
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Followed,
+                public,
+                Some(&mut txn),
+            )?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
@@ -766,7 +809,7 @@ impl People {
     }
 
     /// Mute (or unmute) a public key
-    pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
+    pub fn mute(&self, pubkey: &PublicKey, mute: bool, public: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if mute {
@@ -776,9 +819,12 @@ impl People {
                 }
             }
 
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Muted, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Muted,
+                public,
+                Some(&mut txn),
+            )?;
         } else {
             GLOBALS
                 .storage
@@ -796,7 +842,12 @@ impl People {
         Ok(())
     }
 
-    pub(crate) fn mute_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
+    pub(crate) fn mute_all(
+        &self,
+        pubkeys: &[PublicKey],
+        merge: bool,
+        public: bool,
+    ) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if !merge {
@@ -806,9 +857,12 @@ impl People {
         }
 
         for pubkey in pubkeys {
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Muted, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Muted,
+                public,
+                Some(&mut txn),
+            )?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 

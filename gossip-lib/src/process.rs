@@ -75,7 +75,8 @@ pub async fn process_new_event(
                 return Ok(());
             }
             EventFilterAction::MuteAuthor => {
-                GLOBALS.people.mute(&event.pubkey, true)?;
+                let public = true;
+                GLOBALS.people.mute(&event.pubkey, true, public)?;
                 return Ok(());
             }
         }

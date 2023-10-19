@@ -86,12 +86,10 @@ pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
     let visuals = ui.visuals_mut();
     visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
     visuals.widgets.inactive.fg_stroke.width = 1.0;
-    visuals.widgets.inactive.fg_stroke.color =
-        app.theme.get_style().visuals.extreme_bg_color;
+    visuals.widgets.inactive.fg_stroke.color = app.theme.get_style().visuals.extreme_bg_color;
     visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
     visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
-    visuals.widgets.inactive.fg_stroke.color =
-        app.theme.get_style().visuals.extreme_bg_color;
+    visuals.widgets.inactive.fg_stroke.color = app.theme.get_style().visuals.extreme_bg_color;
 }
 
 // /// UTF-8 safe truncate (String::truncate() can panic)

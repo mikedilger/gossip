@@ -52,13 +52,13 @@ pub enum ToOverlordMessage {
     FetchEventAddr(EventAddr),
 
     /// Calls [follow_pubkey](crate::Overlord::follow_pubkey)
-    FollowPubkey(PublicKey),
+    FollowPubkey(PublicKey, bool),
 
     /// Calls [follow_nip05](crate::Overlord::follow_nip05)
-    FollowNip05(String),
+    FollowNip05(String, bool),
 
     /// Calls [follow_nprofile](crate::Overlord::follow_nprofile)
-    FollowNprofile(Profile),
+    FollowNprofile(Profile, bool),
 
     /// Calls [generate_private_key](crate::Overlord::generate_private_key)
     GeneratePrivateKey(String),
@@ -78,9 +78,6 @@ pub enum ToOverlordMessage {
 
     /// Calls [like](crate::Overlord::like)
     Like(Id, PublicKey),
-
-    /// internal (minions use this channel too)
-    MinionIsReady,
 
     /// internal (minions use this channel too)
     MinionJobComplete(RelayUrl, u64),
@@ -120,8 +117,8 @@ pub enum ToOverlordMessage {
     /// internal (the overlord sends messages to itself sometimes!)
     ReengageMinion(RelayUrl, Vec<RelayJob>),
 
-    /// Calls [reresh_followed_metadata](crate::Overlord::refresh_followed_metadata)
-    RefreshFollowedMetadata,
+    /// Calls [reresh_subscribed_metadata](crate::Overlord::refresh_subscribed_metadata)
+    RefreshSubscribedMetadata,
 
     /// Calls [repost](crate::Overlord::repost)
     Repost(Id),

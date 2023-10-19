@@ -357,7 +357,15 @@ impl RelayEntry {
         let is_personal = self.relay.usage_bits != 0;
         let id = self.make_id("remove_link");
         let text = "Remove from personal list";
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled && is_personal, true);
+        let response = draw_link_at(
+            ui,
+            id,
+            pos,
+            text.into(),
+            Align::Min,
+            self.enabled && is_personal,
+            true,
+        );
         if response.clicked() {
             let _ = GLOBALS.storage.modify_relay(
                 &self.relay.url,
@@ -379,15 +387,8 @@ impl RelayEntry {
         let id = self.make_id("disconnect_link");
         let text = "Force disconnect";
         let can_disconnect = self.enabled && self.connected;
-        let disconnect_response = draw_link_at(
-            ui,
-            id,
-            pos,
-            text.into(),
-            Align::Min,
-            can_disconnect,
-            true,
-        );
+        let disconnect_response =
+            draw_link_at(ui, id, pos, text.into(), Align::Min, can_disconnect, true);
         if can_disconnect && disconnect_response.clicked() {
             let _ = GLOBALS
                 .to_overlord

@@ -27,6 +27,7 @@ mod hashtags1;
 mod people1;
 mod people2;
 mod person_lists1;
+mod person_lists2;
 mod person_relays1;
 mod relationships1;
 mod relays1;
@@ -95,7 +96,7 @@ macro_rules! def_setting {
                 match self.general.get(&txn, $string) {
                     Err(_) => $default,
                     Ok(None) => $default,
-                    Ok(Some(bytes)) => match $type::read_from_buffer(bytes) {
+                    Ok(Some(bytes)) => match <$type>::read_from_buffer(bytes) {
                         Ok(val) => val,
                         Err(_) => $default,
                     }
@@ -134,7 +135,7 @@ impl Storage {
     pub(crate) fn new() -> Result<Storage, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
-            builder.flags(EnvFlags::NO_SYNC | EnvFlags::NO_TLS);
+            builder.flags(EnvFlags::NO_TLS);
         }
         // builder.max_readers(126); // this is the default
         builder.max_dbs(32);
@@ -284,7 +285,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_person_lists(&self) -> Result<RawDatabase, Error> {
-        self.db_person_lists1()
+        self.db_person_lists2()
     }
 
     // Database length functions ---------------------------------
@@ -722,6 +723,23 @@ impl Storage {
         60 * 60 * 24 * 30
     );
     def_setting!(overlap, b"overlap", u64, 300);
+    def_setting!(
+        custom_person_list_names,
+        b"custom_person_list_names",
+        [String; 10],
+        [
+            "Priority".to_owned(),
+            "Custom List 2".to_owned(),
+            "Custom List 3".to_owned(),
+            "Custom List 4".to_owned(),
+            "Custom List 5".to_owned(),
+            "Custom List 6".to_owned(),
+            "Custom List 7".to_owned(),
+            "Custom List 8".to_owned(),
+            "Custom List 9".to_owned(),
+            "Custom List 10".to_owned(),
+        ]
+    );
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);
@@ -1777,10 +1795,19 @@ impl Storage {
         // Whether or not the Gossip user already reacted to this event
         let mut self_already_reacted = false;
 
+        // Get the event (once self-reactions get deleted we can remove this)
+        let maybe_target_event = self.read_event(id)?;
+
         // Collect up to one reaction per pubkey
         let mut phase1: HashMap<PublicKey, char> = HashMap::new();
         for (_, rel) in self.find_relationships(id)? {
             if let Relationship::Reaction(pubkey, reaction) = rel {
+                if let Some(target_event) = &maybe_target_event {
+                    if target_event.pubkey == pubkey {
+                        // Do not let people like their own post
+                        continue;
+                    }
+                }
                 let symbol: char = if let Some(ch) = reaction.chars().next() {
                     ch
                 } else {
@@ -1820,9 +1847,19 @@ impl Storage {
 
     /// Get whether an event was deleted, and if so the optional reason
     pub fn get_deletion(&self, id: Id) -> Result<Option<String>, Error> {
-        for (_, rel) in self.find_relationships(id)? {
+        for (target_id, rel) in self.find_relationships(id)? {
             if let Relationship::Deletion(deletion) = rel {
-                return Ok(Some(deletion));
+                if let Some(delete_event) = self.read_event(id)? {
+                    if let Some(target_event) = self.read_event(target_id)? {
+                        // Only if the authors match
+                        if target_event.pubkey == delete_event.pubkey {
+                            return Ok(Some(deletion));
+                        }
+                    } else {
+                        // presume the authors will match for now
+                        return Ok(Some(deletion));
+                    }
+                }
             }
         }
         Ok(None)
@@ -1844,30 +1881,58 @@ impl Storage {
             }
 
             // reacts to
-            if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-                self.write_relationship(
-                    id,
-                    event.id,
-                    Relationship::Reaction(event.pubkey, reaction),
-                    Some(txn),
-                )?;
-
-                invalidate.push(id);
+            if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
+                if let Some(reacted_to_event) = self.read_event(reacted_to_id)? {
+                    // Only if they are different people (no liking your own posts)
+                    if reacted_to_event.pubkey != event.pubkey {
+                        self.write_relationship(
+                            reacted_to_id, // event reacted to
+                            event.id,      // the reaction event id
+                            Relationship::Reaction(event.pubkey, reaction),
+                            Some(txn),
+                        )?;
+                    }
+                    invalidate.push(reacted_to_id);
+                } else {
+                    // Store the reaction to the event we dont have yet.
+                    // We filter bad ones when reading them back too, so even if this
+                    // turns out to be a reaction by the author, they can't like
+                    // their own post
+                    self.write_relationship(
+                        reacted_to_id, // event reacted to
+                        event.id,      // the reaction event id
+                        Relationship::Reaction(event.pubkey, reaction),
+                        Some(txn),
+                    )?;
+                    invalidate.push(reacted_to_id);
+                }
             }
 
             // deletes
-            if let Some((ids, reason)) = event.deletes() {
-                invalidate.extend(&ids);
-
-                for id in ids {
+            if let Some((deleted_event_ids, reason)) = event.deletes() {
+                invalidate.extend(&deleted_event_ids);
+                for deleted_event_id in deleted_event_ids {
                     // since it is a delete, we don't actually desire the event.
-
-                    self.write_relationship(
-                        id,
-                        event.id,
-                        Relationship::Deletion(reason.clone()),
-                        Some(txn),
-                    )?;
+                    if let Some(deleted_event) = self.read_event(deleted_event_id)? {
+                        // Only if it is the same author
+                        if deleted_event.pubkey == event.pubkey {
+                            self.write_relationship(
+                                deleted_event_id,
+                                event.id,
+                                Relationship::Deletion(reason.clone()),
+                                Some(txn),
+                            )?;
+                        }
+                    } else {
+                        // We don't have the deleted event. Presume it is okay. We check again
+                        // when we read these back
+                        self.write_relationship(
+                            deleted_event_id,
+                            event.id,
+                            Relationship::Deletion(reason.clone()),
+                            Some(txn),
+                        )?;
+                    }
                 }
             }
 
@@ -2090,7 +2155,12 @@ impl Storage {
         let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
 
         for event in &events {
-            let unread = 1 - self.is_event_viewed(event.id)? as usize;
+            let unread: usize = if event.pubkey == my_pubkey {
+                // Do not count self-authored events as unread, irrespective of whether they are viewed
+                0
+            } else {
+                1 - self.is_event_viewed(event.id)? as usize
+            };
             if event.kind == EventKind::EncryptedDirectMessage {
                 let time = event.created_at;
                 let dmchannel = match DmChannel::from_event(event, Some(my_pubkey)) {
@@ -2260,23 +2330,34 @@ impl Storage {
     }
 
     /// Read person lists
-    pub fn read_person_lists(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
-        self.read_person_lists1(pubkey)
+    pub fn read_person_lists(
+        &self,
+        pubkey: &PublicKey,
+    ) -> Result<HashMap<PersonList, bool>, Error> {
+        self.read_person_lists2(pubkey)
     }
 
     /// Write person lists
     pub fn write_person_lists<'a>(
         &'a self,
         pubkey: &PublicKey,
-        lists: Vec<PersonList>,
+        lists: HashMap<PersonList, bool>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_person_lists1(pubkey, lists, rw_txn)
+        self.write_person_lists2(pubkey, lists, rw_txn)
     }
 
     /// Get people in a person list
-    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
-        self.get_people_in_list1(list)
+    pub fn get_people_in_list(
+        &self,
+        list: PersonList,
+        public: Option<bool>,
+    ) -> Result<Vec<PublicKey>, Error> {
+        self.get_people_in_list2(list, public)
+    }
+
+    pub fn get_people_in_all_followed_lists(&self) -> Result<Vec<PublicKey>, Error> {
+        self.get_people_in_all_followed_lists2()
     }
 
     /// Empty a person list
@@ -2286,13 +2367,19 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.clear_person_list1(list, rw_txn)
+        self.clear_person_list2(list, rw_txn)
     }
 
     /// Is a person in a list?
     pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> Result<bool, Error> {
-        let lists = self.read_person_lists(pubkey)?;
-        Ok(lists.contains(&list))
+        let map = self.read_person_lists(pubkey)?;
+        Ok(map.contains_key(&list))
+    }
+
+    /// Is the person in any list we subscribe to?
+    pub fn is_person_subscribed_to(&self, pubkey: &PublicKey) -> Result<bool, Error> {
+        let map = self.read_person_lists(pubkey)?;
+        Ok(map.iter().any(|l| l.0.subscribe()))
     }
 
     /// Add a person to a list
@@ -2300,13 +2387,12 @@ impl Storage {
         &'a self,
         pubkey: &PublicKey,
         list: PersonList,
+        public: bool,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut lists = self.read_person_lists(pubkey)?;
-        if !lists.iter().any(|s| *s == list) {
-            lists.push(list.to_owned());
-        }
-        self.write_person_lists(pubkey, lists, rw_txn)
+        let mut map = self.read_person_lists(pubkey)?;
+        map.insert(list, public);
+        self.write_person_lists(pubkey, map, rw_txn)
     }
 
     /// Remove a person from a list
@@ -2316,8 +2402,8 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut lists = self.read_person_lists(pubkey)?;
-        let lists: Vec<PersonList> = lists.drain(..).filter(|s| *s != list).collect();
-        self.write_person_lists(pubkey, lists, rw_txn)
+        let mut map = self.read_person_lists(pubkey)?;
+        map.remove(&list);
+        self.write_person_lists(pubkey, map, rw_txn)
     }
 }

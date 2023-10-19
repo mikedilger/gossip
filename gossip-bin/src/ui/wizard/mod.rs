@@ -2,9 +2,7 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
-use gossip_lib::FeedKind;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{FeedKind, PersonList, Relay, GLOBALS};
 
 mod follow_people;
 mod import_keys;
@@ -23,23 +21,23 @@ static DEFAULT_RELAYS: [&str; 20] = [
     "wss://nostr.einundzwanzig.space/",
     "wss://nostr.mutinywallet.com/",
     "wss://relay.nostrplebs.com/",
-    "wss://christpill.nostr1.com/",
     "wss://nostr-pub.wellorder.net/",
     "wss://relay.damus.io/",
-    "wss://bevo.nostr1.com/",
-    "wss://relay.snort.social/",
     "wss://public.relaying.io/",
     "wss://nostrue.com/",
+    "wss://relay.snort.social/",
     "wss://relay.noswhere.com/",
     "wss://relay.primal.net/",
     "wss://relay.nostr.jabber.ch/",
-    "wss://relay.nostr.band/",
     "wss://relay.wellorder.net/",
-    "wss://nostr.coinfundit.com/",
-    "wss://relay.nostrich.de/",
-    "wss://verbiricha.nostr1.com/",
+    "wss://relay.nostr.band/",
     "wss://nostr21.com/",
+    "wss://relayable.org/",
     "wss://nostr.bitcoiner.social/",
+    "wss://offchain.pub/",
+    "wss://nostr.coinfundit.com/",
+    "wss://nstr.pjv.me/",
+    "wss://welcome.nostr.wine/",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -201,7 +199,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             if wp != WizardPage::FollowPeople {
                 if ui.button("  X  Exit this Wizard").clicked() {
                     let _ = GLOBALS.storage.write_wizard_complete(true, None);
-                    app.page = Page::Feed(FeedKind::Followed(false));
+                    app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
                 }
             }
 
