@@ -11,8 +11,8 @@ use crate::people::Person;
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
-    add_addr_to_tags, add_event_parent_to_tags, add_event_to_tags, add_pubkey_hex_to_tags,
-    add_pubkey_to_tags, add_subject_to_tags_if_missing,
+    add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
+    add_subject_to_tags_if_missing,
 };
 use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
@@ -1403,19 +1403,17 @@ impl Overlord {
                         // Add an 'e' tag for the root
                         add_event_to_tags(&mut tags, root, "root").await;
 
-                        // Add an 'e' and 'E' tag for the note we are replying to
+                        // Add an 'e' tag for the note we are replying to
                         add_event_to_tags(&mut tags, parent_id, "reply").await;
-                        add_event_parent_to_tags(&mut tags, parent_id).await;
                     } else {
                         let ancestors = parent.referred_events();
                         if ancestors.is_empty() {
                             // parent is the root
                             add_event_to_tags(&mut tags, parent_id, "root").await;
                         } else {
-                            // Add an 'e' and 'E' tag for the note we are replying to
+                            // Add an 'e' tag for the note we are replying to
                             // (and we don't know about the root, the parent is malformed).
                             add_event_to_tags(&mut tags, parent_id, "reply").await;
-                            add_event_parent_to_tags(&mut tags, parent_id).await;
                         }
                     }
 
