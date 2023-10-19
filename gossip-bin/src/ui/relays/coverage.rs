@@ -121,40 +121,32 @@ fn find_relays_for_pubkey(pk: &PublicKey) -> Vec<RelayUrl> {
 }
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(10.0);
-    ui.horizontal_wrapped(|ui| {
-        ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
-            ui.heading(format!(
-                "Low Coverage Report (less than {} relays)",
-                app.settings.num_relays_per_person
-            ));
-            ui.add_space(10.0);
-        });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.add_space(20.0);
-            ui.spacing_mut().button_padding *= 2.0;
+    widgets::page_header(ui, format!(
+        "Low Coverage Report (less than {} relays)",
+        app.settings.num_relays_per_person
+    ), |ui|{
+        ui.add_space(20.0);
+        ui.spacing_mut().button_padding *= 2.0;
+        if ui
+            .button("Pick Relays Again")
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .clicked()
+        {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
+        }
+        ui.add_space(10.0);
+        {
+            widgets::set_important_button_visuals(ui, app);
+
             if ui
-                .button("Pick Relays Again")
+                .button(Page::RelaysActivityMonitor.name())
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
             {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
+                app.set_page(Page::RelaysActivityMonitor);
             }
-            ui.add_space(10.0);
-            {
-                widgets::set_important_button_visuals(ui, app);
-
-                if ui
-                    .button(Page::RelaysActivityMonitor.name())
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .clicked()
-                {
-                    app.set_page(Page::RelaysActivityMonitor);
-                }
-            }
-        });
+        }
     });
-    ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.label("You can change how many relays per person to query here:");
         if ui.link("Network Settings").clicked() {
