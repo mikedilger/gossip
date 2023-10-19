@@ -50,7 +50,7 @@ use nostr_types::{
 };
 use paste::paste;
 use speedy::{Readable, Writable};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Bound;
 
 use self::event_tag_index1::INDEXED_TAGS;
@@ -723,6 +723,17 @@ impl Storage {
         60 * 60 * 24 * 30
     );
     def_setting!(overlap, b"overlap", u64, 300);
+    def_setting!(
+        custom_person_list_map,
+        b"custom_person_list_map",
+        BTreeMap::<u8, String>,
+        {
+            let mut m = BTreeMap::new();
+            m.insert(0, "Muted".to_owned());
+            m.insert(1, "Followed".to_owned());
+            m
+        }
+    );
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);

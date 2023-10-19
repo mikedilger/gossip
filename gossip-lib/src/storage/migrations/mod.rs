@@ -579,7 +579,7 @@ impl Storage {
             let pubkey = PublicKey::from_bytes(key, true)?;
             let mut person_lists = val
                 .iter()
-                .map(|u| (*u).into())
+                .map(|u| PersonList1::from_u8(*u))
                 .collect::<Vec<PersonList1>>();
             let new_person_lists: HashMap<PersonList1, bool> =
                 person_lists.drain(..).map(|l| (l, true)).collect();
@@ -596,7 +596,10 @@ impl Storage {
         Ok(())
     }
 
-    pub fn remove_setting_custom_person_list_names<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub fn remove_setting_custom_person_list_names<'a>(
+        &'a self,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
         self.general.delete(txn, b"custom_person_list_names")?;
         Ok(())
     }
