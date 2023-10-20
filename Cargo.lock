@@ -1895,7 +1895,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=4f1ade0e491889544c331633df9a275f59ccaffd#4f1ade0e491889544c331633df9a275f59ccaffd"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=8b150553ddf008a34d255eb7e60d620f525307fa#8b150553ddf008a34d255eb7e60d620f525307fa"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2009,6 +2009,15 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
+name = "hkdf"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
+dependencies = [
+ "hmac",
+]
 
 [[package]]
 name = "hmac"
@@ -2657,6 +2666,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nip44"
+version = "0.1.0"
+source = "git+https://github.com/mikedilger/nip44?rev=e38717f86ccccb91c25ebf07881a77d66411161c#e38717f86ccccb91c25ebf07881a77d66411161c"
+dependencies = [
+ "base64",
+ "chacha20",
+ "hkdf",
+ "hmac",
+ "rand_core",
+ "secp256k1 0.27.0",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "nix"
 version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2721,7 +2745,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.7.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=321e8b778f632fe084d45b5be9062e88b9742f92#321e8b778f632fe084d45b5be9062e88b9742f92"
+source = "git+https://github.com/mikedilger/nostr-types?rev=10988c28ed3de9773c59728d3e58bcb4b4624857#10988c28ed3de9773c59728d3e58bcb4b4624857"
 dependencies = [
  "aes",
  "base64",
@@ -2738,6 +2762,7 @@ dependencies = [
  "lazy_static",
  "lightning-invoice",
  "linkify",
+ "nip44",
  "num_cpus",
  "pbkdf2",
  "rand",
