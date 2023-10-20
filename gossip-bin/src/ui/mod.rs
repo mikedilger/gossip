@@ -82,6 +82,7 @@ pub fn run() -> Result<(), Error> {
         centered: true,
         vsync: true,
         follow_system_theme: GLOBALS.storage.read_setting_follow_os_dark_mode(),
+        min_window_size: Some(egui::vec2(800.0,600.0)),
         ..Default::default()
     };
 
