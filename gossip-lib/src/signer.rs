@@ -3,7 +3,8 @@ use std::sync::mpsc::Sender;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent, PrivateKey, PublicKey, Rumor,
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent,
+    PrivateKey, PublicKey, Rumor,
 };
 use parking_lot::RwLock;
 use tokio::task;
@@ -243,17 +244,6 @@ impl Signer {
         }
     }
 
-    pub(crate) fn new_nip04(
-        &self,
-        recipient_public_key: PublicKey,
-        message: &str,
-    ) -> Result<PreEvent, Error> {
-        match &*self.private.read() {
-            Some(pk) => Ok(PreEvent::new_nip04(pk, recipient_public_key, message)?),
-            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
-        }
-    }
-
     /// Export the private key as bech32 (decrypted!)
     pub fn export_private_key_bech32(&self, pass: &str) -> Result<String, Error> {
         let maybe_encrypted = self.encrypted.read().to_owned();
@@ -329,21 +319,37 @@ impl Signer {
     /// Unwrap a giftwrap event
     pub fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
         match &*self.private.read() {
-            Some(private) => Ok(event.giftwrap_unwrap(private, false)?),
+            Some(private) => Ok(event.giftwrap_unwrap(private)?),
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
 
-    /// Decrypt a NIP-44 event (version 1)
-    pub fn nip44_decrypt(
+    /// Encrypt content
+    pub fn encrypt(
         &self,
         other: &PublicKey,
-        ciphertext: &str,
-        padded: bool,
-    ) -> Result<Vec<u8>, Error> {
+        plaintext: &str,
+        algo: ContentEncryptionAlgorithm,
+    ) -> Result<String, Error> {
         match &*self.private.read() {
-            Some(private) => Ok(private.nip44_decrypt(other, ciphertext, padded)?),
-            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+            Some(private) => Ok(private.encrypt(other, plaintext, algo)?),
+            None => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+        }
+    }
+
+    /// Decrypt NIP-04 content
+    pub fn decrypt_nip04(&self, other: &PublicKey, ciphertext: &str) -> Result<Vec<u8>, Error> {
+        match &*self.private.read() {
+            Some(private) => Ok(private.decrypt_nip04(other, ciphertext)?),
+            None => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+        }
+    }
+
+    /// Decrypt NIP-44 content
+    pub fn decrypt_nip44(&self, other: &PublicKey, ciphertext: &str) -> Result<String, Error> {
+        match &*self.private.read() {
+            Some(private) => Ok(private.decrypt_nip44(other, ciphertext)?),
+            None => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
         }
     }
 }

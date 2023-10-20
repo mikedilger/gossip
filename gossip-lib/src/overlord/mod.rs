@@ -18,9 +18,9 @@ use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, Id, IdHex, Metadata, MilliSatoshi,
-    NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag,
-    UncheckedUrl, Unixtime,
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, Id, IdHex,
+    Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -1306,8 +1306,24 @@ impl Overlord {
                 };
 
                 // On a DM, we ignore tags and reply_to
+                let enc_content = GLOBALS.signer.encrypt(
+                    &recipient,
+                    &content,
+                    ContentEncryptionAlgorithm::Nip04,
+                )?;
 
-                GLOBALS.signer.new_nip04(recipient, &content)?
+                PreEvent {
+                    pubkey: public_key,
+                    created_at: Unixtime::now().unwrap(),
+                    kind: EventKind::EncryptedDirectMessage,
+                    tags: vec![Tag::Pubkey {
+                        pubkey: recipient.into(),
+                        recommended_relay_url: None, // FIXME,
+                        petname: None,
+                        trailing: Vec::new(),
+                    }],
+                    content: enc_content,
+                }
             }
             _ => {
                 if GLOBALS.storage.read_setting_set_client_tag() {
