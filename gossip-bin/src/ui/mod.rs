@@ -1121,6 +1121,18 @@ impl GossipUi {
                     self.person_qr.is_none());
     }
 
+    pub fn person_name(person: &Person) -> String {
+        if let Some(petname) = &person.petname {
+            petname.clone()
+        } else if let Some(display_name) = person.display_name() {
+            display_name.to_string()
+        } else if let Some(nip05) = person.nip05() {
+            nip05.to_string()
+        } else {
+            gossip_lib::names::pubkey_short(&person.pubkey)
+        }
+    }
+
     pub fn render_person_name_line(
         app: &mut GossipUi,
         ui: &mut Ui,

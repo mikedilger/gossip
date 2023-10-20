@@ -42,8 +42,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(20.0);
     ui.horizontal(|ui|{
         ui.add_space(10.0);
-        let display_name = gossip_lib::names::display_name_from_person(&person);
-        ui.label(RichText::new(display_name)
+        let name = GossipUi::person_name(&person);
+        ui.label(RichText::new(name)
             .size(22.0)
             .color(app.theme.accent_color()));
     });
@@ -62,9 +62,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
     let npub = pubkey.as_bech32_string();
     let mut lud06 = "unable to get lud06".to_owned();
     let mut lud16 = "unable to get lud16".to_owned();
-    // let name = person.display_name()
-    //     .unwrap_or(person.nip05()
-    //         .unwrap_or(npub.as_str()));
 
     let width = ui.available_width() - AVATAR_COL_WIDTH_SPACE;
     let width = width.max(MIN_ITEM_WIDTH);
@@ -95,27 +92,63 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 profile_item(ui, lwidth, "display name", person.display_name().unwrap_or(""));
             });
 
+            // Petname and petname editing
             make_frame()
                 .show(ui, |ui| {
                     ui.vertical(|ui| {
                         item_label(ui, "Pet Name");
                         ui.add_space(ITEM_V_SPACE);
                         ui.horizontal(|ui|{
-                            if let Some(petname) = person.petname.clone() {
-                                ui.label(petname);
-                                ui.add_space(3.0);
-                                if ui.link("change")
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                    .clicked() {
-
+                            if app.editing_petname {
+                                let edit_color = app.theme.input_text_color();
+                                ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
+                                if ui.link("save").clicked() {
+                                    let mut person = person.clone();
+                                    person.petname = Some(app.petname.clone());
+                                    if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                                        GLOBALS.status_queue.write().write(format!("{}", e));
+                                    }
+                                    app.editing_petname = false;
+                                    app.notes.cache_invalidate_person(&person.pubkey);
+                                }
+                                if ui.link("cancel").clicked() {
+                                    app.editing_petname = false;
+                                }
+                                if ui.link("remove").clicked() {
+                                    let mut person = person.clone();
+                                    person.petname = None;
+                                    if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                                        GLOBALS.status_queue.write().write(format!("{}", e));
+                                    }
+                                    app.editing_petname = false;
+                                    app.notes.cache_invalidate_person(&person.pubkey);
                                 }
                             } else {
-                                ui.label(RichText::new("[not set]").italics().weak());
-                                ui.add_space(3.0);
-                                if ui.link("add")
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                    .clicked() {
-
+                                if let Some(petname) = person.petname.clone() {
+                                    ui.label(&petname);
+                                    ui.add_space(3.0);
+                                    if ui.link("edit").clicked() {
+                                        app.editing_petname = true;
+                                        app.petname = petname.to_owned();
+                                    }
+                                    if ui.link("remove").clicked() {
+                                        let mut person = person.clone();
+                                        person.petname = None;
+                                        if let Err(e) = GLOBALS.storage.write_person(&person, None)
+                                        {
+                                            GLOBALS.status_queue.write().write(format!("{}", e));
+                                        }
+                                        app.notes.cache_invalidate_person(&person.pubkey);
+                                    }
+                                } else {
+                                    ui.label(RichText::new("[not set]").italics().weak());
+                                    ui.add_space(3.0);
+                                    if ui.link("add")
+                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                        .clicked() {
+                                            app.editing_petname = true;
+                                            app.petname = "".to_owned();
+                                    }
                                 }
                             }
                         });
@@ -274,60 +307,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     //     ui.heading(display_name);
                     //     ui.label(RichText::new(gossip_lib::names::pubkey_short(&pubkey)));
                     //     ui.add_space(10.0);
-                    //     ui.horizontal(|ui| {
-                    //         ui.label("Pet name:");
-                    //         if app.editing_petname {
-                    //             let edit_color = app.theme.input_text_color();
-                    //             ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
-                    //             if ui.button("save").clicked() {
-                    //                 let mut person = person.clone();
-                    //                 person.petname = Some(app.petname.clone());
-                    //                 if let Err(e) = GLOBALS.storage.write_person(&person, None) {
-                    //                     GLOBALS.status_queue.write().write(format!("{}", e));
-                    //                 }
-                    //                 app.editing_petname = false;
-                    //                 app.notes.cache_invalidate_person(&person.pubkey);
-                    //             }
-                    //             if ui.button("cancel").clicked() {
-                    //                 app.editing_petname = false;
-                    //             }
-                    //             if ui.button("remove").clicked() {
-                    //                 let mut person = person.clone();
-                    //                 person.petname = None;
-                    //                 if let Err(e) = GLOBALS.storage.write_person(&person, None) {
-                    //                     GLOBALS.status_queue.write().write(format!("{}", e));
-                    //                 }
-                    //                 app.editing_petname = false;
-                    //                 app.notes.cache_invalidate_person(&person.pubkey);
-                    //             }
-                    //         } else {
-                    //             match &person.petname {
-                    //                 Some(pn) => {
-                    //                     ui.label(pn);
-                    //                     if ui.button("edit").clicked() {
-                    //                         app.editing_petname = true;
-                    //                         app.petname = pn.to_owned();
-                    //                     }
-                    //                     if ui.button("remove").clicked() {
-                    //                         let mut person = person.clone();
-                    //                         person.petname = None;
-                    //                         if let Err(e) = GLOBALS.storage.write_person(&person, None)
-                    //                         {
-                    //                             GLOBALS.status_queue.write().write(format!("{}", e));
-                    //                         }
-                    //                         app.notes.cache_invalidate_person(&person.pubkey);
-                    //                     }
-                    //                 }
-                    //                 None => {
-                    //                     ui.label(RichText::new("none").italics());
-                    //                     if ui.button("add").clicked() {
-                    //                         app.editing_petname = true;
-                    //                         app.petname = "".to_owned();
-                    //                     }
-                    //                 }
-                    //             }
-                    //         }
-                    //     });
+                    //
 
                     //     ui.add_space(10.0);
                     //     {
