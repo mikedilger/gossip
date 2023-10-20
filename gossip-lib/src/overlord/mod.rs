@@ -11,16 +11,16 @@ use crate::people::Person;
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
-    add_addr_to_tags, add_event_parent_to_tags, add_event_to_tags, add_pubkey_hex_to_tags,
-    add_pubkey_to_tags, add_subject_to_tags_if_missing,
+    add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
+    add_subject_to_tags_if_missing,
 };
 use gossip_relay_picker::{Direction, RelayAssignment};
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, Id, IdHex, Metadata, MilliSatoshi,
-    NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag,
-    UncheckedUrl, Unixtime,
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, Id, IdHex,
+    Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -58,22 +58,38 @@ impl Overlord {
     /// pass one half of the unbounded_channel to the overlord. You will have to steal this
     /// from GLOBALS as follows:
     ///
-    /// ````
+    /// ```
+    /// # use std::ops::DerefMut;
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// #   use gossip_lib::GLOBALS;
     /// let overlord_receiver = {
     ///   let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
     ///   mutex_option.deref_mut().take()
     /// }.unwrap();
     ///
-    /// let mut overlord = gossip_lib::Overlord::new(overlord_receifver);
-    /// ````
+    /// let mut overlord = gossip_lib::Overlord::new(overlord_receiver);
+    /// # }
+    /// ```
     ///
     /// Once you have created an overlord, run it and await on it. This will block your thread.
     /// You may use other `tokio` or `futures` combinators, or spawn it on it's own thread
     /// if you wish.
     ///
-    /// ````
-    /// overlord.run().await();
-    /// ````
+    /// ```
+    /// # use std::ops::DerefMut;
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// #   use gossip_lib::GLOBALS;
+    /// #   let overlord_receiver = {
+    /// #     let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
+    /// #     mutex_option.deref_mut().take()
+    /// #   }.unwrap();
+    /// #
+    /// #   let mut overlord = gossip_lib::Overlord::new(overlord_receiver);
+    /// overlord.run().await;
+    /// # }
+    /// ```
     pub fn new(inbox: UnboundedReceiver<ToOverlordMessage>) -> Overlord {
         let to_minions = GLOBALS.to_minions.clone();
         Overlord {
@@ -1306,8 +1322,24 @@ impl Overlord {
                 };
 
                 // On a DM, we ignore tags and reply_to
+                let enc_content = GLOBALS.signer.encrypt(
+                    &recipient,
+                    &content,
+                    ContentEncryptionAlgorithm::Nip04,
+                )?;
 
-                GLOBALS.signer.new_nip04(recipient, &content)?
+                PreEvent {
+                    pubkey: public_key,
+                    created_at: Unixtime::now().unwrap(),
+                    kind: EventKind::EncryptedDirectMessage,
+                    tags: vec![Tag::Pubkey {
+                        pubkey: recipient.into(),
+                        recommended_relay_url: None, // FIXME,
+                        petname: None,
+                        trailing: Vec::new(),
+                    }],
+                    content: enc_content,
+                }
             }
             _ => {
                 if GLOBALS.storage.read_setting_set_client_tag() {
@@ -1403,19 +1435,17 @@ impl Overlord {
                         // Add an 'e' tag for the root
                         add_event_to_tags(&mut tags, root, "root").await;
 
-                        // Add an 'e' and 'E' tag for the note we are replying to
+                        // Add an 'e' tag for the note we are replying to
                         add_event_to_tags(&mut tags, parent_id, "reply").await;
-                        add_event_parent_to_tags(&mut tags, parent_id).await;
                     } else {
                         let ancestors = parent.referred_events();
                         if ancestors.is_empty() {
                             // parent is the root
                             add_event_to_tags(&mut tags, parent_id, "root").await;
                         } else {
-                            // Add an 'e' and 'E' tag for the note we are replying to
+                            // Add an 'e' tag for the note we are replying to
                             // (and we don't know about the root, the parent is malformed).
                             add_event_to_tags(&mut tags, parent_id, "reply").await;
-                            add_event_parent_to_tags(&mut tags, parent_id).await;
                         }
                     }
 

@@ -28,31 +28,6 @@ pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: &PublicKey)
     add_pubkey_hex_to_tags(existing_tags, &added.as_hex_string().into()).await
 }
 
-pub async fn add_event_parent_to_tags(existing_tags: &mut Vec<Tag>, added: Id) -> usize {
-    let newtag = Tag::EventParent {
-        id: added,
-        recommended_relay_url: Relay::recommended_relay_for_reply(added)
-            .await
-            .ok()
-            .flatten()
-            .map(|rr| rr.to_unchecked_url()),
-        trailing: Vec::new(),
-    };
-
-    match existing_tags.iter().position(|existing_tag| {
-        matches!(
-            existing_tag,
-            Tag::EventParent { id: existing_e, .. } if existing_e.0 == added.0
-        )
-    }) {
-        None => {
-            existing_tags.push(newtag);
-            existing_tags.len() - 1
-        }
-        Some(idx) => idx,
-    }
-}
-
 pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: &str) -> usize {
     let newtag = Tag::Event {
         id: added,

@@ -1,4 +1,6 @@
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use heed::RwTxn;
 use speedy::{Readable, Writable};
 
 /// Lists people can be added to
@@ -7,19 +9,9 @@ use speedy::{Readable, Writable};
 pub enum PersonList1 {
     Muted = 0,
     Followed = 1,
-
-    // custom starts at 10 to leave space
+    // Custom starts at 2.  If we later need more well-known values, we will
+    // run them from 255 and work down.
     Custom(u8),
-}
-
-impl From<u8> for PersonList1 {
-    fn from(u: u8) -> Self {
-        match u {
-            0 => PersonList1::Muted,
-            1 => PersonList1::Followed,
-            u => PersonList1::Custom(u),
-        }
-    }
 }
 
 impl From<PersonList1> for u8 {
@@ -33,36 +25,88 @@ impl From<PersonList1> for u8 {
 }
 
 impl PersonList1 {
-    /// Custom lists (from 0-9, humans number them from 1-10)
-    pub fn custom(index: u8) -> Option<PersonList1> {
-        if index > 9 {
-            None
-        } else {
-            Some(PersonList1::Custom(index + 10))
+    // Not public, because we only allow creating PersonList1::Custom(u8) if
+    // we also have allocated it.
+    pub(in crate::storage) fn from_u8(u: u8) -> Self {
+        match u {
+            0 => PersonList1::Muted,
+            1 => PersonList1::Followed,
+            u => PersonList1::Custom(u),
         }
     }
 
+    /// Translate a name (d-tag) to a PersonList1
+    pub fn from_name(name: &str) -> Option<PersonList1> {
+        let map = GLOBALS.storage.read_setting_custom_person_list_map();
+        for (k, v) in map.iter() {
+            if v == name {
+                return Some(Self::from_u8(*k));
+            }
+        }
+        None
+    }
+
+    /// All Allocated PersonList1s
+    pub fn all_lists() -> Vec<(PersonList1, String)> {
+        let mut output: Vec<(PersonList1, String)> = vec![];
+        let map = GLOBALS.storage.read_setting_custom_person_list_map();
+        for (k, v) in map.iter() {
+            output.push((PersonList1::Custom(*k), v.clone()));
+        }
+        output
+    }
+
+    /// Allocate a new PersonList1 with the given name
+    pub fn allocate(name: &str, txn: Option<&mut RwTxn<'_>>) -> Result<PersonList1, Error> {
+        let mut map = GLOBALS.storage.read_setting_custom_person_list_map();
+        for i in 2..255 {
+            if map.contains_key(&i) {
+                continue;
+            }
+            map.insert(i, name.to_owned());
+            GLOBALS
+                .storage
+                .write_setting_custom_person_list_map(&map, txn)?;
+            return Ok(PersonList1::Custom(i));
+        }
+        Err(ErrorKind::NoSlotsRemaining.into())
+    }
+
+    /// Deallocate this PersonList1
+    pub fn deallocate(&self, txn: Option<&mut RwTxn<'_>>) -> Result<(), Error> {
+        if !GLOBALS.storage.get_people_in_list(*self, None)?.is_empty() {
+            Err(ErrorKind::ListIsNotEmpty.into())
+        } else {
+            if let PersonList1::Custom(i) = self {
+                let mut map = GLOBALS.storage.read_setting_custom_person_list_map();
+                map.remove(i);
+                GLOBALS
+                    .storage
+                    .write_setting_custom_person_list_map(&map, txn)?;
+                Ok(())
+            } else {
+                Err(ErrorKind::ListIsWellKnown.into())
+            }
+        }
+    }
+
+    /// Get the name (d-tag) of this PersonList1
     pub fn name(&self) -> String {
         match *self {
             PersonList1::Muted => "Muted".to_string(),
             PersonList1::Followed => "Followed".to_string(),
             PersonList1::Custom(u) => {
-                if (10..=19).contains(&u) {
-                    GLOBALS.storage.read_setting_custom_person_list_names()[u as usize - 10].clone()
-                } else if u > 19 {
-                    format!("Custom List {}", u - 9) // humans count from 1
-                } else {
-                    format!("Undefined list in slot={}", u)
+                let map = GLOBALS.storage.read_setting_custom_person_list_map();
+                match map.get(&u) {
+                    Some(name) => name.to_owned(),
+                    None => "Unallocated".to_owned(),
                 }
             }
         }
     }
 
+    /// Should we subscribe to events from people in this list?
     pub fn subscribe(&self) -> bool {
-        match *self {
-            PersonList1::Muted => false,
-            PersonList1::Followed => true,
-            PersonList1::Custom(_) => true,
-        }
+        !matches!(*self, PersonList1::Muted)
     }
 }
