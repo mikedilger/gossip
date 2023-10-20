@@ -17,6 +17,13 @@ use gossip_lib::GLOBALS;
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
 
+const ITEM_V_SPACE: f32 = 2.0;
+const AVATAR_COL_WIDTH: f32 = AVATAR_SIZE_F32 * 3.0;
+const AVATAR_COL_SPACE: f32 = 30.0;
+const AVATAR_COL_WIDTH_SPACE: f32 = AVATAR_COL_WIDTH + AVATAR_COL_SPACE * 2.0;
+const MIN_ITEM_WIDTH: f32 = 250.0;
+const MIN_PROFILE_WIDTH: f32 = MIN_ITEM_WIDTH + AVATAR_COL_WIDTH_SPACE;
+
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let (pubkey, person) = match &app.page {
         Page::Person(pubkey) => {
@@ -51,9 +58,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
 }
 
-const ITEM_V_SPACE: f32 = 2.0;
-const AVATAR_COL_WIDTH: f32 = AVATAR_SIZE_F32 * 3.0 + 60.0;
-
 fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, person: Person) {
     let npub = pubkey.as_bech32_string();
     let mut lud06 = "unable to get lud06".to_owned();
@@ -62,18 +66,30 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
     //     .unwrap_or(person.nip05()
     //         .unwrap_or(npub.as_str()));
 
+    let width = ui.available_width() - AVATAR_COL_WIDTH_SPACE;
+    let width = width.max(MIN_ITEM_WIDTH);
+    let half_width = width / 2.0 - 10.0;
+
     ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui|{
-        ui.allocate_ui_with_layout(
-            vec2(ui.available_width() - AVATAR_COL_WIDTH, f32::INFINITY),
-            egui::Layout::top_down(egui::Align::TOP).with_cross_justify(true),
+        ui.with_layout(
+            egui::Layout::top_down(egui::Align::TOP),
             |ui|{ // left column
+            ui.set_min_width(width);
+            ui.set_max_width(width);
             let person = person.clone();
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP).with_main_justify(true), |ui|{
+
+            let (layout, lwidth) = if width > (MIN_ITEM_WIDTH * 2.0) {
+                (egui::Layout::left_to_right(egui::Align::TOP).with_main_justify(true), half_width)
+            } else {
+                (egui::Layout::top_down(egui::Align::TOP).with_cross_justify(true), width)
+            };
+
+            ui.with_layout(layout,|ui|{
                 profile_item_qr(ui, app, "public key", gossip_lib::names::pubkey_short(&pubkey), "npub");
                 profile_item(ui, "NIP-05", person.nip05().unwrap_or(""));
             });
 
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP).with_main_justify(true), |ui|{
+            ui.with_layout(layout, |ui|{
                 profile_item(ui, "name", person.name().unwrap_or(""));
                 profile_item(ui, "display name", person.display_name().unwrap_or(""));
             });
@@ -184,17 +200,17 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
         // avatar column
         ui.allocate_ui_with_layout(
             vec2( AVATAR_COL_WIDTH, f32::INFINITY),
-            egui::Layout::top_down_justified(egui::Align::TOP).with_cross_justify(true),
-            |ui|{ // right column
-            ui.add_space(10.0);
+            egui::Layout::right_to_left(egui::Align::TOP).with_main_justify(true),
+            |ui|{
+            ui.add_space(AVATAR_COL_SPACE);
+            ui.vertical(|ui|{
 
-            let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pubkey) {
-                avatar
-            } else {
-                app.placeholder_avatar.clone()
-            };
-            ui.horizontal(|ui| {
-                ui.add_space(20.0);
+                let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pubkey) {
+                    avatar
+                } else {
+                    app.placeholder_avatar.clone()
+                };
+
                 ui.vertical_centered_justified(|ui|{
                     let followed = person.is_in_list(PersonList::Followed);
                     let muted = person.is_in_list(PersonList::Muted);
@@ -251,17 +267,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     }
                     ui.add_space(BTN_SPACING);
                 });
-                ui.add_space(20.0);
             });
+            ui.add_space(AVATAR_COL_SPACE);
         });
 
-        // space column
-        ui.allocate_ui_with_layout(
-            vec2(20.0, f32::INFINITY),
-            egui::Layout::left_to_right(egui::Align::TOP),
-            |ui|{
-            ui.add_space(20.0);
-        });
                     // ui.vertical(|ui| {
 
                     //     ui.heading(display_name);
@@ -444,10 +453,13 @@ fn profile_item_frame(ui: &mut Ui, label: impl Into<String>, content: impl Into<
     let inner = {
         let ui =&mut prepared.content_ui;
         ui.horizontal(|ui|{
+            ui.set_min_width(MIN_ITEM_WIDTH);
             let response = ui.vertical(|ui|{
                 ui.label(RichText::new(label.to_uppercase()).weak());
                 ui.add_space(ITEM_V_SPACE);
-                ui.label(content);
+                ui.horizontal_wrapped(|ui|{
+                    ui.label(content);
+                });
             }).response;
             ui.add_space(20.0);
             response
