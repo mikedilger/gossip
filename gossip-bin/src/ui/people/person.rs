@@ -2,6 +2,7 @@ use super::{GossipUi, Page};
 use crate::ui::widgets;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
+use crate::ui::widgets::list_entry;
 use eframe::egui;
 use egui::{Context, Image, RichText, TextEdit, Ui, Vec2};
 use egui_winit::egui::InnerResponse;
@@ -19,10 +20,9 @@ use serde_json::Value;
 
 const ITEM_V_SPACE: f32 = 2.0;
 const AVATAR_COL_WIDTH: f32 = AVATAR_SIZE_F32 * 3.0;
-const AVATAR_COL_SPACE: f32 = 30.0;
+const AVATAR_COL_SPACE: f32 = 20.0;
 const AVATAR_COL_WIDTH_SPACE: f32 = AVATAR_COL_WIDTH + AVATAR_COL_SPACE * 2.0;
 const MIN_ITEM_WIDTH: f32 = 250.0;
-const MIN_PROFILE_WIDTH: f32 = MIN_ITEM_WIDTH + AVATAR_COL_WIDTH_SPACE;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let (pubkey, person) = match &app.page {
@@ -68,7 +68,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
     let width = ui.available_width() - AVATAR_COL_WIDTH_SPACE;
     let width = width.max(MIN_ITEM_WIDTH);
-    let half_width = width / 2.0 - 10.0;
+    let half_width = width / 2.0;
 
     ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui|{
         ui.with_layout(
@@ -78,20 +78,21 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.set_max_width(width);
             let person = person.clone();
 
+            // "responsive" layout
             let (layout, lwidth) = if width > (MIN_ITEM_WIDTH * 2.0) {
-                (egui::Layout::left_to_right(egui::Align::TOP).with_main_justify(true), half_width)
+                (egui::Layout::left_to_right(egui::Align::TOP), half_width)
             } else {
-                (egui::Layout::top_down(egui::Align::TOP).with_cross_justify(true), width)
+                (egui::Layout::top_down(egui::Align::TOP), width)
             };
 
             ui.with_layout(layout,|ui|{
-                profile_item_qr(ui, app, "public key", gossip_lib::names::pubkey_short(&pubkey), "npub");
-                profile_item(ui, "NIP-05", person.nip05().unwrap_or(""));
+                profile_item_qr(ui, app, lwidth,"public key", gossip_lib::names::pubkey_short(&pubkey), "npub");
+                profile_item(ui, lwidth, "NIP-05", person.nip05().unwrap_or(""));
             });
 
             ui.with_layout(layout, |ui|{
-                profile_item(ui, "name", person.name().unwrap_or(""));
-                profile_item(ui, "display name", person.display_name().unwrap_or(""));
+                profile_item(ui, lwidth, "name", person.name().unwrap_or(""));
+                profile_item(ui, lwidth, "display name", person.display_name().unwrap_or(""));
             });
 
             widgets::list_entry::make_frame(ui)
@@ -123,7 +124,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 });
 
             if let Some(about) = person.about() {
-                profile_item(ui, "about", about);
+                profile_item(ui, width, "about", about);
             }
 
             if let Some(md) = &person.metadata {
@@ -136,12 +137,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                     if key == "lud06" {
                         lud06 = svalue.to_owned();
-                        profile_item_qr(ui, app, key, &svalue, "lud06");
+                        profile_item_qr(ui, app, width, key, &svalue, "lud06");
                     } else if key == "lud16" {
                         lud16 = svalue.to_owned();
-                        profile_item_qr(ui, app, key,&svalue, "lud16");
+                        profile_item_qr(ui, app, width, key,&svalue, "lud16");
                     } else {
-                        profile_item(ui, key, &svalue);
+                        profile_item(ui, width, key, &svalue);
                     }
                 }
             }
@@ -158,7 +159,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         .collect::<Vec<String>>()
                         .join(", ");
 
-                    profile_item(ui, "Relays", relays_str);
+                    profile_item(ui, width, "Relays", relays_str);
 
                     // Option to manually add a relay for them
                     widgets::list_entry::make_frame(ui)
@@ -202,7 +203,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             vec2( AVATAR_COL_WIDTH, f32::INFINITY),
             egui::Layout::right_to_left(egui::Align::TOP).with_main_justify(true),
             |ui|{
-            ui.add_space(AVATAR_COL_SPACE);
             ui.vertical(|ui|{
 
                 let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pubkey) {
@@ -424,9 +424,9 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 }
 
 /// A profile item
-fn profile_item(ui: &mut Ui, label: impl Into<String>, content: impl Into<String>) {
+fn profile_item(ui: &mut Ui, width: f32, label: impl Into<String>, content: impl Into<String>) {
     let content: String = content.into();
-    let response = profile_item_frame(ui, label, &content, CopyButton{}).response;
+    let response = profile_item_frame(ui, width, label, &content, CopyButton{}).response;
 
     if response
         .clicked() {
@@ -435,8 +435,8 @@ fn profile_item(ui: &mut Ui, label: impl Into<String>, content: impl Into<String
 }
 
 /// A profile item with qr copy option
-fn profile_item_qr(ui: &mut Ui, app: &mut GossipUi, label: impl Into<String>, display_content: impl Into<String>, qr_content: &'static str) {
-    let response = profile_item_frame(ui, label, display_content, egui::Label::new("⚃")).response;
+fn profile_item_qr(ui: &mut Ui, app: &mut GossipUi, width: f32, label: impl Into<String>, display_content: impl Into<String>, qr_content: &'static str) {
+    let response = profile_item_frame(ui, width, label, display_content, egui::Label::new("⚃")).response;
 
     if response
         .clicked() {
@@ -445,15 +445,18 @@ fn profile_item_qr(ui: &mut Ui, app: &mut GossipUi, label: impl Into<String>, di
     }
 }
 
-fn profile_item_frame(ui: &mut Ui, label: impl Into<String>, content: impl Into<String>, symbol: impl Widget) -> InnerResponse<Response> {
+fn profile_item_frame(ui: &mut Ui, width: f32, label: impl Into<String>, content: impl Into<String>, symbol: impl Widget) -> InnerResponse<Response> {
     let content: String = content.into();
     let label: String = label.into();
+
+    let width = width - list_entry::TEXT_LEFT - list_entry::TEXT_RIGHT - ui.spacing().item_spacing.x;
 
     let mut prepared = widgets::list_entry::make_frame(ui).begin(ui);
     let inner = {
         let ui =&mut prepared.content_ui;
         ui.horizontal(|ui|{
-            ui.set_min_width(MIN_ITEM_WIDTH);
+            ui.set_min_width(width);
+            ui.set_max_width(width);
             let response = ui.vertical(|ui|{
                 ui.label(RichText::new(label.to_uppercase()).weak());
                 ui.add_space(ITEM_V_SPACE);
@@ -461,22 +464,31 @@ fn profile_item_frame(ui: &mut Ui, label: impl Into<String>, content: impl Into<
                     ui.label(content);
                 });
             }).response;
-            ui.add_space(20.0);
+            // ui.add_space(20.0);
             response
         }).response
     };
 
     let frame_rect = (prepared.frame.inner_margin + prepared.frame.outer_margin).expand_rect(prepared.content_ui.min_rect());
 
-    let response = ui.interact(frame_rect, ui.auto_id_with(label), egui::Sense::click())
+    let response = ui.interact(frame_rect, ui.auto_id_with(&label), egui::Sense::click())
         .on_hover_cursor(egui::CursorIcon::PointingHand);
 
     if response.hovered() {
         let sym_rect = egui::Rect::from_min_size(
-            prepared.content_ui.min_rect().right_top() + vec2(-20.0, 0.0),
+            prepared.content_ui.min_rect().right_top() + vec2(-10.0, 0.0),
             vec2(10.0, 10.0)
         );
-        prepared.content_ui.put(sym_rect, symbol);
+        // prepared.content_ui.allocate_ui_at_rect(sym_rect, |ui| {
+        //     ui.add_sized(sym_rect.size(), symbol)
+        // });
+        egui::Area::new(ui.auto_id_with(label+"_sym"))
+            .movable(false)
+            .order(egui::Order::Foreground)
+            .fixed_pos(sym_rect.left_top())
+            .show(prepared.content_ui.ctx(), |ui|{
+                ui.add_sized(sym_rect.size(), symbol)
+            });
         prepared.frame.fill = ui.visuals().extreme_bg_color;
     } else {
         prepared.frame.fill = egui::Color32::TRANSPARENT;
