@@ -22,7 +22,7 @@ const ITEM_V_SPACE: f32 = 2.0;
 const AVATAR_COL_WIDTH: f32 = AVATAR_SIZE_F32 * 3.0;
 const AVATAR_COL_SPACE: f32 = 20.0;
 const AVATAR_COL_WIDTH_SPACE: f32 = AVATAR_COL_WIDTH + AVATAR_COL_SPACE * 2.0;
-const MIN_ITEM_WIDTH: f32 = 250.0;
+const MIN_ITEM_WIDTH: f32 = 200.0;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let (pubkey, person) = match &app.page {
@@ -39,7 +39,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    ui.add_space(20.0);
+    ui.add_space(10.0);
     ui.horizontal(|ui|{
         ui.add_space(10.0);
         let name = GossipUi::person_name(&person);
@@ -47,7 +47,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .size(22.0)
             .color(app.theme.accent_color()));
     });
-    ui.add_space(20.0);
 
     app.vert_scroll_area()
         .id_source("person page")
@@ -262,10 +261,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             .maintain_aspect_ratio(true),
                     );
 
-                    const MIN_SIZE: Vec2 = vec2(40.0, 25.0);
+                    const MIN_SIZE: Vec2 = vec2(40.0, 22.0);
                     const BTN_SPACING: f32 = 15.0;
                     const BTN_ROUNDING: f32 = 4.0;
-                    ui.add_space(20.0);
+                    ui.add_space(40.0);
 
                     // Button styles
                     //ui.style_mut().visuals.widgets.noninteractive.rounding
