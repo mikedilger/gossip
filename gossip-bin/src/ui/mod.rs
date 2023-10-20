@@ -1085,6 +1085,13 @@ impl eframe::App for GossipUi {
                     right: 10.0,
                     top: 10.0,
                     bottom: 0.0,
+                }).fill({
+                    match self.page {
+                        Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
+                            egui::Color32::WHITE
+                        }
+                        _ => {ctx.style().visuals.panel_fill}
+                    }
                 })
             })
             .show(ctx, |ui| {
