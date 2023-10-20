@@ -264,36 +264,71 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                     const MIN_SIZE: Vec2 = vec2(40.0, 25.0);
                     const BTN_SPACING: f32 = 15.0;
+                    const BTN_ROUNDING: f32 = 4.0;
                     ui.add_space(20.0);
 
-                    ui.vertical_centered_justified(|ui|{
-                        // *ui.style_mut() = app.theme.get_on_accent_style();
+                    // Button styles
+                    //ui.style_mut().visuals.widgets.noninteractive.rounding
+                    fn accent_button_1_style(ui: &mut Ui, app: &mut GossipUi) {
+                        let style = ui.style_mut();
+                        let accent_color = app.theme.accent_color();
+                        style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
+                        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new( 1.0, egui::Color32::WHITE);
+                        style.visuals.widgets.inactive.weak_bg_fill = accent_color;
+                        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
+                        style.visuals.widgets.active.weak_bg_fill = style.visuals.panel_fill.gamma_multiply(0.6);
+                        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
+                        style.visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, accent_color);
+                        style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::WHITE;
+                        style.visuals.widgets.hovered.fg_stroke.color = accent_color;
+                        style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, accent_color);
+                    }
 
-                        if ui.add(egui::Button::new("View posts").min_size(MIN_SIZE)).clicked() {
+                    fn accent_button_2_style(ui: &mut Ui, app: &mut GossipUi) {
+                        let style = ui.style_mut();
+                        let accent_color = app.theme.accent_color();
+                        style.visuals.widgets.noninteractive.weak_bg_fill = egui::Color32::WHITE;
+                        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new( 1.0, accent_color);
+                        style.visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, accent_color);
+                        style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::WHITE;
+                        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, accent_color);
+                        style.visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, accent_color);
+                        style.visuals.widgets.active.weak_bg_fill = accent_color;
+                        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
+                        style.visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, accent_color);
+                        style.visuals.widgets.hovered.weak_bg_fill = accent_color;
+                        style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new( 1.0, egui::Color32::WHITE);
+                        style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, accent_color);
+                    }
+
+                    ui.vertical_centered_justified(|ui|{
+                        accent_button_1_style(ui, app);
+
+                        if ui.add(egui::Button::new("View posts").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
                             app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
                         }
                         ui.add_space(BTN_SPACING);
-                        if ui.add(egui::Button::new("Send message").min_size(MIN_SIZE)).clicked() {
+                        if ui.add(egui::Button::new("Send message").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
                             let channel = DmChannel::new(&[person.pubkey]);
                             app.set_page(Page::Feed(FeedKind::DmChat(channel)));
                         };
                     });
 
-
                     ui.add_space(BTN_SPACING*2.0);
+                    accent_button_2_style(ui, app);
 
-                    if !followed && ui.add(egui::Button::new("Follow").min_size(MIN_SIZE)).clicked() {
+                    if !followed && ui.add(egui::Button::new("Follow").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
                         let _ = GLOBALS.people.follow(&person.pubkey, true, true);
-                    } else if followed && ui.add(egui::Button::new("Unfollow").min_size(MIN_SIZE)).clicked() {
+                    } else if followed && ui.add(egui::Button::new("Unfollow").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
                         let _ = GLOBALS.people.follow(&person.pubkey, false, true);
                     }
                     ui.add_space(BTN_SPACING);
-                    ui.add(egui::Button::new("Add to Priority").min_size(MIN_SIZE));
+                    ui.add(egui::Button::new("Add to Priority").min_size(MIN_SIZE).rounding(BTN_ROUNDING));
                     ui.add_space(BTN_SPACING);
                     // Do not show 'Mute' if this is yourself
                     if muted || !is_self {
                         let mute_label = if muted { "Unmute" } else { "Mute" };
-                        if ui.add(egui::Button::new(mute_label).min_size(MIN_SIZE)).clicked() {
+                        if ui.add(egui::Button::new(mute_label).min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
                             let _ = GLOBALS.people.mute(&person.pubkey, !muted, true);
                             app.notes.cache_invalidate_person(&person.pubkey);
                         }
