@@ -293,7 +293,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::WHITE;
                         style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, accent_color);
                         style.visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, accent_color);
-                        style.visuals.widgets.active.weak_bg_fill = accent_color;
+                        style.visuals.widgets.active.weak_bg_fill = accent_color.gamma_multiply(0.6);
                         style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
                         style.visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, accent_color);
                         style.visuals.widgets.hovered.weak_bg_fill = accent_color;
