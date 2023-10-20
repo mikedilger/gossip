@@ -41,7 +41,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ui.add_space(20.0);
     ui.horizontal(|ui|{
-        ui.add_space(15.0);
+        ui.add_space(10.0);
         let display_name = gossip_lib::names::display_name_from_person(&person);
         ui.label(RichText::new(display_name)
             .size(22.0)
@@ -95,11 +95,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 profile_item(ui, lwidth, "display name", person.display_name().unwrap_or(""));
             });
 
-            widgets::list_entry::make_frame(ui)
-                .fill(egui::Color32::TRANSPARENT)
+            make_frame()
                 .show(ui, |ui| {
                     ui.vertical(|ui| {
-                        ui.label(RichText::new("PET NAME").weak());
+                        item_label(ui, "Pet Name");
                         ui.add_space(ITEM_V_SPACE);
                         ui.horizontal(|ui|{
                             if let Some(petname) = person.petname.clone() {
@@ -162,11 +161,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     profile_item(ui, width, "Relays", relays_str);
 
                     // Option to manually add a relay for them
-                    widgets::list_entry::make_frame(ui)
-                        .fill(egui::Color32::TRANSPARENT)
+                    make_frame()
                         .show(ui, |ui| {
                             ui.vertical(|ui| {
-                                ui.label(RichText::new("MANUAL RELAY").weak());
+                                item_label(ui, "Manual Relay");
                                 ui.add_space(ITEM_V_SPACE);
                                 ui.horizontal(|ui| {
                                     ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
@@ -436,7 +434,8 @@ fn profile_item(ui: &mut Ui, width: f32, label: impl Into<String>, content: impl
 
 /// A profile item with qr copy option
 fn profile_item_qr(ui: &mut Ui, app: &mut GossipUi, width: f32, label: impl Into<String>, display_content: impl Into<String>, qr_content: &'static str) {
-    let response = profile_item_frame(ui, width, label, display_content, egui::Label::new("⚃")).response;
+    let symbol = egui::Label::new( egui::RichText::new("⚃").size(16.5) );
+    let response = profile_item_frame(ui, width, label, display_content, symbol).response;
 
     if response
         .clicked() {
@@ -445,20 +444,45 @@ fn profile_item_qr(ui: &mut Ui, app: &mut GossipUi, width: f32, label: impl Into
     }
 }
 
+fn make_frame() -> egui::Frame {
+    egui::Frame::none()
+        .inner_margin(egui::Margin {
+            left: 10.0,
+            right: 10.0,
+            top: 8.0,
+            bottom: 8.0,
+        })
+        .outer_margin(egui::Margin {
+            left: 0.0,
+            right: 0.0,
+            top: 0.0,
+            bottom: 0.0,
+        })
+        .fill(egui::Color32::TRANSPARENT)
+        .rounding(egui::Rounding::same(5.0))
+}
+
+fn item_label(ui: &mut Ui, label: impl Into<String>) {
+    let label: String = label.into();
+    ui.label(RichText::new(label.to_uppercase()).weak().small());
+}
+
 fn profile_item_frame(ui: &mut Ui, width: f32, label: impl Into<String>, content: impl Into<String>, symbol: impl Widget) -> InnerResponse<Response> {
     let content: String = content.into();
     let label: String = label.into();
 
     let width = width - list_entry::TEXT_LEFT - list_entry::TEXT_RIGHT - ui.spacing().item_spacing.x;
 
-    let mut prepared = widgets::list_entry::make_frame(ui).begin(ui);
+    let frame = make_frame();
+    let mut prepared = frame.begin(ui);
+
     let inner = {
         let ui =&mut prepared.content_ui;
         ui.horizontal(|ui|{
             ui.set_min_width(width);
             ui.set_max_width(width);
             let response = ui.vertical(|ui|{
-                ui.label(RichText::new(label.to_uppercase()).weak());
+                item_label(ui, &label);
                 ui.add_space(ITEM_V_SPACE);
                 ui.horizontal_wrapped(|ui|{
                     ui.label(content);
@@ -490,8 +514,6 @@ fn profile_item_frame(ui: &mut Ui, width: f32, label: impl Into<String>, content
                 ui.add_sized(sym_rect.size(), symbol)
             });
         prepared.frame.fill = ui.visuals().extreme_bg_color;
-    } else {
-        prepared.frame.fill = egui::Color32::TRANSPARENT;
     }
 
     prepared.end(ui);
