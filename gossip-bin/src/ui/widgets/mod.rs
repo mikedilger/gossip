@@ -28,15 +28,17 @@ pub const DROPDOWN_DISTANCE: f32 = 10.0;
 // }
 
 pub fn page_header<R>(ui: &mut Ui, title: impl Into<egui::RichText>, right_aligned_content: impl FnOnce(&mut Ui) -> R) {
-    ui.add_space(10.0);
-    ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-            ui.add_space(2.0);
-            ui.heading(title);
+    ui.vertical(|ui|{
+        ui.add_space(10.0);
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.add_space(2.0);
+                ui.heading(title);
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), right_aligned_content);
         });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), right_aligned_content);
+        ui.add_space(10.0);
     });
-    ui.add_space(10.0);
 }
 
 /// Create a label which truncates after max_width
