@@ -79,7 +79,7 @@ impl PersonList1 {
         } else {
             if let PersonList1::Custom(i) = self {
                 let mut map = GLOBALS.storage.read_setting_custom_person_list_map();
-                map.remove(&i);
+                map.remove(i);
                 GLOBALS
                     .storage
                     .write_setting_custom_person_list_map(&map, txn)?;

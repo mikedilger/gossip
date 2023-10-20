@@ -18,9 +18,9 @@
 //!
 //! To use gossip-lib, depend on it in your Cargo.toml
 //!
-//! ````
+//! ```rust.ignore
 //! gossip-lib = { git = "https://github.com/mikedilger/gossip" }
-//! ````
+//! ```
 //!
 //! You may specify optional features including:
 //!

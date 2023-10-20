@@ -58,22 +58,38 @@ impl Overlord {
     /// pass one half of the unbounded_channel to the overlord. You will have to steal this
     /// from GLOBALS as follows:
     ///
-    /// ````
+    /// ```
+    /// # use std::ops::DerefMut;
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// #   use gossip_lib::GLOBALS;
     /// let overlord_receiver = {
     ///   let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
     ///   mutex_option.deref_mut().take()
     /// }.unwrap();
     ///
-    /// let mut overlord = gossip_lib::Overlord::new(overlord_receifver);
-    /// ````
+    /// let mut overlord = gossip_lib::Overlord::new(overlord_receiver);
+    /// # }
+    /// ```
     ///
     /// Once you have created an overlord, run it and await on it. This will block your thread.
     /// You may use other `tokio` or `futures` combinators, or spawn it on it's own thread
     /// if you wish.
     ///
-    /// ````
-    /// overlord.run().await();
-    /// ````
+    /// ```
+    /// # use std::ops::DerefMut;
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// #   use gossip_lib::GLOBALS;
+    /// #   let overlord_receiver = {
+    /// #     let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
+    /// #     mutex_option.deref_mut().take()
+    /// #   }.unwrap();
+    /// #
+    /// #   let mut overlord = gossip_lib::Overlord::new(overlord_receiver);
+    /// overlord.run().await;
+    /// # }
+    /// ```
     pub fn new(inbox: UnboundedReceiver<ToOverlordMessage>) -> Overlord {
         let to_minions = GLOBALS.to_minions.clone();
         Overlord {
