@@ -62,6 +62,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
     let mut lud06 = "unable to get lud06".to_owned();
     let mut lud16 = "unable to get lud16".to_owned();
 
+    let is_self = if let Some(pubkey) = GLOBALS.signer.public_key() {
+        pubkey == person.pubkey
+    } else {
+        false
+    };
+
     let width = ui.available_width() - AVATAR_COL_WIDTH_SPACE;
     let width = width.max(MIN_ITEM_WIDTH);
     let half_width = width / 2.0;
@@ -167,6 +173,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     } else {
                         serde_json::to_string(&value).unwrap_or_default()
                     };
+
+                    if !is_self && svalue.trim().is_empty() {
+                        continue;
+                    }
 
                     if key == "lud06" {
                         lud06 = svalue.to_owned();
