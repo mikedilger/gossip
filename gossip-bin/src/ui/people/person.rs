@@ -104,7 +104,11 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
                                 if ui.link("save").clicked() {
                                     let mut person = person.clone();
-                                    person.petname = Some(app.petname.clone());
+                                    if app.petname.trim().is_empty() {
+                                        person.petname = None;
+                                    } else {
+                                        person.petname = Some(app.petname.clone());
+                                    }
                                     if let Err(e) = GLOBALS.storage.write_person(&person, None) {
                                         GLOBALS.status_queue.write().write(format!("{}", e));
                                     }
@@ -141,8 +145,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         app.notes.cache_invalidate_person(&person.pubkey);
                                     }
                                 } else {
-                                    ui.label(RichText::new("[not set]").italics().weak());
-                                    ui.add_space(3.0);
                                     if ui.link("add")
                                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                                         .clicked() {
