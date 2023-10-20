@@ -89,12 +89,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
             ui.with_layout(layout,|ui|{
                 profile_item_qr(ui, app, lwidth,"public key", gossip_lib::names::pubkey_short(&pubkey), "npub");
-                profile_item(ui, lwidth, "NIP-05", person.nip05().unwrap_or(""));
+                profile_item(ui, app, lwidth, "NIP-05", person.nip05().unwrap_or(""));
             });
 
             ui.with_layout(layout, |ui|{
-                profile_item(ui, lwidth, "name", person.name().unwrap_or(""));
-                profile_item(ui, lwidth, "display name", person.display_name().unwrap_or(""));
+                profile_item(ui, app, lwidth, "name", person.name().unwrap_or(""));
+                profile_item(ui, app, lwidth, "display name", person.display_name().unwrap_or(""));
             });
 
             // Petname and petname editing
@@ -163,7 +163,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 });
 
             if let Some(about) = person.about() {
-                profile_item(ui, width, "about", about);
+                profile_item(ui, app, width, "about", about);
             }
 
             if let Some(md) = &person.metadata {
@@ -185,7 +185,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         lud16 = svalue.to_owned();
                         profile_item_qr(ui, app, width, key,&svalue, "lud16");
                     } else {
-                        profile_item(ui, width, key, &svalue);
+                        profile_item(ui, app, width, key, &svalue);
                     }
                 }
             }
@@ -202,7 +202,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         .collect::<Vec<String>>()
                         .join(", ");
 
-                    profile_item(ui, width, "Relays", relays_str);
+                    profile_item(ui, app, width, "Relays", relays_str);
 
                     // Option to manually add a relay for them
                     make_frame()
@@ -347,40 +347,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             });
             ui.add_space(AVATAR_COL_SPACE);
         });
-
-                    // ui.vertical(|ui| {
-
-                    //     ui.heading(display_name);
-                    //     ui.label(RichText::new(gossip_lib::names::pubkey_short(&pubkey)));
-                    //     ui.add_space(10.0);
-                    //
-
-                    //     ui.add_space(10.0);
-                    //     {
-                    //         let visuals = ui.visuals_mut();
-                    //         visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
-                    //         visuals.widgets.inactive.fg_stroke.width = 1.0;
-                    //         visuals.widgets.inactive.fg_stroke.color =
-                    //             app.theme.get_style().visuals.extreme_bg_color;
-                    //         visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
-                    //         visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
-                    //         visuals.widgets.inactive.fg_stroke.color =
-                    //             app.theme.get_style().visuals.extreme_bg_color;
-                    //         GossipUi::render_person_name_line(app, ui, &person, true);
-                    //     }
-
-                    //     if let Some(about) = person.about() {
-                    //         ui.add_space(10.0);
-                    //         ui.separator();
-                    //         ui.add_space(10.0);
-                    //         ui.horizontal_wrapped(|ui| {
-                    //             ui.label(about);
-                    //             if ui.add(CopyButton {}).on_hover_text("Copy About").clicked() {
-                    //                 ui.output_mut(|o| o.copied_text = about.to_owned());
-                    //             }
-                    //         });
-                    //     }
-                    // });
     }); // horizontal
 
     // Render a modal with QR based on selections made above
@@ -448,9 +414,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 }
 
 /// A profile item
-fn profile_item(ui: &mut Ui, width: f32, label: impl Into<String>, content: impl Into<String>) {
+fn profile_item(ui: &mut Ui, app: &mut GossipUi, width: f32, label: impl Into<String>, content: impl Into<String>) {
     let content: String = content.into();
-    let response = profile_item_frame(ui, width, label, &content, CopyButton{}).response;
+    let symbol = CopyButton::new().stroke(egui::Stroke::new(1.4, app.theme.accent_color()));
+    let response = profile_item_frame(ui, width, label, &content, symbol).response;
 
     if response
         .clicked() {
@@ -460,7 +427,7 @@ fn profile_item(ui: &mut Ui, width: f32, label: impl Into<String>, content: impl
 
 /// A profile item with qr copy option
 fn profile_item_qr(ui: &mut Ui, app: &mut GossipUi, width: f32, label: impl Into<String>, display_content: impl Into<String>, qr_content: &'static str) {
-    let symbol = egui::Label::new( egui::RichText::new("⚃").size(16.5) );
+    let symbol = egui::Label::new( egui::RichText::new("⚃").size(16.5).color(app.theme.accent_color()) );
     let response = profile_item_frame(ui, width, label, display_content, symbol).response;
 
     if response

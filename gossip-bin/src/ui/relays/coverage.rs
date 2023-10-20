@@ -70,7 +70,7 @@ impl<'a> CoverageEntry<'a> {
                 id,
                 egui::Sense::click(),
             );
-            widgets::CopyButton::paint(ui, pos);
+            widgets::CopyButton::new().paint(ui, pos);
             if response
                 .on_hover_text("Copy to clipboard")
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
