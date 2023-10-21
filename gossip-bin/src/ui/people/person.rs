@@ -167,26 +167,58 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             }
 
             if let Some(md) = &person.metadata {
+
+                // render some important fields first
+                {
+                    const LUD06: &str = "lud06";
+                    if md.other.contains_key(LUD06) {
+                        if let Some(serde_json::Value::String(svalue)) = md.other.get(LUD06) {
+                            lud06 = svalue.to_owned();
+                            profile_item_qr(ui, app, width, LUD06, svalue, LUD06);
+                        }
+                    }
+                }
+
+                {
+                    const LUD16: &str = "lud16";
+                    if md.other.contains_key(LUD16) {
+                        if let Some(serde_json::Value::String(svalue)) = md.other.get(LUD16) {
+                            lud16 = svalue.to_owned();
+                            profile_item_qr(ui, app, width, LUD16, svalue, LUD16);
+                        }
+                    }
+                }
+
+                {
+                    const KEY: &str = "website";
+                    if md.other.contains_key(KEY) {
+                        if let Some(serde_json::Value::String(svalue)) = md.other.get(KEY) {
+                            lud16 = svalue.to_owned();
+                            profile_item(ui, app, width, KEY, svalue);
+                        }
+                    }
+                }
+
+                const SKIP: &[&str] = &[ "display_name", "lud06", "lud16", "website" ];
+
                 for (key, value) in &md.other {
+                    // skip the "important" fields that are already rendered
+                    if SKIP.contains(&key.as_str()) {
+                        continue;
+                    }
+
                     let svalue = if let Value::String(s) = value {
                         s.to_owned()
                     } else {
                         serde_json::to_string(&value).unwrap_or_default()
                     };
 
+                    // skip empty fields, unless it's the main account profile
                     if !is_self && svalue.trim().is_empty() {
                         continue;
                     }
 
-                    if key == "lud06" {
-                        lud06 = svalue.to_owned();
-                        profile_item_qr(ui, app, width, key, &svalue, "lud06");
-                    } else if key == "lud16" {
-                        lud16 = svalue.to_owned();
-                        profile_item_qr(ui, app, width, key,&svalue, "lud16");
-                    } else {
-                        profile_item(ui, app, width, key, &svalue);
-                    }
+                    profile_item(ui, app, width, key, &svalue);
                 }
             }
 

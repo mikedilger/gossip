@@ -1133,6 +1133,8 @@ impl GossipUi {
             petname.clone()
         } else if let Some(display_name) = person.display_name() {
             display_name.to_string()
+        } else if let Some(name) = person.name() {
+            name.to_string()
         } else if let Some(nip05) = person.nip05() {
             nip05.to_string()
         } else {
