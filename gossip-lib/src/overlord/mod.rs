@@ -2427,7 +2427,7 @@ impl Overlord {
         Ok(())
     }
 
-    /// Update the local mute list from the last ContactList event received.
+    /// Update the local mute list from the last MuteList event received.
     pub async fn update_mute_list(&mut self, merge: bool) -> Result<(), Error> {
         // Load the latest MuteList from the database
         let our_mute_list = {
