@@ -1,4 +1,4 @@
-use gossip_lib::{GLOBALS, PersonList, Relay};
+use gossip_lib::{PersonList, Relay, GLOBALS};
 use nostr_types::{Event, EventKind, PublicKey, RelayUrl};
 use std::collections::HashSet;
 
@@ -79,7 +79,9 @@ impl WizardState {
                 .unwrap_or(Vec::new());
         }
 
-        self.followed = GLOBALS.storage.get_people_in_list(PersonList::Followed, None)
+        self.followed = GLOBALS
+            .storage
+            .get_people_in_list(PersonList::Followed, None)
             .unwrap_or(vec![]);
 
         if self.need_discovery_relays() {

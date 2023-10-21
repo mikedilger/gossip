@@ -64,8 +64,10 @@ pub async fn process_new_event(
     }
 
     // Spam filter (displayable and author is not followed)
-    if event.effective_kind().is_feed_displayable() &&
-        !GLOBALS.people.is_person_in_list(&event.pubkey, PersonList::Followed)
+    if event.effective_kind().is_feed_displayable()
+        && !GLOBALS
+            .people
+            .is_person_in_list(&event.pubkey, PersonList::Followed)
     {
         let author = GLOBALS.storage.read_person(&event.pubkey)?;
         match crate::filter::filter(event.clone(), author) {
