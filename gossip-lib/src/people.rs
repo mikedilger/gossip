@@ -168,50 +168,13 @@ impl People {
         }
     }
 
-    /// Get all the pubkeys in the Followed list
-    pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        // We subscribe to all people in all lists.
-        // This is no longer synonomous with the ContactList list
-        match GLOBALS
+    /// Is the person in the list? (returns false on error)
+    #[inline]
+    pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> bool {
+        GLOBALS
             .storage
-            .get_people_in_list(PersonList::Followed, None)
-        {
-            Ok(people) => people,
-            Err(e) => {
-                tracing::error!("{}", e);
-                vec![]
-            }
-        }
-    }
-
-    /// Get all the pubkeys that the user mutes
-    pub fn get_muted_pubkeys(&self) -> Vec<PublicKey> {
-        match GLOBALS.storage.get_people_in_list(PersonList::Muted, None) {
-            Ok(people) => people,
-            Err(e) => {
-                tracing::error!("{}", e);
-                vec![]
-            }
-        }
-    }
-
-    /// Is the given pubkey followed?
-    pub fn is_followed(&self, pubkey: &PublicKey) -> bool {
-        match GLOBALS
-            .storage
-            .is_person_in_list(pubkey, PersonList::Followed)
-        {
-            Ok(answer) => answer,
-            _ => false,
-        }
-    }
-
-    /// Is the given pubkey muted?
-    pub fn is_muted(&self, pubkey: &PublicKey) -> bool {
-        match GLOBALS.storage.is_person_in_list(pubkey, PersonList::Muted) {
-            Ok(answer) => answer,
-            _ => false,
-        }
+            .is_person_in_list(pubkey, list)
+            .unwrap_or(false)
     }
 
     /// Get all the pubkeys that need relay lists (from the given set)
@@ -612,7 +575,7 @@ impl People {
     pub(crate) async fn generate_contact_list_event(&self) -> Result<Event, Error> {
         let mut p_tags: Vec<Tag> = Vec::new();
 
-        let pubkeys = self.get_followed_pubkeys();
+        let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Followed, None)?;
 
         for pubkey in &pubkeys {
             // Get their petname
@@ -662,7 +625,7 @@ impl People {
     pub(crate) async fn generate_mute_list_event(&self) -> Result<Event, Error> {
         let mut p_tags: Vec<Tag> = Vec::new();
 
-        let muted_pubkeys = self.get_muted_pubkeys();
+        let muted_pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Muted, None)?;
 
         for muted_pubkey in &muted_pubkeys {
             p_tags.push(Tag::Pubkey {

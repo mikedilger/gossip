@@ -1,5 +1,4 @@
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{GLOBALS, PersonList, Relay};
 use nostr_types::{Event, EventKind, PublicKey, RelayUrl};
 use std::collections::HashSet;
 
@@ -80,7 +79,8 @@ impl WizardState {
                 .unwrap_or(Vec::new());
         }
 
-        self.followed = GLOBALS.people.get_followed_pubkeys();
+        self.followed = GLOBALS.storage.get_people_in_list(PersonList::Followed, None)
+            .unwrap_or(vec![]);
 
         if self.need_discovery_relays() {
             let purplepages = RelayUrl::try_from_str("wss://purplepag.es/").unwrap();

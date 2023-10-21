@@ -3,12 +3,12 @@ use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Image, RichText, Sense, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Person;
-use gossip_lib::GLOBALS;
+use gossip_lib::{GLOBALS, Person, PersonList};
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let followed_pubkeys = GLOBALS.people.get_followed_pubkeys();
+    let followed_pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Followed, None)
+        .unwrap_or(vec![]);
     let mut people: Vec<Person> = Vec::new();
     for pk in &followed_pubkeys {
         if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {

@@ -2,6 +2,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
+use crate::people::PersonList;
 use crate::person_relay::PersonRelay;
 use async_recursion::async_recursion;
 use nostr_types::{
@@ -63,7 +64,9 @@ pub async fn process_new_event(
     }
 
     // Spam filter (displayable and author is not followed)
-    if event.effective_kind().is_feed_displayable() && !GLOBALS.people.is_followed(&event.pubkey) {
+    if event.effective_kind().is_feed_displayable() &&
+        !GLOBALS.people.is_person_in_list(&event.pubkey, PersonList::Followed)
+    {
         let author = GLOBALS.storage.read_person(&event.pubkey)?;
         match crate::filter::filter(event.clone(), author) {
             EventFilterAction::Allow => {}
