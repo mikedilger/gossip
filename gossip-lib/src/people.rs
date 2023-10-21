@@ -573,14 +573,6 @@ impl People {
             .collect())
     }
 
-    pub(crate) async fn generate_contact_list_event(&self) -> Result<Event, Error> {
-        self.generate_person_list_event(PersonList::Followed).await
-    }
-
-    pub(crate) async fn generate_mute_list_event(&self) -> Result<Event, Error> {
-        self.generate_person_list_event(PersonList::Muted).await
-    }
-
     pub(crate) async fn generate_person_list_event(
         &self,
         person_list: PersonList,

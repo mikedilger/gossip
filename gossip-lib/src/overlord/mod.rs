@@ -7,7 +7,7 @@ use crate::comms::{
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::globals::{ZapState, GLOBALS};
-use crate::people::Person;
+use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
@@ -639,14 +639,11 @@ impl Overlord {
             ToOverlordMessage::PruneDatabase => {
                 Self::prune_database()?;
             }
-            ToOverlordMessage::PushFollow => {
-                self.push_follow().await?;
+            ToOverlordMessage::PushPersonList(person_list) => {
+                self.push_person_list(person_list).await?;
             }
             ToOverlordMessage::PushMetadata(metadata) => {
                 self.push_metadata(metadata).await?;
-            }
-            ToOverlordMessage::PushMuteList => {
-                self.push_mute_list().await?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 Self::rank_relay(relay_url, rank)?;
@@ -1599,9 +1596,9 @@ impl Overlord {
         Ok(())
     }
 
-    /// Publish the user's following list
-    pub async fn push_follow(&mut self) -> Result<(), Error> {
-        let event = GLOBALS.people.generate_contact_list_event().await?;
+    /// Publish the user's specified PersonList
+    pub async fn push_person_list(&mut self, list: PersonList) -> Result<(), Error> {
+        let event = GLOBALS.people.generate_person_list_event(list).await?;
 
         // process event locally
         crate::process::process_new_event(&event, None, None, false, false).await?;
@@ -1613,7 +1610,7 @@ impl Overlord {
 
         for relay in relays {
             // Send it the event to pull our followers
-            tracing::debug!("Pushing ContactList to {}", &relay.url);
+            tracing::debug!("Pushing PersonList={} to {}", list.name(), &relay.url);
 
             self.engage_minion(
                 relay.url.clone(),
@@ -1661,38 +1658,6 @@ impl Overlord {
                 relay.url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostMetadata,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
-                    },
-                }],
-            )
-            .await?;
-        }
-
-        Ok(())
-    }
-
-    /// Publish the user's mute list
-    pub async fn push_mute_list(&mut self) -> Result<(), Error> {
-        let event = GLOBALS.people.generate_mute_list_event().await?;
-
-        // process event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
-
-        // Push to all of the relays we post to
-        let relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
-
-        for relay in relays {
-            // Send it the event to pull our followers
-            tracing::debug!("Pushing MuteList to {}", &relay.url);
-
-            self.engage_minion(
-                relay.url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostMuteList,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),

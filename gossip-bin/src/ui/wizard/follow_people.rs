@@ -139,7 +139,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             label = label.color(app.theme.accent_color());
         }
         if ui.button(label).clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::PushPersonList(PersonList::Followed));
 
             let _ = GLOBALS.storage.write_wizard_complete(true, None);
             app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));

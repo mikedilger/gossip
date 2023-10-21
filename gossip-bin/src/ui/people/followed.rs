@@ -85,7 +85,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 .on_hover_text("This publishes your Contact List")
                 .clicked()
             {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushFollow);
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::PushPersonList(PersonList::Followed));
             }
         }
 
