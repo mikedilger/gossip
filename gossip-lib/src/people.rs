@@ -5,7 +5,8 @@ use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::Direction;
 use image::RgbaImage;
 use nostr_types::{
-    Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
+    ContentEncryptionAlgorithm, Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag,
+    UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
@@ -573,91 +574,110 @@ impl People {
     }
 
     pub(crate) async fn generate_contact_list_event(&self) -> Result<Event, Error> {
-        let mut p_tags: Vec<Tag> = Vec::new();
-
-        let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Followed, None)?;
-
-        for pubkey in &pubkeys {
-            // Get their petname
-            let mut petname: Option<String> = None;
-            if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
-                petname = person.petname.clone();
-            }
-
-            // Get their best relay
-            let relays = GLOBALS.storage.get_best_relays(*pubkey, Direction::Write)?;
-            let maybeurl = relays.get(0);
-            p_tags.push(Tag::Pubkey {
-                pubkey: (*pubkey).into(),
-                recommended_relay_url: maybeurl.map(|(u, _)| u.to_unchecked_url()),
-                petname,
-                trailing: Vec::new(),
-            });
-        }
-
-        let public_key = match GLOBALS.signer.public_key() {
-            Some(pk) => pk,
-            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
-        };
-
-        // Get the content from our latest ContactList.
-        // We don't use the data, but we shouldn't clobber it.
-
-        let content = match GLOBALS
-            .storage
-            .get_replaceable_event(public_key, EventKind::ContactList)?
-        {
-            Some(c) => c.content,
-            None => "".to_owned(),
-        };
-
-        let pre_event = PreEvent {
-            pubkey: public_key,
-            created_at: Unixtime::now().unwrap(),
-            kind: EventKind::ContactList,
-            tags: p_tags,
-            content,
-        };
-
-        GLOBALS.signer.sign_preevent(pre_event, None, None)
+        self.generate_person_list_event(PersonList::Followed).await
     }
 
     pub(crate) async fn generate_mute_list_event(&self) -> Result<Event, Error> {
-        let mut p_tags: Vec<Tag> = Vec::new();
+        self.generate_person_list_event(PersonList::Muted).await
+    }
 
-        let muted_pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Muted, None)?;
+    pub(crate) async fn generate_person_list_event(
+        &self,
+        person_list: PersonList,
+    ) -> Result<Event, Error> {
+        if !GLOBALS.signer.is_ready() {
+            return Err((ErrorKind::NoPrivateKey, file!(), line!()).into());
+        }
 
-        for muted_pubkey in &muted_pubkeys {
-            p_tags.push(Tag::Pubkey {
-                pubkey: (*muted_pubkey).into(),
-                recommended_relay_url: None,
-                petname: None,
+        let my_pubkey = GLOBALS.signer.public_key().unwrap();
+
+        // Read the person list in two parts
+        let public_people = GLOBALS
+            .storage
+            .get_people_in_list(person_list, Some(true))?;
+        let private_people = GLOBALS
+            .storage
+            .get_people_in_list(person_list, Some(false))?;
+
+        // Determine the event kind
+        let kind = match person_list {
+            PersonList::Followed => EventKind::ContactList,
+            PersonList::Muted => EventKind::MuteList,
+            PersonList::Custom(_) => EventKind::CategorizedPeopleList,
+        };
+
+        // Build public p-tags
+        let mut tags: Vec<Tag> = Vec::new();
+        for pubkey in public_people.iter() {
+            // Only include petnames in the ContactList (which is only public people)
+            let petname = if kind == EventKind::ContactList {
+                if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
+                    person.petname.clone()
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Only include recommended relay urls in public entries, and not in the mute list
+            let recommended_relay_url = if kind != EventKind::MuteList {
+                let relays = GLOBALS.storage.get_best_relays(*pubkey, Direction::Write)?;
+                relays.get(0).map(|(u, _)| u.to_unchecked_url())
+            } else {
+                None
+            };
+
+            tags.push(Tag::Pubkey {
+                pubkey: pubkey.into(),
+                recommended_relay_url,
+                petname,
                 trailing: vec![],
             });
         }
 
-        let public_key = match GLOBALS.signer.public_key() {
-            Some(pk) => pk,
-            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
-        };
+        // Add d-tag if using CategorizedPeopleList
+        if matches!(person_list, PersonList::Custom(_)) {
+            tags.push(Tag::Identifier {
+                d: person_list.name(),
+                trailing: vec![],
+            });
+        }
 
-        // Get the content from our latest MuteList.
-        // We don't use the data, but we shouldn't clobber it (it is for private mutes
-        // that we have not implemented yet)
-
-        let content = match GLOBALS
-            .storage
-            .get_replaceable_event(public_key, EventKind::MuteList)?
-        {
-            Some(c) => c.content,
-            None => "".to_owned(),
+        let content = {
+            if kind == EventKind::ContactList {
+                match GLOBALS
+                    .storage
+                    .get_replaceable_event(my_pubkey, EventKind::ContactList)?
+                {
+                    Some(c) => c.content,
+                    None => "".to_owned(),
+                }
+            } else {
+                // Build private p-tags (except for ContactList)
+                let mut private_p_tags: Vec<Tag> = Vec::new();
+                for pubkey in private_people.iter() {
+                    private_p_tags.push(Tag::Pubkey {
+                        pubkey: pubkey.into(),
+                        recommended_relay_url: None,
+                        petname: None,
+                        trailing: vec![],
+                    });
+                }
+                let private_tags_string = serde_json::to_string(&private_p_tags)?;
+                GLOBALS.signer.encrypt(
+                    &my_pubkey,
+                    &private_tags_string,
+                    ContentEncryptionAlgorithm::Nip04,
+                )?
+            }
         };
 
         let pre_event = PreEvent {
-            pubkey: public_key,
+            pubkey: my_pubkey,
             created_at: Unixtime::now().unwrap(),
-            kind: EventKind::MuteList,
-            tags: p_tags,
+            kind,
+            tags,
             content,
         };
 
