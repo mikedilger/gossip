@@ -97,9 +97,9 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 profile_item(ui, app, lwidth, "display name", person.display_name().unwrap_or(""));
             });
 
-            // Petname and petname editing
-            make_frame()
-                .show(ui, |ui| {
+            if !is_self {
+                // Petname and petname editing
+                make_frame().show(ui, |ui| {
                     ui.vertical(|ui| {
                         item_label(ui, "Pet Name");
                         ui.add_space(ITEM_V_SPACE);
@@ -161,9 +161,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         });
                     });
                 });
+            }
 
             if let Some(about) = person.about() {
-                profile_item(ui, app, width, "about", about);
+                if !about.trim().is_empty() {
+                    profile_item(ui, app, width, "about", about);
+                }
             }
 
             if let Some(md) = &person.metadata {
@@ -173,8 +176,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     const LUD06: &str = "lud06";
                     if md.other.contains_key(LUD06) {
                         if let Some(serde_json::Value::String(svalue)) = md.other.get(LUD06) {
-                            lud06 = svalue.to_owned();
-                            profile_item_qr(ui, app, width, LUD06, svalue, LUD06);
+                            if !svalue.trim().is_empty() {
+                                lud06 = svalue.to_owned();
+                                profile_item_qr(ui, app, width, LUD06, svalue, LUD06);
+                            }
                         }
                     }
                 }
@@ -183,8 +188,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     const LUD16: &str = "lud16";
                     if md.other.contains_key(LUD16) {
                         if let Some(serde_json::Value::String(svalue)) = md.other.get(LUD16) {
-                            lud16 = svalue.to_owned();
-                            profile_item_qr(ui, app, width, LUD16, svalue, LUD16);
+                            if !svalue.trim().is_empty() {
+                                lud16 = svalue.to_owned();
+                                profile_item_qr(ui, app, width, LUD16, svalue, LUD16);
+                            }
                         }
                     }
                 }
@@ -193,8 +200,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     const KEY: &str = "website";
                     if md.other.contains_key(KEY) {
                         if let Some(serde_json::Value::String(svalue)) = md.other.get(KEY) {
-                            lud16 = svalue.to_owned();
-                            profile_item(ui, app, width, KEY, svalue);
+                            if !svalue.trim().is_empty() {
+                                lud16 = svalue.to_owned();
+                                profile_item(ui, app, width, KEY, svalue);
+                            }
                         }
                     }
                 }
@@ -371,33 +380,40 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         if ui.add(egui::Button::new("View posts").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
                             app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
                         }
+
                         ui.add_space(BTN_SPACING);
-                        if ui.add(egui::Button::new("Send message").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
-                            let channel = DmChannel::new(&[person.pubkey]);
-                            app.set_page(Page::Feed(FeedKind::DmChat(channel)));
-                        };
+
+                        if !is_self {
+                            if ui.add(egui::Button::new("Send message").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
+                                let channel = DmChannel::new(&[person.pubkey]);
+                                app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                            };
+                        } else {
+                            if ui.add(egui::Button::new("Edit Profile").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
+                                app.set_page(Page::YourMetadata);
+                            }
+                        }
                     });
 
-                    ui.add_space(BTN_SPACING*2.0);
-                    accent_button_2_style(ui, app);
+                    if !is_self {
+                        ui.add_space(BTN_SPACING*2.0);
+                        accent_button_2_style(ui, app);
 
-                    if !followed && ui.add(egui::Button::new("Follow").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
-                        let _ = GLOBALS.people.follow(&person.pubkey, true, true);
-                    } else if followed && ui.add(egui::Button::new("Unfollow").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
-                        let _ = GLOBALS.people.follow(&person.pubkey, false, true);
-                    }
-                    ui.add_space(BTN_SPACING);
-                    ui.add(egui::Button::new("Add to Priority").min_size(MIN_SIZE).rounding(BTN_ROUNDING));
-                    ui.add_space(BTN_SPACING);
-                    // Do not show 'Mute' if this is yourself
-                    if muted || !is_self {
+                        if !followed && ui.add(egui::Button::new("Follow").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
+                            let _ = GLOBALS.people.follow(&person.pubkey, true, true);
+                        } else if followed && ui.add(egui::Button::new("Unfollow").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
+                            let _ = GLOBALS.people.follow(&person.pubkey, false, true);
+                        }
+                        ui.add_space(BTN_SPACING);
+                        ui.add(egui::Button::new("Add to Priority").min_size(MIN_SIZE).rounding(BTN_ROUNDING));
+                        ui.add_space(BTN_SPACING);
+
                         let mute_label = if muted { "Unmute" } else { "Mute" };
                         if ui.add(egui::Button::new(mute_label).min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
                             let _ = GLOBALS.people.mute(&person.pubkey, !muted, true);
                             app.notes.cache_invalidate_person(&person.pubkey);
                         }
                     }
-                    ui.add_space(BTN_SPACING);
                 });
             });
             ui.add_space(AVATAR_COL_SPACE);
