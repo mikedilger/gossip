@@ -319,21 +319,23 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         (_, _, true) => app.theme.accent_complementary_color(),
                         (false, false, false) => egui::Color32::TRANSPARENT,
                     };
-                    let center = avatar_response.rect.right_top() + vec2(-20.0,20.0);
-                    ui.painter().circle(
-                        center,
-                        10.0,
-                        status_color,
-                        egui::Stroke::new(2.0, egui::Color32::WHITE));
-                    let rect = egui::Rect::from_center_size(center, vec2(10.0,10.0));
-                    ui.interact(rect, ui.auto_id_with("status-circle"), egui::Sense::hover())
-                        .on_hover_text({
-                            let mut stat: Vec<&str> = Vec::new();
-                            if followed { stat.push("followed") }
-                            if priority { stat.push("priority") }
-                            if muted { stat.push("muted") }
-                            stat.join(", ")
-                        });
+                    if status_color != egui::Color32::TRANSPARENT {
+                        let center = avatar_response.rect.right_top() + vec2(-20.0,20.0);
+                        ui.painter().circle(
+                            center,
+                            10.0,
+                            status_color,
+                            egui::Stroke::new(2.0, egui::Color32::WHITE));
+                        let rect = egui::Rect::from_center_size(center, vec2(10.0,10.0));
+                        ui.interact(rect, ui.auto_id_with("status-circle"), egui::Sense::hover())
+                            .on_hover_text({
+                                let mut stat: Vec<&str> = Vec::new();
+                                if followed { stat.push("followed") }
+                                if priority { stat.push("priority") }
+                                if muted { stat.push("muted") }
+                                stat.join(", ")
+                            });
+                    }
 
                     const MIN_SIZE: Vec2 = vec2(40.0, 22.0);
                     const BTN_SPACING: f32 = 15.0;
