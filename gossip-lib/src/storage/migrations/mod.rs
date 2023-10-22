@@ -1,3 +1,5 @@
+mod deprecated;
+
 use super::types::{
     Person2, PersonList1, PersonRelay1, Settings1, Settings2, Theme1, ThemeVariant1,
 };
