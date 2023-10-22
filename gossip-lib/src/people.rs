@@ -9,7 +9,7 @@ use nostr_types::{
     UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task;
@@ -19,6 +19,30 @@ pub type Person = crate::storage::types::Person2;
 
 /// PersonList type, aliased to the latest version
 pub type PersonList = crate::storage::types::PersonList1;
+
+/// Person List Compare Data
+#[derive(Debug, Clone)]
+pub struct PersonListEventData {
+    /// The timestamp of the latest event
+    pub when: Unixtime,
+
+    /// The number of public entries in the latest event
+    pub public_len: usize,
+
+    /// The number of private entires in the latest event, or None if it
+    /// couldn't be computed (not logged in, Following event, or none found)
+    pub private_len: Option<usize>,
+}
+
+impl Default for PersonListEventData {
+    fn default() -> PersonListEventData {
+        PersonListEventData {
+            when: Unixtime(0),
+            public_len: 0,
+            private_len: None,
+        }
+    }
+}
 
 /// Handles people and remembers what needs to be done for each, such as fetching
 /// metadata or avatars.
@@ -46,17 +70,8 @@ pub struct People {
     // per gossip run (this set only grows)
     tried_metadata: DashSet<PublicKey>,
 
-    // Date of the last self-owned contact list we have an event for
-    pub last_contact_list_asof: AtomicI64,
-
-    // Size of the last self-owned contact list we have an event for
-    pub last_contact_list_size: AtomicUsize,
-
-    // Date of the last self-owned mute list we have an event for
-    pub last_mute_list_asof: AtomicI64,
-
-    // Size of the last self-owned mute list we have an event for
-    pub last_mute_list_size: AtomicUsize,
+    /// Latest person list event data for each PersonList
+    pub latest_person_list_event_data: DashMap<PersonList, PersonListEventData>,
 }
 
 impl Default for People {
@@ -75,67 +90,13 @@ impl People {
             recheck_nip05: DashSet::new(),
             need_metadata: DashSet::new(),
             tried_metadata: DashSet::new(),
-            last_contact_list_asof: AtomicI64::new(0),
-            last_contact_list_size: AtomicUsize::new(0),
-            last_mute_list_asof: AtomicI64::new(0),
-            last_mute_list_size: AtomicUsize::new(0),
+            latest_person_list_event_data: DashMap::new(),
         }
     }
 
     // Start the periodic task management
     pub(crate) fn start() {
-        if let Some(pk) = GLOBALS.signer.public_key() {
-            // Load our contact list from the database in order to populate
-            // last_contact_list_asof and last_contact_list_size
-            if let Ok(Some(event)) = GLOBALS
-                .storage
-                .get_replaceable_event(pk, EventKind::ContactList)
-            {
-                if event.created_at.0
-                    > GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .load(Ordering::Relaxed)
-                {
-                    GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
-                    let size = event
-                        .tags
-                        .iter()
-                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                        .count();
-                    GLOBALS
-                        .people
-                        .last_contact_list_size
-                        .store(size, Ordering::Relaxed);
-                }
-            }
-
-            // Load our mute list from the database in order to populate
-            // last_mute_list_asof and last_mute_list_size
-            if let Ok(Some(event)) = GLOBALS
-                .storage
-                .get_replaceable_event(pk, EventKind::MuteList)
-            {
-                if event.created_at.0 > GLOBALS.people.last_mute_list_asof.load(Ordering::Relaxed) {
-                    GLOBALS
-                        .people
-                        .last_mute_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
-                    let size = event
-                        .tags
-                        .iter()
-                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                        .count();
-                    GLOBALS
-                        .people
-                        .last_mute_list_size
-                        .store(size, Ordering::Relaxed);
-                }
-            }
-        }
+        GLOBALS.people.update_latest_person_list_event_data();
 
         task::spawn(async {
             loop {
@@ -154,6 +115,52 @@ impl People {
                 }
             }
         });
+    }
+
+    /// Search local events for the latest PersonList event for each kind of PersonList,
+    /// and determine their timestamps and lengths, storing result in People.
+    pub fn update_latest_person_list_event_data(&self) {
+        // Get public key, or give up
+        let pk = match GLOBALS.storage.read_setting_public_key() {
+            Some(pk) => pk,
+            None => return,
+        };
+
+        for (person_list, _) in PersonList::all_lists() {
+            if let Ok(Some(event)) = GLOBALS
+                .storage
+                .get_replaceable_event(pk, person_list.event_kind())
+            {
+                self.latest_person_list_event_data.insert(
+                    person_list,
+                    PersonListEventData {
+                        when: event.created_at,
+                        public_len: event
+                            .tags
+                            .iter()
+                            .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                            .count(),
+                        private_len: {
+                            let mut private_len: Option<usize> = None;
+                            if !matches!(person_list, PersonList::Followed)
+                                && GLOBALS.signer.is_ready()
+                            {
+                                if let Ok(bytes) = GLOBALS.signer.decrypt_nip04(&pk, &event.content)
+                                {
+                                    if let Ok(vectags) = serde_json::from_slice::<Vec<Tag>>(&bytes)
+                                    {
+                                        private_len = Some(vectags.len());
+                                    }
+                                }
+                            }
+                            private_len
+                        },
+                    },
+                );
+            } else {
+                self.latest_person_list_event_data.remove(&person_list);
+            }
+        }
     }
 
     /// Get all the pubkeys that the user subscribes to in any list
