@@ -1,4 +1,5 @@
 use crate::dm_channel::DmChannel;
+use crate::people::PersonList;
 use nostr_types::{
     Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, RelayUrl, Tag,
     UncheckedUrl,
@@ -102,14 +103,11 @@ pub enum ToOverlordMessage {
     /// Calls [prune_database](crate::Overlord::prune_database)
     PruneDatabase,
 
-    /// Calls [push_follow](crate::Overlord::push_follow)
-    PushFollow,
+    /// Calls [push_person_list](crate::Overlord::push_person_list)
+    PushPersonList(PersonList),
 
     /// Calls [push_metadata](crate::Overlord::push_metadata)
     PushMetadata(Metadata),
-
-    /// Calls [push_mute_list](crate::Overlord::push_mute_list)
-    PushMuteList,
 
     /// Calls [rank_relay](crate::Overlord::rank_relay)
     RankRelay(RelayUrl, u8),
@@ -152,17 +150,17 @@ pub enum ToOverlordMessage {
     /// Calls [unlock_key](crate::Overlord::unlock_key)
     UnlockKey(String),
 
-    /// Calls [update_following](crate::Overlord::update_following)
-    UpdateFollowing { merge: bool },
-
     /// Calls [update_metadata](crate::Overlord::update_metadata)
     UpdateMetadata(PublicKey),
 
     /// Calls [update_metadata_in_bulk](crate::Overlord::update_metadata_in_bulk)
     UpdateMetadataInBulk(Vec<PublicKey>),
 
-    /// Calls [update_mute_list](crate::Overlord::update_mute_list)
-    UpdateMuteList { merge: bool },
+    /// Calls [update_person_list](crate::Overlord::update_person_list)
+    UpdatePersonList {
+        person_list: PersonList,
+        merge: bool,
+    },
 
     /// Calls [visible_notes_changed](crate::Overlord::visible_notes_changed)
     VisibleNotesChanged(Vec<Id>),
