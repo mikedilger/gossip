@@ -703,9 +703,11 @@ impl People {
         }
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
 
-        GLOBALS
-            .storage
-            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+        GLOBALS.storage.set_person_list_last_edit_time(
+            PersonList::Followed,
+            Unixtime::now().unwrap().0,
+            Some(&mut txn),
+        )?;
 
         txn.commit()?;
 
@@ -738,9 +740,11 @@ impl People {
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
-        GLOBALS
-            .storage
-            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+        GLOBALS.storage.set_person_list_last_edit_time(
+            PersonList::Followed,
+            Unixtime::now().unwrap().0,
+            Some(&mut txn),
+        )?;
 
         txn.commit()?;
 
@@ -760,9 +764,11 @@ impl People {
         GLOBALS
             .storage
             .clear_person_list(PersonList::Followed, Some(&mut txn))?;
-        GLOBALS
-            .storage
-            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+        GLOBALS.storage.set_person_list_last_edit_time(
+            PersonList::Followed,
+            Unixtime::now().unwrap().0,
+            Some(&mut txn),
+        )?;
 
         txn.commit()?;
 
@@ -779,9 +785,11 @@ impl People {
         GLOBALS
             .storage
             .clear_person_list(PersonList::Muted, Some(&mut txn))?;
-        GLOBALS
-            .storage
-            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+        GLOBALS.storage.set_person_list_last_edit_time(
+            PersonList::Muted,
+            Unixtime::now().unwrap().0,
+            Some(&mut txn),
+        )?;
 
         txn.commit()?;
 
@@ -813,9 +821,11 @@ impl People {
                 .remove_person_from_list(pubkey, PersonList::Muted, Some(&mut txn))?;
         }
 
-        GLOBALS
-            .storage
-            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+        GLOBALS.storage.set_person_list_last_edit_time(
+            PersonList::Muted,
+            Unixtime::now().unwrap().0,
+            Some(&mut txn),
+        )?;
 
         txn.commit()?;
 
@@ -848,9 +858,11 @@ impl People {
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
-        GLOBALS
-            .storage
-            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+        GLOBALS.storage.set_person_list_last_edit_time(
+            PersonList::Muted,
+            Unixtime::now().unwrap().0,
+            Some(&mut txn),
+        )?;
 
         txn.commit()?;
 

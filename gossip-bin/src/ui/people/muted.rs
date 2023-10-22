@@ -111,8 +111,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ui.add_space(10.0);
 
-    let last_mute_list_edit = match GLOBALS.storage.read_last_mute_list_edit() {
-        Ok(date) => date,
+    let last_mute_list_edit = match GLOBALS
+        .storage
+        .get_person_list_last_edit_time(PersonList::Muted)
+    {
+        Ok(Some(date)) => date,
+        Ok(None) => 0,
         Err(e) => {
             tracing::error!("{}", e);
             0

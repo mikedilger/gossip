@@ -2317,7 +2317,7 @@ impl Overlord {
         };
         GLOBALS
             .storage
-            .write_last_contact_list_edit(last_edit.0, None)?;
+            .set_person_list_last_edit_time(PersonList::Followed, last_edit.0, None)?;
 
         // Pick relays again
         {
@@ -2434,7 +2434,7 @@ impl Overlord {
         };
         GLOBALS
             .storage
-            .write_last_mute_list_edit(last_edit.0, None)?;
+            .set_person_list_last_edit_time(PersonList::Muted, last_edit.0, None)?;
 
         Ok(())
     }
