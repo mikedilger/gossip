@@ -714,48 +714,6 @@ impl People {
         Ok(())
     }
 
-    /// Follow all these public keys.
-    /// This does not publish any events.
-    pub(crate) fn follow_all(
-        &self,
-        pubkeys: &[PublicKey],
-        public: bool,
-        merge: bool,
-    ) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        if !merge {
-            GLOBALS
-                .storage
-                .clear_person_list(PersonList::Followed, Some(&mut txn))?;
-        }
-
-        for pubkey in pubkeys {
-            GLOBALS.storage.add_person_to_list(
-                pubkey,
-                PersonList::Followed,
-                public,
-                Some(&mut txn),
-            )?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-        }
-
-        GLOBALS.storage.set_person_list_last_edit_time(
-            PersonList::Followed,
-            Unixtime::now().unwrap().0,
-            Some(&mut txn),
-        )?;
-
-        txn.commit()?;
-
-        // Add the people to the relay_picker for picking
-        for pubkey in pubkeys.iter() {
-            GLOBALS.relay_picker.add_someone(pubkey.to_owned())?;
-        }
-
-        Ok(())
-    }
-
     /// Empty the following list.
     /// This does not publish any events.
     pub(crate) fn follow_none(&self) -> Result<(), Error> {
@@ -830,41 +788,6 @@ impl People {
         txn.commit()?;
 
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-
-        Ok(())
-    }
-
-    pub(crate) fn mute_all(
-        &self,
-        pubkeys: &[PublicKey],
-        merge: bool,
-        public: bool,
-    ) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        if !merge {
-            GLOBALS
-                .storage
-                .clear_person_list(PersonList::Muted, Some(&mut txn))?;
-        }
-
-        for pubkey in pubkeys {
-            GLOBALS.storage.add_person_to_list(
-                pubkey,
-                PersonList::Muted,
-                public,
-                Some(&mut txn),
-            )?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-        }
-
-        GLOBALS.storage.set_person_list_last_edit_time(
-            PersonList::Muted,
-            Unixtime::now().unwrap().0,
-            Some(&mut txn),
-        )?;
-
-        txn.commit()?;
 
         Ok(())
     }

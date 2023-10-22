@@ -17,7 +17,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if app.wizard_state.contacts_sought {
         let _ = GLOBALS
             .to_overlord
-            .send(ToOverlordMessage::UpdateFollowing { merge: false });
+            .send(ToOverlordMessage::UpdatePersonList {
+                person_list: PersonList::Followed,
+                merge: false,
+            });
         app.wizard_state.contacts_sought = false;
     }
 

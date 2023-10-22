@@ -150,17 +150,17 @@ pub enum ToOverlordMessage {
     /// Calls [unlock_key](crate::Overlord::unlock_key)
     UnlockKey(String),
 
-    /// Calls [update_following](crate::Overlord::update_following)
-    UpdateFollowing { merge: bool },
-
     /// Calls [update_metadata](crate::Overlord::update_metadata)
     UpdateMetadata(PublicKey),
 
     /// Calls [update_metadata_in_bulk](crate::Overlord::update_metadata_in_bulk)
     UpdateMetadataInBulk(Vec<PublicKey>),
 
-    /// Calls [update_mute_list](crate::Overlord::update_mute_list)
-    UpdateMuteList { merge: bool },
+    /// Calls [update_person_list](crate::Overlord::update_person_list)
+    UpdatePersonList {
+        person_list: PersonList,
+        merge: bool,
+    },
 
     /// Calls [visible_notes_changed](crate::Overlord::visible_notes_changed)
     VisibleNotesChanged(Vec<Id>),

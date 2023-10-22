@@ -68,7 +68,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::UpdateMuteList { merge: false });
+                .send(ToOverlordMessage::UpdatePersonList {
+                    person_list: PersonList::Muted,
+                    merge: false,
+                });
         }
         if ui
             .button("↓ Merge ↓")
@@ -77,7 +80,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::UpdateMuteList { merge: true });
+                .send(ToOverlordMessage::UpdatePersonList {
+                    person_list: PersonList::Muted,
+                    merge: true,
+                });
         }
 
         if GLOBALS.signer.is_ready() {

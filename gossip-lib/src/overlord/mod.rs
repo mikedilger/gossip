@@ -15,6 +15,7 @@ use crate::tags::{
     add_subject_to_tags_if_missing,
 };
 use gossip_relay_picker::{Direction, RelayAssignment};
+use heed::RwTxn;
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
@@ -687,17 +688,14 @@ impl Overlord {
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
             }
-            ToOverlordMessage::UpdateFollowing { merge } => {
-                self.update_following(merge).await?;
-            }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 self.update_metadata(pubkey).await?;
             }
             ToOverlordMessage::UpdateMetadataInBulk(pubkeys) => {
                 self.update_metadata_in_bulk(pubkeys).await?;
             }
-            ToOverlordMessage::UpdateMuteList { merge } => {
-                self.update_mute_list(merge).await?;
+            ToOverlordMessage::UpdatePersonList { person_list, merge } => {
+                self.update_person_list(person_list, merge).await?;
             }
             ToOverlordMessage::VisibleNotesChanged(visible) => {
                 self.visible_notes_changed(visible).await?;
@@ -2210,127 +2208,6 @@ impl Overlord {
         Ok(())
     }
 
-    /// Update the local following list from the last ContactList event received.
-    pub async fn update_following(&mut self, merge: bool) -> Result<(), Error> {
-        // Load the latest contact list from the database
-        let our_contact_list = {
-            let pubkey = match GLOBALS.signer.public_key() {
-                Some(pk) => pk,
-                None => return Ok(()), // we cannot do anything without an identity setup first
-            };
-
-            if let Some(event) = GLOBALS
-                .storage
-                .get_replaceable_event(pubkey, EventKind::ContactList)?
-            {
-                event.clone()
-            } else {
-                return Ok(()); // we have no contact list to update from
-            }
-        };
-
-        let mut pubkeys: Vec<PublicKey> = Vec::new();
-
-        let now = Unixtime::now().unwrap();
-
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        // 'p' tags represent the author's contacts
-        for tag in &our_contact_list.tags {
-            if let Tag::Pubkey {
-                pubkey,
-                recommended_relay_url,
-                petname,
-                ..
-            } = tag
-            {
-                if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                    // Save the pubkey for actual following them (outside of the loop in a batch)
-                    pubkeys.push(pubkey.to_owned());
-
-                    // If there is a URL
-                    if let Some(url) = recommended_relay_url
-                        .as_ref()
-                        .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                    {
-                        // Save relay if missing
-                        GLOBALS
-                            .storage
-                            .write_relay_if_missing(&url, Some(&mut txn))?;
-
-                        // create or update person_relay last_suggested_kind3
-                        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
-                            Some(pr) => pr,
-                            None => PersonRelay::new(pubkey, url.clone()),
-                        };
-                        pr.last_suggested_kind3 = Some(now.0 as u64);
-                        GLOBALS.storage.write_person_relay(&pr, Some(&mut txn))?;
-                    }
-
-                    // Handle petname
-                    if merge && petname.is_none() {
-                        // In this case, we leave any existing petname, so no need to load the
-                        // person record. But we need to ensure the person exists
-                        GLOBALS
-                            .storage
-                            .write_person_if_missing(&pubkey, Some(&mut txn))?;
-                    } else {
-                        // In every other case we have to load the person and compare
-                        let mut person_needs_save = false;
-                        let mut person = match GLOBALS.storage.read_person(&pubkey)? {
-                            Some(person) => person,
-                            None => {
-                                person_needs_save = true;
-                                Person::new(pubkey.to_owned())
-                            }
-                        };
-
-                        if *petname != person.petname {
-                            if petname.is_some() {
-                                person_needs_save = true;
-                                person.petname = petname.clone();
-                            } else if !merge {
-                                // In overwrite mode, clear to None
-                                person_needs_save = true;
-                                person.petname = None;
-                            }
-                        }
-
-                        if person_needs_save {
-                            GLOBALS.storage.write_person(&person, Some(&mut txn))?;
-                        }
-                    }
-                }
-            }
-        }
-
-        txn.commit()?;
-
-        // Follow all those pubkeys publicly, and unfollow everbody else if merge=false
-        GLOBALS.people.follow_all(&pubkeys, merge, true)?;
-
-        // Update last_contact_list_edit
-        let last_edit = if merge {
-            Unixtime::now().unwrap() // now, since superior to the last event
-        } else {
-            our_contact_list.created_at
-        };
-        GLOBALS
-            .storage
-            .set_person_list_last_edit_time(PersonList::Followed, last_edit.0, None)?;
-
-        // Pick relays again
-        {
-            // Refresh person-relay scores
-            GLOBALS.relay_picker.refresh_person_relay_scores().await?;
-
-            // Then pick
-            self.pick_relays().await;
-        }
-
-        Ok(())
-    }
-
     /// Subscribe, fetch, and update metadata for the person
     pub async fn update_metadata(&mut self, pubkey: PublicKey) -> Result<(), Error> {
         let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
@@ -2393,48 +2270,162 @@ impl Overlord {
     }
 
     /// Update the local mute list from the last MuteList event received.
-    pub async fn update_mute_list(&mut self, merge: bool) -> Result<(), Error> {
-        // Load the latest MuteList from the database
-        let our_mute_list = {
-            let pubkey = match GLOBALS.signer.public_key() {
-                Some(pk) => pk,
-                None => return Ok(()), // we cannot do anything without an identity setup first
-            };
+    pub async fn update_person_list(&mut self, list: PersonList, merge: bool) -> Result<(), Error> {
+        // we cannot do anything without an identity setup first
+        let my_pubkey = match GLOBALS.storage.read_setting_public_key() {
+            Some(pk) => pk,
+            None => return Err(ErrorKind::NoPublicKey.into()),
+        };
 
+        // Load the latest PersonList event from the database
+        let event = {
             if let Some(event) = GLOBALS
                 .storage
-                .get_replaceable_event(pubkey, EventKind::MuteList)?
+                .get_replaceable_event(my_pubkey, list.event_kind())?
             {
                 event.clone()
             } else {
-                return Ok(()); // we have no mute list to update from
+                return Ok(()); // we have no event to update from, so we are done
             }
         };
 
-        let mut pubkeys: Vec<PublicKey> = Vec::new();
+        let now = Unixtime::now().unwrap();
 
-        // 'p' tags represent the author's mutes
-        for tag in &our_mute_list.tags {
-            if let Tag::Pubkey { pubkey, .. } = tag {
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+
+        let mut entries: Vec<(PublicKey, bool)> = Vec::new();
+
+        // Public entries
+        for tag in &event.tags {
+            if let Tag::Pubkey {
+                pubkey,
+                recommended_relay_url,
+                petname,
+                ..
+            } = tag
+            {
                 if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
                     // Save the pubkey
-                    pubkeys.push(pubkey.to_owned());
+                    entries.push((pubkey.to_owned(), true));
+
+                    // Deal with recommended_relay_urls and petnames
+                    if list == PersonList::Followed {
+                        Self::integrate_rru_and_petname(
+                            &pubkey,
+                            recommended_relay_url,
+                            petname,
+                            now,
+                            merge,
+                            &mut txn,
+                        )?;
+                    }
                 }
             }
         }
 
-        // Mute all those pubkeys publicly, and unmute everbody else if merge=false
-        GLOBALS.people.mute_all(&pubkeys, merge, true)?;
+        // Private entries
+        if list != PersonList::Followed {
+            let decrypted_content = GLOBALS.signer.decrypt_nip04(&my_pubkey, &event.content)?;
 
-        // Update last_must_list_edit
-        let last_edit = if merge {
-            Unixtime::now().unwrap() // now, since superior to the last event
-        } else {
-            our_mute_list.created_at
-        };
+            let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+
+            for tag in &tags {
+                if let Tag::Pubkey { pubkey, .. } = tag {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                        // Save the pubkey
+                        entries.push((pubkey.to_owned(), false));
+                    }
+                }
+            }
+        }
+
+        if !merge {
+            GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
+        }
+
+        for (pubkey, public) in &entries {
+            GLOBALS
+                .storage
+                .add_person_to_list(pubkey, list, *public, Some(&mut txn))?;
+            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+        }
+
+        let last_edit = if merge { now } else { event.created_at };
+
         GLOBALS
             .storage
-            .set_person_list_last_edit_time(PersonList::Muted, last_edit.0, None)?;
+            .set_person_list_last_edit_time(list, last_edit.0, Some(&mut txn))?;
+
+        txn.commit()?;
+
+        // Pick relays again
+        if list.subscribe() {
+            // Refresh person-relay scores
+            GLOBALS.relay_picker.refresh_person_relay_scores().await?;
+
+            // Then pick
+            self.pick_relays().await;
+        }
+
+        Ok(())
+    }
+
+    fn integrate_rru_and_petname(
+        pubkey: &PublicKey,
+        recommended_relay_url: &Option<UncheckedUrl>,
+        petname: &Option<String>,
+        now: Unixtime,
+        merge: bool,
+        txn: &mut RwTxn,
+    ) -> Result<(), Error> {
+        // If there is a URL
+        if let Some(url) = recommended_relay_url
+            .as_ref()
+            .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
+        {
+            // Save relay if missing
+            GLOBALS.storage.write_relay_if_missing(&url, Some(txn))?;
+
+            // create or update person_relay last_suggested_kind3
+            let mut pr = match GLOBALS.storage.read_person_relay(*pubkey, &url)? {
+                Some(pr) => pr,
+                None => PersonRelay::new(*pubkey, url.clone()),
+            };
+            pr.last_suggested_kind3 = Some(now.0 as u64);
+            GLOBALS.storage.write_person_relay(&pr, Some(txn))?;
+        }
+
+        // Handle petname
+        if merge && petname.is_none() {
+            // In this case, we leave any existing petname, so no need to load the
+            // person record. But we need to ensure the person exists
+            GLOBALS.storage.write_person_if_missing(pubkey, Some(txn))?;
+        } else {
+            // In every other case we have to load the person and compare
+            let mut person_needs_save = false;
+            let mut person = match GLOBALS.storage.read_person(pubkey)? {
+                Some(person) => person,
+                None => {
+                    person_needs_save = true;
+                    Person::new(pubkey.to_owned())
+                }
+            };
+
+            if *petname != person.petname {
+                if petname.is_some() {
+                    person_needs_save = true;
+                    person.petname = petname.clone();
+                } else if !merge {
+                    // In overwrite mode, clear to None
+                    person_needs_save = true;
+                    person.petname = None;
+                }
+            }
+
+            if person_needs_save {
+                GLOBALS.storage.write_person(&person, Some(txn))?;
+            }
+        }
 
         Ok(())
     }
