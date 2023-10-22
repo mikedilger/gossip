@@ -234,6 +234,17 @@ pub async fn process_new_event(
                 GLOBALS.people.update_latest_person_list_event_data();
             }
         }
+
+        // Allocate a slot for this person list
+        if event.kind == EventKind::CategorizedPeopleList {
+            // get d-tag
+            for tag in event.tags.iter() {
+                if let Tag::Identifier { d, .. } = tag {
+                    // This will allocate if missing, and will be ok if it exists
+                    PersonList::allocate(d, None)?;
+                }
+            }
+        }
     } else if event.kind == EventKind::RelayList {
         GLOBALS.storage.process_relay_list(event)?;
     } else if event.kind == EventKind::Repost {
