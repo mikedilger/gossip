@@ -538,6 +538,61 @@ impl Storage {
         }
     }
 
+    /// Write the user's last PersonList edit times
+    pub fn write_person_lists_last_edit_times<'a>(
+        &'a self,
+        times: HashMap<PersonList, i64>,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = times.write_to_vec()?;
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general
+                .put(txn, b"person_lists_last_edit_times", bytes.as_slice())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    /// Read the user's last ContactList edit time
+    pub fn read_person_lists_last_edit_times(&self) -> Result<HashMap<PersonList, i64>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.general.get(&txn, b"person_lists_last_edit_times")? {
+            None => Ok(HashMap::new()),
+            Some(bytes) => Ok(HashMap::<PersonList, i64>::read_from_buffer(bytes)?),
+        }
+    }
+
+    /// Set a person list last edit time
+    pub fn set_person_list_last_edit_time<'a>(
+        &'a self,
+        list: PersonList,
+        time: i64,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut lists = self.read_person_lists_last_edit_times()?;
+        let _ = lists.insert(list, time);
+        self.write_person_lists_last_edit_times(lists, rw_txn)?;
+        Ok(())
+    }
+
+    /// Get a person list last edit time
+    pub fn get_person_list_last_edit_time(&self, list: PersonList) -> Result<Option<i64>, Error> {
+        let lists = self.read_person_lists_last_edit_times()?;
+        Ok(lists.get(&list).copied())
+    }
+
     /// Write the user's last ContactList edit time
     pub fn write_last_contact_list_edit<'a>(
         &'a self,
