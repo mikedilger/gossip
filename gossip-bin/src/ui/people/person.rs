@@ -573,6 +573,7 @@ fn profile_item_frame(ui: &mut Ui, width: f32, label: impl Into<String>, content
         //     ui.add_sized(sym_rect.size(), symbol)
         // });
         egui::Area::new(ui.auto_id_with(label+"_sym"))
+            .interactable(false)
             .movable(false)
             .order(egui::Order::Foreground)
             .fixed_pos(sym_rect.left_top())
