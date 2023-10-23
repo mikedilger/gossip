@@ -342,15 +342,42 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     });
                 }
 
-                let draft_response = ui.add(
-                    text_edit_multiline!(app, app.draft_data.draft)
-                        .id_source("compose_area")
-                        .hint_text("Type your message here")
-                        .desired_width(f32::INFINITY)
-                        .lock_focus(true)
-                        .interactive(app.draft_data.repost.is_none())
-                        .layouter(&mut layouter),
-                );
+                let text_edit_area_id = egui::Id::new("compose_area");
+
+                // Determine if we are in tagging mode
+                {
+                    app.draft_data.tagging_search_substring = None;
+                    let text_edit_state =
+                        egui::TextEdit::load_state(ctx, text_edit_area_id).unwrap_or_default();
+                    let ccursor_range = text_edit_state.ccursor_range().unwrap_or_default();
+                    // debugging:
+                    // ui.label(format!("{}-{}", ccursor_range.primary.index,
+                    // ccursor_range.secondary.index));
+                    if ccursor_range.primary.index <= app.draft_data.draft.len() {
+                        let precursor = &app.draft_data.draft[0..ccursor_range.primary.index];
+                        if let Some(captures) = GLOBALS.tagging_regex.captures(precursor) {
+                            if let Some(first_capture) = captures.get(1) {
+                                app.draft_data.tagging_search_substring =
+                                    Some(first_capture.as_str().to_owned());
+                            }
+                        }
+                    }
+                };
+
+                // Temporary for debugging:
+                if let Some(tagging) = &app.draft_data.tagging_search_substring {
+                    ui.label(format!("TAGGING SEARCH SUBSTRING = {}", tagging));
+                }
+
+                let text_edit_area = text_edit_multiline!(app, app.draft_data.draft)
+                    .id(text_edit_area_id)
+                    .hint_text("Type your message here")
+                    .desired_width(f32::INFINITY)
+                    .lock_focus(true)
+                    .interactive(app.draft_data.repost.is_none())
+                    .layouter(&mut layouter);
+                let draft_response = ui.add(text_edit_area);
+
                 if app.draft_needs_focus {
                     draft_response.request_focus();
                     app.draft_needs_focus = false;

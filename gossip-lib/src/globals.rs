@@ -114,6 +114,9 @@ pub struct Globals {
     /// Hashtag regex
     pub hashtag_regex: Regex,
 
+    /// Tagging regex
+    pub tagging_regex: Regex,
+
     /// LMDB storage
     pub storage: Storage,
 
@@ -173,6 +176,7 @@ lazy_static! {
             ui_invalidate_all: AtomicBool::new(false),
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
+            tagging_regex: Regex::new(r"(?:^|\s+)@(\S+)$").unwrap(),
             storage,
             events_processed: AtomicU32::new(0),
             filter_engine,
