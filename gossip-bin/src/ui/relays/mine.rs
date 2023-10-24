@@ -9,33 +9,27 @@ use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
-    ui.add_space(10.0);
-    ui.horizontal_wrapped(|ui| {
-        ui.add_space(2.0);
-        ui.heading(Page::RelaysMine.name());
+    widgets::page_header(ui, Page::RelaysMine.name(), |ui| {
         ui.set_enabled(!is_editing);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-            ui.add_space(20.0);
-            super::configure_list_btn(app, ui);
-            ui.add_space(20.0);
-            super::relay_filter_combo(app, ui);
-            ui.add_space(20.0);
-            super::relay_sort_combo(app, ui);
-            ui.add_space(20.0);
-            widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
-            ui.add_space(200.0); // search_field somehow doesn't "take up" space
-            widgets::set_important_button_visuals(ui, app);
-            if ui.button("Advertise Relay List")
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .on_hover_text("Advertise my relays. Will send 10002 kind to all relays that have 'ADVERTISE' usage enabled")
-                .clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdvertiseRelayList);
-            }
-        });
+        ui.add_space(20.0);
+        super::configure_list_btn(app, ui);
+        ui.add_space(20.0);
+        super::relay_filter_combo(app, ui);
+        ui.add_space(20.0);
+        super::relay_sort_combo(app, ui);
+        ui.add_space(20.0);
+        widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
+        ui.add_space(200.0); // search_field somehow doesn't "take up" space
+        widgets::set_important_button_visuals(ui, app);
+        if ui.button("Advertise Relay List")
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .on_hover_text("Advertise my relays. Will send 10002 kind to all relays that have 'ADVERTISE' usage enabled")
+            .clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::AdvertiseRelayList);
+        }
     });
-    ui.add_space(10.0);
 
     let relays = if !is_editing {
         // clear edit cache if present

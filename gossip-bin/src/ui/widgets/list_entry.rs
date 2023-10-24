@@ -39,7 +39,7 @@ pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
         rect.min + vec2(OUTER_MARGIN_LEFT, OUTER_MARGIN_TOP),
         rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM),
     );
-    let fill = fill.unwrap_or(ui.style().visuals.extreme_bg_color);
+    let fill = fill.unwrap_or(ui.visuals().extreme_bg_color);
     ui.painter().add(epaint::RectShape {
         rect: frame_rect,
         rounding: Rounding::same(5.0),

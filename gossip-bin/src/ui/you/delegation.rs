@@ -29,7 +29,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .unwrap_or("(not set)".to_string());
                 ui.label(&delegator_npub);
                 if ui
-                    .add(CopyButton {})
+                    .add(CopyButton::new())
                     .on_hover_text("Copy Public Key")
                     .clicked()
                 {

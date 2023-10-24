@@ -647,7 +647,7 @@ fn render_note_inner(
                         .show(ui, |ui| {
                             ui.horizontal_wrapped(|ui| {
                                 if ui
-                                    .add(CopyButton {})
+                                    .add(CopyButton::new())
                                     .on_hover_text("Copy Contents")
                                     .clicked()
                                 {
@@ -929,7 +929,7 @@ fn render_note_inner(
                                         app.render_zap_area(ui, ctx);
                                     });
                                     if ui
-                                        .add(CopyButton {})
+                                        .add(CopyButton::new())
                                         .on_hover_text("Copy Invoice")
                                         .clicked()
                                     {

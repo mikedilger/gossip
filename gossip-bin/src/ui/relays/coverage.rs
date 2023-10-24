@@ -70,7 +70,7 @@ impl<'a> CoverageEntry<'a> {
                 id,
                 egui::Sense::click(),
             );
-            widgets::CopyButton::paint(ui, pos);
+            widgets::CopyButton::new().paint(ui, pos);
             if response
                 .on_hover_text("Copy to clipboard")
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -121,16 +121,13 @@ fn find_relays_for_pubkey(pk: &PublicKey) -> Vec<RelayUrl> {
 }
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(10.0);
-    ui.horizontal_wrapped(|ui| {
-        ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
-            ui.heading(format!(
-                "Low Coverage Report (less than {} relays)",
-                app.settings.num_relays_per_person
-            ));
-            ui.add_space(10.0);
-        });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    widgets::page_header(
+        ui,
+        format!(
+            "Low Coverage Report (less than {} relays)",
+            app.settings.num_relays_per_person
+        ),
+        |ui| {
             ui.add_space(20.0);
             ui.spacing_mut().button_padding *= 2.0;
             if ui
@@ -152,9 +149,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     app.set_page(Page::RelaysActivityMonitor);
                 }
             }
-        });
-    });
-    ui.add_space(10.0);
+        },
+    );
     ui.horizontal_wrapped(|ui| {
         ui.label("You can change how many relays per person to query here:");
         if ui.link("Network Settings").clicked() {
@@ -175,7 +171,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
                 let pk = elem.key();
                 let count = elem.value();
-                let name = gossip_lib::names::tag_name_from_pubkey_lookup(pk);
+                let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 let relays = find_relays_for_pubkey(pk);
                 let hover_text = format!("Go to profile of {}", name);
 

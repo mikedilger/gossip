@@ -4,10 +4,21 @@ use epaint::{PathShape, Stroke};
 
 pub const COPY_SYMBOL_SIZE: Vec2 = Vec2::new(12.0, 12.0);
 
-pub struct CopyButton {}
+pub struct CopyButton {
+    stroke: Option<Stroke>,
+}
 
 impl CopyButton {
-    pub(crate) fn paint(ui: &mut Ui, corner: Pos2) {
+    pub(crate) fn new() -> Self {
+        Self { stroke: None }
+    }
+
+    pub(crate) fn stroke(mut self, stroke: Stroke) -> Self {
+        self.stroke = Some(stroke);
+        self
+    }
+
+    pub(crate) fn paint(&self, ui: &mut Ui, corner: Pos2) {
         ui.painter().add(Shape::Path(PathShape {
             points: vec![
                 Pos2 {
@@ -33,10 +44,10 @@ impl CopyButton {
             ],
             closed: false,
             fill: Color32::TRANSPARENT,
-            stroke: Stroke {
+            stroke: self.stroke.unwrap_or(Stroke {
                 width: 1.0,
                 color: Color32::from_rgb(0x8d, 0x7f, 0x73),
-            },
+            }),
         }));
 
         ui.painter().add(Shape::Path(PathShape {
@@ -64,10 +75,10 @@ impl CopyButton {
             ],
             closed: true,
             fill: Color32::TRANSPARENT,
-            stroke: Stroke {
+            stroke: self.stroke.unwrap_or(Stroke {
                 width: 1.0,
                 color: Color32::from_rgb(0x8d, 0x7f, 0x73),
-            },
+            }),
         }));
     }
 }
@@ -86,7 +97,7 @@ impl Widget for CopyButton {
             x: rect.min.x + shift,
             y: rect.min.y + shift,
         };
-        Self::paint(ui, ui.painter().round_pos_to_pixels(pos));
+        self.paint(ui, ui.painter().round_pos_to_pixels(pos));
 
         response
     }

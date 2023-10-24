@@ -628,7 +628,7 @@ impl RelayEntry {
                     });
                 }
                 response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                CopyButton::paint(ui, pos);
+                CopyButton::new().paint(ui, pos);
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);
             if let Some(desc) = &doc.description {
@@ -671,7 +671,7 @@ impl RelayEntry {
                         });
                     }
                     response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                    CopyButton::paint(ui, pos);
+                    CopyButton::new().paint(ui, pos);
                 }
             }
             let pos = pos + vec2(0.0, NIP11_Y_SPACING);

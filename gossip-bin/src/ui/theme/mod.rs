@@ -87,6 +87,18 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn danger_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::danger_color(self.dark_mode), )+
+                }
+            }
+
+            pub fn main_content_bgcolor(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::main_content_bgcolor(self.dark_mode), )+
+                }
+            }
+
             #[allow(dead_code)]
             pub fn highlighted_note_bgcolor(&self) -> Color32 {
                 match self.variant {
@@ -103,6 +115,27 @@ macro_rules! theme_dispatch {
             pub fn get_on_accent_style(&self) -> Style {
                 match self.variant {
                     $( $variant => $class::get_on_accent_style(self.dark_mode), )+
+                }
+            }
+
+            /// accent-colored button style 1 (filled)
+            pub fn accent_button_1_style(&self, style: &mut Style) {
+                match self.variant {
+                    $( $variant => $class::accent_button_1_style(style, self.dark_mode), )+
+                }
+            }
+
+            /// accent-colored button style 2 (white w. accent outline)
+            pub fn accent_button_2_style(&self, style: &mut Style) {
+                match self.variant {
+                    $( $variant => $class::accent_button_2_style(style, self.dark_mode), )+
+                }
+            }
+
+            /// 'danger' colored hover for accent-colored button styles
+            pub fn accent_button_danger_hover(&self, style: &mut Style) {
+                match self.variant {
+                    $( $variant => $class::accent_button_danger_hover(style, self.dark_mode), )+
                 }
             }
 
@@ -343,16 +376,29 @@ pub trait ThemeDef: Send + Sync {
     // Used for strokes, lines, and text in various places
     fn accent_color(dark_mode: bool) -> Color32;
 
+    fn accent_complementary_color(dark_mode: bool) -> Color32;
+
+    fn danger_color(dark_mode: bool) -> Color32;
+
+    fn main_content_bgcolor(dark_mode: bool) -> Color32;
+
     // Used as background for highlighting unread events
     fn highlighted_note_bgcolor(dark_mode: bool) -> Color32;
-
-    fn accent_complementary_color(dark_mode: bool) -> Color32;
 
     // These styles are used by egui by default for widgets if you don't override them
     // in place.
     fn get_style(dark_mode: bool) -> Style;
     /// the style to use when displaying on-top of an accent-colored background
     fn get_on_accent_style(dark_mode: bool) -> Style;
+
+    /// accent-colored button style 1 (filled)
+    fn accent_button_1_style(style: &mut Style, dark_mode: bool);
+
+    /// accent-colored button style 2 (white w. accent outline)
+    fn accent_button_2_style(style: &mut Style, dark_mode: bool);
+
+    /// 'danger' colored hover for accent-colored button styles
+    fn accent_button_danger_hover(style: &mut Style, dark_mode: bool);
 
     fn font_definitions() -> FontDefinitions;
     fn text_styles() -> BTreeMap<TextStyle, FontId>;
@@ -403,7 +449,8 @@ pub trait ThemeDef: Send + Sync {
 
     fn darken_color(color: Color32, factor: f32) -> Color32 {
         let mut hsva: ecolor::HsvaGamma = color.into();
-        hsva.v = (hsva.v * factor).max(0.0).min(1.0);
+        let original_value = hsva.v;
+        hsva.v = original_value * (1.0 - factor); // Linear interpolation
         hsva.into()
     }
 }
