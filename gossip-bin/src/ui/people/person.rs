@@ -379,7 +379,17 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             app.theme.accent_button_2_style(ui.style_mut()); // restore style
                         }
                         ui.add_space(BTN_SPACING);
-                        ui.add(egui::Button::new("Add to Priority").min_size(MIN_SIZE).rounding(BTN_ROUNDING));
+                        if !on_list {
+                            if ui.add(egui::Button::new("Add to Priority").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
+                                let _ = GLOBALS.storage.add_person_to_list(&person.pubkey, PersonList::Custom(2), true, None);
+                            };
+                        } else {
+                            app.theme.accent_button_danger_hover(ui.style_mut());
+                            if ui.add(egui::Button::new("Remove from Priority").min_size(MIN_SIZE).rounding(BTN_ROUNDING)).clicked() {
+                                let _ = GLOBALS.storage.remove_person_from_list(&person.pubkey, PersonList::Custom(2), None);
+                            };
+                            app.theme.accent_button_2_style(ui.style_mut()); // restore style
+                        }
                         ui.add_space(BTN_SPACING);
 
                         let mute_label = if muted {
