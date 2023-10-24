@@ -54,36 +54,23 @@ impl Person2 {
         }
     }
 
-    pub fn display_name(&self) -> Option<&str> {
-        if let Some(md) = &self.metadata {
-            if md.other.contains_key("display_name") {
-                if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
-                    if !s.is_empty() {
-                        return Some(s);
-                    }
-                }
-            }
-            md.name.as_deref()
-        } else {
-            None
-        }
-    }
-
-    pub fn tag_name(&self) -> Option<&str> {
+    pub fn best_name(&self) -> String {
         if let Some(pn) = &self.petname {
-            Some(pn)
-        } else if let Some(md) = &self.metadata {
-            if md.other.contains_key("name") {
-                if let Some(serde_json::Value::String(s)) = md.other.get("name") {
-                    if !s.is_empty() {
-                        return Some(s);
-                    }
+            return pn.to_owned();
+        }
+        if let Some(md) = &self.metadata {
+            if let Some(n) = &md.name {
+                if !n.is_empty() {
+                    return n.to_owned();
                 }
             }
-            md.name.as_deref()
-        } else {
-            None
+            if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
+                if !s.is_empty() {
+                    return s.to_owned();
+                }
+            }
         }
+        crate::names::pubkey_short(&self.pubkey)
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -110,6 +97,19 @@ impl Person2 {
         }
     }
 
+    pub fn display_name(&self) -> Option<&str> {
+        if let Some(md) = &self.metadata {
+            if md.other.contains_key("display_name") {
+                if let Some(serde_json::Value::String(s)) = md.other.get("display_name") {
+                    if !s.is_empty() {
+                        return Some(s);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn nip05(&self) -> Option<&str> {
         if let Some(md) = &self.metadata {
             md.nip05.as_deref()
@@ -134,17 +134,15 @@ impl PartialEq for Person2 {
 impl Eq for Person2 {}
 impl PartialOrd for Person2 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self.tag_name(), other.tag_name()) {
-            (Some(a), Some(b)) => a.to_lowercase().partial_cmp(&b.to_lowercase()),
-            _ => self.pubkey.partial_cmp(&other.pubkey),
-        }
+        self.best_name()
+            .to_lowercase()
+            .partial_cmp(&other.best_name().to_lowercase())
     }
 }
 impl Ord for Person2 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match (self.tag_name(), other.tag_name()) {
-            (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
-            _ => self.pubkey.cmp(&other.pubkey),
-        }
+        self.best_name()
+            .to_lowercase()
+            .cmp(&other.best_name().to_lowercase())
     }
 }

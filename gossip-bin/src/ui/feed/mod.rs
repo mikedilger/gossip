@@ -156,7 +156,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 if Some(pubkey) == GLOBALS.signer.public_key() {
                     ui.heading("My notes");
                 } else {
-                    ui.heading(gossip_lib::names::tag_name_from_pubkey_lookup(&pubkey));
+                    ui.heading(gossip_lib::names::best_name_from_pubkey_lookup(&pubkey));
                 }
                 recompute_btn(app, ui);
             });

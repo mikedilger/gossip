@@ -167,7 +167,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
                 let pk = elem.key();
                 let count = elem.value();
-                let name = gossip_lib::names::tag_name_from_pubkey_lookup(pk);
+                let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 let relays = find_relays_for_pubkey(pk);
                 let hover_text = format!("Go to profile of {}", name);
 
