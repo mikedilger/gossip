@@ -443,7 +443,8 @@ pub trait ThemeDef: Send + Sync {
 
     fn darken_color(color: Color32, factor: f32) -> Color32 {
         let mut hsva: ecolor::HsvaGamma = color.into();
-        hsva.v = (hsva.v * factor).max(0.0).min(1.0);
+        let original_value = hsva.v;
+        hsva.v = original_value * (1.0 - factor); // Linear interpolation
         hsva.into()
     }
 }
