@@ -31,9 +31,9 @@ impl ThemeDef for DefaultTheme {
 
     fn highlighted_note_bgcolor(dark_mode: bool) -> Color32 {
         if dark_mode {
-            Color32::from_rgb(41, 34, 46)
+            Color32::from_rgb(29, 37, 43)
         } else {
-            Color32::from_rgb(255, 255, 237)
+            Color32::from_rgb(249, 253, 255)
         }
     }
 
