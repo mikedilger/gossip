@@ -400,8 +400,6 @@ pub trait ThemeDef: Send + Sync {
     /// 'danger' colored hover for accent-colored button styles
     fn accent_button_danger_hover(style: &mut Style, dark_mode: bool);
 
-
-
     fn font_definitions() -> FontDefinitions;
     fn text_styles() -> BTreeMap<TextStyle, FontId>;
     fn highlight_text_format(highlight_type: HighlightType, dark_mode: bool) -> TextFormat;
@@ -455,7 +453,6 @@ pub trait ThemeDef: Send + Sync {
         hsva.v = original_value * (1.0 - factor); // Linear interpolation
         hsva.into()
     }
-    
 }
 
 pub(super) fn font_definitions() -> FontDefinitions {

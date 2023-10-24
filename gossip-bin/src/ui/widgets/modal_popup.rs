@@ -1,12 +1,11 @@
-use egui_winit::egui::{Ui, InnerResponse, self};
-use eframe::epaint::{Color32};
-
+use eframe::epaint::Color32;
+use egui_winit::egui::{self, InnerResponse, Ui};
 
 pub fn modal_popup(
     ui: &mut Ui,
     dlg_size: egui::Vec2,
-    content: impl FnOnce(&mut Ui)) -> InnerResponse<egui::Response> {
-
+    content: impl FnOnce(&mut Ui),
+) -> InnerResponse<egui::Response> {
     let content = |ui: &mut Ui| {
         ui.set_min_size(dlg_size);
         ui.set_max_size(dlg_size);
@@ -19,7 +18,8 @@ pub fn modal_popup(
         let rect = egui::Rect::from_x_y_ranges(tr.x - 5.0..=tr.x + 5.0, tr.y + 5.0..=tr.y + 15.0);
         ui.allocate_ui_at_rect(rect, |ui| {
             ui.add_sized(rect.size(), super::NavItem::new("\u{274C}", false))
-        }).inner
+        })
+        .inner
     };
 
     egui::Area::new("hide-background-area")
@@ -40,24 +40,24 @@ pub fn modal_popup(
         });
 
     let mut frame = egui::Frame::popup(ui.style());
-        let area = egui::Area::new("modal-popup")
-            .movable(false)
-            .interactable(true)
-            .order(egui::Order::Foreground)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]);
-        area.show_open_close_animation(
-            ui.ctx(),
-            &frame,
-            true, // TODO if we never pass false it won't show a close animation
-        );
-        area.show(ui.ctx(), |ui| {
-            if ui.visuals().dark_mode {
-                frame.fill = ui.visuals().faint_bg_color;
-            } else {
-                frame.fill = Color32::WHITE;
-            }
-            frame.rounding = egui::Rounding::same(10.0);
-            frame.inner_margin = egui::Margin::symmetric(80.0, 40.0);
-            frame.show(ui, content).inner
-        })
+    let area = egui::Area::new("modal-popup")
+        .movable(false)
+        .interactable(true)
+        .order(egui::Order::Foreground)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]);
+    area.show_open_close_animation(
+        ui.ctx(),
+        &frame,
+        true, // TODO if we never pass false it won't show a close animation
+    );
+    area.show(ui.ctx(), |ui| {
+        if ui.visuals().dark_mode {
+            frame.fill = ui.visuals().faint_bg_color;
+        } else {
+            frame.fill = Color32::WHITE;
+        }
+        frame.rounding = egui::Rounding::same(10.0);
+        frame.inner_margin = egui::Margin::symmetric(80.0, 40.0);
+        frame.show(ui, content).inner
+    })
 }

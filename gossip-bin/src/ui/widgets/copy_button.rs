@@ -10,9 +10,7 @@ pub struct CopyButton {
 
 impl CopyButton {
     pub(crate) fn new() -> Self {
-        Self {
-            stroke: None
-        }
+        Self { stroke: None }
     }
 
     pub(crate) fn stroke(mut self, stroke: Stroke) -> Self {

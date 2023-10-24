@@ -339,8 +339,7 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
 
         // change frame color to error when url is invalid
         if !is_url_valid {
-            ui.visuals_mut().widgets.inactive.bg_stroke.color =
-                ui.visuals().error_fg_color;
+            ui.visuals_mut().widgets.inactive.bg_stroke.color = ui.visuals().error_fg_color;
             ui.visuals_mut().selection.stroke.color = ui.visuals().error_fg_color;
         }
 

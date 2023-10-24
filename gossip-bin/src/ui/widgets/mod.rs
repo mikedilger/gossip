@@ -3,7 +3,9 @@ pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
-use egui_winit::egui::{vec2, FontSelection, Rect, Response, Sense, TextEdit, Ui, WidgetText, self};
+use egui_winit::egui::{
+    self, vec2, FontSelection, Rect, Response, Sense, TextEdit, Ui, WidgetText,
+};
 pub use nav_item::NavItem;
 
 mod relay_entry;
@@ -27,15 +29,22 @@ pub const DROPDOWN_DISTANCE: f32 = 10.0;
 //     ui.label(job.job);
 // }
 
-pub fn page_header<R>(ui: &mut Ui, title: impl Into<egui::RichText>, right_aligned_content: impl FnOnce(&mut Ui) -> R) {
-    ui.vertical(|ui|{
+pub fn page_header<R>(
+    ui: &mut Ui,
+    title: impl Into<egui::RichText>,
+    right_aligned_content: impl FnOnce(&mut Ui) -> R,
+) {
+    ui.vertical(|ui| {
         ui.add_space(10.0);
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.add_space(2.0);
                 ui.heading(title);
             });
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), right_aligned_content);
+            ui.with_layout(
+                egui::Layout::right_to_left(egui::Align::Center),
+                right_aligned_content,
+            );
         });
         ui.add_space(10.0);
     });
