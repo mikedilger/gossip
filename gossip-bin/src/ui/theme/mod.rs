@@ -93,6 +93,12 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn main_content_bgcolor(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::main_content_bgcolor(self.dark_mode), )+
+                }
+            }
+
             #[allow(dead_code)]
             pub fn highlighted_note_bgcolor(&self) -> Color32 {
                 match self.variant {
@@ -374,6 +380,8 @@ pub trait ThemeDef: Send + Sync {
 
     fn danger_color(dark_mode: bool) -> Color32;
 
+    fn main_content_bgcolor(dark_mode: bool) -> Color32;
+
     // Used as background for highlighting unread events
     fn highlighted_note_bgcolor(dark_mode: bool) -> Color32;
 
@@ -447,6 +455,7 @@ pub trait ThemeDef: Send + Sync {
         hsva.v = original_value * (1.0 - factor); // Linear interpolation
         hsva.into()
     }
+    
 }
 
 pub(super) fn font_definitions() -> FontDefinitions {

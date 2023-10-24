@@ -1089,9 +1089,9 @@ impl eframe::App for GossipUi {
                     match self.page {
                         Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
                             if self.theme.dark_mode {
-                                egui::Color32::BLACK
+                                ctx.style().visuals.panel_fill
                             } else {
-                                egui::Color32::WHITE
+                                self.theme.main_content_bgcolor()
                             }
                         }
                         _ => {ctx.style().visuals.panel_fill}

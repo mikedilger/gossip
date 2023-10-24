@@ -33,6 +33,20 @@ impl ThemeDef for DefaultTheme {
         Color32::from_rgb( 0xFF, 0x5E, 0x57 )
     }
 
+    fn main_content_bgcolor(dark_mode: bool) -> Color32 {
+        if dark_mode {
+            let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+            hsva.s = 0.0;
+            hsva.v = 0.12;
+            hsva.into()
+        } else {
+            let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
+            hsva.s = 0.0;
+            hsva.v = 1.0;
+            hsva.into()
+        }
+    }
+
     fn highlighted_note_bgcolor(dark_mode: bool) -> Color32 {
         if dark_mode {
             Color32::from_rgb(41, 34, 46)
@@ -156,9 +170,9 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(0x1F), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(0x18),  // panel backgrounds, even-table-rows
-                faint_bg_color: Color32::from_gray(24), // odd-table-rows
+                window_fill: Color32::from_gray(31), // pulldown menus and tooltips
+                panel_fill: Color32::from_gray(24),  // panel backgrounds, even-table-rows
+                faint_bg_color: Color32::from_gray(20), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(64),    // ???
 
@@ -667,17 +681,7 @@ impl ThemeDef for DefaultTheme {
                 Self::highlighted_note_bgcolor(false)
             }
         } else {
-            if dark_mode {
-                let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-                hsva.s = 0.0;
-                hsva.v = 0.12;
-                hsva.into()
-            } else {
-                let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
-                hsva.s = 0.0;
-                hsva.v = 1.0;
-                hsva.into()
-            }
+            Self::main_content_bgcolor(dark_mode)
         }
     }
     fn feed_frame_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {
