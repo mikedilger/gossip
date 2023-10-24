@@ -1,4 +1,5 @@
 use egui_winit::egui::{Ui, InnerResponse, self};
+use eframe::epaint::{Color32};
 
 
 pub fn modal_popup(
@@ -30,7 +31,11 @@ pub fn modal_popup(
             ui.painter().rect_filled(
                 ui.ctx().screen_rect(),
                 egui::Rounding::same(0.0),
-                egui::Color32::from_rgba_unmultiplied(0x9f, 0x9f, 0x9f, 102),
+                if ui.visuals().dark_mode {
+                    egui::Color32::from_rgba_unmultiplied(255, 255, 255, 1)
+                } else {
+                    egui::Color32::from_rgba_unmultiplied(0, 0, 0, 60)
+                },
             );
         });
 
@@ -46,9 +51,13 @@ pub fn modal_popup(
             true, // TODO if we never pass false it won't show a close animation
         );
         area.show(ui.ctx(), |ui| {
-            frame.fill = egui::Color32::WHITE;
+            if ui.visuals().dark_mode {
+                frame.fill = ui.visuals().faint_bg_color;
+            } else {
+                frame.fill = Color32::WHITE;
+            }
             frame.rounding = egui::Rounding::same(10.0);
-            frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
+            frame.inner_margin = egui::Margin::symmetric(80.0, 40.0);
             frame.show(ui, content).inner
         })
 }
