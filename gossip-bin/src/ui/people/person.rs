@@ -107,7 +107,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             if app.editing_petname {
                                 let edit_color = app.theme.input_text_color();
                                 ui.add(TextEdit::singleline(&mut app.petname).text_color(edit_color));
-                                if ui.link("save").clicked() {
+                                if ui.link("Save").clicked() {
                                     let mut person = person.clone();
                                     if app.petname.trim().is_empty() {
                                         person.petname = None;
@@ -120,10 +120,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     app.editing_petname = false;
                                     app.notes.cache_invalidate_person(&person.pubkey);
                                 }
-                                if ui.link("cancel").clicked() {
+                                if ui.link("Cancel").clicked() {
                                     app.editing_petname = false;
                                 }
-                                if ui.link("remove").clicked() {
+                                if ui.link("Remove").clicked() {
                                     let mut person = person.clone();
                                     person.petname = None;
                                     if let Err(e) = GLOBALS.storage.write_person(&person, None) {
@@ -136,11 +136,11 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 if let Some(petname) = person.petname.clone() {
                                     ui.label(&petname);
                                     ui.add_space(3.0);
-                                    if ui.link("edit").clicked() {
+                                    if ui.link("Edit").clicked() {
                                         app.editing_petname = true;
                                         app.petname = petname.to_owned();
                                     }
-                                    if ui.link("remove").clicked() {
+                                    if ui.link("Remove").clicked() {
                                         let mut person = person.clone();
                                         person.petname = None;
                                         if let Err(e) = GLOBALS.storage.write_person(&person, None)
@@ -150,7 +150,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         app.notes.cache_invalidate_person(&person.pubkey);
                                     }
                                 } else {
-                                    if ui.link("add")
+                                    if ui.link("Add")
                                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                                         .clicked() {
                                             app.editing_petname = true;
@@ -412,7 +412,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         ui.add_space(10.0);
                         ui.label(&npub);
                         ui.add_space(10.0);
-                        if ui.link("copy npub").clicked() {
+                        if ui.link("Copy npub").clicked() {
                             ui.output_mut(|o| o.copied_text = npub.to_owned());
                         }
                     });
@@ -431,7 +431,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         ui.add_space(10.0);
                         ui.label(&lud06);
                         ui.add_space(10.0);
-                        if ui.link("copy lud06").clicked() {
+                        if ui.link("Copy lud06").clicked() {
                             ui.output_mut(|o| o.copied_text = lud06.to_owned());
                         }
                     });
@@ -450,7 +450,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         ui.add_space(10.0);
                         ui.label(&lud16);
                         ui.add_space(10.0);
-                        if ui.link("copy lud16").clicked() {
+                        if ui.link("Copy lud16").clicked() {
                             ui.output_mut(|o| o.copied_text = lud16.to_owned());
                         }
                     });
