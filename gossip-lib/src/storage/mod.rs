@@ -538,17 +538,17 @@ impl Storage {
         }
     }
 
-    /// Write the user's last ContactList edit time
-    pub fn write_last_contact_list_edit<'a>(
+    /// Write the user's last PersonList edit times
+    pub fn write_person_lists_last_edit_times<'a>(
         &'a self,
-        when: i64,
+        times: HashMap<PersonList, i64>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = when.to_be_bytes();
+        let bytes = times.write_to_vec()?;
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             self.general
-                .put(txn, b"last_contact_list_edit", bytes.as_slice())?;
+                .put(txn, b"person_lists_last_edit_times", bytes.as_slice())?;
             Ok(())
         };
 
@@ -565,57 +565,32 @@ impl Storage {
     }
 
     /// Read the user's last ContactList edit time
-    pub fn read_last_contact_list_edit(&self) -> Result<i64, Error> {
+    pub fn read_person_lists_last_edit_times(&self) -> Result<HashMap<PersonList, i64>, Error> {
         let txn = self.env.read_txn()?;
 
-        match self.general.get(&txn, b"last_contact_list_edit")? {
-            None => {
-                let now = Unixtime::now().unwrap();
-                self.write_last_contact_list_edit(now.0, None)?;
-                Ok(now.0)
-            }
-            Some(bytes) => Ok(i64::from_be_bytes(bytes[..8].try_into().unwrap())),
+        match self.general.get(&txn, b"person_lists_last_edit_times")? {
+            None => Ok(HashMap::new()),
+            Some(bytes) => Ok(HashMap::<PersonList, i64>::read_from_buffer(bytes)?),
         }
     }
 
-    /// Write the user's last MuteList edit time
-    pub fn write_last_mute_list_edit<'a>(
+    /// Set a person list last edit time
+    pub fn set_person_list_last_edit_time<'a>(
         &'a self,
-        when: i64,
+        list: PersonList,
+        time: i64,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = when.to_be_bytes();
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general
-                .put(txn, b"last_mute_list_edit", bytes.as_slice())?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
+        let mut lists = self.read_person_lists_last_edit_times()?;
+        let _ = lists.insert(list, time);
+        self.write_person_lists_last_edit_times(lists, rw_txn)?;
         Ok(())
     }
 
-    /// Read the user's last MuteList edit time
-    pub fn read_last_mute_list_edit(&self) -> Result<i64, Error> {
-        let txn = self.env.read_txn()?;
-
-        match self.general.get(&txn, b"last_mute_list_edit")? {
-            None => {
-                let now = Unixtime::now().unwrap();
-                self.write_last_mute_list_edit(now.0, None)?;
-                Ok(now.0)
-            }
-            Some(bytes) => Ok(i64::from_be_bytes(bytes[..8].try_into().unwrap())),
-        }
+    /// Get a person list last edit time
+    pub fn get_person_list_last_edit_time(&self, list: PersonList) -> Result<Option<i64>, Error> {
+        let lists = self.read_person_lists_last_edit_times()?;
+        Ok(lists.get(&list).copied())
     }
 
     /// Write a flag, whether the user is only following people with no account (or not)

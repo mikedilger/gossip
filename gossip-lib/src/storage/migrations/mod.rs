@@ -1,3 +1,5 @@
+mod deprecated;
+
 use super::types::{
     Person2, PersonList1, PersonRelay1, Settings1, Settings2, Theme1, ThemeVariant1,
 };
@@ -10,7 +12,7 @@ use speedy::{Readable, Writable};
 use std::collections::HashMap;
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 14;
+    const MAX_MIGRATION_LEVEL: u32 = 15;
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
@@ -136,6 +138,10 @@ impl Storage {
             13 => {
                 tracing::info!("{prefix}: removing a retired setting...");
                 self.remove_setting_custom_person_list_names(txn)?;
+            }
+            14 => {
+                tracing::info!("{prefix}: moving person list last edit times...");
+                self.move_person_list_last_edit_times(txn)?;
             }
             _ => panic!("Unreachable migration level"),
         };
@@ -601,6 +607,17 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         self.general.delete(txn, b"custom_person_list_names")?;
+        Ok(())
+    }
+
+    pub fn move_person_list_last_edit_times<'a>(
+        &'a self,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
+        let mut edit_times: HashMap<PersonList1, i64> = HashMap::new();
+        edit_times.insert(PersonList1::Followed, self.read_last_contact_list_edit()?);
+        edit_times.insert(PersonList1::Muted, self.read_last_mute_list_edit()?);
+        self.write_person_lists_last_edit_times(edit_times, Some(txn))?;
         Ok(())
     }
 }

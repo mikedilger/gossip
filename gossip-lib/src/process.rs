@@ -2,6 +2,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
+use crate::people::PersonList;
 use crate::person_relay::PersonRelay;
 use async_recursion::async_recursion;
 use nostr_types::{
@@ -63,7 +64,11 @@ pub async fn process_new_event(
     }
 
     // Spam filter (displayable and author is not followed)
-    if event.effective_kind().is_feed_displayable() && !GLOBALS.people.is_followed(&event.pubkey) {
+    if event.effective_kind().is_feed_displayable()
+        && !GLOBALS
+            .people
+            .is_person_in_list(&event.pubkey, PersonList::Followed)
+    {
         let author = GLOBALS.storage.read_person(&event.pubkey)?;
         match crate::filter::filter(event.clone(), author) {
             EventFilterAction::Allow => {}
@@ -212,62 +217,32 @@ pub async fn process_new_event(
     if event.kind == EventKind::ContactList {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
-                // We do not process our own contact list automatically.
-                // Instead we only process it on user command.
-                // See Overlord::update_following()
-                //
-                // But we do update people.last_contact_list_asof and _size
-                if event.created_at.0
-                    > GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .load(Ordering::Relaxed)
-                {
-                    GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
-                    let size = event
-                        .tags
-                        .iter()
-                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                        .count();
-                    GLOBALS
-                        .people
-                        .last_contact_list_size
-                        .store(size, Ordering::Relaxed);
-                }
-                return Ok(());
+                // Update this data for the UI.  We don't actually process the latest event
+                // until the user gives the go ahead.
+                GLOBALS.people.update_latest_person_list_event_data();
             } else {
                 process_somebody_elses_contact_list(event).await?;
             }
         } else {
             process_somebody_elses_contact_list(event).await?;
         }
-    } else if event.kind == EventKind::MuteList {
+    } else if event.kind == EventKind::MuteList || event.kind == EventKind::CategorizedPeopleList {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
-                // We do not process our own mute list automatically.
-                // Instead we only process it on user command.
-                // See Overlord::update_muted()
-                //
-                // But we do update people.last_mute_list_asof and _size
-                if event.created_at.0 > GLOBALS.people.last_mute_list_asof.load(Ordering::Relaxed) {
-                    GLOBALS
-                        .people
-                        .last_mute_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
-                    let size = event
-                        .tags
-                        .iter()
-                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                        .count();
-                    GLOBALS
-                        .people
-                        .last_mute_list_size
-                        .store(size, Ordering::Relaxed);
+                // Update this data for the UI.  We don't actually process the latest event
+                // until the user gives the go ahead.
+                GLOBALS.people.update_latest_person_list_event_data();
+            }
+        }
+
+        // Allocate a slot for this person list
+        if event.kind == EventKind::CategorizedPeopleList {
+            // get d-tag
+            for tag in event.tags.iter() {
+                if let Tag::Identifier { d, .. } = tag {
+                    // This will allocate if missing, and will be ok if it exists
+                    PersonList::allocate(d, None)?;
                 }
-                return Ok(());
             }
         }
     } else if event.kind == EventKind::RelayList {

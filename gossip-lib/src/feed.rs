@@ -486,6 +486,10 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
                 && ((*k != EventKind::DmChat) || direct_messages)
                 && ((*k != EventKind::GiftWrap) || direct_messages)
                 && ((*k != EventKind::Zap) || enable_zap_receipts)
+                && (*k != EventKind::ChannelMessage) // not yet implemented
+                && (*k != EventKind::LiveChatMessage) // not yet implemented
+                && (*k != EventKind::CommunityPost) // not yet implemented
+                && (*k != EventKind::DraftLongFormContent) // not yet implemented
         })
         .collect()
 }

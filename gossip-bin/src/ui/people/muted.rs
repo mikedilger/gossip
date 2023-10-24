@@ -3,12 +3,14 @@ use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, Image, RichText, Sense, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Person;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Person, PersonList, GLOBALS};
 use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let muted_pubkeys = GLOBALS.people.get_muted_pubkeys();
+    let muted_pubkeys = GLOBALS
+        .storage
+        .get_people_in_list(PersonList::Muted, None)
+        .unwrap_or(vec![]);
 
     let mut people: Vec<Person> = Vec::new();
     for pk in &muted_pubkeys {
@@ -20,14 +22,19 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             people.push(person);
         }
     }
-    people.sort_unstable();
+    people.sort();
 
     ui.add_space(12.0);
 
-    let last_mute_list_size = GLOBALS.people.last_mute_list_size.load(Ordering::Relaxed);
-    let last_mute_list_asof = GLOBALS.people.last_mute_list_asof.load(Ordering::Relaxed);
+    let latest_event_data = GLOBALS
+        .people
+        .latest_person_list_event_data
+        .get(&PersonList::Muted)
+        .map(|v| v.value().clone())
+        .unwrap_or(Default::default());
+
     let mut asof = "unknown".to_owned();
-    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_mute_list_asof) {
+    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(latest_event_data.when.0) {
         if let Ok(formatted) = stamp.format(time::macros::format_description!(
             "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
         )) {
@@ -35,7 +42,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     }
 
-    ui.label(RichText::new(format!("REMOTE: {} (size={})", asof, last_mute_list_size)).size(15.0))
+    let txt = if let Some(private_len) = latest_event_data.private_len {
+        format!(
+            "REMOTE: {} (public_len={} private_len={})",
+            asof, latest_event_data.public_len, private_len
+        )
+    } else {
+        format!(
+            "REMOTE: {} (public_len={})",
+            asof, latest_event_data.public_len
+        )
+    };
+    ui.label(RichText::new(txt).size(15.0))
         .on_hover_text("This is the data in the latest MuteList event fetched from relays");
 
     ui.add_space(10.0);
@@ -50,7 +68,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::UpdateMuteList { merge: false });
+                .send(ToOverlordMessage::UpdatePersonList {
+                    person_list: PersonList::Muted,
+                    merge: false,
+                });
         }
         if ui
             .button("↓ Merge ↓")
@@ -59,7 +80,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         {
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::UpdateMuteList { merge: true });
+                .send(ToOverlordMessage::UpdatePersonList {
+                    person_list: PersonList::Muted,
+                    merge: true,
+                });
         }
 
         if GLOBALS.signer.is_ready() {
@@ -68,7 +92,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 .on_hover_text("This publishes your Mute List")
                 .clicked()
             {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PushMuteList);
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::PushPersonList(PersonList::Muted));
             }
         }
 
@@ -91,8 +117,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ui.add_space(10.0);
 
-    let last_mute_list_edit = match GLOBALS.storage.read_last_mute_list_edit() {
-        Ok(date) => date,
+    let last_mute_list_edit = match GLOBALS
+        .storage
+        .get_person_list_last_edit_time(PersonList::Muted)
+    {
+        Ok(Some(date)) => date,
+        Ok(None) => 0,
         Err(e) => {
             tracing::error!("{}", e);
             0
