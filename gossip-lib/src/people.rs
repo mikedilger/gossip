@@ -524,16 +524,15 @@ impl People {
                 let mut result_name = String::from("");
 
                 // search for users by name
-                if let Some(name) = &person.tag_name() {
-                    let matchable = name.to_lowercase();
-                    if matchable.starts_with(&search) {
-                        score = 300;
-                        result_name = name.to_string();
-                    }
-                    if matchable.contains(&search) {
-                        score = 200;
-                        result_name = name.to_string();
-                    }
+                let name = person.best_name();
+                let matchable = name.to_lowercase();
+                if matchable.starts_with(&search) {
+                    score = 300;
+                    result_name = name.to_string();
+                }
+                if matchable.contains(&search) {
+                    score = 200;
+                    result_name = name.to_string();
                 }
 
                 // search for users by nip05 id

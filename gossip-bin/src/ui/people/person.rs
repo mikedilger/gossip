@@ -59,8 +59,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     });
                 });
                 ui.vertical(|ui| {
-                    let display_name = gossip_lib::names::display_name_from_person(&person);
-                    ui.heading(display_name);
+                    ui.heading(person.best_name());
                     ui.label(RichText::new(gossip_lib::names::pubkey_short(&pubkey)));
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {

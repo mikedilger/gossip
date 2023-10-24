@@ -140,7 +140,7 @@ impl Page {
             Page::PeopleFollow => (SubMenu::People.to_str(), "Follow new".into()),
             Page::PeopleMuted => (SubMenu::People.to_str(), "Muted".into()),
             Page::Person(pk) => {
-                let name = gossip_lib::names::tag_name_from_pubkey_lookup(pk);
+                let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 ("Profile", name)
             }
             Page::YourKeys => (SubMenu::Account.to_str(), "Keys".into()),
@@ -1141,7 +1141,7 @@ impl GossipUi {
                 let text = if !profile_page {
                     match &person.petname {
                         Some(pn) => pn.to_owned(),
-                        None => gossip_lib::names::tag_name_from_person(person),
+                        None => person.best_name(),
                     }
                 } else {
                     "ACTIONS".to_string()
