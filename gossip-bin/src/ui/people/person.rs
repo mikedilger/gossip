@@ -325,7 +325,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             center,
                             10.0,
                             status_color,
-                            egui::Stroke::new(2.0, egui::Color32::WHITE));
+                            egui::Stroke::new(2.0, ui.visuals().panel_fill));
                         let rect = egui::Rect::from_center_size(center, vec2(10.0,10.0));
                         ui.interact(rect, ui.auto_id_with("status-circle"), egui::Sense::hover())
                             .on_hover_text({
@@ -557,7 +557,11 @@ fn profile_item_frame(ui: &mut Ui, width: f32, label: impl Into<String>, content
             .show(prepared.content_ui.ctx(), |ui|{
                 ui.add_sized(sym_rect.size(), symbol)
             });
-        prepared.frame.fill = ui.visuals().extreme_bg_color;
+        if ui.visuals().dark_mode {
+            prepared.frame.fill = ui.visuals().window_fill;
+        } else {
+            prepared.frame.fill = ui.visuals().extreme_bg_color;
+        }
     }
 
     prepared.end(ui);
