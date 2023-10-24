@@ -29,6 +29,24 @@ impl ThemeDef for DefaultTheme {
         hsva.into()
     }
 
+    fn danger_color(_dark_mode: bool) -> Color32 {
+        Color32::from_rgb(0xFF, 0x5E, 0x57)
+    }
+
+    fn main_content_bgcolor(dark_mode: bool) -> Color32 {
+        if dark_mode {
+            let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
+            hsva.s = 0.0;
+            hsva.v = 0.12;
+            hsva.into()
+        } else {
+            let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
+            hsva.s = 0.0;
+            hsva.v = 1.0;
+            hsva.into()
+        }
+    }
+
     fn highlighted_note_bgcolor(dark_mode: bool) -> Color32 {
         if dark_mode {
             Color32::from_rgb(29, 37, 43)
@@ -152,9 +170,9 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(0x1F), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(0x18),  // panel backgrounds, even-table-rows
-                faint_bg_color: Color32::from_gray(24), // odd-table-rows
+                window_fill: Color32::from_gray(31), // pulldown menus and tooltips
+                panel_fill: Color32::from_gray(24),  // panel backgrounds, even-table-rows
+                faint_bg_color: Color32::from_gray(20), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(64),    // ???
 
@@ -305,6 +323,84 @@ impl ThemeDef for DefaultTheme {
             style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.panel_fill);
         }
         style
+    }
+
+    fn accent_button_1_style(style: &mut Style, dark_mode: bool) {
+        let accent_color = Self::accent_color(dark_mode);
+        if dark_mode {
+            style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.inactive.weak_bg_fill = accent_color;
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+            style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+        } else {
+            style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.inactive.weak_bg_fill = accent_color;
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+            style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+        }
+    }
+
+    fn accent_button_2_style(style: &mut Style, dark_mode: bool) {
+        let accent_color = Self::accent_color(dark_mode);
+        if dark_mode {
+            style.visuals.widgets.noninteractive.weak_bg_fill = style.visuals.faint_bg_color;
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.inactive.weak_bg_fill = style.visuals.faint_bg_color;
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.inactive.bg_stroke =
+                Stroke::new(1.0, Color32::from_white_alpha(40));
+            style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+            style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+        } else {
+            style.visuals.widgets.noninteractive.weak_bg_fill = Color32::WHITE;
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.inactive.weak_bg_fill = Color32::WHITE;
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+            style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+        }
+    }
+
+    fn accent_button_danger_hover(style: &mut Style, dark_mode: bool) {
+        style.visuals.widgets.hovered.weak_bg_fill = Self::danger_color(dark_mode);
+        style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.hovered.bg_stroke =
+            Stroke::new(1.0, Self::darken_color(Self::danger_color(dark_mode), 0.2));
+        style.visuals.widgets.active.weak_bg_fill = Self::danger_color(dark_mode);
+        style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.active.bg_stroke =
+            Stroke::new(1.0, Self::darken_color(Self::danger_color(dark_mode), 0.4));
     }
 
     fn font_definitions() -> FontDefinitions {
@@ -596,17 +692,7 @@ impl ThemeDef for DefaultTheme {
                 Self::highlighted_note_bgcolor(false)
             }
         } else {
-            if dark_mode {
-                let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-                hsva.s = 0.0;
-                hsva.v = 0.12;
-                hsva.into()
-            } else {
-                let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
-                hsva.s = 0.0;
-                hsva.v = 1.0;
-                hsva.into()
-            }
+            Self::main_content_bgcolor(dark_mode)
         }
     }
     fn feed_frame_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {

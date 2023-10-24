@@ -82,6 +82,7 @@ pub fn run() -> Result<(), Error> {
         centered: true,
         vsync: true,
         follow_system_theme: GLOBALS.storage.read_setting_follow_os_dark_mode(),
+        min_window_size: Some(egui::vec2(800.0, 600.0)),
         ..Default::default()
     };
 
@@ -735,10 +736,10 @@ impl GossipUi {
 
                 // cut indentation
                 ui.style_mut().spacing.indent = 0.0;
-                ui.style_mut().visuals.widgets.inactive.fg_stroke.color = self.theme.navigation_text_color();
-                ui.style_mut().visuals.widgets.hovered.fg_stroke.color = self.theme.navigation_text_hover_color();
-                ui.style_mut().visuals.widgets.hovered.fg_stroke.width = 1.0;
-                ui.style_mut().visuals.widgets.active.fg_stroke.color = self.theme.navigation_text_active_color();
+                ui.visuals_mut().widgets.inactive.fg_stroke.color = self.theme.navigation_text_color();
+                ui.visuals_mut().widgets.hovered.fg_stroke.color = self.theme.navigation_text_hover_color();
+                ui.visuals_mut().widgets.hovered.fg_stroke.width = 1.0;
+                ui.visuals_mut().widgets.active.fg_stroke.color = self.theme.navigation_text_active_color();
 
                 ui.add_space(4.0);
                 let back_label_text = RichText::new("‹ Back");
@@ -1079,12 +1080,28 @@ impl eframe::App for GossipUi {
         egui::CentralPanel::default()
             .frame({
                 let frame = egui::Frame::central_panel(&self.theme.get_style());
-                frame.inner_margin(egui::Margin {
-                    left: 20.0,
-                    right: 10.0,
-                    top: 10.0,
-                    bottom: 0.0,
-                })
+                frame
+                    .inner_margin(egui::Margin {
+                        left: 20.0,
+                        right: 10.0,
+                        top: 10.0,
+                        bottom: 0.0,
+                    })
+                    .fill({
+                        match self.page {
+                            Page::PeopleList
+                            | Page::PeopleFollow
+                            | Page::PeopleMuted
+                            | Page::Person(_) => {
+                                if self.theme.dark_mode {
+                                    ctx.style().visuals.panel_fill
+                                } else {
+                                    self.theme.main_content_bgcolor()
+                                }
+                            }
+                            _ => ctx.style().visuals.panel_fill,
+                        }
+                    })
             })
             .show(ctx, |ui| {
                 self.begin_ui(ui);
@@ -1115,7 +1132,21 @@ impl eframe::App for GossipUi {
 impl GossipUi {
     fn begin_ui(&self, ui: &mut Ui) {
         // if a dialog is open, disable the rest of the UI
-        ui.set_enabled(!relays::is_entry_dialog_active(self));
+        ui.set_enabled(!relays::is_entry_dialog_active(self) && self.person_qr.is_none());
+    }
+
+    pub fn person_name(person: &Person) -> String {
+        if let Some(petname) = &person.petname {
+            petname.clone()
+        } else if let Some(display_name) = person.display_name() {
+            display_name.to_string()
+        } else if let Some(name) = person.name() {
+            name.to_string()
+        } else if let Some(nip05) = person.nip05() {
+            nip05.to_string()
+        } else {
+            gossip_lib::names::pubkey_short(&person.pubkey)
+        }
     }
 
     pub fn render_person_name_line(
