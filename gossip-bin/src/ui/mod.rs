@@ -324,6 +324,9 @@ impl DraftData {
         self.replying_to = None;
         self.tag_someone = "".to_owned();
         self.tagging_search_substring = None;
+        self.tagging_search_selected = None;
+        self.tagging_search_searched = None;
+        self.tagging_search_results.clear();
     }
 }
 
@@ -952,22 +955,24 @@ impl eframe::App for GossipUi {
             // Consider mouse inputs
             requested_scroll = i.scroll_delta.y * self.settings.mouse_acceleration;
 
-            // Consider keyboard inputs
-            if i.key_pressed(egui::Key::ArrowDown) {
-                requested_scroll -= 50.0;
-            }
-            if i.key_pressed(egui::Key::ArrowUp) {
-                requested_scroll += 50.0;
-            }
-            if i.key_pressed(egui::Key::PageUp) {
-                let screen_rect = ctx.input(|i| i.screen_rect);
-                let window_height = screen_rect.max.y - screen_rect.min.y;
-                requested_scroll += window_height * 0.75;
-            }
-            if i.key_pressed(egui::Key::PageDown) {
-                let screen_rect = ctx.input(|i| i.screen_rect);
-                let window_height = screen_rect.max.y - screen_rect.min.y;
-                requested_scroll -= window_height * 0.75;
+            // Consider keyboard inputs unless compose area is focused
+            if !ctx.memory(|mem| mem.has_focus(egui::Id::new("compose_area"))) {
+                if i.key_pressed(egui::Key::ArrowDown) {
+                    requested_scroll -= 50.0;
+                }
+                if i.key_pressed(egui::Key::ArrowUp) {
+                    requested_scroll += 50.0;
+                }
+                if i.key_pressed(egui::Key::PageUp) {
+                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let window_height = screen_rect.max.y - screen_rect.min.y;
+                    requested_scroll += window_height * 0.75;
+                }
+                if i.key_pressed(egui::Key::PageDown) {
+                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let window_height = screen_rect.max.y - screen_rect.min.y;
+                    requested_scroll -= window_height * 0.75;
+                }
             }
         });
 
