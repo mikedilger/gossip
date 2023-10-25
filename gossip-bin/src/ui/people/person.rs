@@ -218,7 +218,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     if md.other.contains_key(WEBSITE) {
                         if let Some(serde_json::Value::String(svalue)) = md.other.get(WEBSITE) {
                             if !svalue.trim().is_empty() {
-                                let website = svalue.to_owned();
                                 profile_item(ui, app, width, WEBSITE, svalue);
                             }
                         }

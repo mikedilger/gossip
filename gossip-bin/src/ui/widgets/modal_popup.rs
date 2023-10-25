@@ -1,6 +1,9 @@
 use eframe::epaint::Color32;
 use egui_winit::egui::{self, InnerResponse, Ui};
 
+const MARGIN_X: f32 = 80.0;
+const MARGIN_Y: f32 = 40.0;
+
 pub fn modal_popup(
     ui: &mut Ui,
     dlg_size: egui::Vec2,
@@ -14,12 +17,15 @@ pub fn modal_popup(
 
         // paint the close button
         // ui.max_rect is inner_margin size
-        let tr = ui.max_rect().right_top();
-        let rect = egui::Rect::from_x_y_ranges(tr.x - 5.0..=tr.x + 5.0, tr.y + 5.0..=tr.y + 15.0);
-        ui.allocate_ui_at_rect(rect, |ui| {
-            ui.add_sized(rect.size(), super::NavItem::new("\u{274C}", false))
-        })
-        .inner
+        let tr = ui.max_rect().right_top() + egui::vec2(MARGIN_X, -MARGIN_Y);
+        let rect = egui::Rect::from_x_y_ranges(tr.x - 30.0..=tr.x -15.0, tr.y + 15.0..=tr.y + 30.0);
+        egui::Area::new(ui.auto_id_with("_sym"))
+            .movable(false)
+            .order(egui::Order::Foreground)
+            .fixed_pos(rect.left_top())
+            .show(ui.ctx(), |ui| {
+                ui.add_sized(rect.size(), super::NavItem::new("\u{274C}", false))
+            }).inner
     };
 
     egui::Area::new("hide-background-area")
@@ -43,7 +49,7 @@ pub fn modal_popup(
     let area = egui::Area::new("modal-popup")
         .movable(false)
         .interactable(true)
-        .order(egui::Order::Foreground)
+        .order(egui::Order::Middle)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]);
     area.show_open_close_animation(
         ui.ctx(),
@@ -57,7 +63,7 @@ pub fn modal_popup(
             frame.fill = Color32::WHITE;
         }
         frame.rounding = egui::Rounding::same(10.0);
-        frame.inner_margin = egui::Margin::symmetric(80.0, 40.0);
+        frame.inner_margin = egui::Margin::symmetric(MARGIN_X, MARGIN_Y);
         frame.show(ui, content).inner
     })
 }
