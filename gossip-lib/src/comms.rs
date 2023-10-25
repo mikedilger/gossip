@@ -80,6 +80,9 @@ pub enum ToOverlordMessage {
     /// Calls [like](crate::Overlord::like)
     Like(Id, PublicKey),
 
+    /// Calls [load_more_general_feed](crate::Overlord::load_more_general_feed)
+    LoadMoreGeneralFeed,
+
     /// internal (minions use this channel too)
     MinionJobComplete(RelayUrl, u64),
 
