@@ -602,17 +602,15 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                                 "".to_string()
                                             };
 
+                                            // replace with nostr url
+                                            let nostr_url: NostrUrl = pair.1.into();
+                                            let nurl = format!("{}", nostr_url);
                                             app.draft_data.draft = app
                                                 .draft_data
                                                 .draft
-                                                .trim_end_matches(format!("@{}", search).as_str())
+                                                .replace(&format!("@{}", search), &nurl)
                                                 .to_string();
 
-                                            // replace with nostr url
-                                            let nostr_url: NostrUrl = pair.1.into();
-                                            app.draft_data
-                                                .draft
-                                                .push_str(&format!("{} ", nostr_url));
                                             app.draft_data.tag_someone = "".to_owned();
 
                                             // mover cursor to end
