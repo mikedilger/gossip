@@ -548,6 +548,9 @@ impl Overlord {
             ToOverlordMessage::Like(id, pubkey) => {
                 self.like(id, pubkey).await?;
             }
+            ToOverlordMessage::LoadMoreGeneralFeed => {
+                self.load_more_general_feed().await?;
+            }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
                 self.finish_job(url, Some(job_id), None)?;
             }
@@ -1347,6 +1350,27 @@ impl Overlord {
 
         // Process the message for ourself
         crate::process::process_new_event(&event, None, None, false, false).await?;
+
+        Ok(())
+    }
+
+    pub async fn load_more_general_feed(&mut self) -> Result<(), Error> {
+        // Set the feed to load another chunk back
+        GLOBALS.feed.load_more_general_feed();
+
+        // Subscribe on the minions for that missing chunk
+        for relay_assignment in GLOBALS.relay_picker.relay_assignments_iter() {
+            // Ask relay to subscribe to the missing chunk
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_assignment.relay_url.as_str().to_owned(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(
+                        relay_assignment.pubkeys.clone(),
+                    ),
+                },
+            });
+        }
 
         Ok(())
     }
