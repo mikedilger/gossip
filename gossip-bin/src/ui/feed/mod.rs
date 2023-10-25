@@ -67,6 +67,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 if with_replies { "main" } else { "general" }
             );
             ui.add_space(10.0);
+            if ui.link("Load More").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::LoadMoreGeneralFeed);
+            }
+            ui.add_space(10.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
@@ -103,12 +109,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             );
             ui.add_space(6.0);
             render_a_feed(app, ctx, frame, ui, feed, false, &id);
-
-            if ui.link("Load More").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::LoadMoreGeneralFeed);
-            }
         }
         FeedKind::Inbox(indirect) => {
             if app.settings.public_key.is_none() {
