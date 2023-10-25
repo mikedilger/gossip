@@ -288,7 +288,7 @@ pub struct DraftData {
     pub tagging_search_substring: Option<String>,
     pub tagging_search_selected: Option<usize>,
     pub tagging_search_searched: Option<String>,
-    pub tagging_search_results: Vec<(String,PublicKey)>,
+    pub tagging_search_results: Vec<(String, PublicKey)>,
 }
 
 impl Default for DraftData {
