@@ -58,6 +58,9 @@ pub struct Feed {
     person_feed: RwLock<Vec<Id>>,
     dm_chat_feed: RwLock<Vec<Id>>,
 
+    // When the general feed starts
+    general_feed_start: RwLock<Unixtime>,
+
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
     last_computed: RwLock<Option<Instant>>,
@@ -80,10 +83,23 @@ impl Feed {
             inbox_feed: RwLock::new(Vec::new()),
             person_feed: RwLock::new(Vec::new()),
             dm_chat_feed: RwLock::new(Vec::new()),
+            general_feed_start: RwLock::new(Unixtime::now().unwrap()),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
         }
+    }
+
+    /// Done during startup
+    pub(crate) fn set_general_feed_start(&self, general_feed_start: Unixtime) {
+        *self.general_feed_start.write() = general_feed_start;
+    }
+
+    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    pub(crate) fn load_more_general_feed(&self) {
+        let mut start = *self.general_feed_start.read();
+        start = start - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
+        *self.general_feed_start.write() = start;
     }
 
     fn unlisten(&self) {
@@ -315,7 +331,7 @@ impl Feed {
                     .map(|(pk, _)| pk)
                     .collect();
 
-                let since = now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
+                let since: Unixtime = *self.general_feed_start.read();
 
                 // FIXME we don't include delegated events. We should look for all events
                 // delegated to people we follow and include those in the feed too.
