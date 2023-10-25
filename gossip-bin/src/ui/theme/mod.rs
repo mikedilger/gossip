@@ -112,9 +112,9 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn get_on_accent_style(&self) -> Style {
+            pub fn on_accent_style(&self, style: &mut Style) {
                 match self.variant {
-                    $( $variant => $class::get_on_accent_style(self.dark_mode), )+
+                    $( $variant => $class::on_accent_style(style, self.dark_mode), )+
                 }
             }
 
@@ -389,7 +389,7 @@ pub trait ThemeDef: Send + Sync {
     // in place.
     fn get_style(dark_mode: bool) -> Style;
     /// the style to use when displaying on-top of an accent-colored background
-    fn get_on_accent_style(dark_mode: bool) -> Style;
+    fn on_accent_style(style: &mut Style, dark_mode: bool);
 
     /// accent-colored button style 1 (filled)
     fn accent_button_1_style(style: &mut Style, dark_mode: bool);

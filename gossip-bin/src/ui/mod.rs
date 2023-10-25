@@ -286,6 +286,8 @@ pub struct DraftData {
 
     // If the user is typing a @tag, this is what they typed
     pub tagging_search_substring: Option<String>,
+    pub tagging_search_selected: Option<usize>,
+    pub tagging_search_results: usize,
 }
 
 impl Default for DraftData {
@@ -303,6 +305,8 @@ impl Default for DraftData {
             tag_someone: "".to_owned(),
 
             tagging_search_substring: None,
+            tagging_search_selected: None,
+            tagging_search_results: 0,
         }
     }
 }

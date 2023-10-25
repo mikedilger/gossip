@@ -295,8 +295,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     /// the style to use when displaying on-top of an accent-colored background
-    fn get_on_accent_style(dark_mode: bool) -> Style {
-        let mut style = Self::get_style(dark_mode);
+    fn on_accent_style(style: &mut Style, dark_mode: bool) {
         if dark_mode {
             style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.window_fill;
             style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
@@ -322,7 +321,6 @@ impl ThemeDef for DefaultTheme {
             style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
             style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.panel_fill);
         }
-        style
     }
 
     fn accent_button_1_style(style: &mut Style, dark_mode: bool) {
