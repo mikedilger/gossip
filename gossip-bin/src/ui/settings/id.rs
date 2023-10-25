@@ -29,4 +29,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.label("Encrypted Private Key scrypt N parameter");
     ui.label("(NOTE: changing this will not re-encrypt any existing encrypted private key)");
     ui.add(Slider::new(&mut app.settings.log_n, 18..=22).text("logN iteratons"));
+
+    ui.add_space(20.0);
 }

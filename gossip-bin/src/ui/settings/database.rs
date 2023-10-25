@@ -36,4 +36,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneCache);
         }
     }
+
+    ui.add_space(20.0);
 }
