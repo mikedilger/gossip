@@ -287,7 +287,8 @@ pub struct DraftData {
     // If the user is typing a @tag, this is what they typed
     pub tagging_search_substring: Option<String>,
     pub tagging_search_selected: Option<usize>,
-    pub tagging_search_results: usize,
+    pub tagging_search_searched: Option<String>,
+    pub tagging_search_results: Vec<(String,PublicKey)>,
 }
 
 impl Default for DraftData {
@@ -306,7 +307,8 @@ impl Default for DraftData {
 
             tagging_search_substring: None,
             tagging_search_selected: None,
-            tagging_search_results: 0,
+            tagging_search_searched: None,
+            tagging_search_results: Vec::new(),
         }
     }
 }
