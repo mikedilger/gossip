@@ -2,6 +2,7 @@ use super::theme::FeedProperties;
 use super::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Frame, RichText, Ui, Vec2};
+use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::Id;
@@ -105,6 +106,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             );
             ui.add_space(6.0);
             render_a_feed(app, ctx, frame, ui, feed, false, &id);
+
+            if ui.link("Load More").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::LoadMoreGeneralFeed);
+            }
         }
         FeedKind::Inbox(indirect) => {
             if app.settings.public_key.is_none() {
