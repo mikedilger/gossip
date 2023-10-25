@@ -176,7 +176,7 @@ lazy_static! {
             ui_invalidate_all: AtomicBool::new(false),
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
-            tagging_regex: Regex::new(r"(?:^|\s+)@(.+)$").unwrap(),
+            tagging_regex: Regex::new(r"(?:^|\s+)@(\S+)$").unwrap(),
             storage,
             events_processed: AtomicU32::new(0),
             filter_engine,
