@@ -382,8 +382,16 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         let up = i.count_and_consume_key(Modifiers::NONE, Key::ArrowUp);
                         index += down;
                         index = index.min(app.draft_data.tagging_search_results.len().saturating_sub(1));
+                        index = index.saturating_sub(up);
 
-                        (Some(index.saturating_sub(up)), enter)
+                        // tab will cycle down and wrap
+                        let tab = i.count_and_consume_key(Modifiers::NONE, Key::Tab);
+                        index += tab;
+                        if index > app.draft_data.tagging_search_results.len().saturating_sub(1) {
+                            index = 0;
+                        }
+
+                        (Some(index), enter)
                     })
                 } else {
                     (None, false)
