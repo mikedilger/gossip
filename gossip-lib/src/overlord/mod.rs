@@ -171,6 +171,12 @@ impl Overlord {
                 .store(false, Ordering::Relaxed);
         }
 
+        // Init a feed variable
+        let now = Unixtime::now().unwrap();
+        let general_feed_start =
+            now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
+        GLOBALS.feed.set_general_feed_start(general_feed_start);
+
         // Start the fetcher
         crate::fetcher::Fetcher::start()?;
 
