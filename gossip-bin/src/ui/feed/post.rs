@@ -617,35 +617,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
 
             if app.draft_data.repost.is_none() {
-                ui.add(
-                    text_edit_line!(app, app.draft_data.tag_someone)
-                        .desired_width(100.0)
-                        .hint_text("@username"),
-                );
-
-                if !app.draft_data.tag_someone.is_empty() {
-                    let pairs = GLOBALS
-                        .people
-                        .search_people_to_tag(&app.draft_data.tag_someone)
-                        .unwrap_or(vec![]);
-                    if !pairs.is_empty() {
-                        ui.menu_button("@", |ui| {
-                            for pair in pairs {
-                                if ui.button(pair.0).clicked() {
-                                    if !app.draft_data.draft.ends_with(' ')
-                                        && !app.draft_data.draft.is_empty()
-                                    {
-                                        app.draft_data.draft.push(' ');
-                                    }
-                                    let nostr_url: NostrUrl = pair.1.into();
-                                    app.draft_data.draft.push_str(&format!("{}", nostr_url));
-                                    app.draft_data.tag_someone = "".to_owned();
-                                }
-                            }
-                        });
-                    }
-                }
-
                 if app.draft_data.include_subject {
                     if ui.button("Remove Subject").clicked() {
                         app.draft_data.include_subject = false;
