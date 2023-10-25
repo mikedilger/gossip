@@ -434,167 +434,170 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     }
                 }
 
-                if let Some(cursor) = output.cursor_range {
+                let pos = if let Some(cursor) = output.cursor_range {
                     let rect = output.galley.pos_from_cursor(&cursor.primary); // position within textedit
-                    let pos = output.text_draw_pos + rect.center_bottom().to_vec2();
+                    output.text_draw_pos + rect.center_bottom().to_vec2()
+                } else {
+                    let rect = output.galley.pos_from_cursor(&output.galley.end()); // position within textedit
+                    output.text_draw_pos + rect.center_bottom().to_vec2()
+                };
 
-                    // always compute the tooltip, but it is only shown when
-                    // is_open is true. This is so we get the animation.
-                    let frame = egui::Frame::popup(ui.style())
-                        .rounding(egui::Rounding::ZERO)
-                        .inner_margin(egui::Margin::same(0.0));
-                    let area = egui::Area::new(ui.auto_id_with("compose-tagging-tooltip"))
-                        .fixed_pos(pos)
-                        .movable(false)
-                        .constrain(true)
-                        .interactable(true)
-                        .order(egui::Order::Middle);
+                // always compute the tooltip, but it is only shown when
+                // is_open is true. This is so we get the animation.
+                let frame = egui::Frame::popup(ui.style())
+                    .rounding(egui::Rounding::ZERO)
+                    .inner_margin(egui::Margin::same(0.0));
+                let area = egui::Area::new(ui.auto_id_with("compose-tagging-tooltip"))
+                    .fixed_pos(pos)
+                    .movable(false)
+                    .constrain(true)
+                    .interactable(true)
+                    .order(egui::Order::Middle);
 
-                    const TAGG_WIDTH: f32 = 200.0;
+                const TAGG_WIDTH: f32 = 200.0;
 
-                    // show tagging slector tooltip
-                    if let Some(search) = &app.draft_data.tagging_search_substring {
-                        // only do the search when search string changes
-                        if app.draft_data.tagging_search_substring != app.draft_data.tagging_search_searched {
-                            let pairs = GLOBALS
-                                .people
-                                .search_people_to_tag(&search)
-                                .unwrap_or(vec![]);
-                            app.draft_data.tagging_search_searched = Some(search.clone());
-                            app.draft_data.tagging_search_results = pairs.to_owned();
-                        }
-                    } else {
-                        // no more search substring, clear results
-                        app.draft_data.tagging_search_searched = None;
-                        app.draft_data.tagging_search_results.clear();
+                // show tagging slector tooltip
+                if let Some(search) = &app.draft_data.tagging_search_substring {
+                    // only do the search when search string changes
+                    if app.draft_data.tagging_search_substring != app.draft_data.tagging_search_searched {
+                        let pairs = GLOBALS
+                            .people
+                            .search_people_to_tag(&search)
+                            .unwrap_or(vec![]);
+                        app.draft_data.tagging_search_searched = Some(search.clone());
+                        app.draft_data.tagging_search_results = pairs.to_owned();
                     }
-
-                    // show search results
-                    if !app.draft_data.tagging_search_results.is_empty() {
-                        area.show(ui.ctx(), |ui|{
-                            frame.show(ui, |ui|{
-                                    egui::ScrollArea::vertical()
-                                        .max_width(TAGG_WIDTH)
-                                        .max_height(250.0)
-                                        .show(ui, |ui|{
-                                            // need to clone results to avoid immutable borrow error on app.
-                                            let pairs = app.draft_data.tagging_search_results.clone();
-                                            for (i, pair) in pairs.iter().enumerate() {
-                                                let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pair.1) {
-                                                    avatar
-                                                } else {
-                                                    app.placeholder_avatar.clone()
-                                                };
-
-                                                let frame = egui::Frame::none()
-                                                    .rounding( egui::Rounding::ZERO )
-                                                    .inner_margin(
-                                                        egui::Margin::symmetric(10.0,5.0));
-                                                let mut prepared = frame.begin(ui);
-
-                                                prepared.content_ui.set_min_width(TAGG_WIDTH);
-                                                prepared.content_ui.set_max_width(TAGG_WIDTH);
-                                                prepared.content_ui.set_min_height(27.0);
-
-                                                let frame_rect = (prepared.frame.inner_margin + prepared.frame.outer_margin)
-                                                    .expand_rect(prepared.content_ui.min_rect());
-
-                                                let response = ui
-                                                    .interact(frame_rect, ui.auto_id_with(pair.1.as_hex_string()), egui::Sense::click())
-                                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-                                                // mouse hover moves selected index
-                                                // app.draft_data.tagging_search_selected = if response.hovered() {
-                                                //     Some(i)
-                                                // } else {
-                                                //     app.draft_data.tagging_search_selected
-                                                // };
-                                                let is_selected = Some(i) == app.draft_data.tagging_search_selected;
-
-                                                { // render inside of frame using prepared.content_ui
-                                                    let ui = &mut prepared.content_ui;
-                                                    if is_selected { app.theme.on_accent_style(ui.style_mut()) }
-                                                    ui.horizontal(|ui|{
-                                                        ui.add(egui::Image::new(&avatar)
-                                                            .max_size(egui::Vec2 {
-                                                                x: 27.0,
-                                                                y: 27.0,
-                                                            })
-                                                            .maintain_aspect_ratio(true));
-                                                        ui.vertical(|ui|{
-                                                            widgets::truncated_label(ui, RichText::new(&pair.0).small(), TAGG_WIDTH - 33.0);
-                                                            if let Ok(Some(person)) = GLOBALS.storage.read_person(&pair.1) {
-                                                                let mut nip05 = RichText::new(person.nip05().unwrap_or_default()).weak().small();
-                                                                if !person.nip05_valid { nip05 = nip05.strikethrough() }
-                                                                widgets::truncated_label(ui, nip05, TAGG_WIDTH - 33.0);
-                                                            }
-                                                        });
-                                                    })
-                                                };
-
-                                                prepared.frame.fill =
-                                                        if is_selected {
-                                                            app.theme.accent_color()
-                                                        } else {
-                                                            egui::Color32::TRANSPARENT
-                                                        };
-
-                                                prepared.end(ui);
-
-                                                if is_selected { response.scroll_to_me(None) }
-                                                let clicked = response.clicked();
-                                                if clicked || (enter_key && is_selected) {
-                                                    // remove @ and search text
-                                                    let search = if let Some(search) = app.draft_data.tagging_search_searched.as_ref() {
-                                                        search.clone()
-                                                    } else {
-                                                        "".to_string()
-                                                    };
-
-                                                    app.draft_data.draft = app.draft_data.draft.trim_end_matches(
-                                                        format!("@{}", search).as_str()).to_string();
-
-                                                    // replace with nostr url
-                                                    let nostr_url: NostrUrl = pair.1.into();
-                                                    app.draft_data.draft.push_str(&format!("{} ", nostr_url));
-                                                    app.draft_data.tag_someone = "".to_owned();
-
-                                                    // mover cursor to end
-                                                    let mut state = output.state.clone();
-                                                    let mut ccrange = CCursorRange::default();
-                                                    ccrange.primary.index = usize::MAX;
-                                                    ccrange.secondary.index = usize::MAX;
-                                                    state.set_ccursor_range(Some(ccrange));
-                                                    state.store(ctx, text_edit_area_id);
-                                                }
-                                            }
-                                        });
-
-
-                                    // if bresp.clicked() {
-                                        // if !app.draft_data.draft.ends_with(' ')
-                                        //     && !app.draft_data.draft.is_empty()
-                                        // {
-                                        //     app.draft_data.draft.push(' ');
-                                        // }
-                                        // let nostr_url: NostrUrl = pair.1.into();
-                                        // app.draft_data.draft.push_str(&format!("{}", nostr_url));
-                                        // app.draft_data.tag_someone = "".to_owned();
-                                    // }
-                            });
-                        });
-                    }
-
-                    let is_open = app.draft_data.tagging_search_substring.is_some();
-                    area.show_open_close_animation(
-                        ui.ctx(),
-                        &frame,
-                        is_open,
-                    );
+                } else {
+                    // no more search substring, clear results
+                    app.draft_data.tagging_search_searched = None;
+                    app.draft_data.tagging_search_results.clear();
                 }
 
-                ui.add_space(8.0);
+                // show search results
+                if !app.draft_data.tagging_search_results.is_empty() {
+                    area.show(ui.ctx(), |ui|{
+                        frame.show(ui, |ui|{
+                                egui::ScrollArea::vertical()
+                                    .max_width(TAGG_WIDTH)
+                                    .max_height(250.0)
+                                    .show(ui, |ui|{
+                                        // need to clone results to avoid immutable borrow error on app.
+                                        let pairs = app.draft_data.tagging_search_results.clone();
+                                        for (i, pair) in pairs.iter().enumerate() {
+                                            let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &pair.1) {
+                                                avatar
+                                            } else {
+                                                app.placeholder_avatar.clone()
+                                            };
+
+                                            let frame = egui::Frame::none()
+                                                .rounding( egui::Rounding::ZERO )
+                                                .inner_margin(
+                                                    egui::Margin::symmetric(10.0,5.0));
+                                            let mut prepared = frame.begin(ui);
+
+                                            prepared.content_ui.set_min_width(TAGG_WIDTH);
+                                            prepared.content_ui.set_max_width(TAGG_WIDTH);
+                                            prepared.content_ui.set_min_height(27.0);
+
+                                            let frame_rect = (prepared.frame.inner_margin + prepared.frame.outer_margin)
+                                                .expand_rect(prepared.content_ui.min_rect());
+
+                                            let response = ui
+                                                .interact(frame_rect, ui.auto_id_with(pair.1.as_hex_string()), egui::Sense::click())
+                                                .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                                            // mouse hover moves selected index
+                                            app.draft_data.tagging_search_selected = if response.hovered() {
+                                                Some(i)
+                                            } else {
+                                                app.draft_data.tagging_search_selected
+                                            };
+                                            let is_selected = Some(i) == app.draft_data.tagging_search_selected;
+
+                                            { // render inside of frame using prepared.content_ui
+                                                let ui = &mut prepared.content_ui;
+                                                if is_selected { app.theme.on_accent_style(ui.style_mut()) }
+                                                ui.horizontal(|ui|{
+                                                    ui.add(egui::Image::new(&avatar)
+                                                        .max_size(egui::Vec2 {
+                                                            x: 27.0,
+                                                            y: 27.0,
+                                                        })
+                                                        .maintain_aspect_ratio(true));
+                                                    ui.vertical(|ui|{
+                                                        widgets::truncated_label(ui, RichText::new(&pair.0).small(), TAGG_WIDTH - 33.0);
+                                                        if let Ok(Some(person)) = GLOBALS.storage.read_person(&pair.1) {
+                                                            let mut nip05 = RichText::new(person.nip05().unwrap_or_default()).weak().small();
+                                                            if !person.nip05_valid { nip05 = nip05.strikethrough() }
+                                                            widgets::truncated_label(ui, nip05, TAGG_WIDTH - 33.0);
+                                                        }
+                                                    });
+                                                })
+                                            };
+
+                                            prepared.frame.fill =
+                                                    if is_selected {
+                                                        app.theme.accent_color()
+                                                    } else {
+                                                        egui::Color32::TRANSPARENT
+                                                    };
+
+                                            prepared.end(ui);
+
+                                            if is_selected { response.scroll_to_me(None) }
+                                            let clicked = response.clicked();
+                                            if clicked || (enter_key && is_selected) {
+                                                // remove @ and search text
+                                                let search = if let Some(search) = app.draft_data.tagging_search_searched.as_ref() {
+                                                    search.clone()
+                                                } else {
+                                                    "".to_string()
+                                                };
+
+                                                app.draft_data.draft = app.draft_data.draft.trim_end_matches(
+                                                    format!("@{}", search).as_str()).to_string();
+
+                                                // replace with nostr url
+                                                let nostr_url: NostrUrl = pair.1.into();
+                                                app.draft_data.draft.push_str(&format!("{} ", nostr_url));
+                                                app.draft_data.tag_someone = "".to_owned();
+
+                                                // mover cursor to end
+                                                let mut state = output.state.clone();
+                                                let mut ccrange = CCursorRange::default();
+                                                ccrange.primary.index = usize::MAX;
+                                                ccrange.secondary.index = usize::MAX;
+                                                state.set_ccursor_range(Some(ccrange));
+                                                state.store(ctx, text_edit_area_id);
+                                            }
+                                        }
+                                    });
+
+
+                                // if bresp.clicked() {
+                                    // if !app.draft_data.draft.ends_with(' ')
+                                    //     && !app.draft_data.draft.is_empty()
+                                    // {
+                                    //     app.draft_data.draft.push(' ');
+                                    // }
+                                    // let nostr_url: NostrUrl = pair.1.into();
+                                    // app.draft_data.draft.push_str(&format!("{}", nostr_url));
+                                    // app.draft_data.tag_someone = "".to_owned();
+                                // }
+                        });
+                    });
+                }
+
+                let is_open = app.draft_data.tagging_search_substring.is_some();
+                area.show_open_close_animation(
+                    ui.ctx(),
+                    &frame,
+                    is_open,
+                );
             }
+
+            ui.add_space(8.0);
         });
 
     ui.horizontal(|ui| {
