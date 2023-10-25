@@ -650,17 +650,14 @@ fn profile_item_frame(
         ui.horizontal(|ui| {
             ui.set_min_width(width);
             ui.set_max_width(width);
-            let response = ui
-                .vertical(|ui| {
-                    item_label(ui, &label);
-                    ui.add_space(ITEM_V_SPACE);
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label(content);
-                    });
-                })
-                .response;
-            // ui.add_space(20.0);
-            response
+            ui.vertical(|ui| {
+                item_label(ui, &label);
+                ui.add_space(ITEM_V_SPACE);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(content);
+                });
+            })
+            .response
         })
         .response
     };

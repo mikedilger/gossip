@@ -480,7 +480,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     {
                         let pairs = GLOBALS
                             .people
-                            .search_people_to_tag(&search)
+                            .search_people_to_tag(search)
                             .unwrap_or(vec![]);
                         app.draft_data.tagging_search_searched = Some(search.clone());
                         app.draft_data.tagging_search_results = pairs.to_owned();
