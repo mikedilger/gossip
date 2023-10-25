@@ -630,7 +630,10 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
             .has_usage_bits(Relay::ADVERTISE)
             .cmp(&a.has_usage_bits(Relay::ADVERTISE))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::HighestFollowing => a.url.cmp(&b.url), // FIXME need following numbers here
+        RelaySorting::HighestFollowing => GLOBALS
+            .relay_picker
+            .get_relay_following_count(&b.url)
+            .cmp(&GLOBALS.relay_picker.get_relay_following_count(&a.url)),
         RelaySorting::HighestSuccessRate => b
             .success_rate()
             .total_cmp(&a.success_rate())
