@@ -705,7 +705,7 @@ impl Storage {
     );
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
-    def_setting!(feed_chunk, b"feed_chunk", u64, 60 * 60 * 12);
+    def_setting!(feed_chunk, b"feed_chunk", u64, 60 * 60 * 4);
     def_setting!(replies_chunk, b"replies_chunk", u64, 60 * 60 * 24 * 7);
     def_setting!(
         person_feed_chunk,
