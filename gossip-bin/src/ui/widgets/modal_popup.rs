@@ -18,14 +18,16 @@ pub fn modal_popup(
         // paint the close button
         // ui.max_rect is inner_margin size
         let tr = ui.max_rect().right_top() + egui::vec2(MARGIN_X, -MARGIN_Y);
-        let rect = egui::Rect::from_x_y_ranges(tr.x - 30.0..=tr.x -15.0, tr.y + 15.0..=tr.y + 30.0);
+        let rect =
+            egui::Rect::from_x_y_ranges(tr.x - 30.0..=tr.x - 15.0, tr.y + 15.0..=tr.y + 30.0);
         egui::Area::new(ui.auto_id_with("_sym"))
             .movable(false)
             .order(egui::Order::Foreground)
             .fixed_pos(rect.left_top())
             .show(ui.ctx(), |ui| {
                 ui.add_sized(rect.size(), super::NavItem::new("\u{274C}", false))
-            }).inner
+            })
+            .inner
     };
 
     egui::Area::new("hide-background-area")
