@@ -96,10 +96,7 @@ impl PartialEq for Person1 {
 impl Eq for Person1 {}
 impl PartialOrd for Person1 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self.display_name(), other.display_name()) {
-            (Some(a), Some(b)) => a.to_lowercase().partial_cmp(&b.to_lowercase()),
-            _ => self.pubkey.partial_cmp(&other.pubkey),
-        }
+        Some(self.cmp(other))
     }
 }
 impl Ord for Person1 {
