@@ -56,6 +56,12 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                 let chunk = shattered_content.slice(span).unwrap();
 
                 let mut pos = 0;
+
+                // following code only works if interests are sorted the way
+                // they occur in the text
+                let mut interests = interests.to_owned();
+                interests.sort_by(|a, b| { chunk.find(a).cmp(&chunk.find(b)) });
+
                 // any entry in interests gets it's own layout section
                 for interest in &interests {
                     if let Some(ipos) = chunk.find(interest.as_str()) {
