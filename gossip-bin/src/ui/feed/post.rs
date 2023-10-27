@@ -4,6 +4,7 @@ use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
+use egui_winit::egui::text_edit::CCursorRange;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::Relay;
@@ -635,7 +636,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                             };
 
                                             // complete name and add replacement
-                                            // TODO find a better way to name without spaces
                                             let name = pair.0.clone();
                                             let nostr_url: NostrUrl = pair.1.into();
                                             app.draft_data.draft = app
@@ -645,15 +645,19 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                                 .replace(&format!("@{}", search), name.as_str())
                                                 .to_string();
 
-                                            app.draft_data.replacements.insert(name, ContentSegment::NostrUrl(nostr_url));
+                                            // move cursor to end of replacement
+                                            if let Some(pos) = app.draft_data.draft.find(name.as_str()) {
+                                                let cpos = pos + name.len();
+                                                let mut state = output.state.clone();
+                                                let mut ccrange = CCursorRange::default();
+                                                ccrange.primary.index = cpos;
+                                                ccrange.secondary.index = cpos;
+                                                state.set_ccursor_range(Some(ccrange));
+                                                state.store(ctx, compose_area_id);
+                                            }
 
-                                            // // TODO move cursor to end of replacement
-                                            // let mut state = output.state.clone();
-                                            // let mut ccrange = CCursorRange::default();
-                                            // ccrange.primary.index = usize::MAX;
-                                            // ccrange.secondary.index = usize::MAX;
-                                            // state.set_ccursor_range(Some(ccrange));
-                                            // state.store(ctx, compose_area_id);
+                                            // add it to our replacement list
+                                            app.draft_data.replacements.insert(name, ContentSegment::NostrUrl(nostr_url));
                                         }
                                     }
                                 });
