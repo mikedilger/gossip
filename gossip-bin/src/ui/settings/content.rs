@@ -87,6 +87,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     } else {
         "Enable to show all deleted events, but labeled as deleted"
     });
+
+    ui.add_space(20.0);
 }
 
 fn secs_to_string(secs: u64) -> String {

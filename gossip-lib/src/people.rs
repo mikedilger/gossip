@@ -874,6 +874,10 @@ impl People {
         *self.active_person.blocking_read()
     }
 
+    pub async fn get_active_person_async(&self) -> Option<PublicKey> {
+        *self.active_person.read().await
+    }
+
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
         self.active_persons_write_relays.blocking_read().clone()
     }

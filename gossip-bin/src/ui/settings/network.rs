@@ -172,4 +172,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.label("How long before event media becomes stale and needs rechecking?");
         ui.add(Slider::new(&mut app.settings.media_becomes_stale_hours, 2..=40).text("hours"));
     });
+
+    ui.add_space(20.0);
 }

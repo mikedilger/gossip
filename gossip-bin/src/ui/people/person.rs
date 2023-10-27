@@ -253,9 +253,11 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     need_to_set_active_person = false;
                     app.setting_active_person = false;
 
-                    let relays = GLOBALS.people.get_active_person_write_relays();
+                    let mut relays = GLOBALS.people.get_active_person_write_relays();
+                    relays.sort_by(|a, b| b.1.cmp(&a.1)); // list in score order
                     let relays_str: String = relays
                         .iter()
+                        .filter(|f| f.1 > 5) // do not list low-score relays
                         .map(|f| f.0.host())
                         .collect::<Vec<String>>()
                         .join(", ");

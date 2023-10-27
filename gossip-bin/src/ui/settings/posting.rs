@@ -27,4 +27,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ),
     )
     .on_hover_text("Takes effect on next relay connection.");
+
+    ui.add_space(20.0);
 }
