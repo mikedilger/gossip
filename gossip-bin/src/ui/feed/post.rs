@@ -4,7 +4,6 @@ use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
-use egui_winit::egui::text_edit::CCursorRange;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::Relay;
@@ -13,7 +12,7 @@ use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 
 #[memoize]
-pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
+pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) -> LayoutJob {
     let mut job = LayoutJob::default();
 
     // Shatter
@@ -54,11 +53,37 @@ pub fn textarea_highlighter(theme: Theme, text: String) -> LayoutJob {
             }
             ContentSegment::Plain(span) => {
                 let chunk = shattered_content.slice(span).unwrap();
-                job.append(
-                    chunk,
-                    0.0,
-                    theme.highlight_text_format(HighlightType::Nothing),
-                );
+
+                let mut pos = 0;
+                // any entry in interests gets it's own layout section
+                for interest in &interests {
+                    if let Some(ipos) = chunk.find(interest.as_str()) {
+                        // add stuff before the interest
+                        job.append(
+                            &chunk[pos..ipos],
+                            0.0,
+                            theme.highlight_text_format(HighlightType::Nothing)
+                        );
+
+                        pos = ipos+interest.len();
+                        // add the interest
+                        job.append(
+                        &chunk[ipos..pos],
+                            0.0,
+                            theme.highlight_text_format(HighlightType::Hyperlink)
+                        );
+                    }
+                }
+
+                // add anything else
+                let slice = &chunk[pos..];
+                if !slice.is_empty() {
+                    job.append(
+                        slice,
+                        0.0,
+                        theme.highlight_text_format(HighlightType::Nothing),
+                    );
+                }
             }
         }
     }
@@ -119,12 +144,13 @@ fn dm_posting_area(
     ui: &mut Ui,
     dm_channel: &DmChannel,
 ) {
+    let compose_area_id: egui::Id = egui::Id::new("compose_area");
     let mut send_now: bool = false;
 
     // Text area
     let theme = app.theme;
     let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-        let mut layout_job = textarea_highlighter(theme, text.to_owned());
+        let mut layout_job = textarea_highlighter(theme, text.to_owned(), Vec::new());
         layout_job.wrap.max_width = wrap_width;
         ui.fonts(|f| f.layout_job(layout_job))
     };
@@ -157,7 +183,7 @@ fn dm_posting_area(
 
     let draft_response = ui.add(
         text_edit_multiline!(app, app.dm_draft_data.draft)
-            .id_source("compose_area")
+            .id_source(compose_area_id)
             .hint_text("Type your message here")
             .desired_width(f32::INFINITY)
             .lock_focus(true)
@@ -283,6 +309,7 @@ fn dm_posting_area(
 fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     // Maybe render post we are replying to or reposting
 
+    let compose_area_id: egui::Id = egui::Id::new("compose_area");
     let mut send_now: bool = false;
 
     let screen_rect = ctx.input(|i| i.screen_rect);
@@ -316,8 +343,16 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 // Text area
                 let theme = app.theme;
                 let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-                    let mut layout_job = textarea_highlighter(theme, text.to_owned());
+
+                    let interests = app.draft_data.replacements
+                        .iter()
+                        .map(|(k, _v)| {
+                            k.clone()
+                    }).collect::<Vec<String>>();
+
+                    let mut layout_job = textarea_highlighter(theme, text.to_owned(), interests);
                     layout_job.wrap.max_width = wrap_width;
+
                     ui.fonts(|f| f.layout_job(layout_job))
                 };
 
@@ -343,13 +378,11 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     });
                 }
 
-                let text_edit_area_id = egui::Id::new("compose_area");
-
                 // Determine if we are in tagging mode
                 {
                     app.draft_data.tagging_search_substring = None;
                     let text_edit_state =
-                        egui::TextEdit::load_state(ctx, text_edit_area_id).unwrap_or_default();
+                        egui::TextEdit::load_state(ctx, compose_area_id).unwrap_or_default();
                     let ccursor_range = text_edit_state.ccursor_range().unwrap_or_default();
                     // debugging:
                     // ui.label(format!("{}-{}", ccursor_range.primary.index,
@@ -357,9 +390,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     if ccursor_range.primary.index <= app.draft_data.draft.len() {
                         let precursor = &app.draft_data.draft[0..ccursor_range.primary.index];
                         if let Some(captures) = GLOBALS.tagging_regex.captures(precursor) {
-                            if let Some(first_capture) = captures.get(1) {
-                                app.draft_data.tagging_search_substring =
-                                    Some(first_capture.as_str().to_owned());
+                            if let Some(mat) = captures.get(1) {
+                                // only search if this is not already a replacement
+                                if !app.draft_data.replacements.contains_key(&precursor[mat.start()-1..mat.end()]) {
+                                    app.draft_data.tagging_search_substring =
+                                        Some(mat.as_str().to_owned());
+                                }
                             }
                         }
                     }
@@ -370,10 +406,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 (app.draft_data.tagging_search_selected, enter_key) =
                     if app.draft_data.tagging_search_substring.is_some() {
                         ui.input_mut(|i| {
-                            // left / right
-                            i.consume_key(Modifiers::NONE, Key::ArrowLeft); // need to use backspace
-                            i.consume_key(Modifiers::NONE, Key::ArrowRight); // don't leave the search string
-
                             // enter
                             let enter = i.count_and_consume_key(Modifiers::NONE, Key::Enter) > 0;
 
@@ -419,7 +451,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
 
                 let text_edit_area = text_edit_multiline!(app, app.draft_data.draft)
-                    .id(text_edit_area_id)
+                    .id(compose_area_id)
                     .hint_text("Type your message here")
                     .desired_width(f32::INFINITY)
                     .lock_focus(true)
@@ -602,24 +634,26 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                                 "".to_string()
                                             };
 
-                                            // replace with nostr url
+                                            // complete name and add replacement
+                                            // TODO find a better way to name without spaces
+                                            let name = pair.0.clone();
                                             let nostr_url: NostrUrl = pair.1.into();
-                                            let nurl = format!("{}", nostr_url);
                                             app.draft_data.draft = app
                                                 .draft_data
                                                 .draft
-                                                .replace(&format!("@{}", search), &nurl)
+                                                .as_str()
+                                                .replace(&format!("@{}", search), name.as_str())
                                                 .to_string();
 
-                                            app.draft_data.tag_someone = "".to_owned();
+                                            app.draft_data.replacements.insert(name, ContentSegment::NostrUrl(nostr_url));
 
-                                            // mover cursor to end
-                                            let mut state = output.state.clone();
-                                            let mut ccrange = CCursorRange::default();
-                                            ccrange.primary.index = usize::MAX;
-                                            ccrange.secondary.index = usize::MAX;
-                                            state.set_ccursor_range(Some(ccrange));
-                                            state.store(ctx, text_edit_area_id);
+                                            // // TODO move cursor to end of replacement
+                                            // let mut state = output.state.clone();
+                                            // let mut ccrange = CCursorRange::default();
+                                            // ccrange.primary.index = usize::MAX;
+                                            // ccrange.secondary.index = usize::MAX;
+                                            // state.set_ccursor_range(Some(ccrange));
+                                            // state.store(ctx, compose_area_id);
                                         }
                                     }
                                 });
@@ -750,5 +784,19 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         };
 
         ui.label(format!("{}: {}", i, rendered));
+    }
+    let mut deletelist: Vec<String> = Vec::new();
+    for (text, segment) in app.draft_data.replacements.iter() {
+        match segment {
+            ContentSegment::NostrUrl(nostr_url) => {
+                if ui.link(format!("{} -> {}", text, nostr_url.0.to_string())).clicked() {
+                    deletelist.push(text.clone());
+                };
+            }
+            _ => {} // not supported
+        }
+    }
+    for key in deletelist {
+        app.draft_data.replacements.remove(&key);
     }
 }

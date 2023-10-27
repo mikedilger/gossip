@@ -42,6 +42,7 @@ use gossip_lib::Settings;
 use gossip_lib::{DmChannel, DmChannelData};
 use gossip_lib::{Person, PersonList};
 use gossip_lib::{ZapState, GLOBALS};
+use nostr_types::ContentSegment;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "video-ffmpeg")]
@@ -271,7 +272,11 @@ pub enum HighlightType {
 }
 
 pub struct DraftData {
+    // The draft text displayed in the edit textbox
     pub draft: String,
+
+    // text replacements like nurls, hyperlinks or hashtags
+    pub replacements: HashMap<String,ContentSegment>,
 
     pub include_subject: bool,
     pub subject: String,
@@ -282,7 +287,6 @@ pub struct DraftData {
     // Data for normal draft
     pub repost: Option<Id>,
     pub replying_to: Option<Id>,
-    pub tag_someone: String,
 
     // If the user is typing a @tag, this is what they typed
     pub tagging_search_substring: Option<String>,
@@ -295,6 +299,7 @@ impl Default for DraftData {
     fn default() -> DraftData {
         DraftData {
             draft: "".to_owned(),
+            replacements: HashMap::new(),
             include_subject: false,
             subject: "".to_owned(),
             include_content_warning: false,
@@ -303,7 +308,6 @@ impl Default for DraftData {
             // The following are ignored for DMs
             repost: None,
             replying_to: None,
-            tag_someone: "".to_owned(),
 
             tagging_search_substring: None,
             tagging_search_selected: None,
@@ -316,13 +320,13 @@ impl Default for DraftData {
 impl DraftData {
     pub fn clear(&mut self) {
         self.draft = "".to_owned();
+        self.replacements.clear();
         self.include_subject = false;
         self.subject = "".to_owned();
         self.include_content_warning = false;
         self.content_warning = "".to_owned();
         self.repost = None;
         self.replying_to = None;
-        self.tag_someone = "".to_owned();
         self.tagging_search_substring = None;
         self.tagging_search_selected = None;
         self.tagging_search_searched = None;
