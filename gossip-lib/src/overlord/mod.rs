@@ -731,6 +731,13 @@ impl Overlord {
         pr.manually_paired_write = true;
         GLOBALS.storage.write_person_relay(&pr, None)?;
 
+        if let Some(pk) = GLOBALS.people.get_active_person_async().await {
+            if pk == pubkey {
+                // Refresh active person data from storage
+                GLOBALS.people.set_active_person(pubkey).await?;
+            }
+        }
+
         self.pick_relays().await;
 
         Ok(())
