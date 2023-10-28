@@ -4,13 +4,17 @@ use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
+use egui_winit::egui::TextureHandle;
+use egui_winit::egui::text::CCursor;
 use egui_winit::egui::text_edit::CCursorRange;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::DmChannel;
+use gossip_lib::{DmChannel, Person};
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
+
+const TAGG_WIDTH: f32 = 200.0;
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) -> LayoutJob {
@@ -509,8 +513,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     .interactable(true)
                     .order(egui::Order::Middle);
 
-                const TAGG_WIDTH: f32 = 200.0;
-
                 // show tagging slector tooltip
                 if let Some(search) = &app.draft_data.tagging_search_substring {
                     // only do the search when search string changes
@@ -660,10 +662,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                                 ccrange.secondary.index = cpos;
                                                 state.set_ccursor_range(Some(ccrange));
                                                 state.store(ctx, compose_area_id);
-                                            }
 
-                                            // add it to our replacement list
-                                            app.draft_data.replacements.insert(name, ContentSegment::NostrUrl(nostr_url));
+                                                // add it to our replacement list
+                                                app.draft_data.replacements.insert(name, ContentSegment::NostrUrl(nostr_url));
+                                            }
                                         }
                                     }
                                 });
@@ -673,6 +675,75 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
                 let is_open = app.draft_data.tagging_search_substring.is_some();
                 area.show_open_close_animation(ui.ctx(), &frame, is_open);
+
+                // find replacements in the galley and interact with them
+                let mut deletelist: Vec<String> = Vec::new();
+                for (pat, content) in app.draft_data.replacements.clone() {
+                    if let Some(pos) = output.galley.job.text.find(&pat) {
+                        // find the rect that covers the replacement
+                        let ccstart = CCursor::new(pos);
+                        let ccend = CCursor::new(pos+pat.len());
+                        let start_rect = output.galley.pos_from_cursor(&output.galley.from_ccursor(ccstart));
+                        let end_rect = output.galley.pos_from_cursor(&output.galley.from_ccursor(ccend));
+                        let rect = egui::Rect::from_two_pos(
+                            output.text_draw_pos + start_rect.left_top().to_vec2(),
+                            output.text_draw_pos + end_rect.right_bottom().to_vec2());
+
+                        match content {
+                            ContentSegment::NostrUrl(nostr_url) => {
+                                let maybe_pubkey = match &nostr_url.0 {
+                                    NostrBech32::Profile(p) => {
+                                        Some(p.pubkey)
+                                    },
+                                    NostrBech32::Pubkey(pk) => {
+                                        Some(*pk)
+                                    },
+                                    NostrBech32::EventAddr(_) |
+                                    NostrBech32::EventPointer(_) |
+                                    NostrBech32::Id(_) |
+                                    NostrBech32::Relay(_) => { None },
+                                };
+
+                                if let Some(pubkey) = maybe_pubkey {
+                                    let avatar = if let Some(avatar) =
+                                        app.try_get_avatar(ui.ctx(), &pubkey)
+                                    {
+                                        avatar
+                                    } else {
+                                        app.placeholder_avatar.clone()
+                                    };
+
+                                    // interact with rect
+                                    let resp = ui.interact(rect, ui.auto_id_with(&pat), egui::Sense::click());
+                                    resp.context_menu(|ui| {
+                                        // only look up person when hovered
+                                        if let Ok(Some(person)) =
+                                        GLOBALS.storage.read_person(&pubkey)
+                                        {
+                                            show_mini_person(ui, &avatar, &person);
+                                            if ui.link("remove").clicked() {
+                                                deletelist.push(pat);
+                                            }
+                                        }
+                                    }).on_hover_ui(|ui| {
+                                        // only look up person when hovered
+                                        if let Ok(Some(person)) =
+                                            GLOBALS.storage.read_person(&pubkey)
+                                        {
+                                            show_mini_person(ui, &avatar, &person);
+                                        }
+                                    });
+                                }
+                            },
+                            _ => {},
+                        }
+
+
+                    }
+                }
+                for key in deletelist {
+                    app.draft_data.replacements.remove(&key);
+                }
             }
 
             ui.add_space(8.0);
@@ -795,18 +866,52 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         ui.label(format!("{}: {}", i, rendered));
     }
-    let mut deletelist: Vec<String> = Vec::new();
-    for (text, segment) in app.draft_data.replacements.iter() {
-        match segment {
-            ContentSegment::NostrUrl(nostr_url) => {
-                if ui.link(format!("{} -> {}", text, nostr_url.0.to_string())).clicked() {
-                    deletelist.push(text.clone());
-                };
-            }
-            _ => {} // not supported
-        }
-    }
-    for key in deletelist {
-        app.draft_data.replacements.remove(&key);
-    }
+    // let mut deletelist: Vec<String> = Vec::new();
+    // for (text, segment) in app.draft_data.replacements.iter() {
+    //     match segment {
+    //         ContentSegment::NostrUrl(nostr_url) => {
+    //             if ui.link(format!("{} -> {}", text, nostr_url.0.to_string())).clicked() {
+    //                 deletelist.push(text.clone());
+    //             };
+    //         }
+    //         _ => {} // not supported
+    //     }
+    // }
+}
+
+
+fn show_mini_person(ui: &mut Ui, avatar: &TextureHandle, person: &Person) {
+    egui::Frame::none()
+        .rounding(egui::Rounding::ZERO)
+        .inner_margin(egui::Margin::symmetric(10.0, 5.0))
+        .show(ui, |ui|{
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::Image::new(avatar)
+                        .max_size(egui::Vec2 { x: 27.0, y: 27.0 })
+                        .maintain_aspect_ratio(true),
+                );
+                ui.vertical(|ui| {
+                    widgets::truncated_label(
+                        ui,
+                        RichText::new(&person.best_name()).small(),
+                        TAGG_WIDTH - 33.0,
+                    );
+
+                    let mut nip05 = RichText::new(
+                        person.nip05().unwrap_or_default(),
+                    )
+                    .weak()
+                    .small();
+                    if !person.nip05_valid {
+                        nip05 = nip05.strikethrough()
+                    }
+                    widgets::truncated_label(
+                        ui,
+                        nip05,
+                        TAGG_WIDTH - 33.0,
+                    );
+                });
+            });
+        });
 }
