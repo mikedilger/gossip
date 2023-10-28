@@ -1491,6 +1491,7 @@ impl Overlord {
 
     /// Get a person's contact list
     async fn fetch_person_contact_list(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        GLOBALS.people.add_followed_person(pubkey, followed_pubkey);
         let relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
 
         for relay in relays {

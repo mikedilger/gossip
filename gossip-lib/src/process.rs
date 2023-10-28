@@ -5,7 +5,7 @@ use crate::globals::GLOBALS;
 use crate::person_relay::PersonRelay;
 use async_recursion::async_recursion;
 use nostr_types::{
-    Event, EventKind, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList, Tag, Unixtime,
+    Event, EventKind, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList, Tag, Unixtime, PublicKeyHex,
 };
 use std::sync::atomic::Ordering;
 
@@ -342,9 +342,12 @@ pub async fn process_new_event(
 
 async fn process_contact_list(event: &Event) -> Result<(), Error> {
     for tag in event.tags.iter() {
-        tracing::debug!("Tag in event {:?}", tag);
         if let Tag::Pubkey { pubkey, .. } = tag {
-            tracing::debug!("Contact List of {:?} - pubkey {:?}", event.pubkey, pubkey);
+            let convert_pubkey = PublicKey::try_from(pubkey).ok();
+            if let Some(to_pubkey) = convert_pubkey {
+                tracing::debug!("---> PubKey {:?}", to_pubkey);
+                GLOBALS.people.add_followed_person(event.pubkey, to_pubkey);
+            }
         }
 
         // put list in GLOBALS

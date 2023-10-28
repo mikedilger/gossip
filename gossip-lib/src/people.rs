@@ -57,8 +57,8 @@ pub struct People {
     active_persons_write_relays: RwLock<Vec<(RelayUrl, u64)>>,
 
     // followed and followers of a person keyed by pubkey
-    followed: DashMap<PublicKey, DashSet<PublicKey>>,
-    followers: DashMap<PublicKey, DashSet<PublicKey>>,
+    followed: DashMap<PublicKey, Option<DashSet<PublicKey>>>,
+    // followers: DashMap<PublicKey, DashSet<PublicKey>>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
@@ -106,7 +106,7 @@ impl People {
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
             followed: DashMap::new(),
-            followers: DashMap::new(),
+            // followers: DashMap::new(),
             last_contact_list_asof: AtomicI64::new(0),
             last_contact_list_size: AtomicUsize::new(0),
             last_mute_list_asof: AtomicI64::new(0),
@@ -943,6 +943,17 @@ impl People {
 
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
         self.active_persons_write_relays.blocking_read().clone()
+    }
+
+    pub fn add_followed_person(&self, pubkey: PublicKey, followed_pubkey: PublicKey) {
+        
+        // retrieve the pubkey (if existing)
+        let person_contacts = GLOBALS.people.followed.get(&pubkey);
+        if let Some(contacts) = person_contacts {
+            contacts.insert(followed_pubkey);
+        } else { // else we insert in the map
+            GLOBALS.people.followed.insert(pubkey, Option::None);
+        }
     }
 
     pub fn get_followed(&self, pubkey: PublicKey) -> Result<HashSet<PublicKey>, Error> {
