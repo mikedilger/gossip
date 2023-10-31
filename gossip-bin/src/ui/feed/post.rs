@@ -512,6 +512,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         if ui.button("Cancel").clicked() {
             app.reset_draft();
         }
+        if ui.button("view raw").clicked() {
+            let raw = do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
+            app.draft_data.raw = Some(raw);
+        }
 
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(12.0);
@@ -558,6 +562,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     });
 
     if send_now {
+        let replaced = do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
+
         let mut tags: Vec<Tag> = Vec::new();
         if app.draft_data.include_content_warning {
             tags.push(Tag::ContentWarning {
@@ -577,7 +583,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         match app.draft_data.replying_to {
             Some(replying_to_id) => {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
-                    content: app.draft_data.draft.clone(),
+                    content: replaced,
                     tags,
                     in_reply_to: Some(replying_to_id),
                     dm_channel: None,
@@ -590,7 +596,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         .send(ToOverlordMessage::Repost(event_id));
                 } else {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
-                        content: app.draft_data.draft.clone(),
+                        content: replaced,
                         tags,
                         in_reply_to: None,
                         dm_channel: None,
@@ -624,6 +630,20 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         };
 
         ui.label(format!("{}: {}", i, rendered));
+    }
+
+    if let Some(raw) = &mut app.draft_data.raw {
+        let sz = ui.ctx().available_rect().size() * 0.7;
+        let ret = widgets::modal_popup(ui, sz, |ui| {
+            egui::widgets::TextEdit::multiline(raw)
+                .desired_width(f32::INFINITY)
+                .interactive(false)
+                .show(ui);
+        });
+
+        if ret.inner.clicked() {
+            app.draft_data.raw = None;
+        }
     }
 }
 
@@ -921,4 +941,17 @@ fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput)
             output.response.mark_changed();
         }
     }
+}
+
+fn do_replacements(draft: &String, replacements: &HashMap<String, ContentSegment>) -> String {
+    let mut output = draft.clone();
+    for (pat, content) in replacements {
+        if let ContentSegment::NostrUrl(nostr_url) = content {
+            output = output
+                .as_str()
+                .replace(pat, nostr_url.0.to_string().as_str())
+                .to_string();
+        }
+    }
+    output
 }
