@@ -8,7 +8,6 @@ use nostr_types::{
     Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -56,9 +55,8 @@ pub struct People {
     active_person: RwLock<Option<PublicKey>>,
     active_persons_write_relays: RwLock<Vec<(RelayUrl, u64)>>,
 
-    // followed and followers of a person keyed by pubkey
+    // a person's followed people list keyed by pubkey
     followed: DashMap<PublicKey, Option<DashSet<PublicKey>>>,
-    // followers: DashMap<PublicKey, DashSet<PublicKey>>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
@@ -946,26 +944,27 @@ impl People {
     }
 
     pub fn add_followed_person(&self, pubkey: PublicKey, followed_pubkey: PublicKey) {
-        
-        // retrieve the pubkey (if existing)
-        let person_contacts = GLOBALS.people.followed.get(&pubkey);
-        if let Some(contacts) = person_contacts {
-            contacts.insert(followed_pubkey);
+        // retrieve the pubkey's contacts
+        if let Some(contacts) = GLOBALS.people.followed.get(&pubkey) {
+            let my_dashset = contacts.as_ref().unwrap();
+            let insertion = my_dashset.insert(followed_pubkey); // insert even if it exists
+            if !insertion {
+                tracing::debug!("pubkey already present");
+            }
         } else { // else we insert in the map
-            GLOBALS.people.followed.insert(pubkey, Option::None);
+            let my_dashset = DashSet::new();
+            my_dashset.insert(followed_pubkey);
+            tracing::debug!("Inserting followed_pubkey {:?}", followed_pubkey);
+            GLOBALS.people.followed.insert(pubkey, Some(my_dashset));
         }
     }
 
-    pub fn get_followed(&self, pubkey: PublicKey) -> Result<HashSet<PublicKey>, Error> {
-        let mut my_hash: HashSet<PublicKey> = HashSet::new();
-        my_hash.insert(
-            PublicKey::try_from_hex_string(
-                "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49",
-                true,
-            )
-            .unwrap(),
-        );
-        Ok(my_hash)
+    pub fn get_followed(&self, pubkey: PublicKey) -> Result<DashSet<PublicKey>, Error> {
+        let mut my_dashset = DashSet::new();
+        if let Some(contacts) = GLOBALS.people.followed.get(&pubkey) {
+            my_dashset = contacts.clone().unwrap();
+        }
+        Ok(my_dashset)
     }
 }
 

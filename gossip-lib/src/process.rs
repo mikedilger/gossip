@@ -5,8 +5,7 @@ use crate::globals::GLOBALS;
 use crate::person_relay::PersonRelay;
 use async_recursion::async_recursion;
 use nostr_types::{
-    Event, EventKind, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList, Tag, Unixtime, PublicKeyHex,
-};
+    Event, EventKind, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList, Tag, Unixtime };
 use std::sync::atomic::Ordering;
 
 /// This is mainly used internally to gossip-lib, but you can use it to stuff events
@@ -349,8 +348,6 @@ async fn process_contact_list(event: &Event) -> Result<(), Error> {
                 GLOBALS.people.add_followed_person(event.pubkey, to_pubkey);
             }
         }
-
-        // put list in GLOBALS
     }
 
     if let Some(pubkey) = GLOBALS.signer.public_key() {
