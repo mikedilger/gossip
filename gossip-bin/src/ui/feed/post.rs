@@ -357,7 +357,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     let interests = app
                         .draft_data
                         .replacements
-                        .keys().cloned()
+                        .keys()
+                        .cloned()
                         .collect::<Vec<String>>();
 
                     let mut layout_job = textarea_highlighter(theme, text.to_owned(), interests);
@@ -896,10 +897,13 @@ fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput)
                 let response = popup.show(ui, Box::new(|ui| ui.link("remove")));
 
                 // pointer over the popup extends its life
-                if ui.rect_contains_pointer(response.response.rect) {
-                    popup.set_last_seen(uitime);
+                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
+                    if response.response.rect.contains(pointer_pos) {
+                        popup.set_last_seen(uitime);
+                    }
                 }
 
+                // 'remove' button clicked
                 if response.inner.clicked() {
                     if let Some(tag) = popup.tag() {
                         deletelist.push((*id, tag.clone()));
@@ -911,7 +915,7 @@ fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput)
             app.draft_data.replacements.remove(&tag);
 
             // remove popup
-            app.popups.remove(&id);
+            hovers.remove(&id);
 
             // mark textedit changed
             output.response.mark_changed();
