@@ -1,20 +1,20 @@
 use super::FeedNoteParams;
+use crate::ui::widgets::InformationPopup;
 use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
-use egui_winit::egui::TextureHandle;
 use egui_winit::egui::text::CCursor;
-use egui_winit::egui::text_edit::CCursorRange;
+use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
+use egui_winit::egui::Id;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{DmChannel, Person};
+use gossip_lib::DmChannel;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
-
-const TAGG_WIDTH: f32 = 200.0;
+use std::collections::HashMap;
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) -> LayoutJob {
@@ -64,7 +64,7 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                 // following code only works if interests are sorted the way
                 // they occur in the text
                 let mut interests = interests.to_owned();
-                interests.sort_by(|a, b| { chunk.find(a).cmp(&chunk.find(b)) });
+                interests.sort_by(|a, b| chunk.find(a).cmp(&chunk.find(b)));
 
                 // any entry in interests gets it's own layout section
                 for interest in &interests {
@@ -73,15 +73,15 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                         job.append(
                             &chunk[pos..ipos],
                             0.0,
-                            theme.highlight_text_format(HighlightType::Nothing)
+                            theme.highlight_text_format(HighlightType::Nothing),
                         );
 
-                        pos = ipos+interest.len();
+                        pos = ipos + interest.len();
                         // add the interest
                         job.append(
-                        &chunk[ipos..pos],
+                            &chunk[ipos..pos],
                             0.0,
-                            theme.highlight_text_format(HighlightType::Hyperlink)
+                            theme.highlight_text_format(HighlightType::Hyperlink),
                         );
                     }
                 }
@@ -354,12 +354,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 // Text area
                 let theme = app.theme;
                 let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-
-                    let interests = app.draft_data.replacements
+                    let interests = app
+                        .draft_data
+                        .replacements
                         .iter()
-                        .map(|(k, _v)| {
-                            k.clone()
-                    }).collect::<Vec<String>>();
+                        .map(|(k, _v)| k.clone())
+                        .collect::<Vec<String>>();
 
                     let mut layout_job = textarea_highlighter(theme, text.to_owned(), interests);
                     layout_job.wrap.max_width = wrap_width;
@@ -403,7 +403,11 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         if let Some(captures) = GLOBALS.tagging_regex.captures(precursor) {
                             if let Some(mat) = captures.get(1) {
                                 // only search if this is not already a replacement
-                                if !app.draft_data.replacements.contains_key(&precursor[mat.start()-1..mat.end()]) {
+                                if !app
+                                    .draft_data
+                                    .replacements
+                                    .contains_key(&precursor[mat.start() - 1..mat.end()])
+                                {
                                     app.draft_data.tagging_search_substring =
                                         Some(mat.as_str().to_owned());
                                 }
@@ -452,15 +456,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         (None, false)
                     };
 
-                // Temporary for debugging:
-                if let Some(tagging) = &app.draft_data.tagging_search_substring {
-                    ui.label(format!(
-                        "TAGGING SEARCH SUBSTRING = {}, results: {}",
-                        tagging,
-                        app.draft_data.tagging_search_results.len()
-                    ));
-                }
-
                 let text_edit_area = text_edit_multiline!(app, app.draft_data.draft)
                     .id(compose_area_id)
                     .hint_text("Type your message here")
@@ -468,7 +463,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     .lock_focus(true)
                     .interactive(app.draft_data.repost.is_none())
                     .layouter(&mut layouter);
-                let output = text_edit_area.show(ui);
+                let mut output = text_edit_area.show(ui);
 
                 if app.draft_needs_focus {
                     output.response.request_focus();
@@ -493,257 +488,21 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     }
                 }
 
-                let pos = if let Some(cursor) = output.cursor_range {
-                    let rect = output.galley.pos_from_cursor(&cursor.primary); // position within textedit
-                    output.text_draw_pos + rect.center_bottom().to_vec2()
-                } else {
-                    let rect = output.galley.pos_from_cursor(&output.galley.end()); // position within textedit
-                    output.text_draw_pos + rect.center_bottom().to_vec2()
-                };
-
-                // always compute the tooltip, but it is only shown when
-                // is_open is true. This is so we get the animation.
-                let frame = egui::Frame::popup(ui.style())
-                    .rounding(egui::Rounding::ZERO)
-                    .inner_margin(egui::Margin::same(0.0));
-                let area = egui::Area::new(ui.auto_id_with("compose-tagging-tooltip"))
-                    .fixed_pos(pos)
-                    .movable(false)
-                    .constrain(true)
-                    .interactable(true)
-                    .order(egui::Order::Middle);
-
-                // show tagging slector tooltip
-                if let Some(search) = &app.draft_data.tagging_search_substring {
-                    // only do the search when search string changes
-                    if app.draft_data.tagging_search_substring
-                        != app.draft_data.tagging_search_searched
-                    {
-                        let pairs = GLOBALS
-                            .people
-                            .search_people_to_tag(search)
-                            .unwrap_or(vec![]);
-                        app.draft_data.tagging_search_searched = Some(search.clone());
-                        app.draft_data.tagging_search_results = pairs.to_owned();
-                    }
-                } else {
-                    // no more search substring, clear results
-                    app.draft_data.tagging_search_searched = None;
-                    app.draft_data.tagging_search_results.clear();
+                // show tag hovers first, as they depend on information in the output.galley
+                // do not run them after replacements are added, rather wait for the next frame
+                if output.response.changed()
+                    || app.draft_data.replacements_changed
+                    || app.draft_data.last_textedit_rect != output.response.rect
+                {
+                    calc_tag_hovers(ui, app, &output);
+                    app.draft_data.replacements_changed = false;
                 }
+                show_tag_hovers(ui, app, &mut output);
 
-                // show search results
-                if !app.draft_data.tagging_search_results.is_empty() {
-                    area.show(ui.ctx(), |ui| {
-                        frame.show(ui, |ui| {
-                            egui::ScrollArea::vertical()
-                                .max_width(TAGG_WIDTH)
-                                .max_height(250.0)
-                                .show(ui, |ui| {
-                                    // need to clone results to avoid immutable borrow error on app.
-                                    let pairs = app.draft_data.tagging_search_results.clone();
-                                    for (i, pair) in pairs.iter().enumerate() {
-                                        let avatar = if let Some(avatar) =
-                                            app.try_get_avatar(ctx, &pair.1)
-                                        {
-                                            avatar
-                                        } else {
-                                            app.placeholder_avatar.clone()
-                                        };
+                calc_tagging_search(app);
+                show_tagging_result(ui, app, &mut output, enter_key);
 
-                                        let frame = egui::Frame::none()
-                                            .rounding(egui::Rounding::ZERO)
-                                            .inner_margin(egui::Margin::symmetric(10.0, 5.0));
-                                        let mut prepared = frame.begin(ui);
-
-                                        prepared.content_ui.set_min_width(TAGG_WIDTH);
-                                        prepared.content_ui.set_max_width(TAGG_WIDTH);
-                                        prepared.content_ui.set_min_height(27.0);
-
-                                        let frame_rect = (prepared.frame.inner_margin
-                                            + prepared.frame.outer_margin)
-                                            .expand_rect(prepared.content_ui.min_rect());
-
-                                        let response = ui
-                                            .interact(
-                                                frame_rect,
-                                                ui.auto_id_with(pair.1.as_hex_string()),
-                                                egui::Sense::click(),
-                                            )
-                                            .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-                                        // mouse hover moves selected index
-                                        app.draft_data.tagging_search_selected =
-                                            if response.hovered() {
-                                                Some(i)
-                                            } else {
-                                                app.draft_data.tagging_search_selected
-                                            };
-                                        let is_selected =
-                                            Some(i) == app.draft_data.tagging_search_selected;
-
-                                        {
-                                            // render inside of frame using prepared.content_ui
-                                            let ui = &mut prepared.content_ui;
-                                            if is_selected {
-                                                app.theme.on_accent_style(ui.style_mut())
-                                            }
-                                            ui.horizontal(|ui| {
-                                                ui.add(
-                                                    egui::Image::new(&avatar)
-                                                        .max_size(egui::Vec2 { x: 27.0, y: 27.0 })
-                                                        .maintain_aspect_ratio(true),
-                                                );
-                                                ui.vertical(|ui| {
-                                                    widgets::truncated_label(
-                                                        ui,
-                                                        RichText::new(&pair.0).small(),
-                                                        TAGG_WIDTH - 33.0,
-                                                    );
-                                                    if let Ok(Some(person)) =
-                                                        GLOBALS.storage.read_person(&pair.1)
-                                                    {
-                                                        let mut nip05 = RichText::new(
-                                                            person.nip05().unwrap_or_default(),
-                                                        )
-                                                        .weak()
-                                                        .small();
-                                                        if !person.nip05_valid {
-                                                            nip05 = nip05.strikethrough()
-                                                        }
-                                                        widgets::truncated_label(
-                                                            ui,
-                                                            nip05,
-                                                            TAGG_WIDTH - 33.0,
-                                                        );
-                                                    }
-                                                });
-                                            })
-                                        };
-
-                                        prepared.frame.fill = if is_selected {
-                                            app.theme.accent_color()
-                                        } else {
-                                            egui::Color32::TRANSPARENT
-                                        };
-
-                                        prepared.end(ui);
-
-                                        if is_selected {
-                                            response.scroll_to_me(None)
-                                        }
-                                        let clicked = response.clicked();
-                                        if clicked || (enter_key && is_selected) {
-                                            // remove @ and search text
-                                            let search = if let Some(search) =
-                                                app.draft_data.tagging_search_searched.as_ref()
-                                            {
-                                                search.clone()
-                                            } else {
-                                                "".to_string()
-                                            };
-
-                                            // complete name and add replacement
-                                            let name = pair.0.clone();
-                                            let nostr_url: NostrUrl = pair.1.into();
-                                            app.draft_data.draft = app
-                                                .draft_data
-                                                .draft
-                                                .as_str()
-                                                .replace(&format!("@{}", search), name.as_str())
-                                                .to_string();
-
-                                            // move cursor to end of replacement
-                                            if let Some(pos) = app.draft_data.draft.find(name.as_str()) {
-                                                let cpos = pos + name.len();
-                                                let mut state = output.state.clone();
-                                                let mut ccrange = CCursorRange::default();
-                                                ccrange.primary.index = cpos;
-                                                ccrange.secondary.index = cpos;
-                                                state.set_ccursor_range(Some(ccrange));
-                                                state.store(ctx, compose_area_id);
-
-                                                // add it to our replacement list
-                                                app.draft_data.replacements.insert(name, ContentSegment::NostrUrl(nostr_url));
-                                            }
-                                        }
-                                    }
-                                });
-                        });
-                    });
-                }
-
-                let is_open = app.draft_data.tagging_search_substring.is_some();
-                area.show_open_close_animation(ui.ctx(), &frame, is_open);
-
-                // find replacements in the galley and interact with them
-                let mut deletelist: Vec<String> = Vec::new();
-                for (pat, content) in app.draft_data.replacements.clone() {
-                    if let Some(pos) = output.galley.job.text.find(&pat) {
-                        // find the rect that covers the replacement
-                        let ccstart = CCursor::new(pos);
-                        let ccend = CCursor::new(pos+pat.len());
-                        let start_rect = output.galley.pos_from_cursor(&output.galley.from_ccursor(ccstart));
-                        let end_rect = output.galley.pos_from_cursor(&output.galley.from_ccursor(ccend));
-                        let rect = egui::Rect::from_two_pos(
-                            output.text_draw_pos + start_rect.left_top().to_vec2(),
-                            output.text_draw_pos + end_rect.right_bottom().to_vec2());
-
-                        match content {
-                            ContentSegment::NostrUrl(nostr_url) => {
-                                let maybe_pubkey = match &nostr_url.0 {
-                                    NostrBech32::Profile(p) => {
-                                        Some(p.pubkey)
-                                    },
-                                    NostrBech32::Pubkey(pk) => {
-                                        Some(*pk)
-                                    },
-                                    NostrBech32::EventAddr(_) |
-                                    NostrBech32::EventPointer(_) |
-                                    NostrBech32::Id(_) |
-                                    NostrBech32::Relay(_) => { None },
-                                };
-
-                                if let Some(pubkey) = maybe_pubkey {
-                                    let avatar = if let Some(avatar) =
-                                        app.try_get_avatar(ui.ctx(), &pubkey)
-                                    {
-                                        avatar
-                                    } else {
-                                        app.placeholder_avatar.clone()
-                                    };
-
-                                    // interact with rect
-                                    let resp = ui.interact(rect, ui.auto_id_with(&pat), egui::Sense::click());
-                                    resp.context_menu(|ui| {
-                                        // only look up person when hovered
-                                        if let Ok(Some(person)) =
-                                        GLOBALS.storage.read_person(&pubkey)
-                                        {
-                                            show_mini_person(ui, &avatar, &person);
-                                            if ui.link("remove").clicked() {
-                                                deletelist.push(pat);
-                                            }
-                                        }
-                                    }).on_hover_ui(|ui| {
-                                        // only look up person when hovered
-                                        if let Ok(Some(person)) =
-                                            GLOBALS.storage.read_person(&pubkey)
-                                        {
-                                            show_mini_person(ui, &avatar, &person);
-                                        }
-                                    });
-                                }
-                            },
-                            _ => {},
-                        }
-
-
-                    }
-                }
-                for key in deletelist {
-                    app.draft_data.replacements.remove(&key);
-                }
+                app.draft_data.last_textedit_rect = output.response.rect;
             }
 
             ui.add_space(8.0);
@@ -866,52 +625,300 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         ui.label(format!("{}: {}", i, rendered));
     }
-    // let mut deletelist: Vec<String> = Vec::new();
-    // for (text, segment) in app.draft_data.replacements.iter() {
-    //     match segment {
-    //         ContentSegment::NostrUrl(nostr_url) => {
-    //             if ui.link(format!("{} -> {}", text, nostr_url.0.to_string())).clicked() {
-    //                 deletelist.push(text.clone());
-    //             };
-    //         }
-    //         _ => {} // not supported
-    //     }
-    // }
 }
 
+fn calc_tagging_search(app: &mut GossipUi) {
+    // show tagging slector tooltip
+    if let Some(search) = &app.draft_data.tagging_search_substring {
+        // only do the search when search string changes
+        if app.draft_data.tagging_search_substring != app.draft_data.tagging_search_searched {
+            let pairs = GLOBALS
+                .people
+                .search_people_to_tag(search)
+                .unwrap_or(vec![]);
+            app.draft_data.tagging_search_searched = Some(search.clone());
+            app.draft_data.tagging_search_results = pairs.to_owned();
+        }
+    }
+}
 
-fn show_mini_person(ui: &mut Ui, avatar: &TextureHandle, person: &Person) {
-    egui::Frame::none()
+fn show_tagging_result(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    output: &mut TextEditOutput,
+    enter_key: bool,
+) {
+    let pos = if let Some(cursor) = output.cursor_range {
+        let rect = output.galley.pos_from_cursor(&cursor.primary); // position within textedit
+        output.text_draw_pos + rect.center_bottom().to_vec2()
+    } else {
+        let rect = output.galley.pos_from_cursor(&output.galley.end()); // position within textedit
+        output.text_draw_pos + rect.center_bottom().to_vec2()
+    };
+
+    // always compute the tooltip, but it is only shown when
+    // is_open is true. This is so we get the animation.
+    let frame = egui::Frame::popup(ui.style())
         .rounding(egui::Rounding::ZERO)
-        .inner_margin(egui::Margin::symmetric(10.0, 5.0))
-        .show(ui, |ui|{
-            ui.horizontal(|ui| {
-                ui.add(
-                    egui::Image::new(avatar)
-                        .max_size(egui::Vec2 { x: 27.0, y: 27.0 })
-                        .maintain_aspect_ratio(true),
-                );
-                ui.vertical(|ui| {
-                    widgets::truncated_label(
-                        ui,
-                        RichText::new(&person.best_name()).small(),
-                        TAGG_WIDTH - 33.0,
-                    );
+        .inner_margin(egui::Margin::same(0.0));
+    let area = egui::Area::new(ui.auto_id_with("compose-tagging-tooltip"))
+        .fixed_pos(pos)
+        .movable(false)
+        .constrain(true)
+        .interactable(true)
+        .order(egui::Order::Middle);
 
-                    let mut nip05 = RichText::new(
-                        person.nip05().unwrap_or_default(),
-                    )
-                    .weak()
-                    .small();
-                    if !person.nip05_valid {
-                        nip05 = nip05.strikethrough()
-                    }
-                    widgets::truncated_label(
-                        ui,
-                        nip05,
-                        TAGG_WIDTH - 33.0,
-                    );
-                });
+    // show search results
+    if !app.draft_data.tagging_search_results.is_empty() {
+        area.show(ui.ctx(), |ui| {
+            frame.show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_width(widgets::TAGG_WIDTH)
+                    .max_height(250.0)
+                    .show(ui, |ui| {
+                        // need to clone results to avoid immutable borrow error on app.
+                        let pairs = app.draft_data.tagging_search_results.clone();
+                        for (i, pair) in pairs.iter().enumerate() {
+                            let avatar = if let Some(avatar) = app.try_get_avatar(ui.ctx(), &pair.1)
+                            {
+                                avatar
+                            } else {
+                                app.placeholder_avatar.clone()
+                            };
+
+                            let frame = egui::Frame::none()
+                                .rounding(egui::Rounding::ZERO)
+                                .inner_margin(egui::Margin::symmetric(10.0, 5.0));
+                            let mut prepared = frame.begin(ui);
+
+                            prepared.content_ui.set_min_width(widgets::TAGG_WIDTH);
+                            prepared.content_ui.set_max_width(widgets::TAGG_WIDTH);
+                            prepared.content_ui.set_min_height(27.0);
+
+                            let frame_rect = (prepared.frame.inner_margin
+                                + prepared.frame.outer_margin)
+                                .expand_rect(prepared.content_ui.min_rect());
+
+                            let response = ui
+                                .interact(
+                                    frame_rect,
+                                    ui.auto_id_with(pair.1.as_hex_string()),
+                                    egui::Sense::click(),
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                            // mouse hover moves selected index
+                            app.draft_data.tagging_search_selected = if response.hovered() {
+                                Some(i)
+                            } else {
+                                app.draft_data.tagging_search_selected
+                            };
+                            let is_selected = Some(i) == app.draft_data.tagging_search_selected;
+
+                            {
+                                // render inside of frame using prepared.content_ui
+                                let ui = &mut prepared.content_ui;
+                                if is_selected {
+                                    app.theme.on_accent_style(ui.style_mut())
+                                }
+                                ui.horizontal(|ui| {
+                                    ui.add(
+                                        egui::Image::new(&avatar)
+                                            .max_size(egui::Vec2 { x: 27.0, y: 27.0 })
+                                            .maintain_aspect_ratio(true),
+                                    );
+                                    ui.vertical(|ui| {
+                                        widgets::truncated_label(
+                                            ui,
+                                            RichText::new(&pair.0).small(),
+                                            widgets::TAGG_WIDTH - 33.0,
+                                        );
+                                        if let Ok(Some(person)) =
+                                            GLOBALS.storage.read_person(&pair.1)
+                                        {
+                                            let mut nip05 =
+                                                RichText::new(person.nip05().unwrap_or_default())
+                                                    .weak()
+                                                    .small();
+                                            if !person.nip05_valid {
+                                                nip05 = nip05.strikethrough()
+                                            }
+                                            widgets::truncated_label(
+                                                ui,
+                                                nip05,
+                                                widgets::TAGG_WIDTH - 33.0,
+                                            );
+                                        }
+                                    });
+                                })
+                            };
+
+                            prepared.frame.fill = if is_selected {
+                                app.theme.accent_color()
+                            } else {
+                                egui::Color32::TRANSPARENT
+                            };
+
+                            prepared.end(ui);
+
+                            if is_selected {
+                                response.scroll_to_me(None)
+                            }
+                            let clicked = response.clicked();
+                            if clicked || (enter_key && is_selected) {
+                                // remove @ and search text
+                                let search = if let Some(search) =
+                                    app.draft_data.tagging_search_searched.as_ref()
+                                {
+                                    search.clone()
+                                } else {
+                                    "".to_string()
+                                };
+
+                                // complete name and add replacement
+                                let name = pair.0.clone();
+                                let nostr_url: NostrUrl = pair.1.into();
+                                app.draft_data.draft = app
+                                    .draft_data
+                                    .draft
+                                    .as_str()
+                                    .replace(&format!("@{}", search), name.as_str())
+                                    .to_string();
+
+                                // move cursor to end of replacement
+                                if let Some(pos) = app.draft_data.draft.find(name.as_str()) {
+                                    let cpos = pos + name.len();
+                                    let mut state = output.state.clone();
+                                    let mut ccrange = CCursorRange::default();
+                                    ccrange.primary.index = cpos;
+                                    ccrange.secondary.index = cpos;
+                                    state.set_ccursor_range(Some(ccrange));
+                                    state.store(ui.ctx(), output.response.id);
+
+                                    // add it to our replacement list
+                                    app.draft_data
+                                        .replacements
+                                        .insert(name, ContentSegment::NostrUrl(nostr_url));
+                                    app.draft_data.replacements_changed = true;
+                                }
+                            }
+                        }
+                    });
             });
         });
+    }
+
+    let is_open = app.draft_data.tagging_search_substring.is_some();
+    area.show_open_close_animation(ui.ctx(), &frame, is_open);
+
+    if !is_open {
+        // no more search substring, clear results
+        app.draft_data.tagging_search_searched = None;
+        app.draft_data.tagging_search_results.clear();
+    }
+}
+
+fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
+    let mut hovers: HashMap<Id, Box<dyn InformationPopup>> = HashMap::new();
+
+    // find replacements in the galley and interact with them
+    for (pat, content) in app.draft_data.replacements.clone() {
+        let popup_id = ui.auto_id_with(&pat);
+        if let Some(pos) = output.galley.job.text.find(&pat) {
+            // find the rect that covers the replacement
+            let ccstart = CCursor::new(pos);
+            let ccend = CCursor::new(pos + pat.len());
+            let mut cstart = output.galley.from_ccursor(ccstart);
+            cstart.pcursor.prefer_next_row = true;
+            let cend = output.galley.from_ccursor(ccend);
+            let start_rect = output.galley.pos_from_cursor(&cstart);
+            let end_rect = output.galley.pos_from_cursor(&cend);
+            let interact_rect = egui::Rect::from_two_pos(
+                output.text_draw_pos + start_rect.left_top().to_vec2(),
+                output.text_draw_pos + end_rect.right_bottom().to_vec2(),
+            );
+
+            match content {
+                ContentSegment::NostrUrl(nostr_url) => {
+                    let maybe_pubkey = match &nostr_url.0 {
+                        NostrBech32::Profile(p) => Some(p.pubkey),
+                        NostrBech32::Pubkey(pk) => Some(*pk),
+                        NostrBech32::EventAddr(_)
+                        | NostrBech32::EventPointer(_)
+                        | NostrBech32::Id(_)
+                        | NostrBech32::Relay(_) => None,
+                    };
+
+                    if let Some(pubkey) = maybe_pubkey {
+                        let avatar = if let Some(avatar) = app.try_get_avatar(ui.ctx(), &pubkey) {
+                            avatar
+                        } else {
+                            app.placeholder_avatar.clone()
+                        };
+
+                        // create popup and store it
+                        if let Ok(Some(person)) = GLOBALS.storage.read_person(&pubkey) {
+                            let popup = Box::new(
+                                widgets::ProfilePopup::new(popup_id, interact_rect, avatar, person)
+                                    .show_duration(1.0)
+                                    .tag(pat),
+                            );
+
+                            hovers.insert(popup_id, popup);
+                        }
+
+                        // egui::containers::popup::popup_below_widget(ui,
+                        //     popup_id,
+                        //     &resp,
+                        //     |ui|{
+
+                        //     });
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    if let Some(entry) = app.popups.get_mut(&output.response.id) {
+        *entry = hovers;
+    } else {
+        app.popups.insert(output.response.id, hovers);
+    }
+}
+
+fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput) {
+    if let Some(hovers) = app.popups.get_mut(&output.response.id) {
+        let uitime = ui.input(|i| i.time);
+        let mut deletelist: Vec<(egui::Id, String)> = Vec::new();
+        for (id, popup) in &mut *hovers {
+            let resp = ui.interact(popup.interact_rect(), id.with("_h"), egui::Sense::hover());
+            if resp.hovered() {
+                popup.set_last_seen(uitime);
+            }
+            if resp.hovered() || popup.get_until() > Some(uitime) {
+                let response = popup.show(ui, Box::new(|ui| ui.link("remove")));
+
+                // pointer over the popup extends its life
+                if ui.rect_contains_pointer(response.response.rect) {
+                    popup.set_last_seen(uitime);
+                }
+
+                if response.inner.clicked() {
+                    if let Some(tag) = popup.tag() {
+                        deletelist.push((*id, tag.clone()));
+                    }
+                }
+            }
+        }
+        for (id, tag) in deletelist {
+            app.draft_data.replacements.remove(&tag);
+
+            // remove popup
+            app.popups.remove(&id);
+
+            // mark textedit changed
+            output.response.mark_changed();
+        }
+    }
 }

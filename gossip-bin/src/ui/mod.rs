@@ -33,6 +33,7 @@ use egui::{
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
+use egui_winit::egui::Rect;
 use egui_winit::egui::Response;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::About;
@@ -45,6 +46,7 @@ use gossip_lib::{ZapState, GLOBALS};
 use nostr_types::ContentSegment;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
@@ -275,8 +277,12 @@ pub struct DraftData {
     // The draft text displayed in the edit textbox
     pub draft: String,
 
+    // The last position of the TextEdit
+    pub last_textedit_rect: Rect,
+
     // text replacements like nurls, hyperlinks or hashtags
-    pub replacements: HashMap<String,ContentSegment>,
+    pub replacements: HashMap<String, ContentSegment>,
+    pub replacements_changed: bool,
 
     pub include_subject: bool,
     pub subject: String,
@@ -299,7 +305,9 @@ impl Default for DraftData {
     fn default() -> DraftData {
         DraftData {
             draft: "".to_owned(),
+            last_textedit_rect: Rect::ZERO,
             replacements: HashMap::new(),
+            replacements_changed: false,
             include_subject: false,
             subject: "".to_owned(),
             include_content_warning: false,
@@ -320,7 +328,9 @@ impl Default for DraftData {
 impl DraftData {
     pub fn clear(&mut self) {
         self.draft = "".to_owned();
+        self.last_textedit_rect = Rect::ZERO;
         self.replacements.clear();
+        self.replacements_changed = true;
         self.include_subject = false;
         self.subject = "".to_owned();
         self.include_content_warning = false;
@@ -347,6 +357,9 @@ struct GossipUi {
     original_dpi_value: u32,
     current_scroll_offset: f32,
     future_scroll_offset: f32,
+
+    // Ui timers
+    popups: HashMap<egui::Id, HashMap<egui::Id, Box<dyn widgets::InformationPopup>>>,
 
     // QR codes being rendered (in feed or elsewhere)
     // the f32's are the recommended image size
@@ -607,6 +620,7 @@ impl GossipUi {
             original_dpi_value: override_dpi_value,
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
+            popups: HashMap::new(),
             qr_codes: HashMap::new(),
             notes: Notes::new(),
             relays: relays::RelayUi::new(),

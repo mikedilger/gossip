@@ -14,8 +14,14 @@ pub use relay_entry::{RelayEntry, RelayEntryView};
 mod modal_popup;
 pub use modal_popup::modal_popup;
 
+mod information_popup;
+pub use information_popup::InformationPopup;
+pub use information_popup::ProfilePopup;
+
 use super::GossipUi;
+
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
+pub const TAGG_WIDTH: f32 = 200.0;
 
 // pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {
 //     let mut job = text.into().into_text_job(
