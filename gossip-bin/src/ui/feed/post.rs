@@ -64,7 +64,7 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                 // following code only works if interests are sorted the way
                 // they occur in the text
                 let mut interests = interests.to_owned();
-                interests.sort_by(|a, b| chunk.find(a).cmp(&chunk.find(b)));
+                interests.sort_by_key(|a| chunk.find(a));
 
                 // any entry in interests gets it's own layout section
                 for interest in &interests {
@@ -357,8 +357,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     let interests = app
                         .draft_data
                         .replacements
-                        .iter()
-                        .map(|(k, _v)| k.clone())
+                        .keys().cloned()
                         .collect::<Vec<String>>();
 
                     let mut layout_job = textarea_highlighter(theme, text.to_owned(), interests);
@@ -838,44 +837,41 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
                 output.text_draw_pos + end_rect.right_bottom().to_vec2(),
             );
 
-            match content {
-                ContentSegment::NostrUrl(nostr_url) => {
-                    let maybe_pubkey = match &nostr_url.0 {
-                        NostrBech32::Profile(p) => Some(p.pubkey),
-                        NostrBech32::Pubkey(pk) => Some(*pk),
-                        NostrBech32::EventAddr(_)
-                        | NostrBech32::EventPointer(_)
-                        | NostrBech32::Id(_)
-                        | NostrBech32::Relay(_) => None,
+            if let ContentSegment::NostrUrl(nostr_url) = content {
+                let maybe_pubkey = match &nostr_url.0 {
+                    NostrBech32::Profile(p) => Some(p.pubkey),
+                    NostrBech32::Pubkey(pk) => Some(*pk),
+                    NostrBech32::EventAddr(_)
+                    | NostrBech32::EventPointer(_)
+                    | NostrBech32::Id(_)
+                    | NostrBech32::Relay(_) => None,
+                };
+
+                if let Some(pubkey) = maybe_pubkey {
+                    let avatar = if let Some(avatar) = app.try_get_avatar(ui.ctx(), &pubkey) {
+                        avatar
+                    } else {
+                        app.placeholder_avatar.clone()
                     };
 
-                    if let Some(pubkey) = maybe_pubkey {
-                        let avatar = if let Some(avatar) = app.try_get_avatar(ui.ctx(), &pubkey) {
-                            avatar
-                        } else {
-                            app.placeholder_avatar.clone()
-                        };
+                    // create popup and store it
+                    if let Ok(Some(person)) = GLOBALS.storage.read_person(&pubkey) {
+                        let popup = Box::new(
+                            widgets::ProfilePopup::new(popup_id, interact_rect, avatar, person)
+                                .show_duration(1.0)
+                                .tag(pat),
+                        );
 
-                        // create popup and store it
-                        if let Ok(Some(person)) = GLOBALS.storage.read_person(&pubkey) {
-                            let popup = Box::new(
-                                widgets::ProfilePopup::new(popup_id, interact_rect, avatar, person)
-                                    .show_duration(1.0)
-                                    .tag(pat),
-                            );
-
-                            hovers.insert(popup_id, popup);
-                        }
-
-                        // egui::containers::popup::popup_below_widget(ui,
-                        //     popup_id,
-                        //     &resp,
-                        //     |ui|{
-
-                        //     });
+                        hovers.insert(popup_id, popup);
                     }
+
+                    // egui::containers::popup::popup_below_widget(ui,
+                    //     popup_id,
+                    //     &resp,
+                    //     |ui|{
+
+                    //     });
                 }
-                _ => {}
             }
         }
     }

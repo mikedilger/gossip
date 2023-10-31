@@ -119,7 +119,7 @@ fn show_mini_person(
                 ui.vertical(|ui| {
                     super::truncated_label(
                         ui,
-                        RichText::new(&person.best_name()).small(),
+                        RichText::new(person.best_name()).small(),
                         super::TAGG_WIDTH - 33.0,
                     );
 
