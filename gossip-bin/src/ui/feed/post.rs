@@ -633,9 +633,18 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 
     if let Some(raw) = &mut app.draft_data.raw {
+        // Text area
+        let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
+            let mut layout_job = textarea_highlighter(app.theme, text.to_owned(), Vec::new());
+            layout_job.wrap.max_width = wrap_width;
+
+            ui.fonts(|f| f.layout_job(layout_job))
+        };
+
         let sz = ui.ctx().available_rect().size() * 0.7;
         let ret = widgets::modal_popup(ui, sz, |ui| {
             egui::widgets::TextEdit::multiline(raw)
+                .layouter(&mut layouter)
                 .desired_width(f32::INFINITY)
                 .interactive(false)
                 .show(ui);
@@ -949,7 +958,7 @@ fn do_replacements(draft: &String, replacements: &HashMap<String, ContentSegment
         if let ContentSegment::NostrUrl(nostr_url) = content {
             output = output
                 .as_str()
-                .replace(pat, nostr_url.0.to_string().as_str())
+                .replace(pat, format!("nostr:{}", nostr_url.0.to_string()).as_str())
                 .to_string();
         }
     }
