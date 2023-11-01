@@ -480,9 +480,17 @@ pub(super) fn font_definitions() -> FontDefinitions {
     font_data.insert(
         "Inconsolata".to_owned(),
         FontData::from_static(include_bytes!("../../../../fonts/Inconsolata-Regular.ttf")).tweak(
+            #[cfg(not(target_os = "macos"))]
             FontTweak {
                 scale: 1.22,            // This font is smaller than DejaVuSans
                 y_offset_factor: -0.18, // and too low
+                y_offset: 0.0,
+                baseline_offset_factor: 0.0,
+            },
+            #[cfg(target_os = "macos")]
+            FontTweak {
+                scale: 1.22,            // This font is smaller than DejaVuSans
+                y_offset_factor: -0.05, // and too low
                 y_offset: 0.0,
                 baseline_offset_factor: 0.0,
             },
