@@ -456,13 +456,22 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         (None, false)
                     };
 
-                let text_edit_area = text_edit_multiline!(app, app.draft_data.draft)
-                    .id(compose_area_id)
-                    .hint_text("Type your message here")
-                    .desired_width(f32::INFINITY)
-                    .lock_focus(true)
-                    .interactive(app.draft_data.repost.is_none())
-                    .layouter(&mut layouter);
+                let text_edit_area = if app.draft_data.raw.is_empty() {
+                    text_edit_multiline!(app, app.draft_data.draft)
+                        .id(compose_area_id)
+                        .hint_text("Type your message here")
+                        .desired_width(f32::INFINITY)
+                        .lock_focus(true)
+                        .interactive(app.draft_data.repost.is_none())
+                        .layouter(&mut layouter)
+                } else {
+                    text_edit_multiline!(app, app.draft_data.raw)
+                        .id(compose_area_id.with("_raw"))
+                        .hint_text("Raw message content")
+                        .desired_width(f32::INFINITY)
+                        .interactive(false)
+                        .layouter(&mut layouter)
+                };
                 let mut output = text_edit_area.show(ui);
 
                 if app.draft_needs_focus {
@@ -512,10 +521,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         if ui.button("Cancel").clicked() {
             app.reset_draft();
         }
-        if ui.button("view raw").clicked() {
-            let raw = do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
-            app.draft_data.raw = Some(raw);
-        }
 
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(12.0);
@@ -557,6 +562,17 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         app.draft_data.draft.push(emoji);
                     }
                 });
+                ui.add_space(20.0);
+                if ui.button(RichText::new("🥩"))
+                    .on_hover_text("raw content preview")
+                    .clicked() {
+                    if app.draft_data.raw.is_empty() {
+                        let raw = do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
+                        app.draft_data.raw = raw.to_owned();
+                    } else {
+                        app.draft_data.raw = "".to_owned();
+                    }
+                }
             }
         });
     });
@@ -630,29 +646,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         };
 
         ui.label(format!("{}: {}", i, rendered));
-    }
-
-    if let Some(raw) = &mut app.draft_data.raw {
-        // Text area
-        let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
-            let mut layout_job = textarea_highlighter(app.theme, text.to_owned(), Vec::new());
-            layout_job.wrap.max_width = wrap_width;
-
-            ui.fonts(|f| f.layout_job(layout_job))
-        };
-
-        let sz = ui.ctx().available_rect().size() * 0.7;
-        let ret = widgets::modal_popup(ui, sz, |ui| {
-            egui::widgets::TextEdit::multiline(raw)
-                .layouter(&mut layouter)
-                .desired_width(f32::INFINITY)
-                .interactive(false)
-                .show(ui);
-        });
-
-        if ret.inner.clicked() {
-            app.draft_data.raw = None;
-        }
     }
 }
 

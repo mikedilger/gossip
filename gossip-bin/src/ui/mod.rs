@@ -278,7 +278,7 @@ pub struct DraftData {
     pub draft: String,
 
     // raw text output
-    pub raw: Option<String>,
+    pub raw: String,
 
     // The last position of the TextEdit
     pub last_textedit_rect: Rect,
@@ -308,7 +308,7 @@ impl Default for DraftData {
     fn default() -> DraftData {
         DraftData {
             draft: "".to_owned(),
-            raw: None,
+            raw: "".to_owned(),
             last_textedit_rect: Rect::ZERO,
             replacements: HashMap::new(),
             replacements_changed: false,
@@ -332,7 +332,7 @@ impl Default for DraftData {
 impl DraftData {
     pub fn clear(&mut self) {
         self.draft = "".to_owned();
-        self.raw = None;
+        self.raw = "".to_owned();
         self.last_textedit_rect = Rect::ZERO;
         self.replacements.clear();
         self.replacements_changed = true;
