@@ -661,11 +661,11 @@ fn calc_tagging_search(app: &mut GossipUi) {
             pairs.sort_by(|(_,ak), (_,bk)| {
                 let af = GLOBALS
                     .storage
-                    .is_person_in_list(&ak, gossip_lib::PersonList::Followed)
+                    .is_person_in_list(ak, gossip_lib::PersonList::Followed)
                     .unwrap_or(false);
                 let bf = GLOBALS
                     .storage
-                    .is_person_in_list(&bk, gossip_lib::PersonList::Followed)
+                    .is_person_in_list(bk, gossip_lib::PersonList::Followed)
                     .unwrap_or(false);
                 bf.cmp(&af).then(std::cmp::Ordering::Greater)
             });
@@ -952,13 +952,13 @@ fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput)
     }
 }
 
-fn do_replacements(draft: &String, replacements: &HashMap<String, ContentSegment>) -> String {
-    let mut output = draft.clone();
+fn do_replacements(draft: &str, replacements: &HashMap<String, ContentSegment>) -> String {
+    let mut output = draft.to_owned();
     for (pat, content) in replacements {
         if let ContentSegment::NostrUrl(nostr_url) = content {
             output = output
                 .as_str()
-                .replace(pat, format!("nostr:{}", nostr_url.0.to_string()).as_str())
+                .replace(pat, format!("nostr:{}", nostr_url.0).as_str())
                 .to_string();
         }
     }
