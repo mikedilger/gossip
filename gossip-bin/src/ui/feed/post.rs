@@ -389,36 +389,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     });
                 }
 
-                // Determine if we are in tagging mode
-                {
-                    app.draft_data.tagging_search_substring = None;
-                    let text_edit_state =
-                        egui::TextEdit::load_state(ctx, compose_area_id).unwrap_or_default();
-                    let ccursor_range = text_edit_state.ccursor_range().unwrap_or_default();
-                    // debugging:
-                    // ui.label(format!("{}-{}", ccursor_range.primary.index,
-                    // ccursor_range.secondary.index));
-                    let cpos = ccursor_range.primary.index;
-                    if cpos <= app.draft_data.draft.len() {
-                        if let Some(captures) = GLOBALS.tagging_regex.captures(&app.draft_data.draft) {
-                            if let Some(mat) = captures.get(1) {
-                                // cursor must be within match
-                                if cpos >= mat.start() && cpos <= mat.end() {
-                                    // only search if this is not already a replacement
-                                    if !app
-                                        .draft_data
-                                        .replacements
-                                        .contains_key(&app.draft_data.draft[mat.start() - 1..mat.end()])
-                                    {
-                                        app.draft_data.tagging_search_substring =
-                                            Some(mat.as_str().to_owned());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
                 // if we are tagging, we will consume arrow presses and enter key
                 let enter_key;
                 (app.draft_data.tagging_search_selected, enter_key) =
@@ -497,6 +467,36 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
                     if ui.input_mut(|i| i.consume_key(modifiers, Key::Enter)) {
                         send_now = true;
+                    }
+                }
+
+                // Determine if we are in tagging mode
+                if output.response.changed() {
+                    app.draft_data.tagging_search_substring = None;
+                    let text_edit_state =
+                        egui::TextEdit::load_state(ctx, compose_area_id).unwrap_or_default();
+                    let ccursor_range = text_edit_state.ccursor_range().unwrap_or_default();
+                    // debugging:
+                    // ui.label(format!("{}-{}", ccursor_range.primary.index,
+                    // ccursor_range.secondary.index));
+                    let cpos = ccursor_range.primary.index;
+                    if cpos <= app.draft_data.draft.len() {
+                        if let Some(captures) = GLOBALS.tagging_regex.captures(&app.draft_data.draft) {
+                            if let Some(mat) = captures.get(1) {
+                                // cursor must be within match
+                                if cpos >= mat.start() && cpos <= mat.end() {
+                                    // only search if this is not already a replacement
+                                    if !app
+                                        .draft_data
+                                        .replacements
+                                        .contains_key(&app.draft_data.draft[mat.start() - 1..mat.end()])
+                                    {
+                                        app.draft_data.tagging_search_substring =
+                                            Some(mat.as_str().to_owned());
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -842,6 +842,9 @@ fn show_tagging_result(
                                         .replacements
                                         .insert(name, ContentSegment::NostrUrl(nostr_url));
                                     app.draft_data.replacements_changed = true;
+
+                                    // clear tagging search
+                                    app.draft_data.tagging_search_substring = None;
                                 }
                             }
                         }
