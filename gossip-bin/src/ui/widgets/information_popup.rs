@@ -111,11 +111,7 @@ fn show_mini_person(
     frame
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.add(
-                    egui::Image::new(avatar)
-                        .max_size(egui::Vec2 { x: 27.0, y: 27.0 })
-                        .maintain_aspect_ratio(true),
-                );
+                super::paint_avatar(ui, person, avatar, super::AvatarSize::Mini);
                 ui.vertical(|ui| {
                     super::truncated_label(
                         ui,

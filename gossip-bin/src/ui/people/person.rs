@@ -4,7 +4,7 @@ use crate::ui::widgets::list_entry;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui;
-use egui::{Context, Image, RichText, TextEdit, Ui, Vec2};
+use egui::{Context, RichText, TextEdit, Ui, Vec2};
 use egui_winit::egui::vec2;
 use egui_winit::egui::InnerResponse;
 use egui_winit::egui::Response;
@@ -321,49 +321,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             false
                         };
 
-                        let avatar_response = ui.add(
-                            Image::new(&avatar)
-                                .max_size(Vec2 {
-                                    x: AVATAR_SIZE_F32 * 3.0,
-                                    y: AVATAR_SIZE_F32 * 3.0,
-                                })
-                                .maintain_aspect_ratio(true),
-                        );
-
-                        let status_color = match (followed, on_list, muted) {
-                            (true, _, false) => app.theme.accent_color(), // followed
-                            (false, true, false) => egui::Color32::GREEN, // on-list
-                            (_, _, true) => app.theme.danger_color(),     // muted
-                            (false, false, false) => egui::Color32::TRANSPARENT,
-                        };
-                        if status_color != egui::Color32::TRANSPARENT {
-                            let center = avatar_response.rect.right_top() + vec2(-20.0, 20.0);
-                            ui.painter().circle(
-                                center,
-                                10.0,
-                                status_color,
-                                egui::Stroke::new(2.0, ui.visuals().panel_fill),
-                            );
-                            let rect = egui::Rect::from_center_size(center, vec2(10.0, 10.0));
-                            ui.interact(
-                                rect,
-                                ui.auto_id_with("status-circle"),
-                                egui::Sense::hover(),
-                            )
-                            .on_hover_text({
-                                let mut stat: Vec<&str> = Vec::new();
-                                if followed {
-                                    stat.push("followed")
-                                }
-                                if on_list {
-                                    stat.push("priority")
-                                }
-                                if muted {
-                                    stat.push("muted")
-                                }
-                                stat.join(", ")
-                            });
-                        }
+                        widgets::paint_avatar(ui, &person, &avatar, widgets::AvatarSize::Profile);
 
                         const MIN_SIZE: Vec2 = vec2(40.0, 22.0);
                         const BTN_SPACING: f32 = 15.0;

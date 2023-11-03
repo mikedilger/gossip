@@ -87,6 +87,7 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            #[allow(dead_code)]
             pub fn danger_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::danger_color(self.dark_mode), )+

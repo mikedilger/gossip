@@ -9,7 +9,7 @@ use egui_winit::egui::text::CCursor;
 use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
 use egui_winit::egui::Id;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::DmChannel;
+use gossip_lib::{DmChannel, Person};
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
 use memoize::memoize;
@@ -743,21 +743,18 @@ fn show_tagging_result(
                                 if is_selected {
                                     app.theme.on_accent_style(ui.style_mut())
                                 }
+                                let person = GLOBALS.storage.read_person(&pair.1)
+                                    .unwrap_or(Some(Person::new(pair.1)))
+                                    .unwrap_or(Person::new(pair.1));
                                 ui.horizontal(|ui| {
-                                    ui.add(
-                                        egui::Image::new(&avatar)
-                                            .max_size(egui::Vec2 { x: 27.0, y: 27.0 })
-                                            .maintain_aspect_ratio(true),
-                                    );
+                                    widgets::paint_avatar(ui, &person, &avatar, widgets::AvatarSize::Mini);
                                     ui.vertical(|ui| {
                                         widgets::truncated_label(
                                             ui,
                                             RichText::new(&pair.0).small(),
                                             widgets::TAGG_WIDTH - 33.0,
                                         );
-                                        if let Ok(Some(person)) =
-                                            GLOBALS.storage.read_person(&pair.1)
-                                        {
+
                                             let mut nip05 =
                                                 RichText::new(person.nip05().unwrap_or_default())
                                                     .weak()
@@ -770,7 +767,6 @@ fn show_tagging_result(
                                                 nip05,
                                                 widgets::TAGG_WIDTH - 33.0,
                                             );
-                                        }
                                     });
                                 })
                             };
