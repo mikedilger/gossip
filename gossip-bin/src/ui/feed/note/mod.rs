@@ -7,17 +7,17 @@ use std::rc::Rc;
 use super::notedata::{NoteData, RepostType};
 
 use super::FeedNoteParams;
-use crate::ui::widgets::{CopyButton, self, AvatarSize};
+use crate::ui::widgets::{self, AvatarSize, CopyButton};
 use crate::ui::{GossipUi, Page};
-use crate::{AVATAR_SIZE_F32,AVATAR_SIZE_REPOST_F32};
-use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::DmChannel;
-use gossip_lib::FeedKind;
-use gossip_lib::{ZapState, GLOBALS};
+use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
 use eframe::egui::{self, Margin};
 use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
 };
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::DmChannel;
+use gossip_lib::FeedKind;
+use gossip_lib::{ZapState, GLOBALS};
 use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl};
 
 pub struct NoteRenderData {
@@ -266,9 +266,7 @@ fn render_note_inner(
                 ui.add_space(avatar_margin_left);
 
                 // render avatar
-                if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size)
-                    .clicked()
-                {
+                if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
                     app.set_page(Page::Person(note.author.pubkey));
                 };
 

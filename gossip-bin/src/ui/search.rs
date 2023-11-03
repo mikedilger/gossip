@@ -1,4 +1,4 @@
-use super::{GossipUi, Page, widgets};
+use super::{widgets, GossipUi, Page};
 use eframe::{egui, Frame};
 use egui::widgets::Button;
 use egui::{Context, Label, RichText, Sense, Ui};

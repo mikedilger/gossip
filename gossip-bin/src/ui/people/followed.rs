@@ -176,9 +176,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 } else {
                     app.placeholder_avatar.clone()
                 };
-                if widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed)
-                    .clicked()
-                {
+                if widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed).clicked() {
                     app.set_page(Page::Person(person.pubkey));
                 };
 

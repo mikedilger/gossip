@@ -9,9 +9,9 @@ use egui_winit::egui::text::CCursor;
 use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
 use egui_winit::egui::Id;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{DmChannel, Person};
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
+use gossip_lib::{DmChannel, Person};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 use std::collections::HashMap;
@@ -563,11 +563,14 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     }
                 });
                 ui.add_space(20.0);
-                if ui.button(RichText::new("🥩"))
+                if ui
+                    .button(RichText::new("🥩"))
                     .on_hover_text("raw content preview")
-                    .clicked() {
+                    .clicked()
+                {
                     if app.draft_data.raw.is_empty() {
-                        let raw = do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
+                        let raw =
+                            do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
                         app.draft_data.raw = raw.to_owned();
                     } else {
                         app.draft_data.raw = "".to_owned();
@@ -658,7 +661,7 @@ fn calc_tagging_search(app: &mut GossipUi) {
                 .people
                 .search_people_to_tag(search)
                 .unwrap_or(vec![]);
-            pairs.sort_by(|(_,ak), (_,bk)| {
+            pairs.sort_by(|(_, ak), (_, bk)| {
                 let af = GLOBALS
                     .storage
                     .is_person_in_list(ak, gossip_lib::PersonList::Followed)
@@ -754,11 +757,18 @@ fn show_tagging_result(
                                 if is_selected {
                                     app.theme.on_accent_style(ui.style_mut())
                                 }
-                                let person = GLOBALS.storage.read_person(&pair.1)
+                                let person = GLOBALS
+                                    .storage
+                                    .read_person(&pair.1)
                                     .unwrap_or(Some(Person::new(pair.1)))
                                     .unwrap_or(Person::new(pair.1));
                                 ui.horizontal(|ui| {
-                                    widgets::paint_avatar(ui, &person, &avatar, widgets::AvatarSize::Mini);
+                                    widgets::paint_avatar(
+                                        ui,
+                                        &person,
+                                        &avatar,
+                                        widgets::AvatarSize::Mini,
+                                    );
                                     ui.vertical(|ui| {
                                         widgets::truncated_label(
                                             ui,
@@ -766,18 +776,18 @@ fn show_tagging_result(
                                             widgets::TAGG_WIDTH - 33.0,
                                         );
 
-                                            let mut nip05 =
-                                                RichText::new(person.nip05().unwrap_or_default())
-                                                    .weak()
-                                                    .small();
-                                            if !person.nip05_valid {
-                                                nip05 = nip05.strikethrough()
-                                            }
-                                            widgets::truncated_label(
-                                                ui,
-                                                nip05,
-                                                widgets::TAGG_WIDTH - 33.0,
-                                            );
+                                        let mut nip05 =
+                                            RichText::new(person.nip05().unwrap_or_default())
+                                                .weak()
+                                                .small();
+                                        if !person.nip05_valid {
+                                            nip05 = nip05.strikethrough()
+                                        }
+                                        widgets::truncated_label(
+                                            ui,
+                                            nip05,
+                                            widgets::TAGG_WIDTH - 33.0,
+                                        );
                                     });
                                 })
                             };

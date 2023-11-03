@@ -273,7 +273,6 @@ pub(super) fn render_plain(
 
 pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
     let nam = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
-    let nam = nam.to_string();
     if ui.link(&nam).clicked() {
         app.set_page(Page::Person(pubkey.to_owned()));
     };

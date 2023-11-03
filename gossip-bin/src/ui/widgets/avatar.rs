@@ -1,6 +1,6 @@
-use egui_winit::egui::{Ui, Image, Vec2, self, vec2, TextureHandle, Response};
-use gossip_lib::{Person, PersonList};
 use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
+use egui_winit::egui::{self, vec2, Image, Response, TextureHandle, Ui, Vec2};
+use gossip_lib::{Person, PersonList};
 
 pub(crate) enum AvatarSize {
     Profile,
@@ -27,11 +27,20 @@ impl AvatarSize {
         }
     }
 
-    fn get_size(&self) -> Vec2{
+    fn get_size(&self) -> Vec2 {
         match self {
-            AvatarSize::Profile => Vec2{ x: AVATAR_SIZE_F32 * 3.0, y: AVATAR_SIZE_F32 * 3.0},
-            AvatarSize::Feed => Vec2 { x: AVATAR_SIZE_F32, y: AVATAR_SIZE_F32 },
-            AvatarSize::Mini => Vec2 { x: AVATAR_SIZE_REPOST_F32, y: AVATAR_SIZE_REPOST_F32 },
+            AvatarSize::Profile => Vec2 {
+                x: AVATAR_SIZE_F32 * 3.0,
+                y: AVATAR_SIZE_F32 * 3.0,
+            },
+            AvatarSize::Feed => Vec2 {
+                x: AVATAR_SIZE_F32,
+                y: AVATAR_SIZE_F32,
+            },
+            AvatarSize::Mini => Vec2 {
+                x: AVATAR_SIZE_REPOST_F32,
+                y: AVATAR_SIZE_REPOST_F32,
+            },
         }
     }
 
@@ -52,7 +61,12 @@ impl AvatarSize {
     }
 }
 
-pub(crate) fn paint_avatar(ui: &mut Ui, person: &Person, avatar: &TextureHandle, avatar_size: AvatarSize) -> Response {
+pub(crate) fn paint_avatar(
+    ui: &mut Ui,
+    person: &Person,
+    avatar: &TextureHandle,
+    avatar_size: AvatarSize,
+) -> Response {
     let followed = person.is_in_list(PersonList::Followed);
     let muted = person.is_in_list(PersonList::Muted);
     let on_list = person.is_in_list(PersonList::Custom(2)); // TODO: change to any list
@@ -67,37 +81,39 @@ pub(crate) fn paint_avatar(ui: &mut Ui, person: &Person, avatar: &TextureHandle,
 
     let status_color = match (followed, on_list, muted) {
         (true, _, false) => ui.visuals().hyperlink_color, // followed
-        (false, true, false) => egui::Color32::GREEN, // on-list
-        (_, _, true) => ui.visuals().warn_fg_color,     // muted
+        (false, true, false) => egui::Color32::GREEN,     // on-list
+        (_, _, true) => ui.visuals().warn_fg_color,       // muted
         (false, false, false) => egui::Color32::TRANSPARENT,
     };
     if status_color != egui::Color32::TRANSPARENT {
-        let center = avatar_response.rect.right_top() + vec2(-0.139*size.x, 0.139*size.y);
+        let center = avatar_response.rect.right_top() + vec2(-0.139 * size.x, 0.139 * size.y);
         ui.painter().circle(
             center,
             avatar_size.get_status_size(),
             status_color,
-            egui::Stroke::new(avatar_size.get_status_stroke_width(), ui.visuals().panel_fill),
+            egui::Stroke::new(
+                avatar_size.get_status_stroke_width(),
+                ui.visuals().panel_fill,
+            ),
         );
-        let rect = egui::Rect::from_center_size(center, vec2(avatar_size.get_status_size(), avatar_size.get_status_size()));
-        ui.interact(
-            rect,
-            ui.auto_id_with("status-circle"),
-            egui::Sense::hover(),
-        )
-        .on_hover_text({
-            let mut stat: Vec<&str> = Vec::new();
-            if followed {
-                stat.push("followed")
-            }
-            if on_list {
-                stat.push("priority")
-            }
-            if muted {
-                stat.push("muted")
-            }
-            stat.join(", ")
-        });
+        let rect = egui::Rect::from_center_size(
+            center,
+            vec2(avatar_size.get_status_size(), avatar_size.get_status_size()),
+        );
+        ui.interact(rect, ui.auto_id_with("status-circle"), egui::Sense::hover())
+            .on_hover_text({
+                let mut stat: Vec<&str> = Vec::new();
+                if followed {
+                    stat.push("followed")
+                }
+                if on_list {
+                    stat.push("priority")
+                }
+                if muted {
+                    stat.push("muted")
+                }
+                stat.join(", ")
+            });
     }
     avatar_response
 }
