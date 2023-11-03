@@ -59,40 +59,24 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
             ContentSegment::Plain(span) => {
                 let chunk = shattered_content.slice(span).unwrap();
 
-                let mut pos = 0;
-
-                // following code only works if interests are sorted the way
-                // they occur in the text
-                let mut interests = interests.to_owned();
-                interests.sort_by_key(|a| chunk.find(a));
-
-                // any entry in interests gets it's own layout section
-                for interest in &interests {
-                    if let Some(ipos) = chunk.find(interest.as_str()) {
-                        // add stuff before the interest
-                        job.append(
-                            &chunk[pos..ipos],
-                            0.0,
-                            theme.highlight_text_format(HighlightType::Nothing),
-                        );
-
-                        pos = ipos + interest.len();
-                        // add the interest
-                        job.append(
-                            &chunk[ipos..pos],
-                            0.0,
-                            theme.highlight_text_format(HighlightType::Hyperlink),
-                        );
+                // loop all individual words in this chunk
+                for part in chunk.split_inclusive(' ') {
+                    let mut is_interest = false;
+                    for interest in &interests {
+                        if part.find(interest).is_some() {
+                            is_interest = true;
+                            break;
+                        }
                     }
-                }
-
-                // add anything else
-                let slice = &chunk[pos..];
-                if !slice.is_empty() {
+                    let textformat = if is_interest {
+                        theme.highlight_text_format(HighlightType::Hyperlink)
+                    } else {
+                        theme.highlight_text_format(HighlightType::Nothing)
+                    };
                     job.append(
-                        slice,
+                        part,
                         0.0,
-                        theme.highlight_text_format(HighlightType::Nothing),
+                        textformat,
                     );
                 }
             }
@@ -476,9 +460,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     let text_edit_state =
                         egui::TextEdit::load_state(ctx, compose_area_id).unwrap_or_default();
                     let ccursor_range = text_edit_state.ccursor_range().unwrap_or_default();
-                    // debugging:
-                    // ui.label(format!("{}-{}", ccursor_range.primary.index,
-                    // ccursor_range.secondary.index));
                     let cpos = ccursor_range.primary.index;
                     if cpos <= app.draft_data.draft.len() {
                         if let Some(captures) = GLOBALS.tagging_regex.captures(&app.draft_data.draft) {
@@ -868,8 +849,8 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
 
     // find replacements in the galley and interact with them
     for (pat, content) in app.draft_data.replacements.clone() {
-        let popup_id = ui.auto_id_with(&pat);
-        if let Some(pos) = output.galley.job.text.find(&pat) {
+        for (pos, pat) in output.galley.job.text.match_indices(&pat) {
+            let popup_id = ui.auto_id_with(pos);
             // find the rect that covers the replacement
             let ccstart = CCursor::new(pos);
             let ccend = CCursor::new(pos + pat.len());
@@ -883,7 +864,7 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
                 output.text_draw_pos + end_rect.right_bottom().to_vec2(),
             );
 
-            if let ContentSegment::NostrUrl(nostr_url) = content {
+            if let ContentSegment::NostrUrl(nostr_url) = &content {
                 let maybe_pubkey = match &nostr_url.0 {
                     NostrBech32::Profile(p) => Some(p.pubkey),
                     NostrBech32::Pubkey(pk) => Some(*pk),
@@ -905,7 +886,7 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
                         let popup = Box::new(
                             widgets::ProfilePopup::new(popup_id, interact_rect, avatar, person)
                                 .show_duration(1.0)
-                                .tag(pat),
+                                .tag(pat.to_owned()),
                         );
 
                         hovers.insert(popup_id, popup);
@@ -922,6 +903,7 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
         }
     }
 
+    // insert the hovers for this textedit
     if let Some(entry) = app.popups.get_mut(&output.response.id) {
         *entry = hovers;
     } else {
@@ -956,11 +938,11 @@ fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput)
                 }
             }
         }
-        for (id, tag) in deletelist {
+        for (_, tag) in deletelist {
             app.draft_data.replacements.remove(&tag);
 
-            // remove popup
-            hovers.remove(&id);
+            // re-calculate hovers
+            calc_tag_hovers(ui, app, output);
 
             // mark textedit changed
             output.response.mark_changed();
