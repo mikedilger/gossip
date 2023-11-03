@@ -398,18 +398,21 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     // debugging:
                     // ui.label(format!("{}-{}", ccursor_range.primary.index,
                     // ccursor_range.secondary.index));
-                    if ccursor_range.primary.index <= app.draft_data.draft.len() {
-                        let precursor = &app.draft_data.draft[0..ccursor_range.primary.index];
-                        if let Some(captures) = GLOBALS.tagging_regex.captures(precursor) {
+                    let cpos = ccursor_range.primary.index;
+                    if cpos <= app.draft_data.draft.len() {
+                        if let Some(captures) = GLOBALS.tagging_regex.captures(&app.draft_data.draft) {
                             if let Some(mat) = captures.get(1) {
-                                // only search if this is not already a replacement
-                                if !app
-                                    .draft_data
-                                    .replacements
-                                    .contains_key(&precursor[mat.start() - 1..mat.end()])
-                                {
-                                    app.draft_data.tagging_search_substring =
-                                        Some(mat.as_str().to_owned());
+                                // cursor must be within match
+                                if cpos >= mat.start() && cpos <= mat.end() {
+                                    // only search if this is not already a replacement
+                                    if !app
+                                        .draft_data
+                                        .replacements
+                                        .contains_key(&app.draft_data.draft[mat.start() - 1..mat.end()])
+                                    {
+                                        app.draft_data.tagging_search_substring =
+                                            Some(mat.as_str().to_owned());
+                                    }
                                 }
                             }
                         }
