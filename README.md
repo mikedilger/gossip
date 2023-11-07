@@ -236,7 +236,7 @@ If you are having performance issues, please see [PERFORMANCE.md](docs/PERFORMAN
 
 ## License
 
-MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+MIT license ([LICENSE MIT](LICENSE.txt) or <http://opensource.org/licenses/MIT>)
 
 ### Contribution
 
