@@ -71,7 +71,7 @@ fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
             (connected_relays.contains(&relay.url) || timeout_relays.contains(&relay.url))
                 && super::filter_relay(&app.relays, relay)
         })
-        .unwrap_or(Vec::new());
+        .unwrap_or_default();
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
     relays

@@ -10,7 +10,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     let muted_pubkeys = GLOBALS
         .storage
         .get_people_in_list(PersonList::Muted, None)
-        .unwrap_or(vec![]);
+        .unwrap_or_default();
 
     let mut people: Vec<Person> = Vec::new();
     for pk in &muted_pubkeys {
@@ -31,7 +31,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .latest_person_list_event_data
         .get(&PersonList::Muted)
         .map(|v| v.value().clone())
-        .unwrap_or(Default::default());
+        .unwrap_or_default();
 
     let mut asof = "unknown".to_owned();
     if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(latest_event_data.when.0) {

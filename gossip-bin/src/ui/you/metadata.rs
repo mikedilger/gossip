@@ -131,7 +131,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             } else if GLOBALS
                 .storage
                 .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
-                .unwrap_or(vec![])
+                .unwrap_or_default()
                 .is_empty()
             {
                 ui.horizontal(|ui| {

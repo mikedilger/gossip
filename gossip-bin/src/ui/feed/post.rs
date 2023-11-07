@@ -88,7 +88,7 @@ pub(in crate::ui) fn posting_area(
         } else if GLOBALS
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
-            .unwrap_or(vec![])
+            .unwrap_or_default()
             .is_empty()
         {
             ui.horizontal_wrapped(|ui| {
@@ -408,7 +408,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     let pairs = GLOBALS
                         .people
                         .search_people_to_tag(&app.draft_data.tag_someone)
-                        .unwrap_or(vec![]);
+                        .unwrap_or_default();
                     if !pairs.is_empty() {
                         ui.menu_button("@", |ui| {
                             for pair in pairs {

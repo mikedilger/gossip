@@ -34,7 +34,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     let relays: Vec<Relay> = GLOBALS
         .storage
         .filter_relays(|relay| relay.usage_bits != 0)
-        .unwrap_or(Vec::new());
+        .unwrap_or_default();
 
     // Add their relays to the relay_options
     for relay in &relays {

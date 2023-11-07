@@ -61,28 +61,28 @@ impl WizardState {
             self.metadata_events = GLOBALS
                 .storage
                 .find_events(&[EventKind::Metadata], &[pk], None, |_| true, true)
-                .unwrap_or(Vec::new());
+                .unwrap_or_default();
 
             self.contact_list_events = GLOBALS
                 .storage
                 .find_events(&[EventKind::ContactList], &[pk], None, |_| true, true)
-                .unwrap_or(Vec::new());
+                .unwrap_or_default();
 
             self.relay_list_events = GLOBALS
                 .storage
                 .find_events(&[EventKind::RelayList], &[pk], None, |_| true, true)
-                .unwrap_or(Vec::new());
+                .unwrap_or_default();
 
             self.relays = GLOBALS
                 .storage
                 .filter_relays(|relay| relay.usage_bits != 0)
-                .unwrap_or(Vec::new());
+                .unwrap_or_default();
         }
 
         self.followed = GLOBALS
             .storage
             .get_people_in_list(PersonList::Followed, None)
-            .unwrap_or(vec![]);
+            .unwrap_or_default();
 
         if self.need_discovery_relays() {
             let purplepages = RelayUrl::try_from_str("wss://purplepag.es/").unwrap();

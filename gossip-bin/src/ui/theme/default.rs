@@ -327,6 +327,7 @@ impl ThemeDef for DefaultTheme {
 
     fn accent_button_1_style(style: &mut Style, dark_mode: bool) {
         let accent_color = Self::accent_color(dark_mode);
+        #[allow(clippy::if_same_then_else)]
         if dark_mode {
             style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
             style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);

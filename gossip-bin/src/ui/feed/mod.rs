@@ -292,7 +292,7 @@ fn render_note_maybe_fake(
 
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to && !app.collapsed.contains(&id) {
-            let replies = GLOBALS.storage.get_replies(id).unwrap_or(vec![]);
+            let replies = GLOBALS.storage.get_replies(id).unwrap_or_default();
             let iter = replies.iter();
             let first = replies.first();
             let last = replies.last();
