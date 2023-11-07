@@ -304,12 +304,9 @@ impl Overlord {
             return Ok(());
         }
 
-        if let Some(relay) = GLOBALS.storage.read_relay(&url)? {
-            if relay.rank == 0 {
-                return Ok(()); // don't connect to rank=0 relays
-            }
-        } else {
-            GLOBALS.storage.write_relay_if_missing(&url, None)?;
+        let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+        if relay.rank == 0 {
+            return Ok(()); // don't connect to rank=0 relays
         }
 
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {

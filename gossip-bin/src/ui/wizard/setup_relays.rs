@@ -12,13 +12,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(20.0);
     ui.label("Please choose which relays you will use.");
 
-    let read_relay = |url: &RelayUrl| {
-        GLOBALS
-            .storage
-            .read_relay(url)
-            .unwrap()
-            .unwrap_or(Relay::new(url.to_owned()))
-    };
+    let read_relay = |url: &RelayUrl| GLOBALS.storage.read_or_create_relay(url, None).unwrap();
 
     // Convert our default relay strings into Relays
     // fetching from storage so we don't overwrite any critical values when saving them later.

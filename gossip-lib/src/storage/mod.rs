@@ -1014,6 +1014,22 @@ impl Storage {
         self.read_relay1(url)
     }
 
+    /// Read or create relay
+    pub fn read_or_create_relay<'a>(
+        &'a self,
+        url: &RelayUrl,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<Relay, Error> {
+        match self.read_relay(url)? {
+            Some(relay) => Ok(relay),
+            None => {
+                let relay = Relay::new(url.to_owned());
+                self.write_relay(&relay, rw_txn)?;
+                Ok(relay)
+            }
+        }
+    }
+
     /// Read matching relay records
     #[inline]
     pub fn filter_relays<F>(&self, f: F) -> Result<Vec<Relay>, Error>
@@ -2027,14 +2043,7 @@ impl Storage {
 
         // Modulate these scores with our local rankings
         for ranked_relay in ranked_relays.iter_mut() {
-            let relay = match self.read_relay(&ranked_relay.0)? {
-                None => {
-                    self.write_relay_if_missing(&ranked_relay.0, None)?;
-                    Relay::new(ranked_relay.0.clone())
-                }
-                Some(relay) => relay,
-            };
-
+            let relay = self.read_or_create_relay(&ranked_relay.0, None)?;
             ranked_relay.1 = (ranked_relay.1 as f32
                 * (relay.rank as f32 / 3.0)
                 * (relay.success_rate() * 2.0)) as u64;

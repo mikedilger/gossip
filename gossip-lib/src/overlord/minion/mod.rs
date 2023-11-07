@@ -62,14 +62,7 @@ impl Minion {
     pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
-        let dbrelay = match GLOBALS.storage.read_relay(&url)? {
-            Some(dbrelay) => dbrelay,
-            None => {
-                let dbrelay = Relay::new(url.clone());
-                GLOBALS.storage.write_relay(&dbrelay, None)?;
-                dbrelay
-            }
-        };
+        let dbrelay = GLOBALS.storage.read_or_create_relay(&url, None)?;
 
         Ok(Minion {
             url,
