@@ -302,7 +302,8 @@ pub(super) fn render_parameterized_event_link(
     referenced_by_id: Id,
     event_addr: &EventAddr,
 ) {
-    let nam = format!("nostr:{}", event_addr.as_bech32_string());
+    let nam = format!("[{:?}: {}]", event_addr.kind, event_addr.d);
+    //let nam = format!("nostr:{}", event_addr.as_bech32_string());
     if ui.link(&nam).clicked() {
         if let Ok(Some(prevent)) = GLOBALS
             .storage
