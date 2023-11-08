@@ -94,7 +94,7 @@ impl NoteData {
         };
 
         let embedded_event = {
-            if event.effective_kind() == EventKind::Repost {
+            if event.kind == EventKind::Repost {
                 if !event.content.trim().is_empty() {
                     if let Ok(event) = serde_json::from_str::<Event>(&event.content) {
                         Some(event)
@@ -110,7 +110,7 @@ impl NoteData {
         };
 
         // Compute the content to our needs
-        let (display_content, error_content) = match event.effective_kind() {
+        let (display_content, error_content) = match event.kind {
             EventKind::TextNote => (event.content.trim().to_string(), None),
             EventKind::Repost => ("".to_owned(), None),
             EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {

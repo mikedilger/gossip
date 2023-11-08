@@ -1573,8 +1573,7 @@ impl Storage {
                 }
             }
 
-            // Index by the effective kind:
-            let ek: u32 = event.effective_kind().into();
+            let ek: u32 = event.kind.into();
             let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
             key.extend(event.pubkey.as_bytes()); // pubkey
             let bytes = event.id.as_slice();
@@ -1624,8 +1623,7 @@ impl Storage {
                 }
             }
 
-            // Index by the effective kind:
-            let ek: u32 = event.effective_kind().into();
+            let ek: u32 = event.kind.into();
             let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
             key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
             let bytes = event.id.as_slice();
