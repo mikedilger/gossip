@@ -45,8 +45,7 @@ use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Tag,
-    Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Tag, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -1251,8 +1250,8 @@ impl Storage {
     /// TBD: optimize this by storing better event indexes
     pub fn get_replaceable_event(
         &self,
-        pubkey: PublicKey,
         kind: EventKind,
+        pubkey: PublicKey,
     ) -> Result<Option<Event>, Error> {
         Ok(self
             .find_events(&[kind], &[pubkey], None, |_| true, true)?
@@ -1264,20 +1263,21 @@ impl Storage {
     /// TBD: use forthcoming event_tags index
     pub fn get_parameterized_replaceable_event(
         &self,
-        event_addr: &EventAddr,
+        kind: EventKind,
+        pubkey: PublicKey,
+        parameter: &str,
     ) -> Result<Option<Event>, Error> {
-        if !event_addr.kind.is_parameterized_replaceable() {
-            return Err(ErrorKind::General(
-                "Invalid EventAddr, kind is not parameterized replaceable.".to_owned(),
-            )
-            .into());
+        if !kind.is_parameterized_replaceable() {
+            return Err(
+                ErrorKind::General("Kind is not parameterized replaceable.".to_owned()).into(),
+            );
         }
 
         let mut events = self.find_events(
-            &[event_addr.kind],
-            &[event_addr.author],
+            &[kind],
+            &[pubkey],
             None, // any time
-            |e| e.parameter().as_ref() == Some(&event_addr.d),
+            |e| e.parameter().as_deref() == Some(parameter),
             true, // sorted in reverse time order
         )?;
 

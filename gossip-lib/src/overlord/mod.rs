@@ -2316,7 +2316,7 @@ impl Overlord {
         let event = {
             if let Some(event) = GLOBALS
                 .storage
-                .get_replaceable_event(my_pubkey, list.event_kind())?
+                .get_replaceable_event(list.event_kind(), my_pubkey)?
             {
                 event.clone()
             } else {

@@ -305,10 +305,11 @@ pub(super) fn render_parameterized_event_link(
     let nam = format!("[{:?}: {}]", event_addr.kind, event_addr.d);
     //let nam = format!("nostr:{}", event_addr.as_bech32_string());
     if ui.link(&nam).clicked() {
-        if let Ok(Some(prevent)) = GLOBALS
-            .storage
-            .get_parameterized_replaceable_event(event_addr)
-        {
+        if let Ok(Some(prevent)) = GLOBALS.storage.get_parameterized_replaceable_event(
+            event_addr.kind,
+            event_addr.author,
+            &event_addr.d,
+        ) {
             app.set_page(Page::Feed(FeedKind::Thread {
                 id: prevent.id,
                 referenced_by: referenced_by_id,

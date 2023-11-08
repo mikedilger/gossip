@@ -136,12 +136,14 @@ impl NoteData {
             EventKind::CommunityPost => (event.content.clone(), None),
             EventKind::DraftLongFormContent => (event.content.clone(), None),
             k => {
-                let mut dc = format!("UNSUPPORTED EVENT KIND {:?}", k);
+                let kind_number: u32 = k.into();
+                let mut dc = format!("UNSUPPORTED EVENT KIND {}", kind_number);
                 // support the 'alt' tag of NIP-31:
                 for tag in &event.tags {
                     if let Tag::Other { tag, data } = tag {
                         if tag == "alt" && !data.is_empty() {
-                            dc = format!("UNSUPPORTED EVENT KIND {:?}, ALT: {}", k, data[0]);
+                            dc =
+                                format!("UNSUPPORTED EVENT KIND {}, ALT: {}", kind_number, data[0]);
                         }
                     }
                 }

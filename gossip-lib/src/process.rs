@@ -287,7 +287,10 @@ pub async fn process_new_event(
                     }
                 }
                 NostrBech32::EventAddr(mut ea) => {
-                    if let Ok(None) = GLOBALS.storage.get_parameterized_replaceable_event(&ea) {
+                    if let Ok(None) = GLOBALS
+                        .storage
+                        .get_parameterized_replaceable_event(ea.kind, ea.author, &ea.d)
+                    {
                         // Add the seen_on relay
                         if let Some(seen_on_url) = seen_on.as_ref() {
                             let seen_on_unchecked_url = seen_on_url.to_unchecked_url();
