@@ -21,13 +21,13 @@ bech32 = "0.9"
 eframe = { git = "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452", features = [ "persistence", "wayland" ] }
 egui-winit = { git = "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452", features = [ "default" ] }
 egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "81cc3ee58818754272582397161cc55ff11bde18",  features = [ "from_bytes" ], optional = true }
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "0833489756b1353824114025560ae078b960cb48" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "45e6c4e6de25491dbe0d2db5e3579740d84f4d96" }
 gossip-lib = { path = "../gossip-lib" }
 humansize = "2.1"
 image = { version = "0.24.6", features = [ "png", "jpeg" ] }
 lazy_static = "1.4"
 memoize = "0.4"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "10988c28ed3de9773c59728d3e58bcb4b4624857", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "250ecd243925ff4807291cb1e55d108a28a08ef1", features = [ "speedy" ] }
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust", rev = "519b77b3efa3f84961169b47d3de08c5ddd86548" }
 resvg = "0.35.0"
 rpassword = "7.2"

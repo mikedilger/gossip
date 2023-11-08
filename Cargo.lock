@@ -1895,7 +1895,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=0833489756b1353824114025560ae078b960cb48#0833489756b1353824114025560ae078b960cb48"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=45e6c4e6de25491dbe0d2db5e3579740d84f4d96#45e6c4e6de25491dbe0d2db5e3579740d84f4d96"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2745,7 +2745,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.7.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=10988c28ed3de9773c59728d3e58bcb4b4624857#10988c28ed3de9773c59728d3e58bcb4b4624857"
+source = "git+https://github.com/mikedilger/nostr-types?rev=250ecd243925ff4807291cb1e55d108a28a08ef1#250ecd243925ff4807291cb1e55d108a28a08ef1"
 dependencies = [
  "aes",
  "base64",
