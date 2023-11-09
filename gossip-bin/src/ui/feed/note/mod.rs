@@ -20,7 +20,9 @@ use egui::{
     Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     Vec2,
 };
-use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl};
+use nostr_types::{
+    Event, EventAddr, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl,
+};
 
 pub struct NoteRenderData {
     /// Height of the post
@@ -403,21 +405,52 @@ fn render_note_inner(
                                 }
                             }
                         }
-                        if ui.button("Copy nevent").clicked() {
-                            let event_pointer = EventPointer {
-                                id: note.event.id,
-                                relays: match GLOBALS.storage.get_event_seen_on_relay(note.event.id)
-                                {
-                                    Ok(vec) => {
-                                        vec.iter().map(|(url, _)| url.to_unchecked_url()).collect()
-                                    }
-                                    Err(_) => vec![],
-                                },
-                                author: None,
-                                kind: None,
+                        if note.event.kind.is_replaceable()
+                            || note.event.kind.is_parameterized_replaceable()
+                        {
+                            let param = match note.event.parameter() {
+                                Some(p) => p,
+                                None => "".to_owned(),
                             };
-                            let nostr_url: NostrUrl = event_pointer.into();
-                            ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                            if ui.button("Copy naddr").clicked() {
+                                let event_addr = EventAddr {
+                                    d: param,
+                                    relays: match GLOBALS
+                                        .storage
+                                        .get_event_seen_on_relay(note.event.id)
+                                    {
+                                        Ok(vec) => vec
+                                            .iter()
+                                            .map(|(url, _)| url.to_unchecked_url())
+                                            .collect(),
+                                        Err(_) => vec![],
+                                    },
+                                    kind: note.event.kind,
+                                    author: note.event.pubkey,
+                                };
+                                let nostr_url: NostrUrl = event_addr.into();
+                                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                            }
+                        } else {
+                            if ui.button("Copy nevent").clicked() {
+                                let event_pointer = EventPointer {
+                                    id: note.event.id,
+                                    relays: match GLOBALS
+                                        .storage
+                                        .get_event_seen_on_relay(note.event.id)
+                                    {
+                                        Ok(vec) => vec
+                                            .iter()
+                                            .map(|(url, _)| url.to_unchecked_url())
+                                            .collect(),
+                                        Err(_) => vec![],
+                                    },
+                                    author: None,
+                                    kind: None,
+                                };
+                                let nostr_url: NostrUrl = event_pointer.into();
+                                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                            }
                         }
                         if !note.event.kind.is_direct_message_related() {
                             if ui.button("Copy web link").clicked() {
