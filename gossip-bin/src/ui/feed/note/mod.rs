@@ -358,7 +358,7 @@ fn render_note_inner(
                         );
                     }
 
-                    if note.event.kind == EventKind::Repost {
+                    if note.repost.is_some() {
                         let color = app.theme.notice_marker_text_color();
                         ui.label(
                             RichText::new("REPOSTED")
@@ -1067,6 +1067,50 @@ fn render_content(
                                 content_margin_left,
                                 bottom_of_avatar,
                             );
+                        }
+                    } else if note.repost == Some(RepostType::GenericRepost) {
+                        if note.embedded_event.is_some() {
+                            let inner_note_data =
+                                NoteData::new(note.embedded_event.clone().unwrap());
+                            let inner_ref = Rc::new(RefCell::new(inner_note_data));
+                            render_repost(
+                                app,
+                                ui,
+                                ctx,
+                                &note.repost,
+                                inner_ref,
+                                content_margin_left,
+                                bottom_of_avatar,
+                            );
+                        } else {
+                            if let Some((id, _hint)) = event.mentions().first() {
+                                if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                    // TODO block additional repost recursion
+                                    render_repost(
+                                        app,
+                                        ui,
+                                        ctx,
+                                        &note.repost,
+                                        note_data,
+                                        content_margin_left,
+                                        bottom_of_avatar,
+                                    );
+                                } else {
+                                    let color = app.theme.notice_marker_text_color();
+                                    ui.label(
+                                        RichText::new("GENERIC REPOST EVENT NOT FOUND.")
+                                            .color(color)
+                                            .text_style(TextStyle::Small),
+                                    );
+                                }
+                            } else {
+                                let color = app.theme.notice_marker_text_color();
+                                ui.label(
+                                    RichText::new("BROKEN GENERIC REPOST EVENT")
+                                        .color(color)
+                                        .text_style(TextStyle::Small),
+                                );
+                            }
                         }
                     } else {
                         // Possible subject line
