@@ -1083,6 +1083,13 @@ fn render_content(
                                 bottom_of_avatar,
                             );
                         } else {
+                            // FIXME -- mentions() looks at 'e' tags not 'a' tags.
+                            //          GenericReposts might be replaceable.
+                            //          We need to prefer any 'a' tags in that case.
+                            //
+                            //          This may need more work in nostr-types, after
+                            //          https://github.com/nostr-protocol/nips/issues/870
+                            //          is worked out.
                             if let Some((id, _hint)) = event.mentions().first() {
                                 if let Some(note_data) = app.notes.try_update_and_get(id) {
                                     // TODO block additional repost recursion
