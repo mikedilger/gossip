@@ -1744,29 +1744,57 @@ impl Overlord {
             }
         };
 
+        let relay_url = {
+            let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
+            if seen_on.is_empty() {
+                Relay::recommended_relay_for_reply(id)
+                    .await?
+                    .map(|rr| rr.to_unchecked_url())
+            } else {
+                seen_on.get(0).map(|(rurl, _)| rurl.to_unchecked_url())
+            }
+        };
+
+        let kind: EventKind;
         let mut tags: Vec<Tag> = vec![
-            Tag::Event {
-                id,
-                recommended_relay_url: {
-                    let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
-                    if seen_on.is_empty() {
-                        Relay::recommended_relay_for_reply(id)
-                            .await?
-                            .map(|rr| rr.to_unchecked_url())
-                    } else {
-                        seen_on.get(0).map(|(rurl, _)| rurl.to_unchecked_url())
-                    }
-                },
-                marker: None,
-                trailing: Vec::new(),
-            },
             Tag::Pubkey {
                 pubkey: reposted_event.pubkey.into(),
                 recommended_relay_url: None,
                 petname: None,
                 trailing: Vec::new(),
             },
+            Tag::Event {
+                id,
+                recommended_relay_url: relay_url.clone(),
+                marker: None,
+                trailing: Vec::new(),
+            },
         ];
+
+        if reposted_event.kind != EventKind::TextNote {
+            kind = EventKind::GenericRepost;
+
+            // Add 'k' tag
+            tags.push(Tag::Kind {
+                kind: reposted_event.kind,
+                trailing: Vec::new(),
+            });
+
+            if reposted_event.kind.is_replaceable()
+                || reposted_event.kind.is_parameterized_replaceable()
+            {
+                // Add 'a' tag
+                tags.push(Tag::Address {
+                    kind: reposted_event.kind,
+                    pubkey: reposted_event.pubkey.into(),
+                    d: reposted_event.parameter().unwrap_or("".to_string()),
+                    relay_url: relay_url.clone(),
+                    trailing: vec![],
+                });
+            }
+        } else {
+            kind = EventKind::Repost;
+        }
 
         let event = {
             let public_key = match GLOBALS.signer.public_key() {
@@ -1787,7 +1815,7 @@ impl Overlord {
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
-                kind: EventKind::Repost,
+                kind,
                 tags,
                 content: serde_json::to_string(&reposted_event)?,
             };
