@@ -436,7 +436,11 @@ pub fn print_followed(_cmd: Command) -> Result<(), Error> {
         .storage
         .get_people_in_list(PersonList::Followed, None)?;
     for pk in &pubkeys {
-        println!("{}", pk.as_hex_string());
+        if let Some(person) = GLOBALS.storage.read_person(pk)? {
+            println!("{} {}", pk.as_hex_string(), person.best_name());
+        } else {
+            println!("{}", pk.as_hex_string());
+        }
     }
     Ok(())
 }
