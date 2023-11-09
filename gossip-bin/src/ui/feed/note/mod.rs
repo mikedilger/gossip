@@ -263,6 +263,15 @@ fn render_note_inner(
         let content_margin_left = AVATAR_SIZE_F32 + inner_margin.left;
         let footer_margin_left = content_margin_left;
 
+        let relays = match GLOBALS.storage.get_event_seen_on_relay(note.event.id) {
+            Ok(vec) => vec
+                .iter()
+                .map(|(url, _)| url.to_unchecked_url())
+                .take(3)
+                .collect(),
+            Err(_) => vec![],
+        };
+
         ui.vertical(|ui| {
             // First row
 
@@ -405,6 +414,7 @@ fn render_note_inner(
                                 }
                             }
                         }
+
                         if note.event.kind.is_replaceable()
                             || note.event.kind.is_parameterized_replaceable()
                         {
@@ -415,16 +425,7 @@ fn render_note_inner(
                             if ui.button("Copy naddr").clicked() {
                                 let event_addr = EventAddr {
                                     d: param,
-                                    relays: match GLOBALS
-                                        .storage
-                                        .get_event_seen_on_relay(note.event.id)
-                                    {
-                                        Ok(vec) => vec
-                                            .iter()
-                                            .map(|(url, _)| url.to_unchecked_url())
-                                            .collect(),
-                                        Err(_) => vec![],
-                                    },
+                                    relays: relays.clone(),
                                     kind: note.event.kind,
                                     author: note.event.pubkey,
                                 };
@@ -435,16 +436,7 @@ fn render_note_inner(
                             if ui.button("Copy nevent").clicked() {
                                 let event_pointer = EventPointer {
                                     id: note.event.id,
-                                    relays: match GLOBALS
-                                        .storage
-                                        .get_event_seen_on_relay(note.event.id)
-                                    {
-                                        Ok(vec) => vec
-                                            .iter()
-                                            .map(|(url, _)| url.to_unchecked_url())
-                                            .collect(),
-                                        Err(_) => vec![],
-                                    },
+                                    relays: relays.clone(),
                                     author: None,
                                     kind: None,
                                 };
@@ -456,17 +448,7 @@ fn render_note_inner(
                             if ui.button("Copy web link").clicked() {
                                 let event_pointer = EventPointer {
                                     id: note.event.id,
-                                    relays: match GLOBALS
-                                        .storage
-                                        .get_event_seen_on_relay(note.event.id)
-                                    {
-                                        Ok(vec) => vec
-                                            .iter()
-                                            .map(|(url, _)| url.to_unchecked_url())
-                                            .take(3) // Limit to 3 relay hints
-                                            .collect(),
-                                        Err(_) => vec![],
-                                    },
+                                    relays: relays.clone(),
                                     author: None,
                                     kind: None,
                                 };
@@ -742,28 +724,37 @@ fn render_note_inner(
                                             {
                                                 app.draft_data.draft.push(' ');
                                             }
-                                            let event_pointer = EventPointer {
-                                                id: note.event.id,
-                                                relays: match GLOBALS
-                                                    .storage
-                                                    .get_event_seen_on_relay(note.event.id)
-                                                {
-                                                    Err(_) => vec![],
-                                                    Ok(vec) => vec
-                                                        .iter()
-                                                        .map(|(url, _)| url.to_unchecked_url())
-                                                        .collect(),
-                                                },
-                                                author: None,
-                                                kind: None,
+                                            let nostr_url: NostrUrl = if note
+                                                .event
+                                                .kind
+                                                .is_replaceable()
+                                                || note.event.kind.is_parameterized_replaceable()
+                                            {
+                                                let param = match note.event.parameter() {
+                                                    Some(p) => p,
+                                                    None => "".to_owned(),
+                                                };
+                                                let event_addr = EventAddr {
+                                                    d: param,
+                                                    relays: relays.clone(),
+                                                    kind: note.event.kind,
+                                                    author: note.event.pubkey,
+                                                };
+                                                event_addr.into()
+                                            } else {
+                                                let event_pointer = EventPointer {
+                                                    id: note.event.id,
+                                                    relays: relays.clone(),
+                                                    author: None,
+                                                    kind: None,
+                                                };
+                                                event_pointer.into()
                                             };
-                                            let nostr_url: NostrUrl = event_pointer.into();
                                             app.draft_data
                                                 .draft
                                                 .push_str(&format!("{}", nostr_url));
                                             app.draft_data.repost = None;
                                             app.draft_data.replying_to = None;
-
                                             app.show_post_area = true;
                                             app.draft_needs_focus = true;
                                         }
