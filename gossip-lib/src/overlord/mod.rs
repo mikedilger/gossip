@@ -1912,7 +1912,7 @@ impl Overlord {
                             },
                             true,
                         )?
-                        .get(1)
+                        .get(0)
                     {
                         note_search_results.push(event.clone());
                     } else {
