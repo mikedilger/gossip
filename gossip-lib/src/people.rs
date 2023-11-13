@@ -127,9 +127,10 @@ impl People {
         };
 
         for (person_list, _) in PersonList::all_lists() {
-            if let Ok(Some(event)) = GLOBALS
-                .storage
-                .get_replaceable_event(person_list.event_kind(), pk)
+            if let Ok(Some(event)) =
+                GLOBALS
+                    .storage
+                    .get_replaceable_event(person_list.event_kind(), pk, "")
             {
                 self.latest_person_list_event_data.insert(
                     person_list,
@@ -644,10 +645,11 @@ impl People {
 
         let content = {
             if kind == EventKind::ContactList {
-                match GLOBALS
-                    .storage
-                    .get_replaceable_event(EventKind::ContactList, my_pubkey)?
-                {
+                match GLOBALS.storage.get_replaceable_event(
+                    EventKind::ContactList,
+                    my_pubkey,
+                    "",
+                )? {
                     Some(c) => c.content,
                     None => "".to_owned(),
                 }

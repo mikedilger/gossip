@@ -2314,9 +2314,10 @@ impl Overlord {
 
         // Load the latest PersonList event from the database
         let event = {
-            if let Some(event) = GLOBALS
-                .storage
-                .get_replaceable_event(list.event_kind(), my_pubkey)?
+            if let Some(event) =
+                GLOBALS
+                    .storage
+                    .get_replaceable_event(list.event_kind(), my_pubkey, "")?
             {
                 event.clone()
             } else {

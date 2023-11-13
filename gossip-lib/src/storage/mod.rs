@@ -1246,43 +1246,36 @@ impl Storage {
         Ok(true)
     }
 
-    /// Get the matching replaceable event
+    /// Get the matching replaceable event (possibly parameterized)
     /// TBD: optimize this by storing better event indexes
     pub fn get_replaceable_event(
         &self,
         kind: EventKind,
         pubkey: PublicKey,
+        mut parameter: &str,
     ) -> Result<Option<Event>, Error> {
-        Ok(self
-            .find_events(&[kind], &[pubkey], None, |_| true, true)?
-            .first()
-            .cloned())
-    }
-
-    /// Get the matching parameterized replaceable event
-    /// TBD: use forthcoming event_tags index
-    pub fn get_parameterized_replaceable_event(
-        &self,
-        kind: EventKind,
-        pubkey: PublicKey,
-        parameter: &str,
-    ) -> Result<Option<Event>, Error> {
-        if !kind.is_parameterized_replaceable() {
-            return Err(
-                ErrorKind::General("Kind is not parameterized replaceable.".to_owned()).into(),
-            );
+        if kind.is_replaceable() {
+            parameter = "";
+        } else if !kind.is_parameterized_replaceable() {
+            return Err(ErrorKind::General("Event kind is not replaceable".to_owned()).into());
         }
 
-        let mut events = self.find_events(
-            &[kind],
-            &[pubkey],
-            None, // any time
-            |e| e.parameter().as_deref() == Some(parameter),
-            true, // sorted in reverse time order
-        )?;
-
-        let maybe_event = events.drain(..).take(1).next();
-        Ok(maybe_event)
+        Ok(self
+            .find_events(
+                &[kind],
+                &[pubkey],
+                None, // any time
+                |e| {
+                    if !parameter.is_empty() {
+                        e.parameter().as_deref() == Some(parameter)
+                    } else {
+                        true
+                    }
+                },
+                true, // sorted in reverse time order
+            )?
+            .first()
+            .cloned())
     }
 
     /// Replace the matching parameterized event with the given event if it is parameterized
