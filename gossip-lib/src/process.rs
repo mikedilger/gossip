@@ -112,17 +112,6 @@ pub async fn process_new_event(
             );
             return Ok(()); // This did not replace anything.
         }
-    } else if event.kind.is_parameterized_replaceable() {
-        if !GLOBALS.storage.replace_parameterized_event(event, None)? {
-            tracing::trace!(
-                "{}: Old Event: {} {:?} @{}",
-                seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
-                subscription.as_ref().unwrap_or(&"_".to_string()),
-                event.kind,
-                event.created_at
-            );
-            return Ok(()); // This did not replace anything.
-        }
     } else {
         // This will ignore if it is already there
         GLOBALS.storage.write_event(event, None)?;

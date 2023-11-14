@@ -1780,9 +1780,7 @@ impl Overlord {
                 trailing: Vec::new(),
             });
 
-            if reposted_event.kind.is_replaceable()
-                || reposted_event.kind.is_parameterized_replaceable()
-            {
+            if reposted_event.kind.is_replaceable() {
                 // Add 'a' tag
                 tags.push(Tag::Address {
                     kind: reposted_event.kind,

@@ -1221,7 +1221,16 @@ impl Storage {
             return Err(ErrorKind::General("Event is not replaceable.".to_owned()).into());
         }
 
-        let existing = self.find_events(&[event.kind], &[event.pubkey], None, |_| true, false)?;
+        let existing = self.find_events(
+            &[event.kind],
+            &[event.pubkey],
+            None,
+            |e| if event.kind.is_parameterized_replaceable() {
+                e.parameter() == event.parameter()
+            } else {
+                true
+            },
+            false)?;
 
         let mut found_newer = false;
         for old in existing {
@@ -1252,11 +1261,9 @@ impl Storage {
         &self,
         kind: EventKind,
         pubkey: PublicKey,
-        mut parameter: &str,
+        parameter: &str,
     ) -> Result<Option<Event>, Error> {
-        if kind.is_replaceable() {
-            parameter = "";
-        } else if !kind.is_parameterized_replaceable() {
+        if !kind.is_replaceable() {
             return Err(ErrorKind::General("Event kind is not replaceable".to_owned()).into());
         }
 
@@ -1266,7 +1273,7 @@ impl Storage {
                 &[pubkey],
                 None, // any time
                 |e| {
-                    if !parameter.is_empty() {
+                    if kind.is_parameterized_replaceable() {
                         e.parameter().as_deref() == Some(parameter)
                     } else {
                         true
@@ -1276,59 +1283,6 @@ impl Storage {
             )?
             .first()
             .cloned())
-    }
-
-    /// Replace the matching parameterized event with the given event if it is parameterized
-    /// replaceable and is newer.
-    pub fn replace_parameterized_event<'a>(
-        &'a self,
-        event: &Event,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<bool, Error> {
-        if !event.kind.is_parameterized_replaceable() {
-            return Err(
-                ErrorKind::General("Event is not parameterized replaceable.".to_owned()).into(),
-            );
-        }
-
-        let param = match event.parameter() {
-            None => {
-                return Err(ErrorKind::General(
-                    "Event of parameterized type does not have a parameter.".to_owned(),
-                )
-                .into())
-            }
-            Some(param) => param,
-        };
-
-        let existing = self.find_events(
-            &[event.kind],
-            &[event.pubkey],
-            None,
-            |e| e.parameter().as_ref() == Some(&param),
-            false,
-        )?;
-
-        let mut found_newer = false;
-        for old in existing {
-            if old.created_at < event.created_at {
-                // here is some reborrow magic we needed to appease the borrow checker
-                if let Some(&mut ref mut v) = rw_txn {
-                    self.delete_event(old.id, Some(v))?;
-                } else {
-                    self.delete_event(old.id, None)?;
-                }
-            } else {
-                found_newer = true;
-            }
-        }
-
-        if found_newer {
-            return Ok(false); // this event is not the latest one.
-        }
-
-        self.write_event(event, rw_txn)?;
-        Ok(true)
     }
 
     /// Find events of given kinds and pubkeys.

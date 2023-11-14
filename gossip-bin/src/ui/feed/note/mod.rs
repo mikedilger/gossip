@@ -415,9 +415,7 @@ fn render_note_inner(
                             }
                         }
 
-                        if note.event.kind.is_replaceable()
-                            || note.event.kind.is_parameterized_replaceable()
-                        {
+                        if note.event.kind.is_replaceable() {
                             let param = match note.event.parameter() {
                                 Some(p) => p,
                                 None => "".to_owned(),
@@ -728,7 +726,6 @@ fn render_note_inner(
                                                 .event
                                                 .kind
                                                 .is_replaceable()
-                                                || note.event.kind.is_parameterized_replaceable()
                                             {
                                                 let param = match note.event.parameter() {
                                                     Some(p) => p,
