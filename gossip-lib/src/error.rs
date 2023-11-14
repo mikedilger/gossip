@@ -36,7 +36,6 @@ pub enum ErrorKind {
     RelayPickerError(gossip_relay_picker::Error),
     RelayRejectedUs,
     ReqwestHttpError(reqwest::Error),
-    Sql(rusqlite::Error),
     SerdeJson(serde_json::Error),
     SliceError(std::array::TryFromSliceError),
     Speedy(speedy::Error),
@@ -108,7 +107,6 @@ impl std::fmt::Display for Error {
             RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
             RelayRejectedUs => write!(f, "Relay rejected us."),
             ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
-            Sql(e) => write!(f, "SQL: {e}"),
             SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
             SliceError(e) => write!(f, "Slice: {e}"),
             Speedy(e) => write!(f, "Speedy: {e}"),
@@ -246,12 +244,6 @@ impl From<regex::Error> for ErrorKind {
 impl From<gossip_relay_picker::Error> for ErrorKind {
     fn from(e: gossip_relay_picker::Error) -> ErrorKind {
         ErrorKind::RelayPickerError(e)
-    }
-}
-
-impl From<rusqlite::Error> for ErrorKind {
-    fn from(e: rusqlite::Error) -> ErrorKind {
-        ErrorKind::Sql(e)
     }
 }
 

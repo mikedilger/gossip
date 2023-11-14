@@ -224,6 +224,10 @@ Compile with
 
 If you are having performance issues, please see [PERFORMANCE.md](docs/PERFORMANCE.md).
 
+### Upgrading from very old versions
+
+If you are using a version before 0.8.x, you must upgrade to a 0.8.x version and run gossip at least once in order to upgrade from SQLite3 to LMDB. This is because we have now removed the old SQLite3 code. Alternatively, just delete your old gossip directory in your [config dir](https://docs.rs/dirs/latest/dirs/fn.config_dir.html) and start fresh.
+
 ## Technology Involved
 
 - Rust Language

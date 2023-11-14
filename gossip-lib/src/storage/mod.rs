@@ -10,7 +10,6 @@ macro_rules! key {
     };
 }
 
-mod import;
 mod migrations;
 
 // type implementations
@@ -176,7 +175,7 @@ impl Storage {
         // because otherwise there will be MVCC visibility problems later having
         // different transactions in parallel
         //
-        // old-version databases will be handled by their migraiton code and only
+        // old-version databases will be handled by their migration code and only
         // triggered into existence if their migration is necessary.
         let _ = self.db_event_ek_c_index()?;
         let _ = self.db_event_ek_pk_index()?;
@@ -192,16 +191,10 @@ impl Storage {
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
 
-        // If migration level is missing, we need to import from legacy sqlite
+        // Do migrations
         match self.read_migration_level()? {
-            None => {
-                // Import from sqlite
-                self.import()?;
-                self.migrate(0)?;
-            }
-            Some(level) => {
-                self.migrate(level)?;
-            }
+            Some(level) => self.migrate(level)?,
+            None => self.init_from_empty()?,
         }
 
         Ok(())
@@ -494,9 +487,9 @@ impl Storage {
         let txn = self.env.read_txn()?;
 
         Ok(self
-            .general
-            .get(&txn, b"migration_level")?
-            .map(|bytes| u32::from_be_bytes(bytes[..4].try_into().unwrap())))
+           .general
+           .get(&txn, b"migration_level")?
+           .map(|bytes| u32::from_be_bytes(bytes[..4].try_into().unwrap())))
     }
 
     /// Write the user's encrypted private key

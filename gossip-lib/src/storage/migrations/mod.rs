@@ -14,6 +14,18 @@ use std::collections::HashMap;
 impl Storage {
     const MAX_MIGRATION_LEVEL: u32 = 15;
 
+    /// Initialize the database from empty
+    pub(super) fn init_from_empty(&self) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+
+        // write a migration level
+        self.write_migration_level(Self::MAX_MIGRATION_LEVEL, Some(&mut txn))?;
+
+        txn.commit()?;
+
+        Ok(())
+    }
+
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level > Self::MAX_MIGRATION_LEVEL {
             return Err(ErrorKind::General(format!(

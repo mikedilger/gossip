@@ -22,14 +22,6 @@ pub struct Theme1 {
 }
 
 impl ThemeVariant1 {
-    pub fn all() -> &'static [ThemeVariant1] {
-        &[
-            ThemeVariant1::Classic,
-            ThemeVariant1::Default,
-            ThemeVariant1::Roundy,
-        ]
-    }
-
     pub fn name(&self) -> &'static str {
         match *self {
             ThemeVariant1::Classic => "Classic",
