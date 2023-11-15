@@ -28,14 +28,22 @@ pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: &PublicKey)
     add_pubkey_hex_to_tags(existing_tags, &added.as_hex_string().into()).await
 }
 
-pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: &str) -> usize {
+pub async fn add_event_to_tags(
+    existing_tags: &mut Vec<Tag>,
+    added: Id,
+    relay_url: Option<UncheckedUrl>,
+    marker: &str,
+) -> usize {
     let newtag = Tag::Event {
         id: added,
-        recommended_relay_url: Relay::recommended_relay_for_reply(added)
-            .await
-            .ok()
-            .flatten()
-            .map(|rr| rr.to_unchecked_url()),
+        recommended_relay_url: match relay_url {
+            Some(url) => Some(url),
+            None => Relay::recommended_relay_for_reply(added)
+                .await
+                .ok()
+                .flatten()
+                .map(|rr| rr.to_unchecked_url()),
+        },
         marker: Some(marker.to_string()),
         trailing: Vec::new(),
     };
@@ -61,6 +69,7 @@ pub async fn add_addr_to_tags(
     pubkey: PublicKeyHex,
     d: String,
     relay_url: Option<UncheckedUrl>,
+    marker: Option<String>,
 ) -> usize {
     match existing_tags.iter().position(|existing_tag| {
         matches!(
@@ -74,7 +83,7 @@ pub async fn add_addr_to_tags(
                 pubkey,
                 d,
                 relay_url,
-                marker: None,
+                marker,
                 trailing: Vec::new(),
             });
             existing_tags.len() - 1
