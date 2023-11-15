@@ -1727,7 +1727,19 @@ impl Storage {
     }
 
     /// Get replies to the given event
-    pub fn get_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
+    pub fn get_replies(&self, event: &Event) -> Result<Vec<Id>, Error> {
+        let mut output = self.get_non_replaceable_replies(event.id)?;
+        output.extend(self.get_replaceable_replies(&EventAddr {
+            d: event.parameter().unwrap_or("".to_string()),
+            relays: vec![],
+            kind: event.kind,
+            author: event.pubkey,
+        })?);
+        Ok(output)
+    }
+
+
+    pub fn get_non_replaceable_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
         Ok(self
             .find_relationships(id)?
             .iter()
@@ -1741,8 +1753,19 @@ impl Storage {
             .collect())
     }
 
-    // Get replies to the given EventAddr
-    // TODO
+    pub fn get_replaceable_replies(&self, addr: &EventAddr) -> Result<Vec<Id>, Error> {
+        Ok(self
+           .find_reprels(addr)?
+           .iter()
+           .filter_map(|(id, rel)| {
+               if *rel == Relationship::Reply {
+                   Some(*id)
+               } else {
+                   None
+               }
+           })
+           .collect())
+    }
 
     /// Returns the list of reactions and whether or not this account has already reacted to this event
     pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, bool), Error> {
