@@ -1796,6 +1796,7 @@ impl Overlord {
                     pubkey: reposted_event.pubkey.into(),
                     d: reposted_event.parameter().unwrap_or("".to_string()),
                     relay_url: relay_url.clone(),
+                    marker: None,
                     trailing: vec![],
                 });
             }
