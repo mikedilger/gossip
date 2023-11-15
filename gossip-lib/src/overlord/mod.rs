@@ -19,9 +19,9 @@ use heed::RwTxn;
 use http::StatusCode;
 use minion::Minion;
 use nostr_types::{
-    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, Id, IdHex,
-    Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
+    Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile,
+    PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -1433,21 +1433,30 @@ impl Overlord {
                         }
                     }
 
-                    if let Some((root, _maybeurl)) = parent.replies_to_root() {
-                        // Add an 'e' tag for the root
-                        add_event_to_tags(&mut tags, root, "root").await;
+                    match parent.replies_to_root() {
+                        Some(EventReference::Id(root, _maybeurl, _marker)) => {
+                            // Add an 'e' tag for the root
+                            add_event_to_tags(&mut tags, root, "root").await;
 
-                        // Add an 'e' tag for the note we are replying to
-                        add_event_to_tags(&mut tags, parent_id, "reply").await;
-                    } else {
-                        let ancestors = parent.referred_events();
-                        if ancestors.is_empty() {
-                            // parent is the root
-                            add_event_to_tags(&mut tags, parent_id, "root").await;
-                        } else {
                             // Add an 'e' tag for the note we are replying to
-                            // (and we don't know about the root, the parent is malformed).
                             add_event_to_tags(&mut tags, parent_id, "reply").await;
+                        }
+                        Some(EventReference::Addr(_ea)) => {
+                            // Don't add an 'a' tag to the 'root' because 'a' tags have no markers.
+
+                            // Add an 'e' tag for the note we are replying to
+                            add_event_to_tags(&mut tags, parent_id, "reply").await;
+                        }
+                        None => {
+                            let ancestor = parent.replies_to();
+                            if ancestor.is_none() {
+                                // parent is the root
+                                add_event_to_tags(&mut tags, parent_id, "root").await;
+                            } else {
+                                // Add an 'e' tag for the note we are replying to
+                                // (and we don't know about the root, the parent is malformed).
+                                add_event_to_tags(&mut tags, parent_id, "reply").await;
+                            }
                         }
                     }
 
@@ -2071,10 +2080,17 @@ impl Overlord {
         // Collect missing ancestors and potential relays further up the chain
         if let Some(highest_parent) = GLOBALS.storage.read_event(highest_parent_id)? {
             // Use relays in 'e' tags
-            for (id, opturl, _marker) in highest_parent.referred_events() {
-                missing_ancestors.push(id);
-                if let Some(url) = opturl {
-                    relays.push(url);
+            for eref in highest_parent.referred_events() {
+                match eref {
+                    EventReference::Id(id, opturl, _marker) => {
+                        missing_ancestors.push(id);
+                        if let Some(url) = opturl {
+                            relays.push(url);
+                        }
+                    }
+                    EventReference::Addr(_ea) => {
+                        // FIXME - we should subscribe to these too
+                    }
                 }
             }
 

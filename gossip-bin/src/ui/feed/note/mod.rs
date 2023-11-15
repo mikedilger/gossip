@@ -19,7 +19,8 @@ use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
 use gossip_lib::{ZapState, GLOBALS};
 use nostr_types::{
-    Event, EventAddr, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl,
+    Event, EventAddr, EventDelegation, EventKind, EventPointer, EventReference, IdHex, NostrUrl,
+    UncheckedUrl,
 };
 
 pub struct NoteRenderData {
@@ -288,20 +289,42 @@ fn render_note_inner(
                 GossipUi::render_person_name_line(app, ui, &note.author, false);
 
                 ui.horizontal_wrapped(|ui| {
-                    if let Some((irt, _)) = note.event.replies_to() {
-                        ui.add_space(8.0);
-
-                        ui.style_mut().override_text_style = Some(TextStyle::Small);
-                        let idhex: IdHex = irt.into();
-                        let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
-                        if ui.link(&nam).clicked() {
-                            app.set_page(Page::Feed(FeedKind::Thread {
-                                id: irt,
-                                referenced_by: note.event.id,
-                                author: Some(note.event.pubkey),
-                            }));
-                        };
-                        ui.reset_style();
+                    match note.event.replies_to() {
+                        Some(EventReference::Id(irt, _, _)) => {
+                            ui.add_space(8.0);
+                            ui.style_mut().override_text_style = Some(TextStyle::Small);
+                            let idhex: IdHex = irt.into();
+                            let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                            if ui.link(&nam).clicked() {
+                                app.set_page(Page::Feed(FeedKind::Thread {
+                                    id: irt,
+                                    referenced_by: note.event.id,
+                                    author: Some(note.event.pubkey),
+                                }));
+                            };
+                            ui.reset_style();
+                        }
+                        Some(EventReference::Addr(ea)) => {
+                            // Link to this parent only if we can get that event
+                            if let Ok(Some(e)) = GLOBALS
+                                .storage
+                                .get_replaceable_event(ea.kind, ea.author, &*ea.d)
+                            {
+                                ui.add_space(8.0);
+                                ui.style_mut().override_text_style = Some(TextStyle::Small);
+                                let idhex: IdHex = e.id.into();
+                                let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                                if ui.link(&nam).clicked() {
+                                    app.set_page(Page::Feed(FeedKind::Thread {
+                                        id: e.id,
+                                        referenced_by: note.event.id,
+                                        author: Some(note.event.pubkey),
+                                    }));
+                                };
+                                ui.reset_style();
+                            }
+                        }
+                        None => (),
                     }
 
                     ui.add_space(8.0);
@@ -1064,40 +1087,45 @@ fn render_content(
                                 bottom_of_avatar,
                             );
                         } else {
-                            // FIXME -- mentions() looks at 'e' tags not 'a' tags.
-                            //          GenericReposts might be replaceable.
-                            //          We need to prefer any 'a' tags in that case.
-                            //
-                            //          This may need more work in nostr-types, after
-                            //          https://github.com/nostr-protocol/nips/issues/870
-                            //          is worked out.
-                            if let Some((id, _hint)) = event.mentions().first() {
-                                if let Some(note_data) = app.notes.try_update_and_get(id) {
-                                    // TODO block additional repost recursion
-                                    render_repost(
-                                        app,
-                                        ui,
-                                        ctx,
-                                        &note.repost,
-                                        note_data,
-                                        content_margin_left,
-                                        bottom_of_avatar,
-                                    );
-                                } else {
+                            match event.mentions().first() {
+                                Some(EventReference::Id(id, _, _)) => {
+                                    if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                        // TODO block additional repost recursion
+                                        render_repost(
+                                            app,
+                                            ui,
+                                            ctx,
+                                            &note.repost,
+                                            note_data,
+                                            content_margin_left,
+                                            bottom_of_avatar,
+                                        );
+                                    } else {
+                                        let color = app.theme.notice_marker_text_color();
+                                        ui.label(
+                                            RichText::new("GENERIC REPOST EVENT NOT FOUND.")
+                                                .color(color)
+                                                .text_style(TextStyle::Small),
+                                        );
+                                    }
+                                }
+                                Some(EventReference::Addr(_ea)) => {
+                                    //FIXME:  GET THE ID here?
                                     let color = app.theme.notice_marker_text_color();
                                     ui.label(
-                                        RichText::new("GENERIC REPOST EVENT NOT FOUND.")
+                                        RichText::new("GENERIC REPOST EVENT NOT YET SUPPORTED")
                                             .color(color)
                                             .text_style(TextStyle::Small),
                                     );
                                 }
-                            } else {
-                                let color = app.theme.notice_marker_text_color();
-                                ui.label(
-                                    RichText::new("BROKEN GENERIC REPOST EVENT")
-                                        .color(color)
-                                        .text_style(TextStyle::Small),
-                                );
+                                _ => {
+                                    let color = app.theme.notice_marker_text_color();
+                                    ui.label(
+                                        RichText::new("BROKEN GENERIC REPOST EVENT")
+                                            .color(color)
+                                            .text_style(TextStyle::Small),
+                                    );
+                                }
                             }
                         }
                     } else {

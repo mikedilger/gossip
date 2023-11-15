@@ -3,7 +3,9 @@ use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
-use nostr_types::{Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
+use nostr_types::{
+    Event, EventKind, EventReference, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime,
+};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,7 +18,7 @@ pub enum FeedKind {
     List(PersonList, bool), // with replies
     Inbox(bool),            // indirect
     Thread {
-        id: Id,
+        id: Id, // FIXME, should be an EventReference
         referenced_by: Id,
         author: Option<PublicKey>,
     },
@@ -326,7 +328,7 @@ impl Feed {
                                 && e.kind != EventKind::DmChat // no DMs
                                 && !dismissed.contains(&e.id) // not dismissed
                                 && if !with_replies {
-                                    !matches!(e.replies_to(), Some((_id, _))) // is not a reply
+                                    matches!(e.replies_to(), None) // is not a reply
                                 } else {
                                     true
                                 }
@@ -381,10 +383,18 @@ impl Feed {
                                 }
 
                                 // Include if it directly replies to one of my events
-                                if let Some((id, _)) = e.replies_to() {
-                                    if my_event_ids.contains(&id) {
-                                        return true;
+                                match e.replies_to() {
+                                    Some(EventReference::Id(id, _url, _marker)) => {
+                                        if my_event_ids.contains(&id) {
+                                            return true;
+                                        }
                                     }
+                                    Some(EventReference::Addr(ea)) => {
+                                        if ea.author == my_pubkey {
+                                            return true;
+                                        }
+                                    }
+                                    None => (),
                                 }
 
                                 if indirect {

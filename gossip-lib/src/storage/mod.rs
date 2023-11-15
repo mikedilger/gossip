@@ -44,7 +44,8 @@ use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, EventReference, Id, MilliSatoshi, PublicKey, RelayUrl,
+    Tag, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -1660,10 +1661,17 @@ impl Storage {
             None => return Ok(None),
         };
 
-        if let Some((parent_id, _opturl)) = event.replies_to() {
-            self.get_highest_local_parent_event_id(parent_id)
-        } else {
-            Ok(Some(event.id))
+        match event.replies_to() {
+            Some(EventReference::Id(parent_id, _opturl, _marker)) => {
+                self.get_highest_local_parent_event_id(parent_id)
+            }
+            Some(EventReference::Addr(ea)) => {
+                match self.get_replaceable_event(ea.kind, ea.author, &ea.d)? {
+                    Some(event) => self.get_highest_local_parent_event_id(event.id),
+                    None => Ok(Some(event.id)),
+                }
+            }
+            None => Ok(Some(event.id)),
         }
     }
 
@@ -1786,8 +1794,16 @@ impl Storage {
 
         let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // replies to
-            if let Some((id, _)) = event.replies_to() {
-                self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
+            match event.replies_to() {
+                Some(EventReference::Id(id, _, _)) => {
+                    self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
+                }
+                Some(EventReference::Addr(_ea)) => {
+                    // will only work if we already have it... yuck.
+                    // We need a new relationships database for EventAddrs
+                    // FIXME
+                }
+                None => (),
             }
 
             // reacts to

@@ -6,7 +6,8 @@ use crate::people::PersonList;
 use crate::person_relay::PersonRelay;
 use async_recursion::async_recursion;
 use nostr_types::{
-    Event, EventKind, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList, Tag, Unixtime,
+    Event, EventKind, EventReference, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList,
+    Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -238,11 +239,22 @@ pub async fn process_new_event(
         GLOBALS.storage.process_relay_list(event)?;
     } else if event.kind == EventKind::Repost {
         // If the content is a repost, seek the event it reposts
-        for (id, optrelay) in event.mentions().iter() {
-            if let Some(rurl) = optrelay {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FetchEvent(*id, vec![rurl.to_owned()]));
+        for eref in event.mentions().iter() {
+            match eref {
+                EventReference::Id(id, optrelay, _marker) => {
+                    if let Some(rurl) = optrelay {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::FetchEvent(*id, vec![rurl.to_owned()]));
+                    }
+                }
+                EventReference::Addr(ea) => {
+                    if !ea.relays.is_empty() {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::FetchEventAddr(ea.clone()));
+                    }
+                }
             }
         }
     }
