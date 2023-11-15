@@ -722,31 +722,28 @@ fn render_note_inner(
                                             {
                                                 app.draft_data.draft.push(' ');
                                             }
-                                            let nostr_url: NostrUrl = if note
-                                                .event
-                                                .kind
-                                                .is_replaceable()
-                                            {
-                                                let param = match note.event.parameter() {
-                                                    Some(p) => p,
-                                                    None => "".to_owned(),
+                                            let nostr_url: NostrUrl =
+                                                if note.event.kind.is_replaceable() {
+                                                    let param = match note.event.parameter() {
+                                                        Some(p) => p,
+                                                        None => "".to_owned(),
+                                                    };
+                                                    let event_addr = EventAddr {
+                                                        d: param,
+                                                        relays: relays.clone(),
+                                                        kind: note.event.kind,
+                                                        author: note.event.pubkey,
+                                                    };
+                                                    event_addr.into()
+                                                } else {
+                                                    let event_pointer = EventPointer {
+                                                        id: note.event.id,
+                                                        relays: relays.clone(),
+                                                        author: None,
+                                                        kind: None,
+                                                    };
+                                                    event_pointer.into()
                                                 };
-                                                let event_addr = EventAddr {
-                                                    d: param,
-                                                    relays: relays.clone(),
-                                                    kind: note.event.kind,
-                                                    author: note.event.pubkey,
-                                                };
-                                                event_addr.into()
-                                            } else {
-                                                let event_pointer = EventPointer {
-                                                    id: note.event.id,
-                                                    relays: relays.clone(),
-                                                    author: None,
-                                                    kind: None,
-                                                };
-                                                event_pointer.into()
-                                            };
                                             app.draft_data
                                                 .draft
                                                 .push_str(&format!("{}", nostr_url));

@@ -487,9 +487,9 @@ impl Storage {
         let txn = self.env.read_txn()?;
 
         Ok(self
-           .general
-           .get(&txn, b"migration_level")?
-           .map(|bytes| u32::from_be_bytes(bytes[..4].try_into().unwrap())))
+            .general
+            .get(&txn, b"migration_level")?
+            .map(|bytes| u32::from_be_bytes(bytes[..4].try_into().unwrap())))
     }
 
     /// Write the user's encrypted private key
@@ -1218,12 +1218,15 @@ impl Storage {
             &[event.kind],
             &[event.pubkey],
             None,
-            |e| if event.kind.is_parameterized_replaceable() {
-                e.parameter() == event.parameter()
-            } else {
-                true
+            |e| {
+                if event.kind.is_parameterized_replaceable() {
+                    e.parameter() == event.parameter()
+                } else {
+                    true
+                }
             },
-            false)?;
+            false,
+        )?;
 
         let mut found_newer = false;
         for old in existing {
