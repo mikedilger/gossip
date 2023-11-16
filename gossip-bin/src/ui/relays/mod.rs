@@ -508,7 +508,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
                 let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
 
                 // since we are displaying over an accent color background, load that style
-                *ui.style_mut() = app.theme.get_on_accent_style();
+                app.theme.on_accent_style(ui.style_mut());
 
                 ui.horizontal(|ui| {
                     crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);

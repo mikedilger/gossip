@@ -17,6 +17,7 @@ use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 pub const AVATAR_SIZE: u32 = 48; // points, not pixels
 pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
+pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
 
 fn main() -> Result<(), Error> {
     if env::var("RUST_LOG").is_err() {

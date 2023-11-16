@@ -7,19 +7,17 @@ use std::rc::Rc;
 use super::notedata::{NoteData, RepostType};
 
 use super::FeedNoteParams;
-use crate::ui::widgets::CopyButton;
+use crate::ui::widgets::{self, AvatarSize, CopyButton};
 use crate::ui::{GossipUi, Page};
-use crate::AVATAR_SIZE_F32;
+use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
+use eframe::egui::{self, Margin};
+use egui::{
+    Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
+};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
 use gossip_lib::{ZapState, GLOBALS};
-pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
-use eframe::egui::{self, Margin};
-use egui::{
-    Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
-    Vec2,
-};
 use nostr_types::{
     Event, EventAddr, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl,
 };
@@ -217,13 +215,13 @@ fn render_note_inner(
         // Determine avatar size
         let avatar_size = if parent_repost.is_none() {
             match note.repost {
-                None | Some(RepostType::CommentMention) => AVATAR_SIZE_F32,
-                Some(_) => AVATAR_SIZE_REPOST_F32,
+                None | Some(RepostType::CommentMention) => AvatarSize::Feed,
+                Some(_) => AvatarSize::Mini,
             }
         } else {
             match parent_repost {
-                None | Some(RepostType::CommentMention) => AVATAR_SIZE_REPOST_F32,
-                Some(_) => AVATAR_SIZE_F32,
+                None | Some(RepostType::CommentMention) => AvatarSize::Mini,
+                Some(_) => AvatarSize::Feed,
             }
         };
 
@@ -258,7 +256,7 @@ fn render_note_inner(
         };
 
         let content_pull_top =
-            inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size;
+            inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size.y();
 
         let content_margin_left = AVATAR_SIZE_F32 + inner_margin.left;
         let footer_margin_left = content_margin_left;
@@ -279,18 +277,7 @@ fn render_note_inner(
                 ui.add_space(avatar_margin_left);
 
                 // render avatar
-                if ui
-                    .add(
-                        Image::new(&avatar)
-                            .max_size(Vec2 {
-                                x: avatar_size,
-                                y: avatar_size,
-                            })
-                            .maintain_aspect_ratio(true)
-                            .sense(Sense::click()),
-                    )
-                    .clicked()
-                {
+                if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
                     app.set_page(Page::Person(note.author.pubkey));
                 };
 

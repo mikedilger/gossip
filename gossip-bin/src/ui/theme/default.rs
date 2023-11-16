@@ -295,8 +295,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     /// the style to use when displaying on-top of an accent-colored background
-    fn get_on_accent_style(dark_mode: bool) -> Style {
-        let mut style = Self::get_style(dark_mode);
+    fn on_accent_style(style: &mut Style, dark_mode: bool) {
         if dark_mode {
             style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.window_fill;
             style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
@@ -322,39 +321,22 @@ impl ThemeDef for DefaultTheme {
             style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
             style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.panel_fill);
         }
-        style
     }
 
     fn accent_button_1_style(style: &mut Style, dark_mode: bool) {
         let accent_color = Self::accent_color(dark_mode);
-        #[allow(clippy::if_same_then_else)]
-        if dark_mode {
-            style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
-            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.inactive.weak_bg_fill = accent_color;
-            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
-            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.hovered.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
-            style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
-            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.active.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
-        } else {
-            style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
-            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.inactive.weak_bg_fill = accent_color;
-            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
-            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.hovered.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
-            style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
-            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.active.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
-        }
+        style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
+        style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.inactive.weak_bg_fill = accent_color;
+        style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
+        style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.hovered.bg_stroke =
+            Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+        style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
+        style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.active.bg_stroke =
+            Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
     }
 
     fn accent_button_2_style(style: &mut Style, dark_mode: bool) {

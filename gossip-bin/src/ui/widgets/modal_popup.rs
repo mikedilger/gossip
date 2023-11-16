@@ -4,6 +4,8 @@ use egui_winit::egui::{self, InnerResponse, Ui};
 const MARGIN_X: f32 = 80.0;
 const MARGIN_Y: f32 = 40.0;
 
+/// Create a modal overlay
+/// check [`response.inner`] return for clicks to the close button
 pub fn modal_popup(
     ui: &mut Ui,
     dlg_size: egui::Vec2,
@@ -51,6 +53,7 @@ pub fn modal_popup(
     let area = egui::Area::new("modal-popup")
         .movable(false)
         .interactable(true)
+        .constrain(true)
         .order(egui::Order::Middle)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]);
     area.show_open_close_animation(

@@ -87,6 +87,7 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            #[allow(dead_code)]
             pub fn danger_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::danger_color(self.dark_mode), )+
@@ -112,9 +113,9 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn get_on_accent_style(&self) -> Style {
+            pub fn on_accent_style(&self, style: &mut Style) {
                 match self.variant {
-                    $( $variant => $class::get_on_accent_style(self.dark_mode), )+
+                    $( $variant => $class::on_accent_style(style, self.dark_mode), )+
                 }
             }
 
@@ -389,7 +390,7 @@ pub trait ThemeDef: Send + Sync {
     // in place.
     fn get_style(dark_mode: bool) -> Style;
     /// the style to use when displaying on-top of an accent-colored background
-    fn get_on_accent_style(dark_mode: bool) -> Style;
+    fn on_accent_style(style: &mut Style, dark_mode: bool);
 
     /// accent-colored button style 1 (filled)
     fn accent_button_1_style(style: &mut Style, dark_mode: bool);
@@ -480,9 +481,17 @@ pub(super) fn font_definitions() -> FontDefinitions {
     font_data.insert(
         "Inconsolata".to_owned(),
         FontData::from_static(include_bytes!("../../../../fonts/Inconsolata-Regular.ttf")).tweak(
+            #[cfg(not(target_os = "macos"))]
             FontTweak {
                 scale: 1.22,            // This font is smaller than DejaVuSans
                 y_offset_factor: -0.18, // and too low
+                y_offset: 0.0,
+                baseline_offset_factor: 0.0,
+            },
+            #[cfg(target_os = "macos")]
+            FontTweak {
+                scale: 1.22,            // This font is smaller than DejaVuSans
+                y_offset_factor: -0.05, // and too low
                 y_offset: 0.0,
                 baseline_offset_factor: 0.0,
             },

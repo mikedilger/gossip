@@ -33,6 +33,7 @@ use egui::{
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
+use egui_winit::egui::Rect;
 use egui_winit::egui::Response;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::About;
@@ -42,8 +43,10 @@ use gossip_lib::Settings;
 use gossip_lib::{DmChannel, DmChannelData};
 use gossip_lib::{Person, PersonList};
 use gossip_lib::{ZapState, GLOBALS};
+use nostr_types::ContentSegment;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 #[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
@@ -271,7 +274,18 @@ pub enum HighlightType {
 }
 
 pub struct DraftData {
+    // The draft text displayed in the edit textbox
     pub draft: String,
+
+    // raw text output
+    pub raw: String,
+
+    // The last position of the TextEdit
+    pub last_textedit_rect: Rect,
+
+    // text replacements like nurls, hyperlinks or hashtags
+    pub replacements: HashMap<String, ContentSegment>,
+    pub replacements_changed: bool,
 
     pub include_subject: bool,
     pub subject: String,
@@ -282,13 +296,22 @@ pub struct DraftData {
     // Data for normal draft
     pub repost: Option<Id>,
     pub replying_to: Option<Id>,
-    pub tag_someone: String,
+
+    // If the user is typing a @tag, this is what they typed
+    pub tagging_search_substring: Option<String>,
+    pub tagging_search_selected: Option<usize>,
+    pub tagging_search_searched: Option<String>,
+    pub tagging_search_results: Vec<(String, PublicKey)>,
 }
 
 impl Default for DraftData {
     fn default() -> DraftData {
         DraftData {
             draft: "".to_owned(),
+            raw: "".to_owned(),
+            last_textedit_rect: Rect::ZERO,
+            replacements: HashMap::new(),
+            replacements_changed: false,
             include_subject: false,
             subject: "".to_owned(),
             include_content_warning: false,
@@ -296,8 +319,12 @@ impl Default for DraftData {
 
             // The following are ignored for DMs
             repost: None,
-            tag_someone: "".to_owned(),
             replying_to: None,
+
+            tagging_search_substring: None,
+            tagging_search_selected: None,
+            tagging_search_searched: None,
+            tagging_search_results: Vec::new(),
         }
     }
 }
@@ -305,13 +332,20 @@ impl Default for DraftData {
 impl DraftData {
     pub fn clear(&mut self) {
         self.draft = "".to_owned();
+        self.raw = "".to_owned();
+        self.last_textedit_rect = Rect::ZERO;
+        self.replacements.clear();
+        self.replacements_changed = true;
         self.include_subject = false;
         self.subject = "".to_owned();
         self.include_content_warning = false;
         self.content_warning = "".to_owned();
         self.repost = None;
         self.replying_to = None;
-        self.tag_someone = "".to_owned();
+        self.tagging_search_substring = None;
+        self.tagging_search_selected = None;
+        self.tagging_search_searched = None;
+        self.tagging_search_results.clear();
     }
 }
 
@@ -328,6 +362,9 @@ struct GossipUi {
     original_dpi_value: u32,
     current_scroll_offset: f32,
     future_scroll_offset: f32,
+
+    // Ui timers
+    popups: HashMap<egui::Id, HashMap<egui::Id, Box<dyn widgets::InformationPopup>>>,
 
     // QR codes being rendered (in feed or elsewhere)
     // the f32's are the recommended image size
@@ -588,6 +625,7 @@ impl GossipUi {
             original_dpi_value: override_dpi_value,
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
+            popups: HashMap::new(),
             qr_codes: HashMap::new(),
             notes: Notes::new(),
             relays: relays::RelayUi::new(),
@@ -940,22 +978,24 @@ impl eframe::App for GossipUi {
             // Consider mouse inputs
             requested_scroll = i.scroll_delta.y * self.settings.mouse_acceleration;
 
-            // Consider keyboard inputs
-            if i.key_pressed(egui::Key::ArrowDown) {
-                requested_scroll -= 50.0;
-            }
-            if i.key_pressed(egui::Key::ArrowUp) {
-                requested_scroll += 50.0;
-            }
-            if i.key_pressed(egui::Key::PageUp) {
-                let screen_rect = ctx.input(|i| i.screen_rect);
-                let window_height = screen_rect.max.y - screen_rect.min.y;
-                requested_scroll += window_height * 0.75;
-            }
-            if i.key_pressed(egui::Key::PageDown) {
-                let screen_rect = ctx.input(|i| i.screen_rect);
-                let window_height = screen_rect.max.y - screen_rect.min.y;
-                requested_scroll -= window_height * 0.75;
+            // Consider keyboard inputs unless compose area is focused
+            if !ctx.memory(|mem| mem.has_focus(egui::Id::new("compose_area"))) {
+                if i.key_pressed(egui::Key::ArrowDown) {
+                    requested_scroll -= 50.0;
+                }
+                if i.key_pressed(egui::Key::ArrowUp) {
+                    requested_scroll += 50.0;
+                }
+                if i.key_pressed(egui::Key::PageUp) {
+                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let window_height = screen_rect.max.y - screen_rect.min.y;
+                    requested_scroll += window_height * 0.75;
+                }
+                if i.key_pressed(egui::Key::PageDown) {
+                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let window_height = screen_rect.max.y - screen_rect.min.y;
+                    requested_scroll -= window_height * 0.75;
+                }
             }
         });
 

@@ -1,10 +1,9 @@
 use super::{GossipUi, Page};
-use crate::AVATAR_SIZE_F32;
+use crate::ui::widgets;
 use eframe::egui;
-use egui::{Context, Image, RichText, Sense, Ui, Vec2};
+use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Person, PersonList, GLOBALS};
-use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let followed_pubkeys = GLOBALS
@@ -177,18 +176,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 } else {
                     app.placeholder_avatar.clone()
                 };
-                let size = AVATAR_SIZE_F32
-                    * GLOBALS.pixels_per_point_times_100.load(Ordering::Relaxed) as f32
-                    / 100.0;
-                if ui
-                    .add(
-                        Image::new(&avatar)
-                            .max_size(Vec2 { x: size, y: size })
-                            .maintain_aspect_ratio(true)
-                            .sense(Sense::click()),
-                    )
-                    .clicked()
-                {
+                if widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed).clicked() {
                     app.set_page(Page::Person(person.pubkey));
                 };
 
