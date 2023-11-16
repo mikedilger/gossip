@@ -1856,10 +1856,8 @@ impl Storage {
                 Some(EventReference::Id(id, _, _)) => {
                     self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
                 }
-                Some(EventReference::Addr(_ea)) => {
-                    // will only work if we already have it... yuck.
-                    // We need a new relationships database for EventAddrs
-                    // FIXME
+                Some(EventReference::Addr(ea)) => {
+                    self.write_reprel(ea, event.id, Relationship::Reply, Some(txn))?;
                 }
                 None => (),
             }
