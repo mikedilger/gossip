@@ -48,6 +48,24 @@ The flow generally happens like this:
 - the result of such processing updates global data
 - the UI on the next frame reads the global data (which is now different) and renders accordingly.
 
+## Changing Data Types
+
+Many data types are so simple, or so well defined, that they will never change.  But others (such as Relay records) tend to get new fields, or have fields changed.
+
+Whenever a data type that is stored in GLOBALS.storage changes, the stored data will no longer deserialize properly. Therefore, such data types must be versioned.  This extends into nostr-types data types as well.
+
+The current convention is to add a V and a version number to the end of the type, such as EventV1 and EventV2. Some older versioned types do not include the 'V'.
+
+Types used by the storage engine are defined in crate::storage::types.
+
+The active currently-in-use type is the newest type and defined on a like like this
+
+```rust
+pub type PersonList = crate::storage::types::PersonList1;
+```
+
+Storage migrations need to reference the old type. Sometimes it is tempting to have a storage migration call into general code, passing a versioned type. But this is a very bad idea because at some time in the future that general code may be using a different version of that type. So you should ignore the DRY principle (don't repeat yourself) and actually copy the general code into the migration, being explicit about the version of the type.
+
 ## Pull Requests
 
 Before issuing a Pull Request, please run and make pass:
