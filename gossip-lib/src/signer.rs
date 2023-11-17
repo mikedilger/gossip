@@ -3,8 +3,8 @@ use std::sync::mpsc::Sender;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
-    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventKind, Id, KeySecurity, PreEvent,
-    PrivateKey, PublicKey, Rumor,
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventV1, EventKind, Id, KeySecurity,
+    PreEvent, PrivateKey, PublicKey, Rumor, RumorV1
 };
 use parking_lot::RwLock;
 use tokio::task;
@@ -318,6 +318,14 @@ impl Signer {
 
     /// Unwrap a giftwrap event
     pub fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
+        match &*self.private.read() {
+            Some(private) => Ok(event.giftwrap_unwrap(private)?),
+            _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
+        }
+    }
+
+    /// Unwrap a giftwrap event V1
+    pub fn unwrap_giftwrap1(&self, event: &EventV1) -> Result<RumorV1, Error> {
         match &*self.private.read() {
             Some(private) => Ok(event.giftwrap_unwrap(private)?),
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),

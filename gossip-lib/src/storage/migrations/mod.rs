@@ -5,14 +5,15 @@ use super::types::{
 };
 use super::Storage;
 use crate::error::{Error, ErrorKind};
+use crate::relationship::Relationship;
 use heed::types::UnalignedSlice;
 use heed::{DatabaseFlags, RwTxn};
-use nostr_types::{Event, Id, PublicKey, RelayUrl, Signature};
+use nostr_types::{EventV1, EventV2, EventReference, Id, PublicKey, RelayUrl, Signature, TagV2};
 use speedy::{Readable, Writable};
 use std::collections::HashMap;
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 15;
+    const MAX_MIGRATION_LEVEL: u32 = 16;
 
     /// Initialize the database from empty
     pub(super) fn init_from_empty(&self) -> Result<(), Error> {
@@ -83,6 +84,10 @@ impl Storage {
             12 => {
                 let _ = self.db_person_lists1()?;
                 let _ = self.db_person_lists2()?;
+            }
+            15 => {
+                let _ = self.db_events1()?;
+                let _ = self.db_events2()?;
             }
             _ => {}
         };
@@ -155,6 +160,10 @@ impl Storage {
                 tracing::info!("{prefix}: moving person list last edit times...");
                 self.move_person_list_last_edit_times(txn)?;
             }
+            15 => {
+                tracing::info!("{prefix}: migrating events...");
+                self.migrate_to_events2(txn)?;
+            }
             _ => panic!("Unreachable migration level"),
         };
 
@@ -176,8 +185,8 @@ impl Storage {
             let event_txn = self.env.read_txn()?;
             for result in self.db_events1()?.iter(&event_txn)? {
                 let pair = result?;
-                let event = Event::read_from_buffer(pair.1)?;
-                let _ = self.process_relationships_of_event(&event, Some(txn))?;
+                let event = EventV1::read_from_buffer(pair.1)?;
+                let _ = self.process_relationships_of_eventv1(&event, Some(txn))?;
 
                 // track progress
                 count += 1;
@@ -419,7 +428,7 @@ impl Storage {
         let iter = self.db_events1()?.iter(txn)?;
         for result in iter {
             let (_key, val) = result?;
-            let event = Event::read_from_buffer(val)?;
+            let event = EventV1::read_from_buffer(val)?;
             if event.sig == Signature::zeroes() {
                 ids.push(event.id);
             }
@@ -565,8 +574,8 @@ impl Storage {
         let loop_txn = self.env.read_txn()?;
         for result in self.db_events1()?.iter(&loop_txn)? {
             let (_key, val) = result?;
-            let event = Event::read_from_buffer(val)?;
-            self.write_event_tag_index(&event, Some(txn))?;
+            let event = EventV1::read_from_buffer(val)?;
+            self.write_event_tag_index1_event1(&event, Some(txn))?;
         }
 
         Ok(())
@@ -632,4 +641,148 @@ impl Storage {
         self.write_person_lists_last_edit_times(edit_times, Some(txn))?;
         Ok(())
     }
+
+    fn migrate_to_events2<'a>(
+        &'a self,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
+
+        let loop_txn = self.env.read_txn()?;
+        let mut count: usize = 0;
+        for result in self.db_events1()?.iter(&loop_txn)? {
+            let (_key, val) = result?;
+            let event1 = EventV1::read_from_buffer(val)?;
+            let tags_json = serde_json::to_value(event1.tags)?;
+            let tags2: Vec<TagV2> = serde_json::from_value(tags_json)?;
+            let event2 = EventV2 {
+                id: event1.id,
+                pubkey: event1.pubkey,
+                created_at: event1.created_at,
+                kind: event1.kind,
+                sig: event1.sig,
+                content: event1.content,
+                tags: tags2,
+            };
+            self.write_event2(&event2, Some(txn))?;
+            count += 1;
+        }
+
+        tracing::info!("Migrated {} events", count);
+
+        // clear events1 database (we don't have an interface to delete it)
+        self.db_events1()?.clear(txn)?;
+
+        Ok(())
+    }
+
+    /// Process relationships of an eventv1.
+    pub fn process_relationships_of_eventv1<'a>(
+        &'a self,
+        event: &EventV1,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<Vec<Id>, Error> {
+        let mut invalidate: Vec<Id> = Vec::new();
+
+        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // replies to
+            match event.replies_to() {
+                Some(EventReference::Id(id, _, _)) => {
+                    self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
+                }
+                Some(EventReference::Addr(_ea)) => {
+                    // will only work if we already have it... yuck.
+                    // We need a new relationships database for EventAddrs
+                    // FIXME
+                }
+                None => (),
+            }
+
+            // reacts to
+            if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
+                if let Some(reacted_to_event) = self.read_event1(reacted_to_id)? {
+                    // Only if they are different people (no liking your own posts)
+                    if reacted_to_event.pubkey != event.pubkey {
+                        self.write_relationship(
+                            reacted_to_id, // event reacted to
+                            event.id,      // the reaction event id
+                            Relationship::Reaction(event.pubkey, reaction),
+                            Some(txn),
+                        )?;
+                    }
+                    invalidate.push(reacted_to_id);
+                } else {
+                    // Store the reaction to the event we dont have yet.
+                    // We filter bad ones when reading them back too, so even if this
+                    // turns out to be a reaction by the author, they can't like
+                    // their own post
+                    self.write_relationship(
+                        reacted_to_id, // event reacted to
+                        event.id,      // the reaction event id
+                        Relationship::Reaction(event.pubkey, reaction),
+                        Some(txn),
+                    )?;
+                    invalidate.push(reacted_to_id);
+                }
+            }
+
+            // deletes
+            if let Some((deleted_event_ids, reason)) = event.deletes() {
+                invalidate.extend(&deleted_event_ids);
+                for deleted_event_id in deleted_event_ids {
+                    // since it is a delete, we don't actually desire the event.
+                    if let Some(deleted_event) = self.read_event1(deleted_event_id)? {
+                        // Only if it is the same author
+                        if deleted_event.pubkey == event.pubkey {
+                            self.write_relationship(
+                                deleted_event_id,
+                                event.id,
+                                Relationship::Deletion(reason.clone()),
+                                Some(txn),
+                            )?;
+                        }
+                    } else {
+                        // We don't have the deleted event. Presume it is okay. We check again
+                        // when we read these back
+                        self.write_relationship(
+                            deleted_event_id,
+                            event.id,
+                            Relationship::Deletion(reason.clone()),
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+
+            // zaps
+            match event.zaps() {
+                Ok(Some(zapdata)) => {
+                    self.write_relationship(
+                        zapdata.id,
+                        event.id,
+                        Relationship::ZapReceipt(event.pubkey, zapdata.amount),
+                        Some(txn),
+                    )?;
+
+                    invalidate.push(zapdata.id);
+                }
+                Err(e) => tracing::error!("Invalid zap receipt: {}", e),
+                _ => {}
+            }
+
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(invalidate)
+    }
+
 }
+
