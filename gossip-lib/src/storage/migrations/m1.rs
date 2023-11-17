@@ -6,11 +6,12 @@ use nostr_types::{EventReference, EventV1};
 use speedy::Readable;
 
 impl Storage {
-    pub(super) fn m1_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-
-        // Trigger databases into existence
+    pub(super) fn m1_trigger(&self) -> Result<(), Error> {
         let _ = self.db_events1()?;
+        Ok(())
+    }
 
+    pub(super) fn m1_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let read_txn = self.env.read_txn()?;
         let total = self.db_events1()?.len(&read_txn)?;
 

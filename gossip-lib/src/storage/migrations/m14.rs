@@ -3,9 +3,11 @@ use crate::error::Error;
 use heed::RwTxn;
 
 impl Storage {
-    pub(super) fn m14_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m14_trigger(&self) -> Result<(), Error> {
+        Ok(())
+    }
 
+    pub(super) fn m14_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: removing a retired setting...");
 

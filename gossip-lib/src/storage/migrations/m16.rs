@@ -5,11 +5,13 @@ use nostr_types::{EventV1, EventV2, TagV2};
 use speedy::Readable;
 
 impl Storage {
-    pub(super) fn m16_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m16_trigger(&self) -> Result<(), Error> {
         let _ = self.db_events1()?;
         let _ = self.db_events2()?;
+        Ok(())
+    }
 
+    pub(super) fn m16_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: migrating events...");
 

@@ -5,9 +5,11 @@ use heed::RwTxn;
 use std::collections::HashMap;
 
 impl Storage {
-    pub(super) fn m15_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m15_trigger(&self) -> Result<(), Error> {
+        Ok(())
+    }
 
+    pub(super) fn m15_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: moving person list last edit times...");
 

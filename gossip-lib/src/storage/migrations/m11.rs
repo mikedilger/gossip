@@ -7,11 +7,13 @@ use nostr_types::{EventKind, EventV1, PublicKeyHex};
 use speedy::Readable;
 
 impl Storage {
-    pub(super) fn m11_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m11_trigger(&self) -> Result<(), Error> {
         let _ = self.db_events1()?;
         let _ = self.db_event_tag_index1()?;
+        Ok(())
+    }
 
+    pub(super) fn m11_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: populating event tag index...");
 

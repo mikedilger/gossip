@@ -45,12 +45,38 @@ impl Storage {
             .into());
         }
 
+
         while level < Self::MAX_MIGRATION_LEVEL {
-            let mut txn = self.env.write_txn()?;
-            self.migrate_inner(level+1, &mut txn)?;
             level += 1;
+            self.trigger(level)?;
+            let mut txn = self.env.write_txn()?;
+            self.migrate_inner(level, &mut txn)?;
             self.write_migration_level(level, Some(&mut txn))?;
             txn.commit()?;
+        }
+
+        Ok(())
+    }
+
+    fn trigger<'a>(&'a self, level: u32) -> Result<(), Error> {
+        match level {
+            1 => self.m1_trigger()?,
+            2 => self.m2_trigger()?,
+            3 => self.m3_trigger()?,
+            4 => self.m4_trigger()?,
+            5 => self.m5_trigger()?,
+            6 => self.m6_trigger()?,
+            7 => self.m7_trigger()?,
+            8 => self.m8_trigger()?,
+            9 => self.m9_trigger()?,
+            10 => self.m10_trigger()?,
+            11 => self.m11_trigger()?,
+            12 => self.m12_trigger()?,
+            13 => self.m13_trigger()?,
+            14 => self.m14_trigger()?,
+            15 => self.m15_trigger()?,
+            16 => self.m16_trigger()?,
+            _ => panic!("Unreachable migration level"),
         }
 
         Ok(())

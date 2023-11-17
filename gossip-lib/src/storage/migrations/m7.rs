@@ -4,11 +4,13 @@ use crate::error::Error;
 use heed::RwTxn;
 
 impl Storage {
-    pub(super) fn m7_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m7_trigger(&self) -> Result<(), Error> {
         let _ = self.db_people1()?;
         let _ = self.db_people2()?;
+        Ok(())
+    }
 
+    pub(super) fn m7_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: migrating person records...");
 

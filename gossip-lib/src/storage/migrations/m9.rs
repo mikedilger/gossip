@@ -6,13 +6,15 @@ use nostr_types::{EventV1, EventKind};
 use speedy::Readable;
 
 impl Storage {
-    pub(super) fn m9_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m9_trigger(&self) -> Result<(), Error> {
         let _ = self.db_events1()?;
         let _ = self.db_event_ek_pk_index1()?;
         let _ = self.db_event_ek_c_index1()?;
         let _ = self.db_hashtags1()?;
+        Ok(())
+    }
 
+    pub(super) fn m9_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: rebuilding event indices...");
 

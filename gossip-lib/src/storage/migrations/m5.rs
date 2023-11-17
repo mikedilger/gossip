@@ -5,10 +5,12 @@ use nostr_types::{EventV1, Id, Signature};
 use speedy::Readable;
 
 impl Storage {
-    pub(super) fn m5_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m5_trigger(&self) -> Result<(), Error> {
         let _ = self.db_events1()?;
+        Ok(())
+    }
 
+    pub(super) fn m5_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: deleting decrypted rumors...");
 

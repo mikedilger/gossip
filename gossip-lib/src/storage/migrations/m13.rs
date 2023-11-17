@@ -6,11 +6,13 @@ use nostr_types::PublicKey;
 use std::collections::HashMap;
 
 impl Storage {
-    pub(super) fn m13_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m13_trigger(&self) -> Result<(), Error> {
         let _ = self.db_person_lists1()?;
         let _ = self.db_person_lists2()?;
+        Ok(())
+    }
 
+    pub(super) fn m13_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: migrating lists...");
 

@@ -4,10 +4,12 @@ use heed::RwTxn;
 use nostr_types::RelayUrl;
 
 impl Storage {
-    pub(super) fn m3_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m3_trigger(&self) -> Result<(), Error> {
         let _ = self.db_relays1()?;
+        Ok(())
+    }
 
+    pub(super) fn m3_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: Removing invalid relays...");
 

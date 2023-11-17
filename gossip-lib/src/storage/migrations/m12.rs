@@ -4,9 +4,11 @@ use heed::{DatabaseFlags, RwTxn};
 use heed::types::UnalignedSlice;
 
 impl Storage {
-    pub(super) fn m12_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m12_trigger(&self) -> Result<(), Error> {
+        Ok(())
+    }
 
+    pub(super) fn m12_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: removing now unused event_references_person index...");
 

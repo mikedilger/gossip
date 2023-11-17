@@ -5,10 +5,12 @@ use heed::RwTxn;
 use nostr_types::{Id, RelayUrl};
 
 impl Storage {
-    pub(super) fn m8_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m8_trigger(&self) -> Result<(), Error> {
         let _ = self.db_relays1()?;
+        Ok(())
+    }
 
+    pub(super) fn m8_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: populating missing last_fetched data...");
 

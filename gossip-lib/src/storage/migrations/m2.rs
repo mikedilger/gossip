@@ -5,11 +5,12 @@ use heed::RwTxn;
 use speedy::{Readable, Writable};
 
 impl Storage {
-    pub(super) fn m2_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-
-        // Trigger databases into existence
+    pub(super) fn m2_trigger(&self) -> Result<(), Error> {
         let _ = self.db_events1()?;
+        Ok(())
+    }
 
+    pub(super) fn m2_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: Updating Settings...");
 

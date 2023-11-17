@@ -5,10 +5,12 @@ use heed::RwTxn;
 use speedy::Readable;
 
 impl Storage {
-    pub(super) fn m10_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        // Trigger databases into existence
+    pub(super) fn m10_trigger(&self) -> Result<(), Error> {
         let _ = self.db_relays1()?;
+        Ok(())
+    }
 
+    pub(super) fn m10_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: rewriting theme settings...");
 
