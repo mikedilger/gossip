@@ -22,6 +22,7 @@ mod event_seen_on_relay1;
 mod event_tag_index1;
 mod event_viewed1;
 mod events1;
+mod events2;
 mod hashtags1;
 mod people1;
 mod people2;
