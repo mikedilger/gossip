@@ -414,7 +414,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn delete_rumors<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn delete_rumors<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let mut ids: Vec<Id> = Vec::new();
         let iter = self.db_events1()?.iter(txn)?;
         for result in iter {
@@ -432,7 +432,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn populate_new_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn populate_new_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let mut count: usize = 0;
         let mut followed_count: usize = 0;
         for person1 in self.filter_people1(|_| true)?.iter() {
@@ -460,7 +460,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn migrate_people<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn migrate_people<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let mut count: usize = 0;
         for person1 in self.filter_people1(|_| true)?.drain(..) {
             let person2 = Person2 {
@@ -487,7 +487,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn populate_last_fetched<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn populate_last_fetched<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let total = self.get_event_seen_on_relay_len()?;
         let mut count = 0;
 
@@ -538,7 +538,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn rewrite_theme_settings<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn rewrite_theme_settings<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         const DEF: Theme1 = Theme1 {
             variant: ThemeVariant1::Default,
             dark_mode: false,
@@ -561,7 +561,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn populate_event_tag_index<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn populate_event_tag_index<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let loop_txn = self.env.read_txn()?;
         for result in self.db_events1()?.iter(&loop_txn)? {
             let (_key, val) = result?;
@@ -572,7 +572,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn remove_event_references_person<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn remove_event_references_person<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         {
             let db = self
                 .env
@@ -590,7 +590,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn migrate_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn migrate_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let loop_txn = self.env.read_txn()?;
         for result in self.db_person_lists1()?.iter(&loop_txn)? {
             let (key, val) = result?;
@@ -614,7 +614,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn remove_setting_custom_person_list_names<'a>(
+    fn remove_setting_custom_person_list_names<'a>(
         &'a self,
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
@@ -622,7 +622,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn move_person_list_last_edit_times<'a>(
+    fn move_person_list_last_edit_times<'a>(
         &'a self,
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
