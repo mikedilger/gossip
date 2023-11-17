@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
-use nostr_types::{Event, Id};
+use nostr_types::{EventV2, Id};
 use speedy::{Readable, Writable};
 use std::sync::Mutex;
 
@@ -46,7 +46,7 @@ impl Storage {
 
     pub(crate) fn write_event2<'a>(
         &'a self,
-        event: &Event,
+        event: &EventV2,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         // write to lmdb 'events'
@@ -80,11 +80,11 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn read_event2(&self, id: Id) -> Result<Option<Event>, Error> {
+    pub(crate) fn read_event2(&self, id: Id) -> Result<Option<EventV2>, Error> {
         let txn = self.env.read_txn()?;
         match self.db_events2()?.get(&txn, id.as_slice())? {
             None => Ok(None),
-            Some(bytes) => Ok(Some(Event::read_from_buffer(bytes)?)),
+            Some(bytes) => Ok(Some(EventV2::read_from_buffer(bytes)?)),
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
-use nostr_types::{Event, Id};
+use nostr_types::{EventV1, Id};
 use speedy::Readable;
 use std::sync::Mutex;
 
@@ -43,11 +43,11 @@ impl Storage {
         }
     }
 
-    pub(crate) fn read_event1(&self, id: Id) -> Result<Option<Event>, Error> {
+    pub(crate) fn read_event1(&self, id: Id) -> Result<Option<EventV1>, Error> {
         let txn = self.env.read_txn()?;
         match self.db_events1()?.get(&txn, id.as_slice())? {
             None => Ok(None),
-            Some(bytes) => Ok(Some(Event::read_from_buffer(bytes)?)),
+            Some(bytes) => Ok(Some(EventV1::read_from_buffer(bytes)?)),
         }
     }
 }
