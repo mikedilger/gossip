@@ -1,49 +1,41 @@
 use crate::storage::Storage;
-use crate::storage::types::PersonList1;
 use crate::error::Error;
 use heed::RwTxn;
+use nostr_types::{EventV1, Id, Signature};
+use speedy::Readable;
 
 impl Storage {
     pub(super) fn m5_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Trigger databases into existence
-        let _ = self.db_people1()?;
-        let _ = self.db_person_lists1()?;
+        let _ = self.db_events1()?;
 
         // Info message
-        tracing::info!("{prefix}: populating new lists...");
+        tracing::info!("{prefix}: deleting decrypted rumors...");
 
         // Migrate
-        self.m5_populate_new_lists(txn)?;
+        self.m5_delete_rumors(txn)?;
 
         Ok(())
     }
 
-    fn m5_populate_new_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        let mut count: usize = 0;
-        let mut followed_count: usize = 0;
-        for person1 in self.filter_people1(|_| true)?.iter() {
-            let mut lists: Vec<PersonList1> = Vec::new();
-            if person1.followed {
-                lists.push(PersonList1::Followed);
-                followed_count += 1;
-            }
-            if person1.muted {
-                lists.push(PersonList1::Muted);
-            }
-            if !lists.is_empty() {
-                self.write_person_lists1(&person1.pubkey, lists, Some(txn))?;
-                count += 1;
+    fn m5_delete_rumors<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+        let mut ids: Vec<Id> = Vec::new();
+        let iter = self.db_events1()?.iter(txn)?;
+        for result in iter {
+            let (_key, val) = result?;
+            let event = EventV1::read_from_buffer(val)?;
+            if event.sig == Signature::zeroes() {
+                ids.push(event.id);
             }
         }
 
-        tracing::info!(
-            "{} people added to new lists, {} followed",
-            count,
-            followed_count
-        );
+        for id in ids {
+            self.db_events1()?.delete(txn, id.as_slice())?;
+        }
 
-        // This migration does not remove the old data. The next one will.
         Ok(())
     }
 
 }
+
+

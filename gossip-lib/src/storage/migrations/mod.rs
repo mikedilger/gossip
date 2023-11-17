@@ -1,6 +1,5 @@
 mod deprecated;
 
-mod m0;
 mod m1;
 mod m2;
 mod m3;
@@ -16,6 +15,7 @@ mod m12;
 mod m13;
 mod m14;
 mod m15;
+mod m16;
 
 use super::Storage;
 use crate::error::{Error, ErrorKind};
@@ -47,7 +47,7 @@ impl Storage {
 
         while level < Self::MAX_MIGRATION_LEVEL {
             let mut txn = self.env.write_txn()?;
-            self.migrate_inner(level, &mut txn)?;
+            self.migrate_inner(level+1, &mut txn)?;
             level += 1;
             self.write_migration_level(level, Some(&mut txn))?;
             txn.commit()?;
@@ -57,9 +57,8 @@ impl Storage {
     }
 
     fn migrate_inner<'a>(&'a self, level: u32, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        let prefix = format!("LMDB Migration {} -> {}", level, level + 1);
+        let prefix = format!("LMDB Migration {}", level);
         match level {
-            0 => self.m0_migrate(&prefix, txn)?,
             1 => self.m1_migrate(&prefix, txn)?,
             2 => self.m2_migrate(&prefix, txn)?,
             3 => self.m3_migrate(&prefix, txn)?,
@@ -75,6 +74,7 @@ impl Storage {
             13 => self.m13_migrate(&prefix, txn)?,
             14 => self.m14_migrate(&prefix, txn)?,
             15 => self.m15_migrate(&prefix, txn)?,
+            16 => self.m16_migrate(&prefix, txn)?,
             _ => panic!("Unreachable migration level"),
         };
 

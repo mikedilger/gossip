@@ -1,5 +1,5 @@
 use crate::storage::Storage;
-use crate::storage::types::Person2;
+use crate::storage::types::PersonList1;
 use crate::error::Error;
 use heed::RwTxn;
 
@@ -7,41 +7,43 @@ impl Storage {
     pub(super) fn m6_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Trigger databases into existence
         let _ = self.db_people1()?;
-        let _ = self.db_people2()?;
+        let _ = self.db_person_lists1()?;
 
         // Info message
-        tracing::info!("{prefix}: migrating person records...");
+        tracing::info!("{prefix}: populating new lists...");
 
         // Migrate
-        self.m6_migrate_people(txn)?;
+        self.m6_populate_new_lists(txn)?;
 
         Ok(())
     }
 
-    fn m6_migrate_people<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn m6_populate_new_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let mut count: usize = 0;
-        for person1 in self.filter_people1(|_| true)?.drain(..) {
-            let person2 = Person2 {
-                pubkey: person1.pubkey,
-                petname: person1.petname,
-                metadata: person1.metadata,
-                metadata_created_at: person1.metadata_created_at,
-                metadata_last_received: person1.metadata_last_received,
-                nip05_valid: person1.nip05_valid,
-                nip05_last_checked: person1.nip05_last_checked,
-                relay_list_created_at: person1.relay_list_created_at,
-                relay_list_last_received: person1.relay_list_last_received,
-            };
-            self.write_person2(&person2, Some(txn))?;
-            count += 1;
+        let mut followed_count: usize = 0;
+        for person1 in self.filter_people1(|_| true)?.iter() {
+            let mut lists: Vec<PersonList1> = Vec::new();
+            if person1.followed {
+                lists.push(PersonList1::Followed);
+                followed_count += 1;
+            }
+            if person1.muted {
+                lists.push(PersonList1::Muted);
+            }
+            if !lists.is_empty() {
+                self.write_person_lists1(&person1.pubkey, lists, Some(txn))?;
+                count += 1;
+            }
         }
 
-        tracing::info!("Migrated {} people", count);
+        tracing::info!(
+            "{} people added to new lists, {} followed",
+            count,
+            followed_count
+        );
 
-        // delete people1 database
-        self.db_people1()?.clear(txn)?;
-        // self.general.delete(txn, b"people")?; // LMDB doesn't allow this.
-
+        // This migration does not remove the old data. The next one will.
         Ok(())
     }
+
 }

@@ -1,8 +1,9 @@
 use crate::storage::Storage;
-use crate::storage::types::{Settings1, Settings2};
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
+use crate::relationship::Relationship;
 use heed::RwTxn;
-use speedy::{Readable, Writable};
+use nostr_types::{EventReference, EventV1};
+use speedy::Readable;
 
 impl Storage {
     pub(super) fn m1_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
@@ -10,41 +11,119 @@ impl Storage {
         // Trigger databases into existence
         let _ = self.db_events1()?;
 
+        let read_txn = self.env.read_txn()?;
+        let total = self.db_events1()?.len(&read_txn)?;
+
         // Info message
-        tracing::info!("{prefix}: Updating Settings...");
+        tracing::info!(
+            "{prefix}: Computing and storing event relationships for {total} events..."
+        );
 
         // Migrate
-        self.m1_try_migrate_settings1_settings2(txn)?;
+        let mut count = 0;
+        let event_txn = self.env.read_txn()?;
+        for result in self.db_events1()?.iter(&event_txn)? {
+            let pair = result?;
+            let event = EventV1::read_from_buffer(pair.1)?;
+            self.m1_process_relationships_of_event(&event, txn)?;
+            count += 1;
+            for checkpoint in &[10, 20, 30, 40, 50, 60, 70, 80, 90] {
+                if count == checkpoint * total / 100 {
+                    tracing::info!("{}% done", checkpoint);
+                }
+            }
+        }
+
+        tracing::info!("syncing...");
 
         Ok(())
     }
 
-    fn m1_try_migrate_settings1_settings2<'a>(
+    /// Process relationships of an eventv1.
+    fn m1_process_relationships_of_event<'a>(
         &'a self,
+        event: &EventV1,
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
 
-        // If something is under the old "settings" key
-        if let Ok(Some(bytes)) = self.general.get(txn, b"settings") {
-            let settings1 = match Settings1::read_from_buffer(bytes) {
-                Ok(s1) => s1,
-                Err(_) => {
-                    tracing::error!("Settings are not deserializing. This is probably a code issue (although I have not found the bug yet). The best I can do is reset your settings to the default. This is better than the other option of wiping your entire database and starting over.");
-                    Settings1::default()
+        // replies to
+        match event.replies_to() {
+            Some(EventReference::Id(id, _, _)) => {
+                self.write_relationship1(id, event.id, Relationship::Reply, Some(txn))?;
+            }
+            Some(EventReference::Addr(_ea)) => {
+                // will only work if we already have it... yuck.
+                // We need a new relationships database for EventAddrs
+                // FIXME
+            }
+            None => (),
+        }
+
+        // reacts to
+        if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
+            if let Some(reacted_to_event) = self.read_event1(reacted_to_id)? {
+                // Only if they are different people (no liking your own posts)
+                if reacted_to_event.pubkey != event.pubkey {
+                    self.write_relationship1(
+                        reacted_to_id, // event reacted to
+                        event.id,      // the reaction event id
+                        Relationship::Reaction(event.pubkey, reaction),
+                        Some(txn),
+                    )?;
                 }
-            };
+            } else {
+                // Store the reaction to the event we dont have yet.
+                // We filter bad ones when reading them back too, so even if this
+                // turns out to be a reaction by the author, they can't like
+                // their own post
+                self.write_relationship1(
+                    reacted_to_id, // event reacted to
+                    event.id,      // the reaction event id
+                    Relationship::Reaction(event.pubkey, reaction),
+                    Some(txn),
+                )?;
+            }
+        }
 
-            // Convert it to the new Settings2 structure
-            let settings2: Settings2 = settings1.into();
-            let bytes = settings2.write_to_vec()?;
+        // deletes
+        if let Some((deleted_event_ids, reason)) = event.deletes() {
+            for deleted_event_id in deleted_event_ids {
+                // since it is a delete, we don't actually desire the event.
+                if let Some(deleted_event) = self.read_event1(deleted_event_id)? {
+                    // Only if it is the same author
+                    if deleted_event.pubkey == event.pubkey {
+                        self.write_relationship1(
+                            deleted_event_id,
+                            event.id,
+                            Relationship::Deletion(reason.clone()),
+                            Some(txn),
+                        )?;
+                    }
+                } else {
+                    // We don't have the deleted event. Presume it is okay. We check again
+                    // when we read these back
+                    self.write_relationship1(
+                        deleted_event_id,
+                        event.id,
+                        Relationship::Deletion(reason.clone()),
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
 
-            // And store it under the new "settings2" key
-            self.general.put(txn, b"settings2", &bytes)?;
-
-            // Then delete the old "settings" key
-            self.general.delete(txn, b"settings")?;
-        } else {
-            return Err(ErrorKind::General("Settings missing.".to_string()).into());
+        // zaps
+        match event.zaps() {
+            Ok(Some(zapdata)) => {
+                self.write_relationship1(
+                    zapdata.id,
+                    event.id,
+                    Relationship::ZapReceipt(event.pubkey, zapdata.amount),
+                    Some(txn),
+                )?;
+            }
+            Err(e) => tracing::error!("Invalid zap receipt: {}", e),
+            _ => {}
         }
 
         Ok(())
