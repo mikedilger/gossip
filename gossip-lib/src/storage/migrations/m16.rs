@@ -31,8 +31,8 @@ impl Storage {
         for result in self.db_events1()?.iter(&loop_txn)? {
             let (_key, val) = result?;
             let event1 = EventV1::read_from_buffer(val)?;
-            let tags_json = serde_json::to_value(event1.tags)?;
-            let tags2: Vec<TagV2> = serde_json::from_value(tags_json)?;
+            let tags_json: String = serde_json::to_string(&event1.tags)?;
+            let tags2: Vec<TagV2> = serde_json::from_str(&tags_json)?;
             let event2 = EventV2 {
                 id: event1.id,
                 pubkey: event1.pubkey,
