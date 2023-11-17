@@ -59,26 +59,45 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
             ContentSegment::Plain(span) => {
                 let chunk = shattered_content.slice(span).unwrap();
 
-                // loop all individual words in this chunk
-                for part in chunk.split_inclusive(' ') {
-                    let mut is_interest = false;
-                    for interest in &interests {
-                        if part.find(interest).is_some() {
-                            is_interest = true;
-                            break;
-                        }
+                let mut found_interests: Vec<(usize, String)> = Vec::new();
+
+                // find all interests in chunk an remember position
+                for interest in &interests {
+                    for (pos, str) in chunk.match_indices(interest) {
+                        found_interests.push((pos, str.to_owned()));
                     }
-                    let textformat = if is_interest {
-                        theme.highlight_text_format(HighlightType::Hyperlink)
-                    } else {
-                        theme.highlight_text_format(HighlightType::Nothing)
-                    };
+                }
+
+                // sort by position (so our indice access below will not crash)
+                found_interests.sort_by(|a,b| { a.0.cmp(&b.0) });
+
+                let mut pos = 0;
+                // loop all found interests in order
+                for (ipos, interest) in found_interests {
+                    // output anything before the interest
                     job.append(
-                        part,
+                        &chunk[pos..ipos],
                         0.0,
-                        textformat,
+                        theme.highlight_text_format(HighlightType::Nothing),
+                    );
+
+                    // update pos
+                    pos = ipos+interest.len();
+
+                    // output the interest
+                    job.append(
+                        &chunk[ipos..pos],
+                        0.0,
+                        theme.highlight_text_format(HighlightType::Hyperlink),
                     );
                 }
+
+                // output anything after last interest
+                job.append(
+                    &chunk[pos..chunk.len()],
+                    0.0,
+                    theme.highlight_text_format(HighlightType::Nothing),
+                );
             }
         }
     }
