@@ -1,9 +1,8 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
-use heed::RwTxn;
-use nostr_types::{Event, Id};
-use speedy::{Readable, Writable};
+use nostr_types::{EventV1, Id};
+use speedy::Readable;
 use std::sync::Mutex;
 
 // Id -> Event
@@ -44,77 +43,11 @@ impl Storage {
         }
     }
 
-    pub(crate) fn write_event1<'a>(
-        &'a self,
-        event: &Event,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        // write to lmdb 'events'
-        let bytes = event.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_events1()?.put(txn, event.id.as_slice(), &bytes)?;
-
-            // also index the event
-            self.write_event_ek_pk_index(event, Some(txn))?;
-            self.write_event_ek_c_index(event, Some(txn))?;
-            self.write_event_tag_index(event, Some(txn))?;
-            for hashtag in event.hashtags() {
-                if hashtag.is_empty() {
-                    continue;
-                } // upstream bug
-                self.add_hashtag(&hashtag, event.id, Some(txn))?;
-            }
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub(crate) fn read_event1(&self, id: Id) -> Result<Option<Event>, Error> {
+    pub(crate) fn read_event1(&self, id: Id) -> Result<Option<EventV1>, Error> {
         let txn = self.env.read_txn()?;
         match self.db_events1()?.get(&txn, id.as_slice())? {
             None => Ok(None),
-            Some(bytes) => Ok(Some(Event::read_from_buffer(bytes)?)),
+            Some(bytes) => Ok(Some(EventV1::read_from_buffer(bytes)?)),
         }
-    }
-
-    pub(crate) fn has_event1(&self, id: Id) -> Result<bool, Error> {
-        let txn = self.env.read_txn()?;
-        match self.db_events1()?.get(&txn, id.as_slice())? {
-            None => Ok(false),
-            Some(_) => Ok(true),
-        }
-    }
-
-    pub(crate) fn delete_event1<'a>(
-        &'a self,
-        id: Id,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let _ = self.db_events1()?.delete(txn, id.as_slice());
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
     }
 }

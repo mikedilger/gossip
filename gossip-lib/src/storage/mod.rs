@@ -22,6 +22,7 @@ mod event_seen_on_relay1;
 mod event_tag_index1;
 mod event_viewed1;
 mod events1;
+mod events2;
 mod hashtags1;
 mod people1;
 mod people2;
@@ -44,8 +45,8 @@ use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, EventReference, Id, MilliSatoshi, PublicKey, RelayUrl,
-    Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, EventReference, Id, MilliSatoshi, PublicKey,
+    RelayUrl, Tag, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -233,7 +234,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_events(&self) -> Result<RawDatabase, Error> {
-        self.db_events1()
+        self.db_events2()
     }
 
     #[inline]
@@ -1183,25 +1184,25 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event1(event, rw_txn)
+        self.write_event2(event, rw_txn)
     }
 
     /// Read an event
     #[inline]
     pub fn read_event(&self, id: Id) -> Result<Option<Event>, Error> {
-        self.read_event1(id)
+        self.read_event2(id)
     }
 
     /// If we have th event
     #[inline]
     pub fn has_event(&self, id: Id) -> Result<bool, Error> {
-        self.has_event1(id)
+        self.has_event2(id)
     }
 
     /// Delete the event
     #[inline]
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
-        self.delete_event1(id, rw_txn)
+        self.delete_event2(id, rw_txn)
     }
 
     /// Replace any existing event with the passed in event, if it is of a replaceable kind

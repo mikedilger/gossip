@@ -54,6 +54,7 @@ pub async fn add_event_to_tags(existing_tags: &mut Vec<Tag>, added: Id, marker: 
     }
 }
 
+// FIXME pass in and set marker
 pub async fn add_addr_to_tags(
     existing_tags: &mut Vec<Tag>,
     kind: EventKind,
@@ -73,6 +74,7 @@ pub async fn add_addr_to_tags(
                 pubkey,
                 d,
                 relay_url,
+                marker: None,
                 trailing: Vec::new(),
             });
             existing_tags.len() - 1
