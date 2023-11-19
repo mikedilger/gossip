@@ -1,6 +1,6 @@
-use crate::storage::Storage;
-use crate::storage::types::PersonList1;
 use crate::error::Error;
+use crate::storage::types::PersonList1;
+use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::PublicKey;
 use std::collections::HashMap;
@@ -12,7 +12,11 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn m13_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(super) fn m13_migrate<'a>(
+        &'a self,
+        prefix: &str,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: migrating lists...");
 
@@ -45,5 +49,4 @@ impl Storage {
 
         Ok(())
     }
-
 }

@@ -1,6 +1,6 @@
-use crate::storage::Storage;
-use crate::storage::types::{Settings1, Settings2};
 use crate::error::{Error, ErrorKind};
+use crate::storage::types::{Settings1, Settings2};
+use crate::storage::Storage;
 use heed::RwTxn;
 use speedy::{Readable, Writable};
 
@@ -20,11 +20,7 @@ impl Storage {
         Ok(())
     }
 
-    fn m2_try_migrate_settings1_settings2<'a>(
-        &'a self,
-        txn: &mut RwTxn<'a>,
-    ) -> Result<(), Error> {
-
+    fn m2_try_migrate_settings1_settings2<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // If something is under the old "settings" key
         if let Ok(Some(bytes)) = self.general.get(txn, b"settings") {
             let settings1 = match Settings1::read_from_buffer(bytes) {

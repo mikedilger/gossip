@@ -1,7 +1,7 @@
-use crate::globals::GLOBALS;
-use crate::storage::Storage;
-use crate::storage::event_tag_index1::INDEXED_TAGS;
 use crate::error::{Error, ErrorKind};
+use crate::globals::GLOBALS;
+use crate::storage::event_tag_index1::INDEXED_TAGS;
+use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::{EventKind, EventV1, PublicKeyHex};
 use speedy::Readable;
@@ -13,7 +13,11 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn m11_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(super) fn m11_migrate<'a>(
+        &'a self,
+        prefix: &str,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: populating event tag index...");
 

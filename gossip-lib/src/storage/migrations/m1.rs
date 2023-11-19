@@ -1,6 +1,6 @@
-use crate::storage::Storage;
 use crate::error::Error;
 use crate::relationship::Relationship;
+use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::{EventReference, EventV1};
 use speedy::Readable;
@@ -16,9 +16,7 @@ impl Storage {
         let total = self.db_events1()?.len(&read_txn)?;
 
         // Info message
-        tracing::info!(
-            "{prefix}: Computing and storing event relationships for {total} events..."
-        );
+        tracing::info!("{prefix}: Computing and storing event relationships for {total} events...");
 
         // Migrate
         let mut count = 0;
@@ -46,7 +44,6 @@ impl Storage {
         event: &EventV1,
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
-
         // replies to
         match event.replies_to() {
             Some(EventReference::Id(id, _, _)) => {

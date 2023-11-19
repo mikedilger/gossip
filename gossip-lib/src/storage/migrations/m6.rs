@@ -1,6 +1,6 @@
-use crate::storage::Storage;
-use crate::storage::types::PersonList1;
 use crate::error::Error;
+use crate::storage::types::PersonList1;
+use crate::storage::Storage;
 use heed::RwTxn;
 
 impl Storage {
@@ -47,5 +47,4 @@ impl Storage {
         // This migration does not remove the old data. The next one will.
         Ok(())
     }
-
 }

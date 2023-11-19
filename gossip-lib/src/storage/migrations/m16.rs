@@ -1,5 +1,5 @@
-use crate::storage::Storage;
 use crate::error::Error;
+use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::{EventV1, EventV2, TagV2};
 use speedy::Readable;
@@ -11,7 +11,11 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn m16_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(super) fn m16_migrate<'a>(
+        &'a self,
+        prefix: &str,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: migrating events...");
 
@@ -21,11 +25,7 @@ impl Storage {
         Ok(())
     }
 
-    fn m16_migrate_to_events2<'a>(
-        &'a self,
-        txn: &mut RwTxn<'a>,
-    ) -> Result<(), Error> {
-
+    fn m16_migrate_to_events2<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let loop_txn = self.env.read_txn()?;
         let mut count: usize = 0;
         for result in self.db_events1()?.iter(&loop_txn)? {

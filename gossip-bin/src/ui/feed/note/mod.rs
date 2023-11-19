@@ -64,6 +64,8 @@ pub(super) fn render_note(
         is_last,
     } = feed_note_params;
 
+    let mut replies = Vec::new();
+
     if let Some(note_ref) = app.notes.try_update_and_get(&id) {
         // FIXME respect app.settings.show_long_form on reposts
         // FIXME drop the cached notes on recompute
@@ -162,11 +164,18 @@ pub(super) fn render_note(
             }
 
             thin_separator(ui, app.theme.feed_post_separator_stroke(&render_data));
+
+            // Load replies variable for next section, while we have note_data borrowed
+            if threaded && !as_reply_to && !app.collapsed.contains(&id) {
+                replies = GLOBALS
+                    .storage
+                    .get_replies(&note_data.event)
+                    .unwrap_or_default();
+            }
         }
 
         // even if muted, continue rendering thread children
         if threaded && !as_reply_to && !app.collapsed.contains(&id) {
-            let replies = GLOBALS.storage.get_replies(id).unwrap_or_default();
             let iter = replies.iter();
             let first = replies.first();
             let last = replies.last();

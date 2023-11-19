@@ -1367,16 +1367,17 @@ impl Overlord {
                                 ea.author.into(),
                                 ea.d.clone(),
                                 ea.relays.get(0).cloned(),
+                                Some("mention".to_string()),
                             )
                             .await;
                         }
                         NostrBech32::EventPointer(ep) => {
                             // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                            add_event_to_tags(&mut tags, ep.id, "mention").await;
+                            add_event_to_tags(&mut tags, ep.id, None, "mention").await;
                         }
                         NostrBech32::Id(id) => {
                             // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                            add_event_to_tags(&mut tags, *id, "mention").await;
+                            add_event_to_tags(&mut tags, *id, None, "mention").await;
                         }
                         NostrBech32::Profile(prof) => {
                             if dm_channel.is_none() {
@@ -1433,31 +1434,61 @@ impl Overlord {
                         }
                     }
 
+                    // Possibly add a tag to the 'root'
+                    let mut parent_is_root = true;
                     match parent.replies_to_root() {
-                        Some(EventReference::Id(root, _maybeurl, _marker)) => {
+                        Some(EventReference::Id(root, maybeurl, _marker)) => {
                             // Add an 'e' tag for the root
-                            add_event_to_tags(&mut tags, root, "root").await;
-
-                            // Add an 'e' tag for the note we are replying to
-                            add_event_to_tags(&mut tags, parent_id, "reply").await;
+                            add_event_to_tags(
+                                &mut tags,
+                                root,
+                                maybeurl.map(|u| u.to_unchecked_url()),
+                                "root",
+                            )
+                            .await;
+                            parent_is_root = false;
                         }
-                        Some(EventReference::Addr(_ea)) => {
-                            // Don't add an 'a' tag to the 'root' because 'a' tags have no markers.
-
-                            // Add an 'e' tag for the note we are replying to
-                            add_event_to_tags(&mut tags, parent_id, "reply").await;
+                        Some(EventReference::Addr(ea)) => {
+                            // Add an 'a' tag for the root
+                            add_addr_to_tags(
+                                &mut tags,
+                                ea.kind,
+                                ea.author.into(),
+                                ea.d,
+                                ea.relays.first().cloned(),
+                                Some("root".to_string()),
+                            )
+                            .await;
+                            parent_is_root = false;
                         }
                         None => {
+                            // double check in case replies_to_root() isn't sufficient
+                            // (it might be but this code doesn't hurt)
                             let ancestor = parent.replies_to();
                             if ancestor.is_none() {
                                 // parent is the root
-                                add_event_to_tags(&mut tags, parent_id, "root").await;
+                                add_event_to_tags(&mut tags, parent_id, None, "root").await;
                             } else {
-                                // Add an 'e' tag for the note we are replying to
-                                // (and we don't know about the root, the parent is malformed).
-                                add_event_to_tags(&mut tags, parent_id, "reply").await;
+                                parent_is_root = false;
                             }
                         }
+                    }
+
+                    // Add 'reply tags
+                    let reply_marker = if parent_is_root { "root" } else { "reply" };
+                    add_event_to_tags(&mut tags, parent_id, None, reply_marker).await;
+                    if parent.kind.is_replaceable() {
+                        // Add an 'a' tag for the note we are replying to
+                        let d = parent.parameter().unwrap_or("".to_owned());
+                        add_addr_to_tags(
+                            &mut tags,
+                            parent.kind,
+                            parent.pubkey.into(),
+                            d,
+                            None,
+                            Some(reply_marker.to_string()),
+                        )
+                        .await;
                     }
 
                     // Possibly propagate a subject tag

@@ -1,6 +1,6 @@
-use crate::storage::Storage;
-use crate::storage::types::PersonList1;
 use crate::error::Error;
+use crate::storage::types::PersonList1;
+use crate::storage::Storage;
 use heed::RwTxn;
 use std::collections::HashMap;
 
@@ -9,7 +9,11 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn m15_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(super) fn m15_migrate<'a>(
+        &'a self,
+        prefix: &str,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: moving person list last edit times...");
 
@@ -29,5 +33,4 @@ impl Storage {
         self.write_person_lists_last_edit_times(edit_times, Some(txn))?;
         Ok(())
     }
-
 }
