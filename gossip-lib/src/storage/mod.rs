@@ -31,6 +31,7 @@ mod person_lists2;
 mod person_relays1;
 mod relationships1;
 mod relays1;
+mod reprel1;
 mod unindexed_giftwraps1;
 
 use crate::dm_channel::{DmChannel, DmChannelData};
@@ -45,8 +46,8 @@ use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, EventReference, Id, MilliSatoshi, PublicKey,
-    RelayUrl, Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi,
+    PublicKey, RelayUrl, Tag, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -189,6 +190,7 @@ impl Storage {
         let _ = self.db_people()?;
         let _ = self.db_person_relays()?;
         let _ = self.db_relationships()?;
+        let _ = self.db_reprel()?;
         let _ = self.db_relays()?;
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
@@ -268,6 +270,11 @@ impl Storage {
     }
 
     #[inline]
+    pub(crate) fn db_reprel(&self) -> Result<RawDatabase, Error> {
+        self.db_reprel1()
+    }
+
+    #[inline]
     pub(crate) fn db_relays(&self) -> Result<RawDatabase, Error> {
         self.db_relays1()
     }
@@ -342,6 +349,13 @@ impl Storage {
     pub fn get_relationships_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_relationships()?.len(&txn)?)
+    }
+
+    /// The number of records in the reprel table
+    #[inline]
+    pub fn get_reprel_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_reprel()?.len(&txn)?)
     }
 
     /// The number of records in the people table
@@ -1694,6 +1708,24 @@ impl Storage {
         self.find_relationships1(id)
     }
 
+    /// Write a relationship between an event and an EventAddr (replaceable)
+    #[inline]
+    pub(crate) fn write_reprel<'a>(
+        &'a self,
+        addr: EventAddr,
+        related: Id,
+        relationship: Relationship,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.write_reprel1(addr, related, relationship, rw_txn)
+    }
+
+    /// Find relationships belonging to the given event to replaceable events
+    #[inline]
+    pub fn find_reprels(&self, addr: &EventAddr) -> Result<Vec<(Id, Relationship)>, Error> {
+        self.find_reprels1(addr)
+    }
+
     /// Get replies to the given event
     pub fn get_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
         Ok(self
@@ -1708,6 +1740,9 @@ impl Storage {
             })
             .collect())
     }
+
+    // Get replies to the given EventAddr
+    // TODO
 
     /// Returns the list of reactions and whether or not this account has already reacted to this event
     pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, bool), Error> {
