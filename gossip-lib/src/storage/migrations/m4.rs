@@ -1,5 +1,5 @@
-use crate::storage::Storage;
 use crate::error::{Error, ErrorKind};
+use crate::storage::Storage;
 use heed::RwTxn;
 
 impl Storage {
@@ -166,4 +166,3 @@ impl Storage {
         Ok(())
     }
 }
-

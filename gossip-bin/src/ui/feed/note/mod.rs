@@ -167,7 +167,10 @@ pub(super) fn render_note(
 
             // Load replies variable for next section, while we have note_data borrowed
             if threaded && !as_reply_to && !app.collapsed.contains(&id) {
-                replies = GLOBALS.storage.get_replies(&note_data.event).unwrap_or_default();
+                replies = GLOBALS
+                    .storage
+                    .get_replies(&note_data.event)
+                    .unwrap_or_default();
             }
         }
 

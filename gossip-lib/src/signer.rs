@@ -3,8 +3,8 @@ use std::sync::mpsc::Sender;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
-    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventV1, EventKind, Id, KeySecurity,
-    PreEvent, PrivateKey, PublicKey, Rumor, RumorV1
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventKind, EventV1, Id, KeySecurity,
+    PreEvent, PrivateKey, PublicKey, Rumor, RumorV1,
 };
 use parking_lot::RwLock;
 use tokio::task;

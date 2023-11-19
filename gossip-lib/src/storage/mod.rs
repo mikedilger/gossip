@@ -46,8 +46,8 @@ use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi,
-    PublicKey, RelayUrl, Tag, Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi, PublicKey,
+    RelayUrl, Tag, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -1738,7 +1738,6 @@ impl Storage {
         Ok(output)
     }
 
-
     pub fn get_non_replaceable_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
         Ok(self
             .find_relationships(id)?
@@ -1755,16 +1754,16 @@ impl Storage {
 
     pub fn get_replaceable_replies(&self, addr: &EventAddr) -> Result<Vec<Id>, Error> {
         Ok(self
-           .find_reprels(addr)?
-           .iter()
-           .filter_map(|(id, rel)| {
-               if *rel == Relationship::Reply {
-                   Some(*id)
-               } else {
-                   None
-               }
-           })
-           .collect())
+            .find_reprels(addr)?
+            .iter()
+            .filter_map(|(id, rel)| {
+                if *rel == Relationship::Reply {
+                    Some(*id)
+                } else {
+                    None
+                }
+            })
+            .collect())
     }
 
     /// Returns the list of reactions and whether or not this account has already reacted to this event

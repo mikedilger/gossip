@@ -290,14 +290,15 @@ fn render_note_maybe_fake(
         // Don't actually render, just make space for scrolling purposes
         ui.add_space(height);
 
-
-
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to && !app.collapsed.contains(&id) {
             let mut replies = Vec::new();
             if let Some(note_ref) = app.notes.try_update_and_get(&id) {
                 if let Ok(note_data) = note_ref.try_borrow() {
-                    replies = GLOBALS.storage.get_replies(&note_data.event).unwrap_or_default();
+                    replies = GLOBALS
+                        .storage
+                        .get_replies(&note_data.event)
+                        .unwrap_or_default();
                 }
             }
 

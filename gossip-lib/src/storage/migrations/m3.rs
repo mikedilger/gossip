@@ -1,5 +1,5 @@
-use crate::storage::Storage;
 use crate::error::Error;
+use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::RelayUrl;
 
@@ -33,5 +33,4 @@ impl Storage {
 
         Ok(())
     }
-
 }

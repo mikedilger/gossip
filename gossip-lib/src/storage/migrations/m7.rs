@@ -1,6 +1,6 @@
-use crate::storage::Storage;
-use crate::storage::types::Person2;
 use crate::error::Error;
+use crate::storage::types::Person2;
+use crate::storage::Storage;
 use heed::RwTxn;
 
 impl Storage {

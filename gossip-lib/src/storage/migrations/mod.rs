@@ -1,6 +1,13 @@
 mod deprecated;
 
 mod m1;
+mod m10;
+mod m11;
+mod m12;
+mod m13;
+mod m14;
+mod m15;
+mod m16;
 mod m2;
 mod m3;
 mod m4;
@@ -9,13 +16,6 @@ mod m6;
 mod m7;
 mod m8;
 mod m9;
-mod m10;
-mod m11;
-mod m12;
-mod m13;
-mod m14;
-mod m15;
-mod m16;
 
 use super::Storage;
 use crate::error::{Error, ErrorKind};
@@ -44,7 +44,6 @@ impl Storage {
             ))
             .into());
         }
-
 
         while level < Self::MAX_MIGRATION_LEVEL {
             level += 1;
@@ -109,4 +108,3 @@ impl Storage {
         Ok(())
     }
 }
-

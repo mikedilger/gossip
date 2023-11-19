@@ -1,6 +1,6 @@
-use crate::storage::Storage;
-use crate::storage::types::{Theme1, ThemeVariant1};
 use crate::error::Error;
+use crate::storage::types::{Theme1, ThemeVariant1};
+use crate::storage::Storage;
 use heed::RwTxn;
 use speedy::Readable;
 
@@ -10,7 +10,11 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn m10_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(super) fn m10_migrate<'a>(
+        &'a self,
+        prefix: &str,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: rewriting theme settings...");
 
@@ -42,5 +46,4 @@ impl Storage {
 
         Ok(())
     }
-
 }

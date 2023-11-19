@@ -1,6 +1,6 @@
-use crate::storage::Storage;
-use crate::storage::types::PersonRelay1;
 use crate::error::Error;
+use crate::storage::types::PersonRelay1;
+use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::{Id, RelayUrl};
 
@@ -70,5 +70,4 @@ impl Storage {
 
         Ok(())
     }
-
 }

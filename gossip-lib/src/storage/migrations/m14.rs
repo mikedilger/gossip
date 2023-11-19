@@ -1,5 +1,5 @@
-use crate::storage::Storage;
 use crate::error::Error;
+use crate::storage::Storage;
 use heed::RwTxn;
 
 impl Storage {
@@ -7,7 +7,11 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn m14_migrate<'a>(&'a self, prefix: &str, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    pub(super) fn m14_migrate<'a>(
+        &'a self,
+        prefix: &str,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
         // Info message
         tracing::info!("{prefix}: removing a retired setting...");
 
@@ -24,5 +28,4 @@ impl Storage {
         self.general.delete(txn, b"custom_person_list_names")?;
         Ok(())
     }
-
 }

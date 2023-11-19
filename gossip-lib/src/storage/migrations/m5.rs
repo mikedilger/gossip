@@ -1,5 +1,5 @@
-use crate::storage::Storage;
 use crate::error::Error;
+use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::{EventV1, Id, Signature};
 use speedy::Readable;
@@ -37,7 +37,4 @@ impl Storage {
 
         Ok(())
     }
-
 }
-
-

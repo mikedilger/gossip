@@ -2,7 +2,7 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::storage::Storage;
 use heed::RwTxn;
-use nostr_types::{EventV1, EventKind};
+use nostr_types::{EventKind, EventV1};
 use speedy::Readable;
 
 impl Storage {
@@ -26,10 +26,7 @@ impl Storage {
 
     /// Rebuild all the event indices. This is generally internal, but might be used
     /// to fix a broken database.
-    pub fn m9_rebuild_event_indices<'a>(
-        &'a self,
-        txn: &mut RwTxn<'a>,
-    ) -> Result<(), Error> {
+    pub fn m9_rebuild_event_indices<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // Erase all indices first
         self.db_event_ek_pk_index1()?.clear(txn)?;
         self.db_event_ek_c_index1()?.clear(txn)?;
