@@ -69,7 +69,7 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                 }
 
                 // sort by position (so our indice access below will not crash)
-                found_interests.sort_by(|a,b| { a.0.cmp(&b.0) });
+                found_interests.sort_by(|a, b| a.0.cmp(&b.0));
 
                 let mut pos = 0;
                 // loop all found interests in order
@@ -82,7 +82,7 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                     );
 
                     // update pos
-                    pos = ipos+interest.len();
+                    pos = ipos + interest.len();
 
                     // output the interest
                     job.append(

@@ -1,4 +1,3 @@
-
 use crate::error::Error;
 use crate::storage::Storage;
 use heed::RwTxn;
