@@ -28,24 +28,30 @@ pub struct NoteRenderData {
     /// This is only used in feed_post_inner_indent() and is often just set to 0.0, but should
     /// be taken from app.height if we can get that data.
     pub height: f32,
+
     /// Has this post been seen yet?
     pub is_new: bool,
+
     /// This message is the focus of the view (formerly called is_focused)
     pub is_main_event: bool,
+
     /// This message is a repost of another message
     pub has_repost: bool,
+
     /// Is this post being mentioned within a comment
     pub is_comment_mention: bool,
+
     /// This message is part of a thread
     pub is_thread: bool,
+
     /// Is this the first post in the display?
     pub is_first: bool,
+
     /// Is this the last post in the display
     pub is_last: bool,
+
     /// Position in the thread, focused message = 0
     pub thread_position: i32,
-    /// User can post
-    pub can_post: bool,
 }
 
 pub(super) fn render_note(
@@ -110,7 +116,6 @@ pub(super) fn render_note(
                 is_last,
                 is_main_event,
                 thread_position: indent as i32,
-                can_post: GLOBALS.signer.is_ready(),
             };
 
             let top = ui.next_widget_position();
@@ -707,7 +712,7 @@ fn render_note_inner(
 
                                 ui.add_space(24.0);
 
-                                if render_data.can_post {
+                                if GLOBALS.signer.is_ready() {
                                     if note.event.kind != EventKind::EncryptedDirectMessage
                                         && note.event.kind != EventKind::DmChat
                                     {
@@ -930,7 +935,7 @@ fn render_note_inner(
                                         )
                                         .clicked()
                                     {
-                                        if !render_data.can_post {
+                                        if !GLOBALS.signer.is_ready() {
                                             GLOBALS
                                                 .status_queue
                                                 .write()
@@ -1177,7 +1182,6 @@ fn render_repost(
             is_first: false,
             is_last: false,
             thread_position: 0,
-            can_post: GLOBALS.signer.is_ready(),
         };
 
         let row_height = ui.cursor().height();

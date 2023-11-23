@@ -1,14 +1,13 @@
 use gossip_lib::GLOBALS;
 use gossip_lib::{Person, PersonList};
 use std::collections::HashMap;
-
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
     ShatteredContent, Tag,
 };
 
 #[derive(PartialEq)]
-pub(super) enum RepostType {
+pub(super:ui) enum RepostType {
     /// Damus style, kind 6 repost where the reposted note's JSON
     /// is included in the content
     Kind6Embedded,
@@ -23,21 +22,21 @@ pub(super) enum RepostType {
     GenericRepost,
 }
 
-pub(super) struct NoteData {
-    /// Original Event object, as received from nostr
+pub(crate::ui) struct CachedNote {
+    /// Event object
     pub event: Event,
+
+    /// Author of this note (this considers delegation)
+    pub author: Person,
 
     /// Delegation status of this event
     pub delegation: EventDelegation,
 
-    /// Author of this note (considers delegation)
-    pub author: Person,
+    /// Deletion reason if any
+    pub deletion: Option<String>,
 
     /// Lists the author is on
     pub lists: HashMap<PersonList, bool>,
-
-    /// Deletion reason if any
-    pub deletion: Option<String>,
 
     /// Do we consider this note as being a repost of another?
     pub repost: Option<RepostType>,
@@ -65,10 +64,13 @@ pub(super) struct NoteData {
 
     /// Securely delivered via GiftWrap
     pub secure: bool,
+
+    /// Has this post been seen yet?
+    pub is_new: bool,
 }
 
 impl NoteData {
-    pub(super) fn new(mut event: Event) -> NoteData {
+    pub(crate::ui) fn new(mut event: Event) -> NoteData {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
 
@@ -229,6 +231,13 @@ impl NoteData {
             _ => HashMap::new(),
         };
 
+        let viewed = match GLOBALS.storage.is_event_viewed(note_data.event.id) {
+                Ok(answer) => answer,
+                _ => false,
+        };
+        let is_new = GLOBALS.storage.read_setting_highlight_unread_events() && !viewed;
+
+
         NoteData {
             event,
             delegation,
@@ -244,10 +253,12 @@ impl NoteData {
             shattered_content,
             error_content,
             secure,
+            is_new,
+            is_comment_mention,
         }
     }
 
-    pub(super) fn update_reactions(&mut self) {
+    pub(crate::ui) fn update_reactions(&mut self) {
         let (mut reactions, self_already_reacted) = GLOBALS
             .storage
             .get_reactions(self.event.id)
@@ -260,11 +271,11 @@ impl NoteData {
     }
 
     #[allow(dead_code)]
-    pub(super) fn followed(&self) -> bool {
+    pub(crate::ui) fn followed(&self) -> bool {
         self.lists.contains_key(&PersonList::Followed)
     }
 
-    pub(super) fn muted(&self) -> bool {
+    pub(crate::ui) fn muted(&self) -> bool {
         self.lists.contains_key(&PersonList::Muted)
     }
 }

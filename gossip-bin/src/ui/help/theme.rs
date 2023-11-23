@@ -39,7 +39,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         is_first: true,
         is_last: true,
         thread_position: 0,
-        can_post: false,
     };
     Frame::none()
         .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
@@ -65,7 +64,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         is_first: true,
         is_last: true,
         thread_position: 0,
-        can_post: false,
     };
     Frame::none()
         .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
