@@ -2,8 +2,8 @@ use super::theme::FeedProperties;
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Frame, RichText, Ui, Vec2};
-use egui_winit::egui::Id as EguiId;
-use gossip_lib::{FeedKind, PersonList, GLOBALS};
+use gossip_lib::FeedKind;
+use gossip_lib::GLOBALS;
 use nostr_types::Id;
 use std::sync::atomic::Ordering;
 
@@ -65,22 +65,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
-
-                    ui.heading("Feed:");
-                    // feed picker
-                    let feed_combo = egui::ComboBox::from_id_source(EguiId::from("FeedCombo"));
-                    feed_combo.selected_text(list.name()).show_ui(ui, |ui| {
-                        let all_lists = PersonList::all_lists();
-                        for (a_list, a_listname) in all_lists {
-                            if ui.selectable_label(list == a_list, a_listname).clicked() {
-                                app.set_page(Page::Feed(FeedKind::List(
-                                    a_list,
-                                    app.mainfeed_include_nonroot,
-                                )));
-                            }
-                        }
-                    });
-
+                    ui.heading(list.name());
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
