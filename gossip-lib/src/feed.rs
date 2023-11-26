@@ -311,28 +311,32 @@ impl Feed {
                 // FIXME we don't include delegated events. We should look for all events
                 // delegated to people we follow and include those in the feed too.
 
-                let events: Vec<Id> = GLOBALS
-                    .storage
-                    .find_events(
-                        &kinds_without_dms,
-                        &pubkeys, // pubkeys
-                        Some(since),
-                        |e| {
-                            e.created_at <= now // no future events
-                                && e.kind != EventKind::EncryptedDirectMessage // no DMs
-                                && e.kind != EventKind::DmChat // no DMs
-                                && !dismissed.contains(&e.id) // not dismissed
-                                && if !with_replies {
-                                    e.replies_to().is_none() // is not a reply
-                                } else {
-                                    true
-                                }
-                        },
-                        true,
-                    )?
-                    .iter()
-                    .map(|e| e.id)
-                    .collect();
+                let events: Vec<Id> = if pubkeys.is_empty() {
+                    Default::default()
+                } else {
+                    GLOBALS
+                        .storage
+                        .find_events(
+                            &kinds_without_dms,
+                            &pubkeys, // pubkeys
+                            Some(since),
+                            |e| {
+                                e.created_at <= now // no future events
+                                    && e.kind != EventKind::EncryptedDirectMessage // no DMs
+                                    && e.kind != EventKind::DmChat // no DMs
+                                    && !dismissed.contains(&e.id) // not dismissed
+                                    && if !with_replies {
+                                        e.replies_to().is_none() // is not a reply
+                                    } else {
+                                        true
+                                    }
+                            },
+                            true,
+                        )?
+                        .iter()
+                        .map(|e| e.id)
+                        .collect()
+                };
 
                 *self.followed_feed.write() = events;
             }
