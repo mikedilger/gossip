@@ -322,7 +322,7 @@ fn render_note_inner(
                             // Link to this parent only if we can get that event
                             if let Ok(Some(e)) = GLOBALS
                                 .storage
-                                .get_replaceable_event(ea.kind, ea.author, &*ea.d)
+                                .get_replaceable_event(ea.kind, ea.author, &ea.d)
                             {
                                 ui.add_space(8.0);
                                 ui.style_mut().override_text_style = Some(TextStyle::Small);

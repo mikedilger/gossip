@@ -663,7 +663,7 @@ fn calc_tagging_search(app: &mut GossipUi) {
             let mut pairs = GLOBALS
                 .people
                 .search_people_to_tag(search)
-                .unwrap_or(vec![]);
+                .unwrap_or_default();
             pairs.sort_by(|(_, ak), (_, bk)| {
                 let af = GLOBALS
                     .storage

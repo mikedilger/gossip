@@ -323,7 +323,7 @@ impl Feed {
                                 && e.kind != EventKind::DmChat // no DMs
                                 && !dismissed.contains(&e.id) // not dismissed
                                 && if !with_replies {
-                                    matches!(e.replies_to(), None) // is not a reply
+                                    e.replies_to().is_none() // is not a reply
                                 } else {
                                     true
                                 }

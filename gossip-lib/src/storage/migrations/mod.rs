@@ -58,7 +58,7 @@ impl Storage {
         Ok(())
     }
 
-    fn trigger<'a>(&'a self, level: u32) -> Result<(), Error> {
+    fn trigger(&self, level: u32) -> Result<(), Error> {
         match level {
             1 => self.m1_trigger()?,
             2 => self.m2_trigger()?,
