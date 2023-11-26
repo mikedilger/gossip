@@ -28,7 +28,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 23] = [
+const COMMANDS: [Command; 24] = [
     Command {
         cmd: "oneshot",
         usage_params: "depends",
@@ -98,6 +98,11 @@ const COMMANDS: [Command; 23] = [
         cmd: "print_muted",
         usage_params: "",
         desc: "print every pubkey that is muted",
+    },
+    Command {
+        cmd: "print_person_lists",
+        usage_params: "",
+        desc: "print every pubkey in every person list",
     },
     Command {
         cmd: "print_person",
@@ -180,6 +185,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "print_event" => print_event(command, args)?,
         "print_followed" => print_followed(command)?,
         "print_muted" => print_muted(command)?,
+        "print_person_lists" => print_person_lists(command)?,
         "print_person" => print_person(command, args)?,
         "print_person_relays" => print_person_relays(command, args)?,
         "print_relay" => print_relay(command, args)?,
@@ -451,6 +457,23 @@ pub fn print_muted(_cmd: Command) -> Result<(), Error> {
         .get_people_in_list(PersonList::Muted, None)?;
     for pk in &pubkeys {
         println!("{}", pk.as_hex_string());
+    }
+    Ok(())
+}
+
+pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
+    let lists = PersonList::all_lists();
+    for (list, name) in lists.iter() {
+        println!("LIST {}: {}", u8::from(*list), name);
+        let pubkeys = GLOBALS.storage.get_people_in_list(*list, None)?;
+        for pk in &pubkeys {
+            if let Some(person) = GLOBALS.storage.read_person(pk)? {
+                println!("{} {}", pk.as_hex_string(), person.best_name());
+            } else {
+                println!("{}", pk.as_hex_string());
+            }
+        }
+        println!("");
     }
     Ok(())
 }
