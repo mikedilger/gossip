@@ -33,11 +33,11 @@ impl std::fmt::Display for FeedKind {
             FeedKind::List(pl, _) => write!(f, "{}", pl.name()),
             FeedKind::Inbox(_) => write!(f, "Inbox"),
             FeedKind::Thread {
-                id: _,
+                id,
                 referenced_by: _,
                 author: _,
-            } => write!(f, "Thread"),
-            FeedKind::Person(_) => write!(f, "Person"),
+            } => write!(f, "Thread {}", crate::names::hex_id_short(&(*id).into())),
+            FeedKind::Person(pk) => write!(f, "{}", crate::names::best_name_from_pubkey_lookup(pk)),
         }
     }
 }
