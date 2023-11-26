@@ -802,7 +802,7 @@ impl GossipUi {
                 ui.separator();
                 ui.add_space(4.0);
 
-                if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::List(PersonList::Followed, _))), "Main Feed").clicked() {
+                if self.add_selected_label(ui, matches!(self.page, Page::Feed(FeedKind::List(PersonList::Followed, _))), "Feed").clicked() {
                     self.set_page(Page::Feed(FeedKind::List(PersonList::Followed, self.mainfeed_include_nonroot)));
                 }
                 if let Some(pubkey) = GLOBALS.signer.public_key() {
