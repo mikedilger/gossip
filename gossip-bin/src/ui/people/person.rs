@@ -361,15 +361,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     };
 
                     ui.vertical_centered_justified(|ui| {
-                        let followed = person.is_in_list(PersonList::Followed);
-                        let muted = person.is_in_list(PersonList::Muted);
-                        let on_list = person.is_in_list(PersonList::Custom(2)); // TODO: change to any list
-                        let is_self = if let Some(pubkey) = GLOBALS.signer.public_key() {
-                            pubkey == person.pubkey
-                        } else {
-                            false
-                        };
-
                         widgets::paint_avatar(ui, &person, &avatar, widgets::AvatarSize::Profile);
 
                         const MIN_SIZE: Vec2 = vec2(40.0, 22.0);
@@ -418,93 +409,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 }
                             }
                         });
-
-                        if !is_self {
-                            ui.add_space(BTN_SPACING * 2.0);
-                            app.theme.accent_button_2_style(ui.style_mut());
-
-                            if !followed {
-                                if ui
-                                    .add(
-                                        egui::Button::new("Follow")
-                                            .min_size(MIN_SIZE)
-                                            .rounding(BTN_ROUNDING),
-                                    )
-                                    .clicked()
-                                {
-                                    let _ = GLOBALS.people.follow(&person.pubkey, true, true);
-                                }
-                            } else {
-                                app.theme.accent_button_danger_hover(ui.style_mut());
-                                if ui
-                                    .add(
-                                        egui::Button::new("Unfollow")
-                                            .min_size(MIN_SIZE)
-                                            .rounding(BTN_ROUNDING),
-                                    )
-                                    .clicked()
-                                {
-                                    let _ = GLOBALS.people.follow(&person.pubkey, false, true);
-                                }
-                                app.theme.accent_button_2_style(ui.style_mut());
-                                // restore style
-                            }
-                            ui.add_space(BTN_SPACING);
-                            if !on_list {
-                                if ui
-                                    .add(
-                                        egui::Button::new("Add to Priority")
-                                            .min_size(MIN_SIZE)
-                                            .rounding(BTN_ROUNDING),
-                                    )
-                                    .clicked()
-                                {
-                                    let _ = GLOBALS.storage.add_person_to_list(
-                                        &person.pubkey,
-                                        PersonList::Custom(2),
-                                        true,
-                                        None,
-                                    );
-                                };
-                            } else {
-                                app.theme.accent_button_danger_hover(ui.style_mut());
-                                if ui
-                                    .add(
-                                        egui::Button::new("Remove from Priority")
-                                            .min_size(MIN_SIZE)
-                                            .rounding(BTN_ROUNDING),
-                                    )
-                                    .clicked()
-                                {
-                                    let _ = GLOBALS.storage.remove_person_from_list(
-                                        &person.pubkey,
-                                        PersonList::Custom(2),
-                                        None,
-                                    );
-                                };
-                                app.theme.accent_button_2_style(ui.style_mut());
-                                // restore style
-                            }
-                            ui.add_space(BTN_SPACING);
-
-                            let mute_label = if muted {
-                                "Unmute"
-                            } else {
-                                app.theme.accent_button_danger_hover(ui.style_mut());
-                                "Mute"
-                            };
-                            if ui
-                                .add(
-                                    egui::Button::new(mute_label)
-                                        .min_size(MIN_SIZE)
-                                        .rounding(BTN_ROUNDING),
-                                )
-                                .clicked()
-                            {
-                                let _ = GLOBALS.people.mute(&person.pubkey, !muted, true);
-                                app.notes.cache_invalidate_person(&person.pubkey);
-                            }
-                        }
                     });
                 });
                 ui.add_space(AVATAR_COL_SPACE);
