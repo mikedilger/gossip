@@ -28,7 +28,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 24] = [
+const COMMANDS: [Command; 26] = [
     Command {
         cmd: "oneshot",
         usage_params: "depends",
@@ -38,6 +38,11 @@ const COMMANDS: [Command; 24] = [
         cmd: "add_person_relay",
         usage_params: "<hexOrBech32String> <relayurl>",
         desc: "add the relay as a read and write relay for the person",
+    },
+    Command {
+        cmd: "add_person_list",
+        usage_params: "<listname>",
+        desc: "add a new person list with the given name",
     },
     Command {
         cmd: "bech32_decode",
@@ -130,6 +135,11 @@ const COMMANDS: [Command; 24] = [
         desc: "Rebuild all event-related indices",
     },
     Command {
+        cmd: "rename_person_list",
+        usage_params: "<number> <newname>",
+        desc: "Rename a person list",
+    },
+    Command {
         cmd: "reprocess_recent",
         usage_params: "",
         desc: "Reprocess events that came during the last 24 hours",
@@ -170,6 +180,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     match command.cmd {
         "oneshot" => oneshot(command, args)?,
         "add_person_relay" => add_person_relay(command, args)?,
+        "add_person_list" => add_person_list(command, args)?,
         "bech32_decode" => bech32_decode(command, args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(command, args)?,
         "decrypt" => decrypt(command, args)?,
@@ -191,6 +202,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
         "rebuild_indices" => rebuild_indices(command)?,
+        "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command, runtime)?,
         "ungiftwrap" => ungiftwrap(command, args)?,
         "verify" => verify(command, args)?,
@@ -238,6 +250,16 @@ pub fn add_person_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> 
     pr.manually_paired_write = true;
     GLOBALS.storage.write_person_relay(&pr, None)?;
 
+    Ok(())
+}
+
+pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let listname = match args.next() {
+        Some(s) => s,
+        None => return cmd.usage("Missing listname parameter".to_string()),
+    };
+
+    let _list = PersonList::allocate(&*listname, None)?;
     Ok(())
 }
 
@@ -465,12 +487,20 @@ pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
     let lists = PersonList::all_lists();
     for (list, name) in lists.iter() {
         println!("LIST {}: {}", u8::from(*list), name);
-        let pubkeys = GLOBALS.storage.get_people_in_list(*list, None)?;
+        let pubkeys = GLOBALS.storage.get_people_in_list(*list, Some(true))?;
         for pk in &pubkeys {
             if let Some(person) = GLOBALS.storage.read_person(pk)? {
-                println!("{} {}", pk.as_hex_string(), person.best_name());
+                println!("public:  {} {}", pk.as_hex_string(), person.best_name());
             } else {
-                println!("{}", pk.as_hex_string());
+                println!("public:  {}", pk.as_hex_string());
+            }
+        }
+        let pubkeys = GLOBALS.storage.get_people_in_list(*list, Some(false))?;
+        for pk in &pubkeys {
+            if let Some(person) = GLOBALS.storage.read_person(pk)? {
+                println!("private: {} {}", pk.as_hex_string(), person.best_name());
+            } else {
+                println!("private: {}", pk.as_hex_string());
             }
         }
         println!("");
@@ -655,6 +685,26 @@ pub fn rebuild_indices(cmd: Command) -> Result<(), Error> {
     login(cmd.clone())?;
 
     GLOBALS.storage.rebuild_event_indices(None)?;
+    Ok(())
+}
+
+pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let number: u8 = match args.next() {
+        Some(number) => number.parse::<u8>()?,
+        None => return cmd.usage("Missing number parameter".to_string()),
+    };
+
+    let newname = match args.next() {
+        Some(name) => name,
+        None => return cmd.usage("Missing newname parameter".to_string()),
+    };
+
+    if let Some(list) = PersonList::from_number(number) {
+        list.rename(&*newname, None)?;
+    } else {
+        println!("No list with number={}", number);
+    }
+
     Ok(())
 }
 
