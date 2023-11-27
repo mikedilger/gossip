@@ -88,6 +88,33 @@ pub fn switch_with_size_at(
     response
 }
 
+pub fn switch_simple(ui: &mut Ui, on: bool) -> Response {
+    let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::click());
+    let rect = Rect::from_min_size(rect.left_top(), size);
+    let id = ui.next_auto_id();
+    let response = ui.interact(rect, id, egui::Sense::click());
+    response
+        .clone()
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    if ui.is_rect_visible(rect) {
+        let how_on = ui.ctx().animate_bool(response.id, on);
+        let visuals = ui.style().interact_selectable(&response, on);
+        let radius = 0.5 * rect.height();
+        ui.painter()
+            .rect(rect, radius, visuals.bg_fill, visuals.bg_stroke);
+        let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
+        let center = egui::pos2(circle_x, rect.center().y);
+        ui.painter().circle(
+            center,
+            0.875 * radius,
+            visuals.fg_stroke.color,
+            visuals.fg_stroke,
+        );
+    }
+    response
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn switch_custom_at(
     ui: &mut Ui,
