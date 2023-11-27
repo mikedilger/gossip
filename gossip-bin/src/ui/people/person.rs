@@ -75,8 +75,8 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
     let half_width = width / 2.0;
 
     ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+        // Left column, main part of page
         ui.with_layout(egui::Layout::top_down(egui::Align::TOP), |ui| {
-            // left column
             ui.set_min_width(width);
             ui.set_max_width(width);
             let person = person.clone();
@@ -186,6 +186,55 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     profile_item(ui, app, width, "about", about);
                 }
             }
+
+            ui.add_space(10.0);
+            ui.heading("User lists");
+            ui.separator();
+            ui.add_space(10.0);
+
+            let all_lists = PersonList::all_lists();
+            if let Ok(membership_map) = GLOBALS.storage.read_person_lists(&pubkey) {
+                for (list, listname) in all_lists {
+                    ui.horizontal(|ui| {
+                        let membership = membership_map.get(&list);
+                        let mut inlist = membership.is_some();
+                        if crate::ui::components::switch_simple(ui, inlist).clicked() {
+                            if inlist {
+                                let _ =
+                                    GLOBALS.storage.remove_person_from_list(&pubkey, list, None);
+                                inlist = false;
+                            } else {
+                                let _ = GLOBALS
+                                    .storage
+                                    .add_person_to_list(&pubkey, list, true, None);
+                                inlist = true;
+                            }
+                            inlist = !inlist;
+                        }
+                        ui.add_space(10.0);
+                        if inlist {
+                            ui.label(listname);
+
+                            ui.add_space(10.0);
+                            let public = membership.unwrap();
+                            // button to toggle public
+                            let label = if *public { "Public" } else { "Private" };
+                            if ui.button(label).clicked() {
+                                let _ = GLOBALS
+                                    .storage
+                                    .add_person_to_list(&pubkey, list, !*public, None);
+                            }
+                        } else {
+                            ui.label(RichText::new(listname).weak());
+                        }
+                    });
+                }
+            }
+
+            ui.add_space(10.0);
+            ui.heading("More details");
+            ui.separator();
+            ui.add_space(10.0);
 
             if let Some(md) = &person.metadata {
                 // render some important fields first
@@ -299,7 +348,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             }
         }); // vertical
 
-        // avatar column
+        // Right column, starting with avatar
         ui.allocate_ui_with_layout(
             vec2(AVATAR_COL_WIDTH, f32::INFINITY),
             egui::Layout::right_to_left(egui::Align::TOP).with_main_justify(true),
@@ -333,7 +382,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                             if ui
                                 .add(
-                                    egui::Button::new("View posts")
+                                    egui::Button::new("View notes")
                                         .min_size(MIN_SIZE)
                                         .rounding(BTN_ROUNDING),
                                 )
@@ -347,7 +396,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             if !is_self {
                                 if ui
                                     .add(
-                                        egui::Button::new("Send message")
+                                        egui::Button::new("Send a DM")
                                             .min_size(MIN_SIZE)
                                             .rounding(BTN_ROUNDING),
                                     )
