@@ -3,7 +3,7 @@ use eframe::egui;
 use egui::widgets::Slider;
 use egui::{Context, Ui};
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Identity Settings");
     ui.add_space(20.0);
 
@@ -19,7 +19,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("Manage your public key identity on the");
         if ui.link("Account > Keys").clicked() {
-            app.set_page(Page::YourKeys);
+            app.set_page(ctx, Page::YourKeys);
         }
         ui.label("page.");
     });

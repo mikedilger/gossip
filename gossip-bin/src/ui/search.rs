@@ -64,7 +64,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                     if widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed)
                         .clicked()
                     {
-                        app.set_page(Page::Person(person.pubkey));
+                        app.set_page(ctx, Page::Person(person.pubkey));
                     };
 
                     ui.vertical(|ui| {
@@ -109,11 +109,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                 }
 
                 if ui.add(Label::new(summary).sense(Sense::click())).clicked() {
-                    app.set_page(Page::Feed(FeedKind::Thread {
-                        id: event.id,
-                        referenced_by: event.id,
-                        author: Some(event.pubkey),
-                    }));
+                    app.set_page(
+                        ctx,
+                        Page::Feed(FeedKind::Thread {
+                            id: event.id,
+                            referenced_by: event.id,
+                            author: Some(event.pubkey),
+                        }),
+                    );
                 }
             }
         }

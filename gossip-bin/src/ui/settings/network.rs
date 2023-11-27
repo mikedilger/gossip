@@ -3,7 +3,7 @@ use eframe::egui;
 use egui::widgets::Slider;
 use egui::{Context, Ui};
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Network Settings");
 
     ui.add_space(10.0);
@@ -26,7 +26,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("Manage individual relays on the");
         if ui.link("Relays > Configure").clicked() {
-            app.set_page(Page::RelaysKnownNetwork);
+            app.set_page(ctx, Page::RelaysKnownNetwork);
         }
         ui.label("page.");
     });

@@ -274,7 +274,7 @@ pub(super) fn render_plain(
 pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
     let nam = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
     if ui.link(&nam).clicked() {
-        app.set_page(Page::Person(pubkey.to_owned()));
+        app.set_page(ui.ctx(), Page::Person(pubkey.to_owned()));
     };
 }
 
@@ -287,11 +287,14 @@ pub(super) fn render_event_link(
     let idhex: IdHex = link_to_id.into();
     let nam = format!("#{}", gossip_lib::names::hex_id_short(&idhex));
     if ui.link(&nam).clicked() {
-        app.set_page(Page::Feed(FeedKind::Thread {
-            id: link_to_id,
-            referenced_by: referenced_by_id,
-            author: None,
-        }));
+        app.set_page(
+            ui.ctx(),
+            Page::Feed(FeedKind::Thread {
+                id: link_to_id,
+                referenced_by: referenced_by_id,
+                author: None,
+            }),
+        );
     };
 }
 
@@ -309,11 +312,14 @@ pub(super) fn render_parameterized_event_link(
                 .storage
                 .get_replaceable_event(event_addr.kind, event_addr.author, &event_addr.d)
         {
-            app.set_page(Page::Feed(FeedKind::Thread {
-                id: prevent.id,
-                referenced_by: referenced_by_id,
-                author: Some(prevent.pubkey),
-            }));
+            app.set_page(
+                ui.ctx(),
+                Page::Feed(FeedKind::Thread {
+                    id: prevent.id,
+                    referenced_by: referenced_by_id,
+                    author: Some(prevent.pubkey),
+                }),
+            );
         } else {
             // Disclose failure
             GLOBALS

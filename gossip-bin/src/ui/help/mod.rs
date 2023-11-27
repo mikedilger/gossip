@@ -29,7 +29,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal_wrapped(|ui| {
                 ui.label("• HINT: If this text is too small, click on");
                 if ui.link("Settings").clicked() {
-                    app.set_page(Page::Settings);
+                    app.set_page(ctx, Page::Settings);
                 }
                 ui.label("and under the User Interface section, check \"Override DPI\" and set the value higher. You can press [Try it now] to see if you like it, and [SAVE CHANGES] to save that setting for next time.");
             });
@@ -43,7 +43,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("You").clicked() {
-                        app.set_page(Page::YourKeys);
+                        app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label("page, add your key (public or private). If you supply your private key you will need to set a passphrase on it, and you will be able to post. But you can just use your public key if you only want to view other people's posts. You can even supply somebody else's public key and see what they see (sneaky you!)");
                 });
@@ -55,7 +55,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays > Configure").clicked() {
-                        app.set_page(Page::RelaysKnownNetwork);
+                        app.set_page(ctx, Page::RelaysKnownNetwork);
                     }
                     ui.label("page, add a few relays that you post to and read from, and tick the \"Read\" and \"Write\" columns appropriately.\n\nWRITE RELAYS: These are used for writing posts, and for reading back your posts including your RelayList and ContactList, which we will need to get started. You should have published these from a previous client, and you should specify a relay that has these on it.\n\nREAD RELAYS: These are used to find other people's RelayList (including those embedded in ContactList events), as a fallback for users that gossip has not found yet, and more. Once gossip learns where the people you follow post, it will pick up their posts from their write relays rather than from your read relays. The more read relays you configure, the better chance you'll find everybody.");
                 });
@@ -67,7 +67,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("People > Followed").clicked() {
-                        app.set_page(Page::PeopleList);
+                        app.set_page(ctx, Page::PeopleList);
                     }
                     ui.label("page, press [↓ Pull ↓ Overwrite] to pull down the people you follow. They won't have metadata just yet.");
                 });
@@ -79,7 +79,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays > Live").clicked() {
-                        app.set_page(Page::RelaysActivityMonitor);
+                        app.set_page(ctx, Page::RelaysActivityMonitor);
                     }
                     ui.label("page, watch the live connections. Press [Pick Again] if connections aren't being made. If people aren't being found, you may need to add different relays and try this again. Watch the console output to see if gossip is busy and wait for it to settle down a bit.");
                 });
@@ -91,7 +91,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("Back on the");
                     if ui.link("People > Followed").clicked() {
-                        app.set_page(Page::PeopleList);
+                        app.set_page(ctx, Page::PeopleList);
                     }
                     ui.label("page, once the relay picking has settled down, press [Refresh Metadata]. Then give it some time. It might not be able to find everybody just yet.");
                 });
@@ -103,7 +103,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Feed > Following").clicked() {
-                        app.set_page(Page::Feed(FeedKind::List(PersonList::Followed, app.mainfeed_include_nonroot)));
+                        app.set_page(ctx, Page::Feed(FeedKind::List(PersonList::Followed, app.mainfeed_include_nonroot)));
                     }
                     ui.label("page, enjoy the feed.");
                 });
@@ -125,7 +125,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal_wrapped(|ui| {
                 ui.label("• HINT: If this text is too small, click on");
                 if ui.link("Settings").clicked() {
-                    app.set_page(Page::Settings);
+                    app.set_page(ctx, Page::Settings);
                 }
                 ui.label("and under the User Interface section, check \"Override DPI\" and set the value higher. You can press [Try it now] to see if you like it, and [SAVE CHANGES] to save that setting for next time.");
             });
@@ -139,7 +139,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("You").clicked() {
-                        app.set_page(Page::YourKeys);
+                        app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label("page, in the top section \"Generate a Keypair\" set a password (twice) and click [Generate Now].");
                 });
@@ -151,7 +151,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays > Configure").clicked() {
-                        app.set_page(Page::RelaysKnownNetwork);
+                        app.set_page(ctx, Page::RelaysKnownNetwork);
                     }
                     ui.label("page, add a few relays that you post to and read from, and tick the \"Read\" and \"Write\" columns appropriately. You will need to search the Internet for nostr relays as we don't want to give special mention to any in particular.\n\nWRITE RELAYS: These are used for writing posts, and for reading back your posts including your RelayList and ContactList whenever you move clients.\n\nREAD RELAYS: These are used to find other people's RelayList (including those embedded in ContactList events), as a fallback for users that gossip has not found yet, and more. Once gossip learns where the people you follow post, it will pick up their posts from their write relays rather than from your read relays. The more read relays you configure, the better chance you'll find everybody.");
                 });
@@ -163,7 +163,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("People > Follow Someone New").clicked() {
-                        app.set_page(Page::PeopleFollow);
+                        app.set_page(ctx, Page::PeopleFollow);
                     }
                     ui.label("page, follow somebody.");
                 });
@@ -175,7 +175,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Relays > Live").clicked() {
-                        app.set_page(Page::RelaysActivityMonitor);
+                        app.set_page(ctx, Page::RelaysActivityMonitor);
                     }
                     ui.label("page, watch the live connections. Press [Pick Again] if connections aren't being made. If people aren't being found, you may need to add different relays and try this again. Watch the console output to see if gossip is busy and wait for it to settle down a bit.");
                 });
@@ -187,7 +187,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("People > Followed").clicked() {
-                        app.set_page(Page::PeopleList);
+                        app.set_page(ctx, Page::PeopleList);
                     }
                     ui.label("page, once the relay picking has settled down, press [Refresh Metadata]. Then give it some time. It might not be able to find everybody just yet.");
                 });
@@ -199,7 +199,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("Feed > Following").clicked() {
-                        app.set_page(Page::Feed(FeedKind::List(PersonList::Followed, app.mainfeed_include_nonroot)));
+                        app.set_page(ctx, Page::Feed(FeedKind::List(PersonList::Followed, app.mainfeed_include_nonroot)));
                     }
                     ui.label("page, enjoy the feed.");
                 });

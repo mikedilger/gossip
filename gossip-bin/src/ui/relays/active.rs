@@ -10,7 +10,7 @@ use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
 use nostr_types::RelayUrl;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
     widgets::page_header(ui, Page::RelaysActivityMonitor.name(), |ui| {
         ui.set_enabled(!is_editing);
@@ -28,7 +28,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             .on_hover_cursor(egui::CursorIcon::PointingHand)
             .clicked()
         {
-            app.set_page(crate::ui::Page::RelaysCoverage);
+            app.set_page(ctx, crate::ui::Page::RelaysCoverage);
         }
     });
 

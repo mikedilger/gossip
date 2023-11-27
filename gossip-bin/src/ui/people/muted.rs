@@ -144,7 +144,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.horizontal_wrapped(|ui| {
             ui.label("You need to ");
             if ui.link("setup your identity").clicked() {
-                app.set_page(Page::YourKeys);
+                app.set_page(ctx, Page::YourKeys);
             }
             ui.label(" to push.");
         });
@@ -167,7 +167,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     app.placeholder_avatar.clone()
                 };
                 if widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed).clicked() {
-                    app.set_page(Page::Person(person.pubkey));
+                    app.set_page(ctx, Page::Person(person.pubkey));
                 };
 
                 ui.vertical(|ui| {

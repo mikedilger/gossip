@@ -6,7 +6,7 @@ use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
 use std::time::{Duration, Instant};
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // Possibly refresh DM channels (every 5 seconds)
     if app.dm_channel_next_refresh < Instant::now() {
         app.dm_channel_cache = match GLOBALS.storage.dm_channels() {
@@ -114,7 +114,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
-                    app.set_page(Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())));
+                    app.set_page(
+                        ctx,
+                        Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())),
+                    );
                     app.dm_draft_data.clear();
                     app.draft_needs_focus = true;
                 }

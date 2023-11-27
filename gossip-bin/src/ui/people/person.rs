@@ -379,7 +379,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 )
                                 .clicked()
                             {
-                                app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
+                                app.set_page(ctx, Page::Feed(FeedKind::Person(person.pubkey)));
                             }
 
                             ui.add_space(BTN_SPACING);
@@ -394,7 +394,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     .clicked()
                                 {
                                     let channel = DmChannel::new(&[person.pubkey]);
-                                    app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                    app.set_page(ctx, Page::Feed(FeedKind::DmChat(channel)));
                                 };
                             } else {
                                 if ui
@@ -405,7 +405,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     )
                                     .clicked()
                                 {
-                                    app.set_page(Page::YourMetadata);
+                                    app.set_page(ctx, Page::YourMetadata);
                                 }
                             }
                         });

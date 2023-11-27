@@ -293,7 +293,7 @@ fn render_note_inner(
 
                 // render avatar
                 if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
-                    app.set_page(Page::Person(note.author.pubkey));
+                    app.set_page(ctx, Page::Person(note.author.pubkey));
                 };
 
                 ui.add_space(avatar_margin_left);
@@ -310,11 +310,14 @@ fn render_note_inner(
                             let idhex: IdHex = irt.into();
                             let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
                             if ui.link(&nam).clicked() {
-                                app.set_page(Page::Feed(FeedKind::Thread {
-                                    id: irt,
-                                    referenced_by: note.event.id,
-                                    author: Some(note.event.pubkey),
-                                }));
+                                app.set_page(
+                                    ctx,
+                                    Page::Feed(FeedKind::Thread {
+                                        id: irt,
+                                        referenced_by: note.event.id,
+                                        author: Some(note.event.pubkey),
+                                    }),
+                                );
                             };
                             ui.reset_style();
                         }
@@ -329,11 +332,14 @@ fn render_note_inner(
                                 let idhex: IdHex = e.id.into();
                                 let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
                                 if ui.link(&nam).clicked() {
-                                    app.set_page(Page::Feed(FeedKind::Thread {
-                                        id: e.id,
-                                        referenced_by: note.event.id,
-                                        author: Some(note.event.pubkey),
-                                    }));
+                                    app.set_page(
+                                        ctx,
+                                        Page::Feed(FeedKind::Thread {
+                                            id: e.id,
+                                            referenced_by: note.event.id,
+                                            author: Some(note.event.pubkey),
+                                        }),
+                                    );
                                 };
                                 ui.reset_style();
                             }
@@ -420,7 +426,7 @@ fn render_note_inner(
                                 if ui.button("View DM Channel").clicked() {
                                     if let Some(channel) = DmChannel::from_event(&note.event, None)
                                     {
-                                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                        app.set_page(ctx, Page::Feed(FeedKind::DmChat(channel)));
                                     } else {
                                         GLOBALS.status_queue.write().write(
                                             "Could not determine DM channel for that note."
@@ -430,11 +436,14 @@ fn render_note_inner(
                                 }
                             } else {
                                 if ui.button("View Thread").clicked() {
-                                    app.set_page(Page::Feed(FeedKind::Thread {
-                                        id: note.event.id,
-                                        referenced_by: note.event.id,
-                                        author: Some(note.event.pubkey),
-                                    }));
+                                    app.set_page(
+                                        ctx,
+                                        Page::Feed(FeedKind::Thread {
+                                            id: note.event.id,
+                                            referenced_by: note.event.id,
+                                            author: Some(note.event.pubkey),
+                                        }),
+                                    );
                                 }
                             }
                         }
@@ -547,18 +556,21 @@ fn render_note_inner(
                         {
                             if note.event.kind.is_direct_message_related() {
                                 if let Some(channel) = DmChannel::from_event(&note.event, None) {
-                                    app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                    app.set_page(ctx, Page::Feed(FeedKind::DmChat(channel)));
                                 } else {
                                     GLOBALS.status_queue.write().write(
                                         "Could not determine DM channel for that note.".to_string(),
                                     );
                                 }
                             } else {
-                                app.set_page(Page::Feed(FeedKind::Thread {
-                                    id: note.event.id,
-                                    referenced_by: note.event.id,
-                                    author: Some(note.event.pubkey),
-                                }));
+                                app.set_page(
+                                    ctx,
+                                    Page::Feed(FeedKind::Thread {
+                                        id: note.event.id,
+                                        referenced_by: note.event.id,
+                                        author: Some(note.event.pubkey),
+                                    }),
+                                );
                             }
                         }
                     }
@@ -803,9 +815,10 @@ fn render_note_inner(
                                             if let Some(channel) =
                                                 DmChannel::from_event(&note.event, None)
                                             {
-                                                app.set_page(Page::Feed(FeedKind::DmChat(
-                                                    channel.clone(),
-                                                )));
+                                                app.set_page(
+                                                    ctx,
+                                                    Page::Feed(FeedKind::DmChat(channel.clone())),
+                                                );
                                                 app.draft_needs_focus = true;
                                             }
                                             // FIXME: else error

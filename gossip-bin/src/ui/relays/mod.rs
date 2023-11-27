@@ -317,7 +317,7 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
 
                 match app.relays.add_dialog_step {
                     AddRelayDialogStep::Inactive => {}
-                    AddRelayDialogStep::Step1UrlEntry => entry_dialog_step1(ui, app),
+                    AddRelayDialogStep::Step1UrlEntry => entry_dialog_step1(ui, ctx, app),
                     AddRelayDialogStep::Step2AwaitOverlord => entry_dialog_step2(ui, app),
                 }
             });
@@ -325,7 +325,7 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
     });
 }
 
-fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
+fn entry_dialog_step1(ui: &mut Ui, ctx: &Context, app: &mut GossipUi) {
     ui.add_space(10.0);
     ui.add(egui::Label::new("Enter relay URL:"));
     ui.add_space(10.0);
@@ -381,7 +381,7 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
                         ));
 
                         // send user to known relays page (where the new entry should show up)
-                        app.set_page(Page::RelaysKnownNetwork);
+                        app.set_page(ctx, Page::RelaysKnownNetwork);
                         // search for the new relay so it shows at the top
                         app.relays.search = url.to_string();
                         // set the new relay to edit mode

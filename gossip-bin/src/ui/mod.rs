@@ -196,7 +196,7 @@ impl Page {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum SubMenu {
     Feeds,
     People,
@@ -218,11 +218,11 @@ impl SubMenu {
 
     fn to_id_str(&self) -> &'static str {
         match self {
-            SubMenu::Feeds => "feeds_submenu",
-            SubMenu::People => "people_submenu",
-            SubMenu::Account => "account_submenu",
-            SubMenu::Relays => "relays_submenu",
-            SubMenu::Help => "help_submenu",
+            SubMenu::Feeds => "feeds_submenu_id",
+            SubMenu::People => "people_submenu_id",
+            SubMenu::Account => "account_submenu_id",
+            SubMenu::Relays => "relays_submenu_id",
+            SubMenu::Help => "help_submenu_id",
         }
     }
 }
@@ -234,10 +234,6 @@ impl std::fmt::Display for SubMenu {
     }
 }
 
-struct SubMenuState {
-    submenu_states: HashMap<SubMenu, bool>,
-}
-
 #[derive(Eq, Hash, PartialEq)]
 enum SettingsTab {
     Content,
@@ -246,23 +242,6 @@ enum SettingsTab {
     Network,
     Posting,
     Ui,
-}
-
-impl SubMenuState {
-    fn new() -> Self {
-        let mut submenu_states: HashMap<SubMenu, bool> = HashMap::new();
-        submenu_states.insert(SubMenu::Feeds, false);
-        submenu_states.insert(SubMenu::People, false);
-        submenu_states.insert(SubMenu::Relays, false);
-        submenu_states.insert(SubMenu::Account, false);
-        submenu_states.insert(SubMenu::Help, false);
-        Self { submenu_states }
-    }
-    fn set_active(&mut self, item: &SubMenu) {
-        for entry in self.submenu_states.iter_mut() {
-            *entry.1 = entry.0 == item;
-        }
-    }
 }
 
 pub enum HighlightType {
@@ -355,6 +334,8 @@ struct GossipUi {
     #[cfg(feature = "video-ffmpeg")]
     video_players: HashMap<Url, Rc<RefCell<egui_video::Player>>>,
 
+    initializing: bool,
+
     // Rendering
     next_frame: Instant,
     override_dpi: bool,
@@ -392,7 +373,6 @@ struct GossipUi {
     mainfeed_include_nonroot: bool,
     inbox_include_indirect: bool,
     submenu_ids: HashMap<SubMenu, egui::Id>,
-    submenu_state: SubMenuState,
     settings_tab: SettingsTab,
 
     // General Data
@@ -619,6 +599,7 @@ impl GossipUi {
             audio_device,
             #[cfg(feature = "video-ffmpeg")]
             video_players: HashMap::new(),
+            initializing: true,
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
@@ -646,7 +627,6 @@ impl GossipUi {
                 .data_mut(|d| d.get_persisted(egui::Id::new("inbox_include_indirect")))
                 .unwrap_or(false),
             submenu_ids,
-            submenu_state: SubMenuState::new(),
             settings_tab: SettingsTab::Id,
             about: About::new(),
             icon: icon_texture_handle,
@@ -697,11 +677,11 @@ impl GossipUi {
     }
 
     // maybe_relays is only used for Page::Feed(FeedKind::Thread...)
-    fn set_page(&mut self, page: Page) {
+    fn set_page(&mut self, ctx: &Context, page: Page) {
         if self.page != page {
             tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
             self.history.push(self.page.clone());
-            self.set_page_inner(page);
+            self.set_page_inner(ctx, page);
 
             // Clear QR codes on page switches
             self.qr_codes.clear();
@@ -710,23 +690,29 @@ impl GossipUi {
         }
     }
 
-    fn back(&mut self) {
+    fn back(&mut self, ctx: &Context) {
         if let Some(page) = self.history.pop() {
             tracing::trace!("POPPING HISTORY: {:?}", &page);
-            self.set_page_inner(page);
+            self.set_page_inner(ctx, page);
         } else {
             tracing::trace!("HISTORY STUCK ON NONE");
         }
     }
 
-    fn set_page_inner(&mut self, page: Page) {
+    fn set_page_inner(&mut self, ctx: &Context, page: Page) {
         // Setting the page often requires some associated actions:
         match &page {
+            Page::Feed(FeedKind::DmChat(channel)) => {
+                GLOBALS.feed.set_feed_to_dmchat(channel.to_owned());
+                self.close_all_menus(ctx);
+            }
             Page::Feed(FeedKind::List(list, with_replies)) => {
                 GLOBALS.feed.set_feed_to_main(*list, *with_replies);
+                self.open_menu(ctx, SubMenu::Feeds);
             }
             Page::Feed(FeedKind::Inbox(indirect)) => {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
+                self.close_all_menus(ctx);
             }
             Page::Feed(FeedKind::Thread {
                 id,
@@ -736,17 +722,37 @@ impl GossipUi {
                 GLOBALS
                     .feed
                     .set_feed_to_thread(*id, *referenced_by, vec![], *author);
+                self.close_all_menus(ctx);
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
+                self.close_all_menus(ctx);
             }
-            Page::Feed(FeedKind::DmChat(channel)) => {
-                GLOBALS.feed.set_feed_to_dmchat(channel.to_owned());
+            Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
+                self.open_menu(ctx, SubMenu::People);
+            }
+            Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
+                self.open_menu(ctx, SubMenu::Account);
+            }
+            Page::RelaysActivityMonitor
+            | Page::RelaysCoverage
+            | Page::RelaysMine
+            | Page::RelaysKnownNetwork => {
+                self.open_menu(ctx, SubMenu::Relays);
             }
             Page::Search => {
                 self.entering_search_page = true;
+                self.close_all_menus(ctx);
             }
-            _ => {}
+            Page::Settings => {
+                self.close_all_menus(ctx);
+            }
+            Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
+                self.open_menu(ctx, SubMenu::Help);
+            }
+            _ => {
+                self.close_all_menus(ctx);
+            }
         }
 
         // clear some search state
@@ -809,17 +815,18 @@ impl GossipUi {
                     response.on_hover_cursor(egui::CursorIcon::NotAllowed)
                 };
                 if response.clicked() {
-                    self.back();
+                    self.back(ctx);
                 }
 
                 ui.add_space(4.0);
                 ui.separator();
                 ui.add_space(4.0);
 
-                // ---- Feeds Submenu ----
+                // ---- Feeds SubMenu ----
                 {
-                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Feeds);
-                    submenu.show_body_indented(&header_response, ui, |ui| {
+                    let (mut cstate, header_response) =
+                        self.get_openable_menu(ui, ctx, SubMenu::Feeds);
+                    cstate.show_body_indented(&header_response, ui, |ui| {
                         let all_lists = PersonList::all_lists();
                         for (list, listname) in all_lists {
                             // skip muted
@@ -840,7 +847,7 @@ impl GossipUi {
                             )),
                         );
                     });
-                    self.after_openable_menu(ui, &submenu);
+                    self.after_openable_menu(ui, &cstate);
                 }
 
                 if let Some(pubkey) = GLOBALS.signer.public_key() {
@@ -852,8 +859,7 @@ impl GossipUi {
                         )
                         .clicked()
                     {
-                        self.close_all_open_menus(ui);
-                        self.set_page(Page::Feed(FeedKind::Person(pubkey)));
+                        self.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
                     }
                     if self
                         .add_selected_label(
@@ -863,8 +869,10 @@ impl GossipUi {
                         )
                         .clicked()
                     {
-                        self.close_all_open_menus(ui);
-                        self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
+                        self.set_page(
+                            ctx,
+                            Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
+                        );
                     }
                 }
 
@@ -874,27 +882,26 @@ impl GossipUi {
                         .add_selected_label(ui, self.page == Page::DmChatList, "Private chats")
                         .clicked()
                     {
-                        self.close_all_open_menus(ui);
-                        self.set_page(Page::DmChatList);
+                        self.set_page(ctx, Page::DmChatList);
                     }
                 }
 
-                // ---- People Submenu ----
+                // ---- People SubMenu ----
                 {
-                    let (mut submenu, header_response) =
-                        self.get_openable_menu(ui, SubMenu::People);
-                    submenu.show_body_indented(&header_response, ui, |ui| {
+                    let (mut cstate, header_response) =
+                        self.get_openable_menu(ui, ctx, SubMenu::People);
+                    cstate.show_body_indented(&header_response, ui, |ui| {
                         self.add_menu_item_page(ui, Page::PeopleList);
                         self.add_menu_item_page(ui, Page::PeopleFollow);
                         self.add_menu_item_page(ui, Page::PeopleMuted);
                     });
-                    self.after_openable_menu(ui, &submenu);
+                    self.after_openable_menu(ui, &cstate);
                 }
-                // ---- Relays Submenu ----
+                // ---- Relays SubMenu ----
                 {
-                    let (mut submenu, header_response) =
-                        self.get_openable_menu(ui, SubMenu::Relays);
-                    submenu.show_body_indented(&header_response, ui, |ui| {
+                    let (mut cstate, header_response) =
+                        self.get_openable_menu(ui, ctx, SubMenu::Relays);
+                    cstate.show_body_indented(&header_response, ui, |ui| {
                         self.add_menu_item_page(ui, Page::RelaysActivityMonitor);
                         self.add_menu_item_page(ui, Page::RelaysMine);
                         self.add_menu_item_page(ui, Page::RelaysKnownNetwork);
@@ -916,45 +923,44 @@ impl GossipUi {
                             }
                         });
                     });
-                    self.after_openable_menu(ui, &submenu);
+                    self.after_openable_menu(ui, &cstate);
                 }
-                // ---- Account Submenu ----
+                // ---- Account SubMenu ----
                 {
-                    let (mut submenu, header_response) =
-                        self.get_openable_menu(ui, SubMenu::Account);
-                    submenu.show_body_indented(&header_response, ui, |ui| {
+                    let (mut cstate, header_response) =
+                        self.get_openable_menu(ui, ctx, SubMenu::Account);
+                    cstate.show_body_indented(&header_response, ui, |ui| {
                         self.add_menu_item_page(ui, Page::YourMetadata);
                         self.add_menu_item_page(ui, Page::YourKeys);
                         self.add_menu_item_page(ui, Page::YourDelegation);
                     });
-                    self.after_openable_menu(ui, &submenu);
+                    self.after_openable_menu(ui, &cstate);
                 }
                 // ----
                 if self
                     .add_selected_label(ui, self.page == Page::Search, "Search")
                     .clicked()
                 {
-                    self.close_all_open_menus(ui);
-                    self.set_page(Page::Search);
+                    self.set_page(ctx, Page::Search);
                 }
                 // ----
                 if self
                     .add_selected_label(ui, self.page == Page::Settings, "Settings")
                     .clicked()
                 {
-                    self.close_all_open_menus(ui);
-                    self.set_page(Page::Settings);
+                    self.set_page(ctx, Page::Settings);
                 }
-                // ---- Help Submenu ----
+                // ---- Help SubMenu ----
                 {
-                    let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Help);
-                    submenu.show_body_indented(&header_response, ui, |ui| {
+                    let (mut cstate, header_response) =
+                        self.get_openable_menu(ui, ctx, SubMenu::Help);
+                    cstate.show_body_indented(&header_response, ui, |ui| {
                         self.add_menu_item_page(ui, Page::HelpHelp);
                         self.add_menu_item_page(ui, Page::HelpStats);
                         self.add_menu_item_page(ui, Page::HelpAbout);
                         self.add_menu_item_page(ui, Page::HelpTheme);
                     });
-                    self.after_openable_menu(ui, &submenu);
+                    self.after_openable_menu(ui, &cstate);
                 }
 
                 // -- Status Area
@@ -1070,6 +1076,14 @@ impl GossipUi {
 
 impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        // Run only on first frame
+        if self.initializing {
+            self.initializing = false;
+
+            // Set initial menu state, Feed open since initial page is Following.
+            self.open_menu(ctx, SubMenu::Feeds);
+        }
+
         let max_fps = GLOBALS.storage.read_setting_max_fps() as f32;
 
         if self.future_scroll_offset != 0.0 {
@@ -1338,18 +1352,18 @@ impl GossipUi {
             ui.menu_button(tag_name_menu, |ui| {
                 if !profile_page {
                     if ui.button("View Person").clicked() {
-                        app.set_page(Page::Person(person.pubkey));
+                        app.set_page(ui.ctx(), Page::Person(person.pubkey));
                     }
                 }
                 if app.page != Page::Feed(FeedKind::Person(person.pubkey)) {
                     if ui.button("View Their Posts").clicked() {
-                        app.set_page(Page::Feed(FeedKind::Person(person.pubkey)));
+                        app.set_page(ui.ctx(), Page::Feed(FeedKind::Person(person.pubkey)));
                     }
                 }
                 if GLOBALS.signer.is_ready() {
                     if ui.button("Send DM").clicked() {
                         let channel = DmChannel::new(&[person.pubkey]);
-                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                        app.set_page(ui.ctx(), Page::Feed(FeedKind::DmChat(channel)));
                     }
                 }
                 if !followed && ui.button("Follow").clicked() {
@@ -1592,7 +1606,7 @@ impl GossipUi {
             .add_selected_label(ui, self.page == page, page.to_readable().1.as_str())
             .clicked()
         {
-            self.set_page(page);
+            self.set_page(ui.ctx(), page);
         }
     }
 
@@ -1601,56 +1615,66 @@ impl GossipUi {
             .add_selected_label(ui, self.page == page, title)
             .clicked()
         {
-            self.set_page(page);
+            self.set_page(ui.ctx(), page);
         }
     }
 
-    fn close_all_open_menus(&mut self, ui: &mut Ui) {
-        let ctx = ui.ctx();
-        for (_, id) in self.submenu_ids.iter() {
-            if let Some(mut cs) = egui::CollapsingState::load(ctx, *id) {
-                cs.set_open(false);
-                cs.store(ctx);
-            }
+    fn open_menu(&mut self, ctx: &Context, item: SubMenu) {
+        for (submenu, id) in self.submenu_ids.iter() {
+            let mut cstate = egui::CollapsingState::load_with_default_open(ctx, *id, false);
+            cstate.set_open(*submenu == item);
+            cstate.store(ctx);
+        }
+    }
+
+    fn close_all_menus(&mut self, ctx: &Context) {
+        for (_submenu, id) in self.submenu_ids.iter() {
+            let mut cstate = egui::CollapsingState::load_with_default_open(ctx, *id, false);
+            cstate.set_open(false);
+            cstate.store(ctx);
         }
     }
 
     fn get_openable_menu(
         &mut self,
         ui: &mut Ui,
-        item: SubMenu,
+        ctx: &Context,
+        submenu: SubMenu,
     ) -> (egui::CollapsingState, Response) {
-        let mut clps =
-            egui::CollapsingState::load_with_default_open(ui.ctx(), self.submenu_ids[&item], false);
-        let txt = if clps.is_open() {
-            item.to_string() + " \u{25BE}"
+        let mut cstate =
+            egui::CollapsingState::load_with_default_open(ctx, self.submenu_ids[&submenu], false);
+        let open = cstate.is_open();
+        let txt = if open {
+            submenu.to_string() + " \u{25BE}"
         } else {
-            item.to_string() + " \u{25B8}"
+            submenu.to_string() + " \u{25B8}"
         };
-        if clps.is_open() {
+        if open {
             ui.add_space(10.0)
         }
         let header_res = ui.horizontal(|ui| {
-            if ui
-                .add(self.new_header_label(clps.is_open(), txt.as_str()))
-                .clicked()
-            {
-                clps.toggle(ui);
-                self.submenu_state.set_active(&item);
+            if ui.add(self.new_header_label(open, txt.as_str())).clicked() {
+                if open {
+                    cstate.set_open(false);
+                    cstate.store(ctx);
+                } else {
+                    self.open_menu(ctx, submenu);
+                    // Local cstate variable does not get updated by the above
+                    // call so we have to update it here, but do not have to
+                    // store it.
+                    cstate.set_open(true);
+                }
             }
         });
-        if clps.is_open() {
-            clps.set_open(self.submenu_state.submenu_states[&item]);
-        }
         header_res
             .response
             .clone()
             .on_hover_cursor(egui::CursorIcon::PointingHand);
-        (clps, header_res.response)
+        (cstate, header_res.response)
     }
 
-    fn after_openable_menu(&self, ui: &mut Ui, submenu: &egui::CollapsingState) {
-        if submenu.is_open() {
+    fn after_openable_menu(&self, ui: &mut Ui, cstate: &egui::CollapsingState) {
+        if cstate.is_open() {
             ui.add_space(10.0)
         }
     }

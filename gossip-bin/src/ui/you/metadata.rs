@@ -13,7 +13,7 @@ lazy_static! {
     pub static ref EMPTY_METADATA: Metadata = Metadata::new();
 }
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         // ui.add_space(2.0);
@@ -26,7 +26,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.horizontal(|ui| {
                 ui.label("You need to");
                 if ui.link("setup an identity").clicked() {
-                    app.set_page(Page::YourKeys);
+                    app.set_page(ctx, Page::YourKeys);
                 }
                 ui.label("to have metadata.");
             });
@@ -124,7 +124,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 ui.horizontal(|ui| {
                     ui.label("You need to");
                     if ui.link("unlock your private key").clicked() {
-                        app.set_page(Page::YourKeys);
+                        app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label("to edit/save metadata.");
                 });
@@ -137,7 +137,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 ui.horizontal(|ui| {
                     ui.label("You need to");
                     if ui.link("configure write relays").clicked() {
-                        app.set_page(Page::RelaysKnownNetwork);
+                        app.set_page(ctx, Page::RelaysKnownNetwork);
                     }
                     ui.label("to edit/save metadata.");
                 });

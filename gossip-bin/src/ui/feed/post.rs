@@ -120,7 +120,7 @@ pub(in crate::ui) fn posting_area(
                 } else {
                     ui.label("You need to ");
                     if ui.link("setup your identity").clicked() {
-                        app.set_page(Page::YourKeys);
+                        app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label(" to post.");
                 }
@@ -134,7 +134,7 @@ pub(in crate::ui) fn posting_area(
             ui.horizontal_wrapped(|ui| {
                 ui.label("You need to ");
                 if ui.link("choose write relays").clicked() {
-                    app.set_page(Page::RelaysKnownNetwork);
+                    app.set_page(ctx, Page::RelaysKnownNetwork);
                 }
                 ui.label(" to post.");
             });

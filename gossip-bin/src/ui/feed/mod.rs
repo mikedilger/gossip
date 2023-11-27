@@ -79,10 +79,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         )
                         .clicked()
                         {
-                            app.set_page(Page::Feed(FeedKind::List(
-                                list,
-                                app.mainfeed_include_nonroot,
-                            )));
+                            app.set_page(
+                                ctx,
+                                Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)),
+                            );
                             ctx.data_mut(|d| {
                                 d.insert_persisted(
                                     egui::Id::new("mainfeed_include_nonroot"),
@@ -102,7 +102,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup an identity").clicked() {
-                        app.set_page(Page::YourKeys);
+                        app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label(" to see any replies to that identity.");
                 });
@@ -129,7 +129,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         )
                         .clicked()
                         {
-                            app.set_page(Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)));
+                            app.set_page(
+                                ctx,
+                                Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)),
+                            );
                             ctx.data_mut(|d| {
                                 d.insert_persisted(
                                     egui::Id::new("inbox_include_indirect"),
@@ -171,7 +174,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup your identity").clicked() {
-                        app.set_page(Page::YourKeys);
+                        app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label(" to see DMs.");
                 });

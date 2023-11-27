@@ -120,7 +120,7 @@ fn find_relays_for_pubkey(pk: &PublicKey) -> Vec<RelayUrl> {
         .collect()
 }
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     widgets::page_header(
         ui,
         format!(
@@ -146,7 +146,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
-                    app.set_page(Page::RelaysActivityMonitor);
+                    app.set_page(ctx, Page::RelaysActivityMonitor);
                 }
             }
         },
@@ -155,7 +155,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.label("You can change how many relays per person to query here:");
         if ui.link("Network Settings").clicked() {
             app.settings_tab = SettingsTab::Network;
-            app.set_page(Page::Settings);
+            app.set_page(ctx, Page::Settings);
         }
     });
     if GLOBALS.relay_picker.pubkey_counts_iter().count() > 0 {
@@ -182,7 +182,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
-                    app.set_page(Page::Person(*pk));
+                    app.set_page(ctx, Page::Person(*pk));
                 }
             }
 

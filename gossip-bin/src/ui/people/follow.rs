@@ -5,7 +5,7 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::GLOBALS;
 use nostr_types::{Profile, PublicKey};
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         ui.add_space(2.0);
@@ -39,18 +39,18 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::FollowPubkey(pubkey, true));
-            app.set_page(Page::Person(pubkey));
+            app.set_page(ctx, Page::Person(pubkey));
         } else if let Ok(pubkey) = PublicKey::try_from_hex_string(app.follow_someone.trim(), true) {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::FollowPubkey(pubkey, true));
-            app.set_page(Page::Person(pubkey));
+            app.set_page(ctx, Page::Person(pubkey));
         } else if let Ok(profile) = Profile::try_from_bech32_string(app.follow_someone.trim(), true)
         {
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::FollowNprofile(profile.clone(), true));
-            app.set_page(Page::Person(profile.pubkey));
+            app.set_page(ctx, Page::Person(profile.pubkey));
         } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                 app.follow_someone.trim().to_owned(),
