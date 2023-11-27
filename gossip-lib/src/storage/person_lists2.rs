@@ -108,10 +108,10 @@ impl Storage {
             let (key, val) = result?;
             let pubkey = PublicKey::from_bytes(key, true)?;
             let map = HashMap::<PersonList1, bool>::read_from_buffer(val)?;
-            if let Some(p) = map.get(&list) {
+            if let Some(actual_public) = map.get(&list) {
                 match public {
-                    Some(p2) => {
-                        if p2 == *p {
+                    Some(requested_public) => {
+                        if requested_public == *actual_public {
                             pubkeys.push(pubkey);
                         }
                     }
