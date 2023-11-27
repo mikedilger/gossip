@@ -26,14 +26,22 @@ impl From<PersonList1> for u8 {
 }
 
 impl PersonList1 {
-    // Not public, because we only allow creating PersonList1::Custom(u8) if
-    // we also have allocated it.
     pub(in crate::storage) fn from_u8(u: u8) -> Self {
         match u {
             0 => PersonList1::Muted,
             1 => PersonList1::Followed,
             u => PersonList1::Custom(u),
         }
+    }
+
+    pub fn from_number(number: u8) -> Option<Self> {
+        let map = GLOBALS.storage.read_setting_custom_person_list_map();
+        for k in map.keys() {
+            if *k == number {
+                return Some(Self::from_u8(number));
+            }
+        }
+        None
     }
 
     /// Translate a name (d-tag) to a PersonList1
@@ -109,6 +117,19 @@ impl PersonList1 {
             } else {
                 Err(ErrorKind::ListIsWellKnown.into())
             }
+        }
+    }
+
+    pub fn rename(&self, name: &str, txn: Option<&mut RwTxn<'_>>) -> Result<(), Error> {
+        if let PersonList1::Custom(i) = self {
+            let mut map = GLOBALS.storage.read_setting_custom_person_list_map();
+            map.insert(*i, name.to_owned());
+            GLOBALS
+                .storage
+                .write_setting_custom_person_list_map(&map, txn)?;
+            Ok(())
+        } else {
+            Err(ErrorKind::ListIsWellKnown.into())
         }
     }
 
