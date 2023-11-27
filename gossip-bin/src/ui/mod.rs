@@ -820,12 +820,6 @@ impl GossipUi {
                 {
                     let (mut submenu, header_response) = self.get_openable_menu(ui, SubMenu::Feeds);
                     submenu.show_body_indented(&header_response, ui, |ui| {
-                        if GLOBALS.signer.public_key().is_some() {
-                            self.add_menu_item_page(
-                                ui,
-                                Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
-                            );
-                        }
                         let all_lists = PersonList::all_lists();
                         for (list, listname) in all_lists {
                             // skip muted
@@ -836,13 +830,6 @@ impl GossipUi {
                                 ui,
                                 Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
                                 &*listname,
-                            );
-                        }
-                        if let Some(pubkey) = GLOBALS.signer.public_key() {
-                            self.add_menu_item_page_titled(
-                                ui,
-                                Page::Feed(FeedKind::Person(pubkey)),
-                                "My Notes",
                             );
                         }
                         self.add_menu_item_page(
@@ -856,12 +843,38 @@ impl GossipUi {
                     self.after_openable_menu(ui, &submenu);
                 }
 
+                if let Some(pubkey) = GLOBALS.signer.public_key() {
+                    if self
+                        .add_selected_label(
+                            ui,
+                            self.page == Page::Feed(FeedKind::Person(pubkey)),
+                            "My Notes",
+                        )
+                        .clicked()
+                    {
+                        self.close_all_open_menus(ui);
+                        self.set_page(Page::Feed(FeedKind::Person(pubkey)));
+                    }
+                    if self
+                        .add_selected_label(
+                            ui,
+                            self.page == Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
+                            "Inbox",
+                        )
+                        .clicked()
+                    {
+                        self.close_all_open_menus(ui);
+                        self.set_page(Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)));
+                    }
+                }
+
                 // private chats not under feeds
                 if GLOBALS.signer.is_ready() {
                     if self
                         .add_selected_label(ui, self.page == Page::DmChatList, "Private chats")
                         .clicked()
                     {
+                        self.close_all_open_menus(ui);
                         self.set_page(Page::DmChatList);
                     }
                 }
@@ -921,6 +934,7 @@ impl GossipUi {
                     .add_selected_label(ui, self.page == Page::Search, "Search")
                     .clicked()
                 {
+                    self.close_all_open_menus(ui);
                     self.set_page(Page::Search);
                 }
                 // ----
@@ -928,6 +942,7 @@ impl GossipUi {
                     .add_selected_label(ui, self.page == Page::Settings, "Settings")
                     .clicked()
                 {
+                    self.close_all_open_menus(ui);
                     self.set_page(Page::Settings);
                 }
                 // ---- Help Submenu ----
@@ -1587,6 +1602,16 @@ impl GossipUi {
             .clicked()
         {
             self.set_page(page);
+        }
+    }
+
+    fn close_all_open_menus(&mut self, ui: &mut Ui) {
+        let ctx = ui.ctx();
+        for (_, id) in self.submenu_ids.iter() {
+            if let Some(mut cs) = egui::CollapsingState::load(ctx, *id) {
+                cs.set_open(false);
+                cs.store(ctx);
+            }
         }
     }
 
