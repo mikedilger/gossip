@@ -127,7 +127,7 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_white_alpha(8),
-                        bg_stroke: Stroke::new(2.0, Color32::from_white_alpha(5)), // separators, borders
+                        bg_stroke: Stroke::new(2.0, Color32::from_gray(48)), // separators, borders
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(170)), // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
@@ -212,15 +212,15 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(248),
                         bg_fill: Color32::from_black_alpha(20),
-                        bg_stroke: Stroke::new(2.0, Color32::from_white_alpha(1)),
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(80)), // normal text color
+                        bg_stroke: Stroke::new(2.0, Color32::from_gray(224)), // separators, borders
+                        fg_stroke: Stroke::new(1.0, Color32::from_gray(80)),  // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(230), // button background
                         bg_fill: Color32::from_black_alpha(20),
-                        bg_stroke: Stroke::new(0.0, Color32::from_gray(192)),
+                        bg_stroke: Stroke::new(0.0, Color32::from_gray(192)), // separators, borders
                         // The following is used for All buttons, any clickable text,
                         //    AND text inputs, whether they are inactive OR active. It's really
                         //    overloaded.
