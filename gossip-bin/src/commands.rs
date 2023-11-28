@@ -259,7 +259,7 @@ pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing listname parameter".to_string()),
     };
 
-    let _list = PersonList::allocate(&*listname, None)?;
+    let _list = PersonList::allocate(&listname, None)?;
     Ok(())
 }
 
@@ -503,7 +503,7 @@ pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
                 println!("private: {}", pk.as_hex_string());
             }
         }
-        println!("");
+        println!();
     }
     Ok(())
 }
@@ -700,7 +700,7 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
     };
 
     if let Some(list) = PersonList::from_number(number) {
-        list.rename(&*newname, None)?;
+        list.rename(&newname, None)?;
     } else {
         println!("No list with number={}", number);
     }

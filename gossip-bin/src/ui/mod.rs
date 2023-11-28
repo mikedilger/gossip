@@ -138,28 +138,28 @@ impl Page {
 impl Page {
     pub fn to_readable(&self) -> (&'static str /* Category */, String /* Name */) {
         match self {
-            Page::DmChatList => (SubMenu::Feeds.to_str(), "Private chats".into()),
+            Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
-            Page::PeopleFollowNew => (SubMenu::People.to_str(), "Follow new".into()),
-            Page::PeopleFollowed => (SubMenu::People.to_str(), "Followed".into()),
-            Page::PeopleMuted => (SubMenu::People.to_str(), "Muted".into()),
+            Page::PeopleFollowNew => (SubMenu::People.as_str(), "Follow new".into()),
+            Page::PeopleFollowed => (SubMenu::People.as_str(), "Followed".into()),
+            Page::PeopleMuted => (SubMenu::People.as_str(), "Muted".into()),
             Page::Person(pk) => {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 ("Profile", name)
             }
-            Page::YourKeys => (SubMenu::Account.to_str(), "Keys".into()),
-            Page::YourMetadata => (SubMenu::Account.to_str(), "Profile".into()),
-            Page::YourDelegation => (SubMenu::Account.to_str(), "Delegation".into()),
-            Page::RelaysActivityMonitor => (SubMenu::Relays.to_str(), "Active Relays".into()),
-            Page::RelaysCoverage => (SubMenu::Relays.to_str(), "Coverage Report".into()),
-            Page::RelaysMine => (SubMenu::Relays.to_str(), "My Relays".into()),
-            Page::RelaysKnownNetwork => (SubMenu::Relays.to_str(), "Known Network".into()),
+            Page::YourKeys => (SubMenu::Account.as_str(), "Keys".into()),
+            Page::YourMetadata => (SubMenu::Account.as_str(), "Profile".into()),
+            Page::YourDelegation => (SubMenu::Account.as_str(), "Delegation".into()),
+            Page::RelaysActivityMonitor => (SubMenu::Relays.as_str(), "Active Relays".into()),
+            Page::RelaysCoverage => (SubMenu::Relays.as_str(), "Coverage Report".into()),
+            Page::RelaysMine => (SubMenu::Relays.as_str(), "My Relays".into()),
+            Page::RelaysKnownNetwork => (SubMenu::Relays.as_str(), "Known Network".into()),
             Page::Search => ("Search", "Search".into()),
             Page::Settings => ("Settings", "Settings".into()),
-            Page::HelpHelp => (SubMenu::Help.to_str(), "Help".into()),
-            Page::HelpStats => (SubMenu::Help.to_str(), "Stats".into()),
-            Page::HelpAbout => (SubMenu::Help.to_str(), "About".into()),
-            Page::HelpTheme => (SubMenu::Help.to_str(), "Theme Test".into()),
+            Page::HelpHelp => (SubMenu::Help.as_str(), "Help".into()),
+            Page::HelpStats => (SubMenu::Help.as_str(), "Stats".into()),
+            Page::HelpAbout => (SubMenu::Help.as_str(), "About".into()),
+            Page::HelpTheme => (SubMenu::Help.as_str(), "Theme Test".into()),
             Page::Wizard(wp) => ("Wizard", wp.as_str().to_string()),
         }
     }
@@ -206,7 +206,7 @@ enum SubMenu {
 }
 
 impl SubMenu {
-    fn to_str(&self) -> &'static str {
+    fn as_str(&self) -> &'static str {
         match self {
             SubMenu::Feeds => "Feeds",
             SubMenu::People => "People",
@@ -216,7 +216,7 @@ impl SubMenu {
         }
     }
 
-    fn to_id_str(&self) -> &'static str {
+    fn as_id_str(&self) -> &'static str {
         match self {
             SubMenu::Feeds => "feeds_submenu_id",
             SubMenu::People => "people_submenu_id",
@@ -230,7 +230,7 @@ impl SubMenu {
 // this provides to_string(), implemented to make clipy happy
 impl std::fmt::Display for SubMenu {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_str())
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -494,14 +494,14 @@ impl GossipUi {
         }
 
         let mut submenu_ids: HashMap<SubMenu, egui::Id> = HashMap::new();
-        submenu_ids.insert(SubMenu::Feeds, egui::Id::new(SubMenu::Feeds.to_id_str()));
-        submenu_ids.insert(SubMenu::People, egui::Id::new(SubMenu::People.to_id_str()));
+        submenu_ids.insert(SubMenu::Feeds, egui::Id::new(SubMenu::Feeds.as_id_str()));
+        submenu_ids.insert(SubMenu::People, egui::Id::new(SubMenu::People.as_id_str()));
         submenu_ids.insert(
             SubMenu::Account,
-            egui::Id::new(SubMenu::Account.to_id_str()),
+            egui::Id::new(SubMenu::Account.as_id_str()),
         );
-        submenu_ids.insert(SubMenu::Relays, egui::Id::new(SubMenu::Relays.to_id_str()));
-        submenu_ids.insert(SubMenu::Help, egui::Id::new(SubMenu::Help.to_id_str()));
+        submenu_ids.insert(SubMenu::Relays, egui::Id::new(SubMenu::Relays.as_id_str()));
+        submenu_ids.insert(SubMenu::Help, egui::Id::new(SubMenu::Help.as_id_str()));
 
         let icon_texture_handle = {
             let bytes = include_bytes!("../../../logo/gossip.png");
@@ -836,7 +836,7 @@ impl GossipUi {
                             self.add_menu_item_page_titled(
                                 ui,
                                 Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
-                                &*listname,
+                                &listname,
                             );
                         }
                         self.add_menu_item_page(
