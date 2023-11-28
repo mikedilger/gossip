@@ -105,8 +105,10 @@ enum Page {
     DmChatList,
     Feed(FeedKind),
     PeopleFollowNew, // deprecated, will separately be part of the list page
-    PeopleFollowed,
-    PeopleMuted,
+    PeopleLists,
+    PeopleList(PersonList),
+    PeopleFollowed, // deprecated, will use PeopleList(PersonList)
+    PeopleMuted,    // deprecated, will use PeopleList(PersonList)
     Person(PublicKey),
     YourKeys,
     YourMetadata,
@@ -141,6 +143,8 @@ impl Page {
             Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
             Page::PeopleFollowNew => (SubMenu::People.as_str(), "Follow new".into()),
+            Page::PeopleLists => (SubMenu::People.as_str(), "Lists".into()),
+            Page::PeopleList(list) => ("People", list.name()),
             Page::PeopleFollowed => (SubMenu::People.as_str(), "Followed".into()),
             Page::PeopleMuted => (SubMenu::People.as_str(), "Muted".into()),
             Page::Person(pk) => {
@@ -187,7 +191,11 @@ impl Page {
         match self {
             Page::DmChatList => cat_name(self),
             Page::Feed(_) => name_cat(self),
-            Page::PeopleFollowNew | Page::PeopleFollowed | Page::PeopleMuted => cat_name(self),
+            Page::PeopleFollowNew
+            | Page::PeopleLists
+            | Page::PeopleList(_)
+            | Page::PeopleFollowed
+            | Page::PeopleMuted => cat_name(self),
             Page::Person(_) => name_cat(self),
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => cat_name(self),
             Page::Wizard(_) => name_cat(self),
@@ -410,6 +418,7 @@ struct GossipUi {
     add_relay: String, // dep
     follow_clear_needs_confirm: bool,
     mute_clear_needs_confirm: bool,
+    clear_list_needs_confirm: bool,
     password: String,
     password2: String,
     password3: String,
@@ -651,6 +660,7 @@ impl GossipUi {
             add_relay: "".to_owned(),
             follow_clear_needs_confirm: false,
             mute_clear_needs_confirm: false,
+            clear_list_needs_confirm: false,
             password: "".to_owned(),
             password2: "".to_owned(),
             password3: "".to_owned(),
@@ -728,7 +738,11 @@ impl GossipUi {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
                 self.close_all_menus(ctx);
             }
-            Page::PeopleFollowNew | Page::PeopleFollowed | Page::PeopleMuted | Page::Person(_) => {
+            Page::PeopleFollowNew
+            | Page::PeopleLists
+            | Page::PeopleFollowed
+            | Page::PeopleMuted
+            | Page::Person(_) => {
                 self.open_menu(ctx, SubMenu::People);
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
@@ -892,6 +906,7 @@ impl GossipUi {
                         self.get_openable_menu(ui, ctx, SubMenu::People);
                     cstate.show_body_indented(&header_response, ui, |ui| {
                         self.add_menu_item_page(ui, Page::PeopleFollowNew);
+                        self.add_menu_item_page(ui, Page::PeopleLists);
                         self.add_menu_item_page(ui, Page::PeopleFollowed);
                         self.add_menu_item_page(ui, Page::PeopleMuted);
                     });
@@ -1265,6 +1280,8 @@ impl eframe::App for GossipUi {
                     .fill({
                         match self.page {
                             Page::PeopleFollowNew
+                            | Page::PeopleLists
+                            | Page::PeopleList(_)
                             | Page::PeopleFollowed
                             | Page::PeopleMuted
                             | Page::Person(_) => {
@@ -1284,6 +1301,8 @@ impl eframe::App for GossipUi {
                     Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
                     Page::Feed(_) => feed::update(self, ctx, frame, ui),
                     Page::PeopleFollowNew
+                    | Page::PeopleLists
+                    | Page::PeopleList(_)
                     | Page::PeopleFollowed
                     | Page::PeopleMuted
                     | Page::Person(_) => people::update(self, ctx, frame, ui),
