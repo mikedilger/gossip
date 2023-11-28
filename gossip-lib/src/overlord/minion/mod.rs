@@ -628,6 +628,7 @@ impl Minion {
                         //EventKind::RecommendRelay,
                         EventKind::ContactList,
                         EventKind::MuteList,
+                        EventKind::FollowSets,
                         EventKind::RelayList,
                     ],
                     // these are all replaceable, no since required
