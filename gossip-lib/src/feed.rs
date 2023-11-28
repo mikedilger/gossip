@@ -305,7 +305,13 @@ impl Feed {
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
             FeedKind::List(list, with_replies) => {
-                let pubkeys: Vec<PublicKey> = GLOBALS.storage.get_people_in_list(list, None)?;
+                let pubkeys: Vec<PublicKey> = GLOBALS
+                    .storage
+                    .get_people_in_list(list)?
+                    .drain(..)
+                    .map(|(pk, _)| pk)
+                    .collect();
+
                 let since = now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
 
                 // FIXME we don't include delegated events. We should look for all events

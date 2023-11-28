@@ -591,12 +591,7 @@ impl People {
         let my_pubkey = GLOBALS.signer.public_key().unwrap();
 
         // Read the person list in two parts
-        let public_people = GLOBALS
-            .storage
-            .get_people_in_list(person_list, Some(true))?;
-        let private_people = GLOBALS
-            .storage
-            .get_people_in_list(person_list, Some(false))?;
+        let people = GLOBALS.storage.get_people_in_list(person_list)?;
 
         // Determine the event kind
         let kind = match person_list {
@@ -607,7 +602,11 @@ impl People {
 
         // Build public p-tags
         let mut tags: Vec<Tag> = Vec::new();
-        for pubkey in public_people.iter() {
+        for (pubkey, public) in people.iter() {
+            if !*public {
+                continue;
+            }
+
             // Only include petnames in the ContactList (which is only public people)
             let petname = if kind == EventKind::ContactList {
                 if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
@@ -656,7 +655,11 @@ impl People {
             } else {
                 // Build private p-tags (except for ContactList)
                 let mut private_p_tags: Vec<Tag> = Vec::new();
-                for pubkey in private_people.iter() {
+                for (pubkey, public) in people.iter() {
+                    if *public {
+                        continue;
+                    }
+
                     private_p_tags.push(Tag::Pubkey {
                         pubkey: pubkey.into(),
                         recommended_relay_url: None,

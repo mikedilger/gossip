@@ -2436,12 +2436,8 @@ impl Storage {
     }
 
     /// Get people in a person list
-    pub fn get_people_in_list(
-        &self,
-        list: PersonList,
-        public: Option<bool>,
-    ) -> Result<Vec<PublicKey>, Error> {
-        self.get_people_in_list2(list, public)
+    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, bool)>, Error> {
+        self.get_people_in_list2(list)
     }
 
     pub fn get_people_in_all_followed_lists(&self) -> Result<Vec<PublicKey>, Error> {

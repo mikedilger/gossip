@@ -4,12 +4,16 @@ use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Person, PersonList, GLOBALS};
+use nostr_types::PublicKey;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let followed_pubkeys = GLOBALS
+    let followed_pubkeys: Vec<PublicKey> = GLOBALS
         .storage
-        .get_people_in_list(PersonList::Followed, None)
-        .unwrap_or_default();
+        .get_people_in_list(PersonList::Followed)
+        .unwrap_or_default()
+        .drain(..)
+        .map(|(pk, _)| pk)
+        .collect();
     let mut people: Vec<Person> = Vec::new();
     for pk in &followed_pubkeys {
         if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
