@@ -12,22 +12,26 @@ pub(super) fn update(
     ui: &mut Ui,
     list: PersonList,
 ) {
-    let members = GLOBALS
-        .storage
-        .get_people_in_list(list)
-        .unwrap_or_default();
+    let people = {
+        let members = GLOBALS
+            .storage
+            .get_people_in_list(list)
+            .unwrap_or_default();
 
-    let mut people: Vec<(Person, bool)> = Vec::new();
-    for (pk, public) in &members {
-        if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
-            people.push((person, *public));
-        } else {
-            let person = Person::new(pk.to_owned());
-            let _ = GLOBALS.storage.write_person(&person, None);
-            people.push((person, *public));
+        let mut people: Vec<(Person, bool)> = Vec::new();
+
+        for (pk, public) in &members {
+            if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+                people.push((person, *public));
+            } else {
+                let person = Person::new(pk.to_owned());
+                let _ = GLOBALS.storage.write_person(&person, None);
+                people.push((person, *public));
+            }
         }
-    }
-    people.sort_by(|a,b| a.0.cmp(&b.0));
+        people.sort_by(|a,b| a.0.cmp(&b.0));
+        people
+    };
 
     ui.add_space(12.0);
 
@@ -193,10 +197,19 @@ pub(super) fn update(
                                 .color(app.theme.warning_marker_text_color()),
                         );
                     }
-                });
 
-                // FIXME indicate if public or not
+                    ui.horizontal(|ui| {
+                        if crate::ui::components::switch_simple(ui, *public).clicked() {
+                            let _ = GLOBALS.storage.add_person_to_list(&person.pubkey, list, !*public, None);
+                        }
+                        ui.label(if *public { "public" } else { "private" });
+                    });
+                });
             });
+
+            if ui.button("Remove").clicked() {
+                let _ = GLOBALS.storage.remove_person_from_list(&person.pubkey, list, None);
+            }
 
             ui.add_space(4.0);
             ui.separator();

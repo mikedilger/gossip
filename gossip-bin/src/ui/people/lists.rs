@@ -27,17 +27,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             };
             if matches!(list, PersonList::Custom(_)) {
                 if ui.button("DELETE").clicked() {
-                    // FIXME -- confirm with a popup, then call the delete() function (see below)
-                    GLOBALS
-                        .status_queue
-                        .write()
-                        .write("Person List Delete is NOT YET IMPLEMENTED".to_string());
+                    // FIXME -- confirm with a popup first!
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::DeletePersonList(list));
                 }
             }
         });
     }
     if ui.button("Create a new list").clicked() {
-        // FIXME -- prompt for a name with a popup, then call the create() function (see below)
+        // FIXME -- prompt for a name with a popup, then create with:
+        //   let _ = PersonList::allocate(name, None);
         GLOBALS
             .status_queue
             .write()
@@ -47,15 +47,4 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(10.0);
     ui.separator();
     ui.add_space(10.0);
-}
-
-fn delete(list: PersonList) {
-    let _ = GLOBALS
-        .to_overlord
-        .send(ToOverlordMessage::ClearPersonList(list));
-    let _ = list.deallocate(None);
-}
-
-fn create(name: &str) {
-    let _ = PersonList::allocate(name, None);
 }
