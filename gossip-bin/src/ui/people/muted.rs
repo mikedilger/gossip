@@ -103,7 +103,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     app.mute_clear_needs_confirm = false;
                 }
                 if ui.button("YES, CLEAR ALL").clicked() {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ClearMuteList);
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::ClearPersonList(PersonList::Muted));
                     app.mute_clear_needs_confirm = false;
                 }
             } else {

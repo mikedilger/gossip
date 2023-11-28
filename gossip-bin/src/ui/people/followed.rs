@@ -101,7 +101,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     app.follow_clear_needs_confirm = false;
                 }
                 if ui.button("YES, CLEAR ALL").clicked() {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ClearFollowing);
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::ClearPersonList(PersonList::Followed));
                     app.follow_clear_needs_confirm = false;
                 }
             } else {

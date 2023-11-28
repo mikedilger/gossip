@@ -25,11 +25,8 @@ pub enum ToOverlordMessage {
     /// Calls [change_passphrase](crate::Overlord::change_passphrase)
     ChangePassphrase { old: String, new: String },
 
-    /// Calls [clear_following](crate::Overlord::clear_following)
-    ClearFollowing,
-
-    /// Calls [clear_mute_list](crate::Overlord::clear_mute_list)
-    ClearMuteList,
+    /// Calls [clear_person_list](crate::Overlord::clear_person_list)
+    ClearPersonList(PersonList),
 
     /// Calls [delegation_reset](crate::Overlord::delegation_reset)
     DelegationReset,

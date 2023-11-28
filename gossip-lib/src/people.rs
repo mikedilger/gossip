@@ -715,37 +715,13 @@ impl People {
         Ok(())
     }
 
-    /// Empty the following list.
-    /// This does not publish any events.
-    pub(crate) fn follow_none(&self) -> Result<(), Error> {
+    /// Clear a person list
+    pub(crate) fn clear_person_list(&self, list: PersonList) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
-        GLOBALS
-            .storage
-            .clear_person_list(PersonList::Followed, Some(&mut txn))?;
+        GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
         GLOBALS.storage.set_person_list_last_edit_time(
-            PersonList::Followed,
-            Unixtime::now().unwrap().0,
-            Some(&mut txn),
-        )?;
-
-        txn.commit()?;
-
-        GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
-
-        Ok(())
-    }
-
-    /// Empty the mute list
-    /// This does not publish any events
-    pub(crate) fn clear_mute_list(&self) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        GLOBALS
-            .storage
-            .clear_person_list(PersonList::Muted, Some(&mut txn))?;
-        GLOBALS.storage.set_person_list_last_edit_time(
-            PersonList::Muted,
+            list,
             Unixtime::now().unwrap().0,
             Some(&mut txn),
         )?;

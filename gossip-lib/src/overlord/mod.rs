@@ -551,11 +551,8 @@ impl Overlord {
             ToOverlordMessage::ChangePassphrase { old, new } => {
                 Self::change_passphrase(old, new).await?;
             }
-            ToOverlordMessage::ClearFollowing => {
-                self.clear_following()?;
-            }
-            ToOverlordMessage::ClearMuteList => {
-                self.clear_mute_list()?;
+            ToOverlordMessage::ClearPersonList(list) => {
+                self.clear_person_list(list)?;
             }
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
@@ -831,17 +828,10 @@ impl Overlord {
         Ok(())
     }
 
-    /// Clear the user's following list. This wipes everybody. But it doesn't publish
+    /// Clear the specified person lit. This wipes everybody. But it doesn't publish
     /// the empty list. You should probably double-check that the user is certain.
-    pub fn clear_following(&mut self) -> Result<(), Error> {
-        GLOBALS.people.follow_none()?;
-        Ok(())
-    }
-
-    /// Clear the user's mute list. This wipes everybody. But it doesn't publish
-    /// the empty list. You should probably double-check that the user is certain.
-    pub fn clear_mute_list(&mut self) -> Result<(), Error> {
-        GLOBALS.people.clear_mute_list()?;
+    pub fn clear_person_list(&mut self, list: PersonList) -> Result<(), Error> {
+        GLOBALS.people.clear_person_list(list)?;
         Ok(())
     }
 
