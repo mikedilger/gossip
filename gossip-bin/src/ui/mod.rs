@@ -104,8 +104,8 @@ pub fn run() -> Result<(), Error> {
 enum Page {
     DmChatList,
     Feed(FeedKind),
-    PeopleList,
-    PeopleFollow,
+    PeopleFollowNew, // deprecated, will separately be part of the list page
+    PeopleFollowed,
     PeopleMuted,
     Person(PublicKey),
     YourKeys,
@@ -140,8 +140,8 @@ impl Page {
         match self {
             Page::DmChatList => (SubMenu::Feeds.to_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
-            Page::PeopleList => (SubMenu::People.to_str(), "Followed".into()),
-            Page::PeopleFollow => (SubMenu::People.to_str(), "Follow new".into()),
+            Page::PeopleFollowNew => (SubMenu::People.to_str(), "Follow new".into()),
+            Page::PeopleFollowed => (SubMenu::People.to_str(), "Followed".into()),
             Page::PeopleMuted => (SubMenu::People.to_str(), "Muted".into()),
             Page::Person(pk) => {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
@@ -187,7 +187,7 @@ impl Page {
         match self {
             Page::DmChatList => cat_name(self),
             Page::Feed(_) => name_cat(self),
-            Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted => cat_name(self),
+            Page::PeopleFollowNew | Page::PeopleFollowed | Page::PeopleMuted => cat_name(self),
             Page::Person(_) => name_cat(self),
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => cat_name(self),
             Page::Wizard(_) => name_cat(self),
@@ -728,7 +728,7 @@ impl GossipUi {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
                 self.close_all_menus(ctx);
             }
-            Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
+            Page::PeopleFollowNew | Page::PeopleFollowed | Page::PeopleMuted | Page::Person(_) => {
                 self.open_menu(ctx, SubMenu::People);
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
@@ -891,8 +891,8 @@ impl GossipUi {
                     let (mut cstate, header_response) =
                         self.get_openable_menu(ui, ctx, SubMenu::People);
                     cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::PeopleList);
-                        self.add_menu_item_page(ui, Page::PeopleFollow);
+                        self.add_menu_item_page(ui, Page::PeopleFollowNew);
+                        self.add_menu_item_page(ui, Page::PeopleFollowed);
                         self.add_menu_item_page(ui, Page::PeopleMuted);
                     });
                     self.after_openable_menu(ui, &cstate);
@@ -1258,8 +1258,8 @@ impl eframe::App for GossipUi {
                     })
                     .fill({
                         match self.page {
-                            Page::PeopleList
-                            | Page::PeopleFollow
+                            Page::PeopleFollowNew
+                            | Page::PeopleFollowed
                             | Page::PeopleMuted
                             | Page::Person(_) => {
                                 if self.theme.dark_mode {
@@ -1277,9 +1277,10 @@ impl eframe::App for GossipUi {
                 match self.page {
                     Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
                     Page::Feed(_) => feed::update(self, ctx, frame, ui),
-                    Page::PeopleList | Page::PeopleFollow | Page::PeopleMuted | Page::Person(_) => {
-                        people::update(self, ctx, frame, ui)
-                    }
+                    Page::PeopleFollowNew
+                    | Page::PeopleFollowed
+                    | Page::PeopleMuted
+                    | Page::Person(_) => people::update(self, ctx, frame, ui),
                     Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                         you::update(self, ctx, frame, ui)
                     }

@@ -67,7 +67,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("People > Followed").clicked() {
-                        app.set_page(ctx, Page::PeopleList);
+                        app.set_page(ctx, Page::PeopleFollowed);
                     }
                     ui.label("page, press [↓ Pull ↓ Overwrite] to pull down the people you follow. They won't have metadata just yet.");
                 });
@@ -91,7 +91,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("Back on the");
                     if ui.link("People > Followed").clicked() {
-                        app.set_page(ctx, Page::PeopleList);
+                        app.set_page(ctx, Page::PeopleFollowed);
                     }
                     ui.label("page, once the relay picking has settled down, press [Refresh Metadata]. Then give it some time. It might not be able to find everybody just yet.");
                 });
@@ -163,7 +163,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("People > Follow Someone New").clicked() {
-                        app.set_page(ctx, Page::PeopleFollow);
+                        app.set_page(ctx, Page::PeopleFollowNew);
                     }
                     ui.label("page, follow somebody.");
                 });
@@ -187,7 +187,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
                     if ui.link("People > Followed").clicked() {
-                        app.set_page(ctx, Page::PeopleList);
+                        app.set_page(ctx, Page::PeopleFollowed);
                     }
                     ui.label("page, once the relay picking has settled down, press [Refresh Metadata]. Then give it some time. It might not be able to find everybody just yet.");
                 });
