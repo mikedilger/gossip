@@ -31,7 +31,7 @@ impl Command {
 const COMMANDS: [Command; 26] = [
     Command {
         cmd: "oneshot",
-        usage_params: "depends",
+        usage_params: "{depends}",
         desc: "temporary oneshot action",
     },
     Command {
@@ -76,7 +76,7 @@ const COMMANDS: [Command; 26] = [
     },
     Command {
         cmd: "help",
-        usage_params: "",
+        usage_params: "<command>",
         desc: "show this list",
     },
     Command {
@@ -187,7 +187,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "giftwrap_ids" => giftwrap_ids(command)?,
-        "help" => help(command)?,
+        "help" => help(command, args)?,
         "import_event" => import_event(command, args, runtime)?,
         "login" => {
             login(command)?;
@@ -213,10 +213,20 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     Ok(true)
 }
 
-pub fn help(_cmd: Command) -> Result<(), Error> {
-    for c in COMMANDS.iter() {
-        println!("gossip {} {}", c.cmd, c.usage_params);
-        println!("    {}", c.desc);
+pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    if let Some(sub) = args.next() {
+        for c in COMMANDS.iter() {
+            if sub == c.cmd {
+                println!("gossip {} {}", c.cmd, c.usage_params);
+                println!("    {}", c.desc);
+                return Ok(());
+            }
+        }
+        println!("No such command {}", sub);
+    } else {
+        for c in COMMANDS.iter() {
+            println!("  {} {}", c.cmd, c.usage_params);
+        }
     }
     Ok(())
 }
