@@ -1895,23 +1895,52 @@ impl Storage {
                 for er in vec.iter() {
                     match er {
                         EventReference::Id(id, _, _) => {
-                            invalidate.push(*id);
-                            // We don't check if authors match until we read these back
-                            self.write_relationship(
-                                *id,
-                                event.id,
-                                Relationship::Deletion(reason.clone()),
-                                Some(txn),
-                            )?;
+                            let mut deleted = false;
+                            if let Some(deleted_event) = self.read_event(*id)? {
+                                invalidate.push(deleted_event.id);
+                                if deleted_event.pubkey != event.pubkey {
+                                    // No further processing if authors do not match
+                                    continue;
+                                }
+                                if !deleted_event.kind.is_feed_displayable() {
+                                    // Otherwise actually delete (PITA to do otherwise)
+                                    self.delete_event(deleted_event.id, Some(txn))?;
+                                    deleted = true;
+                                }
+                            }
+                            if !deleted {
+                                self.write_relationship(
+                                    *id,
+                                    event.id,
+                                    Relationship::Deletion(reason.clone()),
+                                    Some(txn),
+                                )?;
+                            }
                         }
                         EventReference::Addr(ea) => {
-                            // We don't check if authors match until we read these back
-                            self.write_reprel(
-                                ea.clone(),
-                                event.id,
-                                Relationship::Deletion(reason.clone()),
-                                Some(txn),
-                            )?;
+                            let mut deleted = false;
+                            if let Some(deleted_event) =
+                                self.get_replaceable_event(ea.kind, ea.author, &ea.d)?
+                            {
+                                invalidate.push(deleted_event.id);
+                                if deleted_event.pubkey != event.pubkey {
+                                    // No further processing if authors do not match
+                                    continue;
+                                }
+                                if !deleted_event.kind.is_feed_displayable() {
+                                    // Otherwise actually delete (PITA to do otherwise)
+                                    self.delete_event(deleted_event.id, Some(txn))?;
+                                    deleted = true;
+                                }
+                            }
+                            if !deleted {
+                                self.write_reprel(
+                                    ea.clone(),
+                                    event.id,
+                                    Relationship::Deletion(reason.clone()),
+                                    Some(txn),
+                                )?;
+                            }
                         }
                     }
                 }
