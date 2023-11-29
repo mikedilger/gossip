@@ -846,6 +846,7 @@ fn render_note_inner(
                                 {
                                     if app.render_raw != Some(note.event.id) {
                                         app.render_raw = Some(note.event.id);
+                                        app.render_qr = None;
                                     } else {
                                         app.render_raw = None;
                                     }
@@ -864,6 +865,7 @@ fn render_note_inner(
                                 {
                                     if app.render_qr != Some(note.event.id) {
                                         app.render_qr = Some(note.event.id);
+                                        app.render_raw = None;
                                         app.qr_codes.remove("feedqr");
                                     } else {
                                         app.render_qr = None;
