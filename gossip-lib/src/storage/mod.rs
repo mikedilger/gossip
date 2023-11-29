@@ -406,7 +406,7 @@ impl Storage {
         let mut deletions: Vec<Vec<u8>> = Vec::new();
         for id in &ids {
             let start_key: &[u8] = id.as_slice();
-            for result in self.db_events()?.prefix_iter_mut(&mut txn, start_key)? {
+            for result in self.db_event_seen_on_relay()?.prefix_iter(&mut txn, start_key)? {
                 let (_key, val) = result?;
                 deletions.push(val.to_owned());
             }
