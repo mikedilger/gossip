@@ -564,6 +564,9 @@ impl Overlord {
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
             }
+            ToOverlordMessage::DeletePersonList(list) => {
+                self.delete_person_list(list).await?;
+            }
             ToOverlordMessage::DeletePost(id) => {
                 self.delete_post(id).await?;
             }
@@ -852,6 +855,142 @@ impl Overlord {
                 .write()
                 .write("Delegation tag removed".to_string());
         }
+        Ok(())
+    }
+
+    /// Delete a person list
+    pub async fn delete_person_list(&mut self, list: PersonList)
+                                    -> Result<(), Error>
+    {
+        let public_key = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Sign in to delete lists.".to_string());
+                return Ok(());
+            }
+        };
+
+        let name = list.name();
+
+        // Delete the list locally
+        GLOBALS.people.clear_person_list(list)?;
+        list.deallocate(None)?;
+        tracing::error!("DEBUG: deleted locally: {}", name);
+
+        // Find all local-storage events that define the list
+        let bad_events = GLOBALS.storage.find_events(
+            &[EventKind::FollowSets],
+            &[public_key],
+            None,
+            |event| event.parameter() == Some(name.clone()),
+            false
+        )?;
+        tracing::error!("DEBUG: deleting {} local events for list={}",
+                        bad_events.len(), name);
+
+        // Delete those events locally
+        for bad_event in &bad_events {
+            GLOBALS.storage.delete_event(bad_event.id, None)?;
+            tracing::error!("DEBUG: deleting event={} from local events for list={}",
+                            bad_event.id.as_hex_string(), name);
+        }
+
+        // Generate a deletion event for those events
+        let event = {
+            // Include an "a" tag for the entire group
+            let mut tags: Vec<Tag> = vec![
+                Tag::Address {
+                    kind: EventKind::FollowSets,
+                    pubkey: public_key.into(),
+                    d: name.clone(),
+                    relay_url: None,
+                    marker: None,
+                    trailing: Vec::new(),
+                }
+            ];
+
+            // Include "e" tags for each event
+            for bad_event in &bad_events {
+                tags.push(Tag::Event {
+                    id: bad_event.id,
+                    recommended_relay_url: None,
+                    marker: None,
+                    trailing: Vec::new(),
+                });
+            }
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::EventDeletion,
+                tags: vec![
+
+                ],
+                content: "".to_owned(), // FIXME, option to supply a delete reason
+            };
+
+            // Should we add a pow? Maybe the relay needs it.
+            GLOBALS.signer.sign_preevent(pre_event, None, None)?
+        };
+
+        // Process this event locally
+        crate::process::process_new_event(&event, None, None, false, false).await?;
+
+        // Determine which relays to post this to
+        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        {
+            // Get all of the relays that we write to
+            let write_relays: Vec<RelayUrl> = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
+                .iter()
+                .map(|relay| relay.url.clone())
+                .collect();
+            relay_urls.extend(write_relays);
+
+            // Get all of the relays this events were seen on
+            for bad_event in &bad_events {
+                let seen_on: Vec<RelayUrl> = GLOBALS
+                    .storage
+                    .get_event_seen_on_relay(bad_event.id)?
+                    .iter()
+                    .map(|(url, _time)| url.to_owned())
+                    .collect();
+
+                for url in &seen_on {
+                    tracing::error!("SEEN ON {}", &url);
+                }
+
+                relay_urls.extend(seen_on);
+            }
+
+            relay_urls.sort();
+            relay_urls.dedup();
+        }
+
+        // Send event to all these relays
+        for url in relay_urls {
+            // Send it the event to post
+            tracing::debug!("Asking {} to delete", &url);
+
+            tracing::error!("DEBUG: deleting list from {}", &url);
+
+            self.engage_minion(
+                url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::PostEvent,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                    },
+                }],
+            )
+            .await?;
+        }
+
         Ok(())
     }
 

@@ -31,6 +31,9 @@ pub enum ToOverlordMessage {
     /// Calls [delegation_reset](crate::Overlord::delegation_reset)
     DelegationReset,
 
+    /// Calls [delete_person_list](crate::Overlord::delete_person_list)
+    DeletePersonList(PersonList),
+
     /// Calls [delete_post](crate::Overlord::delete_post)
     DeletePost(Id),
 
