@@ -190,7 +190,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "help" => help(command, args)?,
         "import_event" => import_event(command, args, runtime)?,
         "login" => {
-            login(command)?;
+            login()?;
             return Ok(false);
         }
         "print_event" => print_event(command, args)?,
@@ -201,7 +201,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "print_person_relays" => print_person_relays(command, args)?,
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
-        "rebuild_indices" => rebuild_indices(command)?,
+        "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command, runtime)?,
         "ungiftwrap" => ungiftwrap(command, args)?,
@@ -398,7 +398,7 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing ciphertext parameter".to_string()),
     };
 
-    login(cmd)?;
+    login()?;
 
     let plaintext = GLOBALS.signer.decrypt_nip44(&pubkey, &ciphertext)?;
     println!("{}", plaintext);
@@ -415,7 +415,7 @@ pub fn import_event(cmd: Command, mut args: env::Args, runtime: &Runtime) -> Res
         None => return cmd.usage("Missing event parameter".to_string()),
     };
 
-    login(cmd.clone())?;
+    login()?;
 
     let job = tokio::task::spawn(async move {
         if let Err(e) =
@@ -599,7 +599,7 @@ pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return Err(ErrorKind::EventNotFound.into()),
     };
 
-    login(cmd.clone())?;
+    login()?;
 
     let rumor = GLOBALS.signer.unwrap_giftwrap(&event)?;
 
@@ -620,8 +620,8 @@ pub fn giftwrap_ids(_cmd: Command) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn reprocess_recent(cmd: Command, runtime: &Runtime) -> Result<(), Error> {
-    login(cmd.clone())?;
+pub fn reprocess_recent(_cmd: Command, runtime: &Runtime) -> Result<(), Error> {
+    login()?;
 
     let job = tokio::task::spawn(async move {
         let all_kinds: Vec<EventKind> = EventKind::iter().collect();
@@ -691,10 +691,11 @@ pub fn verify_json(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn rebuild_indices(cmd: Command) -> Result<(), Error> {
-    login(cmd.clone())?;
-
+pub fn rebuild_indices() -> Result<(), Error> {
+    println!("Login required in order to reindex DMs and GiftWraps");
+    login()?;
     GLOBALS.storage.rebuild_event_indices(None)?;
+
     Ok(())
 }
 
@@ -718,14 +719,18 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
     Ok(())
 }
 
-pub fn login(_cmd: Command) -> Result<(), Error> {
-    let mut password = rpassword::prompt_password("Password: ").unwrap();
-    let epk = match GLOBALS.storage.read_encrypted_private_key()? {
-        Some(epk) => epk,
-        None => return Err(ErrorKind::NoPrivateKey.into()),
-    };
-    GLOBALS.signer.set_encrypted_private_key(epk);
-    GLOBALS.signer.unlock_encrypted_private_key(&password)?;
-    password.zeroize();
+pub fn login() -> Result<(), Error> {
+    if GLOBALS.signer.is_loaded() {
+        let mut password = rpassword::prompt_password("Password: ").unwrap();
+        let epk = match GLOBALS.storage.read_encrypted_private_key()? {
+            Some(epk) => epk,
+            None => return Err(ErrorKind::NoPrivateKey.into()),
+        };
+        GLOBALS.signer.set_encrypted_private_key(epk);
+        GLOBALS.signer.unlock_encrypted_private_key(&password)?;
+        password.zeroize();
+    } else {
+        println!("No private key, skipping login");
+    }
     Ok(())
 }
