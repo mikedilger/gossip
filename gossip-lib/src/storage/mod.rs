@@ -406,7 +406,10 @@ impl Storage {
         let mut deletions: Vec<Vec<u8>> = Vec::new();
         for id in &ids {
             let start_key: &[u8] = id.as_slice();
-            for result in self.db_event_seen_on_relay()?.prefix_iter(&mut txn, start_key)? {
+            for result in self
+                .db_event_seen_on_relay()?
+                .prefix_iter(&txn, start_key)?
+            {
                 let (_key, val) = result?;
                 deletions.push(val.to_owned());
             }
@@ -1214,9 +1217,78 @@ impl Storage {
     }
 
     /// Delete the event
-    #[inline]
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
-        self.delete_event2(id, rw_txn)
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Delete from the events table
+            self.delete_event2(id, Some(txn))?;
+
+            // Delete from event_seen_on_relay
+            {
+                // save the actual keys to delete
+                let mut deletions: Vec<Vec<u8>> = Vec::new();
+
+                let start_key: &[u8] = id.as_slice();
+
+                for result in self.db_event_seen_on_relay()?.prefix_iter(txn, start_key)? {
+                    let (_key, val) = result?;
+                    deletions.push(val.to_owned());
+                }
+
+                // actual deletion done in second pass
+                // (deleting during interation does not work in LMDB)
+                for deletion in deletions.drain(..) {
+                    self.db_event_seen_on_relay()?.delete(txn, &deletion)?;
+                }
+            }
+
+            // Delete from event_viewed
+            self.db_event_viewed()?.delete(txn, id.as_slice())?;
+
+            // Delete from relationships where the id is the first one
+            {
+                // save the actual keys to delete
+                let mut deletions: Vec<Vec<u8>> = Vec::new();
+
+                let start_key: &[u8] = id.as_slice();
+
+                for result in self.db_relationships()?.prefix_iter(txn, start_key)? {
+                    let (_key, val) = result?;
+                    deletions.push(val.to_owned());
+                }
+
+                // actual deletion done in second pass
+                // (deleting during interation does not work in LMDB)
+                for deletion in deletions.drain(..) {
+                    self.db_relationships()?.delete(txn, &deletion)?;
+                }
+            }
+
+            // We cannot delete from numerous indexes because the ID
+            // is in the value, not in the key.
+            //
+            // These invalid entries will be deleted next time we
+            // rebuild indexes.
+            //
+            // These include
+            //   db_event_hashtags()
+            //   db_relationships(), where the ID is the 2nd half of the key
+            //   db_reprel()
+            //   db_event_ek_pk_index()
+            //   db_event_ek_c_index()
+
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     /// Replace any existing event with the passed in event, if it is of a replaceable kind
