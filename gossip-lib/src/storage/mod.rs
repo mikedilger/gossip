@@ -1891,29 +1891,28 @@ impl Storage {
             }
 
             // deletes
-            if let Some((deleted_event_ids, reason)) = event.deletes() {
-                invalidate.extend(&deleted_event_ids);
-                for deleted_event_id in deleted_event_ids {
-                    // since it is a delete, we don't actually desire the event.
-                    if let Some(deleted_event) = self.read_event(deleted_event_id)? {
-                        // Only if it is the same author
-                        if deleted_event.pubkey == event.pubkey {
+            if let Some((vec, reason)) = event.deletes() {
+                for er in vec.iter() {
+                    match er {
+                        EventReference::Id(id, _, _) => {
+                            invalidate.push(*id);
+                            // We don't check if authors match until we read these back
                             self.write_relationship(
-                                deleted_event_id,
+                                *id,
                                 event.id,
                                 Relationship::Deletion(reason.clone()),
                                 Some(txn),
                             )?;
                         }
-                    } else {
-                        // We don't have the deleted event. Presume it is okay. We check again
-                        // when we read these back
-                        self.write_relationship(
-                            deleted_event_id,
-                            event.id,
-                            Relationship::Deletion(reason.clone()),
-                            Some(txn),
-                        )?;
+                        EventReference::Addr(ea) => {
+                            // We don't check if authors match until we read these back
+                            self.write_reprel(
+                                ea.clone(),
+                                event.id,
+                                Relationship::Deletion(reason.clone()),
+                                Some(txn),
+                            )?;
+                        }
                     }
                 }
             }
