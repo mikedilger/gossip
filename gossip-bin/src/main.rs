@@ -11,7 +11,6 @@ mod ui;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Error;
 use gossip_lib::GLOBALS;
-use std::ops::DerefMut;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
@@ -20,10 +19,10 @@ pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
 pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
 
 fn main() -> Result<(), Error> {
+    // Setup logging
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "info");
     }
-
     let env_filter = EnvFilter::from_default_env();
     let max_level = match env_filter.max_level_hint() {
         Some(l) => l,
@@ -37,13 +36,14 @@ fn main() -> Result<(), Error> {
         .with_env_filter(env_filter)
         .init();
 
-    // Initialize storage
-    GLOBALS.storage.init()?;
+    // Initialize the lib
+    gossip_lib::init()?;
 
+    // Setup async
     // We create and enter the runtime on the main thread so that
     // non-async code can have a runtime context within which to spawn
     // async tasks.
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new()?;
     let _main_rt = rt.enter(); // <-- this allows it.
 
     // If we were handed a command, execute the command and return
@@ -66,9 +66,10 @@ fn main() -> Result<(), Error> {
     // separate task. This leave the main thread for UI work only.
     // egui is most portable when it is on the main thread.
     let async_thread = thread::spawn(move || {
-        rt.block_on(tokio_main());
+        rt.block_on(gossip_lib::run());
     });
 
+    // Run the UI
     if let Err(e) = ui::run() {
         tracing::error!("{}", e);
     }
@@ -81,27 +82,9 @@ fn main() -> Result<(), Error> {
     // Wait for the async thread to complete
     async_thread.join().unwrap();
 
-    // Sync storage again
-    if let Err(e) = GLOBALS.storage.sync() {
-        tracing::error!("{}", e);
-    } else {
-        tracing::info!("LMDB synced.");
-    }
+    gossip_lib::shutdown()?;
 
     Ok(())
-}
-
-async fn tokio_main() {
-    // Steal `tmp_overlord_receiver` from the GLOBALS, and give it to a new Overlord
-    let overlord_receiver = {
-        let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
-        mutex_option.deref_mut().take()
-    }
-    .unwrap();
-
-    // Run the overlord
-    let mut overlord = gossip_lib::Overlord::new(overlord_receiver);
-    overlord.run().await;
 }
 
 // Any task can call this to shutdown

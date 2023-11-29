@@ -141,3 +141,45 @@ extern crate lazy_static;
 /// The USER_AGENT string for gossip that it (may) use when fetching HTTP resources and
 /// when connecting to relays
 pub static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
+use std::ops::DerefMut;
+
+/// Initialize gossip-lib
+pub fn init() -> Result<(), Error> {
+    // Initialize storage
+    GLOBALS.storage.init()?;
+
+    // Load signer from settings
+    GLOBALS.signer.load_from_settings()?;
+
+    // Load delegation tag
+    GLOBALS.delegation.load()?;
+
+    Ok(())
+}
+
+/// Shutdown gossip-lib
+pub fn shutdown() -> Result<(), Error> {
+    // Sync storage again
+    if let Err(e) = GLOBALS.storage.sync() {
+        tracing::error!("{}", e);
+    } else {
+        tracing::info!("LMDB synced.");
+    }
+
+    Ok(())
+}
+
+/// Run gossip-lib as an async
+pub async fn run() {
+    // Steal `tmp_overlord_receiver` from the GLOBALS, and give it to a new Overlord
+    let overlord_receiver = {
+        let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
+        mutex_option.deref_mut().take()
+    }
+    .unwrap();
+
+    // Run the overlord
+    let mut overlord = Overlord::new(overlord_receiver);
+    overlord.run().await;
+}
