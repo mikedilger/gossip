@@ -18,7 +18,7 @@ pub struct Signer {
 }
 
 impl Signer {
-    pub(crate) fn load_from_settings(&self) -> Result<(), Error> {
+    pub(crate) fn init(&self) -> Result<(), Error> {
         if self.public.read().is_none() {
             *self.public.write() = GLOBALS.storage.read_setting_public_key();
         }
