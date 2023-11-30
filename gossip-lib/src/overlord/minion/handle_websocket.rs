@@ -191,6 +191,14 @@ impl Minion {
                 ws_stream.send(WsMessage::Text(wire)).await?;
                 tracing::info!("Authenticated to {}", &self.url);
             }
+            RelayMessage::Closed(subid, message) => {
+                let handle = self
+                    .subscription_map
+                    .get_handle_by_id(&subid.0)
+                    .unwrap_or_else(|| "_".to_owned());
+
+                tracing::info!("{}: Closed: {}: {}", &self.url, handle, message);
+            }
         }
 
         Ok(())
