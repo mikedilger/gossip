@@ -9,11 +9,31 @@ homepage = "https://github.com/mikedilger/gossip"
 edition = "2021"
 
 [features]
-default = ["rustls-tls"]
+default = ["rustls-tls-native"]
+
+# Include font for Chinese, Japanese and Korean characters
 lang-cjk = []
 
-native-tls = [ "reqwest/native-tls", "tungstenite/native-tls", "tokio-tungstenite/native-tls"]
-rustls-tls = [ "reqwest/rustls-tls", "tungstenite/rustls-tls-webpki-roots", "tokio-tungstenite/rustls-tls-webpki-roots"]
+# Use Native TLS code and native root certs
+native-tls = [
+  "reqwest/native-tls",
+  "tungstenite/native-tls",
+  "tokio-tungstenite/native-tls"
+]
+
+# Use Rust TLS code with WebPKI compiled-in root certs
+rustls-tls = [
+  "reqwest/rustls-tls-webpki-roots",
+  "tungstenite/rustls-tls-webpki-roots",
+  "tokio-tungstenite/rustls-tls-webpki-roots"
+]
+
+# Use Rust TLS  code with native root certs
+rustls-tls-native = [
+  "reqwest/rustls-tls-native-roots",
+  "tungstenite/rustls-tls-native-roots",
+  "tokio-tungstenite/rustls-tls-native-roots"
+]
 
 [dependencies]
 async-recursion = "1.0"

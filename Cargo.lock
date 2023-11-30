@@ -3513,6 +3513,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "rustls",
+ "rustls-native-certs",
  "rustls-pemfile",
  "serde",
  "serde_json",
@@ -3722,6 +3723,18 @@ dependencies = [
  "ring 0.17.6",
  "rustls-webpki 0.101.7",
  "sct",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile",
+ "schannel",
+ "security-framework",
 ]
 
 [[package]]
@@ -4515,6 +4528,7 @@ dependencies = [
  "log",
  "native-tls",
  "rustls",
+ "rustls-native-certs",
  "tokio",
  "tokio-native-tls",
  "tokio-rustls",
@@ -4659,6 +4673,7 @@ dependencies = [
  "native-tls",
  "rand",
  "rustls",
+ "rustls-native-certs",
  "sha1",
  "thiserror",
  "url",
