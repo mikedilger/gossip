@@ -1177,6 +1177,11 @@ impl eframe::App for GossipUi {
             relays::entry_dialog(ctx, self);
         }
 
+        // If login is forced, it takes over
+        if GLOBALS.wait_for_login.load(Ordering::Relaxed) {
+            return force_login(self, ctx);
+        }
+
         // Wizard does its own panels
         if let Page::Wizard(wp) = self.page {
             return wizard::update(self, ctx, frame, wp);
@@ -1847,4 +1852,43 @@ impl GossipUi {
             y: self.current_scroll_offset,
         })
     }
+}
+
+fn force_login(app: &mut GossipUi, ctx: &Context) {
+    egui::CentralPanel::default()
+        .frame({
+            let frame = egui::Frame::central_panel(&app.theme.get_style());
+            frame.inner_margin(egui::Margin {
+                left: 20.0,
+                right: 10.0,
+                top: 10.0,
+                bottom: 0.0,
+            })
+        })
+        .show(ctx, |ui| {
+            ui.heading("Passphrase Needed");
+            you::offer_unlock_priv_key(app, ui);
+
+            ui.add_space(10.0);
+            ui.label("We need to rebuild some data which may require decrypting DMs and Giftwraps to rebuild properly. For this reason, you need to login before the data migration runs.");
+
+            ui.add_space(15.0);
+
+            /*
+            if ui.button("Skip").clicked() {
+                // Stop waiting for login
+                GLOBALS
+                    .wait_for_login
+                    .store(false, std::sync::atomic::Ordering::Relaxed);
+                GLOBALS.wait_for_login_notify.notify_one();
+            }
+             */
+
+            ui.add_space(60.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            ui.label("In case you cannot login, here is your escape hatch:");
+            you::offer_delete(app, ui);
+        });
 }

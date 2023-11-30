@@ -17,7 +17,7 @@ use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
-use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
+use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
 
 /// The state that a Zap is in (it moves through 5 states before it is complete)
 #[derive(Debug, Clone)]
@@ -126,6 +126,10 @@ pub struct Globals {
     /// Filter
     pub(crate) filter_engine: Engine,
     pub(crate) filter: Option<AST>,
+
+    // Wait for login
+    pub wait_for_login: AtomicBool,
+    pub wait_for_login_notify: Notify,
 }
 
 lazy_static! {
@@ -181,6 +185,8 @@ lazy_static! {
             events_processed: AtomicU32::new(0),
             filter_engine,
             filter,
+            wait_for_login: AtomicBool::new(false),
+            wait_for_login_notify: Notify::new(),
         }
     };
 }

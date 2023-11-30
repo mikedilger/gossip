@@ -153,6 +153,18 @@ impl Overlord {
     }
 
     async fn run_inner(&mut self) -> Result<(), Error> {
+        // Maybe wait for UI login
+        if GLOBALS.wait_for_login.load(Ordering::Relaxed) {
+            tracing::error!("DEBUG: overlord waiting for login");
+            GLOBALS.wait_for_login_notify.notified().await;
+            tracing::error!("DEBUG: overlord finished waiting for login");
+        }
+
+        // Check for shutdown (we might not have gotten a login)
+        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
         // Start the fetcher
         crate::fetcher::Fetcher::start()?;
 

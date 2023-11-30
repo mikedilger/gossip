@@ -155,6 +155,14 @@ pub fn init() -> Result<(), Error> {
     // Load delegation tag
     GLOBALS.delegation.load()?;
 
+    // If we have a key but have not unlocked it
+    if GLOBALS.signer.is_loaded() && !GLOBALS.signer.is_ready() {
+        // Indicate to the overlord and UI to wait for login before continuing
+        GLOBALS
+            .wait_for_login
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
     Ok(())
 }
 
