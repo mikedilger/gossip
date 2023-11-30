@@ -1099,6 +1099,7 @@ impl eframe::App for GossipUi {
 
         if GLOBALS.shutting_down.load(Ordering::Relaxed) {
             frame.close();
+            return;
         }
 
         // How much scrolling has been requested by inputs during this frame?
