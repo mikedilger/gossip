@@ -31,7 +31,7 @@ impl Storage {
         for result in self.db_events()?.iter(&loop_txn)? {
             let (_key, val) = result?;
             let event = EventV2::read_from_buffer(val)?;
-            self.process_relationships_of_event(&event, Some(txn))?;
+            crate::process::process_relationships_of_event(&event, Some(txn))?;
         }
         Ok(())
     }
