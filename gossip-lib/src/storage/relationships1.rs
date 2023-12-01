@@ -11,6 +11,12 @@ use std::sync::Mutex;
 //   key: id.as_slice(), id.as_slice() | Id(val[32..64].try_into()?)
 //   val:  relationship.write_to_vec() | Relationship::read_from_buffer(val)
 
+// NOTE: this means the SECOND Id relates to the FIRST Id, e.g.
+//     id2 replies to id1
+//     id2 reacts to id1
+//     id2 deletes id1
+//     id2 is a zap receipt on id1
+
 static RELATIONSHIPS1_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
 static mut RELATIONSHIPS1_DB: Option<RawDatabase> = None;
 
