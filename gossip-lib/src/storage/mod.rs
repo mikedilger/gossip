@@ -42,7 +42,7 @@ use crate::globals::GLOBALS;
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
-use crate::relationship::Relationship;
+use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
 use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
@@ -191,8 +191,6 @@ impl Storage {
         let _ = self.db_hashtags()?;
         let _ = self.db_people()?;
         let _ = self.db_person_relays()?;
-        let _ = self.db_relationships()?;
-        let _ = self.db_reprel()?;
         let _ = self.db_relationships_by_id()?;
         let _ = self.db_relationships_by_addr()?;
         let _ = self.db_relays()?;
@@ -266,16 +264,6 @@ impl Storage {
     #[inline]
     pub(crate) fn db_person_relays(&self) -> Result<RawDatabase, Error> {
         self.db_person_relays1()
-    }
-
-    #[inline]
-    pub(crate) fn db_relationships(&self) -> Result<RawDatabase, Error> {
-        self.db_relationships1()
-    }
-
-    #[inline]
-    pub(crate) fn db_reprel(&self) -> Result<RawDatabase, Error> {
-        self.db_reprel1()
     }
 
     #[inline]
@@ -357,19 +345,6 @@ impl Storage {
     pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_tag_index()?.len(&txn)?)
-    }
-
-    /// The number of records in the relationships table
-    pub fn get_relationships_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.db_relationships()?.len(&txn)?)
-    }
-
-    /// The number of records in the reprel table
-    #[inline]
-    pub fn get_reprel_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.db_reprel()?.len(&txn)?)
     }
 
     /// The number of records in the relationships_by_addr table
@@ -475,7 +450,7 @@ impl Storage {
         // Delete from relationships
         // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
         let mut deletions: Vec<Vec<u8>> = Vec::new();
-        for result in self.db_relationships()?.iter(&txn)? {
+        for result in self.db_relationships_by_id()?.iter(&txn)? {
             let (key, _val) = result?;
             let id = Id(key[0..32].try_into()?);
             if ids.contains(&id) {
@@ -489,7 +464,7 @@ impl Storage {
         }
         tracing::info!("PRUNE: deleting {} relationships", deletions.len());
         for deletion in deletions.drain(..) {
-            self.db_relationships()?.delete(&mut txn, &deletion)?;
+            self.db_relationships_by_id()?.delete(&mut txn, &deletion)?;
         }
 
         // delete from events
@@ -1279,7 +1254,7 @@ impl Storage {
 
                 let start_key: &[u8] = id.as_slice();
 
-                for result in self.db_relationships()?.prefix_iter(txn, start_key)? {
+                for result in self.db_relationships_by_id()?.prefix_iter(txn, start_key)? {
                     let (_key, val) = result?;
                     deletions.push(val.to_owned());
                 }
@@ -1287,7 +1262,7 @@ impl Storage {
                 // actual deletion done in second pass
                 // (deleting during interation does not work in LMDB)
                 for deletion in deletions.drain(..) {
-                    self.db_relationships()?.delete(txn, &deletion)?;
+                    self.db_relationships_by_id()?.delete(txn, &deletion)?;
                 }
             }
 
@@ -1795,14 +1770,14 @@ impl Storage {
     /// The second Id relates to the first Id,
     /// e.g. related replies to id, or related deletes id
     #[inline]
-    pub(crate) fn write_relationship<'a>(
+    pub(crate) fn write_relationship_by_id<'a>(
         &'a self,
         id: Id,
         related: Id,
-        relationship: Relationship,
+        relationship_by_id: RelationshipById,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relationship1(id, related, relationship, rw_txn)
+        self.write_relationship_by_id1(id, related, relationship_by_id, rw_txn)
     }
 
     /// Find relationships belonging to the given event
@@ -1810,26 +1785,29 @@ impl Storage {
     /// The found Ids relates to the passed in Id,
     /// e.g. result id replies to id, or result id deletes id
     #[inline]
-    pub fn find_relationships(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
-        self.find_relationships1(id)
+    pub fn find_relationships_by_id(&self, id: Id) -> Result<Vec<(Id, RelationshipById)>, Error> {
+        self.find_relationships_by_id1(id)
     }
 
     /// Write a relationship between an event and an EventAddr (replaceable)
     #[inline]
-    pub(crate) fn write_reprel<'a>(
+    pub(crate) fn write_relationship_by_addr<'a>(
         &'a self,
         addr: EventAddr,
         related: Id,
-        relationship: Relationship,
+        relationship_by_addr: RelationshipByAddr,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_reprel1(addr, related, relationship, rw_txn)
+        self.write_relationship_by_addr1(addr, related, relationship_by_addr, rw_txn)
     }
 
     /// Find relationships belonging to the given event to replaceable events
     #[inline]
-    pub fn find_reprels(&self, addr: &EventAddr) -> Result<Vec<(Id, Relationship)>, Error> {
-        self.find_reprels1(addr)
+    pub fn find_relationships_by_addr(
+        &self,
+        addr: &EventAddr,
+    ) -> Result<Vec<(Id, RelationshipByAddr)>, Error> {
+        self.find_relationships_by_addr1(addr)
     }
 
     /// Get replies to the given event
@@ -1846,10 +1824,10 @@ impl Storage {
 
     pub fn get_non_replaceable_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
         Ok(self
-            .find_relationships(id)?
+            .find_relationships_by_id(id)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == Relationship::Reply {
+                if *rel == RelationshipById::Reply {
                     Some(*id)
                 } else {
                     None
@@ -1860,10 +1838,10 @@ impl Storage {
 
     pub fn get_replaceable_replies(&self, addr: &EventAddr) -> Result<Vec<Id>, Error> {
         Ok(self
-            .find_reprels(addr)?
+            .find_relationships_by_addr(addr)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == Relationship::Reply {
+                if *rel == RelationshipByAddr::Reply {
                     Some(*id)
                 } else {
                     None
@@ -1882,10 +1860,10 @@ impl Storage {
 
         // Collect up to one reaction per pubkey
         let mut phase1: HashMap<PublicKey, char> = HashMap::new();
-        for (_, rel) in self.find_relationships(id)? {
-            if let Relationship::Reaction(pubkey, reaction) = rel {
+        for (_, rel) in self.find_relationships_by_id(id)? {
+            if let RelationshipById::Reaction { by, reaction } = rel {
                 if let Some(target_event) = &maybe_target_event {
-                    if target_event.pubkey == pubkey {
+                    if target_event.pubkey == by {
                         // Do not let people like their own post
                         continue;
                     }
@@ -1895,8 +1873,8 @@ impl Storage {
                 } else {
                     '+'
                 };
-                phase1.insert(pubkey, symbol);
-                if Some(pubkey) == GLOBALS.signer.public_key() {
+                phase1.insert(by, symbol);
+                if Some(by) == GLOBALS.signer.public_key() {
                     self_already_reacted = true;
                 }
             }
@@ -1919,28 +1897,20 @@ impl Storage {
     /// Get the zap total of a given event
     pub fn get_zap_total(&self, id: Id) -> Result<MilliSatoshi, Error> {
         let mut total = MilliSatoshi(0);
-        for (_, rel) in self.find_relationships(id)? {
-            if let Relationship::ZapReceipt(_pk, millisats) = rel {
-                total = total + millisats;
+        for (_, rel) in self.find_relationships_by_id(id)? {
+            if let RelationshipById::ZapReceipt { by: _, amount } = rel {
+                total = total + amount;
             }
         }
         Ok(total)
     }
 
     /// Get whether an event was deleted, and if so the optional reason
-    pub fn get_deletion(&self, id: Id) -> Result<Option<String>, Error> {
-        for (target_id, rel) in self.find_relationships(id)? {
-            if let Relationship::Deletion(deletion) = rel {
-                if let Some(delete_event) = self.read_event(id)? {
-                    if let Some(target_event) = self.read_event(target_id)? {
-                        // Only if the authors match
-                        if target_event.pubkey == delete_event.pubkey {
-                            return Ok(Some(deletion));
-                        }
-                    } else {
-                        // presume the authors will match for now
-                        return Ok(Some(deletion));
-                    }
+    pub fn get_deletion(&self, maybe_deleted_event: &Event) -> Result<Option<String>, Error> {
+        for (_id, rel) in self.find_relationships_by_id(maybe_deleted_event.id)? {
+            if let RelationshipById::Deletion { by, reason } = rel {
+                if maybe_deleted_event.pubkey == by {
+                    return Ok(Some(reason));
                 }
             }
         }
@@ -1960,10 +1930,20 @@ impl Storage {
             // replies to
             match event.replies_to() {
                 Some(EventReference::Id(id, _, _)) => {
-                    self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
+                    self.write_relationship_by_id(
+                        id,
+                        event.id,
+                        RelationshipById::Reply,
+                        Some(txn),
+                    )?;
                 }
                 Some(EventReference::Addr(ea)) => {
-                    self.write_reprel(ea, event.id, Relationship::Reply, Some(txn))?;
+                    self.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::Reply,
+                        Some(txn),
+                    )?;
                 }
                 None => (),
             }
@@ -1973,10 +1953,13 @@ impl Storage {
                 if let Some(reacted_to_event) = self.read_event(reacted_to_id)? {
                     // Only if they are different people (no liking your own posts)
                     if reacted_to_event.pubkey != event.pubkey {
-                        self.write_relationship(
+                        self.write_relationship_by_id(
                             reacted_to_id, // event reacted to
                             event.id,      // the reaction event id
-                            Relationship::Reaction(event.pubkey, reaction),
+                            RelationshipById::Reaction {
+                                by: event.pubkey,
+                                reaction,
+                            },
                             Some(txn),
                         )?;
                     }
@@ -1986,10 +1969,13 @@ impl Storage {
                     // We filter bad ones when reading them back too, so even if this
                     // turns out to be a reaction by the author, they can't like
                     // their own post
-                    self.write_relationship(
+                    self.write_relationship_by_id(
                         reacted_to_id, // event reacted to
                         event.id,      // the reaction event id
-                        Relationship::Reaction(event.pubkey, reaction),
+                        RelationshipById::Reaction {
+                            by: event.pubkey,
+                            reaction,
+                        },
                         Some(txn),
                     )?;
                     invalidate.push(reacted_to_id);
@@ -2015,10 +2001,13 @@ impl Storage {
                                 }
                             }
                             if !deleted {
-                                self.write_relationship(
+                                self.write_relationship_by_id(
                                     *id,
                                     event.id,
-                                    Relationship::Deletion(reason.clone()),
+                                    RelationshipById::Deletion {
+                                        by: event.pubkey,
+                                        reason: reason.clone(),
+                                    },
                                     Some(txn),
                                 )?;
                             }
@@ -2040,10 +2029,13 @@ impl Storage {
                                 }
                             }
                             if !deleted {
-                                self.write_reprel(
+                                self.write_relationship_by_addr(
                                     ea.clone(),
                                     event.id,
-                                    Relationship::Deletion(reason.clone()),
+                                    RelationshipByAddr::Deletion {
+                                        by: event.pubkey,
+                                        reason: reason.clone(),
+                                    },
                                     Some(txn),
                                 )?;
                             }
@@ -2055,10 +2047,13 @@ impl Storage {
             // zaps
             match event.zaps() {
                 Ok(Some(zapdata)) => {
-                    self.write_relationship(
+                    self.write_relationship_by_id(
                         zapdata.id,
                         event.id,
-                        Relationship::ZapReceipt(event.pubkey, zapdata.amount),
+                        RelationshipById::ZapReceipt {
+                            by: event.pubkey,
+                            amount: zapdata.amount,
+                        },
                         Some(txn),
                     )?;
 

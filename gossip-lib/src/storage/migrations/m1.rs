@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::relationship::Relationship;
+use crate::storage::types::Relationship1;
 use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::{EventReference, EventV1};
@@ -47,7 +47,7 @@ impl Storage {
         // replies to
         match event.replies_to() {
             Some(EventReference::Id(id, _, _)) => {
-                self.write_relationship1(id, event.id, Relationship::Reply, Some(txn))?;
+                self.write_relationship1(id, event.id, Relationship1::Reply, Some(txn))?;
             }
             Some(EventReference::Addr(_ea)) => {
                 // will only work if we already have it... yuck.
@@ -65,7 +65,7 @@ impl Storage {
                     self.write_relationship1(
                         reacted_to_id, // event reacted to
                         event.id,      // the reaction event id
-                        Relationship::Reaction(event.pubkey, reaction),
+                        Relationship1::Reaction(event.pubkey, reaction),
                         Some(txn),
                     )?;
                 }
@@ -77,7 +77,7 @@ impl Storage {
                 self.write_relationship1(
                     reacted_to_id, // event reacted to
                     event.id,      // the reaction event id
-                    Relationship::Reaction(event.pubkey, reaction),
+                    Relationship1::Reaction(event.pubkey, reaction),
                     Some(txn),
                 )?;
             }
@@ -93,7 +93,7 @@ impl Storage {
                         self.write_relationship1(
                             deleted_event_id,
                             event.id,
-                            Relationship::Deletion(reason.clone()),
+                            Relationship1::Deletion(reason.clone()),
                             Some(txn),
                         )?;
                     }
@@ -103,7 +103,7 @@ impl Storage {
                     self.write_relationship1(
                         deleted_event_id,
                         event.id,
-                        Relationship::Deletion(reason.clone()),
+                        Relationship1::Deletion(reason.clone()),
                         Some(txn),
                     )?;
                 }
@@ -116,7 +116,7 @@ impl Storage {
                 self.write_relationship1(
                     zapdata.id,
                     event.id,
-                    Relationship::ZapReceipt(event.pubkey, zapdata.amount),
+                    Relationship1::ZapReceipt(event.pubkey, zapdata.amount),
                     Some(txn),
                 )?;
             }

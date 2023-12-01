@@ -85,7 +85,7 @@ impl NoteData {
 
         let delegation = event.delegation();
 
-        let deletion = GLOBALS.storage.get_deletion(event.id).unwrap_or(None);
+        let deletion = GLOBALS.storage.get_deletion(&event).unwrap_or(None);
 
         let (reactions, self_already_reacted) = GLOBALS
             .storage
