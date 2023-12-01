@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::relationship::Relationship;
+use crate::storage::types::Relationship1;
 use crate::storage::{RawDatabase, Storage};
 use heed::RwTxn;
 use heed::{types::UnalignedSlice, DatabaseFlags};
@@ -7,7 +7,7 @@ use nostr_types::{EventAddr, Id};
 use speedy::{Readable, Writable};
 use std::sync::Mutex;
 
-// Kind:Pubkey:d-tag -> Relationship:Id
+// Kind:Pubkey:d-tag -> Relationship1:Id
 
 static REPREL1_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
 static mut REPREL1_DB: Option<RawDatabase> = None;
@@ -33,7 +33,7 @@ impl Storage {
                     .env
                     .database_options()
                     .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
-                    .flags(DatabaseFlags::DUP_SORT) // NOT FIXED, Relationship serialized isn't.
+                    .flags(DatabaseFlags::DUP_SORT) // NOT FIXED, Relationship1 serialized isn't.
                     .name("reprel1")
                     .create(&mut txn)?;
                 txn.commit()?;
@@ -47,7 +47,7 @@ impl Storage {
         &'a self,
         addr: EventAddr,
         related: Id,
-        relationship: Relationship,
+        relationship: Relationship1,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let key = reprel1_into_key(&addr);
@@ -69,14 +69,17 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn find_reprels1(&self, addr: &EventAddr) -> Result<Vec<(Id, Relationship)>, Error> {
+    pub(crate) fn find_reprels1(
+        &self,
+        addr: &EventAddr,
+    ) -> Result<Vec<(Id, Relationship1)>, Error> {
         let key = reprel1_into_key(addr);
         let txn = self.env.read_txn()?;
         let iter = match self.db_reprel1()?.get_duplicates(&txn, &key)? {
             Some(iter) => iter,
             None => return Ok(vec![]),
         };
-        let mut output: Vec<(Id, Relationship)> = Vec::new();
+        let mut output: Vec<(Id, Relationship1)> = Vec::new();
         for result in iter {
             let (_key, val) = result?;
             let (rel, id) = reprel1_from_value(val)?;
@@ -109,14 +112,14 @@ fn reprel1_from_key(key: &[u8]) -> Result<EventAddr, Error> {
 }
  */
 
-fn reprel1_into_value(relationship: Relationship, id: Id) -> Result<Vec<u8>, Error> {
+fn reprel1_into_value(relationship: Relationship1, id: Id) -> Result<Vec<u8>, Error> {
     let mut value: Vec<u8> = relationship.write_to_vec()?;
     value.extend(id.as_slice());
     Ok(value)
 }
 
-fn reprel1_from_value(value: &[u8]) -> Result<(Relationship, Id), Error> {
-    let (result, len) = Relationship::read_with_length_from_buffer(value);
+fn reprel1_from_value(value: &[u8]) -> Result<(Relationship1, Id), Error> {
+    let (result, len) = Relationship1::read_with_length_from_buffer(value);
     let relationship = result?;
     let id = Id(value[len..len + 32].try_into().unwrap());
     Ok((relationship, id))
