@@ -30,6 +30,8 @@ mod person_lists1;
 mod person_lists2;
 mod person_relays1;
 mod relationships1;
+mod relationships_by_addr1;
+mod relationships_by_id1;
 mod relays1;
 mod reprel1;
 mod unindexed_giftwraps1;
@@ -191,6 +193,8 @@ impl Storage {
         let _ = self.db_person_relays()?;
         let _ = self.db_relationships()?;
         let _ = self.db_reprel()?;
+        let _ = self.db_relationships_by_id()?;
+        let _ = self.db_relationships_by_addr()?;
         let _ = self.db_relays()?;
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
@@ -275,6 +279,16 @@ impl Storage {
     }
 
     #[inline]
+    pub(crate) fn db_relationships_by_addr(&self) -> Result<RawDatabase, Error> {
+        self.db_relationships_by_addr1()
+    }
+
+    #[inline]
+    pub(crate) fn db_relationships_by_id(&self) -> Result<RawDatabase, Error> {
+        self.db_relationships_by_id1()
+    }
+
+    #[inline]
     pub(crate) fn db_relays(&self) -> Result<RawDatabase, Error> {
         self.db_relays1()
     }
@@ -356,6 +370,20 @@ impl Storage {
     pub fn get_reprel_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_reprel()?.len(&txn)?)
+    }
+
+    /// The number of records in the relationships_by_addr table
+    #[inline]
+    pub fn get_relationships_by_addr_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_relationships_by_addr()?.len(&txn)?)
+    }
+
+    /// The number of records in the relationships_by_id table
+    #[inline]
+    pub fn get_relationships_by_id_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_relationships_by_id()?.len(&txn)?)
     }
 
     /// The number of records in the people table
