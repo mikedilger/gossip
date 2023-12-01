@@ -8,6 +8,7 @@ use speedy::{Readable, Writable};
 use std::sync::Mutex;
 
 // Kind:Pubkey:d-tag -> Relationship1:Id
+//   (has dups)
 
 static REPREL1_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
 static mut REPREL1_DB: Option<RawDatabase> = None;
