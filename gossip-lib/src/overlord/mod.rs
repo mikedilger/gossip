@@ -165,6 +165,11 @@ impl Overlord {
             return Ok(());
         }
 
+        // If we need to rebuild relationships, do so now
+        if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
+            GLOBALS.storage.rebuild_relationships(None)?;
+        }
+
         // Start the fetcher
         crate::fetcher::Fetcher::start()?;
 
