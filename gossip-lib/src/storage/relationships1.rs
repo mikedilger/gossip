@@ -4,7 +4,7 @@ use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::Id;
-use speedy::{Readable, Writable};
+use speedy::Writable;
 use std::sync::Mutex;
 
 // Id:Id -> Relationship1
@@ -77,19 +77,5 @@ impl Storage {
         };
 
         Ok(())
-    }
-
-    pub(crate) fn find_relationships1(&self, id: Id) -> Result<Vec<(Id, Relationship1)>, Error> {
-        let start_key = id.as_slice();
-        let txn = self.env.read_txn()?;
-        let iter = self.db_relationships1()?.prefix_iter(&txn, start_key)?;
-        let mut output: Vec<(Id, Relationship1)> = Vec::new();
-        for result in iter {
-            let (key, val) = result?;
-            let id2 = Id(key[32..64].try_into().unwrap());
-            let relationship = Relationship1::read_from_buffer(val)?;
-            output.push((id2, relationship));
-        }
-        Ok(output)
     }
 }
