@@ -153,7 +153,7 @@ impl PersonList1 {
         match *self {
             PersonList1::Followed => EventKind::ContactList,
             PersonList1::Muted => EventKind::MuteList,
-            PersonList1::Custom(_) => EventKind::CategorizedPeopleList,
+            PersonList1::Custom(_) => EventKind::FollowSets,
         }
     }
 

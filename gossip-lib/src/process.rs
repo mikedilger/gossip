@@ -216,7 +216,7 @@ pub async fn process_new_event(
         } else {
             process_somebody_elses_contact_list(event).await?;
         }
-    } else if event.kind == EventKind::MuteList || event.kind == EventKind::CategorizedPeopleList {
+    } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
                 // Update this data for the UI.  We don't actually process the latest event
@@ -226,7 +226,7 @@ pub async fn process_new_event(
         }
 
         // Allocate a slot for this person list
-        if event.kind == EventKind::CategorizedPeopleList {
+        if event.kind == EventKind::FollowSets {
             // get d-tag
             for tag in event.tags.iter() {
                 if let Tag::Identifier { d, .. } = tag {

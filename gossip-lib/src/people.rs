@@ -602,7 +602,7 @@ impl People {
         let kind = match person_list {
             PersonList::Followed => EventKind::ContactList,
             PersonList::Muted => EventKind::MuteList,
-            PersonList::Custom(_) => EventKind::CategorizedPeopleList,
+            PersonList::Custom(_) => EventKind::FollowSets,
         };
 
         // Build public p-tags
@@ -635,7 +635,7 @@ impl People {
             });
         }
 
-        // Add d-tag if using CategorizedPeopleList
+        // Add d-tag if using FollowSets
         if matches!(person_list, PersonList::Custom(_)) {
             tags.push(Tag::Identifier {
                 d: person_list.name(),
