@@ -651,6 +651,11 @@ impl Storage {
 
     def_flag!(following_only, b"following_only", false);
     def_flag!(wizard_complete, b"wizard_complete", false);
+    def_flag!(
+        rebuild_relationships_needed,
+        b"rebuild_relationships_needed",
+        false
+    );
 
     // Settings ----------------------------------------------------------
 
