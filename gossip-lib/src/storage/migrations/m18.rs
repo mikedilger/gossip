@@ -25,15 +25,15 @@ impl Storage {
         Ok(())
     }
 
-    fn m18_move_to_new_relationships_storage<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    fn m18_move_to_new_relationships_storage<'a>(
+        &'a self,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<(), Error> {
         // Clear old relationships tables (we don't have an interface to delete it)
         self.db_relationships1()?.clear(txn)?;
         self.db_reprel1()?.clear(txn)?;
 
         self.set_flag_rebuild_relationships_needed(true, Some(txn))?;
         Ok(())
-
     }
 }
-
-
