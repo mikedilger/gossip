@@ -1219,24 +1219,8 @@ impl Storage {
             // Delete from event_viewed
             self.db_event_viewed()?.delete(txn, id.as_slice())?;
 
-            // Delete from relationships where the id is the first one
-            {
-                // save the actual keys to delete
-                let mut deletions: Vec<Vec<u8>> = Vec::new();
-
-                let start_key: &[u8] = id.as_slice();
-
-                for result in self.db_relationships_by_id()?.prefix_iter(txn, start_key)? {
-                    let (_key, val) = result?;
-                    deletions.push(val.to_owned());
-                }
-
-                // actual deletion done in second pass
-                // (deleting during interation does not work in LMDB)
-                for deletion in deletions.drain(..) {
-                    self.db_relationships_by_id()?.delete(txn, &deletion)?;
-                }
-            }
+            // DO NOT delete from relationships. The related event still applies in case
+            // this event comes back, ESPECIALLY deletion relationships!
 
             // We cannot delete from numerous indexes because the ID
             // is in the value, not in the key.
