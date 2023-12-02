@@ -866,23 +866,23 @@ impl Overlord {
 
     /// Delete a person list
     pub async fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
-        let public_key = match GLOBALS.signer.public_key() {
-            Some(pk) => pk,
-            None => {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Sign in to delete lists.".to_string());
-                return Ok(());
-            }
-        };
-
-        let name = list.name();
-
         // Delete the list locally
         GLOBALS.people.clear_person_list(list)?;
         list.deallocate(None)?;
-        tracing::error!("DEBUG: deleted locally: {}", name);
+        let name = list.name();
+
+        // If we are only following, nothing else needed
+        if GLOBALS.storage.get_flag_following_only() {
+            return Ok(());
+        }
+
+        let public_key = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                // Odd. how do they have a list if they have no pubkey?
+                return Ok(());
+            }
+        };
 
         // Find all local-storage events that define the list
         let bad_events = GLOBALS.storage.find_events(
@@ -892,20 +892,24 @@ impl Overlord {
             |event| event.parameter() == Some(name.clone()),
             false,
         )?;
-        tracing::error!(
-            "DEBUG: deleting {} local events for list={}",
-            bad_events.len(),
-            name
-        );
+
+        // If no list events, we are done
+        if bad_events.is_empty() {
+            return Ok(());
+        }
 
         // Delete those events locally
         for bad_event in &bad_events {
             GLOBALS.storage.delete_event(bad_event.id, None)?;
-            tracing::error!(
-                "DEBUG: deleting event={} from local events for list={}",
-                bad_event.id.as_hex_string(),
-                name
-            );
+        }
+
+        // Require sign in to delete further
+        if !GLOBALS.signer.is_ready() {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("The list was only deleted locally because you are not signed in. The list may reappear on restart.".to_string());
+            return Ok(());
         }
 
         // Generate a deletion event for those events
@@ -934,8 +938,8 @@ impl Overlord {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
                 kind: EventKind::EventDeletion,
-                tags: vec![],
-                content: "".to_owned(), // FIXME, option to supply a delete reason
+                tags,
+                content: "Deleting person list".to_owned(),
             };
 
             // Should we add a pow? Maybe the relay needs it.
@@ -979,11 +983,6 @@ impl Overlord {
 
         // Send event to all these relays
         for url in relay_urls {
-            // Send it the event to post
-            tracing::debug!("Asking {} to delete", &url);
-
-            tracing::error!("DEBUG: deleting list from {}", &url);
-
             self.engage_minion(
                 url.to_owned(),
                 vec![RelayJob {
