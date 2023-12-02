@@ -52,7 +52,7 @@ impl Default for WizardState {
 }
 impl WizardState {
     pub fn update(&mut self) {
-        self.follow_only = GLOBALS.storage.read_following_only();
+        self.follow_only = GLOBALS.storage.get_flag_following_only();
 
         self.pubkey = GLOBALS.signer.public_key();
         self.has_private_key = GLOBALS.signer.is_ready();

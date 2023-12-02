@@ -146,7 +146,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .to_overlord
                 .send(ToOverlordMessage::PushPersonList(PersonList::Followed));
 
-            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
             app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
         }
 
@@ -156,7 +156,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             label = label.color(app.theme.accent_color());
         }
         if ui.button(label).clicked() {
-            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
             app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
         }
     } else {
@@ -164,7 +164,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         let mut label = RichText::new("  >  Finish");
         label = label.color(app.theme.accent_color());
         if ui.button(label).clicked() {
-            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
             app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
         }
     }

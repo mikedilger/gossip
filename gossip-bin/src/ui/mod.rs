@@ -572,7 +572,7 @@ impl GossipUi {
 
         // Possibly enter the wizard instead
         let mut wizard_state: WizardState = Default::default();
-        let wizard_complete = GLOBALS.storage.read_wizard_complete();
+        let wizard_complete = GLOBALS.storage.get_flag_wizard_complete();
         if !wizard_complete {
             if let Some(wp) = wizard::start_wizard_page(&mut wizard_state) {
                 start_page = Page::Wizard(wp);
