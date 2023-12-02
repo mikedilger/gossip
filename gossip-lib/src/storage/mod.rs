@@ -2352,4 +2352,37 @@ impl Storage {
         map.remove(&list);
         self.write_person_lists(pubkey, map, rw_txn)
     }
+
+    /// Rebuild relationships
+    pub fn rebuild_relationships<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        tracing::info!("Rebuilding relationships...");
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Iterate through all events
+            let loop_txn = self.env.read_txn()?;
+            for result in self.db_events()?.iter(&loop_txn)? {
+                let (_key, val) = result?;
+                let event = Event::read_from_buffer(val)?;
+                crate::process::process_relationships_of_event(&event, Some(txn))?;
+            }
+            self.set_flag_rebuild_relationships_needed(false, Some(txn))?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
 }
