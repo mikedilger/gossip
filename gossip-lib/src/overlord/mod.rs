@@ -167,7 +167,13 @@ impl Overlord {
 
         // If we need to rebuild relationships, do so now
         if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
+            GLOBALS
+                .wait_for_data_migration
+                .store(true, Ordering::Relaxed);
             GLOBALS.storage.rebuild_relationships(None)?;
+            GLOBALS
+                .wait_for_data_migration
+                .store(false, Ordering::Relaxed);
         }
 
         // Start the fetcher
@@ -859,9 +865,7 @@ impl Overlord {
     }
 
     /// Delete a person list
-    pub async fn delete_person_list(&mut self, list: PersonList)
-                                    -> Result<(), Error>
-    {
+    pub async fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
         let public_key = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
             None => {
@@ -886,31 +890,35 @@ impl Overlord {
             &[public_key],
             None,
             |event| event.parameter() == Some(name.clone()),
-            false
+            false,
         )?;
-        tracing::error!("DEBUG: deleting {} local events for list={}",
-                        bad_events.len(), name);
+        tracing::error!(
+            "DEBUG: deleting {} local events for list={}",
+            bad_events.len(),
+            name
+        );
 
         // Delete those events locally
         for bad_event in &bad_events {
             GLOBALS.storage.delete_event(bad_event.id, None)?;
-            tracing::error!("DEBUG: deleting event={} from local events for list={}",
-                            bad_event.id.as_hex_string(), name);
+            tracing::error!(
+                "DEBUG: deleting event={} from local events for list={}",
+                bad_event.id.as_hex_string(),
+                name
+            );
         }
 
         // Generate a deletion event for those events
         let event = {
             // Include an "a" tag for the entire group
-            let mut tags: Vec<Tag> = vec![
-                Tag::Address {
-                    kind: EventKind::FollowSets,
-                    pubkey: public_key.into(),
-                    d: name.clone(),
-                    relay_url: None,
-                    marker: None,
-                    trailing: Vec::new(),
-                }
-            ];
+            let mut tags: Vec<Tag> = vec![Tag::Address {
+                kind: EventKind::FollowSets,
+                pubkey: public_key.into(),
+                d: name.clone(),
+                relay_url: None,
+                marker: None,
+                trailing: Vec::new(),
+            }];
 
             // Include "e" tags for each event
             for bad_event in &bad_events {
@@ -926,9 +934,7 @@ impl Overlord {
                 pubkey: public_key,
                 created_at: Unixtime::now().unwrap(),
                 kind: EventKind::EventDeletion,
-                tags: vec![
-
-                ],
+                tags: vec![],
                 content: "".to_owned(), // FIXME, option to supply a delete reason
             };
 

@@ -13,10 +13,7 @@ pub(super) fn update(
     list: PersonList,
 ) {
     let people = {
-        let members = GLOBALS
-            .storage
-            .get_people_in_list(list)
-            .unwrap_or_default();
+        let members = GLOBALS.storage.get_people_in_list(list).unwrap_or_default();
 
         let mut people: Vec<(Person, bool)> = Vec::new();
 
@@ -29,7 +26,7 @@ pub(super) fn update(
                 people.push((person, *public));
             }
         }
-        people.sort_by(|a,b| a.0.cmp(&b.0));
+        people.sort_by(|a, b| a.0.cmp(&b.0));
         people
     };
 
@@ -200,7 +197,12 @@ pub(super) fn update(
 
                     ui.horizontal(|ui| {
                         if crate::ui::components::switch_simple(ui, *public).clicked() {
-                            let _ = GLOBALS.storage.add_person_to_list(&person.pubkey, list, !*public, None);
+                            let _ = GLOBALS.storage.add_person_to_list(
+                                &person.pubkey,
+                                list,
+                                !*public,
+                                None,
+                            );
                         }
                         ui.label(if *public { "public" } else { "private" });
                     });
@@ -208,7 +210,9 @@ pub(super) fn update(
             });
 
             if ui.button("Remove").clicked() {
-                let _ = GLOBALS.storage.remove_person_from_list(&person.pubkey, list, None);
+                let _ = GLOBALS
+                    .storage
+                    .remove_person_from_list(&person.pubkey, list, None);
             }
 
             ui.add_space(4.0);

@@ -187,9 +187,7 @@ impl Page {
         match self {
             Page::DmChatList => cat_name(self),
             Page::Feed(_) => name_cat(self),
-            Page::PeopleFollowNew
-            | Page::PeopleLists
-            | Page::PeopleList(_) => cat_name(self),
+            Page::PeopleFollowNew | Page::PeopleLists | Page::PeopleList(_) => cat_name(self),
             Page::Person(_) => name_cat(self),
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => cat_name(self),
             Page::Wizard(_) => name_cat(self),
@@ -728,9 +726,7 @@ impl GossipUi {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
                 self.close_all_menus(ctx);
             }
-            Page::PeopleFollowNew
-            | Page::PeopleLists
-            | Page::Person(_) => {
+            Page::PeopleFollowNew | Page::PeopleLists | Page::Person(_) => {
                 self.open_menu(ctx, SubMenu::People);
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
@@ -1181,6 +1177,11 @@ impl eframe::App for GossipUi {
         // If login is forced, it takes over
         if GLOBALS.wait_for_login.load(Ordering::Relaxed) {
             return force_login(self, ctx);
+        }
+
+        // If data migration, show that screen
+        if GLOBALS.wait_for_data_migration.load(Ordering::Relaxed) {
+            return wait_for_data_migration(self, ctx);
         }
 
         // Wizard does its own panels
@@ -1891,5 +1892,21 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
 
             ui.label("In case you cannot login, here is your escape hatch:");
             you::offer_delete(app, ui);
+        });
+}
+
+fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
+    egui::CentralPanel::default()
+        .frame({
+            let frame = egui::Frame::central_panel(&app.theme.get_style());
+            frame.inner_margin(egui::Margin {
+                left: 20.0,
+                right: 10.0,
+                top: 10.0,
+                bottom: 0.0,
+            })
+        })
+        .show(ctx, |ui| {
+            ui.label("Please wait for the data migration to complete...");
         });
 }

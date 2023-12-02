@@ -130,6 +130,9 @@ pub struct Globals {
     // Wait for login
     pub wait_for_login: AtomicBool,
     pub wait_for_login_notify: Notify,
+
+    // Wait for data migration
+    pub wait_for_data_migration: AtomicBool,
 }
 
 lazy_static! {
@@ -187,6 +190,7 @@ lazy_static! {
             filter,
             wait_for_login: AtomicBool::new(false),
             wait_for_login_notify: Notify::new(),
+            wait_for_data_migration: AtomicBool::new(false),
         }
     };
 }
