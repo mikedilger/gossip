@@ -102,6 +102,46 @@ pub async fn process_new_event(
         return Ok(()); // No more processing needed for existing event.
     }
 
+    // Ignore if the event is already deleted (by id)
+    for (_id, relbyid) in GLOBALS.storage.find_relationships_by_id(event.id)? {
+        if let RelationshipById::Deletion { by, reason: _ } = relbyid {
+            if by == event.pubkey {
+                tracing::trace!(
+                    "{}: Deleted Event: {} {:?} @{}",
+                    seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                    subscription.as_ref().unwrap_or(&"_".to_string()),
+                    event.kind,
+                    event.created_at
+                );
+                return Ok(());
+            }
+        }
+    }
+
+    // Ignore if the event is already deleted (by address)
+    if let Some(parameter) = event.parameter() {
+        let ea = EventAddr {
+            d: parameter.to_owned(),
+            relays: vec![],
+            kind: event.kind,
+            author: event.pubkey,
+        };
+        for (_id, relbyaddr) in GLOBALS.storage.find_relationships_by_addr(&ea)? {
+            if let RelationshipByAddr::Deletion { by, reason: _ } = relbyaddr {
+                if by == event.pubkey {
+                    tracing::trace!(
+                        "{}: Deleted Event: {} {:?} @{}",
+                        seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                        subscription.as_ref().unwrap_or(&"_".to_string()),
+                        event.kind,
+                        event.created_at
+                    );
+                    return Ok(());
+                }
+            }
+        }
+    }
+
     // Save event
     // Bail if the event is an already-replaced replaceable event
     if event.kind.is_replaceable() {
