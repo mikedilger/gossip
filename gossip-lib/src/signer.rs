@@ -152,6 +152,12 @@ impl Signer {
                 // Index any GiftWraps that weren't indexed due to not having a
                 // private key ready
                 GLOBALS.storage.index_unindexed_giftwraps()?;
+
+                // Update wait for login condition
+                GLOBALS
+                    .wait_for_login
+                    .store(false, std::sync::atomic::Ordering::Relaxed);
+                GLOBALS.wait_for_login_notify.notify_one();
             }
 
             Ok(())

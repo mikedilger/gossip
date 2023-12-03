@@ -80,7 +80,7 @@ pub(super) fn render_note(
             let skip = ((note_data.muted() && app.settings.hide_mutes_entirely)
                 && !matches!(app.page, Page::Feed(FeedKind::DmChat(_)))
                 && !matches!(app.page, Page::Feed(FeedKind::Person(_))))
-                || (note_data.deletion.is_some() && !app.settings.show_deleted_events);
+                || (!note_data.deletions.is_empty() && !app.settings.show_deleted_events);
 
             if skip {
                 return;
@@ -379,7 +379,7 @@ fn render_note_inner(
                         _ => {}
                     }
 
-                    if note.deletion.is_some() {
+                    if !note.deletions.is_empty() {
                         let color = app.theme.warning_marker_text_color();
                         ui.label(
                             RichText::new("DELETED")
@@ -507,7 +507,7 @@ fn render_note_inner(
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
                         }
                         if Some(note.event.pubkey) == app.settings.public_key
-                            && note.deletion.is_none()
+                            && note.deletions.is_empty()
                         {
                             if ui.button("Delete").clicked() {
                                 let _ = GLOBALS
@@ -636,13 +636,13 @@ fn render_note_inner(
                     ui,
                     ctx,
                     note_ref.clone(),
-                    note.deletion.is_some(),
+                    !note.deletions.is_empty(),
                     content_margin_left,
                     content_pull_top,
                 );
 
                 // deleted?
-                if let Some(delete_reason) = &note.deletion {
+                for delete_reason in &note.deletions {
                     Frame::none()
                         .inner_margin(Margin {
                             left: footer_margin_left,

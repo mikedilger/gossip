@@ -41,6 +41,7 @@ pub struct Settings {
     // ID settings
     pub public_key: Option<PublicKey>,
     pub log_n: u8,
+    pub login_at_startup: bool,
 
     // Network settings
     pub offline: bool,
@@ -132,6 +133,7 @@ impl Default for Settings {
         Settings {
             public_key: default_setting!(public_key),
             log_n: default_setting!(log_n),
+            login_at_startup: default_setting!(login_at_startup),
             offline: default_setting!(offline),
             load_avatars: default_setting!(load_avatars),
             load_media: default_setting!(load_media),
@@ -213,6 +215,7 @@ impl Settings {
         Settings {
             public_key: load_setting!(public_key),
             log_n: load_setting!(log_n),
+            login_at_startup: load_setting!(login_at_startup),
             offline: load_setting!(offline),
             load_avatars: load_setting!(load_avatars),
             load_media: load_setting!(load_media),
@@ -290,6 +293,7 @@ impl Settings {
         let mut txn = GLOBALS.storage.get_write_txn()?;
         save_setting!(public_key, self, txn);
         save_setting!(log_n, self, txn);
+        save_setting!(login_at_startup, self, txn);
         save_setting!(offline, self, txn);
         save_setting!(load_avatars, self, txn);
         save_setting!(load_media, self, txn);

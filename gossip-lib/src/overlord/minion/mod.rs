@@ -628,6 +628,7 @@ impl Minion {
                         //EventKind::RecommendRelay,
                         EventKind::ContactList,
                         EventKind::MuteList,
+                        EventKind::FollowSets,
                         EventKind::RelayList,
                     ],
                     // these are all replaceable, no since required
@@ -640,7 +641,8 @@ impl Minion {
                     since: Some(giftwrap_since),
                     ..Default::default()
                 },
-                // Posts I wrote recently
+                // Events I posted recently, including feed_displayable and
+                //  augments (deletions, reactions, timestamp, label,reporting, and zap)
                 Filter {
                     authors: vec![pkh],
                     kinds: crate::feed::feed_related_event_kinds(false), // not DMs

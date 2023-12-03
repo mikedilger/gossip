@@ -4,10 +4,12 @@ use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use crate::person_relay::PersonRelay;
+use crate::relationship::{RelationshipByAddr, RelationshipById};
 use async_recursion::async_recursion;
+use heed::RwTxn;
 use nostr_types::{
-    Event, EventKind, EventReference, Metadata, NostrBech32, PublicKey, RelayUrl, SimpleRelayList,
-    Tag, Unixtime,
+    Event, EventAddr, EventKind, EventReference, Id, Metadata, NostrBech32, PublicKey, RelayUrl,
+    SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -100,6 +102,46 @@ pub async fn process_new_event(
         return Ok(()); // No more processing needed for existing event.
     }
 
+    // Ignore if the event is already deleted (by id)
+    for (_id, relbyid) in GLOBALS.storage.find_relationships_by_id(event.id)? {
+        if let RelationshipById::Deletion { by, reason: _ } = relbyid {
+            if by == event.pubkey {
+                tracing::trace!(
+                    "{}: Deleted Event: {} {:?} @{}",
+                    seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                    subscription.as_ref().unwrap_or(&"_".to_string()),
+                    event.kind,
+                    event.created_at
+                );
+                return Ok(());
+            }
+        }
+    }
+
+    // Ignore if the event is already deleted (by address)
+    if let Some(parameter) = event.parameter() {
+        let ea = EventAddr {
+            d: parameter.to_owned(),
+            relays: vec![],
+            kind: event.kind,
+            author: event.pubkey,
+        };
+        for (_id, relbyaddr) in GLOBALS.storage.find_relationships_by_addr(&ea)? {
+            if let RelationshipByAddr::Deletion { by, reason: _ } = relbyaddr {
+                if by == event.pubkey {
+                    tracing::trace!(
+                        "{}: Deleted Event: {} {:?} @{}",
+                        seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
+                        subscription.as_ref().unwrap_or(&"_".to_string()),
+                        event.kind,
+                        event.created_at
+                    );
+                    return Ok(());
+                }
+            }
+        }
+    }
+
     // Save event
     // Bail if the event is an already-replaced replaceable event
     if event.kind.is_replaceable() {
@@ -187,9 +229,7 @@ pub async fn process_new_event(
     }
 
     // Save event relationships (whether from a relay or not)
-    let invalid_ids = GLOBALS
-        .storage
-        .process_relationships_of_event(event, None)?;
+    let invalid_ids = process_relationships_of_event(event, None)?;
 
     // Invalidate UI events indicated by those relationships
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
@@ -388,4 +428,419 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
     }
 
     Ok(())
+}
+
+/// Process relationships of an event.
+/// This returns IDs that should be UI invalidated (must be redrawn)
+pub(crate) fn process_relationships_of_event<'a>(
+    event: &Event,
+    rw_txn: Option<&mut RwTxn<'a>>,
+) -> Result<Vec<Id>, Error> {
+    let mut invalidate: Vec<Id> = Vec::new();
+
+    let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+        // replies to
+        match event.replies_to() {
+            Some(EventReference::Id(id, _, _)) => {
+                GLOBALS.storage.write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::Reply,
+                    Some(txn),
+                )?;
+            }
+            Some(EventReference::Addr(ea)) => {
+                GLOBALS.storage.write_relationship_by_addr(
+                    ea,
+                    event.id,
+                    RelationshipByAddr::Reply,
+                    Some(txn),
+                )?;
+            }
+            None => (),
+        }
+
+        // timestamps
+        if event.kind == EventKind::Timestamp {
+            for tag in &event.tags {
+                if let Tag::Event { id, .. } = tag {
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::Timestamp,
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
+
+        // deletes
+        if let Some((vec, reason)) = event.deletes() {
+            for er in vec.iter() {
+                match er {
+                    EventReference::Id(id, _, _) => {
+                        GLOBALS.storage.write_relationship_by_id(
+                            *id,
+                            event.id,
+                            RelationshipById::Deletion {
+                                by: event.pubkey,
+                                reason: reason.clone(),
+                            },
+                            Some(txn),
+                        )?;
+
+                        // Actually delete at this point in some cases
+                        if let Some(deleted_event) = GLOBALS.storage.read_event(*id)? {
+                            invalidate.push(deleted_event.id);
+                            if deleted_event.pubkey != event.pubkey {
+                                // No further processing if authors do not match
+                                continue;
+                            }
+                            if !deleted_event.kind.is_feed_displayable() {
+                                // Otherwise actually delete (PITA to do otherwise)
+                                GLOBALS.storage.delete_event(deleted_event.id, Some(txn))?;
+                            }
+                        }
+                    }
+                    EventReference::Addr(ea) => {
+                        GLOBALS.storage.write_relationship_by_addr(
+                            ea.clone(),
+                            event.id,
+                            RelationshipByAddr::Deletion {
+                                by: event.pubkey,
+                                reason: reason.clone(),
+                            },
+                            Some(txn),
+                        )?;
+
+                        // Actually delete at this point in some cases
+                        if let Some(deleted_event) = GLOBALS
+                            .storage
+                            .get_replaceable_event(ea.kind, ea.author, &ea.d)?
+                        {
+                            invalidate.push(deleted_event.id);
+                            if deleted_event.pubkey != event.pubkey {
+                                // No further processing if authors do not match
+                                continue;
+                            }
+                            if !deleted_event.kind.is_feed_displayable() {
+                                // Otherwise actually delete (PITA to do otherwise)
+                                GLOBALS.storage.delete_event(deleted_event.id, Some(txn))?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // reacts to
+        if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
+            // NOTE: reactions may precede the event they react to. So we cannot validate here.
+            GLOBALS.storage.write_relationship_by_id(
+                reacted_to_id, // event reacted to
+                event.id,      // the reaction event id
+                RelationshipById::Reaction {
+                    by: event.pubkey,
+                    reaction,
+                },
+                Some(txn),
+            )?;
+            invalidate.push(reacted_to_id);
+        }
+
+        // labels
+        if event.kind == EventKind::Label {
+            // Get the label from the "l" tag
+            let mut label = "";
+            let mut namespace = "";
+            for t in &event.tags {
+                if let Tag::Other { tag, data } = t {
+                    if tag == "l" && !data.is_empty() {
+                        label = &data[0];
+                        if data.len() >= 2 {
+                            namespace = &data[1];
+                        }
+                    }
+                }
+            }
+
+            for tag in &event.tags {
+                if let Tag::Event { id, .. } = tag {
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::Labels {
+                            label: label.to_owned(),
+                            namespace: namespace.to_owned(),
+                        },
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
+
+        // ListMutesThread
+        if event.kind == EventKind::MuteList {
+            for tag in &event.tags {
+                if let Tag::Event { id, .. } = tag {
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::ListMutesThread,
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
+
+        // ListPins
+        if event.kind == EventKind::PinList {
+            for tag in &event.tags {
+                if let Tag::Event { id, .. } = tag {
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::ListPins,
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
+
+        // ListBookmarks
+        if event.kind == EventKind::BookmarkList {
+            for tag in &event.tags {
+                if let Tag::Event { id, .. } = tag {
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::ListBookmarks,
+                        Some(txn),
+                    )?;
+                }
+                if let Tag::Address {
+                    kind, pubkey, d, ..
+                } = tag
+                {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                        let event_addr = EventAddr {
+                            d: d.to_owned(),
+                            relays: vec![],
+                            kind: *kind,
+                            author: pubkey,
+                        };
+                        GLOBALS.storage.write_relationship_by_addr(
+                            event_addr,
+                            event.id,
+                            RelationshipByAddr::ListBookmarks,
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        // BookmarkSets
+        if event.kind == EventKind::BookmarkSets {
+            for tag in &event.tags {
+                if let Tag::Event { id, .. } = tag {
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::ListBookmarks,
+                        Some(txn),
+                    )?;
+                }
+                if let Tag::Address {
+                    kind, pubkey, d, ..
+                } = tag
+                {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                        let event_addr = EventAddr {
+                            d: d.to_owned(),
+                            relays: vec![],
+                            kind: *kind,
+                            author: pubkey,
+                        };
+                        GLOBALS.storage.write_relationship_by_addr(
+                            event_addr,
+                            event.id,
+                            RelationshipByAddr::ListBookmarks,
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        // CurationSets
+        if event.kind == EventKind::CurationSets {
+            for tag in &event.tags {
+                if let Tag::Event { id, .. } = tag {
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::Curation,
+                        Some(txn),
+                    )?;
+                }
+                if let Tag::Address {
+                    kind, pubkey, d, ..
+                } = tag
+                {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                        let event_addr = EventAddr {
+                            d: d.to_owned(),
+                            relays: vec![],
+                            kind: *kind,
+                            author: pubkey,
+                        };
+                        GLOBALS.storage.write_relationship_by_addr(
+                            event_addr,
+                            event.id,
+                            RelationshipByAddr::Curation,
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        if event.kind == EventKind::LiveChatMessage {
+            for tag in &event.tags {
+                if let Tag::Address {
+                    kind, pubkey, d, ..
+                } = tag
+                {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                        let event_addr = EventAddr {
+                            d: d.to_owned(),
+                            relays: vec![],
+                            kind: *kind,
+                            author: pubkey,
+                        };
+                        GLOBALS.storage.write_relationship_by_addr(
+                            event_addr,
+                            event.id,
+                            RelationshipByAddr::LiveChatMessage,
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        if event.kind == EventKind::BadgeAward {
+            for tag in &event.tags {
+                if let Tag::Address {
+                    kind, pubkey, d, ..
+                } = tag
+                {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                        let event_addr = EventAddr {
+                            d: d.to_owned(),
+                            relays: vec![],
+                            kind: *kind,
+                            author: pubkey,
+                        };
+                        GLOBALS.storage.write_relationship_by_addr(
+                            event_addr,
+                            event.id,
+                            RelationshipByAddr::BadgeAward,
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        if event.kind == EventKind::HandlerRecommendation {
+            for tag in &event.tags {
+                if let Tag::Address {
+                    kind, pubkey, d, ..
+                } = tag
+                {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                        let event_addr = EventAddr {
+                            d: d.to_owned(),
+                            relays: vec![],
+                            kind: *kind,
+                            author: pubkey,
+                        };
+                        GLOBALS.storage.write_relationship_by_addr(
+                            event_addr,
+                            event.id,
+                            RelationshipByAddr::HandlerRecommendation,
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        if event.kind == EventKind::Reporting {
+            for tag in &event.tags {
+                if let Tag::Event {
+                    id,
+                    recommended_relay_url: Some(rru),
+                    ..
+                } = tag
+                {
+                    let report = &rru.0;
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::Reports(report.to_owned()),
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
+
+        // zaps
+        match event.zaps() {
+            Ok(Some(zapdata)) => {
+                GLOBALS.storage.write_relationship_by_id(
+                    zapdata.id,
+                    event.id,
+                    RelationshipById::ZapReceipt {
+                        by: event.pubkey,
+                        amount: zapdata.amount,
+                    },
+                    Some(txn),
+                )?;
+
+                invalidate.push(zapdata.id);
+            }
+            Err(e) => tracing::error!("Invalid zap receipt: {}", e),
+            _ => {}
+        }
+
+        // JobResult
+        if event.kind.is_job_result() {
+            for tag in &event.tags {
+                if let Tag::Event { id, .. } = tag {
+                    GLOBALS.storage.write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::JobResult,
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    };
+
+    match rw_txn {
+        Some(txn) => f(txn)?,
+        None => {
+            let mut txn = GLOBALS.storage.get_write_txn()?;
+            f(&mut txn)?;
+            txn.commit()?;
+        }
+    };
+
+    Ok(invalidate)
 }

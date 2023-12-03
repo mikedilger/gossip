@@ -31,6 +31,9 @@ pub enum ToOverlordMessage {
     /// Calls [delegation_reset](crate::Overlord::delegation_reset)
     DelegationReset,
 
+    /// Calls [delete_person_list](crate::Overlord::delete_person_list)
+    DeletePersonList(PersonList),
+
     /// Calls [delete_post](crate::Overlord::delete_post)
     DeletePost(Id),
 
@@ -50,13 +53,13 @@ pub enum ToOverlordMessage {
     FetchEventAddr(EventAddr),
 
     /// Calls [follow_pubkey](crate::Overlord::follow_pubkey)
-    FollowPubkey(PublicKey, bool),
+    FollowPubkey(PublicKey, PersonList, bool),
 
     /// Calls [follow_nip05](crate::Overlord::follow_nip05)
-    FollowNip05(String, bool),
+    FollowNip05(String, PersonList, bool),
 
     /// Calls [follow_nprofile](crate::Overlord::follow_nprofile)
-    FollowNprofile(Profile, bool),
+    FollowNprofile(Profile, PersonList, bool),
 
     /// Calls [generate_private_key](crate::Overlord::generate_private_key)
     GeneratePrivateKey(String),

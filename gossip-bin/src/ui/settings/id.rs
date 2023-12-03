@@ -30,5 +30,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.label("(NOTE: changing this will not re-encrypt any existing encrypted private key)");
     ui.add(Slider::new(&mut app.settings.log_n, 18..=22).text("logN iteratons"));
 
+    // Login at startup
+    ui.add_space(20.0);
+    ui.checkbox(&mut app.settings.login_at_startup, "Login at startup")
+        .on_hover_text("If set, you will be prompted for your password before gossip starts up.");
+
     ui.add_space(20.0);
 }

@@ -155,6 +155,23 @@ pub fn init() -> Result<(), Error> {
     // Load delegation tag
     GLOBALS.delegation.load()?;
 
+    // If we have a key but have not unlocked it
+    if GLOBALS.signer.is_loaded() && !GLOBALS.signer.is_ready() {
+        // If we need to rebuild relationships
+        if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
+            GLOBALS
+                .wait_for_login
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            GLOBALS
+                .wait_for_data_migration
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        } else if GLOBALS.storage.read_setting_login_at_startup() {
+            GLOBALS
+                .wait_for_login
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
     Ok(())
 }
 

@@ -95,24 +95,31 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
         if ui.button("follow").clicked() {
             if let Ok(pubkey) = PublicKey::try_from_bech32_string(app.follow_someone.trim(), true) {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowPubkey(pubkey, true));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
+                    pubkey,
+                    PersonList::Followed,
+                    true,
+                ));
             } else if let Ok(pubkey) =
                 PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
             {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowPubkey(pubkey, true));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
+                    pubkey,
+                    PersonList::Followed,
+                    true,
+                ));
             } else if let Ok(profile) =
                 Profile::try_from_bech32_string(app.follow_someone.trim(), true)
             {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowNprofile(profile, true));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
+                    profile,
+                    PersonList::Followed,
+                    true,
+                ));
             } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                     app.follow_someone.trim().to_owned(),
+                    PersonList::Followed,
                     true,
                 ));
             } else {
@@ -146,7 +153,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .to_overlord
                 .send(ToOverlordMessage::PushPersonList(PersonList::Followed));
 
-            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
             app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
         }
 
@@ -156,7 +163,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             label = label.color(app.theme.accent_color());
         }
         if ui.button(label).clicked() {
-            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
             app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
         }
     } else {
@@ -164,7 +171,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         let mut label = RichText::new("  >  Finish");
         label = label.color(app.theme.accent_color());
         if ui.button(label).clicked() {
-            let _ = GLOBALS.storage.write_wizard_complete(true, None);
+            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
             app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
         }
     }

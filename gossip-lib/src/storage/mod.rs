@@ -30,6 +30,8 @@ mod person_lists1;
 mod person_lists2;
 mod person_relays1;
 mod relationships1;
+mod relationships_by_addr1;
+mod relationships_by_id1;
 mod relays1;
 mod reprel1;
 mod unindexed_giftwraps1;
@@ -40,7 +42,7 @@ use crate::globals::GLOBALS;
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
-use crate::relationship::Relationship;
+use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
 use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
@@ -120,6 +122,48 @@ macro_rules! def_setting {
     };
 }
 
+macro_rules! def_flag {
+    ($field:ident, $string:literal, $default:expr) => {
+        paste! {
+            pub fn [<set_flag_ $field>]<'a>(
+                &'a self,
+                $field: bool,
+                rw_txn: Option<&mut RwTxn<'a>>,
+            ) -> Result<(), Error> {
+                let bytes = $field.write_to_vec()?;
+
+                let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+                    Ok(self.general.put(txn, $string, &bytes)?)
+                };
+
+                match rw_txn {
+                    Some(txn) => f(txn)?,
+                    None => {
+                        let mut txn = self.env.write_txn()?;
+                        f(&mut txn)?;
+                        txn.commit()?;
+                    }
+                };
+
+                Ok(())
+            }
+
+            pub fn [<get_flag_ $field>](&self) -> bool {
+                let txn = match self.env.read_txn() {
+                    Ok(txn) => txn,
+                    Err(_) => return $default,
+                };
+
+                match self.general.get(&txn, $string) {
+                    Err(_) => $default,
+                    Ok(None) => $default,
+                    Ok(Some(bytes)) => bool::read_from_buffer(bytes).unwrap_or($default),
+                }
+            }
+        }
+    };
+}
+
 type RawDatabase = Database<UnalignedSlice<u8>, UnalignedSlice<u8>>;
 
 /// The LMDB storage engine.
@@ -189,8 +233,8 @@ impl Storage {
         let _ = self.db_hashtags()?;
         let _ = self.db_people()?;
         let _ = self.db_person_relays()?;
-        let _ = self.db_relationships()?;
-        let _ = self.db_reprel()?;
+        let _ = self.db_relationships_by_id()?;
+        let _ = self.db_relationships_by_addr()?;
         let _ = self.db_relays()?;
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
@@ -265,13 +309,13 @@ impl Storage {
     }
 
     #[inline]
-    pub(crate) fn db_relationships(&self) -> Result<RawDatabase, Error> {
-        self.db_relationships1()
+    pub(crate) fn db_relationships_by_addr(&self) -> Result<RawDatabase, Error> {
+        self.db_relationships_by_addr1()
     }
 
     #[inline]
-    pub(crate) fn db_reprel(&self) -> Result<RawDatabase, Error> {
-        self.db_reprel1()
+    pub(crate) fn db_relationships_by_id(&self) -> Result<RawDatabase, Error> {
+        self.db_relationships_by_id1()
     }
 
     #[inline]
@@ -345,17 +389,18 @@ impl Storage {
         Ok(self.db_event_tag_index()?.len(&txn)?)
     }
 
-    /// The number of records in the relationships table
-    pub fn get_relationships_len(&self) -> Result<u64, Error> {
+    /// The number of records in the relationships_by_addr table
+    #[inline]
+    pub fn get_relationships_by_addr_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_relationships()?.len(&txn)?)
+        Ok(self.db_relationships_by_addr()?.len(&txn)?)
     }
 
-    /// The number of records in the reprel table
+    /// The number of records in the relationships_by_id table
     #[inline]
-    pub fn get_reprel_len(&self) -> Result<u64, Error> {
+    pub fn get_relationships_by_id_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_reprel()?.len(&txn)?)
+        Ok(self.db_relationships_by_id()?.len(&txn)?)
     }
 
     /// The number of records in the people table
@@ -447,7 +492,7 @@ impl Storage {
         // Delete from relationships
         // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
         let mut deletions: Vec<Vec<u8>> = Vec::new();
-        for result in self.db_relationships()?.iter(&txn)? {
+        for result in self.db_relationships_by_id()?.iter(&txn)? {
             let (key, _val) = result?;
             let id = Id(key[0..32].try_into()?);
             if ids.contains(&id) {
@@ -461,7 +506,7 @@ impl Storage {
         }
         tracing::info!("PRUNE: deleting {} relationships", deletions.len());
         for deletion in deletions.drain(..) {
-            self.db_relationships()?.delete(&mut txn, &deletion)?;
+            self.db_relationships_by_id()?.delete(&mut txn, &deletion)?;
         }
 
         // delete from events
@@ -604,83 +649,13 @@ impl Storage {
         Ok(lists.get(&list).copied())
     }
 
-    /// Write a flag, whether the user is only following people with no account (or not)
-    pub fn write_following_only<'a>(
-        &'a self,
-        following_only: bool,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = following_only.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"following_only", &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    /// Read a flag, whether the user is only following people with no account (or not)
-    pub fn read_following_only(&self) -> bool {
-        let txn = match self.env.read_txn() {
-            Ok(txn) => txn,
-            Err(_) => return false,
-        };
-
-        match self.general.get(&txn, b"following_only") {
-            Err(_) => false,
-            Ok(None) => false,
-            Ok(Some(bytes)) => bool::read_from_buffer(bytes).unwrap_or(false),
-        }
-    }
-
-    /// Write a flag, whether the onboarding wizard has completed
-    pub fn write_wizard_complete<'a>(
-        &'a self,
-        wizard_complete: bool,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = wizard_complete.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"wizard_complete", &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    /// Read a flag, whether the onboarding wizard has completed
-    pub fn read_wizard_complete(&self) -> bool {
-        let txn = match self.env.read_txn() {
-            Ok(txn) => txn,
-            Err(_) => return false,
-        };
-
-        match self.general.get(&txn, b"wizard_complete") {
-            Err(_) => false,
-            Ok(None) => false,
-            Ok(Some(bytes)) => bool::read_from_buffer(bytes).unwrap_or(false),
-        }
-    }
+    def_flag!(following_only, b"following_only", false);
+    def_flag!(wizard_complete, b"wizard_complete", false);
+    def_flag!(
+        rebuild_relationships_needed,
+        b"rebuild_relationships_needed",
+        false
+    );
 
     // Settings ----------------------------------------------------------
 
@@ -688,6 +663,7 @@ impl Storage {
     // setting value
     def_setting!(public_key, b"public_key", Option::<PublicKey>, None);
     def_setting!(log_n, b"log_n", u8, 18);
+    def_setting!(login_at_startup, b"login_at_startup", bool, true);
     def_setting!(offline, b"offline", bool, false);
     def_setting!(load_avatars, b"load_avatars", bool, true);
     def_setting!(load_media, b"load_media", bool, true);
@@ -1244,24 +1220,8 @@ impl Storage {
             // Delete from event_viewed
             self.db_event_viewed()?.delete(txn, id.as_slice())?;
 
-            // Delete from relationships where the id is the first one
-            {
-                // save the actual keys to delete
-                let mut deletions: Vec<Vec<u8>> = Vec::new();
-
-                let start_key: &[u8] = id.as_slice();
-
-                for result in self.db_relationships()?.prefix_iter(txn, start_key)? {
-                    let (_key, val) = result?;
-                    deletions.push(val.to_owned());
-                }
-
-                // actual deletion done in second pass
-                // (deleting during interation does not work in LMDB)
-                for deletion in deletions.drain(..) {
-                    self.db_relationships()?.delete(txn, &deletion)?;
-                }
-            }
+            // DO NOT delete from relationships. The related event still applies in case
+            // this event comes back, ESPECIALLY deletion relationships!
 
             // We cannot delete from numerous indexes because the ID
             // is in the value, not in the key.
@@ -1767,14 +1727,14 @@ impl Storage {
     /// The second Id relates to the first Id,
     /// e.g. related replies to id, or related deletes id
     #[inline]
-    pub(crate) fn write_relationship<'a>(
+    pub(crate) fn write_relationship_by_id<'a>(
         &'a self,
         id: Id,
         related: Id,
-        relationship: Relationship,
+        relationship_by_id: RelationshipById,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relationship1(id, related, relationship, rw_txn)
+        self.write_relationship_by_id1(id, related, relationship_by_id, rw_txn)
     }
 
     /// Find relationships belonging to the given event
@@ -1782,26 +1742,29 @@ impl Storage {
     /// The found Ids relates to the passed in Id,
     /// e.g. result id replies to id, or result id deletes id
     #[inline]
-    pub fn find_relationships(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
-        self.find_relationships1(id)
+    pub fn find_relationships_by_id(&self, id: Id) -> Result<Vec<(Id, RelationshipById)>, Error> {
+        self.find_relationships_by_id1(id)
     }
 
     /// Write a relationship between an event and an EventAddr (replaceable)
     #[inline]
-    pub(crate) fn write_reprel<'a>(
+    pub(crate) fn write_relationship_by_addr<'a>(
         &'a self,
         addr: EventAddr,
         related: Id,
-        relationship: Relationship,
+        relationship_by_addr: RelationshipByAddr,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_reprel1(addr, related, relationship, rw_txn)
+        self.write_relationship_by_addr1(addr, related, relationship_by_addr, rw_txn)
     }
 
     /// Find relationships belonging to the given event to replaceable events
     #[inline]
-    pub fn find_reprels(&self, addr: &EventAddr) -> Result<Vec<(Id, Relationship)>, Error> {
-        self.find_reprels1(addr)
+    pub fn find_relationships_by_addr(
+        &self,
+        addr: &EventAddr,
+    ) -> Result<Vec<(Id, RelationshipByAddr)>, Error> {
+        self.find_relationships_by_addr1(addr)
     }
 
     /// Get replies to the given event
@@ -1818,10 +1781,10 @@ impl Storage {
 
     pub fn get_non_replaceable_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
         Ok(self
-            .find_relationships(id)?
+            .find_relationships_by_id(id)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == Relationship::Reply {
+                if *rel == RelationshipById::Reply {
                     Some(*id)
                 } else {
                     None
@@ -1832,10 +1795,10 @@ impl Storage {
 
     pub fn get_replaceable_replies(&self, addr: &EventAddr) -> Result<Vec<Id>, Error> {
         Ok(self
-            .find_reprels(addr)?
+            .find_relationships_by_addr(addr)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == Relationship::Reply {
+                if *rel == RelationshipByAddr::Reply {
                     Some(*id)
                 } else {
                     None
@@ -1854,10 +1817,10 @@ impl Storage {
 
         // Collect up to one reaction per pubkey
         let mut phase1: HashMap<PublicKey, char> = HashMap::new();
-        for (_, rel) in self.find_relationships(id)? {
-            if let Relationship::Reaction(pubkey, reaction) = rel {
+        for (_, rel) in self.find_relationships_by_id(id)? {
+            if let RelationshipById::Reaction { by, reaction } = rel {
                 if let Some(target_event) = &maybe_target_event {
-                    if target_event.pubkey == pubkey {
+                    if target_event.pubkey == by {
                         // Do not let people like their own post
                         continue;
                     }
@@ -1867,8 +1830,8 @@ impl Storage {
                 } else {
                     '+'
                 };
-                phase1.insert(pubkey, symbol);
-                if Some(pubkey) == GLOBALS.signer.public_key() {
+                phase1.insert(by, symbol);
+                if Some(by) == GLOBALS.signer.public_key() {
                     self_already_reacted = true;
                 }
             }
@@ -1891,168 +1854,25 @@ impl Storage {
     /// Get the zap total of a given event
     pub fn get_zap_total(&self, id: Id) -> Result<MilliSatoshi, Error> {
         let mut total = MilliSatoshi(0);
-        for (_, rel) in self.find_relationships(id)? {
-            if let Relationship::ZapReceipt(_pk, millisats) = rel {
-                total = total + millisats;
+        for (_, rel) in self.find_relationships_by_id(id)? {
+            if let RelationshipById::ZapReceipt { by: _, amount } = rel {
+                total = total + amount;
             }
         }
         Ok(total)
     }
 
     /// Get whether an event was deleted, and if so the optional reason
-    pub fn get_deletion(&self, id: Id) -> Result<Option<String>, Error> {
-        for (target_id, rel) in self.find_relationships(id)? {
-            if let Relationship::Deletion(deletion) = rel {
-                if let Some(delete_event) = self.read_event(id)? {
-                    if let Some(target_event) = self.read_event(target_id)? {
-                        // Only if the authors match
-                        if target_event.pubkey == delete_event.pubkey {
-                            return Ok(Some(deletion));
-                        }
-                    } else {
-                        // presume the authors will match for now
-                        return Ok(Some(deletion));
-                    }
+    pub fn get_deletions(&self, maybe_deleted_event: &Event) -> Result<Vec<String>, Error> {
+        let mut reasons: Vec<String> = Vec::new();
+        for (_id, rel) in self.find_relationships_by_id(maybe_deleted_event.id)? {
+            if let RelationshipById::Deletion { by, reason } = rel {
+                if maybe_deleted_event.pubkey == by {
+                    reasons.push(reason);
                 }
             }
         }
-        Ok(None)
-    }
-
-    /// Process relationships of an event.
-    /// This returns IDs that should be UI invalidated (must be redrawn)
-    pub fn process_relationships_of_event<'a>(
-        &'a self,
-        event: &Event,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<Vec<Id>, Error> {
-        let mut invalidate: Vec<Id> = Vec::new();
-
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // replies to
-            match event.replies_to() {
-                Some(EventReference::Id(id, _, _)) => {
-                    self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
-                }
-                Some(EventReference::Addr(ea)) => {
-                    self.write_reprel(ea, event.id, Relationship::Reply, Some(txn))?;
-                }
-                None => (),
-            }
-
-            // reacts to
-            if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
-                if let Some(reacted_to_event) = self.read_event(reacted_to_id)? {
-                    // Only if they are different people (no liking your own posts)
-                    if reacted_to_event.pubkey != event.pubkey {
-                        self.write_relationship(
-                            reacted_to_id, // event reacted to
-                            event.id,      // the reaction event id
-                            Relationship::Reaction(event.pubkey, reaction),
-                            Some(txn),
-                        )?;
-                    }
-                    invalidate.push(reacted_to_id);
-                } else {
-                    // Store the reaction to the event we dont have yet.
-                    // We filter bad ones when reading them back too, so even if this
-                    // turns out to be a reaction by the author, they can't like
-                    // their own post
-                    self.write_relationship(
-                        reacted_to_id, // event reacted to
-                        event.id,      // the reaction event id
-                        Relationship::Reaction(event.pubkey, reaction),
-                        Some(txn),
-                    )?;
-                    invalidate.push(reacted_to_id);
-                }
-            }
-
-            // deletes
-            if let Some((vec, reason)) = event.deletes() {
-                for er in vec.iter() {
-                    match er {
-                        EventReference::Id(id, _, _) => {
-                            let mut deleted = false;
-                            if let Some(deleted_event) = self.read_event(*id)? {
-                                invalidate.push(deleted_event.id);
-                                if deleted_event.pubkey != event.pubkey {
-                                    // No further processing if authors do not match
-                                    continue;
-                                }
-                                if !deleted_event.kind.is_feed_displayable() {
-                                    // Otherwise actually delete (PITA to do otherwise)
-                                    self.delete_event(deleted_event.id, Some(txn))?;
-                                    deleted = true;
-                                }
-                            }
-                            if !deleted {
-                                self.write_relationship(
-                                    *id,
-                                    event.id,
-                                    Relationship::Deletion(reason.clone()),
-                                    Some(txn),
-                                )?;
-                            }
-                        }
-                        EventReference::Addr(ea) => {
-                            let mut deleted = false;
-                            if let Some(deleted_event) =
-                                self.get_replaceable_event(ea.kind, ea.author, &ea.d)?
-                            {
-                                invalidate.push(deleted_event.id);
-                                if deleted_event.pubkey != event.pubkey {
-                                    // No further processing if authors do not match
-                                    continue;
-                                }
-                                if !deleted_event.kind.is_feed_displayable() {
-                                    // Otherwise actually delete (PITA to do otherwise)
-                                    self.delete_event(deleted_event.id, Some(txn))?;
-                                    deleted = true;
-                                }
-                            }
-                            if !deleted {
-                                self.write_reprel(
-                                    ea.clone(),
-                                    event.id,
-                                    Relationship::Deletion(reason.clone()),
-                                    Some(txn),
-                                )?;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // zaps
-            match event.zaps() {
-                Ok(Some(zapdata)) => {
-                    self.write_relationship(
-                        zapdata.id,
-                        event.id,
-                        Relationship::ZapReceipt(event.pubkey, zapdata.amount),
-                        Some(txn),
-                    )?;
-
-                    invalidate.push(zapdata.id);
-                }
-                Err(e) => tracing::error!("Invalid zap receipt: {}", e),
-                _ => {}
-            }
-
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(invalidate)
+        Ok(reasons)
     }
 
     /// Write a person record
@@ -2489,5 +2309,38 @@ impl Storage {
         let mut map = self.read_person_lists(pubkey)?;
         map.remove(&list);
         self.write_person_lists(pubkey, map, rw_txn)
+    }
+
+    /// Rebuild relationships
+    pub fn rebuild_relationships<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        tracing::info!("Rebuilding relationships...");
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Iterate through all events
+            let loop_txn = self.env.read_txn()?;
+            for result in self.db_events()?.iter(&loop_txn)? {
+                let (_key, val) = result?;
+                let event = Event::read_from_buffer(val)?;
+                crate::process::process_relationships_of_event(&event, Some(txn))?;
+            }
+            self.set_flag_rebuild_relationships_needed(false, Some(txn))?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 }

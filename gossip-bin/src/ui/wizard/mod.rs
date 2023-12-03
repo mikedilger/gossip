@@ -198,7 +198,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(20.0);
             if wp != WizardPage::FollowPeople {
                 if ui.button("  X  Exit this Wizard").clicked() {
-                    let _ = GLOBALS.storage.write_wizard_complete(true, None);
+                    let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
                     app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
                 }
             }
