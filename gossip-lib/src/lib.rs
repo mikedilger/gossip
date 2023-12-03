@@ -150,7 +150,7 @@ pub fn init() -> Result<(), Error> {
     GLOBALS.storage.init()?;
 
     // Load signer from settings
-    GLOBALS.signer.load_from_settings()?;
+    GLOBALS.signer.init()?;
 
     // Load delegation tag
     GLOBALS.delegation.load()?;

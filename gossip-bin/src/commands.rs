@@ -470,25 +470,34 @@ pub fn print_relays(_cmd: Command) -> Result<(), Error> {
 }
 
 pub fn print_followed(_cmd: Command) -> Result<(), Error> {
-    let pubkeys = GLOBALS
-        .storage
-        .get_people_in_list(PersonList::Followed, None)?;
-    for pk in &pubkeys {
+    let members = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
+    for (pk, public) in &members {
         if let Some(person) = GLOBALS.storage.read_person(pk)? {
-            println!("{} {}", pk.as_hex_string(), person.best_name());
+            println!(
+                "{} {} {}",
+                if *public { "pub" } else { "prv" },
+                pk.as_hex_string(),
+                person.best_name()
+            );
         } else {
-            println!("{}", pk.as_hex_string());
+            println!(
+                "{} {}",
+                if *public { "pub" } else { "prv" },
+                pk.as_hex_string()
+            );
         }
     }
     Ok(())
 }
 
 pub fn print_muted(_cmd: Command) -> Result<(), Error> {
-    let pubkeys = GLOBALS
-        .storage
-        .get_people_in_list(PersonList::Muted, None)?;
-    for pk in &pubkeys {
-        println!("{}", pk.as_hex_string());
+    let members = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
+    for (pk, public) in &members {
+        println!(
+            "{} {}",
+            if *public { "pub" } else { "prv" },
+            pk.as_hex_string()
+        );
     }
     Ok(())
 }
@@ -497,20 +506,21 @@ pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
     let lists = PersonList::all_lists();
     for (list, name) in lists.iter() {
         println!("LIST {}: {}", u8::from(*list), name);
-        let pubkeys = GLOBALS.storage.get_people_in_list(*list, Some(true))?;
-        for pk in &pubkeys {
+        let members = GLOBALS.storage.get_people_in_list(*list)?;
+        for (pk, public) in &members {
             if let Some(person) = GLOBALS.storage.read_person(pk)? {
-                println!("public:  {} {}", pk.as_hex_string(), person.best_name());
+                println!(
+                    "{} {} {}",
+                    if *public { "pub" } else { "prv" },
+                    pk.as_hex_string(),
+                    person.best_name()
+                );
             } else {
-                println!("public:  {}", pk.as_hex_string());
-            }
-        }
-        let pubkeys = GLOBALS.storage.get_people_in_list(*list, Some(false))?;
-        for pk in &pubkeys {
-            if let Some(person) = GLOBALS.storage.read_person(pk)? {
-                println!("private: {} {}", pk.as_hex_string(), person.best_name());
-            } else {
-                println!("private: {}", pk.as_hex_string());
+                println!(
+                    "{} {}",
+                    if *public { "pub" } else { "prv" },
+                    pk.as_hex_string()
+                );
             }
         }
         println!();

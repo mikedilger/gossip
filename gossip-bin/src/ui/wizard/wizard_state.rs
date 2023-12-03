@@ -81,8 +81,11 @@ impl WizardState {
 
         self.followed = GLOBALS
             .storage
-            .get_people_in_list(PersonList::Followed, None)
-            .unwrap_or_default();
+            .get_people_in_list(PersonList::Followed)
+            .unwrap_or_default()
+            .drain(..)
+            .map(|(pk, _)| pk)
+            .collect();
 
         if self.need_discovery_relays() {
             let purplepages = RelayUrl::try_from_str("wss://purplepag.es/").unwrap();

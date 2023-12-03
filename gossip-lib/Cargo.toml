@@ -47,7 +47,7 @@ fallible-iterator = "0.2"
 filetime = "0.2"
 futures = "0.3"
 futures-util = "0.3"
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "7fbbcdc1892aa5a5bc280f01bf25a780937ad62a" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "360aadc068496dd5dbc956e1e861f1c693de136e" }
 heed = { git = "https://github.com/meilisearch/heed", rev = "8bfdf3beeda292fe166dc6b2f468cdb23af7181b" }
 hex = "0.4"
 http = "0.2"
@@ -56,7 +56,7 @@ kamadak-exif = "0.5"
 lazy_static = "1.4"
 linkify = "0.9"
 mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "0fa42f21617efb488f7a2399580f8046f6df0f07", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "661273cfaf8ab164d8ad09959d4194e3ace05fff", features = [ "speedy" ] }
 parking_lot = "0.12"
 paste = "1.0"
 rand = "0.8"

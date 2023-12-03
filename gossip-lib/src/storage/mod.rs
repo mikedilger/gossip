@@ -1763,6 +1763,9 @@ impl Storage {
     }
 
     /// Write a relationship between two events
+    ///
+    /// The second Id relates to the first Id,
+    /// e.g. related replies to id, or related deletes id
     #[inline]
     pub(crate) fn write_relationship<'a>(
         &'a self,
@@ -1775,6 +1778,9 @@ impl Storage {
     }
 
     /// Find relationships belonging to the given event
+    ///
+    /// The found Ids relates to the passed in Id,
+    /// e.g. result id replies to id, or result id deletes id
     #[inline]
     pub fn find_relationships(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
         self.find_relationships1(id)
@@ -2430,12 +2436,8 @@ impl Storage {
     }
 
     /// Get people in a person list
-    pub fn get_people_in_list(
-        &self,
-        list: PersonList,
-        public: Option<bool>,
-    ) -> Result<Vec<PublicKey>, Error> {
-        self.get_people_in_list2(list, public)
+    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, bool)>, Error> {
+        self.get_people_in_list2(list)
     }
 
     pub fn get_people_in_all_followed_lists(&self) -> Result<Vec<PublicKey>, Error> {

@@ -104,7 +104,7 @@ impl PersonList1 {
 
     /// Deallocate this PersonList1
     pub fn deallocate(&self, txn: Option<&mut RwTxn<'_>>) -> Result<(), Error> {
-        if !GLOBALS.storage.get_people_in_list(*self, None)?.is_empty() {
+        if !GLOBALS.storage.get_people_in_list(*self)?.is_empty() {
             Err(ErrorKind::ListIsNotEmpty.into())
         } else {
             if let PersonList1::Custom(i) = self {
@@ -153,7 +153,7 @@ impl PersonList1 {
         match *self {
             PersonList1::Followed => EventKind::ContactList,
             PersonList1::Muted => EventKind::MuteList,
-            PersonList1::Custom(_) => EventKind::CategorizedPeopleList,
+            PersonList1::Custom(_) => EventKind::FollowSets,
         }
     }
 

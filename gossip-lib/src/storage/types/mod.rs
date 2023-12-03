@@ -10,6 +10,9 @@ pub use person_list1::PersonList1;
 mod person_relay1;
 pub use person_relay1::PersonRelay1;
 
+mod relationship1;
+pub use relationship1::Relationship1;
+
 mod relay1;
 pub use relay1::Relay1;
 

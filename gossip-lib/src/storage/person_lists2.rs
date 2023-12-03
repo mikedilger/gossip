@@ -100,28 +100,18 @@ impl Storage {
     pub(crate) fn get_people_in_list2(
         &self,
         list: PersonList1,
-        public: Option<bool>,
-    ) -> Result<Vec<PublicKey>, Error> {
+    ) -> Result<Vec<(PublicKey, bool)>, Error> {
         let txn = self.env.read_txn()?;
-        let mut pubkeys: Vec<PublicKey> = Vec::new();
+        let mut output: Vec<(PublicKey, bool)> = Vec::new();
         for result in self.db_person_lists2()?.iter(&txn)? {
             let (key, val) = result?;
             let pubkey = PublicKey::from_bytes(key, true)?;
             let map = HashMap::<PersonList1, bool>::read_from_buffer(val)?;
             if let Some(actual_public) = map.get(&list) {
-                match public {
-                    Some(requested_public) => {
-                        if requested_public == *actual_public {
-                            pubkeys.push(pubkey);
-                        }
-                    }
-                    None => {
-                        pubkeys.push(pubkey);
-                    }
-                }
+                output.push((pubkey, *actual_public));
             }
         }
-        Ok(pubkeys)
+        Ok(output)
     }
 
     pub(crate) fn clear_person_list2<'a>(
