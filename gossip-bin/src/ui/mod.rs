@@ -1869,7 +1869,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
             })
         })
         .show(ctx, |ui| {
-            ui.heading("Passphrase Needed");
+            ui.heading("Login");
             you::offer_unlock_priv_key(app, ui);
 
             let data_migration = GLOBALS.wait_for_data_migration.load(Ordering::Relaxed);
@@ -1891,14 +1891,14 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                         .store(false, std::sync::atomic::Ordering::Relaxed);
                     GLOBALS.wait_for_login_notify.notify_one();
                 }
+            } else {
+                ui.add_space(60.0);
+                ui.separator();
+                ui.add_space(10.0);
+
+                ui.label("In case you cannot login, here is your escape hatch:");
+                you::offer_delete(app, ui);
             }
-
-            ui.add_space(60.0);
-            ui.separator();
-            ui.add_space(10.0);
-
-            ui.label("In case you cannot login, here is your escape hatch:");
-            you::offer_delete(app, ui);
         });
 }
 
