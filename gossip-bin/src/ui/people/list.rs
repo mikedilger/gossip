@@ -1,9 +1,11 @@
 use super::{GossipUi, Page};
 use crate::ui::widgets;
 use eframe::egui;
-use egui::{Context, RichText, Ui};
+use egui::{Context, RichText, Ui, Vec2};
+use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Person, PersonList, GLOBALS};
+use nostr_types::{Profile, PublicKey};
 
 pub(super) fn update(
     app: &mut GossipUi,
@@ -162,11 +164,18 @@ pub(super) fn update(
     }
 
     ui.add_space(10.0);
+
+    if ui.button("Follow New").clicked() {
+        app.entering_follow_someone_on_list = true;
+    }
+
     ui.separator();
     ui.add_space(10.0);
 
     ui.heading(format!("{} ({})", list.name(), people.len()));
     ui.add_space(14.0);
+
+    ui.separator();
 
     app.vert_scroll_area().show(ui, |ui| {
         for (person, public) in people.iter() {
@@ -219,4 +228,60 @@ pub(super) fn update(
             ui.separator();
         }
     });
+
+    if app.entering_follow_someone_on_list {
+        const DLG_SIZE: Vec2 = vec2(400.0, 200.0);
+        let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
+            ui.heading("Follow someone");
+
+            ui.horizontal(|ui| {
+                ui.label("Enter");
+                ui.add(
+                    text_edit_line!(app, app.follow_someone)
+                        .hint_text("npub1, hex key, nprofile1, or user@domain"),
+                );
+            });
+            if ui.button("follow").clicked() {
+                if let Ok(pubkey) =
+                    PublicKey::try_from_bech32_string(app.follow_someone.trim(), true)
+                {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
+                    app.entering_follow_someone_on_list = false;
+                } else if let Ok(pubkey) =
+                    PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
+                {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
+                    app.entering_follow_someone_on_list = false;
+                } else if let Ok(profile) =
+                    Profile::try_from_bech32_string(app.follow_someone.trim(), true)
+                {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
+                        profile.clone(),
+                        list,
+                        true,
+                    ));
+                    app.entering_follow_someone_on_list = false;
+                } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
+                        app.follow_someone.trim().to_owned(),
+                        list,
+                        true,
+                    ));
+                } else {
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write("Invalid pubkey.".to_string());
+                }
+                app.follow_someone = "".to_owned();
+            }
+        });
+        if ret.inner.clicked() {
+            app.entering_follow_someone_on_list = false;
+        }
+    }
 }

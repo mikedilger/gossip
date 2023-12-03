@@ -104,7 +104,6 @@ pub fn run() -> Result<(), Error> {
 enum Page {
     DmChatList,
     Feed(FeedKind),
-    PeopleFollowNew, // deprecated, will separately be part of the list page
     PeopleLists,
     PeopleList(PersonList),
     Person(PublicKey),
@@ -140,7 +139,6 @@ impl Page {
         match self {
             Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
-            Page::PeopleFollowNew => (SubMenu::People.as_str(), "Follow new".into()),
             Page::PeopleLists => (SubMenu::People.as_str(), "Lists".into()),
             Page::PeopleList(list) => ("People", list.name()),
             Page::Person(pk) => {
@@ -187,7 +185,7 @@ impl Page {
         match self {
             Page::DmChatList => cat_name(self),
             Page::Feed(_) => name_cat(self),
-            Page::PeopleFollowNew | Page::PeopleLists | Page::PeopleList(_) => cat_name(self),
+            Page::PeopleLists | Page::PeopleList(_) => cat_name(self),
             Page::Person(_) => name_cat(self),
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => cat_name(self),
             Page::Wizard(_) => name_cat(self),
@@ -406,6 +404,7 @@ struct GossipUi {
     delegatee_tag_str: String,
 
     // User entry: general
+    entering_follow_someone_on_list: bool,
     follow_someone: String,
     add_relay: String, // dep
     clear_list_needs_confirm: bool,
@@ -647,6 +646,7 @@ impl GossipUi {
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
+            entering_follow_someone_on_list: false,
             follow_someone: "".to_owned(),
             add_relay: "".to_owned(),
             clear_list_needs_confirm: false,
@@ -728,7 +728,7 @@ impl GossipUi {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
                 self.close_all_menus(ctx);
             }
-            Page::PeopleFollowNew | Page::PeopleLists | Page::Person(_) => {
+            Page::PeopleLists | Page::Person(_) => {
                 self.open_menu(ctx, SubMenu::People);
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
@@ -891,7 +891,6 @@ impl GossipUi {
                     let (mut cstate, header_response) =
                         self.get_openable_menu(ui, ctx, SubMenu::People);
                     cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::PeopleFollowNew);
                         self.add_menu_item_page(ui, Page::PeopleLists);
                     });
                     self.after_openable_menu(ui, &cstate);
@@ -1268,10 +1267,7 @@ impl eframe::App for GossipUi {
                     })
                     .fill({
                         match self.page {
-                            Page::PeopleFollowNew
-                            | Page::PeopleLists
-                            | Page::PeopleList(_)
-                            | Page::Person(_) => {
+                            Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
                                 if self.theme.dark_mode {
                                     ctx.style().visuals.panel_fill
                                 } else {
@@ -1287,10 +1283,9 @@ impl eframe::App for GossipUi {
                 match self.page {
                     Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
                     Page::Feed(_) => feed::update(self, ctx, frame, ui),
-                    Page::PeopleFollowNew
-                    | Page::PeopleLists
-                    | Page::PeopleList(_)
-                    | Page::Person(_) => people::update(self, ctx, frame, ui),
+                    Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
+                        people::update(self, ctx, frame, ui)
+                    }
                     Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                         you::update(self, ctx, frame, ui)
                     }
@@ -1378,9 +1373,14 @@ impl GossipUi {
                     }
                 }
                 if !followed && ui.button("Follow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, true, true);
+                    let _ = GLOBALS
+                        .people
+                        .follow(&person.pubkey, true, PersonList::Followed, true);
                 } else if followed && ui.button("Unfollow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, false, true);
+                    let _ =
+                        GLOBALS
+                            .people
+                            .follow(&person.pubkey, false, PersonList::Followed, true);
                 }
 
                 // Do not show 'Mute' if this is yourself

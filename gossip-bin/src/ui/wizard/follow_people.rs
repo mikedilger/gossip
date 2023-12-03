@@ -95,24 +95,31 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
         if ui.button("follow").clicked() {
             if let Ok(pubkey) = PublicKey::try_from_bech32_string(app.follow_someone.trim(), true) {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowPubkey(pubkey, true));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
+                    pubkey,
+                    PersonList::Followed,
+                    true,
+                ));
             } else if let Ok(pubkey) =
                 PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
             {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowPubkey(pubkey, true));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
+                    pubkey,
+                    PersonList::Followed,
+                    true,
+                ));
             } else if let Ok(profile) =
                 Profile::try_from_bech32_string(app.follow_someone.trim(), true)
             {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FollowNprofile(profile, true));
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
+                    profile,
+                    PersonList::Followed,
+                    true,
+                ));
             } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                     app.follow_someone.trim().to_owned(),
+                    PersonList::Followed,
                     true,
                 ));
             } else {

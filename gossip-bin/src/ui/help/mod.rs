@@ -162,8 +162,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.indent("quickstartpullcontacts", |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.label("On the");
-                    if ui.link("People > Follow Someone New").clicked() {
-                        app.set_page(ctx, Page::PeopleFollowNew);
+                    if ui.link("People > Lists> Followed").clicked() {
+                        app.set_page(ctx, Page::PeopleList(PersonList::Followed));
                     }
                     ui.label("page, follow somebody.");
                 });

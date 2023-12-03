@@ -53,13 +53,13 @@ pub enum ToOverlordMessage {
     FetchEventAddr(EventAddr),
 
     /// Calls [follow_pubkey](crate::Overlord::follow_pubkey)
-    FollowPubkey(PublicKey, bool),
+    FollowPubkey(PublicKey, PersonList, bool),
 
     /// Calls [follow_nip05](crate::Overlord::follow_nip05)
-    FollowNip05(String, bool),
+    FollowNip05(String, PersonList, bool),
 
     /// Calls [follow_nprofile](crate::Overlord::follow_nprofile)
-    FollowNprofile(Profile, bool),
+    FollowNprofile(Profile, PersonList, bool),
 
     /// Calls [generate_private_key](crate::Overlord::generate_private_key)
     GeneratePrivateKey(String),

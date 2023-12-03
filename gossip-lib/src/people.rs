@@ -719,27 +719,28 @@ impl People {
     }
 
     /// Follow (or unfollow) the public key
-    pub fn follow(&self, pubkey: &PublicKey, follow: bool, public: bool) -> Result<(), Error> {
+    pub fn follow(
+        &self,
+        pubkey: &PublicKey,
+        follow: bool,
+        list: PersonList,
+        public: bool,
+    ) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if follow {
-            GLOBALS.storage.add_person_to_list(
-                pubkey,
-                PersonList::Followed,
-                public,
-                Some(&mut txn),
-            )?;
+            GLOBALS
+                .storage
+                .add_person_to_list(pubkey, list, public, Some(&mut txn))?;
         } else {
-            GLOBALS.storage.remove_person_from_list(
-                pubkey,
-                PersonList::Followed,
-                Some(&mut txn),
-            )?;
+            GLOBALS
+                .storage
+                .remove_person_from_list(pubkey, list, Some(&mut txn))?;
         }
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
 
         GLOBALS.storage.set_person_list_last_edit_time(
-            PersonList::Followed,
+            list,
             Unixtime::now().unwrap().0,
             Some(&mut txn),
         )?;
