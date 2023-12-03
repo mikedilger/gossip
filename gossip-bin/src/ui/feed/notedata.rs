@@ -36,8 +36,8 @@ pub(super) struct NoteData {
     /// Lists the author is on
     pub lists: HashMap<PersonList, bool>,
 
-    /// Deletion reason if any
-    pub deletion: Option<String>,
+    /// Deletion reasons if any
+    pub deletions: Vec<String>,
 
     /// Do we consider this note as being a repost of another?
     pub repost: Option<RepostType>,
@@ -85,7 +85,7 @@ impl NoteData {
 
         let delegation = event.delegation();
 
-        let deletion = GLOBALS.storage.get_deletion(&event).unwrap_or(None);
+        let deletions = GLOBALS.storage.get_deletions(&event).unwrap_or_default();
 
         let (reactions, self_already_reacted) = GLOBALS
             .storage
@@ -234,7 +234,7 @@ impl NoteData {
             delegation,
             author,
             lists,
-            deletion,
+            deletions,
             repost,
             embedded_event,
             mentions,

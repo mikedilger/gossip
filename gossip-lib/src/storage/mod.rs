@@ -1862,15 +1862,16 @@ impl Storage {
     }
 
     /// Get whether an event was deleted, and if so the optional reason
-    pub fn get_deletion(&self, maybe_deleted_event: &Event) -> Result<Option<String>, Error> {
+    pub fn get_deletions(&self, maybe_deleted_event: &Event) -> Result<Vec<String>, Error> {
+        let mut reasons: Vec<String> = Vec::new();
         for (_id, rel) in self.find_relationships_by_id(maybe_deleted_event.id)? {
             if let RelationshipById::Deletion { by, reason } = rel {
                 if maybe_deleted_event.pubkey == by {
-                    return Ok(Some(reason));
+                    reasons.push(reason);
                 }
             }
         }
-        Ok(None)
+        Ok(reasons)
     }
 
     /// Write a person record
