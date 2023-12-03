@@ -663,6 +663,7 @@ impl Storage {
     // setting value
     def_setting!(public_key, b"public_key", Option::<PublicKey>, None);
     def_setting!(log_n, b"log_n", u8, 18);
+    def_setting!(login_at_startup, b"login_at_startup", bool, true);
     def_setting!(offline, b"offline", bool, false);
     def_setting!(load_avatars, b"load_avatars", bool, true);
     def_setting!(load_media, b"load_media", bool, true);

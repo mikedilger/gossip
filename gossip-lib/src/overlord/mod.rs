@@ -165,9 +165,6 @@ impl Overlord {
 
         // If we need to rebuild relationships, do so now
         if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
-            GLOBALS
-                .wait_for_data_migration
-                .store(true, Ordering::Relaxed);
             GLOBALS.storage.rebuild_relationships(None)?;
             GLOBALS
                 .wait_for_data_migration
