@@ -34,12 +34,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
     }
     if ui.button("Create a new list").clicked() {
-        // FIXME -- prompt for a name with a popup, then create with:
-        //   let _ = PersonList::allocate(name, None);
-        GLOBALS
-            .status_queue
-            .write()
-            .write("Person List Create is NOT YET IMPLEMENTED".to_string());
+        app.creating_list = true;
     }
 
     ui.add_space(10.0);
@@ -63,6 +58,36 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             .to_overlord
                             .send(ToOverlordMessage::DeletePersonList(list));
                         app.deleting_list = None;
+                    }
+                });
+            });
+        });
+        if ret.inner.clicked() {
+            app.deleting_list = None;
+        }
+    } else if app.creating_list {
+        const DLG_SIZE: Vec2 = vec2(250.0, 120.0);
+        let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.heading("Creating a new Person List");
+                ui.add(text_edit_line!(app, app.new_list_name));
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        app.creating_list = false;
+                    }
+                    if ui.button("Create").clicked() {
+                        if !app.new_list_name.is_empty() {
+                            if let Err(e) = PersonList::allocate(&app.new_list_name, None) {
+                                GLOBALS.status_queue.write().write(format!("{}", e));
+                            } else {
+                                app.creating_list = false;
+                            }
+                        } else {
+                            GLOBALS
+                                .status_queue
+                                .write()
+                                .write("Person List name must not be empty".to_string());
+                        }
                     }
                 });
             });

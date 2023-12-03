@@ -417,6 +417,8 @@ struct GossipUi {
     editing_petname: bool,
     petname: String,
     deleting_list: Option<PersonList>,
+    creating_list: bool,
+    new_list_name: String,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -658,6 +660,8 @@ impl GossipUi {
             editing_petname: false,
             petname: "".to_owned(),
             deleting_list: None,
+            creating_list: false,
+            new_list_name: "".to_owned(),
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
