@@ -420,6 +420,7 @@ struct GossipUi {
     entering_search_page: bool,
     editing_petname: bool,
     petname: String,
+    deleting_list: Option<PersonList>,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -660,6 +661,7 @@ impl GossipUi {
             entering_search_page: false,
             editing_petname: false,
             petname: "".to_owned(),
+            deleting_list: None,
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
