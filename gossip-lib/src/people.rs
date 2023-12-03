@@ -198,7 +198,7 @@ impl People {
                     .read_setting_relay_list_becomes_stale_hours() as i64;
 
         if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
-            p.is_in_list(PersonList::Followed)
+            p.is_subscribed_to()
                 && p.relay_list_last_received < stale
                 && among_these.contains(&p.pubkey)
         }) {
