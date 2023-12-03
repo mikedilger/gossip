@@ -155,9 +155,7 @@ impl Overlord {
     async fn run_inner(&mut self) -> Result<(), Error> {
         // Maybe wait for UI login
         if GLOBALS.wait_for_login.load(Ordering::Relaxed) {
-            tracing::error!("DEBUG: overlord waiting for login");
             GLOBALS.wait_for_login_notify.notified().await;
-            tracing::error!("DEBUG: overlord finished waiting for login");
         }
 
         // Check for shutdown (we might not have gotten a login)
@@ -2493,18 +2491,24 @@ impl Overlord {
 
     /// Update the local mute list from the last MuteList event received.
     pub async fn update_person_list(&mut self, list: PersonList, merge: bool) -> Result<(), Error> {
+        // We need a private key to decrypt the content
+        if !GLOBALS.signer.is_ready() {
+            GLOBALS.status_queue.write().write(
+                "You need to be logged in to update a PersonList due to encrypted contents"
+                    .to_string(),
+            );
+            return Ok(());
+        }
+
         // we cannot do anything without an identity setup first
-        let my_pubkey = match GLOBALS.storage.read_setting_public_key() {
-            Some(pk) => pk,
-            None => return Err(ErrorKind::NoPublicKey.into()),
-        };
+        let my_pubkey = GLOBALS.storage.read_setting_public_key().unwrap();
 
         // Load the latest PersonList event from the database
         let event = {
             if let Some(event) =
                 GLOBALS
                     .storage
-                    .get_replaceable_event(list.event_kind(), my_pubkey, "")?
+                    .get_replaceable_event(list.event_kind(), my_pubkey, &list.name())?
             {
                 event.clone()
             } else {

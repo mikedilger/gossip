@@ -68,36 +68,36 @@ pub(super) fn update(
     ui.horizontal(|ui| {
         ui.add_space(30.0);
 
-        if ui
-            .button("↓ Overwrite ↓")
-            .on_hover_text(
-                "This imports data from the latest event, erasing anything that is already here",
-            )
-            .clicked()
-        {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::UpdatePersonList {
-                    person_list: list,
-                    merge: false,
-                });
-        }
-        if ui
-            .button("↓ Merge ↓")
-            .on_hover_text(
-                "This imports data from the latest event, merging it into what is already here",
-            )
-            .clicked()
-        {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::UpdatePersonList {
-                    person_list: list,
-                    merge: true,
-                });
-        }
-
         if GLOBALS.signer.is_ready() {
+            if ui
+                .button("↓ Overwrite ↓")
+                .on_hover_text(
+                    "This imports data from the latest event, erasing anything that is already here",
+                )
+                .clicked()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdatePersonList {
+                        person_list: list,
+                        merge: false,
+                    });
+            }
+            if ui
+                .button("↓ Merge ↓")
+                .on_hover_text(
+                    "This imports data from the latest event, merging it into what is already here",
+                )
+                .clicked()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdatePersonList {
+                        person_list: list,
+                        merge: true,
+                    });
+            }
+
             if ui
                 .button("↑ Publish ↑")
                 .on_hover_text("This publishes the list to your relays")
@@ -157,7 +157,7 @@ pub(super) fn update(
             if ui.link("setup your identity").clicked() {
                 app.set_page(ctx, Page::YourKeys);
             }
-            ui.label(" to push.");
+            ui.label(" to manage list events.");
         });
     }
 
