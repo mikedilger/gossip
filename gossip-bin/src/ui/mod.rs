@@ -139,7 +139,7 @@ impl Page {
         match self {
             Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
-            Page::PeopleLists => (SubMenu::People.as_str(), "Lists".into()),
+            Page::PeopleLists => ("Person Lists", "Person Lists".into()),
             Page::PeopleList(list) => ("People", list.name()),
             Page::Person(pk) => {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
@@ -197,7 +197,6 @@ impl Page {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum SubMenu {
     Feeds,
-    People,
     Relays,
     Account,
     Help,
@@ -207,7 +206,6 @@ impl SubMenu {
     fn as_str(&self) -> &'static str {
         match self {
             SubMenu::Feeds => "Feeds",
-            SubMenu::People => "People",
             SubMenu::Relays => "Relays",
             SubMenu::Account => "Account",
             SubMenu::Help => "Help",
@@ -217,7 +215,6 @@ impl SubMenu {
     fn as_id_str(&self) -> &'static str {
         match self {
             SubMenu::Feeds => "feeds_submenu_id",
-            SubMenu::People => "people_submenu_id",
             SubMenu::Account => "account_submenu_id",
             SubMenu::Relays => "relays_submenu_id",
             SubMenu::Help => "help_submenu_id",
@@ -494,7 +491,6 @@ impl GossipUi {
 
         let mut submenu_ids: HashMap<SubMenu, egui::Id> = HashMap::new();
         submenu_ids.insert(SubMenu::Feeds, egui::Id::new(SubMenu::Feeds.as_id_str()));
-        submenu_ids.insert(SubMenu::People, egui::Id::new(SubMenu::People.as_id_str()));
         submenu_ids.insert(
             SubMenu::Account,
             egui::Id::new(SubMenu::Account.as_id_str()),
@@ -729,7 +725,7 @@ impl GossipUi {
                 self.close_all_menus(ctx);
             }
             Page::PeopleLists | Page::Person(_) => {
-                self.open_menu(ctx, SubMenu::People);
+                self.close_all_menus(ctx);
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                 self.open_menu(ctx, SubMenu::Account);
@@ -886,15 +882,14 @@ impl GossipUi {
                     }
                 }
 
-                // ---- People SubMenu ----
+                // People Lists
+                if self
+                    .add_selected_label(ui, self.page == Page::PeopleLists, "People Lists")
+                    .clicked()
                 {
-                    let (mut cstate, header_response) =
-                        self.get_openable_menu(ui, ctx, SubMenu::People);
-                    cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::PeopleLists);
-                    });
-                    self.after_openable_menu(ui, &cstate);
+                    self.set_page(ctx, Page::PeopleLists);
                 }
+
                 // ---- Relays SubMenu ----
                 {
                     let (mut cstate, header_response) =
