@@ -127,11 +127,11 @@ impl People {
         };
 
         for (person_list, _) in PersonList::all_lists() {
-            if let Ok(Some(event)) =
-                GLOBALS
-                    .storage
-                    .get_replaceable_event(person_list.event_kind(), pk, "")
-            {
+            if let Ok(Some(event)) = GLOBALS.storage.get_replaceable_event(
+                person_list.event_kind(),
+                pk,
+                &person_list.name(),
+            ) {
                 self.latest_person_list_event_data.insert(
                     person_list,
                     PersonListEventData {
@@ -600,8 +600,41 @@ impl People {
             PersonList::Custom(_) => EventKind::FollowSets,
         };
 
-        // Build public p-tags
-        let mut tags: Vec<Tag> = Vec::new();
+        // Pull the existing event (maybe)
+        let existing_event: Option<Event> = match kind {
+            EventKind::ContactList | EventKind::MuteList => {
+                // We fetch for ContactList to preserve the contents
+                // We fetch for MuteList to preserve 't', 'e', and "word" tags
+                GLOBALS.storage.get_replaceable_event(kind, my_pubkey, "")?
+            }
+            // We don't need to preserve anything from FollowSets events
+            _ => None,
+        };
+
+        let mut public_tags: Vec<Tag> = Vec::new();
+
+        // For mute lists, preserve 't', 'e' and 'word' tags from the previous
+        // event so as to not clobber them, they may be used on other clients
+        if kind == EventKind::MuteList {
+            if let Some(ref event) = existing_event {
+                for tag in &event.tags {
+                    match tag {
+                        Tag::Hashtag { .. } => {
+                            public_tags.push(tag.clone());
+                        }
+                        Tag::Event { .. } => {
+                            public_tags.push(tag.clone());
+                        }
+                        Tag::Other { .. } => {
+                            public_tags.push(tag.clone());
+                        }
+                        _ => (),
+                    }
+                }
+            }
+        };
+
+        // Build the public tags
         for (pubkey, public) in people.iter() {
             if !*public {
                 continue;
@@ -626,7 +659,7 @@ impl People {
                 None
             };
 
-            tags.push(Tag::Pubkey {
+            public_tags.push(Tag::Pubkey {
                 pubkey: pubkey.into(),
                 recommended_relay_url,
                 petname,
@@ -636,7 +669,7 @@ impl People {
 
         // Add d-tag if using FollowSets
         if matches!(person_list, PersonList::Custom(_)) {
-            tags.push(Tag::Identifier {
+            public_tags.push(Tag::Identifier {
                 d: person_list.name(),
                 trailing: vec![],
             });
@@ -644,30 +677,28 @@ impl People {
 
         let content = {
             if kind == EventKind::ContactList {
-                match GLOBALS.storage.get_replaceable_event(
-                    EventKind::ContactList,
-                    my_pubkey,
-                    "",
-                )? {
+                // Preserve the contents of any existing kind-3 event for use by
+                // other clients
+                match existing_event {
                     Some(c) => c.content,
                     None => "".to_owned(),
                 }
             } else {
-                // Build private p-tags (except for ContactList)
-                let mut private_p_tags: Vec<Tag> = Vec::new();
+                // Build private tags (except for ContactList)
+                let mut private_tags: Vec<Tag> = Vec::new();
                 for (pubkey, public) in people.iter() {
                     if *public {
                         continue;
                     }
 
-                    private_p_tags.push(Tag::Pubkey {
+                    private_tags.push(Tag::Pubkey {
                         pubkey: pubkey.into(),
                         recommended_relay_url: None,
                         petname: None,
                         trailing: vec![],
                     });
                 }
-                let private_tags_string = serde_json::to_string(&private_p_tags)?;
+                let private_tags_string = serde_json::to_string(&private_tags)?;
                 GLOBALS.signer.encrypt(
                     &my_pubkey,
                     &private_tags_string,
@@ -680,7 +711,7 @@ impl People {
             pubkey: my_pubkey,
             created_at: Unixtime::now().unwrap(),
             kind,
-            tags,
+            tags: public_tags,
             content,
         };
 
