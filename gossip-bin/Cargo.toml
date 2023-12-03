@@ -15,6 +15,7 @@ lang-cjk = [ "gossip-lib/lang-cjk" ]
 video-ffmpeg = [ "egui-video", "sdl2" ]
 native-tls = [ "gossip-lib/native-tls" ]
 rustls-tls = [ "gossip-lib/rustls-tls" ]
+rustls-tls-native = [ "gossip-lib/rustls-tls-native" ]
 
 [dependencies]
 bech32 = "0.9"
