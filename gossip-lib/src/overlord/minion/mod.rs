@@ -480,8 +480,8 @@ impl Minion {
             }
         };
 
-        // Allow all feed related event kinds (including DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(true);
+        // Allow all feed related event kinds (excluding DMs)
+        let event_kinds = crate::feed::feed_related_event_kinds(false);
 
         if !followed_pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHex> = followed_pubkeys.iter().map(|pk| pk.into()).collect();
@@ -765,11 +765,12 @@ impl Minion {
         // globally, and have to be limited to recent ones.
 
         let mut authors: Vec<PublicKeyHex> = dmchannel.keys().iter().map(|k| k.into()).collect();
-        authors.push(pkh);
+        authors.push(pkh.clone());
 
         let filters: Vec<Filter> = vec![Filter {
             authors,
             kinds: vec![EventKind::EncryptedDirectMessage],
+            p: vec![pkh], // tagging the user
             ..Default::default()
         }];
 
