@@ -2529,6 +2529,10 @@ impl Overlord {
             {
                 event.clone()
             } else {
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Could not find a person-list event to update from".to_string());
                 return Ok(()); // we have no event to update from, so we are done
             }
         };
