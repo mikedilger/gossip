@@ -1,7 +1,7 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use heed::RwTxn;
-use nostr_types::EventKind;
+use nostr_types::{EventKind, Unixtime};
 use speedy::{Readable, Writable};
 
 /// Lists people can be added to
@@ -70,7 +70,7 @@ impl PersonList1 {
     }
 
     /// Allocate a new PersonList1 with the given name
-    pub fn allocate(name: &str, txn: Option<&mut RwTxn<'_>>) -> Result<PersonList1, Error> {
+    pub fn allocate<'a>(name: &str, txn: Option<&mut RwTxn<'a>>) -> Result<PersonList1, Error> {
         // Do not allocate for well-known names
         if name == "Followed" {
             return Ok(PersonList1::Followed);
@@ -93,10 +93,32 @@ impl PersonList1 {
                 continue;
             }
             map.insert(i, name.to_owned());
-            GLOBALS
-                .storage
-                .write_setting_custom_person_list_map(&map, txn)?;
-            return Ok(PersonList1::Custom(i));
+
+            let list = PersonList1::Custom(i);
+
+            let f = |txn: &mut RwTxn<'a>| -> Result<PersonList1, Error> {
+                // Now (creation) is when it was last edited
+                let now = Unixtime::now().unwrap();
+                GLOBALS
+                    .storage
+                    .set_person_list_last_edit_time(list, now.0, Some(txn))?;
+
+                GLOBALS
+                    .storage
+                    .write_setting_custom_person_list_map(&map, Some(txn))?;
+
+                Ok(PersonList1::Custom(i))
+            };
+
+            return match txn {
+                Some(txn) => f(txn),
+                None => {
+                    let mut txn = GLOBALS.storage.get_write_txn()?;
+                    let output = f(&mut txn)?;
+                    txn.commit()?;
+                    Ok(output)
+                }
+            };
         }
 
         Err(ErrorKind::NoSlotsRemaining.into())

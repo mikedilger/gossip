@@ -2294,9 +2294,27 @@ impl Storage {
         public: bool,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut map = self.read_person_lists(pubkey)?;
-        map.insert(list, public);
-        self.write_person_lists(pubkey, map, rw_txn)
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let mut map = self.read_person_lists(pubkey)?;
+            map.insert(list, public);
+            self.write_person_lists(pubkey, map, Some(txn))?;
+            let now = Unixtime::now().unwrap();
+            self.set_person_list_last_edit_time(list, now.0, Some(txn))?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     /// Remove a person from a list
@@ -2306,9 +2324,27 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut map = self.read_person_lists(pubkey)?;
-        map.remove(&list);
-        self.write_person_lists(pubkey, map, rw_txn)
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let mut map = self.read_person_lists(pubkey)?;
+            map.remove(&list);
+            self.write_person_lists(pubkey, map, Some(txn))?;
+            let now = Unixtime::now().unwrap();
+            self.set_person_list_last_edit_time(list, now.0, Some(txn))?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     /// Rebuild relationships
