@@ -728,8 +728,16 @@ impl GossipUi {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
                 self.close_all_menus(ctx);
             }
-            Page::PeopleLists | Page::Person(_) => {
+            Page::PeopleLists => {
                 self.close_all_menus(ctx);
+            }
+            Page::Person(pubkey) => {
+                self.close_all_menus(ctx);
+                // Fetch metadata for that person at the page switch
+                // (this bypasses checking if it was done recently)
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdateMetadata(*pubkey));
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                 self.open_menu(ctx, SubMenu::Account);
