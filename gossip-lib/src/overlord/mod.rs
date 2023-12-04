@@ -2506,19 +2506,19 @@ impl Overlord {
         Ok(())
     }
 
-    /// Update the local mute list from the last MuteList event received.
+    /// Update the local person list from the last event received.
     pub async fn update_person_list(&mut self, list: PersonList, merge: bool) -> Result<(), Error> {
-        // We need a private key to decrypt the content
-        if !GLOBALS.signer.is_ready() {
-            GLOBALS.status_queue.write().write(
-                "You need to be logged in to update a PersonList due to encrypted contents"
-                    .to_string(),
-            );
-            return Ok(());
-        }
-
         // we cannot do anything without an identity setup first
-        let my_pubkey = GLOBALS.storage.read_setting_public_key().unwrap();
+        let my_pubkey = match GLOBALS.storage.read_setting_public_key() {
+            Some(pk) => pk,
+            None => {
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("You cannot update person lists without an identity".to_string());
+                return Ok(());
+            }
+        };
 
         // Load the latest PersonList event from the database
         let event = {
@@ -2536,6 +2536,15 @@ impl Overlord {
                 return Ok(()); // we have no event to update from, so we are done
             }
         };
+
+        // If we need to decrypt contents, we must have a private key ready
+        if list != PersonList::Followed && !event.content.is_empty() && !GLOBALS.signer.is_ready() {
+            GLOBALS.status_queue.write().write(
+                "You need to be logged in to update a PersonList due to encrypted contents"
+                    .to_string(),
+            );
+            return Ok(());
+        }
 
         let now = Unixtime::now().unwrap();
 
@@ -2572,7 +2581,7 @@ impl Overlord {
         }
 
         // Private entries
-        if list != PersonList::Followed {
+        if list != PersonList::Followed && !event.content.is_empty() {
             let decrypted_content = GLOBALS.signer.decrypt_nip04(&my_pubkey, &event.content)?;
 
             let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
