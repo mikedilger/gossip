@@ -2439,6 +2439,11 @@ impl Overlord {
 
     /// Subscribe, fetch, and update metadata for the person
     pub async fn update_metadata(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+
+        // Indicate that we are doing this, as the People manager wants to know
+        // for it's retry logic
+        GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
+
         let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
@@ -2471,6 +2476,11 @@ impl Overlord {
         &mut self,
         mut pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
+
+        // Indicate that we are doing this, as the People manager wants to know
+        // for it's retry logic
+        GLOBALS.people.metadata_fetch_initiated(&pubkeys);
+
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
         for pubkey in pubkeys.drain(..) {

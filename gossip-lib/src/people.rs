@@ -62,13 +62,15 @@ pub struct People {
     // the person's NIP-05 when that metadata come in. We remember this here.
     recheck_nip05: DashSet<PublicKey>,
 
-    // People that need metadata, which the UI has asked for. These people
-    // might simply not be loaded from the database yet.
-    need_metadata: DashSet<PublicKey>,
+    // People of interest that the UI is showing, whose metadata should
+    // be updated if it is stale.
+    people_of_interest: DashSet<PublicKey>,
 
-    // People who we already tried to get their metadata. We only try once
-    // per gossip run (this set only grows)
-    tried_metadata: DashSet<PublicKey>,
+    // Metadata fetches in progress. Once these get too old we can remove them
+    // and consider them to have failed.
+    // This only relates to the Metadata event, not subsequent avatar or nip05
+    // loads.
+    fetching_metadata: DashMap<PublicKey, Unixtime>,
 
     /// Latest person list event data for each PersonList
     pub latest_person_list_event_data: DashMap<PersonList, PersonListEventData>,
@@ -88,8 +90,8 @@ impl People {
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
             recheck_nip05: DashSet::new(),
-            need_metadata: DashSet::new(),
-            tried_metadata: DashSet::new(),
+            people_of_interest: DashSet::new(),
+            fetching_metadata: DashMap::new(),
             latest_person_list_event_data: DashMap::new(),
         }
     }
@@ -224,74 +226,94 @@ impl People {
         Ok(())
     }
 
-    /// If this person doesn't have metadata, and we are automatically fetching
-    /// metadata, then add this person to the list of people that need metadata.
+    /// Mark this person as a person who the UI wants fresh metadata for.
+    /// maybe_fetch_metadata() will do the processing later on.
     pub fn person_of_interest(&self, pubkey: PublicKey) {
-        // Don't get metadata if disabled
+        // Don't set if metadata if disabled
         if !GLOBALS.storage.read_setting_automatically_fetch_metadata() {
             return;
         }
 
-        // Don't try over and over. We try just once per gossip run.
-        if self.tried_metadata.contains(&pubkey) {
-            return;
-        }
+        self.people_of_interest.insert(pubkey);
+    }
 
-        match GLOBALS.storage.read_person(&pubkey) {
-            Ok(Some(person)) => {
-                // We need metadata if it is missing or old
-                let need = {
-                    // Metadata refresh interval
-                    let now = Unixtime::now().unwrap();
-                    let stale = Duration::from_secs(
-                        60 * 60 * GLOBALS.storage.read_setting_metadata_becomes_stale_hours(),
-                    );
-                    person.metadata_created_at.is_none()
-                        || person.metadata_last_received < (now - stale).0
-                };
-                if !need {
-                    return;
-                }
-
-                // Record that we need it.
-                // the periodic task will take care of it.
-                if !self.need_metadata.contains(&pubkey) {
-                    self.need_metadata.insert(pubkey);
-                }
-            }
-            _ => {
-                // Trigger a future create and load
-                self.create_if_missing(pubkey);
-
-                // Don't load metadata now, we may have it on disk and get
-                // it from the future load.
-            }
+    /// The overlord calls this to indicate that it is fetching metadata
+    /// for this person from relays
+    pub fn metadata_fetch_initiated(&self, pubkeys: &[PublicKey]) {
+        let now = Unixtime::now().unwrap();
+        for pubkey in pubkeys {
+            self.fetching_metadata.insert(*pubkey, now);
         }
     }
 
     /// This is run periodically. It checks the database first, only then does it
     /// ask the overlord to update the metadata from the relays.
     async fn maybe_fetch_metadata(&self) {
-        let mut verified_need: Vec<PublicKey> = Vec::new();
-
-        // Take from self.need_metadata;
-        let mut need_metadata: Vec<PublicKey> = self
-            .need_metadata
+        // Take everybody out of self.people_of_interest, into a local var
+        let mut people_of_interest: Vec<PublicKey> = self
+            .people_of_interest
             .iter()
             .map(|refmulti| refmulti.key().to_owned())
             .collect();
-        self.need_metadata.clear();
+        self.people_of_interest.clear();
 
-        if !need_metadata.is_empty() {
-            tracing::debug!("Periodic metadata fetch for {} people", need_metadata.len());
+        if !people_of_interest.is_empty() {
+            tracing::trace!(
+                "Periodic metadata check against {} people",
+                people_of_interest.len()
+            );
         }
 
-        for pubkey in need_metadata.drain(..) {
-            tracing::debug!("Seeking metadata for {}", pubkey.as_hex_string());
-            verified_need.push(pubkey);
-            self.tried_metadata.insert(pubkey);
+        let now = Unixtime::now().unwrap();
+        let stale = Duration::from_secs(
+            60 * 60 * GLOBALS.storage.read_setting_metadata_becomes_stale_hours(),
+        );
+
+        let mut verified_need: Vec<PublicKey> = Vec::new();
+
+        for pubkey in people_of_interest.drain(..) {
+            // If we already tried fetching_metadata (within the stale period)
+            // skip them
+            // NOTE: if we tried and it never came in, odds are low that trying
+            // again will make any difference. Either the person doesn't have
+            // metadata or we don't have their proper relays. So a shorter timeout
+            // in this circumstance isn't such a great idea.
+            if let Some(fetching_asof) = self.fetching_metadata.get(&pubkey) {
+                if fetching_asof.0 >= (now - stale).0 {
+                    continue;
+                } else {
+                    // remove stale entry
+                    self.fetching_metadata.remove(&pubkey);
+                }
+            }
+
+            match GLOBALS.storage.read_person(&pubkey) {
+                Ok(Some(person)) => {
+                    // We need metadata if it is missing or old
+                    let need = {
+                        // Metadata refresh interval
+                        person.metadata_created_at.is_none()
+                            || person.metadata_last_received < (now - stale).0
+                    };
+                    if !need {
+                        continue;
+                    }
+
+                    tracing::debug!("Seeking metadata for {}", pubkey.as_hex_string());
+                    verified_need.push(pubkey);
+                }
+                _ => {
+                    // Trigger a future create and load
+                    self.create_if_missing(pubkey);
+                    // Don't load metadata now, we may have it on disk and get
+                    // it from the future load.
+                }
+            }
         }
 
+        // This fires off the minions to fetch metadata events
+        // When they come in, process.rs handles it by calling
+        // GLOBALS.people.update_metadata() [down below]
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::UpdateMetadataInBulk(verified_need));
@@ -307,6 +329,9 @@ impl People {
         metadata: Metadata,
         asof: Unixtime,
     ) -> Result<(), Error> {
+        // Remove from fetching metadata (fetch is complete)
+        self.fetching_metadata.remove(pubkey);
+
         // Sync in from database first
         self.create_all_if_missing(&[*pubkey])?;
 
@@ -321,9 +346,6 @@ impl People {
         // Update metadata_last_received, even if we don't update the metadata
         person.metadata_last_received = now.0;
         GLOBALS.storage.write_person(&person, None)?;
-
-        // Remove from the list of people that need metadata
-        self.need_metadata.remove(pubkey);
 
         // Determine whether it is fresh
         let fresh = match person.metadata_created_at {
