@@ -50,10 +50,10 @@ pub fn page_header<R>(
                 ui.add_space(2.0);
                 ui.heading(title);
             });
-            ui.with_layout(
-                egui::Layout::right_to_left(egui::Align::Center),
-                right_aligned_content,
-            );
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.add_space(20.0);
+                right_aligned_content(ui);
+            });
         });
         ui.add_space(10.0);
     });
