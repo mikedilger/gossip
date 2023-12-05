@@ -14,7 +14,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     let is_editing = app.relays.edit.is_some();
     widgets::page_header(ui, Page::RelaysActivityMonitor.name(), |ui| {
         ui.set_enabled(!is_editing);
-        ui.add_space(20.0);
         super::configure_list_btn(app, ui);
         ui.add_space(20.0);
         super::relay_filter_combo(app, ui);

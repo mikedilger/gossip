@@ -128,7 +128,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             app.settings.num_relays_per_person
         ),
         |ui| {
-            ui.add_space(20.0);
             ui.spacing_mut().button_padding *= 2.0;
             if ui
                 .button("Pick Relays Again")
