@@ -1274,7 +1274,7 @@ impl eframe::App for GossipUi {
                     })
                     .fill({
                         match self.page {
-                            Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
+                            Page::Person(_) => {
                                 if self.theme.dark_mode {
                                     ctx.style().visuals.panel_fill
                                 } else {

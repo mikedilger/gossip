@@ -1,45 +1,63 @@
+use crate::ui::widgets;
+
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui, Vec2};
-use egui_winit::egui::vec2;
+use egui_winit::egui::{vec2, Label, RichText, Sense};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{PersonList, GLOBALS};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(10.0);
-    ui.horizontal_wrapped(|ui| {
-        ui.add_space(2.0);
-        ui.heading("Lists");
+    widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
+        if ui.button("Create a new list").clicked() {
+            app.creating_list = true;
+        }
     });
 
-    ui.add_space(10.0);
-
+    let enable_scroll = true;
     let all_lists = PersonList::all_lists();
-    for (list, listname) in all_lists {
-        let count = GLOBALS
-            .storage
-            .get_people_in_list(list)
-            .map(|v| v.len())
-            .unwrap_or(0);
-        ui.horizontal(|ui| {
-            ui.label(format!("({}) ", count));
-            if ui.link(listname).clicked() {
-                app.set_page(ctx, Page::PeopleList(list));
-            };
-            if matches!(list, PersonList::Custom(_)) {
-                if ui.button("DELETE").clicked() {
-                    app.deleting_list = Some(list);
+    let color = app.theme.accent_color();
+
+    app.vert_scroll_area()
+        .id_source("people_lists_scroll")
+        .enable_scrolling(enable_scroll)
+        .show(ui, |ui| {
+            for (list, listname) in all_lists {
+                let count = GLOBALS
+                    .storage
+                    .get_people_in_list(list)
+                    .map(|v| v.len())
+                    .unwrap_or(0);
+                let row_response = widgets::list_entry::make_frame(ui).show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.add(Label::new(RichText::new(listname).heading().color(color)));
+
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                                if matches!(list, PersonList::Custom(_)) {
+                                    if ui.link("delete list").clicked() {
+                                        app.deleting_list = Some(list);
+                                    }
+                                }
+                            });
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label(format!("Entries: {} ", count));
+                        });
+                    });
+                });
+                if row_response
+                    .response
+                    .interact(Sense::click())
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    app.set_page(ctx, Page::PeopleList(list));
                 }
             }
         });
-    }
-    if ui.button("Create a new list").clicked() {
-        app.creating_list = true;
-    }
-
-    ui.add_space(10.0);
-    ui.separator();
-    ui.add_space(10.0);
 
     if let Some(list) = app.deleting_list {
         const DLG_SIZE: Vec2 = vec2(250.0, 120.0);
