@@ -62,21 +62,24 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     if let Some(list) = app.deleting_list {
         const DLG_SIZE: Vec2 = vec2(250.0, 120.0);
         let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
-            ui.vertical_centered(|ui| {
+            ui.vertical(|ui| {
                 ui.label("Are you sure you want to delete:");
-                ui.add_space(5.0);
+                ui.add_space(10.0);
                 ui.heading(list.name());
-                ui.add_space(5.0);
-                ui.horizontal(|ui| {
-                    if ui.button("Cancel").clicked() {
-                        app.deleting_list = None;
-                    }
-                    if ui.button("Delete").clicked() {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::DeletePersonList(list));
-                        app.deleting_list = None;
-                    }
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT),|ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("Cancel").clicked() {
+                            app.deleting_list = None;
+                        }
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui|{
+                            if ui.button("Delete").clicked() {
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::DeletePersonList(list));
+                                app.deleting_list = None;
+                            }
+                        })
+                    });
                 });
             });
         });
@@ -86,32 +89,41 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     } else if app.creating_list {
         const DLG_SIZE: Vec2 = vec2(250.0, 120.0);
         let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.heading("Creating a new Person List");
-                ui.add(text_edit_line!(app, app.new_list_name));
-                ui.horizontal(|ui| {
-                    if ui.button("Cancel").clicked() {
-                        app.creating_list = false;
-                    }
-                    if ui.button("Create").clicked() {
-                        if !app.new_list_name.is_empty() {
-                            if let Err(e) = PersonList::allocate(&app.new_list_name, None) {
-                                GLOBALS.status_queue.write().write(format!("{}", e));
-                            } else {
-                                app.creating_list = false;
-                            }
-                        } else {
-                            GLOBALS
-                                .status_queue
-                                .write()
-                                .write("Person List name must not be empty".to_string());
+            ui.vertical(|ui| {
+                ui.heading("New List");
+                ui.add_space(10.0);
+                ui.add(text_edit_line!(app, app.new_list_name).hint_text("list name"));
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT),|ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("Cancel").clicked() {
+                            app.creating_list = false;
+                            app.new_list_name.clear();
                         }
-                    }
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui|{
+                            if ui.button("Create").clicked() {
+                                if !app.new_list_name.is_empty() {
+                                    if let Err(e) = PersonList::allocate(&app.new_list_name, None) {
+                                        GLOBALS.status_queue.write().write(format!("{}", e));
+                                    } else {
+                                        app.creating_list = false;
+                                        app.new_list_name.clear();
+                                    }
+                                } else {
+                                    GLOBALS
+                                        .status_queue
+                                        .write()
+                                        .write("Person List name must not be empty".to_string());
+                                }
+                            }
+                        });
+                    });
                 });
             });
         });
         if ret.inner.clicked() {
-            app.deleting_list = None;
+            app.creating_list = false;
+            app.new_list_name.clear();
         }
     }
 }
