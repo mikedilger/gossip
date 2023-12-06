@@ -1,8 +1,8 @@
 use crate::comms::ToOverlordMessage;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
-use crate::people::PersonList;
+use crate::people::{PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use async_recursion::async_recursion;
@@ -843,4 +843,100 @@ pub(crate) fn process_relationships_of_event<'a>(
     };
 
     Ok(invalidate)
+}
+
+#[allow(dead_code)]
+fn update_or_allocate_person_list_from_event(
+    event: &Event,
+    pubkey: PublicKey,
+) -> Result<(PersonList, PersonListMetadata), Error> {
+    let mut txn = GLOBALS.storage.get_write_txn()?;
+
+    // Determine PersonList and fetch Metadata
+    let (list, mut metadata) = match event.kind {
+        EventKind::ContactList => {
+            let list = PersonList::Followed;
+            let md = GLOBALS
+                .storage
+                .get_person_list_metadata(list)?
+                .unwrap_or_default();
+            (list, md)
+        }
+        EventKind::MuteList => {
+            let list = PersonList::Muted;
+            let md = GLOBALS
+                .storage
+                .get_person_list_metadata(list)?
+                .unwrap_or_default();
+            (list, md)
+        }
+        EventKind::FollowSets => {
+            let dtag = match event.parameter() {
+                Some(dtag) => dtag,
+                None => return Err(ErrorKind::ListEventMissingDtag.into()),
+            };
+            if let Some((found_list, metadata)) = GLOBALS.storage.find_person_list_by_dtag(&dtag)? {
+                (found_list, metadata)
+            } else {
+                // Allocate new
+                let metadata = PersonListMetadata {
+                    dtag,
+                    title: "NEW LIST".to_owned(), // updated below
+                    last_edit_time: Unixtime::now().unwrap(),
+                    event_created_at: event.created_at,
+                    event_public_len: 0,     // updated below
+                    event_private_len: None, // updated below
+                };
+                let list = GLOBALS
+                    .storage
+                    .allocate_person_list(&metadata, Some(&mut txn))?;
+                (list, metadata)
+            }
+        }
+        _ => {
+            // This function does not apply to other event kinds
+            return Err(ErrorKind::NotAPersonListEvent.into());
+        }
+    };
+
+    // Update metadata
+    {
+        metadata.event_created_at = event.created_at;
+
+        metadata.event_public_len = event
+            .tags
+            .iter()
+            .filter(|t| matches!(t, Tag::Pubkey { .. }))
+            .count();
+
+        if event.kind == EventKind::ContactList {
+            metadata.event_private_len = None;
+        } else if GLOBALS.signer.is_ready() {
+            let mut private_len: Option<usize> = None;
+            if let Ok(bytes) = GLOBALS.signer.decrypt_nip04(&pubkey, &event.content) {
+                if let Ok(vectags) = serde_json::from_slice::<Vec<Tag>>(&bytes) {
+                    private_len = Some(
+                        vectags
+                            .iter()
+                            .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                            .count(),
+                    );
+                }
+            }
+            metadata.event_private_len = private_len;
+        }
+
+        if let Some(title) = event.title() {
+            metadata.title = title.to_owned();
+        }
+    }
+
+    // Save metadata
+    GLOBALS
+        .storage
+        .set_person_list_metadata(list, &metadata, Some(&mut txn))?;
+
+    txn.commit()?;
+
+    Ok((list, metadata))
 }

@@ -28,6 +28,7 @@ mod people1;
 mod people2;
 mod person_lists1;
 mod person_lists2;
+mod person_lists_metadata1;
 mod person_relays1;
 mod relationships1;
 mod relationships_by_addr1;
@@ -39,7 +40,7 @@ mod unindexed_giftwraps1;
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::people::{Person, PersonList};
+use crate::people::{Person, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
@@ -238,6 +239,7 @@ impl Storage {
         let _ = self.db_relays()?;
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
+        let _ = self.db_person_lists_metadata()?;
 
         // Do migrations
         match self.read_migration_level()? {
@@ -331,6 +333,11 @@ impl Storage {
     #[inline]
     pub(crate) fn db_person_lists(&self) -> Result<RawDatabase, Error> {
         self.db_person_lists2()
+    }
+
+    #[inline]
+    pub(crate) fn db_person_lists_metadata(&self) -> Result<RawDatabase, Error> {
+        self.db_person_lists_metadata1()
     }
 
     // Database length functions ---------------------------------
@@ -648,6 +655,67 @@ impl Storage {
         let lists = self.read_person_lists_last_edit_times()?;
         Ok(lists.get(&list).copied())
     }
+
+    /// Get personlist metadata
+    #[allow(dead_code)]
+    #[inline]
+    pub(crate) fn get_person_list_metadata(
+        &self,
+        list: PersonList,
+    ) -> Result<Option<PersonListMetadata>, Error> {
+        self.get_person_list_metadata1(list)
+    }
+
+    /// Set personlist metadata
+    #[allow(dead_code)]
+    #[inline]
+    pub(crate) fn set_person_list_metadata<'a>(
+        &'a self,
+        list: PersonList,
+        metadata: &PersonListMetadata,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.set_person_list_metadata1(list, metadata, rw_txn)
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub(crate) fn get_all_person_list_metadata(
+        &self,
+    ) -> Result<Vec<(PersonList, PersonListMetadata)>, Error> {
+        self.get_all_person_list_metadata1()
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub(crate) fn find_person_list_by_dtag(
+        &self,
+        dtag: &str,
+    ) -> Result<Option<(PersonList, PersonListMetadata)>, Error> {
+        self.find_person_list_by_dtag1(dtag)
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub(crate) fn allocate_person_list<'a>(
+        &'a self,
+        metadata: &PersonListMetadata,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<PersonList, Error> {
+        self.allocate_person_list1(metadata, rw_txn)
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub(crate) fn deallocate_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.deallocate_person_list1(list, rw_txn)
+    }
+
+    // Flags ------------------------------------------------------------
 
     def_flag!(following_only, b"following_only", false);
     def_flag!(wizard_complete, b"wizard_complete", false);

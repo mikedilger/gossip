@@ -1,4 +1,5 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
+use crate::people::PersonList;
 
 /// Error kinds that can occur in gossip-lib
 #[derive(Debug)]
@@ -20,6 +21,7 @@ pub enum ErrorKind {
     NoPublicKey,
     NoPrivateKey,
     NoRelay,
+    NotAPersonListEvent,
     NoSlotsRemaining,
     Image(image::error::ImageError),
     ImageFailure,
@@ -29,6 +31,9 @@ pub enum ErrorKind {
     InvalidDnsId,
     InvalidUri(http::uri::InvalidUri),
     InvalidUrl(String),
+    ListAllocationFailed,
+    ListAlreadyExists(PersonList),
+    ListEventMissingDtag,
     ListIsNotEmpty,
     ListIsWellKnown,
     ParseInt(std::num::ParseIntError),
@@ -91,6 +96,7 @@ impl std::fmt::Display for Error {
             NoPublicKey => write!(f, "No public key identity available."),
             NoPrivateKey => write!(f, "No private key available."),
             NoRelay => write!(f, "Could not determine a relay to use."),
+            NotAPersonListEvent => write!(f, "Not a person list event"),
             NoSlotsRemaining => write!(f, "No custom list slots remaining."),
             Image(e) => write!(f, "Image: {e}"),
             ImageFailure => write!(f, "Image Failure"),
@@ -100,6 +106,9 @@ impl std::fmt::Display for Error {
             InvalidDnsId => write!(f, "Invalid DNS ID (nip-05), should be user@domain"),
             InvalidUri(e) => write!(f, "Invalid URI: {e}"),
             InvalidUrl(s) => write!(f, "Invalid URL: {s}"),
+            ListAllocationFailed => write!(f, "List allocation failed (no more slots)"),
+            ListAlreadyExists(_) => write!(f, "List already exists"),
+            ListEventMissingDtag => write!(f, "List event missing d-tag"),
             ListIsNotEmpty => write!(f, "List is not empty"),
             ListIsWellKnown => write!(f, "List is well known and cannot be deallocated"),
             ParseInt(e) => write!(f, "Bad integer: {e}"),
