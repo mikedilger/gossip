@@ -66,12 +66,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.label("Are you sure you want to delete:");
                 ui.add_space(10.0);
                 ui.heading(list.name());
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT),|ui| {
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.horizontal(|ui| {
                         if ui.button("Cancel").clicked() {
                             app.deleting_list = None;
                         }
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui|{
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
                             if ui.button("Delete").clicked() {
                                 let _ = GLOBALS
                                     .to_overlord
@@ -93,14 +93,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.heading("New List");
                 ui.add_space(10.0);
                 ui.add(text_edit_line!(app, app.new_list_name).hint_text("list name"));
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT),|ui| {
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.horizontal(|ui| {
                         if ui.button("Cancel").clicked() {
                             app.creating_list = false;
                             app.new_list_name.clear();
                         }
 
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui|{
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
                             if ui.button("Create").clicked() {
                                 if !app.new_list_name.is_empty() {
                                     if let Err(e) = PersonList::allocate(&app.new_list_name, None) {
