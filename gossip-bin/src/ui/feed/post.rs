@@ -565,7 +565,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         app.draft_data.draft.push(emoji);
                     }
                 });
-                ui.add_space(20.0);
+                btn_h_space!(ui);
                 if ui
                     .button(RichText::new("🥩"))
                     .on_hover_text("raw content preview")

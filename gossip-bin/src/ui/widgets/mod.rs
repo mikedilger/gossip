@@ -1,6 +1,9 @@
 mod avatar;
 pub(crate) use avatar::{paint_avatar, AvatarSize};
 
+mod more_menu;
+pub(super) use more_menu::MoreMenu;
+
 mod copy_button;
 pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};

@@ -6,6 +6,8 @@ mod list;
 mod lists;
 mod person;
 
+pub(crate) use list::ListUi;
+
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.page == Page::PeopleLists {
         lists::update(app, ctx, _frame, ui);
