@@ -602,6 +602,49 @@ impl People {
             .collect())
     }
 
+    fn preserve_tags(old_tags: &[Tag], new_kind: EventKind) -> Vec<Tag> {
+        let mut tags = Vec::new();
+
+        if new_kind == EventKind::MuteList {
+            // For mute lists, preserve 't', 'e' and 'word' tags from the previous event
+            // so as to not clobber them, they may be used on other clients
+            for t in old_tags {
+                match t {
+                    Tag::Hashtag { .. } => {
+                        tags.push(t.clone());
+                    }
+                    Tag::Event { .. } => {
+                        tags.push(t.clone());
+                    }
+                    Tag::Other { tag, .. } => {
+                        if tag == "word" {
+                            tags.push(t.clone());
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        } else if new_kind == EventKind::FollowSets {
+            // For FollowSets we should preserve "title", "image" and "description"
+            for t in old_tags {
+                match t {
+                    Tag::Title { .. } => {
+                        tags.push(t.clone());
+                    }
+                    Tag::Other { tag, .. } => {
+                        if tag == "image" || tag == "description" {
+                            tags.push(t.clone());
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+        // For ContactList we don't need to preserve anything (see NIP-02)
+
+        tags
+    }
+
     pub(crate) async fn generate_person_list_event(
         &self,
         person_list: PersonList,
@@ -622,80 +665,73 @@ impl People {
             PersonList::Custom(_) => EventKind::FollowSets,
         };
 
-        // Pull the existing event (maybe)
+        // Pull the existing event
         let existing_event: Option<Event> = match kind {
             EventKind::ContactList | EventKind::MuteList => {
                 // We fetch for ContactList to preserve the contents
                 // We fetch for MuteList to preserve 't', 'e', and "word" tags
                 GLOBALS.storage.get_replaceable_event(kind, my_pubkey, "")?
             }
-            // We don't need to preserve anything from FollowSets events
+            EventKind::FollowSets => {
+                // We fetch for FollowSets to preserve various tags we don't use
+                GLOBALS
+                    .storage
+                    .get_replaceable_event(kind, my_pubkey, &person_list.name())?
+            }
             _ => None,
         };
 
-        let mut public_tags: Vec<Tag> = Vec::new();
-
-        // For mute lists, preserve 't', 'e' and 'word' tags from the previous
-        // event so as to not clobber them, they may be used on other clients
-        if kind == EventKind::MuteList {
-            if let Some(ref event) = existing_event {
-                for tag in &event.tags {
-                    match tag {
-                        Tag::Hashtag { .. } => {
-                            public_tags.push(tag.clone());
-                        }
-                        Tag::Event { .. } => {
-                            public_tags.push(tag.clone());
-                        }
-                        Tag::Other { .. } => {
-                            public_tags.push(tag.clone());
-                        }
-                        _ => (),
-                    }
-                }
-            }
-        };
-
         // Build the public tags
-        for (pubkey, public) in people.iter() {
-            if !*public {
-                continue;
+        let public_tags: Vec<Tag> = {
+            let mut tags = Vec::new();
+
+            // Preserve public tags from existing event
+            if let Some(ref event) = existing_event {
+                tags = Self::preserve_tags(&event.tags, kind);
             }
 
-            // Only include petnames in the ContactList (which is only public people)
-            let petname = if kind == EventKind::ContactList {
-                if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
-                    person.petname.clone()
+            for (pubkey, public) in people.iter() {
+                if !*public {
+                    continue;
+                }
+
+                // Only include petnames in the ContactList (which is only public people)
+                let petname = if kind == EventKind::ContactList {
+                    if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
+                        person.petname.clone()
+                    } else {
+                        None
+                    }
                 } else {
                     None
-                }
-            } else {
-                None
-            };
+                };
 
-            // Only include recommended relay urls in public entries, and not in the mute list
-            let recommended_relay_url = if kind != EventKind::MuteList {
-                let relays = GLOBALS.storage.get_best_relays(*pubkey, Direction::Write)?;
-                relays.get(0).map(|(u, _)| u.to_unchecked_url())
-            } else {
-                None
-            };
+                // Only include recommended relay urls in public entries, and not in the mute list
+                let recommended_relay_url = if kind != EventKind::MuteList {
+                    let relays = GLOBALS.storage.get_best_relays(*pubkey, Direction::Write)?;
+                    relays.get(0).map(|(u, _)| u.to_unchecked_url())
+                } else {
+                    None
+                };
 
-            public_tags.push(Tag::Pubkey {
-                pubkey: pubkey.into(),
-                recommended_relay_url,
-                petname,
-                trailing: vec![],
-            });
-        }
+                tags.push(Tag::Pubkey {
+                    pubkey: pubkey.into(),
+                    recommended_relay_url,
+                    petname,
+                    trailing: vec![],
+                });
+            }
 
-        // Add d-tag if using FollowSets
-        if matches!(person_list, PersonList::Custom(_)) {
-            public_tags.push(Tag::Identifier {
-                d: person_list.name(),
-                trailing: vec![],
-            });
-        }
+            // Add d-tag if using FollowSets
+            if matches!(person_list, PersonList::Custom(_)) {
+                tags.push(Tag::Identifier {
+                    d: person_list.name(),
+                    trailing: vec![],
+                });
+            }
+
+            tags
+        };
 
         let content = {
             if kind == EventKind::ContactList {
@@ -706,20 +742,36 @@ impl People {
                     None => "".to_owned(),
                 }
             } else {
-                // Build private tags (except for ContactList)
-                let mut private_tags: Vec<Tag> = Vec::new();
-                for (pubkey, public) in people.iter() {
-                    if *public {
-                        continue;
+                let private_tags: Vec<Tag> = {
+                    let mut tags = Vec::new();
+
+                    // Preserve private tags from existing event
+                    if let Some(ref event) = existing_event {
+                        if person_list != PersonList::Followed && !event.content.is_empty() {
+                            let decrypted_content =
+                                GLOBALS.signer.decrypt_nip04(&my_pubkey, &event.content)?;
+                            let old_tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                            tags = Self::preserve_tags(&old_tags, kind);
+                        }
                     }
 
-                    private_tags.push(Tag::Pubkey {
-                        pubkey: pubkey.into(),
-                        recommended_relay_url: None,
-                        petname: None,
-                        trailing: vec![],
-                    });
-                }
+                    // Build private tags (except for ContactList)
+                    for (pubkey, public) in people.iter() {
+                        if *public {
+                            continue;
+                        }
+
+                        tags.push(Tag::Pubkey {
+                            pubkey: pubkey.into(),
+                            recommended_relay_url: None,
+                            petname: None,
+                            trailing: vec![],
+                        });
+                    }
+
+                    tags
+                };
+
                 let private_tags_string = serde_json::to_string(&private_tags)?;
                 GLOBALS.signer.encrypt(
                     &my_pubkey,
