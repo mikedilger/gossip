@@ -257,14 +257,6 @@ pub async fn process_new_event(
             process_somebody_elses_contact_list(event).await?;
         }
     } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            if event.pubkey == pubkey {
-                // Update this data for the UI.  We don't actually process the latest event
-                // until the user gives the go ahead.
-                GLOBALS.people.update_latest_person_list_event_data();
-            }
-        }
-
         // Allocate a slot for this person list
         if event.kind == EventKind::FollowSets {
             // get d-tag
@@ -273,6 +265,14 @@ pub async fn process_new_event(
                     // This will allocate if missing, and will be ok if it exists
                     PersonList::allocate(d, None)?;
                 }
+            }
+        }
+
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
+            if event.pubkey == pubkey {
+                // Update this data for the UI.  We don't actually process the latest event
+                // until the user gives the go ahead.
+                GLOBALS.people.update_latest_person_list_event_data();
             }
         }
     } else if event.kind == EventKind::RelayList {
