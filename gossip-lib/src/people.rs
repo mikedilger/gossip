@@ -20,6 +20,9 @@ pub type Person = crate::storage::types::Person2;
 /// PersonList type, aliased to the latest version
 pub type PersonList = crate::storage::types::PersonList1;
 
+/// PersonListMetadata type, aliased to the latest version
+pub type PersonListMetadata = crate::storage::types::PersonListMetadata1;
+
 /// Person List Compare Data
 #[derive(Debug, Clone)]
 pub struct PersonListEventData {
