@@ -140,7 +140,14 @@ impl Page {
             Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
             Page::PeopleLists => ("Person Lists", "Person Lists".into()),
-            Page::PeopleList(list) => ("People", list.name()),
+            Page::PeopleList(list) => {
+                let metadata = GLOBALS
+                    .storage
+                    .get_person_list_metadata(*list)
+                    .unwrap_or_default()
+                    .unwrap_or_default();
+                ("People", metadata.title)
+            }
             Page::Person(pk) => {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 ("Profile", name)
@@ -835,8 +842,11 @@ impl GossipUi {
                     let (mut cstate, header_response) =
                         self.get_openable_menu(ui, ctx, SubMenu::Feeds);
                     cstate.show_body_indented(&header_response, ui, |ui| {
-                        let all_lists = PersonList::all_lists();
-                        for (list, listname) in all_lists {
+                        let all_lists = GLOBALS
+                            .storage
+                            .get_all_person_list_metadata()
+                            .unwrap_or_default();
+                        for (list, metadata) in all_lists {
                             // skip muted
                             if list == PersonList::Muted {
                                 continue;
@@ -844,7 +854,7 @@ impl GossipUi {
                             self.add_menu_item_page_titled(
                                 ui,
                                 Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
-                                &listname,
+                                &metadata.title,
                             );
                         }
                         self.add_menu_item_page(

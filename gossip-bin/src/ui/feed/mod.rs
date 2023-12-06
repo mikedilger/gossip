@@ -53,6 +53,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
     match feed_kind {
         FeedKind::List(list, with_replies) => {
+            let metadata = GLOBALS
+                .storage
+                .get_person_list_metadata(list)
+                .unwrap_or_default()
+                .unwrap_or_default();
+
             let feed = GLOBALS.feed.get_followed();
             let id = format!(
                 "{} {}",
@@ -65,7 +71,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
-                    ui.heading(list.name());
+                    ui.heading(metadata.title);
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

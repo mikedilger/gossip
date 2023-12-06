@@ -54,7 +54,7 @@ use nostr_types::{
 };
 use paste::paste;
 use speedy::{Readable, Writable};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::ops::Bound;
 
 use self::event_tag_index1::INDEXED_TAGS;
@@ -601,65 +601,9 @@ impl Storage {
         }
     }
 
-    /// Write the user's last PersonList edit times
-    pub fn write_person_lists_last_edit_times<'a>(
-        &'a self,
-        times: HashMap<PersonList, i64>,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = times.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general
-                .put(txn, b"person_lists_last_edit_times", bytes.as_slice())?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    /// Read the user's last ContactList edit time
-    pub fn read_person_lists_last_edit_times(&self) -> Result<HashMap<PersonList, i64>, Error> {
-        let txn = self.env.read_txn()?;
-
-        match self.general.get(&txn, b"person_lists_last_edit_times")? {
-            None => Ok(HashMap::new()),
-            Some(bytes) => Ok(HashMap::<PersonList, i64>::read_from_buffer(bytes)?),
-        }
-    }
-
-    /// Set a person list last edit time
-    pub fn set_person_list_last_edit_time<'a>(
-        &'a self,
-        list: PersonList,
-        time: i64,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let mut lists = self.read_person_lists_last_edit_times()?;
-        let _ = lists.insert(list, time);
-        self.write_person_lists_last_edit_times(lists, rw_txn)?;
-        Ok(())
-    }
-
-    /// Get a person list last edit time
-    pub fn get_person_list_last_edit_time(&self, list: PersonList) -> Result<Option<i64>, Error> {
-        let lists = self.read_person_lists_last_edit_times()?;
-        Ok(lists.get(&list).copied())
-    }
-
     /// Get personlist metadata
-    #[allow(dead_code)]
     #[inline]
-    pub(crate) fn get_person_list_metadata(
+    pub fn get_person_list_metadata(
         &self,
         list: PersonList,
     ) -> Result<Option<PersonListMetadata>, Error> {
@@ -667,9 +611,8 @@ impl Storage {
     }
 
     /// Set personlist metadata
-    #[allow(dead_code)]
     #[inline]
-    pub(crate) fn set_person_list_metadata<'a>(
+    pub fn set_person_list_metadata<'a>(
         &'a self,
         list: PersonList,
         metadata: &PersonListMetadata,
@@ -678,26 +621,26 @@ impl Storage {
         self.set_person_list_metadata1(list, metadata, rw_txn)
     }
 
-    #[allow(dead_code)]
+    /// Get all person lists with their metadata
     #[inline]
-    pub(crate) fn get_all_person_list_metadata(
+    pub fn get_all_person_list_metadata(
         &self,
     ) -> Result<Vec<(PersonList, PersonListMetadata)>, Error> {
         self.get_all_person_list_metadata1()
     }
 
-    #[allow(dead_code)]
+    /// Find a person list by "d" tag
     #[inline]
-    pub(crate) fn find_person_list_by_dtag(
+    pub fn find_person_list_by_dtag(
         &self,
         dtag: &str,
     ) -> Result<Option<(PersonList, PersonListMetadata)>, Error> {
         self.find_person_list_by_dtag1(dtag)
     }
 
-    #[allow(dead_code)]
+    /// Allocate a new person list
     #[inline]
-    pub(crate) fn allocate_person_list<'a>(
+    pub fn allocate_person_list<'a>(
         &'a self,
         metadata: &PersonListMetadata,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -705,14 +648,31 @@ impl Storage {
         self.allocate_person_list1(metadata, rw_txn)
     }
 
-    #[allow(dead_code)]
+    /// Deallocate an empty person list
     #[inline]
-    pub(crate) fn deallocate_person_list<'a>(
+    pub fn deallocate_person_list<'a>(
         &'a self,
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         self.deallocate_person_list1(list, rw_txn)
+    }
+
+    // GINA add more person_list functions, higher level now
+    pub fn rename_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        newname: String,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut md = match self.get_person_list_metadata(list)? {
+            Some(md) => md,
+            None => return Err(ErrorKind::ListNotFound.into()),
+        };
+        md.title = newname;
+        md.last_edit_time = Unixtime::now().unwrap();
+        self.set_person_list_metadata(list, &md, rw_txn)?;
+        Ok(())
     }
 
     // Flags ------------------------------------------------------------
@@ -753,17 +713,6 @@ impl Storage {
         60 * 60 * 24 * 30
     );
     def_setting!(overlap, b"overlap", u64, 300);
-    def_setting!(
-        custom_person_list_map,
-        b"custom_person_list_map",
-        BTreeMap::<u8, String>,
-        {
-            let mut m = BTreeMap::new();
-            m.insert(0, "Muted".to_owned());
-            m.insert(1, "Followed".to_owned());
-            m
-        }
-    );
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);
@@ -2367,7 +2316,11 @@ impl Storage {
             map.insert(list, public);
             self.write_person_lists(pubkey, map, Some(txn))?;
             let now = Unixtime::now().unwrap();
-            self.set_person_list_last_edit_time(list, now.0, Some(txn))?;
+            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                metadata.last_edit_time = now;
+                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+            }
+
             Ok(())
         };
 
@@ -2397,7 +2350,10 @@ impl Storage {
             map.remove(&list);
             self.write_person_lists(pubkey, map, Some(txn))?;
             let now = Unixtime::now().unwrap();
-            self.set_person_list_last_edit_time(list, now.0, Some(txn))?;
+            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                metadata.last_edit_time = now;
+                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+            }
             Ok(())
         };
 

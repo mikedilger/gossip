@@ -102,7 +102,7 @@ mod overlord;
 pub use overlord::Overlord;
 
 mod people;
-pub use people::{People, Person, PersonList};
+pub use people::{People, Person, PersonList, PersonListMetadata};
 
 mod person_relay;
 pub use person_relay::PersonRelay;

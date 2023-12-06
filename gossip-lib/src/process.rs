@@ -1,5 +1,5 @@
 use crate::comms::ToOverlordMessage;
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
 use crate::people::{PersonList, PersonListMetadata};
@@ -247,9 +247,9 @@ pub async fn process_new_event(
     if event.kind == EventKind::ContactList {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
-                // Update this data for the UI.  We don't actually process the latest event
-                // until the user gives the go ahead.
-                GLOBALS.people.update_latest_person_list_event_data();
+                // Updates stamps and counts, does NOT change membership
+                let (_personlist, _metadata) =
+                    update_or_allocate_person_list_from_event(event, pubkey)?;
             } else {
                 process_somebody_elses_contact_list(event).await?;
             }
@@ -257,22 +257,12 @@ pub async fn process_new_event(
             process_somebody_elses_contact_list(event).await?;
         }
     } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
-        // Allocate a slot for this person list
-        if event.kind == EventKind::FollowSets {
-            // get d-tag
-            for tag in event.tags.iter() {
-                if let Tag::Identifier { d, .. } = tag {
-                    // This will allocate if missing, and will be ok if it exists
-                    PersonList::allocate(d, None)?;
-                }
-            }
-        }
-
+        // Only our own
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
-                // Update this data for the UI.  We don't actually process the latest event
-                // until the user gives the go ahead.
-                GLOBALS.people.update_latest_person_list_event_data();
+                // Updates stamps and counts, does NOT change membership
+                let (_personlist, _metadata) =
+                    update_or_allocate_person_list_from_event(event, pubkey)?;
             }
         }
     } else if event.kind == EventKind::RelayList {
@@ -845,7 +835,8 @@ pub(crate) fn process_relationships_of_event<'a>(
     Ok(invalidate)
 }
 
-#[allow(dead_code)]
+// This updates the event data and maybe the title, but it does NOT update the list
+// (that happens only when the user overwrites/merges)
 fn update_or_allocate_person_list_from_event(
     event: &Event,
     pubkey: PublicKey,
@@ -853,51 +844,7 @@ fn update_or_allocate_person_list_from_event(
     let mut txn = GLOBALS.storage.get_write_txn()?;
 
     // Determine PersonList and fetch Metadata
-    let (list, mut metadata) = match event.kind {
-        EventKind::ContactList => {
-            let list = PersonList::Followed;
-            let md = GLOBALS
-                .storage
-                .get_person_list_metadata(list)?
-                .unwrap_or_default();
-            (list, md)
-        }
-        EventKind::MuteList => {
-            let list = PersonList::Muted;
-            let md = GLOBALS
-                .storage
-                .get_person_list_metadata(list)?
-                .unwrap_or_default();
-            (list, md)
-        }
-        EventKind::FollowSets => {
-            let dtag = match event.parameter() {
-                Some(dtag) => dtag,
-                None => return Err(ErrorKind::ListEventMissingDtag.into()),
-            };
-            if let Some((found_list, metadata)) = GLOBALS.storage.find_person_list_by_dtag(&dtag)? {
-                (found_list, metadata)
-            } else {
-                // Allocate new
-                let metadata = PersonListMetadata {
-                    dtag,
-                    title: "NEW LIST".to_owned(), // updated below
-                    last_edit_time: Unixtime::now().unwrap(),
-                    event_created_at: event.created_at,
-                    event_public_len: 0,     // updated below
-                    event_private_len: None, // updated below
-                };
-                let list = GLOBALS
-                    .storage
-                    .allocate_person_list(&metadata, Some(&mut txn))?;
-                (list, metadata)
-            }
-        }
-        _ => {
-            // This function does not apply to other event kinds
-            return Err(ErrorKind::NotAPersonListEvent.into());
-        }
-    };
+    let (list, mut metadata) = crate::people::fetch_current_personlist_matching_event(event)?;
 
     // Update metadata
     {

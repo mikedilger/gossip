@@ -34,15 +34,14 @@ pub(super) fn update(
 
     ui.add_space(12.0);
 
-    let latest_event_data = GLOBALS
-        .people
-        .latest_person_list_event_data
-        .get(&list)
-        .map(|v| v.value().clone())
+    let metadata = GLOBALS
+        .storage
+        .get_person_list_metadata(list)
+        .unwrap_or_default()
         .unwrap_or_default();
 
     let mut asof = "unknown".to_owned();
-    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(latest_event_data.when.0) {
+    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(metadata.event_created_at.0) {
         if let Ok(formatted) = stamp.format(time::macros::format_description!(
             "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
         )) {
@@ -50,15 +49,15 @@ pub(super) fn update(
         }
     }
 
-    let txt = if let Some(private_len) = latest_event_data.private_len {
+    let txt = if let Some(private_len) = metadata.event_private_len {
         format!(
             "REMOTE: {} (public_len={} private_len={})",
-            asof, latest_event_data.public_len, private_len
+            asof, metadata.event_public_len, private_len
         )
     } else {
         format!(
             "REMOTE: {} (public_len={})",
-            asof, latest_event_data.public_len
+            asof, metadata.event_public_len
         )
     };
 
@@ -132,17 +131,8 @@ pub(super) fn update(
 
     ui.add_space(10.0);
 
-    let last_list_edit = match GLOBALS.storage.get_person_list_last_edit_time(list) {
-        Ok(Some(date)) => date,
-        Ok(None) => 0,
-        Err(e) => {
-            tracing::error!("{}", e);
-            0
-        }
-    };
-
     let mut ledit = "unknown".to_owned();
-    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_list_edit) {
+    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(metadata.last_edit_time.0) {
         if let Ok(formatted) = stamp.format(time::macros::format_description!(
             "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
         )) {
@@ -172,7 +162,7 @@ pub(super) fn update(
     ui.separator();
     ui.add_space(10.0);
 
-    ui.heading(format!("{} ({})", list.name(), people.len()));
+    ui.heading(format!("{} ({})", metadata.title, people.len()));
     ui.add_space(14.0);
 
     ui.separator();

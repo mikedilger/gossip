@@ -861,10 +861,19 @@ impl Overlord {
 
     /// Delete a person list
     pub async fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
+        // Get the metadata first, we need it to delete events
+        let metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+            Some(m) => m,
+            None => return Ok(()),
+        };
+
         // Delete the list locally
-        GLOBALS.people.clear_person_list(list)?;
-        list.deallocate(None)?;
-        let name = list.name();
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+        GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
+        GLOBALS
+            .storage
+            .deallocate_person_list(list, Some(&mut txn))?;
+        txn.commit()?;
 
         // If we are only following, nothing else needed
         if GLOBALS.storage.get_flag_following_only() {
@@ -884,7 +893,7 @@ impl Overlord {
             &[EventKind::FollowSets],
             &[public_key],
             None,
-            |event| event.parameter() == Some(name.clone()),
+            |event| event.parameter().as_ref() == Some(&metadata.dtag),
             false,
         )?;
 
@@ -913,7 +922,7 @@ impl Overlord {
             let mut tags: Vec<Tag> = vec![Tag::Address {
                 kind: EventKind::FollowSets,
                 pubkey: public_key.into(),
-                d: name.clone(),
+                d: metadata.dtag.clone(),
                 relay_url: None,
                 marker: None,
                 trailing: Vec::new(),
@@ -1791,6 +1800,11 @@ impl Overlord {
 
     /// Publish the user's specified PersonList
     pub async fn push_person_list(&mut self, list: PersonList) -> Result<(), Error> {
+        let metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+            Some(m) => m,
+            None => return Ok(()),
+        };
+
         let event = GLOBALS.people.generate_person_list_event(list).await?;
 
         // process event locally
@@ -1803,7 +1817,7 @@ impl Overlord {
 
         for relay in relays {
             // Send it the event to pull our followers
-            tracing::debug!("Pushing PersonList={} to {}", list.name(), &relay.url);
+            tracing::debug!("Pushing PersonList={} to {}", metadata.title, &relay.url);
 
             self.engage_minion(
                 relay.url.clone(),
@@ -2520,13 +2534,19 @@ impl Overlord {
             }
         };
 
+        // Get the metadata first
+        let mut metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+            Some(m) => m,
+            None => return Ok(()),
+        };
+
         // Load the latest PersonList event from the database
         let event = {
-            if let Some(event) =
-                GLOBALS
-                    .storage
-                    .get_replaceable_event(list.event_kind(), my_pubkey, &list.name())?
-            {
+            if let Some(event) = GLOBALS.storage.get_replaceable_event(
+                list.event_kind(),
+                my_pubkey,
+                &metadata.dtag,
+            )? {
                 event.clone()
             } else {
                 GLOBALS
@@ -2609,9 +2629,10 @@ impl Overlord {
 
         let last_edit = if merge { now } else { event.created_at };
 
+        metadata.last_edit_time = last_edit;
         GLOBALS
             .storage
-            .set_person_list_last_edit_time(list, last_edit.0, Some(&mut txn))?;
+            .set_person_list_metadata(list, &metadata, Some(&mut txn))?;
 
         txn.commit()?;
 
