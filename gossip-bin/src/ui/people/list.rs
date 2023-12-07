@@ -424,15 +424,18 @@ fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: Person
             ui.add_space(10.0);
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
+                    app.theme.accent_button_2_style(ui.style_mut());
                     if ui.button("Cancel").clicked() {
                         app.people_list.clear_list_needs_confirm = false;
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                        app.theme.accent_button_1_style(ui.style_mut());
                         if ui.button("YES, CLEAR ALL").clicked() {
                             let _ = GLOBALS
                                 .to_overlord
                                 .send(ToOverlordMessage::ClearPersonList(list));
                             app.people_list.clear_list_needs_confirm = false;
+                            mark_refresh(app);
                         }
                     });
                 });
