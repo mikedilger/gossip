@@ -90,16 +90,16 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     ui.hyperlink_to(job.job, url);
 }
 
-pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Response {
+pub fn search_field(ui: &mut Ui, field: &mut String, width: f32) -> TextEditOutput {
     // search field
-    let response = ui.add(
-        TextEdit::singleline(field)
-            .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
-            .desired_width(width),
-    );
+    let output = TextEdit::singleline(field)
+        .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
+        .desired_width(width)
+        .show(ui);
+
     let rect = Rect::from_min_size(
-        response.rect.right_top() - vec2(response.rect.height(), 0.0),
-        vec2(response.rect.height(), response.rect.height()),
+        output.response.rect.right_top() - vec2(output.response.rect.height(), 0.0),
+        vec2(output.response.rect.height(), output.response.rect.height()),
     );
 
     // search clear button
@@ -117,7 +117,7 @@ pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Respo
         field.clear();
     }
 
-    response
+    output
 }
 
 pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
