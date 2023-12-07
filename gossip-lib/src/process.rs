@@ -841,8 +841,6 @@ fn update_or_allocate_person_list_from_event(
     event: &Event,
     pubkey: PublicKey,
 ) -> Result<(PersonList, PersonListMetadata), Error> {
-    let mut txn = GLOBALS.storage.get_write_txn()?;
-
     // Determine PersonList and fetch Metadata
     let (list, mut metadata) = crate::people::fetch_current_personlist_matching_event(event)?;
 
@@ -881,9 +879,7 @@ fn update_or_allocate_person_list_from_event(
     // Save metadata
     GLOBALS
         .storage
-        .set_person_list_metadata(list, &metadata, Some(&mut txn))?;
-
-    txn.commit()?;
+        .set_person_list_metadata(list, &metadata, None)?;
 
     Ok((list, metadata))
 }
