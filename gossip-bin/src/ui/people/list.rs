@@ -354,7 +354,7 @@ fn refresh_list_data(app: &mut GossipUi, list: gossip_lib::PersonList1) {
         .map(|v| v.value().clone())
         .unwrap_or_default();
 
-    let mut asof = "unknown".to_owned();
+    let mut asof = "time unknown".to_owned();
     if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(latest_event_data.when.0) {
         if let Ok(formatted) = stamp.format(time::macros::format_description!(
             "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
@@ -363,7 +363,9 @@ fn refresh_list_data(app: &mut GossipUi, list: gossip_lib::PersonList1) {
         }
     }
 
-    app.people_list.cache_remote_tag = if let Some(private_len) = latest_event_data.private_len {
+    app.people_list.cache_remote_tag = if latest_event_data.when.0 == 0 {
+        "REMOTE: not found on Active Relays".to_owned()
+    } else if let Some(private_len) = latest_event_data.private_len {
         format!(
             "REMOTE: {} (public_len={} private_len={})",
             asof, latest_event_data.public_len, private_len
@@ -384,12 +386,14 @@ fn refresh_list_data(app: &mut GossipUi, list: gossip_lib::PersonList1) {
         }
     };
 
-    let mut ledit = "unknown".to_owned();
-    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_list_edit) {
-        if let Ok(formatted) = stamp.format(time::macros::format_description!(
-            "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
-        )) {
-            ledit = formatted;
+    let mut ledit = "time unknown".to_owned();
+    if last_list_edit > 0 {
+        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_list_edit) {
+            if let Ok(formatted) = stamp.format(time::macros::format_description!(
+                "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
+            )) {
+                ledit = formatted;
+            }
         }
     }
 
