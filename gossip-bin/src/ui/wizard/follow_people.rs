@@ -86,7 +86,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("Follow Someone:");
         if ui
-            .add(text_edit_line!(app, app.follow_someone).hint_text(
+            .add(text_edit_line!(app, app.add_contact).hint_text(
                 "Enter a key (bech32 npub1 or hex), or an nprofile, or a DNS id (user@domain)",
             ))
             .changed()
@@ -94,14 +94,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             app.wizard_state.error = None;
         }
         if ui.button("follow").clicked() {
-            if let Ok(pubkey) = PublicKey::try_from_bech32_string(app.follow_someone.trim(), true) {
+            if let Ok(pubkey) = PublicKey::try_from_bech32_string(app.add_contact.trim(), true) {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                     pubkey,
                     PersonList::Followed,
                     true,
                 ));
             } else if let Ok(pubkey) =
-                PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
+                PublicKey::try_from_hex_string(app.add_contact.trim(), true)
             {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                     pubkey,
@@ -109,23 +109,23 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     true,
                 ));
             } else if let Ok(profile) =
-                Profile::try_from_bech32_string(app.follow_someone.trim(), true)
+                Profile::try_from_bech32_string(app.add_contact.trim(), true)
             {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
                     profile,
                     PersonList::Followed,
                     true,
                 ));
-            } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
+            } else if gossip_lib::nip05::parse_nip05(app.add_contact.trim()).is_ok() {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
-                    app.follow_someone.trim().to_owned(),
+                    app.add_contact.trim().to_owned(),
                     PersonList::Followed,
                     true,
                 ));
             } else {
                 app.wizard_state.error = Some("ERROR: Invalid pubkey".to_owned());
             }
-            app.follow_someone = "".to_owned();
+            app.add_contact = "".to_owned();
         }
     });
 

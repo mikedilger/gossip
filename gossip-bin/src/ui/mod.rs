@@ -410,7 +410,7 @@ struct GossipUi {
     delegatee_tag_str: String,
 
     // User entry: general
-    follow_someone: String,
+    add_contact: String,
     add_relay: String, // dep
     password: String,
     password2: String,
@@ -652,7 +652,7 @@ impl GossipUi {
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
-            follow_someone: "".to_owned(),
+            add_contact: "".to_owned(),
             add_relay: "".to_owned(),
             password: "".to_owned(),
             password2: "".to_owned(),
