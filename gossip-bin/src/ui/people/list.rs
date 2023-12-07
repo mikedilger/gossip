@@ -317,7 +317,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: gossip_lib::P
 
         ui.add_space(8.0);
 
-        ui.label("To add a new contact to this list enter their npub, hex key, nprofle or nip-05 address");
+        ui.label("To add a new contact to this list enter their npub, hex key, nprofile or nip-05 address");
         ui.add_space(8.0);
 
         ui.add(
@@ -329,22 +329,39 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: gossip_lib::P
         ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    let mut try_add = false;
+                    let mut want_close = false;
+                    let mut can_close = false;
+
                     app.theme.accent_button_1_style(ui.style_mut());
-                    if ui.button("Add Contact").clicked() {
+                    if ui.button("Add and close").clicked() {
+                        try_add |= true;
+                        want_close = true;
+                    }
+
+                    btn_h_space!(ui);
+
+                    app.theme.accent_button_2_style(ui.style_mut());
+                    if ui.button("Add and continue").clicked() {
+                        try_add |= true;
+                    }
+
+                    if try_add {
+                        let mut add_failed = false;
                         if let Ok(pubkey) =
                             PublicKey::try_from_bech32_string(app.add_contact.trim(), true)
                         {
                             let _ = GLOBALS
                                 .to_overlord
                                 .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
-                            app.people_list.entering_follow_someone_on_list = false;
+                            can_close = true;
                         } else if let Ok(pubkey) =
                             PublicKey::try_from_hex_string(app.add_contact.trim(), true)
                         {
                             let _ = GLOBALS
                                 .to_overlord
                                 .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
-                            app.people_list.entering_follow_someone_on_list = false;
+                            can_close = true;
                         } else if let Ok(profile) =
                             Profile::try_from_bech32_string(app.add_contact.trim(), true)
                         {
@@ -353,7 +370,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: gossip_lib::P
                                 list,
                                 true,
                             ));
-                            app.people_list.entering_follow_someone_on_list = false;
+                            can_close = true;
                         } else if gossip_lib::nip05::parse_nip05(app.add_contact.trim()).is_ok() {
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                                 app.add_contact.trim().to_owned(),
@@ -361,16 +378,23 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: gossip_lib::P
                                 true,
                             ));
                         } else {
+                            add_failed = true;
                             GLOBALS
                                 .status_queue
                                 .write()
                                 .write("Invalid pubkey.".to_string());
                         }
-                        app.add_contact = "".to_owned();
-                        app.people_list.add_contact_search.clear();
-                        app.people_list.add_contact_searched = None;
-                        app.people_list.add_contact_search_selected = None;
-                        app.people_list.add_contact_search_results.clear();
+                        if !add_failed {
+                            app.add_contact = "".to_owned();
+                            app.people_list.add_contact_search.clear();
+                            app.people_list.add_contact_searched = None;
+                            app.people_list.add_contact_search_selected = None;
+                            app.people_list.add_contact_search_results.clear();
+                        }
+                        if want_close && can_close {
+                            app.people_list.entering_follow_someone_on_list = false;
+                            mark_refresh(app);
+                        }
                     }
                 });
             });
