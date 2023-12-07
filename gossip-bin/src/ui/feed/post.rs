@@ -9,9 +9,9 @@ use egui_winit::egui::text::CCursor;
 use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
 use egui_winit::egui::Id;
 use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::DmChannel;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
-use gossip_lib::{DmChannel, Person};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 use std::collections::HashMap;
@@ -396,38 +396,11 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 let enter_key;
                 (app.draft_data.tagging_search_selected, enter_key) =
                     if app.draft_data.tagging_search_substring.is_some() {
-                        ui.input_mut(|i| {
-                            // enter
-                            let enter = i.count_and_consume_key(Modifiers::NONE, Key::Enter) > 0;
-
-                            // up / down
-                            let mut index = app.draft_data.tagging_search_selected.unwrap_or(0);
-                            let down = i.count_and_consume_key(Modifiers::NONE, Key::ArrowDown);
-                            let up = i.count_and_consume_key(Modifiers::NONE, Key::ArrowUp);
-                            index += down;
-                            index = index.min(
-                                app.draft_data
-                                    .tagging_search_results
-                                    .len()
-                                    .saturating_sub(1),
-                            );
-                            index = index.saturating_sub(up);
-
-                            // tab will cycle down and wrap
-                            let tab = i.count_and_consume_key(Modifiers::NONE, Key::Tab);
-                            index += tab;
-                            if index
-                                > app
-                                    .draft_data
-                                    .tagging_search_results
-                                    .len()
-                                    .saturating_sub(1)
-                            {
-                                index = 0;
-                            }
-
-                            (Some(index), enter)
-                        })
+                        widgets::capture_keyboard_for_search(
+                            ui,
+                            app.draft_data.tagging_search_results.len(),
+                            app.draft_data.tagging_search_selected,
+                        )
                     } else {
                         (None, false)
                     };
@@ -687,176 +660,57 @@ fn show_tagging_result(
     output: &mut TextEditOutput,
     enter_key: bool,
 ) {
-    let pos = if let Some(cursor) = output.cursor_range {
-        let rect = output.galley.pos_from_cursor(&cursor.primary); // position within textedit
-        output.text_draw_pos + rect.center_bottom().to_vec2()
-    } else {
-        let rect = output.galley.pos_from_cursor(&output.galley.end()); // position within textedit
-        output.text_draw_pos + rect.center_bottom().to_vec2()
-    };
+    let mut selected = app.draft_data.tagging_search_selected;
+    widgets::show_contact_search(
+        ui,
+        app,
+        output,
+        &mut selected,
+        app.draft_data.tagging_search_results.clone(),
+        enter_key,
+        |ui, app, output, pair| {
+            // remove @ and search text
+            let search = if let Some(search) = app.draft_data.tagging_search_searched.as_ref() {
+                search.clone()
+            } else {
+                "".to_string()
+            };
 
-    // always compute the tooltip, but it is only shown when
-    // is_open is true. This is so we get the animation.
-    let frame = egui::Frame::popup(ui.style())
-        .rounding(egui::Rounding::ZERO)
-        .inner_margin(egui::Margin::same(0.0));
-    let area = egui::Area::new(ui.auto_id_with("compose-tagging-tooltip"))
-        .fixed_pos(pos)
-        .movable(false)
-        .constrain(true)
-        .interactable(true)
-        .order(egui::Order::Middle);
+            // complete name and add replacement
+            let name = pair.0.clone();
+            let nostr_url: NostrUrl = pair.1.into();
+            app.draft_data.draft = app
+                .draft_data
+                .draft
+                .as_str()
+                .replace(&format!("@{}", search), name.as_str())
+                .to_string();
 
-    // show search results
-    if !app.draft_data.tagging_search_results.is_empty() {
-        area.show(ui.ctx(), |ui| {
-            frame.show(ui, |ui| {
-                egui::ScrollArea::vertical()
-                    .max_width(widgets::TAGG_WIDTH)
-                    .max_height(250.0)
-                    .show(ui, |ui| {
-                        // need to clone results to avoid immutable borrow error on app.
-                        let pairs = app.draft_data.tagging_search_results.clone();
-                        for (i, pair) in pairs.iter().enumerate() {
-                            let avatar = if let Some(avatar) = app.try_get_avatar(ui.ctx(), &pair.1)
-                            {
-                                avatar
-                            } else {
-                                app.placeholder_avatar.clone()
-                            };
+            // move cursor to end of replacement
+            if let Some(pos) = app.draft_data.draft.find(name.as_str()) {
+                let cpos = pos + name.len();
+                let mut state = output.state.clone();
+                let mut ccrange = CCursorRange::default();
+                ccrange.primary.index = cpos;
+                ccrange.secondary.index = cpos;
+                state.set_ccursor_range(Some(ccrange));
+                state.store(ui.ctx(), output.response.id);
 
-                            let frame = egui::Frame::none()
-                                .rounding(egui::Rounding::ZERO)
-                                .inner_margin(egui::Margin::symmetric(10.0, 5.0));
-                            let mut prepared = frame.begin(ui);
+                // add it to our replacement list
+                app.draft_data
+                    .replacements
+                    .insert(name, ContentSegment::NostrUrl(nostr_url));
+                app.draft_data.replacements_changed = true;
 
-                            prepared.content_ui.set_min_width(widgets::TAGG_WIDTH);
-                            prepared.content_ui.set_max_width(widgets::TAGG_WIDTH);
-                            prepared.content_ui.set_min_height(27.0);
+                // clear tagging search
+                app.draft_data.tagging_search_substring = None;
+            }
+        },
+    );
 
-                            let frame_rect = (prepared.frame.inner_margin
-                                + prepared.frame.outer_margin)
-                                .expand_rect(prepared.content_ui.min_rect());
+    app.draft_data.tagging_search_selected = selected;
 
-                            let response = ui
-                                .interact(
-                                    frame_rect,
-                                    ui.auto_id_with(pair.1.as_hex_string()),
-                                    egui::Sense::click(),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-                            // mouse hover moves selected index
-                            app.draft_data.tagging_search_selected = if response.hovered() {
-                                Some(i)
-                            } else {
-                                app.draft_data.tagging_search_selected
-                            };
-                            let is_selected = Some(i) == app.draft_data.tagging_search_selected;
-
-                            {
-                                // render inside of frame using prepared.content_ui
-                                let ui = &mut prepared.content_ui;
-                                if is_selected {
-                                    app.theme.on_accent_style(ui.style_mut())
-                                }
-                                let person = GLOBALS
-                                    .storage
-                                    .read_person(&pair.1)
-                                    .unwrap_or(Some(Person::new(pair.1)))
-                                    .unwrap_or(Person::new(pair.1));
-                                ui.horizontal(|ui| {
-                                    widgets::paint_avatar(
-                                        ui,
-                                        &person,
-                                        &avatar,
-                                        widgets::AvatarSize::Mini,
-                                    );
-                                    ui.vertical(|ui| {
-                                        widgets::truncated_label(
-                                            ui,
-                                            RichText::new(&pair.0).small(),
-                                            widgets::TAGG_WIDTH - 33.0,
-                                        );
-
-                                        let mut nip05 =
-                                            RichText::new(person.nip05().unwrap_or_default())
-                                                .weak()
-                                                .small();
-                                        if !person.nip05_valid {
-                                            nip05 = nip05.strikethrough()
-                                        }
-                                        widgets::truncated_label(
-                                            ui,
-                                            nip05,
-                                            widgets::TAGG_WIDTH - 33.0,
-                                        );
-                                    });
-                                })
-                            };
-
-                            prepared.frame.fill = if is_selected {
-                                app.theme.accent_color()
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            };
-
-                            prepared.end(ui);
-
-                            if is_selected {
-                                response.scroll_to_me(None)
-                            }
-                            let clicked = response.clicked();
-                            if clicked || (enter_key && is_selected) {
-                                // remove @ and search text
-                                let search = if let Some(search) =
-                                    app.draft_data.tagging_search_searched.as_ref()
-                                {
-                                    search.clone()
-                                } else {
-                                    "".to_string()
-                                };
-
-                                // complete name and add replacement
-                                let name = pair.0.clone();
-                                let nostr_url: NostrUrl = pair.1.into();
-                                app.draft_data.draft = app
-                                    .draft_data
-                                    .draft
-                                    .as_str()
-                                    .replace(&format!("@{}", search), name.as_str())
-                                    .to_string();
-
-                                // move cursor to end of replacement
-                                if let Some(pos) = app.draft_data.draft.find(name.as_str()) {
-                                    let cpos = pos + name.len();
-                                    let mut state = output.state.clone();
-                                    let mut ccrange = CCursorRange::default();
-                                    ccrange.primary.index = cpos;
-                                    ccrange.secondary.index = cpos;
-                                    state.set_ccursor_range(Some(ccrange));
-                                    state.store(ui.ctx(), output.response.id);
-
-                                    // add it to our replacement list
-                                    app.draft_data
-                                        .replacements
-                                        .insert(name, ContentSegment::NostrUrl(nostr_url));
-                                    app.draft_data.replacements_changed = true;
-
-                                    // clear tagging search
-                                    app.draft_data.tagging_search_substring = None;
-                                }
-                            }
-                        }
-                    });
-            });
-        });
-    }
-
-    let is_open = app.draft_data.tagging_search_substring.is_some();
-    area.show_open_close_animation(ui.ctx(), &frame, is_open);
-
-    if !is_open {
+    if app.draft_data.tagging_search_substring.is_none() {
         // no more search substring, clear results
         app.draft_data.tagging_search_searched = None;
         app.draft_data.tagging_search_results.clear();

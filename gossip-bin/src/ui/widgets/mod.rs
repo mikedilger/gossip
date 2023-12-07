@@ -1,14 +1,15 @@
 mod avatar;
 pub(crate) use avatar::{paint_avatar, AvatarSize};
 
-mod more_menu;
-pub(super) use more_menu::MoreMenu;
+mod contact_search;
+pub(super) use contact_search::{capture_keyboard_for_search, show_contact_search};
 
 mod copy_button;
 pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
+use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{
     self, vec2, FontSelection, Rect, Response, Sense, TextEdit, Ui, WidgetText,
 };
@@ -19,6 +20,9 @@ pub use relay_entry::{RelayEntry, RelayEntryView};
 
 mod modal_popup;
 pub use modal_popup::modal_popup;
+
+mod more_menu;
+pub(super) use more_menu::MoreMenu;
 
 mod information_popup;
 pub use information_popup::InformationPopup;
