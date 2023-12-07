@@ -1,3 +1,5 @@
+use std::time::{Instant, Duration};
+
 use super::{GossipUi, Page};
 use crate::ui::widgets;
 use eframe::egui;
@@ -8,6 +10,13 @@ use gossip_lib::{Person, PersonList, GLOBALS};
 use nostr_types::{Profile, PublicKey};
 
 pub(crate) struct ListUi {
+    // cache
+    cache_last_list: Option<PersonList>,
+    cache_next_refresh: Instant,
+    cache_people: Vec<(Person, bool)>,
+    cache_remote_tag: String,
+    cache_local_tag: String,
+
     configure_list_menu_active: bool,
     entering_follow_someone_on_list: bool,
     clear_list_needs_confirm: bool,
@@ -16,11 +25,21 @@ pub(crate) struct ListUi {
 impl ListUi {
     pub(crate) fn new() -> Self {
         Self {
+            // cache
+            cache_last_list: None,
+            cache_next_refresh: Instant::now(),
+            cache_people: Vec::new(),
+            cache_remote_tag: String::new(),
+            cache_local_tag: String::new(),
             configure_list_menu_active: false,
             entering_follow_someone_on_list: false,
             clear_list_needs_confirm: false,
         }
     }
+}
+
+pub(super) fn enter_page(app: &mut GossipUi, list: PersonList) {
+    refresh_list_data(app, list);
 }
 
 pub(super) fn update(
@@ -30,74 +49,14 @@ pub(super) fn update(
     ui: &mut Ui,
     list: PersonList,
 ) {
-    // prepare data
-    // TODO cache this to improve performance
-    let people = {
-        let members = GLOBALS.storage.get_people_in_list(list).unwrap_or_default();
-
-        let mut people: Vec<(Person, bool)> = Vec::new();
-
-        for (pk, public) in &members {
-            if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
-                people.push((person, *public));
-            } else {
-                let person = Person::new(pk.to_owned());
-                let _ = GLOBALS.storage.write_person(&person, None);
-                people.push((person, *public));
-            }
-        }
-        people.sort_by(|a, b| a.0.cmp(&b.0));
-        people
-    };
-
-    let latest_event_data = GLOBALS
-        .people
-        .latest_person_list_event_data
-        .get(&list)
-        .map(|v| v.value().clone())
-        .unwrap_or_default();
-
-    let mut asof = "unknown".to_owned();
-    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(latest_event_data.when.0) {
-        if let Ok(formatted) = stamp.format(time::macros::format_description!(
-            "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
-        )) {
-            asof = formatted;
-        }
-    }
-
-    let remote_text = if let Some(private_len) = latest_event_data.private_len {
-        format!(
-            "REMOTE: {} (public_len={} private_len={})",
-            asof, latest_event_data.public_len, private_len
-        )
-    } else {
-        format!(
-            "REMOTE: {} (public_len={})",
-            asof, latest_event_data.public_len
-        )
-    };
-
-    let last_list_edit = match GLOBALS.storage.get_person_list_last_edit_time(list) {
-        Ok(Some(date)) => date,
-        Ok(None) => 0,
-        Err(e) => {
-            tracing::error!("{}", e);
-            0
-        }
-    };
-
-    let mut ledit = "unknown".to_owned();
-    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_list_edit) {
-        if let Ok(formatted) = stamp.format(time::macros::format_description!(
-            "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
-        )) {
-            ledit = formatted;
-        }
+    if app.people_list.cache_next_refresh < Instant::now() ||
+        app.people_list.cache_last_list.is_none() ||
+        app.people_list.cache_last_list.unwrap() != list {
+        refresh_list_data(app, list);
     }
 
     // render page
-    widgets::page_header(ui, format!("{} ({})", list.name(), people.len()), |ui| {
+    widgets::page_header(ui, format!("{} ({})", list.name(), app.people_list.cache_people.len()), |ui| {
         ui.add_enabled_ui(true, |ui| {
             let min_size = vec2(50.0, 20.0);
 
@@ -124,7 +83,7 @@ pub(super) fn update(
 
     if GLOBALS.signer.is_ready() {
         ui.vertical(|ui| {
-            ui.label(RichText::new(remote_text))
+            ui.label(RichText::new(&app.people_list.cache_remote_tag))
                 .on_hover_text("This is the data in the latest list event fetched from relays");
 
             ui.add_space(5.0);
@@ -174,7 +133,7 @@ pub(super) fn update(
             ui.add_space(5.0);
 
             // local timestamp
-            ui.label(RichText::new(format!("LOCAL: {} (size={})", ledit, people.len())))
+            ui.label(RichText::new(&app.people_list.cache_local_tag))
                 .on_hover_text("This is the local (and effective) list");
         });
     } else {
@@ -217,6 +176,8 @@ pub(super) fn update(
     ui.add_space(10.0);
 
     app.vert_scroll_area().show(ui, |ui| {
+        // not nice but needed because of 'app' borrow in closure
+        let people = app.people_list.cache_people.clone();
         for (person, public) in people.iter() {
             let row_response = widgets::list_entry::make_frame(ui)
                 .show(ui, |ui| {
@@ -279,6 +240,7 @@ pub(super) fn update(
                                     !*public,
                                     None,
                                 );
+                                mark_refresh(app);
                             }
                             ui.label(if *public { "public" } else { "private" });
                         });
@@ -297,7 +259,11 @@ pub(super) fn update(
     if app.people_list.entering_follow_someone_on_list {
         const DLG_SIZE: Vec2 = vec2(400.0, 200.0);
         let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
+            // TODO use tagging search here
+
             ui.heading("Follow someone");
+
+            ui.add_space(8.0);
 
             ui.horizontal(|ui| {
                 ui.label("Enter");
@@ -306,47 +272,129 @@ pub(super) fn update(
                         .hint_text("npub1, hex key, nprofile1, or user@domain"),
                 );
             });
-            if ui.button("follow").clicked() {
-                if let Ok(pubkey) =
-                    PublicKey::try_from_bech32_string(app.follow_someone.trim(), true)
-                {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
-                    app.people_list.entering_follow_someone_on_list = false;
-                } else if let Ok(pubkey) =
-                    PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
-                {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
-                    app.people_list.entering_follow_someone_on_list = false;
-                } else if let Ok(profile) =
-                    Profile::try_from_bech32_string(app.follow_someone.trim(), true)
-                {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
-                        profile.clone(),
-                        list,
-                        true,
-                    ));
-                    app.people_list.entering_follow_someone_on_list = false;
-                } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
-                        app.follow_someone.trim().to_owned(),
-                        list,
-                        true,
-                    ));
-                } else {
-                    GLOBALS
-                        .status_queue
-                        .write()
-                        .write("Invalid pubkey.".to_string());
-                }
-                app.follow_someone = "".to_owned();
-            }
+
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("follow").clicked() {
+                        if let Ok(pubkey) =
+                            PublicKey::try_from_bech32_string(app.follow_someone.trim(), true)
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
+                            app.people_list.entering_follow_someone_on_list = false;
+                        } else if let Ok(pubkey) =
+                            PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
+                            app.people_list.entering_follow_someone_on_list = false;
+                        } else if let Ok(profile) =
+                            Profile::try_from_bech32_string(app.follow_someone.trim(), true)
+                        {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
+                                profile.clone(),
+                                list,
+                                true,
+                            ));
+                            app.people_list.entering_follow_someone_on_list = false;
+                        } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
+                                app.follow_someone.trim().to_owned(),
+                                list,
+                                true,
+                            ));
+                        } else {
+                            GLOBALS
+                                .status_queue
+                                .write()
+                                .write("Invalid pubkey.".to_string());
+                        }
+                        app.follow_someone = "".to_owned();
+                    }
+                });
+            });
+
         });
         if ret.inner.clicked() {
             app.people_list.entering_follow_someone_on_list = false;
         }
     }
+}
+
+fn mark_refresh(app: &mut GossipUi) {
+    app.people_list.cache_next_refresh = Instant::now();
+}
+
+fn refresh_list_data(app: &mut GossipUi, list: gossip_lib::PersonList1) {
+    // prepare data
+    app.people_list.cache_people = {
+        let members = GLOBALS.storage.get_people_in_list(list).unwrap_or_default();
+
+        let mut people: Vec<(Person, bool)> = Vec::new();
+
+        for (pk, public) in &members {
+            if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+                people.push((person, *public));
+            } else {
+                let person = Person::new(pk.to_owned());
+                let _ = GLOBALS.storage.write_person(&person, None);
+                people.push((person, *public));
+            }
+        }
+        people.sort_by(|a, b| a.0.cmp(&b.0));
+        people
+    };
+
+    let latest_event_data = GLOBALS
+        .people
+        .latest_person_list_event_data
+        .get(&list)
+        .map(|v| v.value().clone())
+        .unwrap_or_default();
+
+    let mut asof = "unknown".to_owned();
+    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(latest_event_data.when.0) {
+        if let Ok(formatted) = stamp.format(time::macros::format_description!(
+            "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
+        )) {
+            asof = formatted;
+        }
+    }
+
+    app.people_list.cache_remote_tag = if let Some(private_len) = latest_event_data.private_len {
+        format!(
+            "REMOTE: {} (public_len={} private_len={})",
+            asof, latest_event_data.public_len, private_len
+        )
+    } else {
+        format!(
+            "REMOTE: {} (public_len={})",
+            asof, latest_event_data.public_len
+        )
+    };
+
+    let last_list_edit = match GLOBALS.storage.get_person_list_last_edit_time(list) {
+        Ok(Some(date)) => date,
+        Ok(None) => 0,
+        Err(e) => {
+            tracing::error!("{}", e);
+            0
+        }
+    };
+
+    let mut ledit = "unknown".to_owned();
+    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_list_edit) {
+        if let Ok(formatted) = stamp.format(time::macros::format_description!(
+            "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
+        )) {
+            ledit = formatted;
+        }
+    }
+
+    app.people_list.cache_local_tag = format!("LOCAL: {} (size={})", ledit, app.people_list.cache_people.len());
+
+    app.people_list.cache_next_refresh = Instant::now() + Duration::new(1, 0);
+    app.people_list.cache_last_list = Some(list);
 }

@@ -735,6 +735,7 @@ impl GossipUi {
                 self.close_all_menus(ctx);
             }
             Page::PeopleLists => {
+                people::enter_page(self);
                 self.close_all_menus(ctx);
             }
             Page::Person(pubkey) => {
