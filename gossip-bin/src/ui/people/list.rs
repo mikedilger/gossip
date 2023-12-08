@@ -282,7 +282,7 @@ pub(super) fn update(
     });
 }
 
-fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: gossip_lib::PersonList1) {
+fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     const DLG_SIZE: Vec2 = vec2(400.0, 240.0);
     let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
         let enter_key;
@@ -487,7 +487,7 @@ fn mark_refresh(app: &mut GossipUi) {
     app.people_list.cache_next_refresh = Instant::now();
 }
 
-fn refresh_list_data(app: &mut GossipUi, list: gossip_lib::PersonList1) {
+fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
     // prepare data
     app.people_list.cache_people = {
         let members = GLOBALS.storage.get_people_in_list(list).unwrap_or_default();
