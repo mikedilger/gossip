@@ -177,66 +177,11 @@ impl Overlord {
         // Start periodic tasks in people manager (after signer)
         crate::people::People::start();
 
-        // FIXME - if this needs doing, it should be done dynamically as
-        //         new people are encountered, not batch-style on startup.
-        // Create a person record for every person seen
-
         // Initialize the relay picker
         GLOBALS.relay_picker.init().await?;
 
-        // Pick Relays and start Minions
-        if !GLOBALS.storage.read_setting_offline() {
-            self.pick_relays().await;
-        }
-
-        // Separately subscribe to RelayList discovery for everyone we follow
-        // We just do this once at startup. Relay lists don't change that frequently.
-        let followed = GLOBALS.people.get_subscribed_pubkeys();
-        self.subscribe_discover(followed, None).await?;
-
-        // Separately subscribe to our outbox events on our write relays
-        let write_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
-        for relay_url in write_relay_urls.iter() {
-            self.engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::Config,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeOutbox,
-                    },
-                }],
-            )
-            .await?;
-        }
-
-        // Separately subscribe to our mentions on our read relays
-        // NOTE: we also do this on all dynamically connected relays since NIP-65 is
-        //       not in widespread usage.
-        let read_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
-        for relay_url in read_relay_urls.iter() {
-            self.engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchMentions,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeMentions,
-                    },
-                }],
-            )
-            .await?;
-        }
+        // Do the startup procedures
+        self.start_long_lived_subscriptions().await?;
 
         'mainloop: loop {
             if let Err(e) = self.loop_handler().await {
@@ -683,6 +628,9 @@ impl Overlord {
             }
             ToOverlordMessage::SetDmChannel(dmchannel) => {
                 self.set_dm_channel(dmchannel).await?;
+            }
+            ToOverlordMessage::StartLongLivedSubscriptions => {
+                self.start_long_lived_subscriptions().await?;
             }
             ToOverlordMessage::SubscribeConfig(relay_url) => {
                 self.subscribe_config(relay_url).await?;
@@ -2363,6 +2311,65 @@ impl Overlord {
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeDmChannel(dmchannel.clone()),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// This is done at startup and after the wizard.
+    pub async fn start_long_lived_subscriptions(&mut self) -> Result<(), Error> {
+        // Pick Relays and start Minions
+        if !GLOBALS.storage.read_setting_offline() {
+            self.pick_relays().await;
+        }
+
+        // Separately subscribe to RelayList discovery for everyone we follow
+        // We just do this once at startup. Relay lists don't change that frequently.
+        let followed = GLOBALS.people.get_subscribed_pubkeys();
+        self.subscribe_discover(followed, None).await?;
+
+        // Separately subscribe to our outbox events on our write relays
+        let write_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+        for relay_url in write_relay_urls.iter() {
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::Config,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeOutbox,
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        // Separately subscribe to our mentions on our read relays
+        // NOTE: we also do this on all dynamically connected relays since NIP-65 is
+        //       not in widespread usage.
+        let read_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+        for relay_url in read_relay_urls.iter() {
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchMentions,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeMentions,
                     },
                 }],
             )

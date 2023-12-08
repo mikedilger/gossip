@@ -3,7 +3,7 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, Person, PersonList, GLOBALS};
+use gossip_lib::{Person, PersonList, GLOBALS};
 use gossip_relay_picker::Direction;
 use nostr_types::{Profile, PublicKey};
 
@@ -153,8 +153,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .to_overlord
                 .send(ToOverlordMessage::PushPersonList(PersonList::Followed));
 
-            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
-            app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
+            super::complete_wizard(app);
         }
 
         ui.add_space(20.0);
@@ -163,16 +162,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             label = label.color(app.theme.accent_color());
         }
         if ui.button(label).clicked() {
-            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
-            app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
+            super::complete_wizard(app);
         }
     } else {
         ui.add_space(20.0);
         let mut label = RichText::new("  >  Finish");
         label = label.color(app.theme.accent_color());
         if ui.button(label).clicked() {
-            let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
-            app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
+            super::complete_wizard(app);
         }
     }
 }
