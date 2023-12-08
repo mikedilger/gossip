@@ -658,7 +658,6 @@ impl Storage {
         self.deallocate_person_list1(list, rw_txn)
     }
 
-    // GINA add more person_list functions, higher level now
     pub fn rename_person_list<'a>(
         &'a self,
         list: PersonList,
