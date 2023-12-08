@@ -874,6 +874,11 @@ fn update_or_allocate_person_list_from_event(
         if let Some(title) = event.title() {
             metadata.title = title.to_owned();
         }
+
+        // If title is empty, use the d-tag
+        if metadata.title.is_empty() && !metadata.dtag.is_empty() {
+            metadata.title = metadata.dtag.clone();
+        }
     }
 
     // Save metadata
