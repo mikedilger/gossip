@@ -1,11 +1,60 @@
+use std::time::{Duration, Instant};
+
 use super::{GossipUi, Page};
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, RichText, Ui, Vec2};
+use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Person, PersonList, GLOBALS};
 use nostr_types::{Profile, PublicKey};
+
+pub(crate) struct ListUi {
+    // cache
+    cache_last_list: Option<PersonList>,
+    cache_next_refresh: Instant,
+    cache_people: Vec<(Person, bool)>,
+    cache_remote_tag: String,
+    cache_local_tag: String,
+
+    // add contact
+    add_contact_search: String,
+    add_contact_searched: Option<String>,
+    add_contact_search_results: Vec<(String, PublicKey)>,
+    add_contact_search_selected: Option<usize>,
+
+    configure_list_menu_active: bool,
+    entering_follow_someone_on_list: bool,
+    clear_list_needs_confirm: bool,
+}
+
+impl ListUi {
+    pub(crate) fn new() -> Self {
+        Self {
+            // cache
+            cache_last_list: None,
+            cache_next_refresh: Instant::now(),
+            cache_people: Vec::new(),
+            cache_remote_tag: String::new(),
+            cache_local_tag: String::new(),
+
+            // add contact
+            add_contact_search: String::new(),
+            add_contact_searched: None,
+            add_contact_search_results: Vec::new(),
+            add_contact_search_selected: None,
+
+            configure_list_menu_active: false,
+            entering_follow_someone_on_list: false,
+            clear_list_needs_confirm: false,
+        }
+    }
+}
+
+pub(super) fn enter_page(app: &mut GossipUi, list: PersonList) {
+    refresh_list_data(app, list);
+}
 
 pub(super) fn update(
     app: &mut GossipUi,
@@ -14,7 +63,423 @@ pub(super) fn update(
     ui: &mut Ui,
     list: PersonList,
 ) {
-    let people = {
+    if app.people_list.cache_next_refresh < Instant::now()
+        || app.people_list.cache_last_list.is_none()
+        || app.people_list.cache_last_list.unwrap() != list
+    {
+        refresh_list_data(app, list);
+    }
+
+    // process popups first
+    if app.people_list.clear_list_needs_confirm {
+        render_clear_list_confirm_popup(ui, app, list);
+    }
+    if app.people_list.entering_follow_someone_on_list {
+        render_add_contact_popup(ui, app, list);
+    }
+
+    // disable rest of ui when popups are open
+    let enabled = !app.people_list.entering_follow_someone_on_list
+        && !app.people_list.clear_list_needs_confirm;
+
+    // render page
+    widgets::page_header(
+        ui,
+        format!("{} ({})", list.name(), app.people_list.cache_people.len()),
+        |ui| {
+            ui.add_enabled_ui(enabled, |ui| {
+                let min_size = vec2(50.0, 20.0);
+
+                widgets::MoreMenu::new(&app).with_min_size(min_size).show(
+                    ui,
+                    &mut app.people_list.configure_list_menu_active,
+                    |ui| {
+                        // since we are displaying over an accent color background, load that style
+                        app.theme.accent_button_2_style(ui.style_mut());
+
+                        if ui.button("Clear All").clicked() {
+                            app.people_list.clear_list_needs_confirm = true;
+                        }
+
+                        // ui.add_space(8.0);
+                    },
+                );
+            });
+
+            btn_h_space!(ui);
+
+            if ui.button("Add contact").clicked() {
+                app.people_list.entering_follow_someone_on_list = true;
+            }
+        },
+    );
+
+    ui.set_enabled(enabled);
+
+    if GLOBALS.signer.is_ready() {
+        ui.vertical(|ui| {
+            ui.label(RichText::new(&app.people_list.cache_remote_tag))
+                .on_hover_text("This is the data in the latest list event fetched from relays");
+
+            ui.add_space(5.0);
+
+            // remote <-> local buttons
+            ui.horizontal(|ui|{
+                if ui
+                    .button("↓ Overwrite ↓")
+                    .on_hover_text(
+                        "This imports data from the latest event, erasing anything that is already here",
+                    )
+                    .clicked()
+                {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::UpdatePersonList {
+                            person_list: list,
+                            merge: false,
+                        });
+                }
+                if ui
+                    .button("↓ Merge ↓")
+                    .on_hover_text(
+                        "This imports data from the latest event, merging it into what is already here",
+                    )
+                    .clicked()
+                {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::UpdatePersonList {
+                            person_list: list,
+                            merge: true,
+                        });
+                }
+
+                if ui
+                    .button("↑ Publish ↑")
+                    .on_hover_text("This publishes the list to your relays")
+                    .clicked()
+                {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::PushPersonList(list));
+                }
+            });
+
+            ui.add_space(5.0);
+
+            // local timestamp
+            ui.label(RichText::new(&app.people_list.cache_local_tag))
+                .on_hover_text("This is the local (and effective) list");
+        });
+    } else {
+        ui.horizontal(|ui| {
+            ui.label("You need to ");
+            if ui.link("setup your identity").clicked() {
+                app.set_page(ctx, Page::YourKeys);
+            }
+            ui.label(" to manage list events.");
+        });
+    }
+
+    ui.add_space(10.0);
+
+    app.vert_scroll_area().show(ui, |ui| {
+        // not nice but needed because of 'app' borrow in closure
+        let people = app.people_list.cache_people.clone();
+        for (person, public) in people.iter() {
+            let row_response = widgets::list_entry::make_frame(ui).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    // Avatar first
+                    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
+                        avatar
+                    } else {
+                        app.placeholder_avatar.clone()
+                    };
+                    let avatar_height =
+                        widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed)
+                            .rect
+                            .height();
+
+                    ui.add_space(20.0);
+
+                    ui.vertical(|ui| {
+                        ui.set_min_height(avatar_height);
+                        ui.horizontal(|ui| {
+                            ui.label(GossipUi::person_name(person));
+
+                            ui.add_space(10.0);
+
+                            if !GLOBALS
+                                .storage
+                                .have_persons_relays(person.pubkey)
+                                .unwrap_or(false)
+                            {
+                                ui.label(
+                                    RichText::new("Relay list not found")
+                                        .color(app.theme.warning_marker_text_color()),
+                                );
+                            }
+                        });
+                        ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new(gossip_lib::names::pubkey_short(&person.pubkey))
+                                        .weak(),
+                                );
+
+                                ui.add_space(10.0);
+
+                                ui.label(GossipUi::richtext_from_person_nip05(person));
+                            });
+                        });
+                    });
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                        ui.set_min_height(avatar_height);
+                        // actions
+                        if ui.link("Remove").clicked() {
+                            let _ =
+                                GLOBALS
+                                    .storage
+                                    .remove_person_from_list(&person.pubkey, list, None);
+                        }
+
+                        ui.add_space(20.0);
+
+                        // private / public switch
+                        if crate::ui::components::switch_simple(ui, *public).clicked() {
+                            let _ = GLOBALS.storage.add_person_to_list(
+                                &person.pubkey,
+                                list,
+                                !*public,
+                                None,
+                            );
+                            mark_refresh(app);
+                        }
+                        ui.label(if *public { "public" } else { "private" });
+                    });
+                });
+            });
+            if row_response
+                .response
+                .interact(egui::Sense::click())
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked()
+            {
+                app.set_page(ctx, Page::Person(person.pubkey));
+            }
+        }
+    });
+}
+
+fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: gossip_lib::PersonList1) {
+    const DLG_SIZE: Vec2 = vec2(400.0, 240.0);
+    let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
+        let enter_key;
+        (app.people_list.add_contact_search_selected, enter_key) =
+            if app.people_list.add_contact_search_results.is_empty() {
+                (None, false)
+            } else {
+                widgets::capture_keyboard_for_search(
+                    ui,
+                    app.people_list.add_contact_search_results.len(),
+                    app.people_list.add_contact_search_selected,
+                )
+            };
+
+        ui.heading("Add contact to the list");
+        ui.add_space(8.0);
+
+        ui.label("Search for known contacts to add");
+        ui.add_space(8.0);
+
+        let mut output =
+            widgets::search_field(ui, &mut app.people_list.add_contact_search, f32::INFINITY);
+
+        let mut selected = app.people_list.add_contact_search_selected;
+        widgets::show_contact_search(
+            ui,
+            app,
+            &mut output,
+            &mut selected,
+            app.people_list.add_contact_search_results.clone(),
+            enter_key,
+            |_, app, _, pair| {
+                app.people_list.add_contact_search = pair.0.clone();
+                app.people_list.add_contact_search_results.clear();
+                app.people_list.add_contact_search_selected = None;
+                app.add_contact = pair.1.as_bech32_string();
+            },
+        );
+        app.people_list.add_contact_search_selected = selected;
+
+        recalc_add_contact_search(app, &mut output);
+
+        ui.add_space(8.0);
+
+        ui.label("To add a new contact to this list enter their npub, hex key, nprofile or nip-05 address");
+        ui.add_space(8.0);
+
+        ui.add(
+            text_edit_multiline!(app, app.add_contact)
+                .desired_width(f32::INFINITY)
+                .hint_text("npub1, hex key, nprofile1, or user@domain"),
+        );
+
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            ui.horizontal(|ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    let mut try_add = false;
+                    let mut want_close = false;
+                    let mut can_close = false;
+
+                    app.theme.accent_button_1_style(ui.style_mut());
+                    if ui.button("Add and close").clicked() {
+                        try_add |= true;
+                        want_close = true;
+                    }
+
+                    btn_h_space!(ui);
+
+                    app.theme.accent_button_2_style(ui.style_mut());
+                    if ui.button("Add and continue").clicked() {
+                        try_add |= true;
+                    }
+
+                    if try_add {
+                        let mut add_failed = false;
+                        if let Ok(pubkey) =
+                            PublicKey::try_from_bech32_string(app.add_contact.trim(), true)
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
+                            can_close = true;
+                        } else if let Ok(pubkey) =
+                            PublicKey::try_from_hex_string(app.add_contact.trim(), true)
+                        {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
+                            can_close = true;
+                        } else if let Ok(profile) =
+                            Profile::try_from_bech32_string(app.add_contact.trim(), true)
+                        {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
+                                profile.clone(),
+                                list,
+                                true,
+                            ));
+                            can_close = true;
+                        } else if gossip_lib::nip05::parse_nip05(app.add_contact.trim()).is_ok() {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
+                                app.add_contact.trim().to_owned(),
+                                list,
+                                true,
+                            ));
+                        } else {
+                            add_failed = true;
+                            GLOBALS
+                                .status_queue
+                                .write()
+                                .write("Invalid pubkey.".to_string());
+                        }
+                        if !add_failed {
+                            app.add_contact = "".to_owned();
+                            app.people_list.add_contact_search.clear();
+                            app.people_list.add_contact_searched = None;
+                            app.people_list.add_contact_search_selected = None;
+                            app.people_list.add_contact_search_results.clear();
+                        }
+                        if want_close && can_close {
+                            app.people_list.entering_follow_someone_on_list = false;
+                            mark_refresh(app);
+                        }
+                    }
+                });
+            });
+        });
+    });
+    if ret.inner.clicked() {
+        app.people_list.entering_follow_someone_on_list = false;
+        app.people_list.add_contact_search.clear();
+        app.people_list.add_contact_searched = None;
+        app.people_list.add_contact_search_selected = None;
+        app.people_list.add_contact_search_results.clear();
+    }
+}
+
+fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {
+    // only recalc if search text changed
+    if app.people_list.add_contact_search.len() > 2 && output.cursor_range.is_some() {
+        if Some(&app.people_list.add_contact_search)
+            != app.people_list.add_contact_searched.as_ref()
+        {
+            let mut pairs = GLOBALS
+                .people
+                .search_people_to_tag(app.people_list.add_contact_search.as_str())
+                .unwrap_or_default();
+            // followed contacts first
+            pairs.sort_by(|(_, ak), (_, bk)| {
+                let af = GLOBALS
+                    .storage
+                    .is_person_in_list(ak, gossip_lib::PersonList::Followed)
+                    .unwrap_or(false);
+                let bf = GLOBALS
+                    .storage
+                    .is_person_in_list(bk, gossip_lib::PersonList::Followed)
+                    .unwrap_or(false);
+                bf.cmp(&af).then(std::cmp::Ordering::Greater)
+            });
+            app.people_list.add_contact_searched = Some(app.people_list.add_contact_search.clone());
+            app.people_list.add_contact_search_results = pairs.to_owned();
+        }
+    } else {
+        app.people_list.add_contact_searched = None;
+        app.people_list.add_contact_search_results.clear();
+    }
+}
+
+fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
+    const DLG_SIZE: Vec2 = vec2(250.0, 40.0);
+    if widgets::modal_popup(ui, DLG_SIZE, |ui| {
+        ui.vertical(|ui| {
+            ui.label("Are you sure you want to clear this list?");
+            ui.add_space(10.0);
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                ui.horizontal(|ui| {
+                    app.theme.accent_button_2_style(ui.style_mut());
+                    if ui.button("Cancel").clicked() {
+                        app.people_list.clear_list_needs_confirm = false;
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                        app.theme.accent_button_1_style(ui.style_mut());
+                        if ui.button("YES, CLEAR ALL").clicked() {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::ClearPersonList(list));
+                            app.people_list.clear_list_needs_confirm = false;
+                            mark_refresh(app);
+                        }
+                    });
+                });
+            });
+        });
+    })
+    .inner
+    .clicked()
+    {
+        app.people_list.clear_list_needs_confirm = false;
+    }
+}
+
+fn mark_refresh(app: &mut GossipUi) {
+    app.people_list.cache_next_refresh = Instant::now();
+}
+
+fn refresh_list_data(app: &mut GossipUi, list: gossip_lib::PersonList1) {
+    // prepare data
+    app.people_list.cache_people = {
         let members = GLOBALS.storage.get_people_in_list(list).unwrap_or_default();
 
         let mut people: Vec<(Person, bool)> = Vec::new();
@@ -32,8 +497,6 @@ pub(super) fn update(
         people
     };
 
-    ui.add_space(12.0);
-
     let latest_event_data = GLOBALS
         .people
         .latest_person_list_event_data
@@ -41,7 +504,7 @@ pub(super) fn update(
         .map(|v| v.value().clone())
         .unwrap_or_default();
 
-    let mut asof = "unknown".to_owned();
+    let mut asof = "time unknown".to_owned();
     if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(latest_event_data.when.0) {
         if let Ok(formatted) = stamp.format(time::macros::format_description!(
             "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
@@ -50,7 +513,9 @@ pub(super) fn update(
         }
     }
 
-    let txt = if let Some(private_len) = latest_event_data.private_len {
+    app.people_list.cache_remote_tag = if latest_event_data.when.0 == 0 {
+        "REMOTE: not found on Active Relays".to_owned()
+    } else if let Some(private_len) = latest_event_data.private_len {
         format!(
             "REMOTE: {} (public_len={} private_len={})",
             asof, latest_event_data.public_len, private_len
@@ -62,76 +527,6 @@ pub(super) fn update(
         )
     };
 
-    ui.label(RichText::new(txt).size(15.0))
-        .on_hover_text("This is the data in the latest list event fetched from relays");
-
-    ui.add_space(10.0);
-
-    ui.horizontal(|ui| {
-        ui.add_space(30.0);
-
-        if GLOBALS.signer.is_ready() {
-            if ui
-                .button("↓ Overwrite ↓")
-                .on_hover_text(
-                    "This imports data from the latest event, erasing anything that is already here",
-                )
-                .clicked()
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::UpdatePersonList {
-                        person_list: list,
-                        merge: false,
-                    });
-            }
-            if ui
-                .button("↓ Merge ↓")
-                .on_hover_text(
-                    "This imports data from the latest event, merging it into what is already here",
-                )
-                .clicked()
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::UpdatePersonList {
-                        person_list: list,
-                        merge: true,
-                    });
-            }
-
-            if ui
-                .button("↑ Publish ↑")
-                .on_hover_text("This publishes the list to your relays")
-                .clicked()
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::PushPersonList(list));
-            }
-        }
-
-        if GLOBALS.signer.is_ready() {
-            if app.clear_list_needs_confirm {
-                if ui.button("CANCEL").clicked() {
-                    app.clear_list_needs_confirm = false;
-                }
-                if ui.button("YES, CLEAR ALL").clicked() {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::ClearPersonList(list));
-                    app.clear_list_needs_confirm = false;
-                }
-            } else {
-                if ui.button("Clear All").clicked() {
-                    app.clear_list_needs_confirm = true;
-                }
-            }
-        }
-    });
-
-    ui.add_space(10.0);
-
     let last_list_edit = match GLOBALS.storage.get_person_list_last_edit_time(list) {
         Ok(Some(date)) => date,
         Ok(None) => 0,
@@ -141,147 +536,23 @@ pub(super) fn update(
         }
     };
 
-    let mut ledit = "unknown".to_owned();
-    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_list_edit) {
-        if let Ok(formatted) = stamp.format(time::macros::format_description!(
-            "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
-        )) {
-            ledit = formatted;
+    let mut ledit = "time unknown".to_owned();
+    if last_list_edit > 0 {
+        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(last_list_edit) {
+            if let Ok(formatted) = stamp.format(time::macros::format_description!(
+                "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
+            )) {
+                ledit = formatted;
+            }
         }
     }
-    ui.label(RichText::new(format!("LOCAL: {} (size={})", ledit, people.len())).size(15.0))
-        .on_hover_text("This is the local (and effective) list");
 
-    if !GLOBALS.signer.is_ready() {
-        ui.add_space(10.0);
-        ui.horizontal_wrapped(|ui| {
-            ui.label("You need to ");
-            if ui.link("setup your identity").clicked() {
-                app.set_page(ctx, Page::YourKeys);
-            }
-            ui.label(" to manage list events.");
-        });
-    }
+    app.people_list.cache_local_tag = format!(
+        "LOCAL: {} (size={})",
+        ledit,
+        app.people_list.cache_people.len()
+    );
 
-    ui.add_space(10.0);
-
-    if ui.button("Follow New").clicked() {
-        app.entering_follow_someone_on_list = true;
-    }
-
-    ui.separator();
-    ui.add_space(10.0);
-
-    ui.heading(format!("{} ({})", list.name(), people.len()));
-    ui.add_space(14.0);
-
-    ui.separator();
-
-    app.vert_scroll_area().show(ui, |ui| {
-        for (person, public) in people.iter() {
-            ui.horizontal(|ui| {
-                // Avatar first
-                let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
-                    avatar
-                } else {
-                    app.placeholder_avatar.clone()
-                };
-                if widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed).clicked() {
-                    app.set_page(ctx, Page::Person(person.pubkey));
-                };
-
-                ui.vertical(|ui| {
-                    ui.label(RichText::new(gossip_lib::names::pubkey_short(&person.pubkey)).weak());
-                    GossipUi::render_person_name_line(app, ui, person, false);
-                    if !GLOBALS
-                        .storage
-                        .have_persons_relays(person.pubkey)
-                        .unwrap_or(false)
-                    {
-                        ui.label(
-                            RichText::new("Relay list not found")
-                                .color(app.theme.warning_marker_text_color()),
-                        );
-                    }
-
-                    ui.horizontal(|ui| {
-                        if crate::ui::components::switch_simple(ui, *public).clicked() {
-                            let _ = GLOBALS.storage.add_person_to_list(
-                                &person.pubkey,
-                                list,
-                                !*public,
-                                None,
-                            );
-                        }
-                        ui.label(if *public { "public" } else { "private" });
-                    });
-                });
-            });
-
-            if ui.button("Remove").clicked() {
-                let _ = GLOBALS
-                    .storage
-                    .remove_person_from_list(&person.pubkey, list, None);
-            }
-
-            ui.add_space(4.0);
-            ui.separator();
-        }
-    });
-
-    if app.entering_follow_someone_on_list {
-        const DLG_SIZE: Vec2 = vec2(400.0, 200.0);
-        let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
-            ui.heading("Follow someone");
-
-            ui.horizontal(|ui| {
-                ui.label("Enter");
-                ui.add(
-                    text_edit_line!(app, app.follow_someone)
-                        .hint_text("npub1, hex key, nprofile1, or user@domain"),
-                );
-            });
-            if ui.button("follow").clicked() {
-                if let Ok(pubkey) =
-                    PublicKey::try_from_bech32_string(app.follow_someone.trim(), true)
-                {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
-                    app.entering_follow_someone_on_list = false;
-                } else if let Ok(pubkey) =
-                    PublicKey::try_from_hex_string(app.follow_someone.trim(), true)
-                {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
-                    app.entering_follow_someone_on_list = false;
-                } else if let Ok(profile) =
-                    Profile::try_from_bech32_string(app.follow_someone.trim(), true)
-                {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
-                        profile.clone(),
-                        list,
-                        true,
-                    ));
-                    app.entering_follow_someone_on_list = false;
-                } else if gossip_lib::nip05::parse_nip05(app.follow_someone.trim()).is_ok() {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
-                        app.follow_someone.trim().to_owned(),
-                        list,
-                        true,
-                    ));
-                } else {
-                    GLOBALS
-                        .status_queue
-                        .write()
-                        .write("Invalid pubkey.".to_string());
-                }
-                app.follow_someone = "".to_owned();
-            }
-        });
-        if ret.inner.clicked() {
-            app.entering_follow_someone_on_list = false;
-        }
-    }
+    app.people_list.cache_next_refresh = Instant::now() + Duration::new(1, 0);
+    app.people_list.cache_last_list = Some(list);
 }

@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use super::{widgets, GossipUi, Page};
-use eframe::{egui, epaint::PathShape};
+use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, Rect, RichText};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
@@ -448,83 +448,29 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
 /// Draw button with configure popup
 ///
 pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
-    let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
-    let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
-    let response = if !app.relays.configure_list_menu_active {
-        response.on_hover_text("Configure List View")
-    } else {
-        response
-    };
-    let btn_rect = response.rect;
-    let color = if response.hovered() {
-        app.theme.accent_color()
-    } else {
-        ui.visuals().text_color()
-    };
-    let mut mesh = egui::Mesh::with_texture((&app.options_symbol).into());
-    mesh.add_rect_with_uv(
-        btn_rect.shrink(2.0),
-        Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-        color,
-    );
-    painter.add(egui::Shape::mesh(mesh));
+    ui.add_enabled_ui(true, |ui| {
+        let min_size = vec2(180.0, 20.0);
 
-    if response.clicked() {
-        app.relays.configure_list_menu_active ^= true;
-    }
+        widgets::MoreMenu::new(app)
+            .with_min_size(min_size)
+            .with_hover_text("Configure List View".to_owned())
+            .show(ui,&mut app.relays.configure_list_menu_active, |ui|{
+            let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
 
-    let button_center_bottom = response.rect.center_bottom();
-    let seen_on_popup_position = button_center_bottom + vec2(-180.0, widgets::DROPDOWN_DISTANCE);
+            // since we are displaying over an accent color background, load that style
+            app.theme.on_accent_style(ui.style_mut());
 
-    let id: Id = "configure-list-menu".into();
-    let mut frame = egui::Frame::popup(ui.style());
-    let area = egui::Area::new(id)
-        .movable(false)
-        .interactable(true)
-        .order(egui::Order::Foreground)
-        .fixed_pos(seen_on_popup_position)
-        .constrain(true);
-    if app.relays.configure_list_menu_active {
-        let menuresp = area.show(ui.ctx(), |ui| {
-            frame.fill = app.theme.accent_color();
-            frame.stroke = egui::Stroke::NONE;
-            // frame.shadow = egui::epaint::Shadow::NONE;
-            frame.rounding = egui::Rounding::same(5.0);
-            frame.inner_margin = egui::Margin::symmetric(20.0, 16.0);
-            frame.show(ui, |ui| {
-                let path = PathShape::convex_polygon(
-                    [
-                        button_center_bottom,
-                        button_center_bottom
-                            + vec2(widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
-                        button_center_bottom
-                            + vec2(-widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
-                    ]
-                    .to_vec(),
-                    app.theme.accent_color(),
-                    egui::Stroke::NONE,
-                );
-                ui.painter().add(path);
-                let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-
-                // since we are displaying over an accent color background, load that style
-                app.theme.on_accent_style(ui.style_mut());
-
-                ui.horizontal(|ui| {
-                    crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);
-                    ui.label("Show details");
-                });
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size);
-                    ui.label("Show hidden relays");
-                });
+            ui.horizontal(|ui| {
+                crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);
+                ui.label("Show details");
+            });
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size);
+                ui.label("Show hidden relays");
             });
         });
-        if menuresp.response.clicked_elsewhere() && !response.clicked() {
-            app.relays.configure_list_menu_active = false;
-        }
-    }
+    });
 }
 
 ///

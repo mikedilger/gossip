@@ -10,6 +10,12 @@ macro_rules! text_edit_multiline {
     };
 }
 
+macro_rules! btn_h_space {
+    ($ui:ident) => {
+        $ui.add_space(20.0)
+    };
+}
+
 mod components;
 mod dm_chat_list;
 mod feed;
@@ -352,6 +358,9 @@ struct GossipUi {
     // RelayUi
     relays: relays::RelayUi,
 
+    // people::ListUi
+    people_list: people::ListUi,
+
     // Post rendering
     render_raw: Option<Id>,
     render_qr: Option<Id>,
@@ -401,10 +410,8 @@ struct GossipUi {
     delegatee_tag_str: String,
 
     // User entry: general
-    entering_follow_someone_on_list: bool,
-    follow_someone: String,
+    add_contact: String,
     add_relay: String, // dep
-    clear_list_needs_confirm: bool,
     password: String,
     password2: String,
     password3: String,
@@ -607,6 +614,7 @@ impl GossipUi {
             qr_codes: HashMap::new(),
             notes: Notes::new(),
             relays: relays::RelayUi::new(),
+            people_list: people::ListUi::new(),
             render_raw: None,
             render_qr: None,
             approved: HashSet::new(),
@@ -644,10 +652,8 @@ impl GossipUi {
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
-            entering_follow_someone_on_list: false,
-            follow_someone: "".to_owned(),
+            add_contact: "".to_owned(),
             add_relay: "".to_owned(),
-            clear_list_needs_confirm: false,
             password: "".to_owned(),
             password2: "".to_owned(),
             password3: "".to_owned(),
@@ -729,6 +735,7 @@ impl GossipUi {
                 self.close_all_menus(ctx);
             }
             Page::PeopleLists => {
+                people::enter_page(self);
                 self.close_all_menus(ctx);
             }
             Page::Person(pubkey) => {
@@ -1328,6 +1335,22 @@ impl GossipUi {
             nip05.to_string()
         } else {
             gossip_lib::names::pubkey_short(&person.pubkey)
+        }
+    }
+
+    pub fn richtext_from_person_nip05(person: &Person) -> RichText {
+        if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
+            if nip05.starts_with("_@") {
+                nip05 = nip05.get(2..).unwrap().to_string();
+            }
+
+            if person.nip05_valid {
+                RichText::new(nip05).monospace()
+            } else {
+                RichText::new(nip05).monospace().strikethrough()
+            }
+        } else {
+            RichText::default()
         }
     }
 

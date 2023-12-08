@@ -1,13 +1,17 @@
 mod avatar;
 pub(crate) use avatar::{paint_avatar, AvatarSize};
 
+mod contact_search;
+pub(super) use contact_search::{capture_keyboard_for_search, show_contact_search};
+
 mod copy_button;
 pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
+use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{
-    self, vec2, FontSelection, Rect, Response, Sense, TextEdit, Ui, WidgetText,
+    self, vec2, FontSelection, Rect, Sense, TextEdit, Ui, WidgetText,
 };
 pub use nav_item::NavItem;
 
@@ -16,6 +20,9 @@ pub use relay_entry::{RelayEntry, RelayEntryView};
 
 mod modal_popup;
 pub use modal_popup::modal_popup;
+
+mod more_menu;
+pub(super) use more_menu::MoreMenu;
 
 mod information_popup;
 pub use information_popup::InformationPopup;
@@ -87,16 +94,16 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     ui.hyperlink_to(job.job, url);
 }
 
-pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Response {
+pub fn search_field(ui: &mut Ui, field: &mut String, width: f32) -> TextEditOutput {
     // search field
-    let response = ui.add(
-        TextEdit::singleline(field)
-            .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
-            .desired_width(width),
-    );
+    let output = TextEdit::singleline(field)
+        .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
+        .desired_width(width)
+        .show(ui);
+
     let rect = Rect::from_min_size(
-        response.rect.right_top() - vec2(response.rect.height(), 0.0),
-        vec2(response.rect.height(), response.rect.height()),
+        output.response.rect.right_top() - vec2(output.response.rect.height(), 0.0),
+        vec2(output.response.rect.height(), output.response.rect.height()),
     );
 
     // search clear button
@@ -114,7 +121,7 @@ pub fn search_filter_field(ui: &mut Ui, field: &mut String, width: f32) -> Respo
         field.clear();
     }
 
-    response
+    output
 }
 
 pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
