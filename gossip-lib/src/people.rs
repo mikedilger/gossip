@@ -20,29 +20,8 @@ pub type Person = crate::storage::types::Person2;
 /// PersonList type, aliased to the latest version
 pub type PersonList = crate::storage::types::PersonList1;
 
-/// Person List Compare Data
-#[derive(Debug, Clone)]
-pub struct PersonListEventData {
-    /// The timestamp of the latest event
-    pub when: Unixtime,
-
-    /// The number of public entries in the latest event
-    pub public_len: usize,
-
-    /// The number of private entires in the latest event, or None if it
-    /// couldn't be computed (not logged in, Following event, or none found)
-    pub private_len: Option<usize>,
-}
-
-impl Default for PersonListEventData {
-    fn default() -> PersonListEventData {
-        PersonListEventData {
-            when: Unixtime(0),
-            public_len: 0,
-            private_len: None,
-        }
-    }
-}
+/// PersonListMetadata type, aliased to the latest version
+pub type PersonListMetadata = crate::storage::types::PersonListMetadata1;
 
 /// Handles people and remembers what needs to be done for each, such as fetching
 /// metadata or avatars.
@@ -71,9 +50,6 @@ pub struct People {
     // This only relates to the Metadata event, not subsequent avatar or nip05
     // loads.
     fetching_metadata: DashMap<PublicKey, Unixtime>,
-
-    /// Latest person list event data for each PersonList
-    pub latest_person_list_event_data: DashMap<PersonList, PersonListEventData>,
 }
 
 impl Default for People {
@@ -92,14 +68,11 @@ impl People {
             recheck_nip05: DashSet::new(),
             people_of_interest: DashSet::new(),
             fetching_metadata: DashMap::new(),
-            latest_person_list_event_data: DashMap::new(),
         }
     }
 
     // Start the periodic task management
     pub(crate) fn start() {
-        GLOBALS.people.update_latest_person_list_event_data();
-
         task::spawn(async {
             loop {
                 let fetch_metadata_looptime_ms =
@@ -117,53 +90,6 @@ impl People {
                 }
             }
         });
-    }
-
-    /// Search local events for the latest PersonList event for each kind of PersonList,
-    /// and determine their timestamps and lengths, storing result in People.
-    pub fn update_latest_person_list_event_data(&self) {
-        // Get public key, or give up
-        let pk = match GLOBALS.storage.read_setting_public_key() {
-            Some(pk) => pk,
-            None => return,
-        };
-
-        for (person_list, _) in PersonList::all_lists() {
-            if let Ok(Some(event)) = GLOBALS.storage.get_replaceable_event(
-                person_list.event_kind(),
-                pk,
-                &person_list.name(),
-            ) {
-                self.latest_person_list_event_data.insert(
-                    person_list,
-                    PersonListEventData {
-                        when: event.created_at,
-                        public_len: event
-                            .tags
-                            .iter()
-                            .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                            .count(),
-                        private_len: {
-                            let mut private_len: Option<usize> = None;
-                            if !matches!(person_list, PersonList::Followed)
-                                && GLOBALS.signer.is_ready()
-                            {
-                                if let Ok(bytes) = GLOBALS.signer.decrypt_nip04(&pk, &event.content)
-                                {
-                                    if let Ok(vectags) = serde_json::from_slice::<Vec<Tag>>(&bytes)
-                                    {
-                                        private_len = Some(vectags.len());
-                                    }
-                                }
-                            }
-                            private_len
-                        },
-                    },
-                );
-            } else {
-                self.latest_person_list_event_data.remove(&person_list);
-            }
-        }
     }
 
     /// Get all the pubkeys that the user subscribes to in any list
@@ -653,6 +579,12 @@ impl People {
             return Err((ErrorKind::NoPrivateKey, file!(), line!()).into());
         }
 
+        // Get the personlist metadata (dtag, etc)
+        let metadata = match GLOBALS.storage.get_person_list_metadata(person_list)? {
+            Some(m) => m,
+            None => return Err(ErrorKind::ListNotFound.into()),
+        };
+
         let my_pubkey = GLOBALS.signer.public_key().unwrap();
 
         // Read the person list in two parts
@@ -676,7 +608,7 @@ impl People {
                 // We fetch for FollowSets to preserve various tags we don't use
                 GLOBALS
                     .storage
-                    .get_replaceable_event(kind, my_pubkey, &person_list.name())?
+                    .get_replaceable_event(kind, my_pubkey, &metadata.dtag)?
             }
             _ => None,
         };
@@ -725,7 +657,7 @@ impl People {
             // Add d-tag if using FollowSets
             if matches!(person_list, PersonList::Custom(_)) {
                 tags.push(Tag::Identifier {
-                    d: person_list.name(),
+                    d: metadata.dtag.clone(),
                     trailing: vec![],
                 });
             }
@@ -813,11 +745,12 @@ impl People {
         }
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
 
-        GLOBALS.storage.set_person_list_last_edit_time(
-            list,
-            Unixtime::now().unwrap().0,
-            Some(&mut txn),
-        )?;
+        if let Some(mut metadata) = GLOBALS.storage.get_person_list_metadata(list)? {
+            metadata.last_edit_time = Unixtime::now().unwrap();
+            GLOBALS
+                .storage
+                .set_person_list_metadata(list, &metadata, Some(&mut txn))?;
+        }
 
         txn.commit()?;
 
@@ -829,11 +762,13 @@ impl People {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
-        GLOBALS.storage.set_person_list_last_edit_time(
-            list,
-            Unixtime::now().unwrap().0,
-            Some(&mut txn),
-        )?;
+
+        if let Some(mut metadata) = GLOBALS.storage.get_person_list_metadata(list)? {
+            metadata.last_edit_time = Unixtime::now().unwrap();
+            GLOBALS
+                .storage
+                .set_person_list_metadata(list, &metadata, Some(&mut txn))?;
+        }
 
         txn.commit()?;
 
@@ -865,11 +800,17 @@ impl People {
                 .remove_person_from_list(pubkey, PersonList::Muted, Some(&mut txn))?;
         }
 
-        GLOBALS.storage.set_person_list_last_edit_time(
-            PersonList::Muted,
-            Unixtime::now().unwrap().0,
-            Some(&mut txn),
-        )?;
+        if let Some(mut metadata) = GLOBALS
+            .storage
+            .get_person_list_metadata(PersonList::Muted)?
+        {
+            metadata.last_edit_time = Unixtime::now().unwrap();
+            GLOBALS.storage.set_person_list_metadata(
+                PersonList::Muted,
+                &metadata,
+                Some(&mut txn),
+            )?;
+        }
 
         txn.commit()?;
 
@@ -973,4 +914,55 @@ impl People {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Nip05Patch {
     nip05: Option<String>,
+}
+
+// Determine PersonList and fetches Metadata, allocating if needed.
+// This does NOT update that metadata from the event.
+// The bool indicates if the list was freshly allocated
+pub(crate) fn fetch_current_personlist_matching_event(
+    event: &Event,
+) -> Result<(PersonList, PersonListMetadata, bool), Error> {
+    let (list, metadata, new) = match event.kind {
+        EventKind::ContactList => {
+            let list = PersonList::Followed;
+            match GLOBALS.storage.get_person_list_metadata(list)? {
+                Some(md) => (list, md, false),
+                None => (list, Default::default(), true),
+            }
+        }
+        EventKind::MuteList => {
+            let list = PersonList::Muted;
+            match GLOBALS.storage.get_person_list_metadata(list)? {
+                Some(md) => (list, md, false),
+                None => (list, Default::default(), true),
+            }
+        }
+        EventKind::FollowSets => {
+            let dtag = match event.parameter() {
+                Some(dtag) => dtag,
+                None => return Err(ErrorKind::ListEventMissingDtag.into()),
+            };
+            if let Some((found_list, metadata)) = GLOBALS.storage.find_person_list_by_dtag(&dtag)? {
+                (found_list, metadata, false)
+            } else {
+                // Allocate new
+                let metadata = PersonListMetadata {
+                    dtag,
+                    event_created_at: event.created_at,
+                    ..Default::default()
+                };
+
+                // This is slim metadata.. The caller will fix it.
+                let list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
+
+                (list, metadata, true)
+            }
+        }
+        _ => {
+            // This function does not apply to other event kinds
+            return Err(ErrorKind::NotAPersonListEvent.into());
+        }
+    };
+
+    Ok((list, metadata, new))
 }

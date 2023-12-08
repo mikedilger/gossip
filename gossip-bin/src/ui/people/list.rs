@@ -518,12 +518,12 @@ fn refresh_list_data(app: &mut GossipUi, list: gossip_lib::PersonList1) {
     } else if let Some(private_len) = latest_event_data.private_len {
         format!(
             "REMOTE: {} (public_len={} private_len={})",
-            asof, latest_event_data.public_len, private_len
+            asof, metadata.event_public_len, private_len
         )
     } else {
         format!(
             "REMOTE: {} (public_len={})",
-            asof, latest_event_data.public_len
+            asof, metadata.event_public_len
         )
     };
 

@@ -138,6 +138,9 @@ pub enum ToOverlordMessage {
     /// internal
     SetDmChannel(DmChannel),
 
+    /// Calls [start_long_lived_subscriptions](crate::Overlord::start_long_lived_subscriptions)
+    StartLongLivedSubscriptions,
+
     /// Calls [subscribe_config](crate::Overlord::subscribe_config)
     SubscribeConfig(RelayUrl),
 

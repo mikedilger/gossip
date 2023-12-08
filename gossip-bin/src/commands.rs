@@ -1,8 +1,8 @@
 use bech32::FromBase32;
-use gossip_lib::PersonList;
 use gossip_lib::PersonRelay;
 use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
+use gossip_lib::{PersonList, PersonListMetadata};
 use nostr_types::{
     Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, RelayUrl,
     UncheckedUrl, Unixtime,
@@ -269,7 +269,13 @@ pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing listname parameter".to_string()),
     };
 
-    let _list = PersonList::allocate(&listname, None)?;
+    let metadata = PersonListMetadata {
+        dtag: listname.clone(),
+        title: listname.clone(),
+        ..Default::default()
+    };
+
+    let _list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
     Ok(())
 }
 
@@ -503,9 +509,9 @@ pub fn print_muted(_cmd: Command) -> Result<(), Error> {
 }
 
 pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
-    let lists = PersonList::all_lists();
-    for (list, name) in lists.iter() {
-        println!("LIST {}: {}", u8::from(*list), name);
+    let all = GLOBALS.storage.get_all_person_list_metadata()?;
+    for (list, metadata) in all.iter() {
+        println!("LIST {}: {}", u8::from(*list), metadata.title);
         let members = GLOBALS.storage.get_people_in_list(*list)?;
         for (pk, public) in &members {
             if let Some(person) = GLOBALS.storage.read_person(pk)? {
@@ -720,11 +726,15 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
         None => return cmd.usage("Missing newname parameter".to_string()),
     };
 
-    if let Some(list) = PersonList::from_number(number) {
-        list.rename(&newname, None)?;
-    } else {
-        println!("No list with number={}", number);
-    }
+    let list = match PersonList::from_number(number) {
+        Some(list) => list,
+        None => {
+            println!("No list with number={}", number);
+            return Ok(());
+        }
+    };
+
+    GLOBALS.storage.rename_person_list(list, newname, None)?;
 
     Ok(())
 }

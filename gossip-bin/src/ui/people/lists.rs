@@ -5,7 +5,7 @@ use eframe::egui;
 use egui::{Context, Ui, Vec2};
 use egui_winit::egui::{vec2, Label, RichText, Sense};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{PersonList, GLOBALS};
+use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
@@ -15,14 +15,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     let enable_scroll = true;
-    let all_lists = PersonList::all_lists();
+
+    let all_lists = GLOBALS
+        .storage
+        .get_all_person_list_metadata()
+        .unwrap_or_default();
     let color = app.theme.accent_color();
 
     app.vert_scroll_area()
         .id_source("people_lists_scroll")
         .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
-            for (list, listname) in all_lists {
+            for (list, metadata) in all_lists {
                 let count = GLOBALS
                     .storage
                     .get_people_in_list(list)
@@ -33,7 +37,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
-                            ui.add(Label::new(RichText::new(listname).heading().color(color)));
+                            ui.add(Label::new(
+                                RichText::new(metadata.title).heading().color(color),
+                            ));
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                                 if matches!(list, PersonList::Custom(_)) {
@@ -60,12 +66,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
 
     if let Some(list) = app.deleting_list {
+        let metadata = GLOBALS
+            .storage
+            .get_person_list_metadata(list)
+            .unwrap_or_default()
+            .unwrap_or_default();
+
         const DLG_SIZE: Vec2 = vec2(250.0, 120.0);
         let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
             ui.vertical(|ui| {
                 ui.label("Are you sure you want to delete:");
                 ui.add_space(10.0);
-                ui.heading(list.name());
+                ui.heading(metadata.title);
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.horizontal(|ui| {
                         if ui.button("Cancel").clicked() {
@@ -103,7 +115,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
                             if ui.button("Create").clicked() {
                                 if !app.new_list_name.is_empty() {
-                                    if let Err(e) = PersonList::allocate(&app.new_list_name, None) {
+                                    let metadata = PersonListMetadata {
+                                        dtag: app.new_list_name.to_owned(),
+                                        title: app.new_list_name.to_owned(),
+                                        ..Default::default()
+                                    };
+
+                                    if let Err(e) =
+                                        GLOBALS.storage.allocate_person_list(&metadata, None)
+                                    {
                                         GLOBALS.status_queue.write().write(format!("{}", e));
                                     } else {
                                         app.creating_list = false;

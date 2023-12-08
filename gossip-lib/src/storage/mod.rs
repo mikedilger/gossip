@@ -28,6 +28,7 @@ mod people1;
 mod people2;
 mod person_lists1;
 mod person_lists2;
+mod person_lists_metadata1;
 mod person_relays1;
 mod relationships1;
 mod relationships_by_addr1;
@@ -39,7 +40,7 @@ mod unindexed_giftwraps1;
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::people::{Person, PersonList};
+use crate::people::{Person, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
@@ -53,7 +54,7 @@ use nostr_types::{
 };
 use paste::paste;
 use speedy::{Readable, Writable};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::ops::Bound;
 
 use self::event_tag_index1::INDEXED_TAGS;
@@ -238,6 +239,7 @@ impl Storage {
         let _ = self.db_relays()?;
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
+        let _ = self.db_person_lists_metadata()?;
 
         // Do migrations
         match self.read_migration_level()? {
@@ -331,6 +333,11 @@ impl Storage {
     #[inline]
     pub(crate) fn db_person_lists(&self) -> Result<RawDatabase, Error> {
         self.db_person_lists2()
+    }
+
+    #[inline]
+    pub(crate) fn db_person_lists_metadata(&self) -> Result<RawDatabase, Error> {
+        self.db_person_lists_metadata1()
     }
 
     // Database length functions ---------------------------------
@@ -594,60 +601,81 @@ impl Storage {
         }
     }
 
-    /// Write the user's last PersonList edit times
-    pub fn write_person_lists_last_edit_times<'a>(
-        &'a self,
-        times: HashMap<PersonList, i64>,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = times.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general
-                .put(txn, b"person_lists_last_edit_times", bytes.as_slice())?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+    /// Get personlist metadata
+    #[inline]
+    pub fn get_person_list_metadata(
+        &self,
+        list: PersonList,
+    ) -> Result<Option<PersonListMetadata>, Error> {
+        self.get_person_list_metadata1(list)
     }
 
-    /// Read the user's last ContactList edit time
-    pub fn read_person_lists_last_edit_times(&self) -> Result<HashMap<PersonList, i64>, Error> {
-        let txn = self.env.read_txn()?;
-
-        match self.general.get(&txn, b"person_lists_last_edit_times")? {
-            None => Ok(HashMap::new()),
-            Some(bytes) => Ok(HashMap::<PersonList, i64>::read_from_buffer(bytes)?),
-        }
-    }
-
-    /// Set a person list last edit time
-    pub fn set_person_list_last_edit_time<'a>(
+    /// Set personlist metadata
+    #[inline]
+    pub fn set_person_list_metadata<'a>(
         &'a self,
         list: PersonList,
-        time: i64,
+        metadata: &PersonListMetadata,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut lists = self.read_person_lists_last_edit_times()?;
-        let _ = lists.insert(list, time);
-        self.write_person_lists_last_edit_times(lists, rw_txn)?;
+        self.set_person_list_metadata1(list, metadata, rw_txn)
+    }
+
+    /// Get all person lists with their metadata
+    #[inline]
+    pub fn get_all_person_list_metadata(
+        &self,
+    ) -> Result<Vec<(PersonList, PersonListMetadata)>, Error> {
+        self.get_all_person_list_metadata1()
+    }
+
+    /// Find a person list by "d" tag
+    #[inline]
+    pub fn find_person_list_by_dtag(
+        &self,
+        dtag: &str,
+    ) -> Result<Option<(PersonList, PersonListMetadata)>, Error> {
+        self.find_person_list_by_dtag1(dtag)
+    }
+
+    /// Allocate a new person list
+    #[inline]
+    pub fn allocate_person_list<'a>(
+        &'a self,
+        metadata: &PersonListMetadata,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<PersonList, Error> {
+        self.allocate_person_list1(metadata, rw_txn)
+    }
+
+    /// Deallocate an empty person list
+    #[inline]
+    pub fn deallocate_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.deallocate_person_list1(list, rw_txn)
+    }
+
+    // GINA add more person_list functions, higher level now
+    pub fn rename_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        newname: String,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut md = match self.get_person_list_metadata(list)? {
+            Some(md) => md,
+            None => return Err(ErrorKind::ListNotFound.into()),
+        };
+        md.title = newname;
+        md.last_edit_time = Unixtime::now().unwrap();
+        self.set_person_list_metadata(list, &md, rw_txn)?;
         Ok(())
     }
 
-    /// Get a person list last edit time
-    pub fn get_person_list_last_edit_time(&self, list: PersonList) -> Result<Option<i64>, Error> {
-        let lists = self.read_person_lists_last_edit_times()?;
-        Ok(lists.get(&list).copied())
-    }
+    // Flags ------------------------------------------------------------
 
     def_flag!(following_only, b"following_only", false);
     def_flag!(wizard_complete, b"wizard_complete", false);
@@ -685,17 +713,6 @@ impl Storage {
         60 * 60 * 24 * 30
     );
     def_setting!(overlap, b"overlap", u64, 300);
-    def_setting!(
-        custom_person_list_map,
-        b"custom_person_list_map",
-        BTreeMap::<u8, String>,
-        {
-            let mut m = BTreeMap::new();
-            m.insert(0, "Muted".to_owned());
-            m.insert(1, "Followed".to_owned());
-            m
-        }
-    );
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);
@@ -2299,7 +2316,11 @@ impl Storage {
             map.insert(list, public);
             self.write_person_lists(pubkey, map, Some(txn))?;
             let now = Unixtime::now().unwrap();
-            self.set_person_list_last_edit_time(list, now.0, Some(txn))?;
+            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                metadata.last_edit_time = now;
+                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+            }
+
             Ok(())
         };
 
@@ -2329,7 +2350,10 @@ impl Storage {
             map.remove(&list);
             self.write_person_lists(pubkey, map, Some(txn))?;
             let now = Unixtime::now().unwrap();
-            self.set_person_list_last_edit_time(list, now.0, Some(txn))?;
+            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                metadata.last_edit_time = now;
+                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+            }
             Ok(())
         };
 

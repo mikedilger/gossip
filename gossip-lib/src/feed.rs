@@ -30,7 +30,10 @@ impl std::fmt::Display for FeedKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FeedKind::DmChat(channel) => write!(f, "{}", channel.name()),
-            FeedKind::List(pl, _) => write!(f, "{}", pl.name()),
+            FeedKind::List(pl, _) => match GLOBALS.storage.get_person_list_metadata(*pl) {
+                Ok(Some(md)) => write!(f, "{}", md.title),
+                _ => write!(f, "UNKNOWN"),
+            },
             FeedKind::Inbox(_) => write!(f, "Inbox"),
             FeedKind::Thread {
                 id,

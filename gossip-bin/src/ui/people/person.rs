@@ -13,7 +13,6 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
 use gossip_lib::Person;
-use gossip_lib::PersonList;
 use gossip_lib::GLOBALS;
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
@@ -192,9 +191,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.separator();
             ui.add_space(10.0);
 
-            let all_lists = PersonList::all_lists();
+            let all_lists = GLOBALS
+                .storage
+                .get_all_person_list_metadata()
+                .unwrap_or_default();
             if let Ok(membership_map) = GLOBALS.storage.read_person_lists(&pubkey) {
-                for (list, listname) in all_lists {
+                for (list, metadata) in all_lists {
                     ui.horizontal(|ui| {
                         let membership = membership_map.get(&list);
                         let mut inlist = membership.is_some();
@@ -213,7 +215,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         }
                         ui.add_space(10.0);
                         if inlist {
-                            ui.label(listname);
+                            ui.label(metadata.title);
 
                             ui.add_space(10.0);
                             let public = membership.unwrap();
@@ -225,7 +227,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     .add_person_to_list(&pubkey, list, !*public, None);
                             }
                         } else {
-                            ui.label(RichText::new(listname).weak());
+                            ui.label(RichText::new(metadata.title).weak());
                         }
                     });
                 }

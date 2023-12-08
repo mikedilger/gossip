@@ -2,7 +2,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
-use crate::people::PersonList;
+use crate::people::{PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use async_recursion::async_recursion;
@@ -247,9 +247,9 @@ pub async fn process_new_event(
     if event.kind == EventKind::ContactList {
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
-                // Update this data for the UI.  We don't actually process the latest event
-                // until the user gives the go ahead.
-                GLOBALS.people.update_latest_person_list_event_data();
+                // Updates stamps and counts, does NOT change membership
+                let (_personlist, _metadata) =
+                    update_or_allocate_person_list_from_event(event, pubkey)?;
             } else {
                 process_somebody_elses_contact_list(event).await?;
             }
@@ -257,22 +257,12 @@ pub async fn process_new_event(
             process_somebody_elses_contact_list(event).await?;
         }
     } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
-        // Allocate a slot for this person list
-        if event.kind == EventKind::FollowSets {
-            // get d-tag
-            for tag in event.tags.iter() {
-                if let Tag::Identifier { d, .. } = tag {
-                    // This will allocate if missing, and will be ok if it exists
-                    PersonList::allocate(d, None)?;
-                }
-            }
-        }
-
+        // Only our own
         if let Some(pubkey) = GLOBALS.signer.public_key() {
             if event.pubkey == pubkey {
-                // Update this data for the UI.  We don't actually process the latest event
-                // until the user gives the go ahead.
-                GLOBALS.people.update_latest_person_list_event_data();
+                // Updates stamps and counts, does NOT change membership
+                let (_personlist, _metadata) =
+                    update_or_allocate_person_list_from_event(event, pubkey)?;
             }
         }
     } else if event.kind == EventKind::RelayList {
@@ -843,4 +833,69 @@ pub(crate) fn process_relationships_of_event<'a>(
     };
 
     Ok(invalidate)
+}
+
+// This updates the event data and maybe the title, but it does NOT update the list
+// (that happens only when the user overwrites/merges)
+fn update_or_allocate_person_list_from_event(
+    event: &Event,
+    pubkey: PublicKey,
+) -> Result<(PersonList, PersonListMetadata), Error> {
+    // Determine PersonList and fetch Metadata
+    let (list, mut metadata, new) = crate::people::fetch_current_personlist_matching_event(event)?;
+
+    // Update metadata
+    {
+        metadata.event_created_at = event.created_at;
+
+        metadata.event_public_len = event
+            .tags
+            .iter()
+            .filter(|t| matches!(t, Tag::Pubkey { .. }))
+            .count();
+
+        if event.kind == EventKind::ContactList {
+            metadata.event_private_len = None;
+        } else if GLOBALS.signer.is_ready() {
+            let mut private_len: Option<usize> = None;
+            if let Ok(bytes) = GLOBALS.signer.decrypt_nip04(&pubkey, &event.content) {
+                if let Ok(vectags) = serde_json::from_slice::<Vec<Tag>>(&bytes) {
+                    private_len = Some(
+                        vectags
+                            .iter()
+                            .filter(|t| matches!(t, Tag::Pubkey { .. }))
+                            .count(),
+                    );
+                }
+            }
+            metadata.event_private_len = private_len;
+        }
+
+        if let Some(title) = event.title() {
+            metadata.title = title.to_owned();
+        }
+
+        // If title is empty, use the d-tag
+        if metadata.title.is_empty() && !metadata.dtag.is_empty() {
+            metadata.title = metadata.dtag.clone();
+        }
+    }
+
+    // Save metadata
+    GLOBALS
+        .storage
+        .set_person_list_metadata(list, &metadata, None)?;
+
+    if new {
+        // Ask the overlord to populate the list from the event, since it is
+        // locally new
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::UpdatePersonList {
+                person_list: list,
+                merge: false,
+            });
+    }
+
+    Ok((list, metadata))
 }
