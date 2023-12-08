@@ -91,12 +91,16 @@ pub(super) fn update(
     // render page
     widgets::page_header(
         ui,
-        format!("{} ({})", metadata.title, app.people_list.cache_people.len()),
+        format!(
+            "{} ({})",
+            metadata.title,
+            app.people_list.cache_people.len()
+        ),
         |ui| {
             ui.add_enabled_ui(enabled, |ui| {
                 let min_size = vec2(50.0, 20.0);
 
-                widgets::MoreMenu::new(&app).with_min_size(min_size).show(
+                widgets::MoreMenu::new(app).with_min_size(min_size).show(
                     ui,
                     &mut app.people_list.configure_list_menu_active,
                     |ui| {

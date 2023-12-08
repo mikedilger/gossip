@@ -1,5 +1,5 @@
 use eframe::epaint::PathShape;
-use egui_winit::egui::{Ui, self, vec2, Rect, Id, Vec2, TextureHandle, Color32};
+use egui_winit::egui::{self, vec2, Color32, Id, Rect, TextureHandle, Ui, Vec2};
 
 use crate::ui::GossipUi;
 
@@ -40,7 +40,7 @@ impl MoreMenu {
         self
     }
 
-    pub fn show(&self, ui: &mut Ui, active: &mut bool, content: impl FnOnce(&mut Ui) ) {
+    pub fn show(&self, ui: &mut Ui, active: &mut bool, content: impl FnOnce(&mut Ui)) {
         let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
         let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
         let response = if let Some(text) = &self.hover_text {
@@ -71,7 +71,11 @@ impl MoreMenu {
         }
 
         let button_center_bottom = response.rect.center_bottom();
-        let seen_on_popup_position = button_center_bottom + vec2(-(self.min_size.x - 2.0*super::DROPDOWN_DISTANCE), super::DROPDOWN_DISTANCE);
+        let seen_on_popup_position = button_center_bottom
+            + vec2(
+                -(self.min_size.x - 2.0 * super::DROPDOWN_DISTANCE),
+                super::DROPDOWN_DISTANCE,
+            );
 
         let mut frame = egui::Frame::popup(ui.style());
         let area = egui::Area::new(self.id)
@@ -113,5 +117,3 @@ impl MoreMenu {
         }
     }
 }
-
-

@@ -10,9 +10,7 @@ pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
 use egui_winit::egui::text_edit::TextEditOutput;
-use egui_winit::egui::{
-    self, vec2, FontSelection, Rect, Sense, TextEdit, Ui, WidgetText,
-};
+use egui_winit::egui::{self, vec2, FontSelection, Rect, Sense, TextEdit, Ui, WidgetText};
 pub use nav_item::NavItem;
 
 mod relay_entry;

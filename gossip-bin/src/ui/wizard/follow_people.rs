@@ -100,8 +100,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     PersonList::Followed,
                     true,
                 ));
-            } else if let Ok(pubkey) =
-                PublicKey::try_from_hex_string(app.add_contact.trim(), true)
+            } else if let Ok(pubkey) = PublicKey::try_from_hex_string(app.add_contact.trim(), true)
             {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                     pubkey,
