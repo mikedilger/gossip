@@ -918,25 +918,24 @@ struct Nip05Patch {
 
 // Determine PersonList and fetches Metadata, allocating if needed.
 // This does NOT update that metadata from the event.
+// The bool indicates if the list was freshly allocated
 pub(crate) fn fetch_current_personlist_matching_event(
     event: &Event,
-) -> Result<(PersonList, PersonListMetadata), Error> {
-    let (list, metadata) = match event.kind {
+) -> Result<(PersonList, PersonListMetadata, bool), Error> {
+    let (list, metadata, new) = match event.kind {
         EventKind::ContactList => {
             let list = PersonList::Followed;
-            let md = GLOBALS
-                .storage
-                .get_person_list_metadata(list)?
-                .unwrap_or_default();
-            (list, md)
+            match GLOBALS.storage.get_person_list_metadata(list)? {
+                Some(md) => (list, md, false),
+                None => (list, Default::default(), true),
+            }
         }
         EventKind::MuteList => {
             let list = PersonList::Muted;
-            let md = GLOBALS
-                .storage
-                .get_person_list_metadata(list)?
-                .unwrap_or_default();
-            (list, md)
+            match GLOBALS.storage.get_person_list_metadata(list)? {
+                Some(md) => (list, md, false),
+                None => (list, Default::default(), true),
+            }
         }
         EventKind::FollowSets => {
             let dtag = match event.parameter() {
@@ -944,7 +943,7 @@ pub(crate) fn fetch_current_personlist_matching_event(
                 None => return Err(ErrorKind::ListEventMissingDtag.into()),
             };
             if let Some((found_list, metadata)) = GLOBALS.storage.find_person_list_by_dtag(&dtag)? {
-                (found_list, metadata)
+                (found_list, metadata, false)
             } else {
                 // Allocate new
                 let mut metadata: PersonListMetadata = Default::default();
@@ -952,7 +951,8 @@ pub(crate) fn fetch_current_personlist_matching_event(
                 metadata.event_created_at = event.created_at;
                 // This is slim metadata.. The caller will fix it.
                 let list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
-                (list, metadata)
+
+                (list, metadata, true)
             }
         }
         _ => {
@@ -961,5 +961,5 @@ pub(crate) fn fetch_current_personlist_matching_event(
         }
     };
 
-    Ok((list, metadata))
+    Ok((list, metadata, new))
 }

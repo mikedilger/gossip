@@ -842,7 +842,7 @@ fn update_or_allocate_person_list_from_event(
     pubkey: PublicKey,
 ) -> Result<(PersonList, PersonListMetadata), Error> {
     // Determine PersonList and fetch Metadata
-    let (list, mut metadata) = crate::people::fetch_current_personlist_matching_event(event)?;
+    let (list, mut metadata, new) = crate::people::fetch_current_personlist_matching_event(event)?;
 
     // Update metadata
     {
@@ -885,6 +885,17 @@ fn update_or_allocate_person_list_from_event(
     GLOBALS
         .storage
         .set_person_list_metadata(list, &metadata, None)?;
+
+    if new {
+        // Ask the overlord to populate the list from the event, since it is
+        // locally new
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::UpdatePersonList {
+                person_list: list,
+                merge: false,
+            });
+    }
 
     Ok((list, metadata))
 }
