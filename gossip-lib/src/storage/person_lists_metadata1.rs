@@ -117,7 +117,7 @@ impl Storage {
             let (key, val) = result?;
             let list = PersonList1::read_from_buffer(key)?;
             let metadata = PersonListMetadata1::read_from_buffer(val)?;
-            if &metadata.dtag == dtag {
+            if metadata.dtag == dtag {
                 return Ok(Some((list, metadata)));
             }
         }
@@ -148,7 +148,7 @@ impl Storage {
 
             for i in 2..=255 {
                 let key: Vec<u8> = PersonList1::Custom(i).write_to_vec()?;
-                if self.db_person_lists_metadata1()?.get(&txn, &key)?.is_none() {
+                if self.db_person_lists_metadata1()?.get(txn, &key)?.is_none() {
                     slot = i;
                     break;
                 }

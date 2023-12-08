@@ -946,9 +946,12 @@ pub(crate) fn fetch_current_personlist_matching_event(
                 (found_list, metadata, false)
             } else {
                 // Allocate new
-                let mut metadata: PersonListMetadata = Default::default();
-                metadata.dtag = dtag;
-                metadata.event_created_at = event.created_at;
+                let metadata = PersonListMetadata {
+                    dtag,
+                    event_created_at: event.created_at,
+                    ..Default::default()
+                };
+
                 // This is slim metadata.. The caller will fix it.
                 let list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
 

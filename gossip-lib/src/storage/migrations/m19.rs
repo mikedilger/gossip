@@ -28,7 +28,7 @@ impl Storage {
     fn m19_populate_person_list_metadata<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // read custom_person_list_map setting
         let name_map: BTreeMap<u8, String> = {
-            let maybe_map = match self.general.get(&txn, b"custom_person_list_map") {
+            let maybe_map = match self.general.get(txn, b"custom_person_list_map") {
                 Err(_) => None,
                 Ok(None) => None,
                 Ok(Some(bytes)) => match <BTreeMap<u8, String>>::read_from_buffer(bytes) {
@@ -51,13 +51,15 @@ impl Storage {
             name_map.keys().map(|k| PersonList1::from_u8(*k)).collect();
 
         for list in lists.drain(..) {
-            let mut metadata: PersonListMetadata1 = Default::default();
-            metadata.last_edit_time = Unixtime(
-                last_edit_times
-                    .get(&list)
-                    .copied()
-                    .unwrap_or(Unixtime::now().unwrap().0),
-            );
+            let mut metadata = PersonListMetadata1 {
+                last_edit_time: Unixtime(
+                    last_edit_times
+                        .get(&list)
+                        .copied()
+                        .unwrap_or(Unixtime::now().unwrap().0),
+                ),
+                ..Default::default()
+            };
             if list == PersonList1::Muted {
                 metadata.dtag = "muted".to_string();
                 metadata.title = "Muted".to_string();

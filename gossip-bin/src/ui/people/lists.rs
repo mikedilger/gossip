@@ -115,9 +115,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
                             if ui.button("Create").clicked() {
                                 if !app.new_list_name.is_empty() {
-                                    let mut metadata: PersonListMetadata = Default::default();
-                                    metadata.dtag = app.new_list_name.to_owned();
-                                    metadata.title = app.new_list_name.to_owned();
+                                    let metadata = PersonListMetadata {
+                                        dtag: app.new_list_name.to_owned(),
+                                        title: app.new_list_name.to_owned(),
+                                        ..Default::default()
+                                    };
 
                                     if let Err(e) =
                                         GLOBALS.storage.allocate_person_list(&metadata, None)

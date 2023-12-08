@@ -269,9 +269,11 @@ pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing listname parameter".to_string()),
     };
 
-    let mut metadata: PersonListMetadata = Default::default();
-    metadata.dtag = listname.clone();
-    metadata.title = listname.clone();
+    let metadata = PersonListMetadata {
+        dtag: listname.clone(),
+        title: listname.clone(),
+        ..Default::default()
+    };
 
     let _list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
     Ok(())
