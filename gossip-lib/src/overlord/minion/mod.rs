@@ -805,28 +805,11 @@ impl Minion {
         tracing::trace!("{}: Event Filter: {} events", &self.url, filter.ids.len());
 
         // create a handle for ourselves
+        // This is always a fresh subscription because they handle keeps changing
         let handle = format!("temp_events_{}", self.next_events_subscription_id);
         self.next_events_subscription_id += 1;
 
-        // save the subscription
-        let id = self.subscription_map.add(&handle, job_id, vec![filter]);
-        tracing::debug!(
-            "NEW SUBSCRIPTION on {} handle={}, id={}",
-            &self.url,
-            handle,
-            &id
-        );
-
-        // get the request message
-        let req_message = self.subscription_map.get(&handle).unwrap().req_message();
-
-        // Subscribe on the relay
-        let websocket_stream = self.stream.as_mut().unwrap();
-        let wire = serde_json::to_string(&req_message)?;
-        self.last_message_sent = wire.clone();
-        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
-
-        tracing::trace!("{}: Sent {}", &self.url, &wire);
+        self.subscribe(vec![filter], &handle, job_id).await?;
 
         Ok(())
     }
