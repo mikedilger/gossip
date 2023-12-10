@@ -124,6 +124,13 @@ impl Person2 {
             .is_person_in_list(&self.pubkey, list)
             .unwrap_or(false)
     }
+
+    pub fn is_subscribed_to(&self) -> bool {
+        GLOBALS
+            .storage
+            .is_person_subscribed_to(&self.pubkey)
+            .unwrap_or(false)
+    }
 }
 
 impl PartialEq for Person2 {

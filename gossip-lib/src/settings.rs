@@ -5,7 +5,6 @@ use nostr_types::PublicKey;
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
-use std::collections::BTreeMap;
 
 macro_rules! load_setting {
     ($field:ident) => {
@@ -41,6 +40,7 @@ pub struct Settings {
     // ID settings
     pub public_key: Option<PublicKey>,
     pub log_n: u8,
+    pub login_at_startup: bool,
 
     // Network settings
     pub offline: bool,
@@ -58,7 +58,6 @@ pub struct Settings {
     pub replies_chunk: u64,
     pub person_feed_chunk: u64,
     pub overlap: u64,
-    pub custom_person_list_map: BTreeMap<u8, String>,
 
     // Event Selection
     pub reposts: bool,
@@ -132,6 +131,7 @@ impl Default for Settings {
         Settings {
             public_key: default_setting!(public_key),
             log_n: default_setting!(log_n),
+            login_at_startup: default_setting!(login_at_startup),
             offline: default_setting!(offline),
             load_avatars: default_setting!(load_avatars),
             load_media: default_setting!(load_media),
@@ -143,7 +143,6 @@ impl Default for Settings {
             replies_chunk: default_setting!(replies_chunk),
             person_feed_chunk: default_setting!(person_feed_chunk),
             overlap: default_setting!(overlap),
-            custom_person_list_map: default_setting!(custom_person_list_map),
             reposts: default_setting!(reposts),
             show_long_form: default_setting!(show_long_form),
             show_mentions: default_setting!(show_mentions),
@@ -213,6 +212,7 @@ impl Settings {
         Settings {
             public_key: load_setting!(public_key),
             log_n: load_setting!(log_n),
+            login_at_startup: load_setting!(login_at_startup),
             offline: load_setting!(offline),
             load_avatars: load_setting!(load_avatars),
             load_media: load_setting!(load_media),
@@ -224,7 +224,6 @@ impl Settings {
             replies_chunk: load_setting!(replies_chunk),
             person_feed_chunk: load_setting!(person_feed_chunk),
             overlap: load_setting!(overlap),
-            custom_person_list_map: load_setting!(custom_person_list_map),
             reposts: load_setting!(reposts),
             show_long_form: load_setting!(show_long_form),
             show_mentions: load_setting!(show_mentions),
@@ -290,6 +289,7 @@ impl Settings {
         let mut txn = GLOBALS.storage.get_write_txn()?;
         save_setting!(public_key, self, txn);
         save_setting!(log_n, self, txn);
+        save_setting!(login_at_startup, self, txn);
         save_setting!(offline, self, txn);
         save_setting!(load_avatars, self, txn);
         save_setting!(load_media, self, txn);
@@ -301,7 +301,6 @@ impl Settings {
         save_setting!(replies_chunk, self, txn);
         save_setting!(person_feed_chunk, self, txn);
         save_setting!(overlap, self, txn);
-        save_setting!(custom_person_list_map, self, txn);
         save_setting!(reposts, self, txn);
         save_setting!(show_long_form, self, txn);
         save_setting!(show_mentions, self, txn);

@@ -16,8 +16,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, PublicKey, PublicKeyHex,
-    RelayInformationDocument, RelayUrl, Unixtime,
+    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, PreEvent, PublicKey, PublicKeyHex,
+    RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -50,6 +50,9 @@ pub struct Minion {
     postings: HashSet<Id>,
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
+    waiting_for_auth: Option<Id>,
+    corked_subscriptions: Vec<(String, Unixtime)>,
+    corked_metadata: Vec<(u64, Vec<PublicKey>)>,
 }
 
 impl Minion {
@@ -78,6 +81,9 @@ impl Minion {
             postings: HashSet::new(),
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
+            waiting_for_auth: None,
+            corked_subscriptions: Vec::new(),
+            corked_metadata: Vec::new(),
         })
     }
 }
@@ -248,7 +254,7 @@ impl Minion {
                     }
                 }
                 Err(e) => {
-                    tracing::error!("{}", e);
+                    tracing::warn!("{}", e);
 
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
@@ -263,7 +269,7 @@ impl Minion {
         let ws_stream = self.stream.as_mut().unwrap();
         if !ws_stream.is_terminated() {
             if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
-                tracing::error!("websocket close error: {}", e);
+                tracing::warn!("websocket close error: {}", e);
                 return Err(e.into());
             }
         }
@@ -282,8 +288,8 @@ impl Minion {
         ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         ping_timer.tick().await; // use up the first immediate tick.
 
-        // Periodic Task timer (2 sec)
-        let mut task_timer = tokio::time::interval(std::time::Duration::new(2, 0));
+        // Periodic Task timer (3 sec)
+        let mut task_timer = tokio::time::interval(std::time::Duration::new(3, 0));
         task_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         task_timer.tick().await; // use up the first immediate tick.
 
@@ -295,6 +301,9 @@ impl Minion {
             _ = task_timer.tick()  => {
                 // Update subscription for sought events
                 self.get_events().await?;
+
+                // Try to subscribe to corked subscriptions and metadata
+                self.try_resubscribe_to_corked().await?;
             },
             to_minion_message = self.from_overlord.recv() => {
                 let to_minion_message = match to_minion_message {
@@ -480,8 +489,8 @@ impl Minion {
             }
         };
 
-        // Allow all feed related event kinds (including DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(true);
+        // Allow all feed related event kinds (excluding DMs)
+        let event_kinds = crate::feed::feed_related_event_kinds(false);
 
         if !followed_pubkeys.is_empty() {
             let pkp: Vec<PublicKeyHex> = followed_pubkeys.iter().map(|pk| pk.into()).collect();
@@ -553,6 +562,11 @@ impl Minion {
     // Subscribe to anybody mentioning the user on the relays the user reads from
     // (and any other relay for the time being until nip65 is in widespread use)
     async fn subscribe_mentions(&mut self, job_id: u64) -> Result<(), Error> {
+        // If we have already subscribed to mentions, do not resubscribe
+        if self.subscription_map.has("mentions_feed") {
+            return Ok(());
+        }
+
         let mut filters: Vec<Filter> = Vec::new();
 
         // Compute how far to look back
@@ -628,6 +642,7 @@ impl Minion {
                         //EventKind::RecommendRelay,
                         EventKind::ContactList,
                         EventKind::MuteList,
+                        EventKind::FollowSets,
                         EventKind::RelayList,
                     ],
                     // these are all replaceable, no since required
@@ -640,7 +655,8 @@ impl Minion {
                     since: Some(giftwrap_since),
                     ..Default::default()
                 },
-                // Posts I wrote recently
+                // Events I posted recently, including feed_displayable and
+                //  augments (deletions, reactions, timestamp, label,reporting, and zap)
                 Filter {
                     authors: vec![pkh],
                     kinds: crate::feed::feed_related_event_kinds(false), // not DMs
@@ -763,11 +779,12 @@ impl Minion {
         // globally, and have to be limited to recent ones.
 
         let mut authors: Vec<PublicKeyHex> = dmchannel.keys().iter().map(|k| k.into()).collect();
-        authors.push(pkh);
+        authors.push(pkh.clone());
 
         let filters: Vec<Filter> = vec![Filter {
             authors,
             kinds: vec![EventKind::EncryptedDirectMessage],
+            p: vec![pkh], // tagging the user
             ..Default::default()
         }];
 
@@ -802,28 +819,59 @@ impl Minion {
         tracing::trace!("{}: Event Filter: {} events", &self.url, filter.ids.len());
 
         // create a handle for ourselves
+        // This is always a fresh subscription because they handle keeps changing
         let handle = format!("temp_events_{}", self.next_events_subscription_id);
         self.next_events_subscription_id += 1;
 
-        // save the subscription
-        let id = self.subscription_map.add(&handle, job_id, vec![filter]);
-        tracing::debug!(
-            "NEW SUBSCRIPTION on {} handle={}, id={}",
-            &self.url,
-            handle,
-            &id
-        );
+        self.subscribe(vec![filter], &handle, job_id).await?;
 
-        // get the request message
-        let req_message = self.subscription_map.get(&handle).unwrap().req_message();
+        Ok(())
+    }
 
-        // Subscribe on the relay
-        let websocket_stream = self.stream.as_mut().unwrap();
-        let wire = serde_json::to_string(&req_message)?;
-        self.last_message_sent = wire.clone();
-        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
+    async fn try_resubscribe_to_corked(&mut self) -> Result<(), Error> {
+        // Do not do this if we are waiting for AUTH
+        if self.waiting_for_auth.is_some() {
+            return Ok(());
+        }
 
-        tracing::trace!("{}: Sent {}", &self.url, &wire);
+        // Subscribe to metadata
+        if !self.subscription_map.has("temp_subscribe_metadata") && !self.corked_metadata.is_empty()
+        {
+            let mut corked_metadata = std::mem::take(&mut self.corked_metadata);
+            let mut combined_job_id: Option<u64> = None;
+            let mut combined_pubkeys: Vec<PublicKey> = Vec::new();
+            for (job_id, pubkeys) in corked_metadata.drain(..) {
+                if combined_job_id.is_none() {
+                    combined_job_id = Some(job_id)
+                } else {
+                    // Tell the overlord this job id is over (it got combined into
+                    // another job_id)
+                    self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                        self.url.clone(),
+                        job_id,
+                    ))?;
+                }
+                combined_pubkeys.extend(pubkeys);
+            }
+
+            self.temp_subscribe_metadata(combined_job_id.unwrap(), combined_pubkeys)
+                .await?;
+        }
+
+        // Apply subscriptions that were waiting for auth
+        let mut handles = std::mem::take(&mut self.corked_subscriptions);
+        let now = Unixtime::now().unwrap();
+        for (handle, when) in handles.drain(..) {
+            // Do not try if we just inserted it within the last second
+            if when - now < Duration::from_secs(1) {
+                // re-insert
+                self.corked_subscriptions.push((handle, when));
+                continue;
+            }
+
+            tracing::info!("Sending corked subscription {} to {}", handle, &self.url);
+            self.send_subscription(&handle).await?;
+        }
 
         Ok(())
     }
@@ -848,6 +896,12 @@ impl Minion {
         job_id: u64,
         mut pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
+        if self.subscription_map.has("temp_subscribe_metadata") {
+            // Save for later
+            self.corked_metadata.push((job_id, pubkeys));
+            return Ok(());
+        }
+
         let pkhp: Vec<PublicKeyHex> = pubkeys.drain(..).map(|pk| pk.into()).collect();
 
         tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
@@ -870,7 +924,7 @@ impl Minion {
         job_id: u64,
     ) -> Result<(), Error> {
         if filters.is_empty() {
-            tracing::error!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
+            tracing::warn!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
             return Ok(());
         }
 
@@ -911,7 +965,22 @@ impl Minion {
             );
         }
 
-        let req_message = self.subscription_map.get(handle).unwrap().req_message();
+        if self.waiting_for_auth.is_some() {
+            // Save this, subscribe after AUTH completes
+            self.corked_subscriptions
+                .push((handle.to_owned(), Unixtime::now().unwrap()));
+            return Ok(());
+        }
+
+        self.send_subscription(handle).await?;
+        Ok(())
+    }
+
+    async fn send_subscription(&mut self, handle: &str) -> Result<(), Error> {
+        let req_message = match self.subscription_map.get(handle) {
+            Some(sub) => sub.req_message(),
+            None => return Ok(()), // Not much we can do. It is not there.
+        };
         let wire = serde_json::to_string(&req_message)?;
         let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
@@ -950,6 +1019,43 @@ impl Minion {
             subscription.get_job_id(),
         ))?;
         Ok(())
+    }
+
+    async fn authenticate(&mut self, challenge: String) -> Result<Id, Error> {
+        if !GLOBALS.signer.is_ready() {
+            return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
+        }
+        let pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
+            }
+        };
+        let pre_event = PreEvent {
+            pubkey,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::Auth,
+            tags: vec![
+                Tag::Other {
+                    tag: "relay".to_string(),
+                    data: vec![self.url.as_str().to_owned()],
+                },
+                Tag::Other {
+                    tag: "challenge".to_string(),
+                    data: vec![challenge],
+                },
+            ],
+            content: "".to_string(),
+        };
+        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+        let id = event.id;
+        let msg = ClientMessage::Auth(Box::new(event));
+        let wire = serde_json::to_string(&msg)?;
+        self.last_message_sent = wire.clone();
+        let ws_stream = self.stream.as_mut().unwrap();
+        ws_stream.send(WsMessage::Text(wire)).await?;
+        tracing::info!("Authenticated to {}", &self.url);
+        Ok(id)
     }
 
     // This replictes reqwest Response text_with_charset to handle decoding

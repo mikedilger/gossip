@@ -19,7 +19,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         if ui
             .add(
                 text_edit_line!(app, app.import_priv)
-                    .hint_text("nsec1 or hex")
+                    .hint_text("nsec1, hex, or ncryptsec1")
                     .desired_width(f32::INFINITY)
                     .password(true),
             )

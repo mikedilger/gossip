@@ -11,6 +11,7 @@ mod ui;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Error;
 use gossip_lib::GLOBALS;
+use std::sync::atomic::Ordering;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
@@ -73,6 +74,13 @@ fn main() -> Result<(), Error> {
     if let Err(e) = ui::run() {
         tracing::error!("{}", e);
     }
+
+    // Make sure the overlord knows to shut down
+    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+
+    // Make sure the overlord isn't stuck on waiting for login
+    GLOBALS.wait_for_login.store(false, Ordering::Relaxed);
+    GLOBALS.wait_for_login_notify.notify_one();
 
     // Tell the async parties to close down
     if let Err(e) = initiate_shutdown() {

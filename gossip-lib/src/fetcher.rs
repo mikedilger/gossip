@@ -336,7 +336,7 @@ impl Fetcher {
                     }
                 }
                 FailOutcome::NotModified => {
-                    tracing::info!("FETCH {url}: Succeeded: {message}");
+                    tracing::debug!("FETCH {url}: Succeeded: {message}");
                     let _ =
                         filetime::set_file_mtime(cache_file.as_path(), filetime::FileTime::now());
                     self.urls.write().unwrap().remove(&url);

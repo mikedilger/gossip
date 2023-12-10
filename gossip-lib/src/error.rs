@@ -1,4 +1,6 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
+use crate::people::PersonList;
+use nostr_types::RelayUrl;
 
 /// Error kinds that can occur in gossip-lib
 #[derive(Debug)]
@@ -19,7 +21,9 @@ pub enum ErrorKind {
     Nostr(nostr_types::Error),
     NoPublicKey,
     NoPrivateKey,
+    NoPrivateKeyForAuth(RelayUrl),
     NoRelay,
+    NotAPersonListEvent,
     NoSlotsRemaining,
     Image(image::error::ImageError),
     ImageFailure,
@@ -29,8 +33,12 @@ pub enum ErrorKind {
     InvalidDnsId,
     InvalidUri(http::uri::InvalidUri),
     InvalidUrl(String),
+    ListAllocationFailed,
+    ListAlreadyExists(PersonList),
+    ListEventMissingDtag,
     ListIsNotEmpty,
     ListIsWellKnown,
+    ListNotFound,
     ParseInt(std::num::ParseIntError),
     Regex(regex::Error),
     RelayPickerError(gossip_relay_picker::Error),
@@ -90,7 +98,11 @@ impl std::fmt::Display for Error {
             Nostr(e) => write!(f, "Nostr: {e}"),
             NoPublicKey => write!(f, "No public key identity available."),
             NoPrivateKey => write!(f, "No private key available."),
+            NoPrivateKeyForAuth(u) => {
+                write!(f, "No private key available, cannot AUTH to relay: {}", u)
+            }
             NoRelay => write!(f, "Could not determine a relay to use."),
+            NotAPersonListEvent => write!(f, "Not a person list event"),
             NoSlotsRemaining => write!(f, "No custom list slots remaining."),
             Image(e) => write!(f, "Image: {e}"),
             ImageFailure => write!(f, "Image Failure"),
@@ -100,8 +112,12 @@ impl std::fmt::Display for Error {
             InvalidDnsId => write!(f, "Invalid DNS ID (nip-05), should be user@domain"),
             InvalidUri(e) => write!(f, "Invalid URI: {e}"),
             InvalidUrl(s) => write!(f, "Invalid URL: {s}"),
+            ListAllocationFailed => write!(f, "List allocation failed (no more slots)"),
+            ListAlreadyExists(_) => write!(f, "List already exists"),
+            ListEventMissingDtag => write!(f, "List event missing d-tag"),
             ListIsNotEmpty => write!(f, "List is not empty"),
             ListIsWellKnown => write!(f, "List is well known and cannot be deallocated"),
+            ListNotFound => write!(f, "List was not found"),
             ParseInt(e) => write!(f, "Bad integer: {e}"),
             Regex(e) => write!(f, "Regex: {e}"),
             RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),

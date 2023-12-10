@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
 use heed::RwTxn;
+use speedy::Writable;
 use std::collections::HashMap;
 
 impl Storage {
@@ -30,7 +31,11 @@ impl Storage {
         let mut edit_times: HashMap<PersonList1, i64> = HashMap::new();
         edit_times.insert(PersonList1::Followed, self.read_last_contact_list_edit()?);
         edit_times.insert(PersonList1::Muted, self.read_last_mute_list_edit()?);
-        self.write_person_lists_last_edit_times(edit_times, Some(txn))?;
+
+        let bytes = edit_times.write_to_vec()?;
+        self.general
+            .put(txn, b"person_lists_last_edit_times", bytes.as_slice())?;
+
         Ok(())
     }
 }

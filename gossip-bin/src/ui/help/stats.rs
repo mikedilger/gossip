@@ -83,12 +83,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Relationships: {} records",
-            GLOBALS.storage.get_relationships_len().unwrap_or(0)
-        ));
-        ui.add_space(6.0);
-
-        ui.label(format!(
             "Event Seen on Relay: {} records",
             GLOBALS.storage.get_event_seen_on_relay_len().unwrap_or(0)
         ));
@@ -127,6 +121,18 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.label(format!(
             "Person-Lists: {} records",
             GLOBALS.storage.get_person_lists_len().unwrap_or(0)
+        ));
+        ui.add_space(6.0);
+
+        ui.label(format!(
+            "Event Relationships By Id: {} records",
+            GLOBALS.storage.get_relationships_by_id_len().unwrap_or(0)
+        ));
+        ui.add_space(6.0);
+
+        ui.label(format!(
+            "Event Relationships By Addr: {} records",
+            GLOBALS.storage.get_relationships_by_addr_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
     });

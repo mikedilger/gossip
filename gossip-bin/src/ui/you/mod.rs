@@ -174,17 +174,13 @@ pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
             app.unlock_needs_focus = false;
         }
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::UnlockKey(app.password.clone()));
+            let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
             app.password.zeroize();
             app.password = "".to_owned();
             app.draft_needs_focus = true;
         }
         if ui.button("Unlock Private Key").clicked() {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::UnlockKey(app.password.clone()));
+            let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
             app.password.zeroize();
             app.password = "".to_owned();
             app.draft_needs_focus = true;
@@ -423,7 +419,7 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
     }
 }
 
-fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
+pub(super) fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
     ui.heading("DELETE This Identity");
 
     ui.horizontal_wrapped(|ui| {

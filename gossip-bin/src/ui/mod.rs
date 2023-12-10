@@ -10,6 +10,12 @@ macro_rules! text_edit_multiline {
     };
 }
 
+macro_rules! btn_h_space {
+    ($ui:ident) => {
+        $ui.add_space(20.0)
+    };
+}
+
 mod components;
 mod dm_chat_list;
 mod feed;
@@ -104,9 +110,8 @@ pub fn run() -> Result<(), Error> {
 enum Page {
     DmChatList,
     Feed(FeedKind),
-    PeopleFollowNew, // deprecated, will separately be part of the list page
-    PeopleFollowed,
-    PeopleMuted,
+    PeopleLists,
+    PeopleList(PersonList),
     Person(PublicKey),
     YourKeys,
     YourMetadata,
@@ -140,9 +145,15 @@ impl Page {
         match self {
             Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
-            Page::PeopleFollowNew => (SubMenu::People.as_str(), "Follow new".into()),
-            Page::PeopleFollowed => (SubMenu::People.as_str(), "Followed".into()),
-            Page::PeopleMuted => (SubMenu::People.as_str(), "Muted".into()),
+            Page::PeopleLists => ("Person Lists", "Person Lists".into()),
+            Page::PeopleList(list) => {
+                let metadata = GLOBALS
+                    .storage
+                    .get_person_list_metadata(*list)
+                    .unwrap_or_default()
+                    .unwrap_or_default();
+                ("People", metadata.title)
+            }
             Page::Person(pk) => {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 ("Profile", name)
@@ -187,7 +198,7 @@ impl Page {
         match self {
             Page::DmChatList => cat_name(self),
             Page::Feed(_) => name_cat(self),
-            Page::PeopleFollowNew | Page::PeopleFollowed | Page::PeopleMuted => cat_name(self),
+            Page::PeopleLists | Page::PeopleList(_) => cat_name(self),
             Page::Person(_) => name_cat(self),
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => cat_name(self),
             Page::Wizard(_) => name_cat(self),
@@ -199,7 +210,6 @@ impl Page {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum SubMenu {
     Feeds,
-    People,
     Relays,
     Account,
     Help,
@@ -209,7 +219,6 @@ impl SubMenu {
     fn as_str(&self) -> &'static str {
         match self {
             SubMenu::Feeds => "Feeds",
-            SubMenu::People => "People",
             SubMenu::Relays => "Relays",
             SubMenu::Account => "Account",
             SubMenu::Help => "Help",
@@ -219,7 +228,6 @@ impl SubMenu {
     fn as_id_str(&self) -> &'static str {
         match self {
             SubMenu::Feeds => "feeds_submenu_id",
-            SubMenu::People => "people_submenu_id",
             SubMenu::Account => "account_submenu_id",
             SubMenu::Relays => "relays_submenu_id",
             SubMenu::Help => "help_submenu_id",
@@ -357,6 +365,9 @@ struct GossipUi {
     // RelayUi
     relays: relays::RelayUi,
 
+    // people::ListUi
+    people_list: people::ListUi,
+
     // Post rendering
     render_raw: Option<Id>,
     render_qr: Option<Id>,
@@ -406,10 +417,8 @@ struct GossipUi {
     delegatee_tag_str: String,
 
     // User entry: general
-    follow_someone: String,
+    add_contact: String,
     add_relay: String, // dep
-    follow_clear_needs_confirm: bool,
-    mute_clear_needs_confirm: bool,
     password: String,
     password2: String,
     password3: String,
@@ -421,6 +430,9 @@ struct GossipUi {
     entering_search_page: bool,
     editing_petname: bool,
     petname: String,
+    deleting_list: Option<PersonList>,
+    creating_list: bool,
+    new_list_name: String,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -495,7 +507,6 @@ impl GossipUi {
 
         let mut submenu_ids: HashMap<SubMenu, egui::Id> = HashMap::new();
         submenu_ids.insert(SubMenu::Feeds, egui::Id::new(SubMenu::Feeds.as_id_str()));
-        submenu_ids.insert(SubMenu::People, egui::Id::new(SubMenu::People.as_id_str()));
         submenu_ids.insert(
             SubMenu::Account,
             egui::Id::new(SubMenu::Account.as_id_str()),
@@ -572,7 +583,7 @@ impl GossipUi {
 
         // Possibly enter the wizard instead
         let mut wizard_state: WizardState = Default::default();
-        let wizard_complete = GLOBALS.storage.read_wizard_complete();
+        let wizard_complete = GLOBALS.storage.get_flag_wizard_complete();
         if !wizard_complete {
             if let Some(wp) = wizard::start_wizard_page(&mut wizard_state) {
                 start_page = Page::Wizard(wp);
@@ -610,6 +621,7 @@ impl GossipUi {
             qr_codes: HashMap::new(),
             notes: Notes::new(),
             relays: relays::RelayUi::new(),
+            people_list: people::ListUi::new(),
             render_raw: None,
             render_qr: None,
             approved: HashSet::new(),
@@ -647,10 +659,8 @@ impl GossipUi {
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
-            follow_someone: "".to_owned(),
+            add_contact: "".to_owned(),
             add_relay: "".to_owned(),
-            follow_clear_needs_confirm: false,
-            mute_clear_needs_confirm: false,
             password: "".to_owned(),
             password2: "".to_owned(),
             password3: "".to_owned(),
@@ -662,6 +672,9 @@ impl GossipUi {
             entering_search_page: false,
             editing_petname: false,
             petname: "".to_owned(),
+            deleting_list: None,
+            creating_list: false,
+            new_list_name: "".to_owned(),
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
@@ -728,8 +741,17 @@ impl GossipUi {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
                 self.close_all_menus(ctx);
             }
-            Page::PeopleFollowNew | Page::PeopleFollowed | Page::PeopleMuted | Page::Person(_) => {
-                self.open_menu(ctx, SubMenu::People);
+            Page::PeopleLists => {
+                people::enter_page(self);
+                self.close_all_menus(ctx);
+            }
+            Page::Person(pubkey) => {
+                self.close_all_menus(ctx);
+                // Fetch metadata for that person at the page switch
+                // (this bypasses checking if it was done recently)
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdateMetadata(*pubkey));
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                 self.open_menu(ctx, SubMenu::Account);
@@ -827,8 +849,11 @@ impl GossipUi {
                     let (mut cstate, header_response) =
                         self.get_openable_menu(ui, ctx, SubMenu::Feeds);
                     cstate.show_body_indented(&header_response, ui, |ui| {
-                        let all_lists = PersonList::all_lists();
-                        for (list, listname) in all_lists {
+                        let all_lists = GLOBALS
+                            .storage
+                            .get_all_person_list_metadata()
+                            .unwrap_or_default();
+                        for (list, metadata) in all_lists {
                             // skip muted
                             if list == PersonList::Muted {
                                 continue;
@@ -836,7 +861,7 @@ impl GossipUi {
                             self.add_menu_item_page_titled(
                                 ui,
                                 Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
-                                &listname,
+                                &metadata.title,
                             );
                         }
                         self.add_menu_item_page(
@@ -886,17 +911,14 @@ impl GossipUi {
                     }
                 }
 
-                // ---- People SubMenu ----
+                // People Lists
+                if self
+                    .add_selected_label(ui, self.page == Page::PeopleLists, "People Lists")
+                    .clicked()
                 {
-                    let (mut cstate, header_response) =
-                        self.get_openable_menu(ui, ctx, SubMenu::People);
-                    cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::PeopleFollowNew);
-                        self.add_menu_item_page(ui, Page::PeopleFollowed);
-                        self.add_menu_item_page(ui, Page::PeopleMuted);
-                    });
-                    self.after_openable_menu(ui, &cstate);
+                    self.set_page(ctx, Page::PeopleLists);
                 }
+
                 // ---- Relays SubMenu ----
                 {
                     let (mut cstate, header_response) =
@@ -1177,6 +1199,16 @@ impl eframe::App for GossipUi {
             relays::entry_dialog(ctx, self);
         }
 
+        // If login is forced, it takes over
+        if GLOBALS.wait_for_login.load(Ordering::Relaxed) {
+            return force_login(self, ctx);
+        }
+
+        // If data migration, show that screen
+        if GLOBALS.wait_for_data_migration.load(Ordering::Relaxed) {
+            return wait_for_data_migration(self, ctx);
+        }
+
         // Wizard does its own panels
         if let Page::Wizard(wp) = self.page {
             return wizard::update(self, ctx, frame, wp);
@@ -1259,10 +1291,7 @@ impl eframe::App for GossipUi {
                     })
                     .fill({
                         match self.page {
-                            Page::PeopleFollowNew
-                            | Page::PeopleFollowed
-                            | Page::PeopleMuted
-                            | Page::Person(_) => {
+                            Page::Person(_) => {
                                 if self.theme.dark_mode {
                                     ctx.style().visuals.panel_fill
                                 } else {
@@ -1278,10 +1307,9 @@ impl eframe::App for GossipUi {
                 match self.page {
                     Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
                     Page::Feed(_) => feed::update(self, ctx, frame, ui),
-                    Page::PeopleFollowNew
-                    | Page::PeopleFollowed
-                    | Page::PeopleMuted
-                    | Page::Person(_) => people::update(self, ctx, frame, ui),
+                    Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
+                        people::update(self, ctx, frame, ui)
+                    }
                     Page::YourKeys | Page::YourMetadata | Page::YourDelegation => {
                         you::update(self, ctx, frame, ui)
                     }
@@ -1317,6 +1345,22 @@ impl GossipUi {
             nip05.to_string()
         } else {
             gossip_lib::names::pubkey_short(&person.pubkey)
+        }
+    }
+
+    pub fn richtext_from_person_nip05(person: &Person) -> RichText {
+        if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
+            if nip05.starts_with("_@") {
+                nip05 = nip05.get(2..).unwrap().to_string();
+            }
+
+            if person.nip05_valid {
+                RichText::new(nip05).monospace()
+            } else {
+                RichText::new(nip05).monospace().strikethrough()
+            }
+        } else {
+            RichText::default()
         }
     }
 
@@ -1369,9 +1413,14 @@ impl GossipUi {
                     }
                 }
                 if !followed && ui.button("Follow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, true, true);
+                    let _ = GLOBALS
+                        .people
+                        .follow(&person.pubkey, true, PersonList::Followed, true);
                 } else if followed && ui.button("Unfollow").clicked() {
-                    let _ = GLOBALS.people.follow(&person.pubkey, false, true);
+                    let _ =
+                        GLOBALS
+                            .people
+                            .follow(&person.pubkey, false, PersonList::Followed, true);
                 }
 
                 // Do not show 'Mute' if this is yourself
@@ -1847,4 +1896,65 @@ impl GossipUi {
             y: self.current_scroll_offset,
         })
     }
+}
+
+fn force_login(app: &mut GossipUi, ctx: &Context) {
+    egui::CentralPanel::default()
+        .frame({
+            let frame = egui::Frame::central_panel(&app.theme.get_style());
+            frame.inner_margin(egui::Margin {
+                left: 20.0,
+                right: 10.0,
+                top: 10.0,
+                bottom: 0.0,
+            })
+        })
+        .show(ctx, |ui| {
+            ui.heading("Login");
+            you::offer_unlock_priv_key(app, ui);
+
+            let data_migration = GLOBALS.wait_for_data_migration.load(Ordering::Relaxed);
+
+            // If there is a data migration, explain
+            if data_migration {
+                ui.add_space(10.0);
+                ui.label("We need to rebuild some data which may require decrypting DMs and Giftwraps to rebuild properly. For this reason, you need to login before the data migration runs.");
+            }
+
+            ui.add_space(15.0);
+
+            // If there is not a data migration, allow them to skip login
+            if ! data_migration {
+                if ui.button("Skip").clicked() {
+                    // Stop waiting for login
+                    GLOBALS
+                        .wait_for_login
+                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                    GLOBALS.wait_for_login_notify.notify_one();
+                }
+            } else {
+                ui.add_space(60.0);
+                ui.separator();
+                ui.add_space(10.0);
+
+                ui.label("In case you cannot login, here is your escape hatch:");
+                you::offer_delete(app, ui);
+            }
+        });
+}
+
+fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
+    egui::CentralPanel::default()
+        .frame({
+            let frame = egui::Frame::central_panel(&app.theme.get_style());
+            frame.inner_margin(egui::Margin {
+                left: 20.0,
+                right: 10.0,
+                top: 10.0,
+                bottom: 0.0,
+            })
+        })
+        .show(ctx, |ui| {
+            ui.label("Please wait for the data migration to complete...");
+        });
 }

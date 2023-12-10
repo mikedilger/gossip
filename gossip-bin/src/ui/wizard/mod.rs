@@ -2,6 +2,7 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
+use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{FeedKind, PersonList, Relay, GLOBALS};
 
 mod follow_people;
@@ -198,8 +199,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(20.0);
             if wp != WizardPage::FollowPeople {
                 if ui.button("  X  Exit this Wizard").clicked() {
-                    let _ = GLOBALS.storage.write_wizard_complete(true, None);
-                    app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
+                    complete_wizard(app);
                 }
             }
 
@@ -263,4 +263,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
             });
         });
+}
+
+fn complete_wizard(app: &mut GossipUi) {
+    let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
+    app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
+
+    // Once the wizard is complete, we need to tell the overlord to re-run
+    // its startup stuff, because we now have configuration that matters, and
+    // this way people don't have to restart gossip
+    let _ = GLOBALS
+        .to_overlord
+        .send(ToOverlordMessage::StartLongLivedSubscriptions);
 }

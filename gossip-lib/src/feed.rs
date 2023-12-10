@@ -30,7 +30,10 @@ impl std::fmt::Display for FeedKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FeedKind::DmChat(channel) => write!(f, "{}", channel.name()),
-            FeedKind::List(pl, _) => write!(f, "{}", pl.name()),
+            FeedKind::List(pl, _) => match GLOBALS.storage.get_person_list_metadata(*pl) {
+                Ok(Some(md)) => write!(f, "{}", md.title),
+                _ => write!(f, "UNKNOWN"),
+            },
             FeedKind::Inbox(_) => write!(f, "Inbox"),
             FeedKind::Thread {
                 id,
@@ -494,17 +497,83 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
 
     EventKind::iter()
         .filter(|k| {
-            ((*k != EventKind::Reaction) || reactions)
-                && ((*k != EventKind::Repost) || reposts)
-                && ((*k != EventKind::LongFormContent) || show_long_form)
-                && ((*k != EventKind::EncryptedDirectMessage) || direct_messages)
-                && ((*k != EventKind::DmChat) || direct_messages)
-                && ((*k != EventKind::GiftWrap) || direct_messages)
-                && ((*k != EventKind::Zap) || enable_zap_receipts)
-                && (*k != EventKind::ChannelMessage) // not yet implemented
-                && (*k != EventKind::LiveChatMessage) // not yet implemented
-                && (*k != EventKind::CommunityPost) // not yet implemented
-                && (*k != EventKind::DraftLongFormContent) // not yet implemented
+            *k == EventKind::Metadata
+                || *k == EventKind::TextNote
+            //|| *k == EventKind::RecommendRelay
+                || *k == EventKind::ContactList
+                || ((*k == EventKind::EncryptedDirectMessage) && direct_messages)
+                || *k == EventKind::EventDeletion
+                || ((*k == EventKind::Repost) && reposts)
+                || ((*k == EventKind::Reaction) && reactions)
+            //|| *k == EventKind::BadgeAward
+            //|| *k == EventKind::Seal // -- never subscribed to
+                || ((*k == EventKind::DmChat) && direct_messages)
+                || ((*k == EventKind::GenericRepost) && reposts)
+            //|| *k == EventKind::ChannelCreation
+            //|| *k == EventKind::ChannelMetadata
+            //|| *k == EventKind::ChannelMessage
+            //|| *k == EventKind::ChannelHideMessage
+            //|| *k == EventKind::ChannelMuteUser
+            //|| *k == EventKind::PublicChatReserved45
+            //|| *k == EventKind::PublicChatReserved46
+            //|| *k == EventKind::PublicChatReserved47
+            //|| *k == EventKind::PublicChatReserved48
+            //|| *k == EventKind::PublicChatReserved49
+            // || *k == EventKind::Timestamp
+                || ((*k == EventKind::GiftWrap) && direct_messages)
+            // || *k == EventKind::FileMetadata
+            // || *k == EventKind::LiveChatMessage
+            // || *k == EventKind::ProblemTracker
+            // || *k == EventKind::Reporting
+            // || *k == EventKind::Label
+            // || *k == EventKind::CommunityPost
+            // || *k == EventKind::CommunityPostApproval
+            // || *k == EventKind::JobFeedback
+            // || *k == EventKind::ZapGoal
+                || *k == EventKind::ZapRequest
+                || ((*k == EventKind::Zap) && enable_zap_receipts)
+            // || *k == EventKind::Highlights
+                || *k == EventKind::MuteList
+            // || *k == EventKind::PinList
+                || *k == EventKind::RelayList
+            // || *k == EventKind::BookmarkList
+            // || *k == EventKind::CommunityList
+            // || *k == EventKind::PublicChatsList
+            // || *k == EventKind::BlockedRelaysList
+            // || *k == EventKind::SearchRelaysList
+            // || *k == EventKind::InterestsList
+            // || *k == EventKind::UserEmojiList
+            // || *k == EventKind::WalletInfo
+            // || *k == EventKind::Auth -- never subscribed to
+            // || *k == EventKind::WalletRequest
+            // || *k == EventKind::WalletResponse
+            // || *k == EventKind::NostrConnect
+            // || *k == EventKind::HttpAuth
+                || *k == EventKind::FollowSets
+            // || *k == EventKind::GenericSets
+            // || *k == EventKind::RelaySets
+            // || *k == EventKind::BookmarkSets
+            // || *k == EventKind::CurationSets
+            // || *k == EventKind::ProfileBadges
+            // || *k == EventKind::BadgeDefinition
+            // || *k == EventKind::InterestSets
+            // || *k == EventKind::CreateUpdateStall
+            // || *k == EventKind::CreateUpdateProduct
+                || ((*k == EventKind::LongFormContent) && show_long_form)
+            // || *k == EventKind::DraftLongFormContent
+            // || *k == EventKind::EmojiSets
+            // || *k == EventKind::AppSpecificData
+            // || *k == EventKind::LiveEvent
+            // || *k == EventKind::UserStatus
+            // || *k == EventKind::ClassifiedListing
+            // || *k == EventKind::DraftClassifiedListing
+            // || *k == EventKind::DateBasedCalendarEvent
+            // || *k == EventKind::TimeBasedCalendarEvent
+            // || *k == EventKind::Calendar
+            // || *k == EventKind::CalendarEventRsvp
+            // || *k == EventKind::HandlerRecommendation
+            // || *k == EventKind::HandlerInformation
+            // || *k == EventKind::CommunityDefinition
         })
         .collect()
 }

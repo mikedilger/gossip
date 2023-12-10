@@ -7,11 +7,20 @@ pub use person2::Person2;
 mod person_list1;
 pub use person_list1::PersonList1;
 
+mod person_list_metadata1;
+pub use person_list_metadata1::PersonListMetadata1;
+
 mod person_relay1;
 pub use person_relay1::PersonRelay1;
 
 mod relationship1;
 pub use relationship1::Relationship1;
+
+mod relationship_by_addr1;
+pub use relationship_by_addr1::RelationshipByAddr1;
+
+mod relationship_by_id1;
+pub use relationship_by_id1::RelationshipById1;
 
 mod relay1;
 pub use relay1::Relay1;
