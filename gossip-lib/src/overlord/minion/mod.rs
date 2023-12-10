@@ -286,8 +286,8 @@ impl Minion {
         ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         ping_timer.tick().await; // use up the first immediate tick.
 
-        // Periodic Task timer (2 sec)
-        let mut task_timer = tokio::time::interval(std::time::Duration::new(2, 0));
+        // Periodic Task timer (3 sec)
+        let mut task_timer = tokio::time::interval(std::time::Duration::new(3, 0));
         task_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         task_timer.tick().await; // use up the first immediate tick.
 
