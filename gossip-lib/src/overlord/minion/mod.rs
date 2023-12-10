@@ -914,7 +914,15 @@ impl Minion {
             );
         }
 
-        let req_message = self.subscription_map.get(handle).unwrap().req_message();
+        self.send_subscription(handle).await?;
+        Ok(())
+    }
+
+    async fn send_subscription(&mut self, handle: &str) -> Result<(), Error> {
+        let req_message = match self.subscription_map.get(handle) {
+            Some(sub) => sub.req_message(),
+            None => return Ok(()), // Not much we can do. It is not there.
+        };
         let wire = serde_json::to_string(&req_message)?;
         let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
