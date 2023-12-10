@@ -50,6 +50,7 @@ pub struct Minion {
     postings: HashSet<Id>,
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
+    waiting_for_auth: Option<Id>,
 }
 
 impl Minion {
@@ -78,6 +79,7 @@ impl Minion {
             postings: HashSet::new(),
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
+            waiting_for_auth: None,
         })
     }
 }
