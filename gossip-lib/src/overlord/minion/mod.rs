@@ -16,8 +16,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, PublicKey, PublicKeyHex,
-    RelayInformationDocument, RelayUrl, Unixtime,
+    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, PreEvent, PublicKey, PublicKeyHex,
+    RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -953,6 +953,43 @@ impl Minion {
             subscription.get_job_id(),
         ))?;
         Ok(())
+    }
+
+    async fn authenticate(&mut self, challenge: String) -> Result<Id, Error> {
+        if !GLOBALS.signer.is_ready() {
+            return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
+        }
+        let pubkey = match GLOBALS.signer.public_key() {
+            Some(pk) => pk,
+            None => {
+                return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
+            }
+        };
+        let pre_event = PreEvent {
+            pubkey,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::Auth,
+            tags: vec![
+                Tag::Other {
+                    tag: "relay".to_string(),
+                    data: vec![self.url.as_str().to_owned()],
+                },
+                Tag::Other {
+                    tag: "challenge".to_string(),
+                    data: vec![challenge],
+                },
+            ],
+            content: "".to_string(),
+        };
+        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+        let id = event.id;
+        let msg = ClientMessage::Auth(Box::new(event));
+        let wire = serde_json::to_string(&msg)?;
+        self.last_message_sent = wire.clone();
+        let ws_stream = self.stream.as_mut().unwrap();
+        ws_stream.send(WsMessage::Text(wire)).await?;
+        tracing::info!("Authenticated to {}", &self.url);
+        Ok(id)
     }
 
     // This replictes reqwest Response text_with_charset to handle decoding

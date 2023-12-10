@@ -2,9 +2,7 @@ use super::Minion;
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use futures_util::sink::SinkExt;
-use nostr_types::{ClientMessage, EventKind, PreEvent, RelayMessage, Tag, Unixtime};
-use tungstenite::protocol::Message as WsMessage;
+use nostr_types::{RelayMessage, Unixtime};
 
 impl Minion {
     pub(super) async fn handle_nostr_message(&mut self, ws_message: String) -> Result<(), Error> {
@@ -159,37 +157,7 @@ impl Minion {
                 }
             }
             RelayMessage::Auth(challenge) => {
-                if !GLOBALS.signer.is_ready() {
-                    tracing::warn!("AUTH required on {}, but we have no key", &self.url);
-                    return Ok(());
-                }
-                let pubkey = match GLOBALS.signer.public_key() {
-                    Some(pk) => pk,
-                    None => return Ok(()),
-                };
-                let pre_event = PreEvent {
-                    pubkey,
-                    created_at: Unixtime::now().unwrap(),
-                    kind: EventKind::Auth,
-                    tags: vec![
-                        Tag::Other {
-                            tag: "relay".to_string(),
-                            data: vec![self.url.as_str().to_owned()],
-                        },
-                        Tag::Other {
-                            tag: "challenge".to_string(),
-                            data: vec![challenge],
-                        },
-                    ],
-                    content: "".to_string(),
-                };
-                let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
-                let msg = ClientMessage::Auth(Box::new(event));
-                let wire = serde_json::to_string(&msg)?;
-                self.last_message_sent = wire.clone();
-                let ws_stream = self.stream.as_mut().unwrap();
-                ws_stream.send(WsMessage::Text(wire)).await?;
-                tracing::info!("Authenticated to {}", &self.url);
+                let _ = self.authenticate(challenge).await?;
             }
             RelayMessage::Closed(subid, message) => {
                 let handle = self
