@@ -248,7 +248,7 @@ impl Minion {
                     }
                 }
                 Err(e) => {
-                    tracing::error!("{}", e);
+                    tracing::warn!("{}", e);
 
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
@@ -263,7 +263,7 @@ impl Minion {
         let ws_stream = self.stream.as_mut().unwrap();
         if !ws_stream.is_terminated() {
             if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
-                tracing::error!("websocket close error: {}", e);
+                tracing::warn!("websocket close error: {}", e);
                 return Err(e.into());
             }
         }
@@ -873,7 +873,7 @@ impl Minion {
         job_id: u64,
     ) -> Result<(), Error> {
         if filters.is_empty() {
-            tracing::error!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
+            tracing::warn!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
             return Ok(());
         }
 

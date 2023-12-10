@@ -12,7 +12,7 @@ impl Minion {
         let relay_message: RelayMessage = match serde_json::from_str(&ws_message) {
             Ok(rm) => rm,
             Err(e) => {
-                tracing::error!(
+                tracing::warn!(
                     "RELAY MESSAGE NOT DESERIALIZING ({}) ({}): starts with \"{}\"",
                     self.url,
                     e,
