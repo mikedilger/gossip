@@ -51,6 +51,7 @@ pub struct Minion {
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
     waiting_for_auth: Option<Id>,
+    corked_subscriptions: Vec<(String, Unixtime)>,
 }
 
 impl Minion {
@@ -80,6 +81,7 @@ impl Minion {
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
             waiting_for_auth: None,
+            corked_subscriptions: Vec::new(),
         })
     }
 }
@@ -297,6 +299,9 @@ impl Minion {
             _ = task_timer.tick()  => {
                 // Update subscription for sought events
                 self.get_events().await?;
+
+                // Try to subscribe to corked subscriptions
+                self.try_resubscribe_to_corked().await?;
             },
             to_minion_message = self.from_overlord.recv() => {
                 let to_minion_message = match to_minion_message {
@@ -555,6 +560,11 @@ impl Minion {
     // Subscribe to anybody mentioning the user on the relays the user reads from
     // (and any other relay for the time being until nip65 is in widespread use)
     async fn subscribe_mentions(&mut self, job_id: u64) -> Result<(), Error> {
+        // If we have already subscribed to mentions, do not resubscribe
+        if self.subscription_map.has("mentions_feed") {
+            return Ok(());
+        }
+
         let mut filters: Vec<Filter> = Vec::new();
 
         // Compute how far to look back
@@ -816,6 +826,32 @@ impl Minion {
         Ok(())
     }
 
+    async fn try_resubscribe_to_corked(&mut self) -> Result<(), Error> {
+        // Do not do this if we are waiting for AUTH
+        if self.waiting_for_auth.is_some() {
+            return Ok(());
+        }
+
+        // Apply subscriptions that were waiting for auth
+        let mut handles = std::mem::take(&mut self.corked_subscriptions);
+
+        let now = Unixtime::now().unwrap();
+
+        for (handle, when) in handles.drain(..) {
+            // Do not try if we just inserted it within the last second
+            if when - now < Duration::from_secs(1) {
+                // re-insert
+                self.corked_subscriptions.push((handle, when));
+                continue;
+            }
+
+            tracing::info!("Sending corked subscription {} to {}", handle, &self.url);
+            self.send_subscription(&handle).await?;
+        }
+
+        Ok(())
+    }
+
     async fn get_event_addr(&mut self, job_id: u64, ea: EventAddr) -> Result<(), Error> {
         // create a handle for ourselves
         let handle = format!("temp_event_addr_{}", self.next_events_subscription_id);
@@ -897,6 +933,13 @@ impl Minion {
                 handle,
                 &id
             );
+        }
+
+        if self.waiting_for_auth.is_some() {
+            // Save this, subscribe after AUTH completes
+            self.corked_subscriptions
+                .push((handle.to_owned(), Unixtime::now().unwrap()));
+            return Ok(());
         }
 
         self.send_subscription(handle).await?;

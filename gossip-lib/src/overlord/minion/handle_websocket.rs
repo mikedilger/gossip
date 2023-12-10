@@ -133,7 +133,16 @@ impl Minion {
                 };
 
                 // If we are waiting for a response for this id, process
-                if self.postings.contains(&id) {
+                if self.waiting_for_auth.is_some() && self.waiting_for_auth.unwrap() == id {
+                    self.waiting_for_auth = None;
+                    if !ok {
+                        // Auth failed. Let's disconnect
+                        tracing::warn!("AUTH failed to {}: {}", &self.url, ok_message);
+                        self.keepgoing = false;
+                    } else {
+                        self.try_resubscribe_to_corked().await?;
+                    }
+                } else if self.postings.contains(&id) {
                     if ok {
                         // Save seen_on data
                         // (it was already processed by the overlord before the minion got it,
@@ -167,6 +176,54 @@ impl Minion {
                     .unwrap_or_else(|| "_".to_owned());
 
                 tracing::info!("{}: Closed: {}: {}", &self.url, handle, message);
+
+                let mut retry = false;
+
+                // Check the machine-readable prefix
+                if let Some(prefix) = message.split(':').next() {
+                    match prefix {
+                        "duplicate" => {
+                            // not much we can do; it SHOULD replace dup REQ subs, not complain.
+                            tracing::warn!(
+                                "{} not accepting {} due to duplicate is strange.",
+                                &self.url,
+                                handle
+                            );
+                        }
+                        "pow" => {
+                            tracing::warn!(
+                                "{} wants POW for {} but we do not do POW on demand.",
+                                &self.url,
+                                handle
+                            );
+                        }
+                        "rate-limited" => {
+                            retry = true;
+                        }
+                        "invalid" => {}
+                        "error" => {}
+                        "auth-required" => {
+                            if self.waiting_for_auth.is_none() {
+                                tracing::warn!("{} says AUTH required for {}, but it has not AUTH challenged us yet", &self.url, handle);
+                            }
+                            retry = true;
+                        }
+                        "restricted" => {}
+                        _ => {
+                            tracing::warn!("{} closed with unknown prefix {}", &self.url, prefix);
+                        }
+                    }
+                }
+
+                if retry {
+                    // Save as corked, try it again later
+                    self.corked_subscriptions
+                        .push((handle, Unixtime::now().unwrap()));
+                } else {
+                    // Remove the subscription
+                    tracing::info!("{}: removed subscription {}", &self.url, handle);
+                    let _ = self.subscription_map.remove(&handle);
+                }
             }
         }
 
