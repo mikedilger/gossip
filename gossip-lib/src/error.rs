@@ -1,5 +1,6 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
 use crate::people::PersonList;
+use nostr_types::RelayUrl;
 
 /// Error kinds that can occur in gossip-lib
 #[derive(Debug)]
@@ -20,6 +21,7 @@ pub enum ErrorKind {
     Nostr(nostr_types::Error),
     NoPublicKey,
     NoPrivateKey,
+    NoPrivateKeyForAuth(RelayUrl),
     NoRelay,
     NotAPersonListEvent,
     NoSlotsRemaining,
@@ -96,6 +98,9 @@ impl std::fmt::Display for Error {
             Nostr(e) => write!(f, "Nostr: {e}"),
             NoPublicKey => write!(f, "No public key identity available."),
             NoPrivateKey => write!(f, "No private key available."),
+            NoPrivateKeyForAuth(u) => {
+                write!(f, "No private key available, cannot AUTH to relay: {}", u)
+            }
             NoRelay => write!(f, "Could not determine a relay to use."),
             NotAPersonListEvent => write!(f, "Not a person list event"),
             NoSlotsRemaining => write!(f, "No custom list slots remaining."),
