@@ -1754,6 +1754,7 @@ impl GossipUi {
         response
     }
 
+    // This function is to help change our subscriptions to augmenting events as we scroll.
     fn handle_visible_note_changes(&mut self) {
         let no_change = self.visible_note_ids == self.next_visible_note_ids;
         let scrolling = self.current_scroll_offset != 0.0;
