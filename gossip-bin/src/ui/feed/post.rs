@@ -416,7 +416,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 } else {
                     text_edit_multiline!(app, app.draft_data.raw)
                         .id(compose_area_id.with("_raw"))
-                        .hint_text("Raw message content")
                         .desired_width(f32::INFINITY)
                         .interactive(false)
                         .layouter(&mut layouter)
@@ -539,8 +538,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     }
                 });
                 btn_h_space!(ui);
-                if ui
-                    .button(RichText::new("🥩"))
+                if ui.add_enabled(!app.draft_data.replacements.is_empty(),
+                    egui::Button::new(RichText::new("🥩")))
                     .on_hover_text("raw content preview")
                     .clicked()
                 {
