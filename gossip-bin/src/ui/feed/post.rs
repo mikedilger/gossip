@@ -408,7 +408,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 let text_edit_area = if app.draft_data.raw.is_empty() {
                     text_edit_multiline!(app, app.draft_data.draft)
                         .id(compose_area_id)
-                        .hint_text("Type your message here")
+                        .hint_text("Type your message here. Type an '@' followed by a search string to tag someone.")
                         .desired_width(f32::INFINITY)
                         .lock_focus(true)
                         .interactive(app.draft_data.repost.is_none())
