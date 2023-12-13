@@ -1914,7 +1914,14 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
             })
         })
         .show(ctx, |ui| {
-            ui.heading("Login");
+            ui.add_space(20.0);
+
+            ui.horizontal(|ui| {
+                ui.heading("Login");
+                ui.label("ⓘ")
+                    .on_hover_text("In order to AUTH to relays, show DMs, post, zap and react, gossip needs your private key.");
+            });
+
             you::offer_unlock_priv_key(app, ui);
 
             let data_migration = GLOBALS.wait_for_data_migration.load(Ordering::Relaxed);
@@ -1929,7 +1936,9 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
 
             // If there is not a data migration, allow them to skip login
             if ! data_migration {
-                if ui.button("Skip").clicked() {
+                if ui.button("Skip")
+                    .on_hover_text("You may skip this if you only want to view public posts, and you can unlock it at a later time under the Account menu.")
+                    .clicked() {
                     // Stop waiting for login
                     GLOBALS
                         .wait_for_login
