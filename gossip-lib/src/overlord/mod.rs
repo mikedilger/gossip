@@ -247,17 +247,13 @@ impl Overlord {
         // Subscribe to the general feed
         self.engage_minion(
             assignment.relay_url.clone(),
-            vec![
-                RelayJob {
-                    reason: RelayConnectionReason::Follow,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
-                            assignment.pubkeys.clone(),
-                        ),
-                    },
+            vec![RelayJob {
+                reason: RelayConnectionReason::Follow,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeGeneralFeed(assignment.pubkeys.clone()),
                 },
-            ],
+            }],
         )
         .await?;
 
