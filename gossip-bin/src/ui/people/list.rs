@@ -497,10 +497,13 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
             if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
                 people.push((person, *public));
             } else {
-                let person = Person::new(pk.to_owned());
+                let person = Person::new(*pk);
                 let _ = GLOBALS.storage.write_person(&person, None);
                 people.push((person, *public));
             }
+
+            // They are a person of interest (to as to fetch metadata if out of date)
+            GLOBALS.people.person_of_interest(*pk);
         }
         people.sort_by(|a, b| a.0.cmp(&b.0));
         people
