@@ -452,7 +452,7 @@ fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {
 
 fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     const DLG_SIZE: Vec2 = vec2(250.0, 40.0);
-    if widgets::modal_popup(ui, DLG_SIZE, |ui| {
+    let popup = widgets::modal_popup(ui, DLG_SIZE, |ui| {
         ui.vertical(|ui| {
             ui.label("Are you sure you want to clear this list?");
             ui.add_space(10.0);
@@ -475,10 +475,9 @@ fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: Person
                 });
             });
         });
-    })
-    .inner
-    .clicked()
-    {
+    });
+
+    if popup.inner.clicked() {
         app.people_list.clear_list_needs_confirm = false;
     }
 }
