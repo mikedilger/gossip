@@ -13,6 +13,7 @@ mod m18;
 mod m19;
 mod m2;
 mod m20;
+mod m21;
 mod m3;
 mod m4;
 mod m5;
@@ -26,7 +27,7 @@ use crate::error::{Error, ErrorKind};
 use heed::RwTxn;
 
 impl Storage {
-    const MAX_MIGRATION_LEVEL: u32 = 20;
+    const MAX_MIGRATION_LEVEL: u32 = 21;
 
     /// Initialize the database from empty
     pub(super) fn init_from_empty(&self) -> Result<(), Error> {
@@ -83,6 +84,7 @@ impl Storage {
             18 => self.m18_trigger()?,
             19 => self.m19_trigger()?,
             20 => self.m20_trigger()?,
+            21 => self.m21_trigger()?,
             _ => panic!("Unreachable migration level"),
         }
 
@@ -112,6 +114,7 @@ impl Storage {
             18 => self.m18_migrate(&prefix, txn)?,
             19 => self.m19_migrate(&prefix, txn)?,
             20 => self.m20_migrate(&prefix, txn)?,
+            21 => self.m21_migrate(&prefix, txn)?,
             _ => panic!("Unreachable migration level"),
         };
 
