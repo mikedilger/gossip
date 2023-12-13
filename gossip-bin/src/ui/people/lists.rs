@@ -164,12 +164,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.add(
                     text_edit_line!(app, app.new_list_name)
                         .hint_text("Enter new list name")
-                        .desired_width(f32::INFINITY)
+                        .desired_width(f32::INFINITY),
                 );
                 if ui.button("Rename").clicked() {
-                    let _ = GLOBALS
-                        .storage
-                        .rename_person_list(list, app.new_list_name.clone(), None);
+                    let _ =
+                        GLOBALS
+                            .storage
+                            .rename_person_list(list, app.new_list_name.clone(), None);
                     app.renaming_list = None;
                 }
             });

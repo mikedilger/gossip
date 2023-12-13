@@ -1025,28 +1025,7 @@ impl GossipUi {
                         ui.separator();
                     }
 
-                    let messages = GLOBALS.status_queue.read().read_all();
-                    if ui
-                        .add(Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click()))
-                        .clicked()
-                    {
-                        GLOBALS.status_queue.write().dismiss(0);
-                    }
-                    if ui
-                        .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
-                        .clicked()
-                    {
-                        GLOBALS.status_queue.write().dismiss(1);
-                    }
-                    if ui
-                        .add(
-                            Label::new(RichText::new(&messages[2]).weak().small())
-                                .sense(Sense::click()),
-                        )
-                        .clicked()
-                    {
-                        GLOBALS.status_queue.write().dismiss(2);
-                    }
+                    self.render_status_queue_area(ui);
                 });
 
                 // ---- "plus icon" ----
@@ -1899,6 +1878,28 @@ impl GossipUi {
             y: self.current_scroll_offset,
         })
     }
+
+    fn render_status_queue_area(&self, ui: &mut Ui) {
+        let messages = GLOBALS.status_queue.read().read_all();
+        if ui
+            .add(Label::new(RichText::new(&messages[0])).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(0);
+        }
+        if ui
+            .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(1);
+        }
+        if ui
+            .add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(2);
+        }
+    }
 }
 
 fn force_login(app: &mut GossipUi, ctx: &Context) {
@@ -1943,6 +1944,11 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                 ui.label("In case you cannot login, here is your escape hatch:");
                 you::offer_delete(app, ui);
             }
+
+            ui.add_space(15.0);
+            ui.separator();
+
+            app.render_status_queue_area(ui);
         });
 }
 
