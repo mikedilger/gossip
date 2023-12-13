@@ -608,7 +608,7 @@ impl Storage {
         &self,
         list: PersonList,
     ) -> Result<Option<PersonListMetadata>, Error> {
-        self.get_person_list_metadata1(list)
+        self.get_person_list_metadata2(list)
     }
 
     /// Set personlist metadata
@@ -619,7 +619,7 @@ impl Storage {
         metadata: &PersonListMetadata,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.set_person_list_metadata1(list, metadata, rw_txn)
+        self.set_person_list_metadata2(list, metadata, rw_txn)
     }
 
     /// Get all person lists with their metadata
@@ -627,7 +627,7 @@ impl Storage {
     pub fn get_all_person_list_metadata(
         &self,
     ) -> Result<Vec<(PersonList, PersonListMetadata)>, Error> {
-        self.get_all_person_list_metadata1()
+        self.get_all_person_list_metadata2()
     }
 
     /// Find a person list by "d" tag
@@ -636,7 +636,7 @@ impl Storage {
         &self,
         dtag: &str,
     ) -> Result<Option<(PersonList, PersonListMetadata)>, Error> {
-        self.find_person_list_by_dtag1(dtag)
+        self.find_person_list_by_dtag2(dtag)
     }
 
     /// Allocate a new person list
@@ -646,7 +646,7 @@ impl Storage {
         metadata: &PersonListMetadata,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<PersonList, Error> {
-        self.allocate_person_list1(metadata, rw_txn)
+        self.allocate_person_list2(metadata, rw_txn)
     }
 
     /// Deallocate an empty person list
@@ -656,7 +656,7 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.deallocate_person_list1(list, rw_txn)
+        self.deallocate_person_list2(list, rw_txn)
     }
 
     pub fn rename_person_list<'a>(
