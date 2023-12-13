@@ -29,6 +29,7 @@ mod people2;
 mod person_lists1;
 mod person_lists2;
 mod person_lists_metadata1;
+mod person_lists_metadata2;
 mod person_relays1;
 mod relationships1;
 mod relationships_by_addr1;
