@@ -338,7 +338,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_person_lists_metadata(&self) -> Result<RawDatabase, Error> {
-        self.db_person_lists_metadata1()
+        self.db_person_lists_metadata2()
     }
 
     // Database length functions ---------------------------------
