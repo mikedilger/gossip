@@ -547,10 +547,17 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         }
     }
 
+    let publen = app
+        .people_list
+        .cache_people
+        .iter()
+        .filter(|(_, public)| *public)
+        .count();
+    let privlen = app.people_list.cache_people.len() - publen;
+
     app.people_list.cache_local_tag = format!(
-        "LOCAL: {} (size={})",
-        ledit,
-        app.people_list.cache_people.len()
+        "LOCAL: {} (public_len={}, private_len={})",
+        ledit, publen, privlen
     );
 
     app.people_list.cache_next_refresh = Instant::now() + Duration::new(1, 0);
