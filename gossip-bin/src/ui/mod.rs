@@ -433,6 +433,7 @@ struct GossipUi {
     deleting_list: Option<PersonList>,
     creating_list: bool,
     new_list_name: String,
+    renaming_list: Option<PersonList>,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -675,6 +676,7 @@ impl GossipUi {
             deleting_list: None,
             creating_list: false,
             new_list_name: "".to_owned(),
+            renaming_list: None,
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
