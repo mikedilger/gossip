@@ -167,7 +167,7 @@ impl Page {
             Page::RelaysKnownNetwork => (SubMenu::Relays.as_str(), "Known Network".into()),
             Page::Search => ("Search", "Search".into()),
             Page::Settings => ("Settings", "Settings".into()),
-            Page::HelpHelp => (SubMenu::Help.as_str(), "Help".into()),
+            Page::HelpHelp => (SubMenu::Help.as_str(), "Troubleshooting".into()),
             Page::HelpStats => (SubMenu::Help.as_str(), "Stats".into()),
             Page::HelpAbout => (SubMenu::Help.as_str(), "About".into()),
             Page::HelpTheme => (SubMenu::Help.as_str(), "Theme Test".into()),
