@@ -855,24 +855,25 @@ impl GossipUi {
                             .storage
                             .get_all_person_list_metadata()
                             .unwrap_or_default();
+
+                        let mut more = false;
                         for (list, metadata) in all_lists {
-                            // skip muted
                             if list == PersonList::Muted {
                                 continue;
                             }
-                            self.add_menu_item_page_titled(
-                                ui,
-                                Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
-                                &metadata.title,
-                            );
+                            if list == PersonList::Followed || metadata.favorite {
+                                self.add_menu_item_page_titled(
+                                    ui,
+                                    Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
+                                    &metadata.title,
+                                );
+                            } else {
+                                more = true;
+                            }
                         }
-                        self.add_menu_item_page(
-                            ui,
-                            Page::Feed(FeedKind::List(
-                                PersonList::Muted,
-                                self.mainfeed_include_nonroot,
-                            )),
-                        );
+                        if more {
+                            self.add_menu_item_page_titled(ui, Page::PeopleLists, "More...");
+                        }
                     });
                     self.after_openable_menu(ui, &cstate);
                 }

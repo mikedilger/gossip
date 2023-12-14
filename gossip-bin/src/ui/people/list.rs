@@ -88,41 +88,45 @@ pub(super) fn update(
         .unwrap_or_default()
         .unwrap_or_default();
 
-    // render page
-    widgets::page_header(
-        ui,
-        format!(
-            "{} ({})",
-            metadata.title,
-            app.people_list.cache_people.len()
-        ),
-        |ui| {
-            ui.add_enabled_ui(enabled, |ui| {
-                let min_size = vec2(50.0, 20.0);
-
-                widgets::MoreMenu::new(app).with_min_size(min_size).show(
-                    ui,
-                    &mut app.people_list.configure_list_menu_active,
-                    |ui| {
-                        // since we are displaying over an accent color background, load that style
-                        app.theme.accent_button_2_style(ui.style_mut());
-
-                        if ui.button("Clear All").clicked() {
-                            app.people_list.clear_list_needs_confirm = true;
-                        }
-
-                        // ui.add_space(8.0);
-                    },
-                );
-            });
-
-            btn_h_space!(ui);
-
-            if ui.button("Add contact").clicked() {
-                app.people_list.entering_follow_someone_on_list = true;
-            }
-        },
+    let mut title = format!(
+        "{} ({})",
+        metadata.title,
+        app.people_list.cache_people.len()
     );
+    if metadata.favorite {
+        title.push_str(" ★");
+    }
+    if metadata.private {
+        title.push_str(" 😎");
+    }
+
+    // render page
+    widgets::page_header(ui, title, |ui| {
+        ui.add_enabled_ui(enabled, |ui| {
+            let min_size = vec2(50.0, 20.0);
+
+            widgets::MoreMenu::new(app).with_min_size(min_size).show(
+                ui,
+                &mut app.people_list.configure_list_menu_active,
+                |ui| {
+                    // since we are displaying over an accent color background, load that style
+                    app.theme.accent_button_2_style(ui.style_mut());
+
+                    if ui.button("Clear All").clicked() {
+                        app.people_list.clear_list_needs_confirm = true;
+                    }
+
+                    // ui.add_space(8.0);
+                },
+            );
+        });
+
+        btn_h_space!(ui);
+
+        if ui.button("Add contact").clicked() {
+            app.people_list.entering_follow_someone_on_list = true;
+        }
+    });
 
     ui.set_enabled(enabled);
 
