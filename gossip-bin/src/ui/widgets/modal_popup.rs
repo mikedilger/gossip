@@ -32,7 +32,7 @@ pub fn modal_popup(
             .inner
     };
 
-    egui::Area::new("hide-background-area")
+    egui::Area::new(ui.auto_id_with("hide-background-area"))
         .fixed_pos(ui.ctx().screen_rect().left_top())
         .movable(false)
         .interactable(false)
@@ -50,7 +50,7 @@ pub fn modal_popup(
         });
 
     let mut frame = egui::Frame::popup(ui.style());
-    let area = egui::Area::new("modal-popup")
+    let area = egui::Area::new(ui.auto_id_with("modal-popup"))
         .movable(false)
         .interactable(true)
         .constrain(true)

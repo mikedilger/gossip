@@ -100,7 +100,7 @@ pub(super) fn update(
             ui.add_enabled_ui(enabled, |ui| {
                 let min_size = vec2(50.0, 20.0);
 
-                widgets::MoreMenu::new(app).with_min_size(min_size).show(
+                widgets::MoreMenu::new(ui, app).with_min_size(min_size).show(
                     ui,
                     &mut app.people_list.configure_list_menu_active,
                     |ui| {

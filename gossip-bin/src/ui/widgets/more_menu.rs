@@ -12,9 +12,9 @@ pub(in crate::ui) struct MoreMenu {
 }
 
 impl MoreMenu {
-    pub fn new(app: &GossipUi) -> Self {
+    pub fn new(ui: &mut Ui, app: &GossipUi) -> Self {
         Self {
-            id: "more-menu".into(),
+            id: ui.next_auto_id(),
             min_size: Vec2 { x: 0.0, y: 0.0 },
             hover_text: None,
             accent_color: app.theme.accent_color(),
