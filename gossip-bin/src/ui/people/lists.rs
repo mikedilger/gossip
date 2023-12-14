@@ -38,7 +38,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
                             ui.add(Label::new(
-                                RichText::new(metadata.title).heading().color(color),
+                                RichText::new(&metadata.title).heading().color(color),
                             ));
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
@@ -159,20 +159,31 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         const DLG_SIZE: Vec2 = vec2(250.0, 120.0);
         let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
             ui.vertical(|ui| {
-                ui.heading(metadata.title);
+                ui.heading(&metadata.title);
+                ui.add_space(10.0);
                 ui.label("Enter new name:");
+                ui.add_space(5.0);
                 ui.add(
                     text_edit_line!(app, app.new_list_name)
-                        .hint_text("Enter new list name")
+                        .hint_text(metadata.title)
                         .desired_width(f32::INFINITY),
                 );
-                if ui.button("Rename").clicked() {
-                    let _ =
-                        GLOBALS
-                            .storage
-                            .rename_person_list(list, app.new_list_name.clone(), None);
-                    app.renaming_list = None;
-                }
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("Cancel").clicked() {
+                            app.renaming_list = None;
+                        }
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                            if ui.button("Rename").clicked() {
+                                let _ =
+                                    GLOBALS
+                                        .storage
+                                        .rename_person_list(list, app.new_list_name.clone(), None);
+                                app.renaming_list = None;
+                            }
+                        });
+                    });
+                });
             });
         });
         if ret.inner.clicked() {
