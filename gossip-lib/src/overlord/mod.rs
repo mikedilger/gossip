@@ -2566,29 +2566,37 @@ impl Overlord {
 
         // Public entries
         for tag in &event.tags {
-            if let Tag::Pubkey {
-                pubkey,
-                recommended_relay_url,
-                petname,
-                ..
-            } = tag
-            {
-                if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                    // Save the pubkey
-                    entries.push((pubkey.to_owned(), true));
+            match tag {
+                Tag::Pubkey {
+                    pubkey,
+                    recommended_relay_url,
+                    petname,
+                    ..
+                } => {
+                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                        // If our list is marked private, move these public entries to private ones
+                        let public = !metadata.private;
 
-                    // Deal with recommended_relay_urls and petnames
-                    if list == PersonList::Followed {
-                        Self::integrate_rru_and_petname(
-                            &pubkey,
-                            recommended_relay_url,
-                            petname,
-                            now,
-                            merge,
-                            &mut txn,
-                        )?;
+                        // Save the pubkey
+                        entries.push((pubkey.to_owned(), public));
+
+                        // Deal with recommended_relay_urls and petnames
+                        if list == PersonList::Followed {
+                            Self::integrate_rru_and_petname(
+                                &pubkey,
+                                recommended_relay_url,
+                                petname,
+                                now,
+                                merge,
+                                &mut txn,
+                            )?;
+                        }
                     }
                 }
+                Tag::Title { title, .. } => {
+                    metadata.title = title.to_owned();
+                }
+                _ => (),
             }
         }
 
@@ -2599,11 +2607,17 @@ impl Overlord {
             let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
 
             for tag in &tags {
-                if let Tag::Pubkey { pubkey, .. } = tag {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        // Save the pubkey
-                        entries.push((pubkey.to_owned(), false));
+                match tag {
+                    Tag::Pubkey { pubkey, .. } => {
+                        if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                            // Save the pubkey
+                            entries.push((pubkey.to_owned(), false));
+                        }
                     }
+                    Tag::Title { title, .. } => {
+                        metadata.title = title.to_owned();
+                    }
+                    _ => (),
                 }
             }
         }
