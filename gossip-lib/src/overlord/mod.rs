@@ -247,26 +247,13 @@ impl Overlord {
         // Subscribe to the general feed
         self.engage_minion(
             assignment.relay_url.clone(),
-            vec![
-                RelayJob {
-                    reason: RelayConnectionReason::Follow,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
-                            assignment.pubkeys.clone(),
-                        ),
-                    },
+            vec![RelayJob {
+                reason: RelayConnectionReason::Follow,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeGeneralFeed(assignment.pubkeys.clone()),
                 },
-                RelayJob {
-                    // Until NIP-65 is in widespread use, we should listen for mentions
-                    // of us on all these relays too
-                    reason: RelayConnectionReason::FetchMentions,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeMentions,
-                    },
-                },
-            ],
+            }],
         )
         .await?;
 
@@ -2354,8 +2341,6 @@ impl Overlord {
         }
 
         // Separately subscribe to our mentions on our read relays
-        // NOTE: we also do this on all dynamically connected relays since NIP-65 is
-        //       not in widespread usage.
         let read_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?

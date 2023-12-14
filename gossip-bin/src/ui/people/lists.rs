@@ -46,6 +46,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     if ui.link("delete list").clicked() {
                                         app.deleting_list = Some(list);
                                     }
+                                    ui.add_space(20.0);
+                                    if ui.link("rename list").clicked() {
+                                        app.renaming_list = Some(list);
+                                    }
                                 }
                             });
                         });
@@ -144,6 +148,36 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         if ret.inner.clicked() {
             app.creating_list = false;
             app.new_list_name.clear();
+        }
+    } else if let Some(list) = app.renaming_list {
+        let metadata = GLOBALS
+            .storage
+            .get_person_list_metadata(list)
+            .unwrap_or_default()
+            .unwrap_or_default();
+
+        const DLG_SIZE: Vec2 = vec2(250.0, 120.0);
+        let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
+            ui.vertical(|ui| {
+                ui.heading(metadata.title);
+                ui.label("Enter new name:");
+                ui.add(
+                    text_edit_line!(app, app.new_list_name)
+                        .hint_text("Enter new list name")
+                        .desired_width(f32::INFINITY),
+                );
+                if ui.button("Rename").clicked() {
+                    let _ =
+                        GLOBALS
+                            .storage
+                            .rename_person_list(list, app.new_list_name.clone(), None);
+                    app.renaming_list = None;
+                }
+            });
+        });
+        if ret.inner.clicked() {
+            app.renaming_list = None;
+            app.new_list_name = "".to_owned();
         }
     }
 }

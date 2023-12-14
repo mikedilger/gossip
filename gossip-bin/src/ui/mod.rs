@@ -167,7 +167,7 @@ impl Page {
             Page::RelaysKnownNetwork => (SubMenu::Relays.as_str(), "Known Network".into()),
             Page::Search => ("Search", "Search".into()),
             Page::Settings => ("Settings", "Settings".into()),
-            Page::HelpHelp => (SubMenu::Help.as_str(), "Help".into()),
+            Page::HelpHelp => (SubMenu::Help.as_str(), "Troubleshooting".into()),
             Page::HelpStats => (SubMenu::Help.as_str(), "Stats".into()),
             Page::HelpAbout => (SubMenu::Help.as_str(), "About".into()),
             Page::HelpTheme => (SubMenu::Help.as_str(), "Theme Test".into()),
@@ -433,6 +433,7 @@ struct GossipUi {
     deleting_list: Option<PersonList>,
     creating_list: bool,
     new_list_name: String,
+    renaming_list: Option<PersonList>,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -675,6 +676,7 @@ impl GossipUi {
             deleting_list: None,
             creating_list: false,
             new_list_name: "".to_owned(),
+            renaming_list: None,
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
@@ -1023,28 +1025,7 @@ impl GossipUi {
                         ui.separator();
                     }
 
-                    let messages = GLOBALS.status_queue.read().read_all();
-                    if ui
-                        .add(Label::new(RichText::new(&messages[0]).strong()).sense(Sense::click()))
-                        .clicked()
-                    {
-                        GLOBALS.status_queue.write().dismiss(0);
-                    }
-                    if ui
-                        .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
-                        .clicked()
-                    {
-                        GLOBALS.status_queue.write().dismiss(1);
-                    }
-                    if ui
-                        .add(
-                            Label::new(RichText::new(&messages[2]).weak().small())
-                                .sense(Sense::click()),
-                        )
-                        .clicked()
-                    {
-                        GLOBALS.status_queue.write().dismiss(2);
-                    }
+                    self.render_status_queue_area(ui);
                 });
 
                 // ---- "plus icon" ----
@@ -1897,6 +1878,28 @@ impl GossipUi {
             y: self.current_scroll_offset,
         })
     }
+
+    fn render_status_queue_area(&self, ui: &mut Ui) {
+        let messages = GLOBALS.status_queue.read().read_all();
+        if ui
+            .add(Label::new(RichText::new(&messages[0])).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(0);
+        }
+        if ui
+            .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(1);
+        }
+        if ui
+            .add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(2);
+        }
+    }
 }
 
 fn force_login(app: &mut GossipUi, ctx: &Context) {
@@ -1911,7 +1914,14 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
             })
         })
         .show(ctx, |ui| {
-            ui.heading("Login");
+            ui.add_space(20.0);
+
+            ui.horizontal(|ui| {
+                ui.heading("Login");
+                ui.label("ⓘ")
+                    .on_hover_text("In order to AUTH to relays, show DMs, post, zap and react, gossip needs your private key.");
+            });
+
             you::offer_unlock_priv_key(app, ui);
 
             let data_migration = GLOBALS.wait_for_data_migration.load(Ordering::Relaxed);
@@ -1926,7 +1936,9 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
 
             // If there is not a data migration, allow them to skip login
             if ! data_migration {
-                if ui.button("Skip").clicked() {
+                if ui.button("Skip")
+                    .on_hover_text("You may skip this if you only want to view public posts, and you can unlock it at a later time under the Account menu.")
+                    .clicked() {
                     // Stop waiting for login
                     GLOBALS
                         .wait_for_login
@@ -1941,6 +1953,11 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                 ui.label("In case you cannot login, here is your escape hatch:");
                 you::offer_delete(app, ui);
             }
+
+            ui.add_space(15.0);
+            ui.separator();
+
+            app.render_status_queue_area(ui);
         });
 }
 

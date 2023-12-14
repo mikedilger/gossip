@@ -452,7 +452,7 @@ fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {
 
 fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     const DLG_SIZE: Vec2 = vec2(250.0, 40.0);
-    if widgets::modal_popup(ui, DLG_SIZE, |ui| {
+    let popup = widgets::modal_popup(ui, DLG_SIZE, |ui| {
         ui.vertical(|ui| {
             ui.label("Are you sure you want to clear this list?");
             ui.add_space(10.0);
@@ -475,10 +475,9 @@ fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: Person
                 });
             });
         });
-    })
-    .inner
-    .clicked()
-    {
+    });
+
+    if popup.inner.clicked() {
         app.people_list.clear_list_needs_confirm = false;
     }
 }
@@ -498,10 +497,13 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
             if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
                 people.push((person, *public));
             } else {
-                let person = Person::new(pk.to_owned());
+                let person = Person::new(*pk);
                 let _ = GLOBALS.storage.write_person(&person, None);
                 people.push((person, *public));
             }
+
+            // They are a person of interest (to as to fetch metadata if out of date)
+            GLOBALS.people.person_of_interest(*pk);
         }
         people.sort_by(|a, b| a.0.cmp(&b.0));
         people
@@ -547,10 +549,17 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         }
     }
 
+    let publen = app
+        .people_list
+        .cache_people
+        .iter()
+        .filter(|(_, public)| *public)
+        .count();
+    let privlen = app.people_list.cache_people.len() - publen;
+
     app.people_list.cache_local_tag = format!(
-        "LOCAL: {} (size={})",
-        ledit,
-        app.people_list.cache_people.len()
+        "LOCAL: {} (public_len={}, private_len={})",
+        ledit, publen, privlen
     );
 
     app.people_list.cache_next_refresh = Instant::now() + Duration::new(1, 0);

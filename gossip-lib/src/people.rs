@@ -662,6 +662,14 @@ impl People {
                 });
             }
 
+            // Add title if using FollowSets
+            if matches!(person_list, PersonList::Custom(_)) {
+                tags.push(Tag::Title {
+                    title: metadata.title.clone(),
+                    trailing: vec![],
+                });
+            }
+
             tags
         };
 
