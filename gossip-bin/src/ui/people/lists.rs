@@ -1,11 +1,11 @@
 use crate::ui::widgets;
-
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui, Vec2};
 use egui_winit::egui::{vec2, Label, RichText, Sense};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
+use nostr_types::Unixtime;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
@@ -119,8 +119,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
                             if ui.button("Create").clicked() {
                                 if !app.new_list_name.is_empty() {
+                                    let dtag = format!("pl{}", Unixtime::now().unwrap().0);
                                     let metadata = PersonListMetadata {
-                                        dtag: app.new_list_name.to_owned(),
+                                        dtag,
                                         title: app.new_list_name.to_owned(),
                                         ..Default::default()
                                     };
