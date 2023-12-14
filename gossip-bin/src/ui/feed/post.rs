@@ -379,6 +379,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                 .desired_width(f32::INFINITY),
                         );
                     });
+                    ui.add_space(10.0);
                 }
 
                 if app.draft_data.include_content_warning {
@@ -390,6 +391,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                                 .desired_width(f32::INFINITY),
                         );
                     });
+                    ui.add_space(10.0);
                 }
 
                 // if we are tagging, we will consume arrow presses and enter key
@@ -547,7 +549,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 });
         }
 
-        if ui.button("Cancel").clicked() {
+        if ui.link("Cancel").clicked() {
             app.reset_draft();
         }
 
