@@ -1917,51 +1917,63 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
             })
         })
         .show(ctx, |ui| {
-            ui.add_space(20.0);
+            let size = egui::vec2( 400.0, 300.0 );
+            let response = widgets::modal_popup(ui, size,
+                |ui| {
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading("Login");
+                        ui.label("ⓘ")
+                            .on_hover_text("In order to AUTH to relays, show DMs, post, zap and react, gossip needs your private key.");
+                    });
 
-            ui.horizontal(|ui| {
-                ui.heading("Login");
-                ui.label("ⓘ")
-                    .on_hover_text("In order to AUTH to relays, show DMs, post, zap and react, gossip needs your private key.");
+                    you::offer_unlock_priv_key(app, ui);
+
+                    let data_migration = GLOBALS.wait_for_data_migration.load(Ordering::Relaxed);
+
+                    // If there is a data migration, explain
+                    if data_migration {
+                        ui.add_space(10.0);
+                        ui.label("We need to rebuild some data which may require decrypting DMs and Giftwraps to rebuild properly. For this reason, you need to login before the data migration runs.");
+                    }
+
+                    ui.add_space(15.0);
+
+                    // If there is not a data migration, allow them to skip login
+                    if ! data_migration {
+                        if ui.button("Skip")
+                            .on_hover_text("You may skip this if you only want to view public posts, and you can unlock it at a later time under the Account menu.")
+                            .clicked() {
+                            cancel_login();
+                        }
+                    } else {
+                        ui.add_space(60.0);
+                        ui.separator();
+                        ui.add_space(10.0);
+
+                        ui.label("In case you cannot login, here is your escape hatch:");
+                        you::offer_delete(app, ui);
+                    }
+
+                    ui.add_space(15.0);
+                    ui.separator();
+
+                    app.render_status_queue_area(ui);
+                });
             });
 
-            you::offer_unlock_priv_key(app, ui);
-
-            let data_migration = GLOBALS.wait_for_data_migration.load(Ordering::Relaxed);
-
-            // If there is a data migration, explain
-            if data_migration {
-                ui.add_space(10.0);
-                ui.label("We need to rebuild some data which may require decrypting DMs and Giftwraps to rebuild properly. For this reason, you need to login before the data migration runs.");
+            if response.inner.clicked() {
+                cancel_login();
             }
-
-            ui.add_space(15.0);
-
-            // If there is not a data migration, allow them to skip login
-            if ! data_migration {
-                if ui.button("Skip")
-                    .on_hover_text("You may skip this if you only want to view public posts, and you can unlock it at a later time under the Account menu.")
-                    .clicked() {
-                    // Stop waiting for login
-                    GLOBALS
-                        .wait_for_login
-                        .store(false, std::sync::atomic::Ordering::Relaxed);
-                    GLOBALS.wait_for_login_notify.notify_one();
-                }
-            } else {
-                ui.add_space(60.0);
-                ui.separator();
-                ui.add_space(10.0);
-
-                ui.label("In case you cannot login, here is your escape hatch:");
-                you::offer_delete(app, ui);
-            }
-
-            ui.add_space(15.0);
-            ui.separator();
-
-            app.render_status_queue_area(ui);
         });
+}
+
+fn cancel_login() {
+    // Stop waiting for login
+    GLOBALS
+        .wait_for_login
+        .store(false, std::sync::atomic::Ordering::Relaxed);
+    GLOBALS.wait_for_login_notify.notify_one();
 }
 
 fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
