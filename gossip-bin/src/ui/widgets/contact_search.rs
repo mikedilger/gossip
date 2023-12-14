@@ -1,4 +1,4 @@
-use egui_winit::egui::{self, text_edit::TextEditOutput, Key, Modifiers, RichText, Ui};
+use egui_winit::egui::{self, text_edit::TextEditOutput, Key, Modifiers, RichText, Ui, AboveOrBelow};
 use gossip_lib::{Person, GLOBALS};
 use nostr_types::PublicKey;
 
@@ -7,18 +7,22 @@ use crate::ui::GossipUi;
 pub(in crate::ui) fn show_contact_search(
     ui: &mut Ui,
     app: &mut GossipUi,
+    above_or_below: AboveOrBelow,
     output: &mut TextEditOutput,
     selected: &mut Option<usize>,
     search_results: Vec<(String, PublicKey)>,
     enter_key: bool,
     on_select_callback: impl Fn(&mut Ui, &mut GossipUi, &mut TextEditOutput, &(String, PublicKey)),
 ) {
-    let pos = if let Some(cursor) = output.cursor_range {
-        let rect = output.galley.pos_from_cursor(&cursor.primary); // position within textedit
-        output.text_draw_pos + rect.center_bottom().to_vec2()
+    let origin_rect = if let Some(cursor) = output.cursor_range {
+        output.galley.pos_from_cursor(&cursor.primary) // position within textedit
     } else {
-        let rect = output.galley.pos_from_cursor(&output.galley.end()); // position within textedit
-        output.text_draw_pos + rect.center_bottom().to_vec2()
+        output.galley.pos_from_cursor(&output.galley.end()) // position within textedit
+    };
+
+    let (pivot, fixed_pos) = match above_or_below {
+        AboveOrBelow::Above => (egui::Align2::LEFT_BOTTOM, output.text_draw_pos + origin_rect.center_top().to_vec2()),
+        AboveOrBelow::Below => (egui::Align2::LEFT_TOP, output.text_draw_pos + origin_rect.center_bottom().to_vec2()),
     };
 
     // always compute the tooltip, but it is only shown when
@@ -26,8 +30,9 @@ pub(in crate::ui) fn show_contact_search(
     let frame = egui::Frame::popup(ui.style())
         .rounding(egui::Rounding::ZERO)
         .inner_margin(egui::Margin::same(0.0));
-    let area = egui::Area::new(ui.auto_id_with("compose-tagging-tooltip"))
-        .fixed_pos(pos)
+    let area = egui::Area::new(ui.next_auto_id())
+        .pivot(pivot)
+        .fixed_pos(fixed_pos)
         .movable(false)
         .constrain(true)
         .interactable(true)

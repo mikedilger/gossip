@@ -1,4 +1,4 @@
-use egui_winit::egui::{self, Id, InnerResponse, Rect, Response, RichText, TextureHandle, Ui};
+use egui_winit::egui::{self, Id, InnerResponse, Rect, Response, RichText, TextureHandle, Ui, AboveOrBelow};
 use gossip_lib::Person;
 pub trait InformationPopup {
     fn id(&self) -> Id;
@@ -11,6 +11,7 @@ pub trait InformationPopup {
     fn show(
         &self,
         ui: &mut Ui,
+        above_or_below: AboveOrBelow,
         actions: Box<dyn FnOnce(&mut Ui) -> Response>,
     ) -> InnerResponse<Response>;
 }
@@ -79,11 +80,17 @@ impl InformationPopup for ProfilePopup {
     fn show(
         &self,
         ui: &mut Ui,
+        above_or_below: AboveOrBelow,
         actions: Box<dyn FnOnce(&mut Ui) -> Response>,
     ) -> InnerResponse<Response> {
+        let (pivot, fixed_pos) = match above_or_below {
+            AboveOrBelow::Above => (egui::Align2::LEFT_BOTTOM, self.interact_rect.left_top()),
+            AboveOrBelow::Below => (egui::Align2::LEFT_TOP, self.interact_rect.left_bottom()),
+        };
         let frame = prepare_mini_person(ui);
         let area = egui::Area::new(self.id)
-            .fixed_pos(self.interact_rect.left_bottom())
+            .pivot(pivot)
+            .fixed_pos(fixed_pos)
             .movable(false)
             .constrain(true)
             .interactable(true)

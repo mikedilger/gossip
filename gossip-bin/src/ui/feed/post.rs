@@ -7,7 +7,7 @@ use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
 use egui_winit::egui::text::CCursor;
 use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
-use egui_winit::egui::{vec2, Id};
+use egui_winit::egui::{vec2, Id, AboveOrBelow};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::Relay;
@@ -682,10 +682,12 @@ fn show_tagging_result(
     output: &mut TextEditOutput,
     enter_key: bool,
 ) {
+    let above_or_below = if app.settings.posting_area_at_top { AboveOrBelow::Below } else { AboveOrBelow::Above };
     let mut selected = app.draft_data.tagging_search_selected;
     widgets::show_contact_search(
         ui,
         app,
+        above_or_below,
         output,
         &mut selected,
         app.draft_data.tagging_search_results.clone(),
@@ -786,13 +788,6 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
 
                         hovers.insert(popup_id, popup);
                     }
-
-                    // egui::containers::popup::popup_below_widget(ui,
-                    //     popup_id,
-                    //     &resp,
-                    //     |ui|{
-
-                    //     });
                 }
             }
         }
@@ -816,7 +811,8 @@ fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput)
                 popup.set_last_seen(uitime);
             }
             if resp.hovered() || popup.get_until() > Some(uitime) {
-                let response = popup.show(ui, Box::new(|ui| ui.link("remove")));
+                let above_or_below = if app.settings.posting_area_at_top { AboveOrBelow::Below } else { AboveOrBelow::Above };
+                let response = popup.show(ui, above_or_below, Box::new(|ui| ui.link("remove")));
 
                 // pointer over the popup extends its life
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {

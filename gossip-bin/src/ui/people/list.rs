@@ -310,6 +310,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
         widgets::show_contact_search(
             ui,
             app,
+            egui::AboveOrBelow::Below,
             &mut output,
             &mut selected,
             app.people_list.add_contact_search_results.clone(),
