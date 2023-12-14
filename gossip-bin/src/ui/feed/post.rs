@@ -7,7 +7,7 @@ use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
 use egui_winit::egui::text::CCursor;
 use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
-use egui_winit::egui::Id;
+use egui_winit::egui::{vec2, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::Relay;
@@ -493,6 +493,60 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         });
 
     ui.horizontal(|ui| {
+        // show advanced action menu
+        if app.draft_data.repost.is_none() {
+            widgets::MoreMenu::new(ui, app)
+                .with_hover_text("More Options...".to_owned())
+                .with_max_size(vec2(180.0, 80.0))
+                .with_min_size(vec2(180.0, 80.0))
+                .place_above(!app.settings.posting_area_at_top)
+                .show(ui, &mut app.draft_data.is_more_menu_open, |ui| {
+                    // since we are displaying over an accent color background, load that style
+                    app.theme.on_accent_style(ui.style_mut());
+
+                    ui.vertical_centered_justified(|ui|{
+                        app.theme.accent_button_2_style(ui.style_mut());
+                        if app.draft_data.include_subject {
+                            if ui.button("Remove Subject").clicked() {
+                                app.draft_data.include_subject = false;
+                                app.draft_data.subject = "".to_owned();
+                            }
+                        } else if app.draft_data.replying_to.is_none() && ui.button("Add Subject").clicked()
+                        {
+                            app.draft_data.include_subject = true;
+                        }
+
+                        ui.add_space(10.0);
+
+                        if app.draft_data.include_content_warning {
+                            if ui.button("Remove Content Warning").clicked() {
+                                app.draft_data.include_content_warning = false;
+                                app.draft_data.content_warning = "".to_owned();
+                            }
+                        } else if ui.button("Add Content Warning").clicked() {
+                            app.draft_data.include_content_warning = true;
+                        }
+                    });
+
+                    ui.add_space(10.0);
+
+                    let mut show_raw = !app.draft_data.raw.is_empty();
+                    ui.horizontal(|ui| {
+                        ui.set_enabled(!app.draft_data.replacements.is_empty());
+                        let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
+                        if crate::ui::components::switch_with_size(ui, &mut show_raw, size).changed() {
+                            if show_raw {
+                                let raw = do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
+                                app.draft_data.raw = raw.to_owned();
+                            } else {
+                                app.draft_data.raw = "".to_owned();
+                            }
+                        }
+                        ui.label("Show raw preview");
+                    });
+                });
+        }
+
         if ui.button("Cancel").clicked() {
             app.reset_draft();
         }
@@ -512,45 +566,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
 
             if app.draft_data.repost.is_none() {
-                if app.draft_data.include_subject {
-                    if ui.button("Remove Subject").clicked() {
-                        app.draft_data.include_subject = false;
-                        app.draft_data.subject = "".to_owned();
-                    }
-                } else if app.draft_data.replying_to.is_none() && ui.button("Add Subject").clicked()
-                {
-                    app.draft_data.include_subject = true;
-                }
-
-                if app.draft_data.include_content_warning {
-                    if ui.button("Remove Content Warning").clicked() {
-                        app.draft_data.include_content_warning = false;
-                        app.draft_data.content_warning = "".to_owned();
-                    }
-                } else if ui.button("Add Content Warning").clicked() {
-                    app.draft_data.include_content_warning = true;
-                }
-
                 // Emoji picker
                 ui.menu_button(RichText::new("😀▼").size(14.0), |ui| {
                     if let Some(emoji) = crate::ui::components::emoji_picker(ui) {
                         app.draft_data.draft.push(emoji);
                     }
                 });
-                btn_h_space!(ui);
-                if ui.add_enabled(!app.draft_data.replacements.is_empty(),
-                    egui::Button::new(RichText::new("🥩")))
-                    .on_hover_text("raw content preview")
-                    .clicked()
-                {
-                    if app.draft_data.raw.is_empty() {
-                        let raw =
-                            do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
-                        app.draft_data.raw = raw.to_owned();
-                    } else {
-                        app.draft_data.raw = "".to_owned();
-                    }
-                }
             }
         });
     });

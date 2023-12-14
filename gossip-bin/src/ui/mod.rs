@@ -269,6 +269,7 @@ pub struct DraftData {
 
     // The last position of the TextEdit
     pub last_textedit_rect: Rect,
+    pub is_more_menu_open: bool,
 
     // text replacements like nurls, hyperlinks or hashtags
     pub replacements: HashMap<String, ContentSegment>,
@@ -297,6 +298,7 @@ impl Default for DraftData {
             draft: "".to_owned(),
             raw: "".to_owned(),
             last_textedit_rect: Rect::ZERO,
+            is_more_menu_open: false,
             replacements: HashMap::new(),
             replacements_changed: false,
             include_subject: false,
@@ -321,6 +323,7 @@ impl DraftData {
         self.draft = "".to_owned();
         self.raw = "".to_owned();
         self.last_textedit_rect = Rect::ZERO;
+        self.is_more_menu_open = false;
         self.replacements.clear();
         self.replacements_changed = true;
         self.include_subject = false;
