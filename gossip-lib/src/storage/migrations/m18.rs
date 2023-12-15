@@ -17,7 +17,7 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: ...");
+        tracing::info!("{prefix}: moving to new relationships storage...");
 
         // Migrate
         self.m18_move_to_new_relationships_storage(txn)?;
