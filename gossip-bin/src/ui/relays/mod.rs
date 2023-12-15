@@ -454,19 +454,20 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
         widgets::MoreMenu::new(ui, app)
             .with_min_size(min_size)
             .with_hover_text("Configure List View".to_owned())
-            .show(ui, &mut app.relays.configure_list_menu_active, |ui| {
+            .show(ui, &mut app.relays.configure_list_menu_active, |ui, is_open| {
                 let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
 
-                // since we are displaying over an accent color background, load that style
-                app.theme.on_accent_style(ui.style_mut());
-
                 ui.horizontal(|ui| {
-                    crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);
+                    if crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size).changed() {
+                        *is_open = false;
+                    }
                     ui.label("Show details");
                 });
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size);
+                    if crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size).changed() {
+                        *is_open = false;
+                    }
                     ui.label("Show hidden relays");
                 });
             });

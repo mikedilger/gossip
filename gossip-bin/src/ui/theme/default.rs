@@ -324,6 +324,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn accent_button_1_style(style: &mut Style, dark_mode: bool) {
+        style.spacing.button_padding.x *= 3.0;
         let accent_color = Self::accent_color(dark_mode);
         style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
         style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
@@ -340,6 +341,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn accent_button_2_style(style: &mut Style, dark_mode: bool) {
+        style.spacing.button_padding.x *= 3.0;
         let accent_color = Self::accent_color(dark_mode);
         if dark_mode {
             style.visuals.widgets.noninteractive.weak_bg_fill = style.visuals.faint_bg_color;

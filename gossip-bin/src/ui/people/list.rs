@@ -103,12 +103,13 @@ pub(super) fn update(
                 widgets::MoreMenu::new(ui, app).with_min_size(min_size).show(
                     ui,
                     &mut app.people_list.configure_list_menu_active,
-                    |ui| {
+                    |ui, is_open| {
                         // since we are displaying over an accent color background, load that style
-                        app.theme.accent_button_2_style(ui.style_mut());
+                        app.theme.accent_button_1_style(ui.style_mut());
 
                         if ui.button("Clear All").clicked() {
                             app.people_list.clear_list_needs_confirm = true;
+                            *is_open = false;
                         }
 
                         // ui.add_space(8.0);
