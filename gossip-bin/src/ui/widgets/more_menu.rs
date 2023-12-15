@@ -63,7 +63,7 @@ impl MoreMenu {
         self
     }
 
-    pub fn show(&self, ui: &mut Ui, active: &mut bool, content: impl FnOnce(&mut Ui)) {
+    pub fn show(&self, ui: &mut Ui, active: &mut bool, content: impl FnOnce(&mut Ui, &mut bool)) {
         let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
         let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
         let response = if let Some(text) = &self.hover_text {
@@ -93,6 +93,7 @@ impl MoreMenu {
             *active ^= true;
         }
 
+        let bg_color = ui.visuals().window_fill();
         let (pivot, fixed_pos, polygon) = match self.above_or_below {
             AboveOrBelow::Above => {
                 let origin_pos = response.rect.center_top();
@@ -110,7 +111,7 @@ impl MoreMenu {
                             + vec2(-super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
                     ]
                     .to_vec(),
-                    self.accent_color,
+                    bg_color,
                     egui::Stroke::NONE,
                 );
                 (egui::Align2::LEFT_BOTTOM, fixed_pos, path)
@@ -131,7 +132,7 @@ impl MoreMenu {
                             + vec2(-super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
                     ]
                     .to_vec(),
-                    self.accent_color,
+                    bg_color,
                     egui::Stroke::NONE,
                 );
                 (egui::Align2::LEFT_TOP, fixed_pos, path)
@@ -139,7 +140,7 @@ impl MoreMenu {
         };
 
 
-        let mut frame = egui::Frame::popup(ui.style());
+        let mut frame = egui::Frame::menu(ui.style());
         let area = egui::Area::new(self.id)
             .movable(false)
             .interactable(true)
@@ -149,7 +150,7 @@ impl MoreMenu {
             .constrain(true);
         if *active {
             let menuresp = area.show(ui.ctx(), |ui| {
-                frame.fill = self.accent_color;
+                frame.fill = bg_color;
                 frame.stroke = egui::Stroke::NONE;
                 // frame.shadow = egui::epaint::Shadow::NONE;
                 frame.rounding = egui::Rounding::same(5.0);
@@ -162,7 +163,7 @@ impl MoreMenu {
                     ui.painter().add(polygon);
 
                     // now show menu content
-                    content(ui);
+                    content(ui, active);
                 });
             });
             if menuresp.response.clicked_elsewhere() && !response.clicked() {

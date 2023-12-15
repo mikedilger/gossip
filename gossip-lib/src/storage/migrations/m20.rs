@@ -7,6 +7,7 @@ use nostr_types::Tag;
 
 impl Storage {
     pub(super) fn m20_trigger(&self) -> Result<(), Error> {
+        let _ = self.db_person_lists_metadata1()?;
         Ok(())
     }
 
@@ -16,7 +17,7 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: ...");
+        tracing::info!("{prefix}: initializing person list event metadata...");
 
         // Migrate
         self.m20_initialize_person_list_event_metadata(txn)?;
