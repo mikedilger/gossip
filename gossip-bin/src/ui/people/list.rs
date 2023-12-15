@@ -88,14 +88,22 @@ pub(super) fn update(
         .unwrap_or_default()
         .unwrap_or_default();
 
+    let mut title = format!(
+        "{} ({})",
+        metadata.title,
+        app.people_list.cache_people.len()
+    );
+    if metadata.favorite {
+        title.push_str(" ★");
+    }
+    if metadata.private {
+        title.push_str(" 😎");
+    }
+
     // render page
     widgets::page_header(
         ui,
-        format!(
-            "{} ({})",
-            metadata.title,
-            app.people_list.cache_people.len()
-        ),
+        title,
         |ui| {
             ui.add_enabled_ui(enabled, |ui| {
                 let min_size = vec2(50.0, 20.0);
@@ -122,8 +130,7 @@ pub(super) fn update(
             if ui.button("Add contact").clicked() {
                 app.people_list.entering_follow_someone_on_list = true;
             }
-        },
-    );
+    });
 
     ui.set_enabled(enabled);
 

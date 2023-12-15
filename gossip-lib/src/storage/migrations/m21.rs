@@ -16,7 +16,7 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: ...");
+        tracing::info!("{prefix}: migrating person list metadata...");
 
         // Migrate
         self.m21_migrate_person_list_metadata(txn)?;

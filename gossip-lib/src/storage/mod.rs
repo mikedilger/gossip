@@ -2318,6 +2318,34 @@ impl Storage {
         self.clear_person_list2(list, rw_txn)
     }
 
+    /// Mark everybody in a list as private
+    pub fn set_all_people_in_list_to_private<'a>(
+        &'a self,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let people = self.get_people_in_list(list)?;
+            for (pk, _) in &people {
+                self.add_person_to_list(pk, list, false, Some(txn))?
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
     /// Is a person in a list?
     pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> Result<bool, Error> {
         let map = self.read_person_lists(pubkey)?;

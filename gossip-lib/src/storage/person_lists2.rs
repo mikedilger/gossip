@@ -8,7 +8,7 @@ use speedy::{Readable, Writable};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-// Pubkey -> Vec<(PersonList, bool)> // bool is if private or not
+// Pubkey -> HashMap<PersonList1, bool> // bool is if private or not
 //   key: pubkey.as_bytes()
 
 static PERSON_LISTS2_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());

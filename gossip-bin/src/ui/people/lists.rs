@@ -1,11 +1,11 @@
-use crate::ui::widgets;
-
 use super::{GossipUi, Page};
+use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui, Vec2};
 use egui_winit::egui::{vec2, Label, RichText, Sense};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
+use gossip_lib::{FeedKind, PersonList, PersonListMetadata, GLOBALS};
+use nostr_types::Unixtime;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
@@ -26,7 +26,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .id_source("people_lists_scroll")
         .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
-            for (list, metadata) in all_lists {
+            for (list, mut metadata) in all_lists {
                 let count = GLOBALS
                     .storage
                     .get_people_in_list(list)
@@ -38,23 +38,88 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
                             ui.add(Label::new(
-                                RichText::new(metadata.title).heading().color(color),
+                                RichText::new(&metadata.title).heading().color(color),
                             ));
+                            ui.label(format!("({})", count));
+                            if metadata.favorite {
+                                ui.add(Label::new(
+                                    RichText::new("★")
+                                        .color(app.theme.accent_complementary_color()),
+                                ));
+                            }
+                            if metadata.private {
+                                ui.add(Label::new(
+                                    RichText::new("😎")
+                                        .color(app.theme.accent_complementary_color()),
+                                ));
+                            }
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                                if matches!(list, PersonList::Custom(_)) {
-                                    if ui.link("delete list").clicked() {
-                                        app.deleting_list = Some(list);
-                                    }
-                                    ui.add_space(20.0);
-                                    if ui.link("rename list").clicked() {
-                                        app.renaming_list = Some(list);
-                                    }
+                                let combo = egui::ComboBox::from_id_source((
+                                    list,
+                                    "person_list_edit_combo",
+                                ));
+                                combo.width(130.0).selected_text("Edit This List").show_ui(
+                                    ui,
+                                    |ui| {
+                                        if ui.button("Edit Membership").clicked() {
+                                            app.set_page(ctx, Page::PeopleList(list));
+                                        }
+                                        if matches!(list, PersonList::Custom(_)) {
+                                            if ui.button("Rename List").clicked() {
+                                                app.deleting_list = None;
+                                                app.renaming_list = Some(list);
+                                            }
+                                            if metadata.private {
+                                                if ui.button("Make Public").clicked() {
+                                                    metadata.private = false;
+                                                    let _ =
+                                                        GLOBALS.storage.set_person_list_metadata(
+                                                            list, &metadata, None,
+                                                        );
+                                                }
+                                            } else {
+                                                if ui.button("Make Private").clicked() {
+                                                    metadata.private = true;
+                                                    let _ =
+                                                        GLOBALS.storage.set_person_list_metadata(
+                                                            list, &metadata, None,
+                                                        );
+                                                    let _ = GLOBALS
+                                                        .storage
+                                                        .set_all_people_in_list_to_private(
+                                                            list, None,
+                                                        );
+                                                }
+                                            }
+                                            if metadata.favorite {
+                                                if ui.button("Unfavorite").clicked() {
+                                                    metadata.favorite = false;
+                                                    let _ =
+                                                        GLOBALS.storage.set_person_list_metadata(
+                                                            list, &metadata, None,
+                                                        );
+                                                }
+                                            } else {
+                                                if ui.button("Make Favorite").clicked() {
+                                                    metadata.favorite = true;
+                                                    let _ =
+                                                        GLOBALS.storage.set_person_list_metadata(
+                                                            list, &metadata, None,
+                                                        );
+                                                }
+                                            }
+                                            if count == 0 && ui.button("Delete List").clicked() {
+                                                app.renaming_list = None;
+                                                app.deleting_list = Some(list);
+                                            }
+                                        }
+                                    },
+                                );
+                                if ui.button("View Feed").clicked() {
+                                    app.set_page(ctx, Page::Feed(FeedKind::List(list, false)));
                                 }
                             });
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label(format!("Entries: {} ", count));
                         });
                     });
                 });
@@ -119,8 +184,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
                             if ui.button("Create").clicked() {
                                 if !app.new_list_name.is_empty() {
+                                    let dtag = format!("pl{}", Unixtime::now().unwrap().0);
                                     let metadata = PersonListMetadata {
-                                        dtag: app.new_list_name.to_owned(),
+                                        dtag,
                                         title: app.new_list_name.to_owned(),
                                         ..Default::default()
                                     };

@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 
 impl Storage {
     pub(super) fn m19_trigger(&self) -> Result<(), Error> {
+        let _ = self.db_person_lists_metadata1()?;
         Ok(())
     }
 
@@ -17,7 +18,7 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: ...");
+        tracing::info!("{prefix}: populating person list metadata...");
 
         // Migrate
         self.m19_populate_person_list_metadata(txn)?;

@@ -15,7 +15,7 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: ...");
+        tracing::info!("{prefix}: reindexing event relationships...");
 
         // Migrate
         self.m17_reindex_event_relationships(txn)?;
