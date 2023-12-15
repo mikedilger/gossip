@@ -109,7 +109,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                                         );
                                                 }
                                             }
-                                            if ui.button("Delete List").clicked() {
+                                            if count == 0 && ui.button("Delete List").clicked() {
                                                 app.renaming_list = None;
                                                 app.deleting_list = Some(list);
                                             }

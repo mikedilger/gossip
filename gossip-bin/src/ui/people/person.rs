@@ -206,9 +206,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     GLOBALS.storage.remove_person_from_list(&pubkey, list, None);
                                 inlist = false;
                             } else {
-                                let _ = GLOBALS
-                                    .storage
-                                    .add_person_to_list(&pubkey, list, true, None);
+                                let _ = GLOBALS.storage.add_person_to_list(
+                                    &pubkey,
+                                    list,
+                                    !metadata.private,
+                                    None,
+                                );
                                 inlist = true;
                             }
                             inlist = !inlist;
