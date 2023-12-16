@@ -722,7 +722,7 @@ impl GossipUi {
         match &page {
             Page::Feed(FeedKind::DmChat(channel)) => {
                 GLOBALS.feed.set_feed_to_dmchat(channel.to_owned());
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::List(list, with_replies)) => {
                 GLOBALS.feed.set_feed_to_main(*list, *with_replies);
@@ -730,7 +730,7 @@ impl GossipUi {
             }
             Page::Feed(FeedKind::Inbox(indirect)) => {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::Thread {
                 id,
@@ -740,18 +740,18 @@ impl GossipUi {
                 GLOBALS
                     .feed
                     .set_feed_to_thread(*id, *referenced_by, vec![], *author);
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
             }
             Page::PeopleLists => {
                 people::enter_page(self);
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
             }
             Page::Person(pubkey) => {
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
                 // Fetch metadata for that person at the page switch
                 // (this bypasses checking if it was done recently)
                 let _ = GLOBALS
@@ -769,16 +769,16 @@ impl GossipUi {
             }
             Page::Search => {
                 self.entering_search_page = true;
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
             }
             Page::Settings => {
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
             }
             Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
                 self.open_menu(ctx, SubMenu::Help);
             }
             _ => {
-                self.close_all_menus(ctx);
+                self.close_all_menus_except_feeds(ctx);
             }
         }
 
@@ -859,9 +859,10 @@ impl GossipUi {
                             .get_all_person_list_metadata()
                             .unwrap_or_default();
 
-                        let mut more = false;
+                        let mut more: usize = 0;
                         for (list, metadata) in all_lists {
                             if list == PersonList::Muted {
+                                more += 1;
                                 continue;
                             }
                             if list == PersonList::Followed || metadata.favorite {
@@ -871,11 +872,12 @@ impl GossipUi {
                                     &metadata.title,
                                 );
                             } else {
-                                more = true;
+                                more += 1;
                             }
                         }
-                        if more {
-                            self.add_menu_item_page_titled(ui, Page::PeopleLists, "More...");
+                        if more != 0 {
+                            self.add_menu_item_page_titled(ui, Page::PeopleLists,
+                                                           &format!("More ({})...",more));
                         }
                     });
                     self.after_openable_menu(ui, &cstate);
@@ -1658,15 +1660,19 @@ impl GossipUi {
     fn open_menu(&mut self, ctx: &Context, item: SubMenu) {
         for (submenu, id) in self.submenu_ids.iter() {
             let mut cstate = egui::CollapsingState::load_with_default_open(ctx, *id, false);
-            cstate.set_open(*submenu == item);
+            if item == SubMenu::Feeds || *submenu != SubMenu::Feeds {
+                cstate.set_open(*submenu == item);
+            }
             cstate.store(ctx);
         }
     }
 
-    fn close_all_menus(&mut self, ctx: &Context) {
-        for (_submenu, id) in self.submenu_ids.iter() {
+    fn close_all_menus_except_feeds(&mut self, ctx: &Context) {
+        for (submenu, id) in self.submenu_ids.iter() {
             let mut cstate = egui::CollapsingState::load_with_default_open(ctx, *id, false);
-            cstate.set_open(false);
+            if *submenu != SubMenu::Feeds {
+                cstate.set_open(false);
+            }
             cstate.store(ctx);
         }
     }
