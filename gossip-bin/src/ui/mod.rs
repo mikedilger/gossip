@@ -888,7 +888,7 @@ impl GossipUi {
                         .add_selected_label(
                             ui,
                             self.page == Page::Feed(FeedKind::Person(pubkey)),
-                            "My Notes",
+                            "My notes",
                         )
                         .clicked()
                     {
@@ -909,7 +909,7 @@ impl GossipUi {
                     }
                 }
 
-                // private chats not under feeds
+                // Private chats
                 if GLOBALS.signer.is_ready() {
                     if self
                         .add_selected_label(ui, self.page == Page::DmChatList, "Private chats")
@@ -919,12 +919,24 @@ impl GossipUi {
                     }
                 }
 
-                // People Lists
+                // Search
                 if self
-                    .add_selected_label(ui, self.page == Page::PeopleLists, "People Lists")
+                    .add_selected_label(ui, self.page == Page::Search, "Search")
                     .clicked()
                 {
-                    self.set_page(ctx, Page::PeopleLists);
+                    self.set_page(ctx, Page::Search);
+                }
+
+                ui.add_space(10.0);
+
+                // ---- People Lists ----
+                {
+                    if self
+                        .add_selected_label(ui, self.page == Page::PeopleLists, "People Lists")
+                        .clicked()
+                    {
+                        self.set_page(ctx, Page::PeopleLists);
+                    }
                 }
 
                 // ---- Relays SubMenu ----
@@ -955,6 +967,7 @@ impl GossipUi {
                     });
                     self.after_openable_menu(ui, &cstate);
                 }
+
                 // ---- Account SubMenu ----
                 {
                     let (mut cstate, header_response) =
@@ -966,20 +979,15 @@ impl GossipUi {
                     });
                     self.after_openable_menu(ui, &cstate);
                 }
-                // ----
-                if self
-                    .add_selected_label(ui, self.page == Page::Search, "Search")
-                    .clicked()
-                {
-                    self.set_page(ctx, Page::Search);
-                }
-                // ----
+
+                // ---- Settings ----
                 if self
                     .add_selected_label(ui, self.page == Page::Settings, "Settings")
                     .clicked()
                 {
                     self.set_page(ctx, Page::Settings);
                 }
+
                 // ---- Help SubMenu ----
                 {
                     let (mut cstate, header_response) =
