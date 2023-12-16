@@ -63,11 +63,12 @@ impl MoreMenu {
         self
     }
 
-    pub fn show(&self, ui: &mut Ui, active: &mut bool, content: impl FnOnce(&mut Ui, &mut bool)) {
+    pub fn show(&self, ui: &mut Ui, content: impl FnOnce(&mut Ui, &mut bool)) {
+        let mut active = self.load_state(ui);
         let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
         let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
         let response = if let Some(text) = &self.hover_text {
-            if !*active {
+            if !active {
                 response.on_hover_text(text)
             } else {
                 response
@@ -90,7 +91,7 @@ impl MoreMenu {
         painter.add(egui::Shape::mesh(mesh));
 
         if response.clicked() {
-            *active ^= true;
+            active ^= true;
         }
 
         let bg_color = ui.visuals().window_fill();
@@ -148,7 +149,7 @@ impl MoreMenu {
             .pivot(pivot)
             .fixed_pos(fixed_pos)
             .constrain(true);
-        if *active {
+        if active {
             let menuresp = area.show(ui.ctx(), |ui| {
                 frame.fill = bg_color;
                 frame.stroke = egui::Stroke::NONE;
@@ -163,12 +164,21 @@ impl MoreMenu {
                     ui.painter().add(polygon);
 
                     // now show menu content
-                    content(ui, active);
+                    content(ui, &mut active);
                 });
             });
             if menuresp.response.clicked_elsewhere() && !response.clicked() {
-                *active = false;
+                active = false;
             }
         }
+        self.save_state(ui, active);
+    }
+
+    fn load_state(&self, ui: &mut Ui) -> bool {
+        ui.ctx().data_mut(|d| d.get_temp::<bool>(self.id).unwrap_or_default())
+    }
+
+    fn save_state(&self, ui: &mut Ui, state: bool) {
+        ui.ctx().data_mut(|d| d.insert_temp(self.id, state));
     }
 }
