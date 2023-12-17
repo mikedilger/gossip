@@ -6,6 +6,7 @@ use nostr_types::PublicKey;
 
 use crate::ui::GossipUi;
 
+#[allow(clippy::too_many_arguments)]
 pub(in crate::ui) fn show_contact_search(
     ui: &mut Ui,
     app: &mut GossipUi,

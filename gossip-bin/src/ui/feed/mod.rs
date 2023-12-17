@@ -77,7 +77,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(10.0);
 
-                        if ui.button(format!("View contacts")).clicked() {
+                        if ui.button("View contacts").clicked() {
                             app.set_page(ctx, Page::PeopleList(list));
                         }
 
