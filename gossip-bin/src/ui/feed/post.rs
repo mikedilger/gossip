@@ -509,7 +509,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     .with_max_size(vec2(180.0, 80.0))
                     .with_min_size(vec2(180.0, 80.0))
                     .place_above(!app.settings.posting_area_at_top)
-                    .show(ui, &mut app.draft_data.is_more_menu_open, |ui, is_open| {
+                    .show(ui, |ui, is_open| {
                         ui.vertical_centered_justified(|ui|{
                             app.theme.accent_button_1_style(ui.style_mut());
                             if app.draft_data.include_subject {
@@ -551,7 +551,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(7.0);
 
             ui.horizontal(|ui| {
-                ui.visuals_mut().hyperlink_color = ui.visuals().noninteractive().fg_stroke.color;
+                ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
                 if ui.link("Cancel").clicked() {
                     app.reset_draft();
                 }
@@ -583,7 +583,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         } else {
             // raw preview
             ui.with_layout(Layout::top_down_justified(Align::Center), |ui| {
-                ui.visuals_mut().hyperlink_color = ui.visuals().noninteractive().fg_stroke.color;
+                ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
                 if ui.link("Go back to edit mode").clicked() {
                     app.draft_data.raw = "".to_owned();
                 }

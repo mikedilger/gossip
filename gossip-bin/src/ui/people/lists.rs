@@ -4,7 +4,7 @@ use eframe::egui;
 use egui::{Context, Ui, Vec2};
 use egui_winit::egui::{vec2, Label, RichText, Sense};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, PersonList, PersonListMetadata, GLOBALS};
+use gossip_lib::{FeedKind, PersonListMetadata, GLOBALS};
 use nostr_types::Unixtime;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -54,69 +54,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                 ));
                             }
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                                let combo = egui::ComboBox::from_id_source((
-                                    list,
-                                    "person_list_edit_combo",
-                                ));
-                                combo.width(130.0).selected_text("Edit This List").show_ui(
-                                    ui,
-                                    |ui| {
-                                        if ui.button("Edit Membership").clicked() {
-                                            app.set_page(ctx, Page::PeopleList(list));
-                                        }
-                                        if matches!(list, PersonList::Custom(_)) {
-                                            if ui.button("Rename List").clicked() {
-                                                app.deleting_list = None;
-                                                app.renaming_list = Some(list);
-                                            }
-                                            if metadata.private {
-                                                if ui.button("Make Public").clicked() {
-                                                    metadata.private = false;
-                                                    let _ =
-                                                        GLOBALS.storage.set_person_list_metadata(
-                                                            list, &metadata, None,
-                                                        );
-                                                }
-                                            } else {
-                                                if ui.button("Make Private").clicked() {
-                                                    metadata.private = true;
-                                                    let _ =
-                                                        GLOBALS.storage.set_person_list_metadata(
-                                                            list, &metadata, None,
-                                                        );
-                                                    let _ = GLOBALS
-                                                        .storage
-                                                        .set_all_people_in_list_to_private(
-                                                            list, None,
-                                                        );
-                                                }
-                                            }
-                                            if metadata.favorite {
-                                                if ui.button("Unfavorite").clicked() {
-                                                    metadata.favorite = false;
-                                                    let _ =
-                                                        GLOBALS.storage.set_person_list_metadata(
-                                                            list, &metadata, None,
-                                                        );
-                                                }
-                                            } else {
-                                                if ui.button("Make Favorite").clicked() {
-                                                    metadata.favorite = true;
-                                                    let _ =
-                                                        GLOBALS.storage.set_person_list_metadata(
-                                                            list, &metadata, None,
-                                                        );
-                                                }
-                                            }
-                                            if count == 0 && ui.button("Delete List").clicked() {
-                                                app.renaming_list = None;
-                                                app.deleting_list = Some(list);
-                                            }
-                                        }
-                                    },
-                                );
-                                if ui.button("View Feed").clicked() {
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                super::list::render_more_list_actions(ui, app, list, &mut metadata, count, false);
+                                ui.add_space(10.0);
+                                ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
+                                if ui.link("View Feed").clicked() {
                                     app.set_page(ctx, Page::Feed(FeedKind::List(list, false)));
                                 }
                             });
@@ -225,20 +167,31 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         const DLG_SIZE: Vec2 = vec2(250.0, 120.0);
         let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, |ui| {
             ui.vertical(|ui| {
-                ui.heading(metadata.title);
+                ui.heading(&metadata.title);
+                ui.add_space(10.0);
                 ui.label("Enter new name:");
+                ui.add_space(5.0);
                 ui.add(
                     text_edit_line!(app, app.new_list_name)
-                        .hint_text("Enter new list name")
+                        .hint_text(metadata.title)
                         .desired_width(f32::INFINITY),
                 );
-                if ui.button("Rename").clicked() {
-                    let _ =
-                        GLOBALS
-                            .storage
-                            .rename_person_list(list, app.new_list_name.clone(), None);
-                    app.renaming_list = None;
-                }
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("Cancel").clicked() {
+                            app.renaming_list = None;
+                        }
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                            if ui.button("Rename").clicked() {
+                                let _ =
+                                    GLOBALS
+                                        .storage
+                                        .rename_person_list(list, app.new_list_name.clone(), None);
+                                app.renaming_list = None;
+                            }
+                        });
+                    });
+                });
             });
         });
         if ret.inner.clicked() {

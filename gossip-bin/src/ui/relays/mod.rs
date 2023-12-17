@@ -37,9 +37,6 @@ pub(super) struct RelayUi {
     /// Add Relay dialog
     add_dialog_step: AddRelayDialogStep,
     new_relay_url: String,
-
-    /// Configure List Menu
-    configure_list_menu_active: bool,
 }
 
 impl RelayUi {
@@ -56,7 +53,6 @@ impl RelayUi {
             edit_needs_scroll: false,
             add_dialog_step: AddRelayDialogStep::Inactive,
             new_relay_url: RELAY_URL_PREPOPULATE.to_string(),
-            configure_list_menu_active: false,
         }
     }
 }
@@ -454,7 +450,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
         widgets::MoreMenu::new(ui, app)
             .with_min_size(min_size)
             .with_hover_text("Configure List View".to_owned())
-            .show(ui, &mut app.relays.configure_list_menu_active, |ui, is_open| {
+            .show(ui, |ui, is_open| {
                 let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
 
                 ui.horizontal(|ui| {
