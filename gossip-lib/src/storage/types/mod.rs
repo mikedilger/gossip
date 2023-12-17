@@ -13,6 +13,9 @@ pub use person_list_metadata1::PersonListMetadata1;
 mod person_list_metadata2;
 pub use person_list_metadata2::PersonListMetadata2;
 
+mod person_list_metadata3;
+pub use person_list_metadata3::PersonListMetadata3;
+
 mod person_relay1;
 pub use person_relay1::PersonRelay1;
 

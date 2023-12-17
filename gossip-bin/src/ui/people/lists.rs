@@ -27,11 +27,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
             for (list, mut metadata) in all_lists {
-                let count = GLOBALS
-                    .storage
-                    .get_people_in_list(list)
-                    .map(|v| v.len())
-                    .unwrap_or(0);
                 let row_response = widgets::list_entry::make_frame(ui).show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
 
@@ -40,7 +35,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             ui.add(Label::new(
                                 RichText::new(&metadata.title).heading().color(color),
                             ));
-                            ui.label(format!("({})", count));
+                            ui.label(format!("({})", metadata.len));
                             if metadata.favorite {
                                 ui.add(Label::new(
                                     RichText::new("★")
@@ -57,12 +52,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
+                                    let len = metadata.len;
                                     super::list::render_more_list_actions(
                                         ui,
                                         app,
                                         list,
                                         &mut metadata,
-                                        count,
+                                        len,
                                         false,
                                     );
                                     ui.add_space(10.0);

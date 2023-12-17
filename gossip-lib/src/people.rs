@@ -21,7 +21,7 @@ pub type Person = crate::storage::types::Person2;
 pub type PersonList = crate::storage::types::PersonList1;
 
 /// PersonListMetadata type, aliased to the latest version
-pub type PersonListMetadata = crate::storage::types::PersonListMetadata2;
+pub type PersonListMetadata = crate::storage::types::PersonListMetadata3;
 
 /// Handles people and remembers what needs to be done for each, such as fetching
 /// metadata or avatars.

@@ -86,11 +86,7 @@ pub(super) fn update(
         .unwrap_or_default()
         .unwrap_or_default();
 
-    let mut title = format!(
-        "{} ({})",
-        metadata.title,
-        app.people_list.cache_people.len()
-    );
+    let mut title = format!("{} ({})", metadata.title, metadata.len,);
     if metadata.favorite {
         title.push_str(" ★");
     }
@@ -101,8 +97,8 @@ pub(super) fn update(
     // render page
     widgets::page_header(ui, title, |ui| {
         ui.add_enabled_ui(enabled, |ui| {
-            let count = app.people_list.cache_people.len();
-            render_more_list_actions(ui, app, list, &mut metadata, count, true);
+            let len = metadata.len;
+            render_more_list_actions(ui, app, list, &mut metadata, len, true);
         });
 
         btn_h_space!(ui);

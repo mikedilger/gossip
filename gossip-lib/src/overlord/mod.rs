@@ -2636,6 +2636,12 @@ impl Overlord {
         let last_edit = if merge { now } else { event.created_at };
 
         metadata.last_edit_time = last_edit;
+        metadata.len = if merge {
+            GLOBALS.storage.get_people_in_list(list)?.len()
+        } else {
+            entries.len()
+        };
+
         GLOBALS
             .storage
             .set_person_list_metadata(list, &metadata, Some(&mut txn))?;

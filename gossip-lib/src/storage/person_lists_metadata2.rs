@@ -1,5 +1,5 @@
 use super::types::{PersonList1, PersonListMetadata2};
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
@@ -40,18 +40,6 @@ impl Storage {
                 Ok(db)
             }
         }
-    }
-
-    pub(crate) fn get_person_list_metadata2(
-        &self,
-        list: PersonList1,
-    ) -> Result<Option<PersonListMetadata2>, Error> {
-        let key: Vec<u8> = list.write_to_vec()?;
-        let txn = self.env.read_txn()?;
-        Ok(match self.db_person_lists_metadata2()?.get(&txn, &key)? {
-            None => None,
-            Some(bytes) => Some(PersonListMetadata2::read_from_buffer(bytes)?),
-        })
     }
 
     pub(crate) fn set_person_list_metadata2<'a>(
@@ -106,109 +94,5 @@ impl Storage {
             output.push((list, metadata));
         }
         Ok(output)
-    }
-
-    pub(crate) fn find_person_list_by_dtag2(
-        &self,
-        dtag: &str,
-    ) -> Result<Option<(PersonList1, PersonListMetadata2)>, Error> {
-        let txn = self.env.read_txn()?;
-        for result in self.db_person_lists_metadata2()?.iter(&txn)? {
-            let (key, val) = result?;
-            let list = PersonList1::read_from_buffer(key)?;
-            let metadata = PersonListMetadata2::read_from_buffer(val)?;
-            if metadata.dtag == dtag {
-                return Ok(Some((list, metadata)));
-            }
-        }
-        Ok(None)
-    }
-
-    pub(crate) fn allocate_person_list2<'a>(
-        &'a self,
-        metadata: &PersonListMetadata2,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<PersonList1, Error> {
-        // Do not allocate for well-known names
-        if &metadata.title == "Followed"
-            || &metadata.title == "Muted"
-            || &metadata.dtag == "followed"
-            || &metadata.dtag == "muted"
-        {
-            return Err(ErrorKind::ListIsWellKnown.into());
-        }
-
-        // Check if it exists first (by dtag match)
-        if let Some((found_list, _)) = self.find_person_list_by_dtag2(&metadata.dtag)? {
-            return Err(ErrorKind::ListAlreadyExists(found_list).into());
-        }
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<PersonList1, Error> {
-            let mut slot: u8 = 0;
-
-            for i in 2..=255 {
-                let key: Vec<u8> = PersonList1::Custom(i).write_to_vec()?;
-                if self.db_person_lists_metadata2()?.get(txn, &key)?.is_none() {
-                    slot = i;
-                    break;
-                }
-            }
-
-            if slot < 2 {
-                return Err(ErrorKind::ListAllocationFailed.into());
-            }
-
-            let list = PersonList1::Custom(slot);
-            let key: Vec<u8> = list.write_to_vec()?;
-            let val: Vec<u8> = metadata.write_to_vec()?;
-            self.db_person_lists_metadata2()?.put(txn, &key, &val)?;
-
-            Ok(list)
-        };
-
-        match rw_txn {
-            Some(txn) => Ok(f(txn)?),
-            None => {
-                let mut txn = self.env.write_txn()?;
-                let list = f(&mut txn)?;
-                txn.commit()?;
-                Ok(list)
-            }
-        }
-    }
-
-    /// Deallocate this PersonList1
-    pub(crate) fn deallocate_person_list2<'a>(
-        &'a self,
-        list: PersonList1,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        if !self.get_people_in_list(list)?.is_empty() {
-            return Err(ErrorKind::ListIsNotEmpty.into());
-        }
-
-        if u8::from(list) < 2 {
-            return Err(ErrorKind::ListIsWellKnown.into());
-        }
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // note: we dont have to delete the list of people because those
-            //       lists are keyed by pubkey, and we already checked that
-            //       this list is not referenced.
-            let key: Vec<u8> = list.write_to_vec()?;
-            self.db_person_lists_metadata2()?.delete(txn, &key)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
     }
 }
