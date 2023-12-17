@@ -7,7 +7,7 @@ use egui::{Context, RichText, Ui, Vec2};
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{Person, PersonList, GLOBALS, PersonListMetadata};
+use gossip_lib::{FeedKind, Person, PersonList, GLOBALS, PersonListMetadata};
 use nostr_types::{Profile, PublicKey};
 
 pub(crate) struct ListUi {
@@ -113,7 +113,13 @@ pub(super) fn update(
             if ui.button("Add contact").clicked() {
                 app.people_list.entering_follow_someone_on_list = true;
             }
-    });
+
+            btn_h_space!(ui);
+
+            if ui.button("View the Feed").clicked() {
+                app.set_page(ctx, Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)));
+            }
+        });
 
     ui.set_enabled(enabled);
 

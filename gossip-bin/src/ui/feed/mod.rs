@@ -71,10 +71,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
-                    ui.heading(metadata.title);
+                    ui.heading(format!("{} feed", metadata.title));
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add_space(10.0);
+
+                        if ui.button(
+                            format!("View contacts")
+                        ).clicked() {
+                            app.set_page(
+                                ctx,
+                                Page::PeopleList(list)
+                            );
+                        }
+
                         ui.add_space(10.0);
                         ui.label(RichText::new("Include replies").size(11.0));
                         let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
