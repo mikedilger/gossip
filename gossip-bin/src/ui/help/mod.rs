@@ -61,6 +61,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             });
 
             ui.add_space(10.0);
+            ui.heading("Gossip freezes or runs slowly at startup:");
+            ui.indent("freezeatstart", |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("On some combinations of storage devices and filesystems, gossip's LMDB storage may take a long time to get started. Try moving your gossip directory to a different filesyste and/or a different storage device. You can set the GOSSIP_DIR environment variable to point to your gossip directory." );
+                });
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(format!("Your gossip storage directory is currently {}",
+                                     app.about.storage_path));
+                });
+            });
+
+            ui.add_space(10.0);
             ui.heading("more will be added in the future.");
 
             ui.add_space(10.0);
