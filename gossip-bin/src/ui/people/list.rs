@@ -7,7 +7,7 @@ use egui::{Context, RichText, Ui, Vec2};
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, Person, PersonList, GLOBALS, PersonListMetadata};
+use gossip_lib::{FeedKind, Person, PersonList, PersonListMetadata, GLOBALS};
 use nostr_types::{Profile, PublicKey};
 
 pub(crate) struct ListUi {
@@ -99,27 +99,27 @@ pub(super) fn update(
     }
 
     // render page
-    widgets::page_header(
-        ui,
-        title,
-        |ui| {
-            ui.add_enabled_ui(enabled, |ui| {
-                let count = app.people_list.cache_people.len();
-                render_more_list_actions(ui, app, list, &mut metadata, count, true);
-            });
-
-            btn_h_space!(ui);
-
-            if ui.button("Add contact").clicked() {
-                app.people_list.entering_follow_someone_on_list = true;
-            }
-
-            btn_h_space!(ui);
-
-            if ui.button("View the Feed").clicked() {
-                app.set_page(ctx, Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)));
-            }
+    widgets::page_header(ui, title, |ui| {
+        ui.add_enabled_ui(enabled, |ui| {
+            let count = app.people_list.cache_people.len();
+            render_more_list_actions(ui, app, list, &mut metadata, count, true);
         });
+
+        btn_h_space!(ui);
+
+        if ui.button("Add contact").clicked() {
+            app.people_list.entering_follow_someone_on_list = true;
+        }
+
+        btn_h_space!(ui);
+
+        if ui.button("View the Feed").clicked() {
+            app.set_page(
+                ctx,
+                Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)),
+            );
+        }
+    });
 
     ui.set_enabled(enabled);
 
@@ -417,84 +417,88 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     }
 }
 
-pub(super) fn render_more_list_actions(ui: &mut Ui, app: &mut GossipUi, list: PersonList, metadata: &mut PersonListMetadata, count: usize, on_list: bool) {
+pub(super) fn render_more_list_actions(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    list: PersonList,
+    metadata: &mut PersonListMetadata,
+    count: usize,
+    on_list: bool,
+) {
     static WIDTH: f32 = 130.0;
     widgets::MoreMenu::new(ui, app)
         .with_min_size(vec2(WIDTH, 0.0))
         .with_max_size(vec2(WIDTH, f32::INFINITY))
         .show(ui, |ui, is_open| {
-        ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
-            app.theme.accent_button_1_style(ui.style_mut());
-            ui.spacing_mut().item_spacing.y = 10.0;
-            if !on_list {
-                if ui.button("Edit Membership").clicked() {
-                    app.set_page(ui.ctx(), Page::PeopleList(list));
-                    *is_open = false;
-                }
-            }
-            if matches!(list, PersonList::Custom(_)) {
-                if ui.button("Rename List").clicked() {
-                    app.deleting_list = None;
-                    app.renaming_list = Some(list);
-                    *is_open = false;
-                }
-                if metadata.private {
-                    if ui.button("Make Public").clicked() {
-                        metadata.private = false;
-                        let _ =
-                            GLOBALS.storage.set_person_list_metadata(
-                                list, &metadata, None,
-                            );
-                        *is_open = false;
+            ui.with_layout(
+                egui::Layout::top_down_justified(egui::Align::Center),
+                |ui| {
+                    app.theme.accent_button_1_style(ui.style_mut());
+                    ui.spacing_mut().item_spacing.y = 10.0;
+                    if !on_list {
+                        if ui.button("Edit Membership").clicked() {
+                            app.set_page(ui.ctx(), Page::PeopleList(list));
+                            *is_open = false;
+                        }
                     }
-                } else {
-                    if ui.button("Make Private").clicked() {
-                        metadata.private = true;
-                        let _ =
-                            GLOBALS.storage.set_person_list_metadata(
-                                list, &metadata, None,
-                            );
-                        let _ = GLOBALS
-                            .storage
-                            .set_all_people_in_list_to_private(
-                                list, None,
-                            );
-                        *is_open = false;
+                    if matches!(list, PersonList::Custom(_)) {
+                        if ui.button("Rename List").clicked() {
+                            app.deleting_list = None;
+                            app.renaming_list = Some(list);
+                            *is_open = false;
+                        }
+                        if metadata.private {
+                            if ui.button("Make Public").clicked() {
+                                metadata.private = false;
+                                let _ = GLOBALS
+                                    .storage
+                                    .set_person_list_metadata(list, &metadata, None);
+                                *is_open = false;
+                            }
+                        } else {
+                            if ui.button("Make Private").clicked() {
+                                metadata.private = true;
+                                let _ = GLOBALS
+                                    .storage
+                                    .set_person_list_metadata(list, &metadata, None);
+                                let _ = GLOBALS
+                                    .storage
+                                    .set_all_people_in_list_to_private(list, None);
+                                *is_open = false;
+                            }
+                        }
+                        if metadata.favorite {
+                            if ui.button("Unfavorite").clicked() {
+                                metadata.favorite = false;
+                                let _ = GLOBALS
+                                    .storage
+                                    .set_person_list_metadata(list, &metadata, None);
+                                *is_open = false;
+                            }
+                        } else {
+                            if ui.button("Make Favorite").clicked() {
+                                metadata.favorite = true;
+                                let _ = GLOBALS
+                                    .storage
+                                    .set_person_list_metadata(list, &metadata, None);
+                                *is_open = false;
+                            }
+                        }
+                        if count > 0 && on_list {
+                            if ui.button("Clear All").clicked() {
+                                app.people_list.clear_list_needs_confirm = true;
+                                *is_open = false;
+                            }
+                        }
+                        if count == 0 && ui.button("Delete List").clicked() {
+                            app.renaming_list = None;
+                            app.deleting_list = Some(list);
+                            *is_open = false;
+                        }
                     }
-                }
-                if metadata.favorite {
-                    if ui.button("Unfavorite").clicked() {
-                        metadata.favorite = false;
-                        let _ =
-                            GLOBALS.storage.set_person_list_metadata(
-                                list, &metadata, None,
-                            );
-                        *is_open = false;
-                    }
-                } else {
-                    if ui.button("Make Favorite").clicked() {
-                        metadata.favorite = true;
-                        let _ =
-                            GLOBALS.storage.set_person_list_metadata(
-                                list, &metadata, None,
-                            );
-                        *is_open = false;
-                    }
-                }
-                if count > 0 && on_list {
-                    if ui.button("Clear All").clicked() {
-                        app.people_list.clear_list_needs_confirm = true;
-                        *is_open = false;
-                    }
-                }
-                if count == 0 && ui.button("Delete List").clicked() {
-                    app.renaming_list = None;
-                    app.deleting_list = Some(list);
-                    *is_open = false;
-                }
-            }
+                },
+            );
         });
-    });
 }
 
 fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {

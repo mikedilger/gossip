@@ -1,9 +1,9 @@
 use eframe::epaint::PathShape;
-use egui_winit::egui::{self, vec2, Color32, Id, Rect, TextureHandle, Ui, Vec2, AboveOrBelow};
+use egui_winit::egui::{self, vec2, AboveOrBelow, Color32, Id, Rect, TextureHandle, Ui, Vec2};
 
 use crate::ui::GossipUi;
 
-static POPUP_MARGIN: Vec2 = Vec2{ x: 20.0, y: 16.0 };
+static POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
 
 pub(in crate::ui) struct MoreMenu {
     id: Id,
@@ -20,7 +20,10 @@ impl MoreMenu {
         Self {
             id: ui.next_auto_id(),
             min_size: Vec2 { x: 0.0, y: 0.0 },
-            max_size: Vec2 { x: f32::INFINITY, y: f32::INFINITY },
+            max_size: Vec2 {
+                x: f32::INFINITY,
+                y: f32::INFINITY,
+            },
             above_or_below: AboveOrBelow::Below,
             hover_text: None,
             accent_color: app.theme.accent_color(),
@@ -45,7 +48,6 @@ impl MoreMenu {
         self.max_size = max_size;
         self
     }
-
 
     #[allow(unused)]
     pub fn with_hover_text(mut self, text: String) -> Self {
@@ -98,48 +100,37 @@ impl MoreMenu {
         let (pivot, fixed_pos, polygon) = match self.above_or_below {
             AboveOrBelow::Above => {
                 let origin_pos = response.rect.center_top();
-                let fixed_pos = origin_pos
-                    + vec2(
-                        -2.0 *super::DROPDOWN_DISTANCE,
-                        -super::DROPDOWN_DISTANCE,
-                    );
+                let fixed_pos =
+                    origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE);
                 let path = PathShape::convex_polygon(
                     [
                         origin_pos,
-                        origin_pos
-                            + vec2(super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
-                        origin_pos
-                            + vec2(-super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
+                        origin_pos + vec2(super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
+                        origin_pos + vec2(-super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
                     ]
                     .to_vec(),
                     bg_color,
                     egui::Stroke::NONE,
                 );
                 (egui::Align2::LEFT_BOTTOM, fixed_pos, path)
-            },
+            }
             AboveOrBelow::Below => {
                 let origin_pos = response.rect.center_bottom();
-                let fixed_pos = origin_pos
-                    + vec2(
-                        -2.0 * super::DROPDOWN_DISTANCE,
-                        super::DROPDOWN_DISTANCE,
-                    );
+                let fixed_pos =
+                    origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE);
                 let path = PathShape::convex_polygon(
                     [
                         origin_pos,
-                        origin_pos
-                            + vec2(super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
-                        origin_pos
-                            + vec2(-super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
+                        origin_pos + vec2(super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
+                        origin_pos + vec2(-super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
                     ]
                     .to_vec(),
                     bg_color,
                     egui::Stroke::NONE,
                 );
                 (egui::Align2::LEFT_TOP, fixed_pos, path)
-            },
+            }
         };
-
 
         let mut frame = egui::Frame::menu(ui.style());
         let area = egui::Area::new(self.id)
@@ -175,7 +166,8 @@ impl MoreMenu {
     }
 
     fn load_state(&self, ui: &mut Ui) -> bool {
-        ui.ctx().data_mut(|d| d.get_temp::<bool>(self.id).unwrap_or_default())
+        ui.ctx()
+            .data_mut(|d| d.get_temp::<bool>(self.id).unwrap_or_default())
     }
 
     fn save_state(&self, ui: &mut Ui, state: bool) {

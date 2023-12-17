@@ -54,14 +54,24 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                 ));
                             }
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                super::list::render_more_list_actions(ui, app, list, &mut metadata, count, false);
-                                ui.add_space(10.0);
-                                ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
-                                if ui.link("View Feed").clicked() {
-                                    app.set_page(ctx, Page::Feed(FeedKind::List(list, false)));
-                                }
-                            });
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    super::list::render_more_list_actions(
+                                        ui,
+                                        app,
+                                        list,
+                                        &mut metadata,
+                                        count,
+                                        false,
+                                    );
+                                    ui.add_space(10.0);
+                                    ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
+                                    if ui.link("View Feed").clicked() {
+                                        app.set_page(ctx, Page::Feed(FeedKind::List(list, false)));
+                                    }
+                                },
+                            );
                         });
                     });
                 });
@@ -183,10 +193,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
                             if ui.button("Rename").clicked() {
-                                let _ =
-                                    GLOBALS
-                                        .storage
-                                        .rename_person_list(list, app.new_list_name.clone(), None);
+                                let _ = GLOBALS.storage.rename_person_list(
+                                    list,
+                                    app.new_list_name.clone(),
+                                    None,
+                                );
                                 app.renaming_list = None;
                             }
                         });

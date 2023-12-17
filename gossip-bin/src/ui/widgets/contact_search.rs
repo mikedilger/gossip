@@ -1,4 +1,6 @@
-use egui_winit::egui::{self, text_edit::TextEditOutput, Key, Modifiers, RichText, Ui, AboveOrBelow};
+use egui_winit::egui::{
+    self, text_edit::TextEditOutput, AboveOrBelow, Key, Modifiers, RichText, Ui,
+};
 use gossip_lib::{Person, GLOBALS};
 use nostr_types::PublicKey;
 
@@ -21,8 +23,14 @@ pub(in crate::ui) fn show_contact_search(
     };
 
     let (pivot, fixed_pos) = match above_or_below {
-        AboveOrBelow::Above => (egui::Align2::LEFT_BOTTOM, output.text_draw_pos + origin_rect.center_top().to_vec2()),
-        AboveOrBelow::Below => (egui::Align2::LEFT_TOP, output.text_draw_pos + origin_rect.center_bottom().to_vec2()),
+        AboveOrBelow::Above => (
+            egui::Align2::LEFT_BOTTOM,
+            output.text_draw_pos + origin_rect.center_top().to_vec2(),
+        ),
+        AboveOrBelow::Below => (
+            egui::Align2::LEFT_TOP,
+            output.text_draw_pos + origin_rect.center_bottom().to_vec2(),
+        ),
     };
 
     // always compute the tooltip, but it is only shown when

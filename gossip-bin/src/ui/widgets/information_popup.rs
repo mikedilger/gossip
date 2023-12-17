@@ -1,4 +1,6 @@
-use egui_winit::egui::{self, Id, InnerResponse, Rect, Response, RichText, TextureHandle, Ui, AboveOrBelow};
+use egui_winit::egui::{
+    self, AboveOrBelow, Id, InnerResponse, Rect, Response, RichText, TextureHandle, Ui,
+};
 use gossip_lib::Person;
 pub trait InformationPopup {
     fn id(&self) -> Id;

@@ -7,7 +7,7 @@ use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
 use egui_winit::egui::text::CCursor;
 use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
-use egui_winit::egui::{vec2, Id, AboveOrBelow};
+use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::Relay;
@@ -501,7 +501,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             "Send note"
         };
 
-
         if app.draft_data.raw.is_empty() {
             // show advanced action menu
             if app.draft_data.repost.is_none() {
@@ -510,14 +509,15 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     .with_min_size(vec2(180.0, 80.0))
                     .place_above(!app.settings.posting_area_at_top)
                     .show(ui, |ui, is_open| {
-                        ui.vertical_centered_justified(|ui|{
+                        ui.vertical_centered_justified(|ui| {
                             app.theme.accent_button_1_style(ui.style_mut());
                             if app.draft_data.include_subject {
                                 if ui.button("Remove Subject").clicked() {
                                     app.draft_data.include_subject = false;
                                     app.draft_data.subject = "".to_owned();
                                 }
-                            } else if app.draft_data.replying_to.is_none() && ui.button("Add Subject").clicked()
+                            } else if app.draft_data.replying_to.is_none()
+                                && ui.button("Add Subject").clicked()
                             {
                                 app.draft_data.include_subject = true;
                                 *is_open = false;
@@ -540,7 +540,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
                             ui.set_enabled(!app.draft_data.replacements.is_empty());
                             if ui.button("Show raw preview").clicked() {
-                                let raw = do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
+                                let raw = do_replacements(
+                                    &app.draft_data.draft,
+                                    &app.draft_data.replacements,
+                                );
                                 app.draft_data.raw = raw.to_owned();
                                 *is_open = false;
                             }
@@ -560,7 +563,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.add_space(12.0);
 
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     app.theme.accent_button_1_style(ui.style_mut());
                     if ui.button(send_label).clicked()
                         && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
@@ -705,7 +708,11 @@ fn show_tagging_result(
     output: &mut TextEditOutput,
     enter_key: bool,
 ) {
-    let above_or_below = if app.settings.posting_area_at_top { AboveOrBelow::Below } else { AboveOrBelow::Above };
+    let above_or_below = if app.settings.posting_area_at_top {
+        AboveOrBelow::Below
+    } else {
+        AboveOrBelow::Above
+    };
     let mut selected = app.draft_data.tagging_search_selected;
     widgets::show_contact_search(
         ui,
@@ -834,7 +841,11 @@ fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput)
                 popup.set_last_seen(uitime);
             }
             if resp.hovered() || popup.get_until() > Some(uitime) {
-                let above_or_below = if app.settings.posting_area_at_top { AboveOrBelow::Below } else { AboveOrBelow::Above };
+                let above_or_below = if app.settings.posting_area_at_top {
+                    AboveOrBelow::Below
+                } else {
+                    AboveOrBelow::Above
+                };
                 let response = popup.show(ui, above_or_below, Box::new(|ui| ui.link("remove")));
 
                 // pointer over the popup extends its life

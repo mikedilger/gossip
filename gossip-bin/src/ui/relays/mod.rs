@@ -454,14 +454,26 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
                 let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
 
                 ui.horizontal(|ui| {
-                    if crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size).changed() {
+                    if crate::ui::components::switch_with_size(
+                        ui,
+                        &mut app.relays.show_details,
+                        size,
+                    )
+                    .changed()
+                    {
                         *is_open = false;
                     }
                     ui.label("Show details");
                 });
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    if crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size).changed() {
+                    if crate::ui::components::switch_with_size(
+                        ui,
+                        &mut app.relays.show_hidden,
+                        size,
+                    )
+                    .changed()
+                    {
                         *is_open = false;
                     }
                     ui.label("Show hidden relays");

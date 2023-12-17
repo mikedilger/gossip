@@ -876,8 +876,11 @@ impl GossipUi {
                             }
                         }
                         if more != 0 {
-                            self.add_menu_item_page_titled(ui, Page::PeopleLists,
-                                                           &format!("More ({})...",more));
+                            self.add_menu_item_page_titled(
+                                ui,
+                                Page::PeopleLists,
+                                &format!("More ({})...", more),
+                            );
                         }
                     });
                     self.after_openable_menu(ui, &cstate);
