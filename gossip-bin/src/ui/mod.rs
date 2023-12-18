@@ -435,7 +435,9 @@ struct GossipUi {
     petname: String,
     deleting_list: Option<PersonList>,
     creating_list: bool,
+    creating_list_first_run: bool,
     new_list_name: String,
+    new_list_favorite: bool,
     renaming_list: Option<PersonList>,
 
     // Collapsed threads
@@ -678,7 +680,9 @@ impl GossipUi {
             petname: "".to_owned(),
             deleting_list: None,
             creating_list: false,
+            creating_list_first_run: false,
             new_list_name: "".to_owned(),
+            new_list_favorite: false,
             renaming_list: None,
             collapsed: vec![],
             opened: HashSet::new(),
