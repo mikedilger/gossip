@@ -26,6 +26,10 @@ mod information_popup;
 pub use information_popup::InformationPopup;
 pub use information_popup::ProfilePopup;
 
+mod switch;
+pub use switch::Switch;
+pub use switch::{switch_custom_at, switch_with_size, switch_simple, switch_with_size_at};
+
 use super::GossipUi;
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;

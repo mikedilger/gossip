@@ -1,4 +1,4 @@
-use eframe::epaint::Color32;
+use eframe::epaint::{Color32, Shadow};
 use egui_winit::egui::{self, InnerResponse, Ui};
 
 const MARGIN_X: f32 = 80.0;
@@ -64,6 +64,7 @@ pub fn modal_popup(
     area.show(ui.ctx(), |ui| {
         if ui.visuals().dark_mode {
             frame.fill = ui.visuals().faint_bg_color;
+            frame.shadow = Shadow::NONE;
         } else {
             frame.fill = Color32::WHITE;
         }

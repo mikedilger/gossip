@@ -9,8 +9,10 @@ use nostr_types::Unixtime;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
+        app.theme.accent_button_1_style(ui.style_mut());
         if ui.button("Create a new list").clicked() {
             app.creating_list = true;
+            app.creating_list_first_run = true;
         }
     });
 
@@ -121,21 +123,33 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.vertical(|ui| {
                 ui.heading("New List");
                 ui.add_space(10.0);
-                ui.add(text_edit_line!(app, app.new_list_name).hint_text("list name"));
+                let response = ui.add(text_edit_line!(app, app.new_list_name).hint_text("list name"));
+                if app.creating_list_first_run {
+                    response.request_focus();
+                    app.creating_list_first_run = false;
+                }
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    ui.add(widgets::Switch::onoff(&app.theme, &mut app.new_list_favorite));
+                    ui.label("Favorite");
+                });
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.horizontal(|ui| {
                         if ui.button("Cancel").clicked() {
                             app.creating_list = false;
                             app.new_list_name.clear();
+                            app.new_list_favorite = false;
                         }
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                            app.theme.accent_button_1_style(ui.style_mut());
                             if ui.button("Create").clicked() {
                                 if !app.new_list_name.is_empty() {
                                     let dtag = format!("pl{}", Unixtime::now().unwrap().0);
                                     let metadata = PersonListMetadata {
                                         dtag,
                                         title: app.new_list_name.to_owned(),
+                                        favorite: app.new_list_favorite,
                                         ..Default::default()
                                     };
 
@@ -146,6 +160,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     } else {
                                         app.creating_list = false;
                                         app.new_list_name.clear();
+                                        app.new_list_favorite = false;
                                     }
                                 } else {
                                     GLOBALS
@@ -162,6 +177,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         if ret.inner.clicked() {
             app.creating_list = false;
             app.new_list_name.clear();
+            app.new_list_favorite = false;
         }
     } else if let Some(list) = app.renaming_list {
         let metadata = GLOBALS
