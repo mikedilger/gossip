@@ -67,12 +67,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 if with_replies { "main" } else { "general" }
             );
             ui.add_space(10.0);
-            if ui.link("Load More").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::LoadMoreGeneralFeed);
-            }
-            ui.add_space(10.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
@@ -249,6 +243,19 @@ fn render_a_feed(
                                 is_last: Some(id) == last,
                             },
                         );
+                    }
+                    if !feed.is_empty() {
+                        ui.add_space(50.0);
+                        ui.with_layout(egui::Layout::top_down(egui::Align::Center).with_cross_align(egui::Align::Center), |ui| {
+                            app.theme.accent_button_1_style(ui.style_mut());
+                            ui.spacing_mut().button_padding.x *= 3.0;
+                            ui.spacing_mut().button_padding.y *= 2.0;
+                            if ui.add(egui::Button::new("Load More")).clicked() {
+                                let _ = GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::LoadMoreGeneralFeed);
+                            }
+                        });
                     }
                 });
             ui.add_space(100.0);
