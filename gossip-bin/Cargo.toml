@@ -48,7 +48,7 @@ zeroize = "1.6"
 section = "web"
 assets = [
     ["target/release/gossip", "/usr/bin/", "755"],
-    ["packaging/debian/gossip.desktop", "/usr/share/applications/gossip.desktop", "644"],
+    ["../packaging/debian/gossip.desktop", "/usr/share/applications/gossip.desktop", "644"],
 ]
 features = [ "lang-cjk" ]
 

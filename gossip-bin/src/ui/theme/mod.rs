@@ -134,6 +134,7 @@ macro_rules! theme_dispatch {
             }
 
             /// 'danger' colored hover for accent-colored button styles
+            #[allow(dead_code)]
             pub fn accent_button_danger_hover(&self, style: &mut Style) {
                 match self.variant {
                     $( $variant => $class::accent_button_danger_hover(style, self.dark_mode), )+
