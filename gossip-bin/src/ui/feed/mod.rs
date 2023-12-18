@@ -250,11 +250,22 @@ fn render_a_feed(
                             app.theme.accent_button_1_style(ui.style_mut());
                             ui.spacing_mut().button_padding.x *= 3.0;
                             ui.spacing_mut().button_padding.y *= 2.0;
-                            if ui.add(egui::Button::new("Load More")).clicked() {
+                            let response = ui.add(egui::Button::new("Load More"));
+                            if response.clicked() {
                                 let _ = GLOBALS
                                     .to_overlord
                                     .send(ToOverlordMessage::LoadMoreGeneralFeed);
                             }
+
+                            // draw some nice lines left and right of the button
+                            let stroke = egui::Stroke::new( 1.5, ui.visuals().extreme_bg_color);
+                            let width = (ui.available_width() - response.rect.width()) / 2.0 - 20.0;
+                            let left_start = response.rect.left_center() - egui::vec2( 10.0, 0.0);
+                            let left_end = left_start - egui::vec2(width, 0.0);
+                            ui.painter().line_segment([left_start, left_end], stroke);
+                            let right_start = response.rect.right_center() + egui::vec2( 10.0, 0.0);
+                            let right_end = right_start + egui::vec2(width, 0.0);
+                            ui.painter().line_segment([right_start, right_end], stroke);
                         });
                     }
                 });
