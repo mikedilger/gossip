@@ -28,7 +28,7 @@ pub use information_popup::ProfilePopup;
 
 mod switch;
 pub use switch::Switch;
-pub use switch::{switch_custom_at, switch_with_size, switch_simple, switch_with_size_at};
+pub use switch::{switch_custom_at, switch_simple, switch_with_size, switch_with_size_at};
 
 use super::GossipUi;
 

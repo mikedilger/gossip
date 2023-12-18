@@ -123,14 +123,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.vertical(|ui| {
                 ui.heading("New List");
                 ui.add_space(10.0);
-                let response = ui.add(text_edit_line!(app, app.new_list_name).hint_text("list name"));
+                let response =
+                    ui.add(text_edit_line!(app, app.new_list_name).hint_text("list name"));
                 if app.creating_list_first_run {
                     response.request_focus();
                     app.creating_list_first_run = false;
                 }
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.add(widgets::Switch::onoff(&app.theme, &mut app.new_list_favorite));
+                    ui.add(widgets::Switch::onoff(
+                        &app.theme,
+                        &mut app.new_list_favorite,
+                    ));
                     ui.label("Favorite");
                 });
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {

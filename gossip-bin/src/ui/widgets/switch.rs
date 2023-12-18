@@ -1,4 +1,4 @@
-use egui_winit::egui::{Ui, self, Id, Response, Rect, Widget, Color32, Stroke, vec2, Vec2};
+use egui_winit::egui::{self, vec2, Color32, Id, Rect, Response, Stroke, Ui, Vec2, Widget};
 
 use crate::ui::Theme;
 
@@ -38,14 +38,16 @@ impl<'a> Widget for Switch<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let (rect, _) = ui.allocate_exact_size(self.size, egui::Sense::hover());
         let id = ui.next_auto_id();
-        switch_custom_at(ui,
+        switch_custom_at(
+            ui,
             ui.is_enabled(),
             self.value,
             rect,
             id,
             self.knob_fill,
             self.on_fill,
-            self.off_fill)
+            self.off_fill,
+        )
     }
 }
 
@@ -62,15 +64,7 @@ pub fn switch_with_size_at(
     id: Id,
 ) -> Response {
     let rect = Rect::from_min_size(pos, size);
-    switch_custom_at(
-        ui,
-        ui.is_enabled(),
-        value,
-        rect,
-        id,
-        None,
-        None,
-        None)
+    switch_custom_at(ui, ui.is_enabled(), value, rect, id, None, None, None)
 }
 
 pub fn switch_simple(ui: &mut Ui, on: bool) -> Response {
@@ -79,14 +73,8 @@ pub fn switch_simple(ui: &mut Ui, on: bool) -> Response {
     let rect = Rect::from_min_size(rect.left_top(), size);
     let id = ui.next_auto_id();
     let mut value = on;
-    let mut response = switch_custom_at(ui,
-        ui.is_enabled(),
-        &mut value,
-        rect,
-        id,
-        None,
-        None,
-        None);
+    let mut response =
+        switch_custom_at(ui, ui.is_enabled(), &mut value, rect, id, None, None, None);
     if value != on {
         response.mark_changed();
     }
