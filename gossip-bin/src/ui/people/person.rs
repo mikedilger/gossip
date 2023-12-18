@@ -200,7 +200,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     ui.horizontal(|ui| {
                         let membership = membership_map.get(&list);
                         let mut inlist = membership.is_some();
-                        if crate::ui::components::switch_simple(ui, inlist).clicked() {
+                        if widgets::switch_simple(ui, inlist).clicked() {
                             if inlist {
                                 let _ =
                                     GLOBALS.storage.remove_person_from_list(&pubkey, list, None);

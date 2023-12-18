@@ -2,7 +2,7 @@
 use eframe::egui::{self, *};
 use nostr_types::{PublicKeyHex, Unixtime};
 
-use crate::ui::{components, GossipUi};
+use crate::ui::{widgets, GossipUi};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
 
 use super::{
@@ -687,9 +687,10 @@ impl RelayEntry {
     }
 
     fn paint_usage_settings(&mut self, ui: &mut Ui, rect: &Rect) {
-        let knob_fill = ui.visuals().extreme_bg_color;
-        let on_fill = self.accent;
-        let off_fill = ui.visuals().widgets.inactive.bg_fill;
+        let knob_fill = Some(ui.visuals().extreme_bg_color);
+        let on_fill = Some(self.accent);
+        let off_fill_color = ui.visuals().widgets.inactive.bg_fill;
+        let off_fill = Some(off_fill_color);
         let pos =
             rect.right_top() + vec2(-TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT, DETAIL_SECTION_TOP);
         let switch_size = ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
@@ -697,7 +698,7 @@ impl RelayEntry {
             // ---- read ----
             let id = self.make_id("read_switch");
             let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
-            let response = components::switch_custom_at(
+            let response = widgets::switch_custom_at(
                 ui,
                 true,
                 &mut self.usage.read,
@@ -757,7 +758,7 @@ impl RelayEntry {
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
             let id = self.make_id("inbox_switch");
             let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
-            let response = components::switch_custom_at(
+            let response = widgets::switch_custom_at(
                 ui,
                 self.usage.read,
                 &mut self.usage.inbox,
@@ -789,7 +790,7 @@ impl RelayEntry {
             // ---- write ----
             let id = self.make_id("write_switch");
             let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
-            let response = components::switch_custom_at(
+            let response = widgets::switch_custom_at(
                 ui,
                 true,
                 &mut self.usage.write,
@@ -849,7 +850,7 @@ impl RelayEntry {
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
             let id = self.make_id("outbox_switch");
             let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
-            let response = components::switch_custom_at(
+            let response = widgets::switch_custom_at(
                 ui,
                 self.usage.write,
                 &mut self.usage.outbox,
@@ -881,7 +882,7 @@ impl RelayEntry {
             // ---- discover ----
             let id = self.make_id("discover_switch");
             let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
-            let response = components::switch_custom_at(
+            let response = widgets::switch_custom_at(
                 ui,
                 true,
                 &mut self.usage.discover,
@@ -913,7 +914,7 @@ impl RelayEntry {
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
             let id = self.make_id("advertise_switch");
             let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
-            let response = components::switch_custom_at(
+            let response = widgets::switch_custom_at(
                 ui,
                 true,
                 &mut self.usage.advertise,
@@ -959,7 +960,7 @@ impl RelayEntry {
                     rect,
                     btn_round,
                     ui.visuals().extreme_bg_color,
-                    Stroke::new(1.0, off_fill),
+                    Stroke::new(1.0, off_fill_color),
                 );
                 ui.painter().text(
                     pos + vec2(34.0, 0.0),

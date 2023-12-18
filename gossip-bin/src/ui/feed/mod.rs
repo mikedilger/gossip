@@ -1,5 +1,5 @@
 use super::theme::FeedProperties;
-use super::{GossipUi, Page};
+use super::{GossipUi, Page, widgets};
 use eframe::egui;
 use egui::{Context, Frame, RichText, Ui, Vec2};
 use gossip_lib::FeedKind;
@@ -87,7 +87,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         ui.add_space(10.0);
                         ui.label(RichText::new("Include replies").size(11.0));
                         let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-                        if crate::ui::components::switch_with_size(
+                        if widgets::switch_with_size(
                             ui,
                             &mut app.mainfeed_include_nonroot,
                             size,
@@ -137,7 +137,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         ui.add_space(10.0);
                         ui.label(RichText::new("Everything").size(11.0));
                         let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-                        if crate::ui::components::switch_with_size(
+                        if widgets::switch_with_size(
                             ui,
                             &mut app.inbox_include_indirect,
                             size,

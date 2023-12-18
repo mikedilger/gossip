@@ -250,7 +250,7 @@ pub(super) fn update(
                         ui.add_space(20.0);
 
                         // private / public switch
-                        if crate::ui::components::switch_simple(ui, *public).clicked() {
+                        if widgets::switch_simple(ui, *public).clicked() {
                             let _ = GLOBALS.storage.add_person_to_list(
                                 &person.pubkey,
                                 list,
