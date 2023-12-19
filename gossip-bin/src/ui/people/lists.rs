@@ -81,11 +81,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                         len,
                                         false,
                                     );
-                                    ui.add_space(10.0);
-                                    ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
-                                    if ui.link("View Feed").clicked() {
-                                        app.set_page(ctx, Page::Feed(FeedKind::List(list, false)));
-                                    }
                                 },
                             );
                         });
