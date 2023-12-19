@@ -6,7 +6,7 @@ use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Label, RichText, Sense};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, PersonList, PersonListMetadata, GLOBALS};
+use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
 use nostr_types::Unixtime;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {

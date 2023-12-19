@@ -5,6 +5,12 @@ use crate::ui::GossipUi;
 
 static POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
 
+#[derive(PartialEq)]
+enum MoreMenuStyle {
+    Simple,
+    Bubble
+}
+
 pub(in crate::ui) struct MoreMenu {
     id: Id,
     min_size: Vec2,
@@ -13,10 +19,11 @@ pub(in crate::ui) struct MoreMenu {
     hover_text: Option<String>,
     accent_color: Color32,
     options_symbol: TextureHandle,
+    style: MoreMenuStyle,
 }
 
 impl MoreMenu {
-    pub fn new(ui: &mut Ui, app: &GossipUi) -> Self {
+    pub fn simple(ui: &mut Ui, app: &GossipUi) -> Self {
         Self {
             id: ui.next_auto_id(),
             min_size: Vec2 { x: 0.0, y: 0.0 },
@@ -28,6 +35,23 @@ impl MoreMenu {
             hover_text: None,
             accent_color: app.theme.accent_color(),
             options_symbol: app.options_symbol.clone(),
+            style: MoreMenuStyle::Simple,
+        }
+    }
+
+    pub fn bubble(ui: &mut Ui, app: &GossipUi) -> Self {
+        Self {
+            id: ui.next_auto_id(),
+            min_size: Vec2 { x: 0.0, y: 0.0 },
+            max_size: Vec2 {
+                x: f32::INFINITY,
+                y: f32::INFINITY,
+            },
+            above_or_below: AboveOrBelow::Below,
+            hover_text: None,
+            accent_color: app.theme.accent_color(),
+            options_symbol: app.options_symbol.clone(),
+            style: MoreMenuStyle::Bubble
         }
     }
 
@@ -142,17 +166,29 @@ impl MoreMenu {
             .constrain(true);
         if active {
             let menuresp = area.show(ui.ctx(), |ui| {
-                frame.fill = bg_color;
-                frame.stroke = egui::Stroke::NONE;
-                // frame.shadow = egui::epaint::Shadow::NONE;
-                frame.rounding = egui::Rounding::same(5.0);
-                frame.inner_margin = egui::Margin::symmetric(POPUP_MARGIN.x, POPUP_MARGIN.y);
+                if self.style == MoreMenuStyle::Simple {
+                    // menu style from egui/src/menu.rs:set_menu_style()
+                    let style = ui.style_mut();
+                    style.spacing.button_padding = vec2(2.0, 0.0);
+                    style.visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
+                    style.visuals.widgets.hovered.bg_stroke = egui::Stroke::NONE;
+                    style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
+                    style.visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
+                } else {
+                    frame.fill = bg_color;
+                    frame.stroke = egui::Stroke::NONE;
+                    // frame.shadow = egui::epaint::Shadow::NONE;
+                    frame.rounding = egui::Rounding::same(5.0);
+                    frame.inner_margin = egui::Margin::symmetric(POPUP_MARGIN.x, POPUP_MARGIN.y);
+                }
                 frame.show(ui, |ui| {
                     ui.set_min_size(self.min_size);
                     ui.set_max_size(self.max_size);
 
-                    // draw origin pointer
-                    ui.painter().add(polygon);
+                    if self.style == MoreMenuStyle::Bubble {
+                        // draw origin pointer
+                        ui.painter().add(polygon);
+                    }
 
                     // now show menu content
                     content(ui, &mut active);
@@ -162,6 +198,7 @@ impl MoreMenu {
                 active = false;
             }
         }
+
         self.save_state(ui, active);
     }
 

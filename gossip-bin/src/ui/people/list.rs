@@ -421,16 +421,24 @@ pub(super) fn render_more_list_actions(
     count: usize,
     on_list: bool,
 ) {
-    static WIDTH: f32 = 180.0;
-    widgets::MoreMenu::new(ui, app)
-        .with_min_size(vec2(WIDTH, 0.0))
-        .with_max_size(vec2(WIDTH, f32::INFINITY))
-        .show(ui, |ui, is_open| {
+    let menu = if on_list {
+        widgets::MoreMenu::bubble(ui, app)
+            .with_min_size(vec2(100.0, 0.0))
+            .with_max_size(vec2(160.0, f32::INFINITY))
+    } else {
+        widgets::MoreMenu::simple(ui, app)
+            .with_min_size(vec2(100.0, 0.0))
+            .with_max_size(vec2(160.0, f32::INFINITY))
+    };
+
+    menu.show(ui, |ui, is_open| {
             ui.with_layout(
-                egui::Layout::top_down_justified(egui::Align::Center),
+                egui::Layout::top_down_justified(egui::Align::LEFT),
                 |ui| {
-                    app.theme.accent_button_1_style(ui.style_mut());
-                    ui.spacing_mut().item_spacing.y = 10.0;
+                    if on_list {
+                        app.theme.accent_button_1_style(ui.style_mut());
+                        ui.spacing_mut().item_spacing.y = 10.0;
+                    }
                     if !on_list {
                         if ui.button("View Contacts").clicked() {
                             app.set_page(ui.ctx(), Page::PeopleList(list));
@@ -492,8 +500,7 @@ pub(super) fn render_more_list_actions(
                             *is_open = false;
                         }
                     }
-                },
-            );
+                });
         });
 }
 

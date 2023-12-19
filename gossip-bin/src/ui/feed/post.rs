@@ -504,7 +504,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         if app.draft_data.raw.is_empty() {
             // show advanced action menu
             if app.draft_data.repost.is_none() {
-                widgets::MoreMenu::new(ui, app)
+                widgets::MoreMenu::bubble(ui, app)
                     .with_max_size(vec2(180.0, 80.0))
                     .with_min_size(vec2(180.0, 80.0))
                     .place_above(!app.settings.posting_area_at_top)
