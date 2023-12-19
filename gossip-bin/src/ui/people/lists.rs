@@ -4,10 +4,8 @@ use super::{GossipUi, Page};
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{vec2, Label, RichText, Sense};
-use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
-use nostr_types::Unixtime;
+use egui_winit::egui::{Label, RichText, Sense};
+use gossip_lib::{PersonList, GLOBALS};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
@@ -99,174 +97,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
 
     if let Some(list) = app.deleting_list {
-        let metadata = GLOBALS
-            .storage
-            .get_person_list_metadata(list)
-            .unwrap_or_default()
-            .unwrap_or_default();
-
-        let ret = crate::ui::widgets::modal_popup(
-            ui,
-            vec2(250.0, 80.0),
-            vec2(250.0, ui.available_height()),
-            |ui| {
-                ui.vertical(|ui| {
-                    ui.label("Are you sure you want to delete:");
-                    ui.add_space(10.0);
-                    ui.heading(metadata.title);
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        if ui.button("Cancel").clicked() {
-                            app.deleting_list = None;
-                        }
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
-                            app.theme.accent_button_danger_hover(ui.style_mut());
-                            if ui.button("Delete").clicked() {
-                                let _ = GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::DeletePersonList(list));
-                                app.deleting_list = None;
-                            }
-                        })
-                    });
-                });
-            },
-        );
-        if ret.inner.clicked() {
-            app.deleting_list = None;
-        }
+        super::list::render_delete_list_dialog(ui, app, list);
     } else if app.creating_list {
-        let ret = crate::ui::widgets::modal_popup(
-            ui,
-            vec2(250.0, 100.0),
-            vec2(250.0, ui.available_height()),
-            |ui| {
-                ui.vertical(|ui| {
-                    ui.heading("Create a new list");
-                    ui.add_space(5.0);
-                    if let Some(err) = &app.editing_list_error {
-                        ui.label(egui::RichText::new(err).color(ui.visuals().error_fg_color));
-                        ui.add_space(3.0);
-                    }
-                    let response =
-                        ui.add(text_edit_line!(app, app.new_list_name).hint_text("list name"));
-                    if app.list_name_field_needs_focus {
-                        response.request_focus();
-                        app.list_name_field_needs_focus = false;
-                    }
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        ui.add(widgets::Switch::onoff(
-                            &app.theme,
-                            &mut app.new_list_favorite,
-                        ));
-                        ui.label("Set as Favorite");
-                    });
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
-                            if ui.button("Create").clicked() {
-                                app.new_list_name = app.new_list_name.trim().into();
-                                if !app.new_list_name.is_empty() {
-                                    let dtag = format!("pl{}", Unixtime::now().unwrap().0);
-                                    let metadata = PersonListMetadata {
-                                        dtag,
-                                        title: app.new_list_name.to_owned(),
-                                        favorite: app.new_list_favorite,
-                                        ..Default::default()
-                                    };
-
-                                    if let Err(e) =
-                                        GLOBALS.storage.allocate_person_list(&metadata, None)
-                                    {
-                                        app.editing_list_error = Some(e.to_string());
-                                        app.list_name_field_needs_focus = true;
-                                    } else {
-                                        app.creating_list = false;
-                                        app.new_list_name.clear();
-                                        app.new_list_favorite = false;
-                                        app.editing_list_error = None;
-                                    }
-                                } else {
-                                    app.editing_list_error =
-                                        Some("List name must not be empty".to_string());
-                                    app.list_name_field_needs_focus = true;
-                                }
-                            }
-                        });
-                    });
-                });
-            },
-        );
-        if ret.inner.clicked() {
-            app.creating_list = false;
-            app.new_list_name.clear();
-            app.new_list_favorite = false;
-            app.editing_list_error = None;
-        }
+        super::list::render_create_list_dialog(ui, app);
     } else if let Some(list) = app.renaming_list {
-        let metadata = GLOBALS
-            .storage
-            .get_person_list_metadata(list)
-            .unwrap_or_default()
-            .unwrap_or_default();
-
-        let ret = crate::ui::widgets::modal_popup(
-            ui,
-            vec2(250.0, 80.0),
-            vec2(250.0, ui.available_height()),
-            |ui| {
-                ui.vertical(|ui| {
-                    ui.heading(&metadata.title);
-                    ui.add_space(5.0);
-                    if let Some(err) = &app.editing_list_error {
-                        ui.label(egui::RichText::new(err).color(ui.visuals().error_fg_color));
-                        ui.add_space(3.0);
-                    }
-                    ui.add_space(3.0);
-                    ui.label("Enter new name:");
-                    ui.add_space(5.0);
-                    ui.add(
-                        text_edit_line!(app, app.new_list_name)
-                            .hint_text(metadata.title)
-                            .desired_width(f32::INFINITY),
-                    );
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
-                            if ui.button("Rename").clicked() {
-                                app.new_list_name = app.new_list_name.trim().into();
-                                if !app.new_list_name.is_empty() {
-                                    if let Err(e) = GLOBALS.storage.rename_person_list(
-                                        list,
-                                        app.new_list_name.clone(),
-                                        None,
-                                    ) {
-                                        app.editing_list_error = Some(e.to_string());
-                                        app.list_name_field_needs_focus = true;
-                                    } else {
-                                        app.renaming_list = None;
-                                        app.new_list_name = "".to_owned();
-                                        app.editing_list_error = None;
-                                    }
-                                } else {
-                                    app.editing_list_error =
-                                        Some("List name must not be empty".to_string());
-                                    app.list_name_field_needs_focus = true;
-                                }
-                            }
-                        });
-                    });
-                });
-            },
-        );
-        if ret.inner.clicked() {
-            app.renaming_list = None;
-            app.new_list_name = "".to_owned();
-            app.editing_list_error = None;
-        }
+        super::list::render_rename_list_dialog(ui, app, list);
     }
 }
