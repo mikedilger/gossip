@@ -59,6 +59,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             if metadata.favorite {
                                 ui.add(Label::new(
                                     RichText::new("★")
+                                        .size(18.0)
                                         .color(app.theme.accent_complementary_color()),
                                 ));
                             }
