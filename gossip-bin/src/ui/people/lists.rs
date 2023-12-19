@@ -1,7 +1,7 @@
 use super::{GossipUi, Page};
 use crate::ui::widgets;
 use eframe::egui;
-use egui::{Context, Ui, Vec2};
+use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Label, RichText, Sense};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{FeedKind, PersonListMetadata, GLOBALS};

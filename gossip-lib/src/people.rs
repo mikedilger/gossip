@@ -575,7 +575,7 @@ impl People {
         //  where they were in the existing event)
         let old_tags = {
             if let Some(ref event) = existing_event {
-                if !event.content.is_empty() {
+                if !event.content.is_empty() && kind != EventKind::ContactList {
                     let decrypted_content =
                         GLOBALS.signer.decrypt_nip04(&my_pubkey, &event.content)?;
                     let mut tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;

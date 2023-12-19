@@ -872,20 +872,22 @@ impl GossipUi {
                                 continue;
                             }
                             if list == PersonList::Followed || metadata.favorite {
-                                self.add_menu_item_page_titled(
+                                self.add_menu_item_page(
                                     ui,
                                     Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
-                                    &metadata.title,
+                                    Some(&metadata.title),
+                                    true,
                                 );
                             } else {
                                 more += 1;
                             }
                         }
                         if more != 0 {
-                            self.add_menu_item_page_titled(
+                            self.add_menu_item_page(
                                 ui,
                                 Page::PeopleLists,
-                                &format!("More ({})...", more),
+                                Some(&format!("More ({})...", more)),
+                                false, // do not highlight this entry
                             );
                         }
                     });
@@ -953,9 +955,9 @@ impl GossipUi {
                     let (mut cstate, header_response) =
                         self.get_openable_menu(ui, ctx, SubMenu::Relays);
                     cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::RelaysActivityMonitor);
-                        self.add_menu_item_page(ui, Page::RelaysMine);
-                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork);
+                        self.add_menu_item_page(ui, Page::RelaysActivityMonitor, None, true);
+                        self.add_menu_item_page(ui, Page::RelaysMine, None, true);
+                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork, None, true);
                         ui.vertical(|ui| {
                             ui.spacing_mut().button_padding *= 2.0;
                             ui.visuals_mut().widgets.inactive.weak_bg_fill =
@@ -982,9 +984,9 @@ impl GossipUi {
                     let (mut cstate, header_response) =
                         self.get_openable_menu(ui, ctx, SubMenu::Account);
                     cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::YourMetadata);
-                        self.add_menu_item_page(ui, Page::YourKeys);
-                        self.add_menu_item_page(ui, Page::YourDelegation);
+                        self.add_menu_item_page(ui, Page::YourMetadata, None, true);
+                        self.add_menu_item_page(ui, Page::YourKeys, None, true);
+                        self.add_menu_item_page(ui, Page::YourDelegation, None, true);
                     });
                     self.after_openable_menu(ui, &cstate);
                 }
@@ -1002,10 +1004,10 @@ impl GossipUi {
                     let (mut cstate, header_response) =
                         self.get_openable_menu(ui, ctx, SubMenu::Help);
                     cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::HelpHelp);
-                        self.add_menu_item_page(ui, Page::HelpStats);
-                        self.add_menu_item_page(ui, Page::HelpAbout);
-                        self.add_menu_item_page(ui, Page::HelpTheme);
+                        self.add_menu_item_page(ui, Page::HelpHelp, None, true);
+                        self.add_menu_item_page(ui, Page::HelpStats, None, true);
+                        self.add_menu_item_page(ui, Page::HelpAbout, None, true);
+                        self.add_menu_item_page(ui, Page::HelpTheme, None, true);
                     });
                     self.after_openable_menu(ui, &cstate);
                 }
@@ -1656,20 +1658,26 @@ impl GossipUi {
         }
     }
 
-    fn add_menu_item_page(&mut self, ui: &mut Ui, page: Page) {
-        if self
-            .add_selected_label(ui, self.page == page, page.to_readable().1.as_str())
-            .clicked()
-        {
-            self.set_page(ui.ctx(), page);
-        }
-    }
+    fn add_menu_item_page(
+        &mut self,
+        ui: &mut Ui,
+        page: Page,
+        title: Option<&str>,
+        highlight: bool,
+    ) {
+        let condition = if highlight { self.page == page } else { false };
 
-    fn add_menu_item_page_titled(&mut self, ui: &mut Ui, page: Page, title: &str) {
-        if self
-            .add_selected_label(ui, self.page == page, title)
-            .clicked()
-        {
+        let pagename;
+
+        let title = match title {
+            Some(t) => t,
+            None => {
+                pagename = page.name();
+                &pagename
+            }
+        };
+
+        if self.add_selected_label(ui, condition, title).clicked() {
             self.set_page(ui.ctx(), page);
         }
     }
