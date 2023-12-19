@@ -9,8 +9,9 @@ pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
+use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
-use egui_winit::egui::{self, vec2, FontSelection, Rect, Sense, TextEdit, Ui, WidgetText};
+use egui_winit::egui::{self, vec2, FontSelection, Rect, Sense, TextEdit, Ui, WidgetText, RichText, Align};
 pub use nav_item::NavItem;
 
 mod relay_entry;
@@ -52,12 +53,23 @@ pub fn page_header<R>(
     title: impl Into<egui::RichText>,
     right_aligned_content: impl FnOnce(&mut Ui) -> R,
 ) {
+    let mut layout = LayoutJob::default();
+    let title: RichText = title.into();
+    title.append_to(&mut layout, ui.style(), FontSelection::Default, Align::LEFT);
+    page_header_layout(ui, layout, right_aligned_content)
+}
+
+pub fn page_header_layout<R>(
+    ui: &mut Ui,
+    galley: impl Into<WidgetText>,
+    right_aligned_content: impl FnOnce(&mut Ui) -> R
+) {
     ui.vertical(|ui| {
         ui.add_space(10.0);
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.add_space(2.0);
-                ui.heading(title);
+                ui.label(galley);
             });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(20.0);

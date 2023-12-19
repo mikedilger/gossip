@@ -4,6 +4,7 @@ use super::{GossipUi, Page};
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, RichText, Ui, Vec2};
+use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
@@ -86,16 +87,29 @@ pub(super) fn update(
         .unwrap_or_default()
         .unwrap_or_default();
 
-    let mut title = format!("{} ({})", metadata.title, metadata.len,);
+    let mut layout_job = LayoutJob::default();
+    let style = ui.style();
+    RichText::new(format!("{} ({})", metadata.title, metadata.len))
+        .heading()
+        .color(ui.visuals().widgets.noninteractive.fg_stroke.color)
+        .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
     if metadata.favorite {
-        title.push_str(" ★");
+        RichText::new(" ★")
+            .heading()
+            .size(18.0)
+            .color(app.theme.accent_complementary_color())
+            .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
     }
     if metadata.private {
-        title.push_str(" 😎");
+        RichText::new(" 😎")
+            .heading()
+            .size(14.5)
+            .color(app.theme.accent_complementary_color())
+            .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
     }
 
     // render page
-    widgets::page_header(ui, title, |ui| {
+    widgets::page_header_layout(ui, layout_job, |ui| {
         ui.add_enabled_ui(enabled, |ui| {
             let len = metadata.len;
             render_more_list_actions(ui, app, list, &mut metadata, len, true);
