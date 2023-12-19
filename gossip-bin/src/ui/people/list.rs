@@ -432,7 +432,7 @@ pub(super) fn render_more_list_actions(
                     app.theme.accent_button_1_style(ui.style_mut());
                     ui.spacing_mut().item_spacing.y = 10.0;
                     if !on_list {
-                        if ui.button("Edit Membership").clicked() {
+                        if ui.button("View Contacts").clicked() {
                             app.set_page(ui.ctx(), Page::PeopleList(list));
                             *is_open = false;
                         }
@@ -464,7 +464,7 @@ pub(super) fn render_more_list_actions(
                             }
                         }
                         if metadata.favorite {
-                            if ui.button("Unfavorite").clicked() {
+                            if ui.button("Remove from Favorites").clicked() {
                                 metadata.favorite = false;
                                 let _ = GLOBALS
                                     .storage
