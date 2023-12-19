@@ -8,12 +8,13 @@ const MARGIN_Y: f32 = 40.0;
 /// check [`response.inner`] return for clicks to the close button
 pub fn modal_popup(
     ui: &mut Ui,
-    dlg_size: egui::Vec2,
+    min_size: egui::Vec2,
+    max_size: egui::Vec2,
     content: impl FnOnce(&mut Ui),
 ) -> InnerResponse<egui::Response> {
     let content = |ui: &mut Ui| {
-        ui.set_min_size(dlg_size);
-        ui.set_max_size(dlg_size);
+        ui.set_min_size(min_size);
+        ui.set_max_size(max_size);
 
         content(ui);
 

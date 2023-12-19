@@ -145,14 +145,14 @@ impl Page {
         match self {
             Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
-            Page::PeopleLists => ("Person Lists", "Person Lists".into()),
+            Page::PeopleLists => ("Lists", "Lists".into()),
             Page::PeopleList(list) => {
                 let metadata = GLOBALS
                     .storage
                     .get_person_list_metadata(*list)
                     .unwrap_or_default()
                     .unwrap_or_default();
-                ("People", metadata.title)
+                ("Lists", metadata.title)
             }
             Page::Person(pk) => {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
@@ -435,10 +435,11 @@ struct GossipUi {
     petname: String,
     deleting_list: Option<PersonList>,
     creating_list: bool,
-    creating_list_first_run: bool,
+    list_name_field_needs_focus: bool,
     new_list_name: String,
     new_list_favorite: bool,
     renaming_list: Option<PersonList>,
+    editing_list_error: Option<String>,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -680,10 +681,11 @@ impl GossipUi {
             petname: "".to_owned(),
             deleting_list: None,
             creating_list: false,
-            creating_list_first_run: false,
+            list_name_field_needs_focus: false,
             new_list_name: "".to_owned(),
             new_list_favorite: false,
             renaming_list: None,
+            editing_list_error: None,
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
@@ -1940,7 +1942,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
         })
         .show(ctx, |ui| {
             let size = egui::vec2( 400.0, 300.0 );
-            let response = widgets::modal_popup(ui, size,
+            let response = widgets::modal_popup(ui, size, size,
                 |ui| {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
