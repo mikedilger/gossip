@@ -1,10 +1,12 @@
+use std::cmp::Ordering;
+
 use super::{GossipUi, Page};
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Label, RichText, Sense};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, PersonListMetadata, GLOBALS};
+use gossip_lib::{FeedKind, PersonList, PersonListMetadata, GLOBALS};
 use nostr_types::Unixtime;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -18,10 +20,26 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     let enable_scroll = true;
 
-    let all_lists = GLOBALS
+    let mut all_lists = GLOBALS
         .storage
         .get_all_person_list_metadata()
         .unwrap_or_default();
+    all_lists.sort_by(|a, b| {
+        if a.0 == PersonList::Followed {
+            Ordering::Less
+        } else if b.0 == PersonList::Followed {
+            Ordering::Greater
+        } else if a.0 == PersonList::Muted {
+            Ordering::Less
+        } else if b.0 == PersonList::Muted {
+            Ordering::Greater
+        } else {
+            b.1.favorite
+                .cmp(&a.1.favorite)
+                .then(a.1.title.cmp(&b.1.title))
+        }
+    });
+
     let color = app.theme.accent_color();
 
     app.vert_scroll_area()
