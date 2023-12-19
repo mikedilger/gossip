@@ -54,7 +54,7 @@ pub fn page_header<R>(
     right_aligned_content: impl FnOnce(&mut Ui) -> R,
 ) {
     let mut layout = LayoutJob::default();
-    let title: RichText = title.into();
+    let title: RichText = title.into().color(ui.visuals().widgets.noninteractive.fg_stroke.color);
     title.append_to(&mut layout, ui.style(), FontSelection::Default, Align::LEFT);
     page_header_layout(ui, layout, right_aligned_content)
 }
