@@ -421,7 +421,7 @@ pub(super) fn render_more_list_actions(
     count: usize,
     on_list: bool,
 ) {
-    static WIDTH: f32 = 130.0;
+    static WIDTH: f32 = 180.0;
     widgets::MoreMenu::new(ui, app)
         .with_min_size(vec2(WIDTH, 0.0))
         .with_max_size(vec2(WIDTH, f32::INFINITY))

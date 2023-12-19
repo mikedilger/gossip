@@ -119,6 +119,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             app.deleting_list = None;
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                            app.theme.accent_button_1_style(ui.style_mut());
                             app.theme.accent_button_danger_hover(ui.style_mut());
                             if ui.button("Delete").clicked() {
                                 let _ = GLOBALS
