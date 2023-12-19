@@ -205,7 +205,7 @@ pub(super) fn update(
     app.vert_scroll_area().show(ui, |ui| {
         // not nice but needed because of 'app' borrow in closure
         let people = app.people_list.cache_people.clone();
-        for (person, public) in people.iter() {
+        for (person, mut public) in people.iter() {
             let row_response = widgets::list_entry::make_frame(ui).show(ui, |ui| {
                 ui.horizontal(|ui| {
                     // Avatar first
@@ -253,29 +253,34 @@ pub(super) fn update(
                         });
                     });
 
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.set_min_height(avatar_height);
-                        // actions
-                        if ui.link("Remove").clicked() {
-                            let _ =
-                                GLOBALS
-                                    .storage
-                                    .remove_person_from_list(&person.pubkey, list, None);
-                        }
+
+                        widgets::MoreMenu::simple(ui, app)
+                            .show(ui, |ui, is_open| {
+                                // actions
+                                if ui.button("Remove").clicked() {
+                                    let _ =
+                                        GLOBALS
+                                            .storage
+                                            .remove_person_from_list(&person.pubkey, list, None);
+                                    *is_open = false;
+                                }
+                        });
 
                         ui.add_space(20.0);
 
                         // private / public switch
-                        if widgets::switch_simple(ui, *public).clicked() {
+                        ui.label("Private");
+                        if ui.add(widgets::Switch::onoff(&app.theme, &mut public)).clicked() {
                             let _ = GLOBALS.storage.add_person_to_list(
                                 &person.pubkey,
                                 list,
-                                !*public,
+                                public,
                                 None,
                             );
                             mark_refresh(app);
                         }
-                        ui.label(if *public { "public" } else { "private" });
                     });
                 });
             });

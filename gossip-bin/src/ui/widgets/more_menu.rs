@@ -124,8 +124,10 @@ impl MoreMenu {
         let (pivot, fixed_pos, polygon) = match self.above_or_below {
             AboveOrBelow::Above => {
                 let origin_pos = response.rect.center_top();
-                let fixed_pos =
-                    origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE);
+                let fixed_pos = match self.style {
+                    MoreMenuStyle::Simple => origin_pos,
+                    MoreMenuStyle::Bubble => origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
+                };
                 let path = PathShape::convex_polygon(
                     [
                         origin_pos,
@@ -140,8 +142,10 @@ impl MoreMenu {
             }
             AboveOrBelow::Below => {
                 let origin_pos = response.rect.center_bottom();
-                let fixed_pos =
-                    origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE);
+                let fixed_pos = match self.style {
+                    MoreMenuStyle::Simple => origin_pos,
+                    MoreMenuStyle::Bubble => origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
+                };
                 let path = PathShape::convex_polygon(
                     [
                         origin_pos,
