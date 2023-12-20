@@ -6,8 +6,8 @@ mod list;
 mod lists;
 mod person;
 
-pub(crate) use list::ListUi;
 pub(crate) use list::layout_list_title;
+pub(crate) use list::ListUi;
 pub(crate) use lists::sort_lists;
 
 pub(super) fn enter_page(app: &mut GossipUi) {

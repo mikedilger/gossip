@@ -8,7 +8,7 @@ static POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
 #[derive(PartialEq)]
 enum MoreMenuStyle {
     Simple,
-    Bubble
+    Bubble,
 }
 
 pub(in crate::ui) struct MoreMenu {
@@ -51,7 +51,7 @@ impl MoreMenu {
             hover_text: None,
             accent_color: app.theme.accent_color(),
             options_symbol: app.options_symbol.clone(),
-            style: MoreMenuStyle::Bubble
+            style: MoreMenuStyle::Bubble,
         }
     }
 
@@ -126,7 +126,10 @@ impl MoreMenu {
                 let origin_pos = response.rect.center_top();
                 let fixed_pos = match self.style {
                     MoreMenuStyle::Simple => origin_pos,
-                    MoreMenuStyle::Bubble => origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
+                    MoreMenuStyle::Bubble => {
+                        origin_pos
+                            + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE)
+                    }
                 };
                 let path = PathShape::convex_polygon(
                     [
@@ -144,7 +147,9 @@ impl MoreMenu {
                 let origin_pos = response.rect.center_bottom();
                 let fixed_pos = match self.style {
                     MoreMenuStyle::Simple => origin_pos,
-                    MoreMenuStyle::Bubble => origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
+                    MoreMenuStyle::Bubble => {
+                        origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE)
+                    }
                 };
                 let path = PathShape::convex_polygon(
                     [

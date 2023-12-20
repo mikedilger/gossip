@@ -5,7 +5,7 @@ use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{Label, RichText, Sense};
-use gossip_lib::{PersonList, GLOBALS, PersonListMetadata};
+use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
@@ -91,7 +91,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 }
 
-pub fn sort_lists(a: &(PersonList, PersonListMetadata), b: &(PersonList, PersonListMetadata)) -> Ordering {
+pub fn sort_lists(
+    a: &(PersonList, PersonListMetadata),
+    b: &(PersonList, PersonListMetadata),
+) -> Ordering {
     if a.0 == PersonList::Followed {
         Ordering::Less
     } else if b.0 == PersonList::Followed {
