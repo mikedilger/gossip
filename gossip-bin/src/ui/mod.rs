@@ -660,7 +660,7 @@ impl GossipUi {
             media_full_width_list: HashSet::new(),
             show_post_area: false,
             draft_needs_focus: false,
-            unlock_needs_focus: false,
+            unlock_needs_focus: true,
             draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
             editing_metadata: false,
@@ -1973,6 +1973,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                         let last_status = GLOBALS.status_queue.read().read_last();
                         if !last_status.starts_with("Welcome") {
                             ui.label(RichText::new(last_status).color(app.theme.warning_marker_text_color()));
+                            app.unlock_needs_focus = true;
                             ui.add_space(16.0);
                         }
 
@@ -1988,7 +1989,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                         ui.add_space(12.0);
 
                         let mut submitted =
-                            response.lost_focus() &&
+                            //response.lost_focus() &&
                             ui.input(|i| i.key_pressed(egui::Key::Enter));
 
                         app.theme.accent_button_1_style(ui.style_mut());
@@ -2014,7 +2015,18 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.add_space(30.0);
 
                             ui.label("In case you cannot login, here is your escape hatch:");
-                            you::offer_delete(app, ui);
+                            if app.delete_confirm {
+                                ui.label("Please confirm that you really mean to do this: ");
+                                if ui.button("Delete Identity (Yes I'm Sure)").clicked() {
+                                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::DeletePriv);
+                                    app.delete_confirm = false;
+                                    cancel_login();
+                                }
+                            } else {
+                                if ui.button("Delete Identity (Cannot be undone!)").clicked() {
+                                    app.delete_confirm = true;
+                                }
+                            }
                         } else {
                             // Change link color:
                             ui.style_mut().visuals.hyperlink_color = app.theme.navigation_text_color();
