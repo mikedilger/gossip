@@ -729,48 +729,25 @@ impl People {
         list: PersonList,
         public: bool,
     ) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
         if follow {
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, list, public, Some(&mut txn))?;
+                .add_person_to_list(pubkey, list, public, None)?;
         } else {
             GLOBALS
                 .storage
-                .remove_person_from_list(pubkey, list, Some(&mut txn))?;
+                .remove_person_from_list(pubkey, list, None)?;
         }
+
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-
-        if let Some(mut metadata) = GLOBALS.storage.get_person_list_metadata(list)? {
-            metadata.last_edit_time = Unixtime::now().unwrap();
-            GLOBALS
-                .storage
-                .set_person_list_metadata(list, &metadata, Some(&mut txn))?;
-        }
-
-        txn.commit()?;
 
         Ok(())
     }
 
     /// Clear a person list
     pub(crate) fn clear_person_list(&self, list: PersonList) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
-
-        if let Some(mut metadata) = GLOBALS.storage.get_person_list_metadata(list)? {
-            metadata.last_edit_time = Unixtime::now().unwrap();
-            GLOBALS
-                .storage
-                .set_person_list_metadata(list, &metadata, Some(&mut txn))?;
-        }
-
-        txn.commit()?;
-
+        GLOBALS.storage.clear_person_list(list, None)?;
         GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
-
         Ok(())
     }
 
