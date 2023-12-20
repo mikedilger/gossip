@@ -329,7 +329,7 @@ pub fn layout_list_title(
 
 fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     const DLG_SIZE: Vec2 = vec2(400.0, 240.0);
-    let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, |ui| {
+    let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
         let enter_key;
         (app.people_list.add_contact_search_selected, enter_key) =
             if app.people_list.add_contact_search_results.is_empty() {
@@ -481,6 +481,7 @@ pub(super) fn render_delete_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: P
         ui,
         vec2(250.0, 80.0),
         vec2(250.0, ui.available_height()),
+        true,
         |ui| {
             ui.vertical(|ui| {
                 ui.label("Are you sure you want to delete:");
@@ -516,6 +517,7 @@ pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
         ui,
         vec2(250.0, 100.0),
         vec2(250.0, ui.available_height()),
+        true,
         |ui| {
             ui.vertical(|ui| {
                 ui.heading("Create a new list");
@@ -594,6 +596,7 @@ pub(super) fn render_rename_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: P
         ui,
         vec2(250.0, 80.0),
         vec2(250.0, ui.available_height()),
+        true,
         |ui| {
             ui.vertical(|ui| {
                 ui.heading(&metadata.title);
@@ -769,7 +772,7 @@ fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {
 
 fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     const DLG_SIZE: Vec2 = vec2(250.0, 40.0);
-    let popup = widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, |ui| {
+    let popup = widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
         ui.vertical(|ui| {
             ui.label("Are you sure you want to clear this list?");
             ui.add_space(10.0);

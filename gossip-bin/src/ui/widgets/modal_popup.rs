@@ -10,6 +10,7 @@ pub fn modal_popup(
     ui: &mut Ui,
     min_size: egui::Vec2,
     max_size: egui::Vec2,
+    closable: bool,
     content: impl FnOnce(&mut Ui),
 ) -> InnerResponse<egui::Response> {
     let content = |ui: &mut Ui| {
@@ -18,19 +19,24 @@ pub fn modal_popup(
 
         content(ui);
 
-        // paint the close button
-        // ui.max_rect is inner_margin size
-        let tr = ui.max_rect().right_top() + egui::vec2(MARGIN_X, -MARGIN_Y);
-        let rect =
-            egui::Rect::from_x_y_ranges(tr.x - 30.0..=tr.x - 15.0, tr.y + 15.0..=tr.y + 30.0);
-        egui::Area::new(ui.auto_id_with("_sym"))
-            .movable(false)
-            .order(egui::Order::Foreground)
-            .fixed_pos(rect.left_top())
-            .show(ui.ctx(), |ui| {
-                ui.add_sized(rect.size(), super::NavItem::new("\u{274C}", false))
-            })
-            .inner
+        if closable {
+            // paint the close button
+            // ui.max_rect is inner_margin size
+            let tr = ui.max_rect().right_top() + egui::vec2(MARGIN_X, -MARGIN_Y);
+            let rect =
+                egui::Rect::from_x_y_ranges(tr.x - 30.0..=tr.x - 15.0, tr.y + 15.0..=tr.y + 30.0);
+            egui::Area::new(ui.auto_id_with("_sym"))
+                .movable(false)
+                .order(egui::Order::Foreground)
+                .fixed_pos(rect.left_top())
+                .show(ui.ctx(), |ui| {
+                    ui.add_sized(rect.size(), super::NavItem::new("\u{274C}", false))
+                })
+                .inner
+        } else {
+            // dummy response
+            ui.allocate_response(egui::vec2(1.0, 1.0), egui::Sense::click())
+        }
     };
 
     egui::Area::new(ui.auto_id_with("hide-background-area"))

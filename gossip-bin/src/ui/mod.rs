@@ -1956,6 +1956,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                 ui,
                 size,
                 size,
+                false,
                 |ui| {
                     ui.vertical_centered(|ui| {
                         ui.add_space(115.0);
