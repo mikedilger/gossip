@@ -14,7 +14,7 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: migrating person list metadata (again)...");
+        tracing::info!("{prefix}: fixing list counts...");
 
         // Migrate
         self.m23_recount_list_lengths(txn)?;
