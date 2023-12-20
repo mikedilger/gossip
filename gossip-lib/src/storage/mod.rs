@@ -2316,7 +2316,29 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.clear_person_list2(list, rw_txn)
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.clear_person_list2(list, Some(txn))?;
+            let now = Unixtime::now().unwrap();
+            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                metadata.last_edit_time = now;
+                metadata.len = 0;
+                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     /// Mark everybody in a list as private
@@ -2369,12 +2391,15 @@ impl Storage {
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let mut map = self.read_person_lists(pubkey)?;
+            let had = map.contains_key(&list);
             map.insert(list, public);
             self.write_person_lists(pubkey, map, Some(txn))?;
             let now = Unixtime::now().unwrap();
             if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                if !had {
+                    metadata.len += 1;
+                }
                 metadata.last_edit_time = now;
-                metadata.len += 1;
                 self.set_person_list_metadata(list, &metadata, Some(txn))?;
             }
 
@@ -2404,14 +2429,15 @@ impl Storage {
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let mut map = self.read_person_lists(pubkey)?;
+            let had = map.contains_key(&list);
             map.remove(&list);
             self.write_person_lists(pubkey, map, Some(txn))?;
             let now = Unixtime::now().unwrap();
             if let Some(mut metadata) = self.get_person_list_metadata(list)? {
-                metadata.last_edit_time = now;
-                if metadata.len > 0 {
+                if had && metadata.len > 0 {
                     metadata.len -= 1;
                 }
+                metadata.last_edit_time = now;
                 self.set_person_list_metadata(list, &metadata, Some(txn))?;
             }
             Ok(())
