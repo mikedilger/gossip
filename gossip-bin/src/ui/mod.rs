@@ -1951,50 +1951,108 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
             })
         })
         .show(ctx, |ui| {
-            let size = egui::vec2( 400.0, 300.0 );
-            let response = widgets::modal_popup(ui, size, size,
+            let size = egui::vec2( 600.0, 450.0 );
+            let response = widgets::modal_popup(
+                ui,
+                size,
+                size,
                 |ui| {
-                ui.vertical(|ui| {
-                    ui.horizontal(|ui| {
-                        ui.heading("Login");
-                        ui.label("ⓘ")
-                            .on_hover_text("In order to AUTH to relays, show DMs, post, zap and react, gossip needs your private key.");
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(115.0);
+
+                        ui.label(RichText::new("Welcome to Gossip").size(21.0));
+                        ui.add_space(8.0);
+
+                        ui.label("Enter your passphrase");
+                        // .on_hover_text("In order to AUTH to relays, show DMs, post, zap and react, gossip needs your private key.");
+
+                        ui.label("to unlock the Nostr private key and login");
+                        ui.add_space(16.0);
+
+                        let last_status = GLOBALS.status_queue.read().read_last();
+                        if !last_status.starts_with("Welcome") {
+                            ui.label(RichText::new(last_status).color(app.theme.warning_marker_text_color()));
+                            ui.add_space(16.0);
+                        }
+
+                        let response = ui.add(
+                            text_edit_line!(app, app.password).password(true)
+                                .desired_width(400.0)
+                        );
+                        if app.unlock_needs_focus {
+                            response.request_focus();
+                            app.unlock_needs_focus = false;
+                        }
+
+                        ui.add_space(12.0);
+
+                        let mut submitted =
+                            response.lost_focus() &&
+                            ui.input(|i| i.key_pressed(egui::Key::Enter));
+
+                        app.theme.accent_button_1_style(ui.style_mut());
+                        submitted |= ui.button("     Continue     ").clicked();
+                        ui.set_style(app.theme.get_style());
+
+                        if submitted {
+                            let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
+                            app.password.zeroize();
+                            app.password = "".to_owned();
+                            app.draft_needs_focus = true;
+                            // don't cancel login, they may have entered a bad password
+                        }
+
+                        ui.add_space(45.0);
+
+                        let data_migration = GLOBALS.wait_for_data_migration.load(Ordering::Relaxed);
+
+                        // If there is a data migration, explain
+                        if data_migration {
+                            ui.label(RichText::new("Access with public key is not available for this session, a data migration is needed").weak())
+                                .on_hover_text("We need to rebuild some data which may require decrypting DMs and Giftwraps to rebuild properly. For this reason, you need to login before the data migration runs.");
+                            ui.add_space(30.0);
+
+                            ui.label("In case you cannot login, here is your escape hatch:");
+                            you::offer_delete(app, ui);
+                        } else {
+                            // Change link color:
+                            ui.style_mut().visuals.hyperlink_color = app.theme.navigation_text_color();
+
+                            if ui.link("Skip login, browse with public key >>")
+                                .on_hover_text("You may skip this if you only want to view public posts, and you can unlock it at a later time under the Account menu.")
+                                .clicked() {
+                                cancel_login();
+                            }
+                        }
                     });
 
-                    you::offer_unlock_priv_key(app, ui);
+                    ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                        ui.horizontal(|ui| {
+                            // Change link color:
+                            ui.style_mut().visuals.hyperlink_color = app.theme.navigation_text_color();
 
-                    let data_migration = GLOBALS.wait_for_data_migration.load(Ordering::Relaxed);
+                            // egui does not center text that has multiple widgets.
+                            // Luckily we know the size of the container and the widgets ahead of time,
+                            // so in this case we can just add space.
+                            ui.add_space(60.0);
 
-                    // If there is a data migration, explain
-                    if data_migration {
-                        ui.add_space(10.0);
-                        ui.label("We need to rebuild some data which may require decrypting DMs and Giftwraps to rebuild properly. For this reason, you need to login before the data migration runs.");
-                    }
-
-                    ui.add_space(15.0);
-
-                    // If there is not a data migration, allow them to skip login
-                    if ! data_migration {
-                        if ui.button("Skip")
-                            .on_hover_text("You may skip this if you only want to view public posts, and you can unlock it at a later time under the Account menu.")
-                            .clicked() {
-                            cancel_login();
-                        }
-                    } else {
-                        ui.add_space(60.0);
-                        ui.separator();
-                        ui.add_space(10.0);
-
-                        ui.label("In case you cannot login, here is your escape hatch:");
-                        you::offer_delete(app, ui);
-                    }
-
-                    ui.add_space(15.0);
-                    ui.separator();
-
-                    app.render_status_queue_area(ui);
+                            ui.label(
+                                RichText::new("Do you need help? Open an").weak()
+                            );
+                            ui.hyperlink_to(
+                                "issue on Github",
+                                "https://github.com/mikedilger/gossip/issues"
+                            );
+                            ui.label(
+                                RichText::new("or join our").weak()
+                            );
+                            ui.hyperlink_to(
+                                "Telegram Channel",
+                                "https://t.me/gossipclient"
+                            );
+                        });
+                    });
                 });
-            });
 
             if response.inner.clicked() {
                 cancel_login();

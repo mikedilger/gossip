@@ -2445,7 +2445,7 @@ impl Overlord {
             GLOBALS
                 .status_queue
                 .write()
-                .write("Could not decrypt key with that password.".to_owned());
+                .write("The passphrase is wrong, try again".to_owned());
         };
         password.zeroize();
 
