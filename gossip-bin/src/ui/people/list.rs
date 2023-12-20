@@ -224,7 +224,7 @@ pub(super) fn update(
                     ui.vertical(|ui| {
                         ui.set_min_height(avatar_height);
                         ui.horizontal(|ui| {
-                            ui.label(GossipUi::person_name(person));
+                            ui.label(person.best_name());
 
                             ui.add_space(10.0);
 
