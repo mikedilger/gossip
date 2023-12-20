@@ -5,7 +5,7 @@ use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{Label, RichText, Sense};
-use gossip_lib::{PersonList, GLOBALS};
+use gossip_lib::{PersonList, GLOBALS, PersonListMetadata};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
@@ -22,21 +22,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .storage
         .get_all_person_list_metadata()
         .unwrap_or_default();
-    all_lists.sort_by(|a, b| {
-        if a.0 == PersonList::Followed {
-            Ordering::Less
-        } else if b.0 == PersonList::Followed {
-            Ordering::Greater
-        } else if a.0 == PersonList::Muted {
-            Ordering::Less
-        } else if b.0 == PersonList::Muted {
-            Ordering::Greater
-        } else {
-            b.1.favorite
-                .cmp(&a.1.favorite)
-                .then(a.1.title.cmp(&b.1.title))
-        }
-    });
+    all_lists.sort_by(sort_lists);
 
     let color = app.theme.accent_color();
 
@@ -102,5 +88,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         super::list::render_create_list_dialog(ui, app);
     } else if let Some(list) = app.renaming_list {
         super::list::render_rename_list_dialog(ui, app, list);
+    }
+}
+
+pub fn sort_lists(a: &(PersonList, PersonListMetadata), b: &(PersonList, PersonListMetadata)) -> Ordering {
+    if a.0 == PersonList::Followed {
+        Ordering::Less
+    } else if b.0 == PersonList::Followed {
+        Ordering::Greater
+    } else if a.0 == PersonList::Muted {
+        Ordering::Less
+    } else if b.0 == PersonList::Muted {
+        Ordering::Greater
+    } else {
+        b.1.favorite
+            .cmp(&a.1.favorite)
+            .then(a.1.title.to_lowercase().cmp(&b.1.title.to_lowercase()))
     }
 }

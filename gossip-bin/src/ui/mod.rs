@@ -860,10 +860,12 @@ impl GossipUi {
                     let (mut cstate, header_response) =
                         self.get_openable_menu(ui, ctx, SubMenu::Feeds);
                     cstate.show_body_indented(&header_response, ui, |ui| {
-                        let all_lists = GLOBALS
+                        let mut all_lists = GLOBALS
                             .storage
                             .get_all_person_list_metadata()
                             .unwrap_or_default();
+
+                        all_lists.sort_by(people::sort_lists);
 
                         let mut more: usize = 0;
                         for (list, metadata) in all_lists {
