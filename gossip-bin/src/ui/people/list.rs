@@ -284,7 +284,7 @@ pub(super) fn update(
     }
 }
 
-pub fn layout_list_title(
+pub(crate) fn layout_list_title(
     ui: &mut Ui,
     app: &mut GossipUi,
     metadata: &PersonListMetadata,
