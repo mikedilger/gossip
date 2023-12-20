@@ -241,16 +241,18 @@ pub(super) fn update(
 
                             ui.add_space(20.0);
 
-                            // private / public switch
-                            ui.label("Private");
-                            if ui.add(widgets::Switch::onoff(&app.theme, &mut public)).clicked() {
-                                let _ = GLOBALS.storage.add_person_to_list(
-                                    &person.pubkey,
-                                    list,
-                                    public,
-                                    None,
-                                );
-                                mark_refresh(app);
+                            if list > PersonList::Followed {
+                                // private / public switch
+                                ui.label("Private");
+                                if ui.add(widgets::Switch::onoff(&app.theme, &mut public)).clicked() {
+                                    let _ = GLOBALS.storage.add_person_to_list(
+                                        &person.pubkey,
+                                        list,
+                                        public,
+                                        None,
+                                    );
+                                    mark_refresh(app);
+                                }
                             }
                         });
                     });
@@ -384,6 +386,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
                                 .to_overlord
                                 .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
                             can_close = true;
+                            mark_refresh(app);
                         } else if let Ok(pubkey) =
                             PublicKey::try_from_hex_string(app.add_contact.trim(), true)
                         {
@@ -391,6 +394,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
                                 .to_overlord
                                 .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
                             can_close = true;
+                            mark_refresh(app);
                         } else if let Ok(profile) =
                             Profile::try_from_bech32_string(app.add_contact.trim(), true)
                         {
@@ -400,12 +404,15 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
                                 true,
                             ));
                             can_close = true;
+                            mark_refresh(app);
                         } else if gossip_lib::nip05::parse_nip05(app.add_contact.trim()).is_ok() {
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                                 app.add_contact.trim().to_owned(),
                                 list,
                                 true,
                             ));
+                            can_close = true;
+                            mark_refresh(app);
                         } else {
                             add_failed = true;
                             GLOBALS
