@@ -243,7 +243,7 @@ pub(super) fn update(
 
                                 ui.add_space(20.0);
 
-                                if list > PersonList::Followed {
+                                if list != PersonList::Followed {
                                     // private / public switch
                                     ui.label("Private");
                                     if ui
