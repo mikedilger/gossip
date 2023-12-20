@@ -296,7 +296,7 @@ pub fn layout_list_title(
         .color(ui.visuals().widgets.noninteractive.fg_stroke.color)
         .append_to(
             &mut layout_job,
-            &style,
+            style,
             egui::FontSelection::Default,
             egui::Align::LEFT,
         );
@@ -307,7 +307,7 @@ pub fn layout_list_title(
             .color(app.theme.accent_complementary_color())
             .append_to(
                 &mut layout_job,
-                &style,
+                style,
                 egui::FontSelection::Default,
                 egui::Align::LEFT,
             );
@@ -319,7 +319,7 @@ pub fn layout_list_title(
             .color(app.theme.accent_complementary_color())
             .append_to(
                 &mut layout_job,
-                &style,
+                style,
                 egui::FontSelection::Default,
                 egui::Align::LEFT,
             );
