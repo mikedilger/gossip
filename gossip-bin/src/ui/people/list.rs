@@ -239,48 +239,39 @@ pub(super) fn update(
                                 );
                             }
                         });
-                        ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                            ui.horizontal(|ui| {
-                                ui.label(
-                                    RichText::new(gossip_lib::names::pubkey_short(&person.pubkey))
-                                        .weak(),
-                                );
-
-                                ui.add_space(10.0);
-
-                                ui.label(GossipUi::richtext_from_person_nip05(person));
-                            });
-                        });
+                        ui.add_space(10.0);
+                        ui.label(GossipUi::richtext_from_person_nip05(person).weak());
                     });
 
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.set_min_height(avatar_height);
+                    ui.vertical(|ui|{
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min)
+                            .with_cross_align(egui::Align::Center), |ui| {
+                            widgets::MoreMenu::simple(ui, app)
+                                .show(ui, |ui, is_open| {
+                                    // actions
+                                    if ui.button("Remove").clicked() {
+                                        let _ =
+                                            GLOBALS
+                                                .storage
+                                                .remove_person_from_list(&person.pubkey, list, None);
+                                        *is_open = false;
+                                    }
+                            });
 
-                        widgets::MoreMenu::simple(ui, app)
-                            .show(ui, |ui, is_open| {
-                                // actions
-                                if ui.button("Remove").clicked() {
-                                    let _ =
-                                        GLOBALS
-                                            .storage
-                                            .remove_person_from_list(&person.pubkey, list, None);
-                                    *is_open = false;
-                                }
+                            ui.add_space(20.0);
+
+                            // private / public switch
+                            ui.label("Private");
+                            if ui.add(widgets::Switch::onoff(&app.theme, &mut public)).clicked() {
+                                let _ = GLOBALS.storage.add_person_to_list(
+                                    &person.pubkey,
+                                    list,
+                                    public,
+                                    None,
+                                );
+                                mark_refresh(app);
+                            }
                         });
-
-                        ui.add_space(20.0);
-
-                        // private / public switch
-                        ui.label("Private");
-                        if ui.add(widgets::Switch::onoff(&app.theme, &mut public)).clicked() {
-                            let _ = GLOBALS.storage.add_person_to_list(
-                                &person.pubkey,
-                                list,
-                                public,
-                                None,
-                            );
-                            mark_refresh(app);
-                        }
                     });
                 });
             });
