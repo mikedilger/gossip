@@ -71,14 +71,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     add_left_space(ui);
-                    ui.heading(format!("{} feed", metadata.title));
+                    let title_job = super::people::layout_list_title(ui, app, &metadata);
+                    ui.label(title_job);
                     recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(10.0);
 
                         if ui
-                            .button(format!("View contacts ({})", metadata.len))
+                            .button("Edit List")
                             .clicked()
                         {
                             app.set_page(ctx, Page::PeopleList(list));

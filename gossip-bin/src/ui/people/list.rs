@@ -87,29 +87,10 @@ pub(super) fn update(
         .unwrap_or_default()
         .unwrap_or_default();
 
-    let mut layout_job = LayoutJob::default();
-    let style = ui.style();
-    RichText::new(format!("{} ({})", metadata.title, metadata.len))
-        .heading()
-        .color(ui.visuals().widgets.noninteractive.fg_stroke.color)
-        .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
-    if metadata.favorite {
-        RichText::new(" ★")
-            .heading()
-            .size(18.0)
-            .color(app.theme.accent_complementary_color())
-            .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
-    }
-    if metadata.private {
-        RichText::new(" 😎")
-            .heading()
-            .size(14.5)
-            .color(app.theme.accent_complementary_color())
-            .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
-    }
+    let title_job = layout_list_title(ui, app, &metadata);
 
     // render page
-    widgets::page_header_layout(ui, layout_job, |ui| {
+    widgets::page_header_layout(ui, title_job, |ui| {
         ui.add_enabled_ui(enabled, |ui| {
             let len = metadata.len;
             render_more_list_actions(ui, app, list, &mut metadata, len, true);
@@ -293,6 +274,30 @@ pub(super) fn update(
     } else if let Some(list) = app.renaming_list {
         super::list::render_rename_list_dialog(ui, app, list);
     }
+}
+
+pub fn layout_list_title(ui: &mut Ui, app: &mut GossipUi, metadata: &PersonListMetadata) -> LayoutJob {
+    let mut layout_job = LayoutJob::default();
+    let style = ui.style();
+    RichText::new(format!("{} ({})", metadata.title, metadata.len))
+        .heading()
+        .color(ui.visuals().widgets.noninteractive.fg_stroke.color)
+        .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
+    if metadata.favorite {
+        RichText::new(" ★")
+            .heading()
+            .size(18.0)
+            .color(app.theme.accent_complementary_color())
+            .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
+    }
+    if metadata.private {
+        RichText::new(" 😎")
+            .heading()
+            .size(14.5)
+            .color(app.theme.accent_complementary_color())
+            .append_to(&mut layout_job, &style, egui::FontSelection::Default, egui::Align::LEFT);
+    }
+    layout_job
 }
 
 fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
