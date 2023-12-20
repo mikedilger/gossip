@@ -91,7 +91,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 }
 
-pub fn sort_lists(
+pub(in crate::ui) fn sort_lists(
     a: &(PersonList, PersonListMetadata),
     b: &(PersonList, PersonListMetadata),
 ) -> Ordering {

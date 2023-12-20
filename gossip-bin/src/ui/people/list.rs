@@ -11,7 +11,7 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{FeedKind, Person, PersonList, PersonListMetadata, GLOBALS};
 use nostr_types::{Profile, PublicKey, Unixtime};
 
-pub(crate) struct ListUi {
+pub(in crate::ui) struct ListUi {
     // cache
     cache_last_list: Option<PersonList>,
     cache_next_refresh: Instant,

@@ -6,9 +6,9 @@ mod list;
 mod lists;
 mod person;
 
-pub(crate) use list::layout_list_title;
-pub(crate) use list::ListUi;
-pub(crate) use lists::sort_lists;
+pub(in crate::ui) use list::layout_list_title;
+pub(in crate::ui) use list::ListUi;
+pub(in crate::ui) use lists::sort_lists;
 
 pub(super) fn enter_page(app: &mut GossipUi) {
     if app.page == Page::PeopleLists {
