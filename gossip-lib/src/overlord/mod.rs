@@ -1044,7 +1044,6 @@ impl Overlord {
     pub async fn delete_pub() -> Result<(), Error> {
         GLOBALS.signer.clear_public_key();
         Self::delegation_reset().await?;
-        GLOBALS.signer.save().await?;
         Ok(())
     }
 
@@ -1177,8 +1176,6 @@ impl Overlord {
     pub async fn generate_private_key(mut password: String) -> Result<(), Error> {
         GLOBALS.signer.generate_private_key(&password)?;
         password.zeroize();
-        GLOBALS.signer.save().await?;
-
         Ok(())
     }
 
@@ -1206,7 +1203,6 @@ impl Overlord {
                     .write(format!("Private key failed to decrypt: {}", e));
             } else {
                 password.zeroize();
-                GLOBALS.signer.save().await?;
             }
         } else {
             let maybe_pk1 = PrivateKey::try_from_bech32_string(privkey.trim());
@@ -1222,7 +1218,6 @@ impl Overlord {
                 let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                 GLOBALS.signer.set_private_key(privkey, &password)?;
                 password.zeroize();
-                GLOBALS.signer.save().await?;
             }
         }
 
@@ -1241,7 +1236,6 @@ impl Overlord {
         } else {
             let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
             GLOBALS.signer.set_public_key(pubkey);
-            GLOBALS.signer.save().await?;
         }
 
         Ok(())

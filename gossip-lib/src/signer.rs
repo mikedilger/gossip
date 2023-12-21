@@ -30,7 +30,7 @@ impl Signer {
         Ok(())
     }
 
-    pub(crate) async fn save(&self) -> Result<(), Error> {
+    pub(crate) fn save(&self) -> Result<(), Error> {
         GLOBALS
             .storage
             .write_setting_public_key(&self.public.read(), None)?;
@@ -49,6 +49,7 @@ impl Signer {
                 .write("Ignored setting of public key (private key supercedes)".to_string());
         } else {
             *self.public.write() = Some(pk);
+            let _ = self.save();
 
             // Reubild the event tag index, since the 'p' tags it need to index just changed.
             task::spawn(async move {
@@ -67,6 +68,7 @@ impl Signer {
                 .write("Ignored clearing of public key (private key supercedes)".to_string());
         } else {
             *self.public.write() = None;
+            let _ = self.save();
         }
     }
 
@@ -78,6 +80,7 @@ impl Signer {
             // ignore, epk supercedes
         } else {
             *self.encrypted.write() = Some(epk);
+            let _ = self.save();
         }
 
         // Reubild the event tag index, since the 'p' tags it need to index just changed.
@@ -93,6 +96,7 @@ impl Signer {
             Some(pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
         *self.public.write() = Some(pk.public_key());
         *self.private.write() = Some(pk);
+        self.save()?;
 
         // Reubild the event tag index, since the 'p' tags it need to index just changed.
         task::spawn(async move {
@@ -121,12 +125,7 @@ impl Signer {
                 if epk.version()? < 2 {
                     *self.encrypted.write() =
                         Some(private.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
-                    // and eventually save
-                    task::spawn(async move {
-                        if let Err(e) = GLOBALS.signer.save().await {
-                            tracing::error!("{}", e);
-                        }
-                    });
+                    self.save()?;
                 }
 
                 if self.public.read().is_none() {
@@ -174,7 +173,7 @@ impl Signer {
                 let pk = epk.decrypt(old)?;
                 let epk = pk.export_encrypted(new, GLOBALS.storage.read_setting_log_n())?;
                 *self.encrypted.write() = Some(epk);
-                self.save().await?;
+                self.save()?;
                 GLOBALS
                     .status_queue
                     .write()
@@ -191,13 +190,10 @@ impl Signer {
             Some(pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?);
         *self.public.write() = Some(pk.public_key());
         *self.private.write() = Some(pk);
+        self.save()?;
 
         // and eventually save
         task::spawn(async move {
-            if let Err(e) = GLOBALS.signer.save().await {
-                tracing::error!("{}", e);
-            }
-
             // Reubild the event tag index, since the 'p' tags it need to index just changed.
             if let Err(e) = GLOBALS.storage.rebuild_event_tags_index(None) {
                 tracing::error!("{}", e);
@@ -265,11 +261,7 @@ impl Signer {
                 let epk = pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?;
                 *self.encrypted.write() = Some(epk);
                 *self.private.write() = Some(pk);
-                task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save().await {
-                        tracing::error!("{}", e);
-                    }
-                });
+                self.save()?;
                 Ok(output)
             }
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
@@ -291,11 +283,7 @@ impl Signer {
                 let epk = pk.export_encrypted(pass, GLOBALS.storage.read_setting_log_n())?;
                 *self.encrypted.write() = Some(epk);
                 *self.private.write() = Some(pk);
-                task::spawn(async move {
-                    if let Err(e) = GLOBALS.signer.save().await {
-                        tracing::error!("{}", e);
-                    }
-                });
+                self.save()?;
                 Ok(output)
             }
             _ => Err((ErrorKind::NoPrivateKey, file!(), line!()).into()),
@@ -306,12 +294,7 @@ impl Signer {
         *self.private.write() = None;
         *self.encrypted.write() = None;
         *self.public.write() = None;
-
-        task::spawn(async move {
-            if let Err(e) = GLOBALS.signer.save().await {
-                tracing::error!("{}", e);
-            }
-        });
+        let _ = self.save();
     }
 
     /// Decrypt an event
