@@ -216,7 +216,7 @@ impl RelayEntry {
 
 impl RelayEntry {
     fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = self.relay.url.host();
+        let title = self.relay.url.as_str().to_owned();
         let text = RichText::new(title).size(list_entry::TITLE_FONT_SIZE);
         let galley = list_entry::text_to_galley_max_width(
             ui,

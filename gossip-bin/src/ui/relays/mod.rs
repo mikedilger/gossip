@@ -564,7 +564,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
             .cmp(&a.rank)
             .then(b.usage_bits.cmp(&a.usage_bits))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::Name => a.url.host().cmp(&b.url.host()),
+        RelaySorting::Name => a.url.cmp(&b.url),
         RelaySorting::WriteRelays => b
             .has_usage_bits(Relay::WRITE)
             .cmp(&a.has_usage_bits(Relay::WRITE))
