@@ -1421,14 +1421,21 @@ impl GossipUi {
                     }
                 }
                 if !followed && ui.button("Follow").clicked() {
-                    let _ = GLOBALS
-                        .people
-                        .follow(&person.pubkey, true, PersonList::Followed, true);
+                    let _ = GLOBALS.people.follow(
+                        &person.pubkey,
+                        true,
+                        PersonList::Followed,
+                        true,
+                        true,
+                    );
                 } else if followed && ui.button("Unfollow").clicked() {
-                    let _ =
-                        GLOBALS
-                            .people
-                            .follow(&person.pubkey, false, PersonList::Followed, true);
+                    let _ = GLOBALS.people.follow(
+                        &person.pubkey,
+                        false,
+                        PersonList::Followed,
+                        true,
+                        false,
+                    );
                 }
 
                 // Do not show 'Mute' if this is yourself

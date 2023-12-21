@@ -85,7 +85,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
 
     if valid {
-        update_relays(nip05, nip05file, &person.pubkey).await?;
+        update_relays(&nip05, nip05file, &person.pubkey).await?;
     }
 
     Ok(())
@@ -119,17 +119,17 @@ pub async fn get_and_follow_nip05(
         )
         .await?;
 
-    // Mark as followed, publicly
-    GLOBALS.people.follow(&pubkey, true, list, public)?;
+    update_relays(&nip05, nip05file, &pubkey).await?;
+
+    // Follow
+    GLOBALS.people.follow(&pubkey, true, list, public, true)?;
 
     tracing::info!("Followed {}", &nip05);
-
-    update_relays(nip05, nip05file, &pubkey).await?;
 
     Ok(())
 }
 
-async fn update_relays(nip05: String, nip05file: Nip05, pubkey: &PublicKey) -> Result<(), Error> {
+async fn update_relays(nip05: &str, nip05file: Nip05, pubkey: &PublicKey) -> Result<(), Error> {
     // Set their relays
     let relays = match nip05file.relays.get(&(*pubkey).into()) {
         Some(relays) => relays,
@@ -150,7 +150,7 @@ async fn update_relays(nip05: String, nip05file: Nip05, pubkey: &PublicKey) -> R
         }
     }
 
-    tracing::info!("Setup {} relays for {}", relays.len(), &nip05);
+    tracing::info!("Setup {} relays for {}", relays.len(), nip05);
 
     Ok(())
 }

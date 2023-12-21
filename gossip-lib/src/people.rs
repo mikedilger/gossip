@@ -728,18 +728,35 @@ impl People {
         follow: bool,
         list: PersonList,
         public: bool,
+        discover: bool, // if you also want to subscribe to their relay list
     ) -> Result<(), Error> {
         if follow {
             GLOBALS
                 .storage
                 .add_person_to_list(pubkey, list, public, None)?;
+
+            // Add to the relay picker. If they are already there, it will be ok.
+            GLOBALS.relay_picker.add_someone(*pubkey)?;
         } else {
             GLOBALS
                 .storage
                 .remove_person_from_list(pubkey, list, None)?;
+
+            // Don't remove from relay picker here. They might still be on other
+            // lists. Garbage collection will eventually clean it up.
         }
 
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::RefreshScoresAndPickRelays);
+
+        if follow && discover {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::SubscribeDiscover(vec![*pubkey], None));
+        }
 
         Ok(())
     }

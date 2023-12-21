@@ -86,9 +86,6 @@ pub enum ToOverlordMessage {
     /// internal (minions use this channel too)
     MinionJobUpdated(RelayUrl, u64, u64),
 
-    /// Calls [pick_relays_cmd](crate::Overlord::pick_relays_cmd)
-    PickRelays,
-
     /// Calls [post](crate::Overlord::post)
     Post {
         content: String,
@@ -114,6 +111,9 @@ pub enum ToOverlordMessage {
 
     /// internal (the overlord sends messages to itself sometimes!)
     ReengageMinion(RelayUrl, Vec<RelayJob>),
+
+    /// Calls [refresh_scores_and_pick_relays](crate::Overlord::refresh_scores_and_pick_relays)
+    RefreshScoresAndPickRelays,
 
     /// Calls [reresh_subscribed_metadata](crate::Overlord::refresh_subscribed_metadata)
     RefreshSubscribedMetadata,

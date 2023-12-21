@@ -576,8 +576,8 @@ impl Overlord {
                     self.maybe_disconnect_relay(&url)?;
                 }
             }
-            ToOverlordMessage::PickRelays => {
-                self.pick_relays_cmd().await?;
+            ToOverlordMessage::RefreshScoresAndPickRelays => {
+                self.refresh_scores_and_pick_relays().await?;
             }
             ToOverlordMessage::Post {
                 content,
@@ -694,7 +694,7 @@ impl Overlord {
             }
         }
 
-        self.pick_relays().await;
+        self.refresh_scores_and_pick_relays().await?;
 
         Ok(())
     }
@@ -1114,8 +1114,7 @@ impl Overlord {
         list: PersonList,
         public: bool,
     ) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true, list, public)?;
-        self.subscribe_discover(vec![pubkey], None).await?;
+        GLOBALS.people.follow(&pubkey, true, list, public, true)?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
@@ -1137,10 +1136,6 @@ impl Overlord {
         list: PersonList,
         public: bool,
     ) -> Result<(), Error> {
-        GLOBALS
-            .people
-            .follow(&nprofile.pubkey, true, list, public)?;
-
         // Set their relays
         for relay in nprofile.relays.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
@@ -1160,14 +1155,15 @@ impl Overlord {
             }
         }
 
+        // Follow
+        GLOBALS
+            .people
+            .follow(&nprofile.pubkey, true, list, public, true)?;
+
         GLOBALS
             .status_queue
             .write()
             .write(format!("Followed user at {} relays", nprofile.relays.len()));
-
-        // async_follow added them to the relay tracker.
-        // Pick relays to start tracking them now
-        self.pick_relays().await;
 
         Ok(())
     }
@@ -1353,7 +1349,7 @@ impl Overlord {
     }
 
     /// Trigger the relay picker to find relays for people not fully covered
-    pub async fn pick_relays_cmd(&mut self) -> Result<(), Error> {
+    pub async fn refresh_scores_and_pick_relays(&mut self) -> Result<(), Error> {
         // When manually doing this, we refresh person_relay scores first which
         // often change if the user just added follows.
         GLOBALS.relay_picker.refresh_person_relay_scores().await?;

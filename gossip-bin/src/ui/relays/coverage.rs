@@ -134,7 +134,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
             {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::RefreshScoresAndPickRelays);
             }
             ui.add_space(10.0);
             {
