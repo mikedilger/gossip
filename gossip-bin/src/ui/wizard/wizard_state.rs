@@ -32,7 +32,7 @@ impl Default for WizardState {
             last_status_queue_message: "".to_owned(),
             new_user: false,
             follow_only: false,
-            relay_url: "wss://purplepag.es/".to_owned(),
+            relay_url: "".to_owned(),
             relay_list_sought: true,
             metadata_copied: false,
             metadata_name: "".to_owned(),
@@ -108,7 +108,8 @@ impl WizardState {
 
     #[inline]
     pub fn need_discovery_relays(&self) -> bool {
-        self.relays
+        !self
+            .relays
             .iter()
             .any(|relay| relay.has_usage_bits(Relay::DISCOVER))
     }
