@@ -32,13 +32,13 @@ static DEFAULT_RELAYS: [&str; 20] = [
     "wss://relay.nostr.jabber.ch/",
     "wss://relay.wellorder.net/",
     "wss://relay.nostr.band/",
+    "wss://nostr.coinfundit.com/",
+    "wss://relay.nostrich.de/",
     "wss://nostr21.com/",
     "wss://relayable.org/",
     "wss://nostr.bitcoiner.social/",
+    "wss://paid.no.str.cr/",
     "wss://offchain.pub/",
-    "wss://nostr.coinfundit.com/",
-    "wss://nstr.pjv.me/",
-    "wss://welcome.nostr.wine/",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
