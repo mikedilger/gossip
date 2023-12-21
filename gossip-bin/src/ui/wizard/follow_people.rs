@@ -130,8 +130,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     // error block
     if let Some(err) = &app.wizard_state.error {
-        ui.add_space(10.0);
-        ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
+        // Ignore this one:
+        if err.starts_with("Could not find a person-list") {
+            app.wizard_state.error = None;
+        } else {
+            ui.add_space(10.0);
+            ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
+        }
     }
 
     ui.add_space(10.0);
