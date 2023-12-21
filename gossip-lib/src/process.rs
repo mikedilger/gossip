@@ -267,6 +267,9 @@ pub async fn process_new_event(
         }
     } else if event.kind == EventKind::RelayList {
         GLOBALS.storage.process_relay_list(event)?;
+
+        // the following also refreshes scores before it picks relays
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
     } else if event.kind == EventKind::Repost {
         // If the content is a repost, seek the event it reposts
         for eref in event.mentions().iter() {
@@ -415,6 +418,9 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
         GLOBALS
             .storage
             .set_relay_list(event.pubkey, inbox_relays, outbox_relays, None)?;
+
+        // the following also refreshes scores before it picks relays
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
     }
 
     Ok(())
