@@ -33,11 +33,18 @@ impl Storage {
 
     /// Initialize the database from empty
     pub(super) fn init_from_empty(&self) -> Result<(), Error> {
+        let necessary: Vec<u32> = vec![6, 13, 19, 20, 21, 22];
+
+        for level in necessary.iter() {
+            self.trigger(*level)?;
+            let mut txn = self.env.write_txn()?;
+            self.migrate_inner(*level, &mut txn)?;
+            self.write_migration_level(*level, Some(&mut txn))?;
+            txn.commit()?;
+        }
+
         let mut txn = self.env.write_txn()?;
-
-        // write a migration level
         self.write_migration_level(Self::MAX_MIGRATION_LEVEL, Some(&mut txn))?;
-
         txn.commit()?;
 
         Ok(())
