@@ -28,7 +28,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 26] = [
+const COMMANDS: [Command; 27] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -58,6 +58,11 @@ const COMMANDS: [Command; 26] = [
         cmd: "decrypt",
         usage_params: "<pubkeyhex> <ciphertext>",
         desc: "decrypt the ciphertext from the pubkeyhex.",
+    },
+    Command {
+        cmd: "delete_relay",
+        usage_params: "<relayurl>",
+        desc: "delete a relay record from storage.",
     },
     Command {
         cmd: "events_of_kind",
@@ -184,6 +189,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "bech32_decode" => bech32_decode(command, args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(command, args)?,
         "decrypt" => decrypt(command, args)?,
+        "delete_relay" => delete_relay(command, args)?,
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "giftwrap_ids" => giftwrap_ids(command)?,
@@ -408,6 +414,17 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     let plaintext = GLOBALS.signer.decrypt_nip44(&pubkey, &ciphertext)?;
     println!("{}", plaintext);
+
+    Ok(())
+}
+
+pub fn delete_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let rurl = match args.next() {
+        Some(urlstr) => RelayUrl::try_from_str(&urlstr)?,
+        None => return cmd.usage("Missing relay url parameter".to_string()),
+    };
+
+    GLOBALS.storage.delete_relay(&rurl, None)?;
 
     Ok(())
 }
