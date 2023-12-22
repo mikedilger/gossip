@@ -130,6 +130,7 @@ impl Signer {
 
                 if self.public.read().is_none() {
                     *self.public.write() = Some(private.public_key());
+                    self.save()?;
                 }
 
                 // Invalidate DMs so they rerender decrypted
