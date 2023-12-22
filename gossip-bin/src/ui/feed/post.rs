@@ -119,7 +119,7 @@ pub(in crate::ui) fn posting_area(
                     you::offer_unlock_priv_key(app, ui);
                 } else {
                     ui.label("You need to ");
-                    if ui.link("setup your identity").clicked() {
+                    if ui.link("setup your private-key").clicked() {
                         app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label(" to post.");
