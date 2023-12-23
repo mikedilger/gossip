@@ -2054,7 +2054,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             }
                         } else {
                             // Change link color:
-                            ui.style_mut().visuals.hyperlink_color = Color32::WHITE;
+                            ui.style_mut().visuals.hyperlink_color = ui.style_mut().visuals.widgets.noninteractive.fg_stroke.color;
 
                             if ui.link("Skip login, browse with public key >>")
                                 .on_hover_text("You may skip this if you only want to view public posts, and you can unlock it at a later time under the Account menu.")
