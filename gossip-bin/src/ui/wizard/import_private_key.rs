@@ -16,15 +16,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal_wrapped(|ui| {
         ui.label("Enter your private key");
-        if ui
-            .add(
-                text_edit_line!(app, app.import_priv)
-                    .hint_text("nsec1, hex, or ncryptsec1")
-                    .desired_width(f32::INFINITY)
-                    .password(true),
-            )
-            .changed()
-        {
+        let response = text_edit_line!(app, app.import_priv)
+            .hint_text("nsec1, hex, or ncryptsec1")
+            .desired_width(f32::INFINITY)
+            .password(true)
+            .with_paste()
+            .show_extended(ui, &mut app.clipboard)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         };
     });

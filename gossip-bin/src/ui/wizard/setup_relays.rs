@@ -148,10 +148,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(15.0);
     ui.horizontal_wrapped(|ui| {
         ui.label("Enter Relay URL");
-        if ui
-            .add(text_edit_line!(app, app.wizard_state.relay_url))
-            .changed
-        {
+        let response = text_edit_line!(app, app.wizard_state.relay_url)
+            .with_paste()
+            .show_extended(ui, &mut app.clipboard)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         }
         ui.label("or");
