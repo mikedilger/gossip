@@ -972,7 +972,7 @@ fn render_note_inner(
                                     for (ch, count) in note.reactions.iter() {
                                         if *ch != '+' {
                                             ui.label(
-                                                RichText::new(format!("{} {}", ch, count)).strong(),
+                                                RichText::new(format!("{} {}", ch, count)).weak(),
                                             );
                                         }
                                     }
