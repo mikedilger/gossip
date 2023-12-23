@@ -591,6 +591,14 @@ impl ThemeDef for DefaultTheme {
         }
     }
 
+    fn input_bg_color(dark_mode: bool) -> eframe::egui::Color32 {
+        if dark_mode {
+            Color32::from_gray(0x47)
+        } else {
+            Self::get_style(dark_mode).visuals.extreme_bg_color
+        }
+    }
+
     // feed styling
     fn feed_scroll_rounding(_feed: &FeedProperties) -> Rounding {
         Rounding::ZERO

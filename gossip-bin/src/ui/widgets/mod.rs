@@ -11,9 +11,7 @@ pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 mod nav_item;
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
-use egui_winit::egui::{
-    self, vec2, Align, FontSelection, Rect, RichText, Sense, TextEdit, Ui, WidgetText,
-};
+use egui_winit::egui::{self, vec2, Align, FontSelection, Rect, RichText, Sense, Ui, WidgetText};
 pub use nav_item::NavItem;
 
 mod relay_entry;
@@ -32,6 +30,9 @@ pub use information_popup::ProfilePopup;
 mod switch;
 pub use switch::Switch;
 pub use switch::{switch_custom_at, switch_simple, switch_with_size, switch_with_size_at};
+
+mod textedit;
+pub use textedit::TextEdit;
 
 use super::GossipUi;
 

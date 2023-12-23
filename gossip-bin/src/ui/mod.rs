@@ -1,6 +1,7 @@
 macro_rules! text_edit_line {
     ($app:ident, $var:expr) => {
-        egui::widgets::TextEdit::singleline(&mut $var).text_color($app.theme.input_text_color())
+        crate::ui::widgets::TextEdit::singleline(&mut $var)
+            .text_color($app.theme.input_text_color())
     };
 }
 
@@ -355,6 +356,9 @@ struct GossipUi {
     current_scroll_offset: f32,
     future_scroll_offset: f32,
 
+    // clipboard
+    clipboard: egui_winit::clipboard::Clipboard,
+
     // Ui timers
     popups: HashMap<egui::Id, HashMap<egui::Id, Box<dyn widgets::InformationPopup>>>,
 
@@ -624,6 +628,7 @@ impl GossipUi {
             original_dpi_value: override_dpi_value,
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
+            clipboard: egui_winit::clipboard::Clipboard::new(cctx),
             popups: HashMap::new(),
             qr_codes: HashMap::new(),
             notes: Notes::new(),
@@ -1956,15 +1961,26 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                 top: 10.0,
                 bottom: 0.0,
             })
+            .fill({
+                if ctx.style().visuals.dark_mode {
+                    egui::Color32::from_rgb(0x28, 0x28, 0x28)
+                } else {
+                    Color32::WHITE
+                }
+            })
         })
         .show(ctx, |ui| {
-            let size = egui::vec2( 600.0, 450.0 );
-            let response = widgets::modal_popup(
-                ui,
-                size,
-                size,
-                false,
-                |ui| {
+            let frame = egui::Frame::none();
+            let area = egui::Area::new(ui.auto_id_with("login_screen"))
+                .movable(false)
+                .interactable(true)
+                .constrain(true)
+                .order(egui::Order::Middle)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, -100.0]);
+            area.show(ui.ctx(), |ui| {
+                // frame.rounding = egui::Rounding::same(10.0);
+                // frame.inner_margin = egui::Margin::symmetric(MARGIN_X, MARGIN_Y);
+                frame.show(ui, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.add_space(115.0);
 
@@ -1984,12 +2000,12 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.add_space(16.0);
                         }
 
-                        let response = ui.add(
-                            text_edit_line!(app, app.password).password(true)
-                                .desired_width(400.0)
-                        );
+                        let output = widgets::TextEdit::singleline(&mut app.password)
+                            .password(true)
+                            .desired_width( 400.0)
+                            .show_extended(ui, &mut app.clipboard);
                         if app.unlock_needs_focus {
-                            response.request_focus();
+                            output.response.request_focus();
                             app.unlock_needs_focus = false;
                         }
 
@@ -1999,9 +2015,10 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             //response.lost_focus() &&
                             ui.input(|i| i.key_pressed(egui::Key::Enter));
 
-                        app.theme.accent_button_1_style(ui.style_mut());
-                        submitted |= ui.button("     Continue     ").clicked();
-                        ui.set_style(app.theme.get_style());
+                        ui.scope(|ui| {
+                            app.theme.accent_button_1_style(ui.style_mut());
+                            submitted |= ui.button("     Continue     ").clicked();
+                        });
 
                         if submitted {
                             let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
@@ -2046,15 +2063,23 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                         }
                     });
 
-                    ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-                        ui.horizontal(|ui| {
+                });
+            });
+
+            let mut frame = egui::Frame::none();
+            let area = egui::Area::new(ui.auto_id_with("login_footer"))
+                .movable(false)
+                .interactable(true)
+                .constrain(true)
+                .order(egui::Order::Middle)
+                .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0]);
+            area.show(ctx, |ui| {
+                frame.inner_margin = egui::Margin::symmetric(10.0,40.0);
+                frame.show(ui, |ui| {
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::BOTTOM).with_main_justify(true), |ui| {
+                        ui.horizontal( |ui| {
                             // Change link color:
                             ui.style_mut().visuals.hyperlink_color = app.theme.navigation_text_color();
-
-                            // egui does not center text that has multiple widgets.
-                            // Luckily we know the size of the container and the widgets ahead of time,
-                            // so in this case we can just add space.
-                            ui.add_space(60.0);
 
                             ui.label(
                                 RichText::new("Do you need help? Open an").weak()
@@ -2073,10 +2098,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                         });
                     });
                 });
-
-            if response.inner.clicked() {
-                cancel_login();
-            }
+            });
         });
 }
 
