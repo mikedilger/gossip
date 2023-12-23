@@ -2002,6 +2002,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
 
                         let output = widgets::TextEdit::singleline(&mut app.password)
                             .password(true)
+                            .with_paste()
                             .desired_width( 400.0)
                             .show_extended(ui, &mut app.clipboard);
                         if app.unlock_needs_focus {
@@ -2009,7 +2010,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             app.unlock_needs_focus = false;
                         }
 
-                        ui.add_space(12.0);
+                        ui.add_space(20.0);
 
                         let mut submitted =
                             //response.lost_focus() &&
@@ -2053,7 +2054,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             }
                         } else {
                             // Change link color:
-                            ui.style_mut().visuals.hyperlink_color = app.theme.navigation_text_color();
+                            ui.style_mut().visuals.hyperlink_color = Color32::WHITE;
 
                             if ui.link("Skip login, browse with public key >>")
                                 .on_hover_text("You may skip this if you only want to view public posts, and you can unlock it at a later time under the Account menu.")
