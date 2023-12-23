@@ -154,9 +154,9 @@ impl<'t> TextEdit<'t> {
                     .put(
                         rect,
                         super::NavItem::new("Paste", true)
-                            .color(ui.visuals().widgets.inactive.fg_stroke.color)
+                            .color(ui.visuals().widgets.active.fg_stroke.color)
                             .active_color(ui.visuals().widgets.active.fg_stroke.color)
-                            .hover_color(ui.visuals().hyperlink_color)
+                            .hover_color(ui.visuals().widgets.hovered.fg_stroke.color)
                             .sense(egui::Sense::click()),
                     )
                     .clicked()
