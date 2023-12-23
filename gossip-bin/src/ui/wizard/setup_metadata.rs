@@ -53,10 +53,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Name:");
-        if ui
-            .add(text_edit_line!(app, app.wizard_state.metadata_name))
-            .changed()
-        {
+        let response = text_edit_line!(app, app.wizard_state.metadata_name)
+            .with_paste()
+            .show_extended(ui, &mut app.clipboard)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         }
     });
@@ -64,10 +65,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(15.0);
     ui.horizontal(|ui| {
         ui.label("About:");
-        if ui
-            .add(text_edit_multiline!(app, app.wizard_state.metadata_about))
-            .changed()
-        {
+        let response = text_edit_line!(app, app.wizard_state.metadata_about)
+            .with_paste()
+            .show_extended(ui, &mut app.clipboard)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         }
     });
@@ -75,10 +77,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(15.0);
     ui.horizontal(|ui| {
         ui.label("Picture:");
-        if ui
-            .add(text_edit_multiline!(app, app.wizard_state.metadata_picture))
-            .changed()
-        {
+        let response = text_edit_line!(app, app.wizard_state.metadata_picture)
+            .with_paste()
+            .show_extended(ui, &mut app.clipboard)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         }
     });

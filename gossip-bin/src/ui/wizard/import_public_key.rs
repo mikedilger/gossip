@@ -21,10 +21,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal_wrapped(|ui| {
         ui.label("Enter your public key");
-        if ui
-            .add(text_edit_line!(app, app.import_pub).desired_width(f32::INFINITY))
-            .changed()
-        {
+        let response = text_edit_line!(app, app.import_pub)
+            .with_paste()
+            .desired_width(f32::INFINITY)
+            .show_extended(ui, &mut app.clipboard)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         }
     });

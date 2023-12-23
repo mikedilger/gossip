@@ -216,6 +216,12 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn input_bg_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::input_bg_color(self.dark_mode), )+
+                }
+            }
+
             pub fn feed_scroll_fill(&self, feed: &FeedProperties) -> Color32 {
                 match self.variant {
                     $( $variant => $class::feed_scroll_fill(self.dark_mode, feed), )+
@@ -419,6 +425,7 @@ pub trait ThemeDef: Send + Sync {
     // labels made clickable, and TextEdit text. We try to always override TextEdit
     // text with this color instead.
     fn input_text_color(dark_mode: bool) -> eframe::egui::Color32;
+    fn input_bg_color(dark_mode: bool) -> eframe::egui::Color32;
 
     // feed styling
     fn feed_scroll_rounding(feed: &FeedProperties) -> Rounding;

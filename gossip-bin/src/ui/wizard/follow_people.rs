@@ -85,12 +85,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Follow Someone:");
-        if ui
-            .add(text_edit_line!(app, app.add_contact).hint_text(
+        let response = text_edit_line!(app, app.add_contact)
+            .with_paste()
+            .hint_text(
                 "Enter a key (bech32 npub1 or hex), or an nprofile, or a DNS id (user@domain)",
-            ))
-            .changed()
-        {
+            )
+            .show_extended(ui, &mut app.clipboard)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         }
         if ui.button("follow").clicked() {

@@ -16,15 +16,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal_wrapped(|ui| {
         ui.label("Enter your private key");
-        if ui
-            .add(
-                text_edit_line!(app, app.import_priv)
-                    .hint_text("nsec1, hex, or ncryptsec1")
-                    .desired_width(f32::INFINITY)
-                    .password(true),
-            )
-            .changed()
-        {
+        let response = text_edit_line!(app, app.import_priv)
+            .hint_text("nsec1, hex, or ncryptsec1")
+            .desired_width(f32::INFINITY)
+            .password(true)
+            .with_paste()
+            .show_extended(ui, &mut app.clipboard)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         };
     });
@@ -38,10 +37,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         } else {
             ui.label("Enter a passphrase to keep it encrypted under");
         }
-        if ui
-            .add(text_edit_line!(app, app.password).password(true))
-            .changed()
-        {
+        let response = text_edit_line!(app, app.password)
+            .password(true)
+            .with_paste()
+            .show_extended(ui, &mut app.clipboard).response;
+        if response.changed() {
             app.wizard_state.error = None;
         }
     });
@@ -50,10 +50,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(10.0);
         ui.horizontal(|ui| {
             ui.label("Repeat passphrase to be sure");
-            if ui
-                .add(text_edit_line!(app, app.password2).password(true))
-                .changed()
-            {
+            let response = text_edit_line!(app, app.password2)
+                .password(true)
+                .with_paste()
+                .show_extended(ui, &mut app.clipboard).response;
+            if response.changed() {
                 app.wizard_state.error = None;
             }
         });
