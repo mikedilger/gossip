@@ -128,7 +128,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_white_alpha(8),
                         bg_stroke: Stroke::new(2.0, Color32::from_gray(48)), // separators, borders
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(170)), // normal text color
+                        fg_stroke: Stroke::new(1.0, Color32::from_gray(200)), // normal text color
                         rounding: Rounding::same(2.0),
                         expansion: 0.0,
                     },
@@ -139,7 +139,7 @@ impl ThemeDef for DefaultTheme {
                         // The following is used for All buttons, any clickable text,
                         //    AND text inputs, whether they are inactive OR active. It's really
                         //    overloaded.
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(200)), // button text
+                        fg_stroke: Stroke::new(1.0, Color32::from_gray(180)), // button text
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
@@ -155,7 +155,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(55),
                         bg_fill: Color32::from_gray(55),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_white_alpha(10)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_gray(200)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
@@ -240,7 +240,7 @@ impl ThemeDef for DefaultTheme {
                         weak_bg_fill: Color32::from_gray(165),
                         bg_fill: Color32::from_black_alpha(50),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_black_alpha(40)),
+                        fg_stroke: Stroke::new(2.0, Color32::from_gray(80)),
                         rounding: Rounding::same(2.0),
                         expansion: 2.0,
                     },
