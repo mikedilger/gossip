@@ -2554,15 +2554,6 @@ impl Overlord {
             }
         };
 
-        // If we need to decrypt contents, we must have a private key ready
-        if list != PersonList::Followed && !event.content.is_empty() && !GLOBALS.signer.is_ready() {
-            GLOBALS.status_queue.write().write(
-                "You need to be logged in to update a PersonList due to encrypted contents"
-                    .to_string(),
-            );
-            return Ok(());
-        }
-
         let now = Unixtime::now().unwrap();
 
         let mut txn = GLOBALS.storage.get_write_txn()?;
@@ -2605,25 +2596,32 @@ impl Overlord {
             }
         }
 
-        // Private entries
         if list != PersonList::Followed && !event.content.is_empty() {
-            let decrypted_content = GLOBALS.signer.decrypt_nip04(&my_pubkey, &event.content)?;
+            if GLOBALS.signer.is_ready() {
+                // Private entries
+                let decrypted_content = GLOBALS.signer.decrypt_nip04(&my_pubkey, &event.content)?;
 
-            let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
 
-            for tag in &tags {
-                match tag {
-                    Tag::Pubkey { pubkey, .. } => {
-                        if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                            // Save the pubkey
-                            entries.push((pubkey.to_owned(), false));
+                for tag in &tags {
+                    match tag {
+                        Tag::Pubkey { pubkey, .. } => {
+                            if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
+                                // Save the pubkey
+                                entries.push((pubkey.to_owned(), false));
+                            }
                         }
+                        Tag::Title { title, .. } => {
+                            metadata.title = title.to_owned();
+                        }
+                        _ => (),
                     }
-                    Tag::Title { title, .. } => {
-                        metadata.title = title.to_owned();
-                    }
-                    _ => (),
                 }
+            } else {
+                // If we need to decrypt contents but can't, let them know we couldn't read that part
+                GLOBALS.status_queue.write().write(
+                    format!("Since you are not logged in, the encrypted contents of the list {} will not be processed.", metadata.title),
+                );
             }
         }
 
