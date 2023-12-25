@@ -195,7 +195,8 @@ pub(super) fn update(
                     } else {
                         app.placeholder_avatar.clone()
                     };
-                    widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
+
+                    let avatar_response = widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
 
                     ui.add_space(20.0);
 
@@ -259,6 +260,9 @@ pub(super) fn update(
                             },
                         );
                     });
+                    if avatar_response.clicked() {
+                        app.set_page(ctx, Page::Person(person.pubkey));
+                    }
                 });
             });
             if row_response
