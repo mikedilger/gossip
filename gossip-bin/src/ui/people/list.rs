@@ -202,7 +202,7 @@ pub(super) fn update(
                     ui.vertical(|ui| {
                         ui.add_space(5.0);
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new(person.best_name()));
+                            ui.label(RichText::new(person.best_name()).size(15.5));
 
                             ui.add_space(10.0);
 
