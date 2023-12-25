@@ -195,17 +195,14 @@ pub(super) fn update(
                     } else {
                         app.placeholder_avatar.clone()
                     };
-                    let avatar_height =
-                        widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed)
-                            .rect
-                            .height();
+                    widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
 
                     ui.add_space(20.0);
 
                     ui.vertical(|ui| {
-                        ui.set_min_height(avatar_height);
+                        ui.add_space(5.0);
                         ui.horizontal(|ui| {
-                            ui.label(person.best_name());
+                            ui.label(RichText::new(person.best_name()));
 
                             ui.add_space(10.0);
 
@@ -220,7 +217,7 @@ pub(super) fn update(
                                 );
                             }
                         });
-                        ui.add_space(10.0);
+                        ui.add_space(3.0);
                         ui.label(GossipUi::richtext_from_person_nip05(person).weak());
                     });
 
