@@ -2773,11 +2773,11 @@ impl Overlord {
         lnurl: UncheckedUrl,
     ) -> Result<(), Error> {
         if GLOBALS.signer.public_key().is_none() {
-            tracing::warn!("You need to setup your identity to zap.");
+            tracing::warn!("You need to setup your private-key to zap.");
             GLOBALS
                 .status_queue
                 .write()
-                .write("You need to setup your identity to zap.".to_string());
+                .write("You need to setup your private-key to zap.".to_string());
             *GLOBALS.current_zap.write() = ZapState::None;
             return Ok(());
         }
@@ -2837,11 +2837,11 @@ impl Overlord {
         let user_pubkey = match GLOBALS.signer.public_key() {
             Some(pk) => pk,
             None => {
-                tracing::warn!("You need to setup your identity to zap.");
+                tracing::warn!("You need to setup your private-key to zap.");
                 GLOBALS
                     .status_queue
                     .write()
-                    .write("You need to setup your identity to zap.".to_string());
+                    .write("You need to setup your private-key to zap.".to_string());
                 *GLOBALS.current_zap.write() = ZapState::None;
                 return Ok(());
             }
