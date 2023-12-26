@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use super::{GossipUi, Page};
+use crate::AVATAR_SIZE_F32;
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, RichText, Ui, Vec2};
@@ -274,6 +275,7 @@ pub(super) fn update(
                 app.set_page(ctx, Page::Person(person.pubkey));
             }
         }
+        ui.add_space(AVATAR_SIZE_F32 + 40.0);
     });
 
     if let Some(list) = app.deleting_list {

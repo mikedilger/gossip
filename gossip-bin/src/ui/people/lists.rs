@@ -80,6 +80,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     app.set_page(ctx, Page::PeopleList(list));
                 }
             }
+            ui.add_space(crate::AVATAR_SIZE_F32 + 40.0);
         });
 
     if let Some(list) = app.deleting_list {
