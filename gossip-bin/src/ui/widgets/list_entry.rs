@@ -50,7 +50,7 @@ pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
     });
 }
 
-pub(crate) fn make_frame(ui: &Ui) -> Frame {
+pub(crate) fn make_frame(ui: &Ui, fill: Option<Color32>) -> Frame {
     Frame::none()
         .inner_margin(egui::Margin {
             left: TEXT_LEFT - OUTER_MARGIN_LEFT,
@@ -64,7 +64,7 @@ pub(crate) fn make_frame(ui: &Ui) -> Frame {
             top: OUTER_MARGIN_TOP,
             bottom: OUTER_MARGIN_BOTTOM,
         })
-        .fill(ui.visuals().extreme_bg_color)
+        .fill(fill.unwrap_or(ui.visuals().extreme_bg_color))
         .rounding(egui::Rounding::same(5.0))
 }
 

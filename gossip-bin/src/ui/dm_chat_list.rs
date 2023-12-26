@@ -50,7 +50,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .show(ui, |ui| {
             let color = app.theme.accent_color();
             for channeldata in channels.drain(..) {
-                let row_response = widgets::list_entry::make_frame(ui).show(ui, |ui| {
+                let row_response = widgets::list_entry::make_frame(
+                    ui,
+                    Some(app.theme.main_content_bgcolor()),
+                )
+                .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
                     ui.vertical(|ui| {
                         ui.horizontal_wrapped(|ui| {

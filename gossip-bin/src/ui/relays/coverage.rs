@@ -45,7 +45,7 @@ impl<'a> CoverageEntry<'a> {
             egui::Sense::click(),
         );
 
-        widgets::list_entry::paint_frame(ui, &rect, None);
+        widgets::list_entry::paint_frame(ui, &rect, Some(app.theme.main_content_bgcolor()));
 
         // ---- title ----
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);

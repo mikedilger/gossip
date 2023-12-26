@@ -188,7 +188,11 @@ pub(super) fn update(
         // not nice but needed because of 'app' borrow in closure
         let people = app.people_list.cache_people.clone();
         for (person, mut public) in people.iter() {
-            let row_response = widgets::list_entry::make_frame(ui).show(ui, |ui| {
+            let row_response = widgets::list_entry::make_frame(
+                ui,
+                Some(app.theme.main_content_bgcolor()),
+            )
+            .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     // Avatar first
                     let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {

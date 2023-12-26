@@ -140,6 +140,7 @@ pub struct RelayEntry {
     usage: UsageBits,
     accent: Color32,
     accent_hover: Color32,
+    bg_fill: Color32,
     // highlight: Option<Color32>,
     option_symbol: TextureId,
 }
@@ -162,6 +163,7 @@ impl RelayEntry {
             usage,
             accent,
             accent_hover,
+            bg_fill: app.theme.main_content_bgcolor(),
             // highlight: None,
             option_symbol: (&app.options_symbol).into(),
         }
@@ -1045,7 +1047,7 @@ impl RelayEntry {
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            list_entry::paint_frame(ui, &rect, None);
+            list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             if self.relay.usage_bits != 0 {
@@ -1062,7 +1064,7 @@ impl RelayEntry {
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            list_entry::paint_frame(ui, &rect, None);
+            list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
@@ -1080,7 +1082,7 @@ impl RelayEntry {
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            list_entry::paint_frame(ui, &rect, None);
+            list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
             self.paint_title(ui, &rect);
             self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);

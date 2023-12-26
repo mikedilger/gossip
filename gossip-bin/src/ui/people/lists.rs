@@ -31,7 +31,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
             for (list, mut metadata) in all_lists {
-                let row_response = widgets::list_entry::make_frame(ui).show(ui, |ui| {
+                let row_response = widgets::list_entry::make_frame(
+                    ui,
+                    Some(app.theme.main_content_bgcolor()),
+                )
+                .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
 
                     ui.vertical(|ui| {
