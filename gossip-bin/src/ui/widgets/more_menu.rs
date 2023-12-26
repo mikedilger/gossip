@@ -91,7 +91,31 @@ impl MoreMenu {
 
     pub fn show(&self, ui: &mut Ui, content: impl FnOnce(&mut Ui, &mut bool)) {
         let mut active = self.load_state(ui);
-        let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
+
+        let response = match self.style {
+            MoreMenuStyle::Simple => {
+                let text = egui::RichText::new("=").size(13.0);
+                ui.add(egui::Button::new(text))
+            },
+            MoreMenuStyle::Bubble => {
+                let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
+                let btn_rect = response.rect;
+                let color = if response.hovered() {
+                    self.accent_color
+                } else {
+                    ui.visuals().text_color()
+                };
+                let mut mesh = egui::Mesh::with_texture((&self.options_symbol).into());
+                mesh.add_rect_with_uv(
+                    btn_rect.shrink(2.0),
+                    Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    color,
+                );
+                painter.add(egui::Shape::mesh(mesh));
+                response
+            },
+        };
+
         let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
         let response = if let Some(text) = &self.hover_text {
             if !active {
@@ -102,19 +126,6 @@ impl MoreMenu {
         } else {
             response
         };
-        let btn_rect = response.rect;
-        let color = if response.hovered() {
-            self.accent_color
-        } else {
-            ui.visuals().text_color()
-        };
-        let mut mesh = egui::Mesh::with_texture((&self.options_symbol).into());
-        mesh.add_rect_with_uv(
-            btn_rect.shrink(2.0),
-            Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-            color,
-        );
-        painter.add(egui::Shape::mesh(mesh));
 
         if response.clicked() {
             active ^= true;
