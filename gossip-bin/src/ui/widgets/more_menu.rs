@@ -1,5 +1,5 @@
 use eframe::epaint::PathShape;
-use egui_winit::egui::{self, vec2, AboveOrBelow, Color32, Id, Rect, TextureHandle, Ui, Vec2};
+use egui_winit::egui::{self, vec2, AboveOrBelow, Color32, Id, Rect, TextureHandle, Ui, Vec2, Align2};
 
 use crate::ui::GossipUi;
 
@@ -15,7 +15,7 @@ pub(in crate::ui) struct MoreMenu {
     id: Id,
     min_size: Vec2,
     max_size: Vec2,
-    above_or_below: AboveOrBelow,
+    above_or_below: Option<AboveOrBelow>,
     hover_text: Option<String>,
     accent_color: Color32,
     options_symbol: TextureHandle,
@@ -31,7 +31,7 @@ impl MoreMenu {
                 x: f32::INFINITY,
                 y: f32::INFINITY,
             },
-            above_or_below: AboveOrBelow::Below,
+            above_or_below: None,
             hover_text: None,
             accent_color: app.theme.accent_color(),
             options_symbol: app.options_symbol.clone(),
@@ -47,7 +47,7 @@ impl MoreMenu {
                 x: f32::INFINITY,
                 y: f32::INFINITY,
             },
-            above_or_below: AboveOrBelow::Below,
+            above_or_below: None,
             hover_text: None,
             accent_color: app.theme.accent_color(),
             options_symbol: app.options_symbol.clone(),
@@ -82,9 +82,9 @@ impl MoreMenu {
     #[allow(unused)]
     pub fn place_above(mut self, above: bool) -> Self {
         self.above_or_below = if above {
-            AboveOrBelow::Above
+            Some(AboveOrBelow::Above)
         } else {
-            AboveOrBelow::Below
+            Some(AboveOrBelow::Below)
         };
         self
     }
@@ -131,15 +131,23 @@ impl MoreMenu {
             active ^= true;
         }
 
+        let pos = response.rect.center();
+        let above_or_below = self.above_or_below.unwrap_or(select_above_or_below(ui, pos));
         let bg_color = ui.visuals().window_fill();
-        let (pivot, fixed_pos, polygon) = match self.above_or_below {
+        let (pivot, fixed_pos, polygon) = match above_or_below {
             AboveOrBelow::Above => {
                 let origin_pos = response.rect.center_top();
+                let pivot = select_pivot(ui, origin_pos, AboveOrBelow::Above);
                 let fixed_pos = match self.style {
-                    MoreMenuStyle::Simple => origin_pos,
-                    MoreMenuStyle::Bubble => {
-                        origin_pos
-                            + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE)
+                    MoreMenuStyle::Simple => match pivot {
+                        Align2::RIGHT_BOTTOM => origin_pos + vec2(super::DROPDOWN_DISTANCE, -5.0),
+                        Align2::LEFT_BOTTOM => origin_pos + vec2(-super::DROPDOWN_DISTANCE, -5.0),
+                        _ => origin_pos,
+                    }
+                    MoreMenuStyle::Bubble => match pivot {
+                        Align2::RIGHT_BOTTOM => origin_pos + vec2(2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
+                        Align2::LEFT_BOTTOM => origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
+                        _ => origin_pos,
                     }
                 };
                 let path = PathShape::convex_polygon(
@@ -152,14 +160,21 @@ impl MoreMenu {
                     bg_color,
                     egui::Stroke::NONE,
                 );
-                (egui::Align2::LEFT_BOTTOM, fixed_pos, path)
+                (pivot, fixed_pos, path)
             }
             AboveOrBelow::Below => {
                 let origin_pos = response.rect.center_bottom();
+                let pivot = select_pivot(ui, origin_pos, AboveOrBelow::Below);
                 let fixed_pos = match self.style {
-                    MoreMenuStyle::Simple => origin_pos,
-                    MoreMenuStyle::Bubble => {
-                        origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE)
+                    MoreMenuStyle::Simple => match pivot {
+                        Align2::RIGHT_TOP => origin_pos + vec2(super::DROPDOWN_DISTANCE, 5.0),
+                        Align2::LEFT_TOP => origin_pos + vec2(-super::DROPDOWN_DISTANCE, 5.0),
+                        _ => origin_pos,
+                    }
+                    MoreMenuStyle::Bubble => match pivot {
+                        Align2::RIGHT_TOP => origin_pos + vec2(2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
+                        Align2::LEFT_TOP => origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
+                        _ => origin_pos,
                     }
                 };
                 let path = PathShape::convex_polygon(
@@ -172,7 +187,7 @@ impl MoreMenu {
                     bg_color,
                     egui::Stroke::NONE,
                 );
-                (egui::Align2::LEFT_TOP, fixed_pos, path)
+                (pivot, fixed_pos, path)
             }
         };
 
@@ -229,5 +244,29 @@ impl MoreMenu {
 
     fn save_state(&self, ui: &mut Ui, state: bool) {
         ui.ctx().data_mut(|d| d.insert_temp(self.id, state));
+    }
+}
+
+fn select_above_or_below(ui: &mut Ui, pos: egui::Pos2) -> AboveOrBelow {
+    let center = ui.ctx().screen_rect().center();
+    if pos.y > center.y {
+        AboveOrBelow::Above
+    } else {
+        AboveOrBelow::Below
+    }
+}
+
+fn select_pivot(ui: &mut Ui, pos: egui::Pos2, above_or_below: AboveOrBelow) -> Align2 {
+    let center = ui.ctx().screen_rect().center();
+    if pos.x > center.x {
+        match above_or_below {
+            AboveOrBelow::Above => Align2::RIGHT_BOTTOM,
+            AboveOrBelow::Below => Align2::RIGHT_TOP,
+        }
+    } else {
+        match above_or_below {
+            AboveOrBelow::Above => Align2::LEFT_BOTTOM,
+            AboveOrBelow::Below => Align2::LEFT_TOP,
+        }
     }
 }
