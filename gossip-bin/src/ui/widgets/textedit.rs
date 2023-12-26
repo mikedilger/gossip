@@ -86,7 +86,8 @@ impl<'t> TextEdit<'t> {
     pub fn show(self, ui: &mut egui::Ui) -> egui::text_edit::TextEditOutput {
         ui.scope(|ui| {
             if ui.visuals().dark_mode {
-                ui.visuals_mut().extreme_bg_color = self.bg_color.unwrap_or(egui::Color32::from_gray(0x47));
+                ui.visuals_mut().extreme_bg_color =
+                    self.bg_color.unwrap_or(egui::Color32::from_gray(0x47));
             } else {
                 ui.visuals_mut().extreme_bg_color = self.bg_color.unwrap_or(Color32::WHITE);
             }
@@ -119,7 +120,8 @@ impl<'t> TextEdit<'t> {
     ) -> egui::text_edit::TextEditOutput {
         ui.scope(|ui| {
             if ui.visuals().dark_mode {
-                ui.visuals_mut().extreme_bg_color = self.bg_color.unwrap_or(egui::Color32::from_gray(0x47));
+                ui.visuals_mut().extreme_bg_color =
+                    self.bg_color.unwrap_or(egui::Color32::from_gray(0x47));
             } else {
                 ui.visuals_mut().extreme_bg_color = self.bg_color.unwrap_or(Color32::WHITE);
             }

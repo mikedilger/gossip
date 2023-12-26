@@ -1,8 +1,8 @@
 use std::time::{Duration, Instant};
 
 use super::{GossipUi, Page};
-use crate::AVATAR_SIZE_F32;
 use crate::ui::widgets;
+use crate::AVATAR_SIZE_F32;
 use eframe::egui;
 use egui::{Context, RichText, Ui, Vec2};
 use egui_winit::egui::text::LayoutJob;
@@ -201,7 +201,8 @@ pub(super) fn update(
                         app.placeholder_avatar.clone()
                     };
 
-                    let avatar_response = widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
+                    let avatar_response =
+                        widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
 
                     ui.add_space(20.0);
 

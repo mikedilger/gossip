@@ -40,7 +40,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         let response = text_edit_line!(app, app.password)
             .password(true)
             .with_paste()
-            .show_extended(ui, &mut app.clipboard).response;
+            .show_extended(ui, &mut app.clipboard)
+            .response;
         if response.changed() {
             app.wizard_state.error = None;
         }
@@ -53,7 +54,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             let response = text_edit_line!(app, app.password2)
                 .password(true)
                 .with_paste()
-                .show_extended(ui, &mut app.clipboard).response;
+                .show_extended(ui, &mut app.clipboard)
+                .response;
             if response.changed() {
                 app.wizard_state.error = None;
             }

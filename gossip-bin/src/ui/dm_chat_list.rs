@@ -50,68 +50,74 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .show(ui, |ui| {
             let color = app.theme.accent_color();
             for channeldata in channels.drain(..) {
-                let row_response = widgets::list_entry::make_frame(
-                    ui,
-                    Some(app.theme.main_content_bgcolor()),
-                )
-                .show(ui, |ui| {
-                    ui.set_min_width(ui.available_width());
-                    ui.vertical(|ui| {
-                        ui.horizontal_wrapped(|ui| {
-                            let channel_name = channeldata.dm_channel.name();
-                            ui.add(Label::new(
-                                RichText::new(channel_name).heading().color(color),
-                            ));
+                let row_response =
+                    widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
+                        .show(ui, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.vertical(|ui| {
+                                ui.horizontal_wrapped(|ui| {
+                                    let channel_name = channeldata.dm_channel.name();
+                                    ui.add(Label::new(
+                                        RichText::new(channel_name).heading().color(color),
+                                    ));
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                                ui.label(crate::date_ago::date_ago(
-                                    channeldata.latest_message_created_at,
-                                ))
-                                .on_hover_ui(|ui| {
-                                    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(
-                                        channeldata.latest_message_created_at.0,
-                                    ) {
-                                        if let Ok(formatted) = stamp
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::TOP),
+                                        |ui| {
+                                            ui.label(crate::date_ago::date_ago(
+                                                channeldata.latest_message_created_at,
+                                            ))
+                                            .on_hover_ui(|ui| {
+                                                if let Ok(stamp) =
+                                                    time::OffsetDateTime::from_unix_timestamp(
+                                                        channeldata.latest_message_created_at.0,
+                                                    )
+                                                {
+                                                    if let Ok(formatted) = stamp
                                             .format(&time::format_description::well_known::Rfc2822)
                                         {
                                             ui.label(formatted);
                                         }
-                                    }
-                                });
-                                ui.label(" - ");
-                                ui.label(
-                                    RichText::new(format!(
-                                        "{} unread",
-                                        channeldata.unread_message_count
-                                    ))
-                                    .color(app.theme.accent_color()),
-                                );
-                            });
-                        });
-
-                        ui.horizontal(|ui| {
-                            if is_signer_ready {
-                                if let Some(message) = channeldata.latest_message_content {
-                                    widgets::truncated_label(
-                                        ui,
-                                        message,
-                                        ui.available_width() - 100.0,
+                                                }
+                                            });
+                                            ui.label(" - ");
+                                            ui.label(
+                                                RichText::new(format!(
+                                                    "{} unread",
+                                                    channeldata.unread_message_count
+                                                ))
+                                                .color(app.theme.accent_color()),
+                                            );
+                                        },
                                     );
-                                }
-                            }
+                                });
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                                ui.label(
-                                    RichText::new(format!(
-                                        "{} messages",
-                                        channeldata.message_count
-                                    ))
-                                    .weak(),
-                                );
+                                ui.horizontal(|ui| {
+                                    if is_signer_ready {
+                                        if let Some(message) = channeldata.latest_message_content {
+                                            widgets::truncated_label(
+                                                ui,
+                                                message,
+                                                ui.available_width() - 100.0,
+                                            );
+                                        }
+                                    }
+
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::TOP),
+                                        |ui| {
+                                            ui.label(
+                                                RichText::new(format!(
+                                                    "{} messages",
+                                                    channeldata.message_count
+                                                ))
+                                                .weak(),
+                                            );
+                                        },
+                                    );
+                                });
                             });
                         });
-                    });
-                });
                 if row_response
                     .response
                     .interact(Sense::click())
