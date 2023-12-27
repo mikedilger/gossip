@@ -8,15 +8,30 @@ use egui_winit::egui::{Label, RichText, Sense};
 use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+    // process popups first
+    let mut enabled = false;
+    if let Some(list) = app.deleting_list {
+        super::list::render_delete_list_dialog(ui, app, list);
+    } else if app.creating_list {
+        super::list::render_create_list_dialog(ui, app);
+    } else if let Some(list) = app.renaming_list {
+        super::list::render_rename_list_dialog(ui, app, list);
+    } else {
+        // only enable rest of ui when popups are not open
+        enabled = true;
+    }
+
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
-        app.theme.accent_button_1_style(ui.style_mut());
-        if ui.button("Create a new list").clicked() {
-            app.creating_list = true;
-            app.list_name_field_needs_focus = true;
-        }
+        ui.add_enabled_ui(enabled, |ui| {
+            app.theme.accent_button_1_style(ui.style_mut());
+            if ui.button("Create a new list").clicked() {
+                app.creating_list = true;
+                app.list_name_field_needs_focus = true;
+            }
+        });
     });
 
-    let enable_scroll = true;
+    ui.set_enabled(enabled);
 
     let mut all_lists = GLOBALS
         .storage
@@ -28,7 +43,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     app.vert_scroll_area()
         .id_source("people_lists_scroll")
-        .enable_scrolling(enable_scroll)
+        .enable_scrolling(enabled)
         .show(ui, |ui| {
             for (list, mut metadata) in all_lists {
                 let row_response =
@@ -84,14 +99,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
             ui.add_space(crate::AVATAR_SIZE_F32 + 40.0);
         });
-
-    if let Some(list) = app.deleting_list {
-        super::list::render_delete_list_dialog(ui, app, list);
-    } else if app.creating_list {
-        super::list::render_create_list_dialog(ui, app);
-    } else if let Some(list) = app.renaming_list {
-        super::list::render_rename_list_dialog(ui, app, list);
-    }
 }
 
 pub(in crate::ui) fn sort_lists(
