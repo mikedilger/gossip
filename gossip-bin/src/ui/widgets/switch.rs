@@ -67,20 +67,6 @@ pub fn switch_with_size_at(
     switch_custom_at(ui, ui.is_enabled(), value, rect, id, None, None, None)
 }
 
-pub fn switch_simple(ui: &mut Ui, on: bool) -> Response {
-    let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::click());
-    let rect = Rect::from_min_size(rect.left_top(), size);
-    let id = ui.next_auto_id();
-    let mut value = on;
-    let mut response =
-        switch_custom_at(ui, ui.is_enabled(), &mut value, rect, id, None, None, None);
-    if value != on {
-        response.mark_changed();
-    }
-    response
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn switch_custom_at(
     ui: &mut Ui,
