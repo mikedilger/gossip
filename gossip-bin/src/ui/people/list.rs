@@ -687,33 +687,13 @@ pub(super) fn render_more_list_actions(
                 }
             }
             if matches!(list, PersonList::Custom(_)) {
-                if ui.button("Rename List").clicked() {
+                if ui.button("Rename").clicked() {
                     app.deleting_list = None;
                     app.renaming_list = Some(list);
                     *is_open = false;
                 }
-                if metadata.private {
-                    if ui.button("Make Public").clicked() {
-                        metadata.private = false;
-                        let _ = GLOBALS
-                            .storage
-                            .set_person_list_metadata(list, metadata, None);
-                        *is_open = false;
-                    }
-                } else {
-                    if ui.button("Make Private").clicked() {
-                        metadata.private = true;
-                        let _ = GLOBALS
-                            .storage
-                            .set_person_list_metadata(list, metadata, None);
-                        let _ = GLOBALS
-                            .storage
-                            .set_all_people_in_list_to_private(list, None);
-                        *is_open = false;
-                    }
-                }
                 if metadata.favorite {
-                    if ui.button("Remove from Favorites").clicked() {
+                    if ui.button("Unset as Favorite").clicked() {
                         metadata.favorite = false;
                         let _ = GLOBALS
                             .storage
@@ -721,7 +701,7 @@ pub(super) fn render_more_list_actions(
                         *is_open = false;
                     }
                 } else {
-                    if ui.button("Make Favorite").clicked() {
+                    if ui.button("Set as Favorite").clicked() {
                         metadata.favorite = true;
                         let _ = GLOBALS
                             .storage
@@ -730,15 +710,35 @@ pub(super) fn render_more_list_actions(
                     }
                 }
                 if on_list {
+                    if metadata.private {
+                        if ui.button("Make Public").clicked() {
+                            metadata.private = false;
+                            let _ = GLOBALS
+                                .storage
+                                .set_person_list_metadata(list, metadata, None);
+                            *is_open = false;
+                        }
+                    } else {
+                        if ui.button("Make Private").clicked() {
+                            metadata.private = true;
+                            let _ = GLOBALS
+                                .storage
+                                .set_person_list_metadata(list, metadata, None);
+                            let _ = GLOBALS
+                                .storage
+                                .set_all_people_in_list_to_private(list, None);
+                            *is_open = false;
+                        }
+                    }
                     if ui.add_enabled(count > 0, egui::Button::new("Clear All")).clicked() {
                         app.people_list.clear_list_needs_confirm = true;
                         *is_open = false;
                     }
-                }
-                if ui.button("Delete List").clicked() {
-                    app.renaming_list = None;
-                    app.deleting_list = Some(list);
-                    *is_open = false;
+                    if ui.button("Delete").clicked() {
+                        app.renaming_list = None;
+                        app.deleting_list = Some(list);
+                        *is_open = false;
+                    }
                 }
             }
         });
