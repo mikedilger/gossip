@@ -94,21 +94,23 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(15.0);
 
-    ui.add_space(20.0);
-    let mut label = RichText::new("  >  Save, Publish and Continue");
-    if app.wizard_state.new_user {
-        label = label.color(app.theme.accent_color());
-    }
-    if ui.button(label).clicked() {
-        // Copy from form and save
-        save_metadata(app, you.clone(), metadata.clone());
+    if GLOBALS.signer.is_ready() {
+        ui.add_space(20.0);
+        let mut label = RichText::new("  >  Save, Publish and Continue");
+        if app.wizard_state.new_user {
+            label = label.color(app.theme.accent_color());
+        }
+        if ui.button(label).clicked() {
+            // Copy from form and save
+            save_metadata(app, you.clone(), metadata.clone());
 
-        // Publish
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::PushMetadata(metadata.clone()));
+            // Publish
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::PushMetadata(metadata.clone()));
 
-        app.page = Page::Wizard(WizardPage::FollowPeople);
+            app.page = Page::Wizard(WizardPage::FollowPeople);
+        }
     }
 
     ui.add_space(20.0);

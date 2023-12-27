@@ -178,7 +178,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.add_space(10.0);
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
-                    if ui.link("setup your identity").clicked() {
+                    if ui.link("setup your private-key").clicked() {
                         app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label(" to see DMs.");

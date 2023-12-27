@@ -44,8 +44,6 @@ The following features make gossip different than most other nostr clients so fa
 - **High user control**: Gossip has (at the time of writing) 64 different settings. When the right value is uncertain, I pick a reasonable default and give the user the mechanism to change it.
 - **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS, because on a plain OS sometimes data leaks around Tor (things like DNS lookups). Gossip supports using native TLS certificates so you can configure trust for .onion sites. Gossip provides options to support privacy usage such as not loading avatars, not loading images, not necessarily sharing who you follow, etc.
 
-## Media
-
 ### Screenshots
 
 ![Gossip Screenshot, Default Light Theme](assets/gossip_screenshot_light.png)
@@ -110,6 +108,21 @@ The following features make gossip different than most other nostr clients so fa
 - ⬜ NIP-94 - File Metadata
 - ⬜ NIP-98 - HTTP Auth
 - ⬜ NIP-99 - Classified Listings
+
+## Content Moderation and Curation
+
+Gossip provides multiple for you to moderate and curate the content that you see. Some of these mechanisms leverage the work of other people such as community moderators, friends, and relay operators. Others put you in charge, but as such you will be seeing the content in order to moderate it so they don't completely insulate you from the content. Here are the mechanisms available in gossip for content moderation and feed curation
+
+1. **No global feed and no algorithm** - Gossip has no global feed. So right from the start you are not subjected to everything that is out there. Feeds are comprised entirely of posts from people that you choose to follow. Replies to posts, on the other hand, can come from anywhere. Therefore there is still a need for moderation.
+1. **Lists** - You can define lists of people and view only what those people have posted.
+1. **Muting** - You can mute individual people. You can share this mute list with other clients that you use.
+1. **Thread Dismissal** - You can dismiss a post and all the replies to it (however, this is temporary until client restart).
+1. **Content Warnings** - Gossip shows content warnings of posts that have them, and you must approve to see the content. You can also place content warnings on any content that you post.
+1. **Spam filtering** - Gossip provides a hook to filter posts via a script that you can program to do whatever you want.
+
+Showing relay-global feeds is a possibility for the future. You can choose a relay that moderates as you wish.
+
+In the future I intend for gossip to support one of the multiple competing standards for labelling and reporting of content (the options currently are NIP-32, NIP-56, and NIP-72), but none of these are defined well enough to be useful yet IMHO. I look forward to a time when you can subscribe to a set of moderators that you trust.
 
 ## Building from Source
 

@@ -117,44 +117,44 @@ pub(super) fn update(
 
     ui.set_enabled(enabled);
 
-    if GLOBALS.signer.is_ready() {
-        ui.vertical(|ui| {
-            ui.label(RichText::new(&app.people_list.cache_remote_tag))
-                .on_hover_text("This is the data in the latest list event fetched from relays");
+    ui.vertical(|ui| {
+        ui.label(RichText::new(&app.people_list.cache_remote_tag))
+            .on_hover_text("This is the data in the latest list event fetched from relays");
 
-            ui.add_space(5.0);
+        ui.add_space(5.0);
 
-            // remote <-> local buttons
-            ui.horizontal(|ui|{
-                if ui
-                    .button("↓ Overwrite ↓")
-                    .on_hover_text(
-                        "This imports data from the latest event, erasing anything that is already here",
-                    )
-                    .clicked()
-                {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::UpdatePersonList {
-                            person_list: list,
-                            merge: false,
-                        });
-                }
-                if ui
-                    .button("↓ Merge ↓")
-                    .on_hover_text(
-                        "This imports data from the latest event, merging it into what is already here",
-                    )
-                    .clicked()
-                {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::UpdatePersonList {
-                            person_list: list,
-                            merge: true,
-                        });
-                }
+        // remote <-> local buttons
+        ui.horizontal(|ui|{
+            if ui
+                .button("↓ Overwrite ↓")
+                .on_hover_text(
+                    "This imports data from the latest event, erasing anything that is already here",
+                )
+                .clicked()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdatePersonList {
+                        person_list: list,
+                        merge: false,
+                    });
+            }
+            if ui
+                .button("↓ Merge ↓")
+                .on_hover_text(
+                    "This imports data from the latest event, merging it into what is already here",
+                )
+                .clicked()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdatePersonList {
+                        person_list: list,
+                        merge: true,
+                    });
+            }
 
+            if GLOBALS.signer.is_ready() {
                 if ui
                     .button("↑ Publish ↑")
                     .on_hover_text("This publishes the list to your relays")
@@ -164,23 +164,23 @@ pub(super) fn update(
                         .to_overlord
                         .send(ToOverlordMessage::PushPersonList(list));
                 }
-            });
-
-            ui.add_space(5.0);
-
-            // local timestamp
-            ui.label(RichText::new(&app.people_list.cache_local_tag))
-                .on_hover_text("This is the local (and effective) list");
-        });
-    } else {
-        ui.horizontal(|ui| {
-            ui.label("You need to ");
-            if ui.link("setup your identity").clicked() {
-                app.set_page(ctx, Page::YourKeys);
+            } else {
+                ui.horizontal(|ui| {
+                    ui.label("You need to ");
+                    if ui.link("setup your private-key").clicked() {
+                        app.set_page(ctx, Page::YourKeys);
+                    }
+                    ui.label(" to push lists.");
+                });
             }
-            ui.label(" to manage list events.");
         });
-    }
+
+        ui.add_space(5.0);
+
+        // local timestamp
+        ui.label(RichText::new(&app.people_list.cache_local_tag))
+            .on_hover_text("This is the local (and effective) list");
+    });
 
     ui.add_space(10.0);
 
