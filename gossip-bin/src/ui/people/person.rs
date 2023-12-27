@@ -225,12 +225,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             if inlist && list != PersonList::Followed {
                                 ui.add_space(20.0);
 
-                                let mut private = *membership.unwrap_or(&false);
+                                let mut private = !membership.unwrap_or(&false);
                                 let switch_response = ui.add(widgets::Switch::onoff(&app.theme, &mut private));
                                 if switch_response.clicked() {
                                     let _ = GLOBALS
                                         .storage
-                                        .add_person_to_list(&pubkey, list, private, None);
+                                        .add_person_to_list(&pubkey, list, !private, None);
                                     // variable 'private' gets negated when switch is operated
                                 }
                                 ui.add_enabled(private, egui::Label::new("Private"));

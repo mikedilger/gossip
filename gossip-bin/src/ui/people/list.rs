@@ -187,7 +187,8 @@ pub(super) fn update(
     app.vert_scroll_area().show(ui, |ui| {
         // not nice but needed because of 'app' borrow in closure
         let people = app.people_list.cache_people.clone();
-        for (person, mut public) in people.iter() {
+        for (person, public) in people.iter() {
+            let mut private = !public;
             let row_response = widgets::list_entry::make_frame(
                 ui,
                 Some(app.theme.main_content_bgcolor()),
@@ -251,13 +252,13 @@ pub(super) fn update(
                                     // private / public switch
                                     ui.label("Private");
                                     if ui
-                                        .add(widgets::Switch::onoff(&app.theme, &mut public))
+                                        .add(widgets::Switch::onoff(&app.theme, &mut private))
                                         .clicked()
                                     {
                                         let _ = GLOBALS.storage.add_person_to_list(
                                             &person.pubkey,
                                             list,
-                                            public,
+                                            !private,
                                             None,
                                         );
                                         mark_refresh(app);
