@@ -183,15 +183,13 @@ impl Storage {
         list: PersonList1,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        if !self.get_people_in_list(list)?.is_empty() {
-            return Err(ErrorKind::ListIsNotEmpty.into());
-        }
-
         if u8::from(list) < 2 {
             return Err(ErrorKind::ListIsWellKnown.into());
         }
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.clear_person_list(list, Some(txn))?;
+
             // note: we dont have to delete the list of people because those
             //       lists are keyed by pubkey, and we already checked that
             //       this list is not referenced.
