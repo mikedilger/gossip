@@ -729,13 +729,13 @@ pub(super) fn render_more_list_actions(
                         *is_open = false;
                     }
                 }
-                if count > 0 && on_list {
-                    if ui.button("Clear All").clicked() {
+                if on_list {
+                    if ui.add_enabled(count > 0, egui::Button::new("Clear All")).clicked() {
                         app.people_list.clear_list_needs_confirm = true;
                         *is_open = false;
                     }
                 }
-                if count == 0 && ui.button("Delete List").clicked() {
+                if ui.button("Delete List").clicked() {
                     app.renaming_list = None;
                     app.deleting_list = Some(list);
                     *is_open = false;
