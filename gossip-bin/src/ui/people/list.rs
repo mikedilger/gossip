@@ -122,6 +122,8 @@ pub(super) fn update(
 
     ui.set_enabled(enabled);
 
+    ui.add_space(5.0);
+
     ui.vertical(|ui| {
         ui.label(RichText::new(&app.people_list.cache_remote_tag))
             .on_hover_text("This is the data in the latest list event fetched from relays");
@@ -664,21 +666,18 @@ pub(super) fn render_more_list_actions(
     count: usize,
     on_list: bool,
 ) {
-    let menu = if on_list {
-        widgets::MoreMenu::bubble(ui, app)
+    if on_list {
+        app.theme.accent_button_1_style(ui.style_mut());   
+    }
+    let menu = widgets::MoreMenu::simple(ui, app)
             .with_min_size(vec2(100.0, 0.0))
-            .with_max_size(vec2(160.0, f32::INFINITY))
-    } else {
-        widgets::MoreMenu::simple(ui, app)
-            .with_min_size(vec2(100.0, 0.0))
-            .with_max_size(vec2(160.0, f32::INFINITY))
-    };
+            .with_max_size(vec2(160.0, f32::INFINITY));
 
     menu.show(ui, |ui, is_open| {
         ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
             if on_list {
                 app.theme.accent_button_1_style(ui.style_mut());
-                ui.spacing_mut().item_spacing.y = 10.0;
+                ui.spacing_mut().item_spacing.y = 15.0;
             }
             if !on_list {
                 if ui.button("View Contacts").clicked() {
