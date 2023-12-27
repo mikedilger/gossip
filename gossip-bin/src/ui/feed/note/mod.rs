@@ -420,7 +420,7 @@ fn render_note_inner(
                 });
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                    ui.menu_button(RichText::new("=").size(13.0), |ui| {
+                    widgets::MoreMenu::simple(ui, app).show(ui, |ui, keep_open| {
                         if !render_data.is_main_event {
                             if note.event.kind.is_direct_message_related() {
                                 if ui.button("View DM Channel").clicked() {
@@ -433,6 +433,7 @@ fn render_note_inner(
                                                 .to_string(),
                                         );
                                     }
+                                    *keep_open = false;
                                 }
                             } else {
                                 if ui.button("View Thread").clicked() {
@@ -444,6 +445,7 @@ fn render_note_inner(
                                             author: Some(note.event.pubkey),
                                         }),
                                     );
+                                    *keep_open = false;
                                 }
                             }
                         }
@@ -462,6 +464,7 @@ fn render_note_inner(
                                 };
                                 let nostr_url: NostrUrl = event_addr.into();
                                 ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                                *keep_open = false;
                             }
                         } else {
                             if ui.button("Copy nevent").clicked() {
@@ -473,6 +476,7 @@ fn render_note_inner(
                                 };
                                 let nostr_url: NostrUrl = event_pointer.into();
                                 ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                                *keep_open = false;
                             }
                         }
                         if !note.event.kind.is_direct_message_related() {
@@ -489,22 +493,27 @@ fn render_note_inner(
                                         event_pointer.as_bech32_string()
                                     )
                                 });
+                                *keep_open = false;
                             }
                         }
                         if ui.button("Copy note1 Id").clicked() {
                             let nostr_url: NostrUrl = note.event.id.into();
                             ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                            *keep_open = false;
                         }
                         if ui.button("Copy hex Id").clicked() {
                             ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
+                            *keep_open = false;
                         }
                         if ui.button("Copy Raw data").clicked() {
                             ui.output_mut(|o| {
                                 o.copied_text = serde_json::to_string_pretty(&note.event).unwrap()
                             });
+                            *keep_open = false;
                         }
                         if ui.button("Dismiss").clicked() {
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
+                            *keep_open = false;
                         }
                         if Some(note.event.pubkey) == app.settings.public_key
                             && note.deletions.is_empty()
@@ -513,10 +522,12 @@ fn render_note_inner(
                                 let _ = GLOBALS
                                     .to_overlord
                                     .send(ToOverlordMessage::DeletePost(note.event.id));
+                                *keep_open = false;
                             }
                         }
                         if ui.button("Rerender").clicked() {
                             app.notes.cache_invalidate_note(&note.event.id);
+                            *keep_open = false;
                         }
                     });
                     ui.add_space(4.0);

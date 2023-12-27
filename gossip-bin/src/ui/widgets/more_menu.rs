@@ -230,6 +230,7 @@ impl MoreMenu {
                 });
             });
             if menuresp.response.clicked_elsewhere() && !response.clicked() {
+                // clicked outside the menu but not on the menu-button
                 active = false;
             }
         }
