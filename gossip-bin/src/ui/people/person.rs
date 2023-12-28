@@ -9,6 +9,7 @@ use egui_winit::egui::vec2;
 use egui_winit::egui::InnerResponse;
 use egui_winit::egui::Response;
 use egui_winit::egui::Widget;
+use gossip_lib::PersonList;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
@@ -204,11 +205,11 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         ui.horizontal(|ui| {
                             let membership = membership_map.get(&list);
                             let mut inlist = membership.is_some();
-                            if widgets::switch_simple(ui, inlist).clicked() {
-                                if inlist {
+
+                            if ui.add(widgets::Switch::onoff(&app.theme, &mut inlist)).clicked() {
+                                if !inlist {
                                     let _ =
                                         GLOBALS.storage.remove_person_from_list(&pubkey, list, None);
-                                    inlist = false;
                                 } else {
                                     let _ = GLOBALS.storage.add_person_to_list(
                                         &pubkey,
@@ -216,25 +217,29 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         !metadata.private,
                                         None,
                                     );
-                                    inlist = true;
                                 }
-                                inlist = !inlist;
                             }
-                            ui.add_space(10.0);
-                            if inlist {
-                                ui.label(metadata.title);
 
-                                ui.add_space(10.0);
-                                let public = membership.unwrap();
-                                // button to toggle public
-                                let label = if *public { "Public" } else { "Private" };
-                                if ui.button(label).clicked() {
+                            let title_response = ui.add_enabled(inlist, egui::Label::new(metadata.title));
+
+                            if inlist && list != PersonList::Followed {
+                                ui.add_space(20.0);
+
+                                let mut private = !membership.unwrap_or(&false);
+                                let switch_response = ui.add(widgets::Switch::onoff(&app.theme, &mut private));
+                                if switch_response.clicked() {
                                     let _ = GLOBALS
                                         .storage
-                                        .add_person_to_list(&pubkey, list, !*public, None);
+                                        .add_person_to_list(&pubkey, list, !private, None);
+                                    // variable 'private' gets negated when switch is operated
                                 }
-                            } else {
-                                ui.label(RichText::new(metadata.title).weak());
+                                ui.add_enabled(private, egui::Label::new("Private"));
+
+                                let color = if private { ui.visuals().text_color() } else { ui.visuals().weak_text_color() };
+                                let left = title_response.rect.right_center();
+                                let right = switch_response.rect.left_center();
+                                let points = [left + vec2(10.0,0.0), right + vec2(-10.0, 0.0)];
+                                ui.painter().line_segment(points, egui::Stroke::new(1.0, color));
                             }
                         });
                     }

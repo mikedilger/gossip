@@ -70,23 +70,28 @@ pub(super) fn update(
         refresh_list_data(app, list);
     }
 
-    // process popups first
-    if app.people_list.clear_list_needs_confirm {
-        render_clear_list_confirm_popup(ui, app, list);
-    }
-    if app.people_list.entering_follow_someone_on_list {
-        render_add_contact_popup(ui, app, list);
-    }
-
-    // disable rest of ui when popups are open
-    let enabled = !app.people_list.entering_follow_someone_on_list
-        && !app.people_list.clear_list_needs_confirm;
-
     let mut metadata = GLOBALS
         .storage
         .get_person_list_metadata(list)
         .unwrap_or_default()
         .unwrap_or_default();
+
+    // process popups first
+    let mut enabled = false;
+    if app.people_list.clear_list_needs_confirm {
+        render_clear_list_confirm_popup(ui, app, list);
+    } else if app.people_list.entering_follow_someone_on_list {
+        render_add_contact_popup(ui, app, list, &metadata);
+    } else if let Some(list) = app.deleting_list {
+        super::list::render_delete_list_dialog(ui, app, list);
+    } else if app.creating_list {
+        super::list::render_create_list_dialog(ui, app);
+    } else if let Some(list) = app.renaming_list {
+        super::list::render_rename_list_dialog(ui, app, list);
+    } else {
+        // only enable rest of ui when popups are not open
+        enabled = true;
+    }
 
     let title_job = layout_list_title(ui, app, &metadata);
 
@@ -95,27 +100,29 @@ pub(super) fn update(
         ui.add_enabled_ui(enabled, |ui| {
             let len = metadata.len;
             render_more_list_actions(ui, app, list, &mut metadata, len, true);
+
+            app.theme.accent_button_1_style(ui.style_mut());
+
+            btn_h_space!(ui);
+
+            if ui.button("Add contact").clicked() {
+                app.people_list.entering_follow_someone_on_list = true;
+            }
+
+            btn_h_space!(ui);
+
+            if ui.button("View the Feed").clicked() {
+                app.set_page(
+                    ctx,
+                    Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)),
+                );
+            }
         });
-
-        app.theme.accent_button_1_style(ui.style_mut());
-
-        btn_h_space!(ui);
-
-        if ui.button("Add contact").clicked() {
-            app.people_list.entering_follow_someone_on_list = true;
-        }
-
-        btn_h_space!(ui);
-
-        if ui.button("View the Feed").clicked() {
-            app.set_page(
-                ctx,
-                Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)),
-            );
-        }
     });
 
     ui.set_enabled(enabled);
+
+    ui.add_space(5.0);
 
     ui.vertical(|ui| {
         ui.label(RichText::new(&app.people_list.cache_remote_tag))
@@ -187,7 +194,8 @@ pub(super) fn update(
     app.vert_scroll_area().show(ui, |ui| {
         // not nice but needed because of 'app' borrow in closure
         let people = app.people_list.cache_people.clone();
-        for (person, mut public) in people.iter() {
+        for (person, public) in people.iter() {
+            let mut private = !public;
             let row_response = widgets::list_entry::make_frame(
                 ui,
                 Some(app.theme.main_content_bgcolor()),
@@ -251,13 +259,13 @@ pub(super) fn update(
                                     // private / public switch
                                     ui.label("Private");
                                     if ui
-                                        .add(widgets::Switch::onoff(&app.theme, &mut public))
+                                        .add(widgets::Switch::onoff(&app.theme, &mut private))
                                         .clicked()
                                     {
                                         let _ = GLOBALS.storage.add_person_to_list(
                                             &person.pubkey,
                                             list,
-                                            public,
+                                            !private,
                                             None,
                                         );
                                         mark_refresh(app);
@@ -282,14 +290,6 @@ pub(super) fn update(
         }
         ui.add_space(AVATAR_SIZE_F32 + 40.0);
     });
-
-    if let Some(list) = app.deleting_list {
-        super::list::render_delete_list_dialog(ui, app, list);
-    } else if app.creating_list {
-        super::list::render_create_list_dialog(ui, app);
-    } else if let Some(list) = app.renaming_list {
-        super::list::render_rename_list_dialog(ui, app, list);
-    }
 }
 
 pub(in crate::ui) fn layout_list_title(
@@ -335,7 +335,7 @@ pub(in crate::ui) fn layout_list_title(
     layout_job
 }
 
-fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
+fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList, metadata: &PersonListMetadata) {
     const DLG_SIZE: Vec2 = vec2(400.0, 240.0);
     let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
         let enter_key;
@@ -417,7 +417,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
+                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, !metadata.private));
                             can_close = true;
                             mark_refresh(app);
                         } else if let Ok(pubkey) =
@@ -425,7 +425,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
                         {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, true));
+                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, !metadata.private));
                             can_close = true;
                             mark_refresh(app);
                         } else if let Ok(profile) =
@@ -434,7 +434,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
                                 profile.clone(),
                                 list,
-                                true,
+                                !metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -442,7 +442,7 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                                 app.add_contact.trim().to_owned(),
                                 list,
-                                true,
+                                !metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -666,21 +666,18 @@ pub(super) fn render_more_list_actions(
     count: usize,
     on_list: bool,
 ) {
-    let menu = if on_list {
-        widgets::MoreMenu::bubble(ui, app)
+    if on_list {
+        app.theme.accent_button_1_style(ui.style_mut());   
+    }
+    let menu = widgets::MoreMenu::simple(ui, app)
             .with_min_size(vec2(100.0, 0.0))
-            .with_max_size(vec2(160.0, f32::INFINITY))
-    } else {
-        widgets::MoreMenu::simple(ui, app)
-            .with_min_size(vec2(100.0, 0.0))
-            .with_max_size(vec2(160.0, f32::INFINITY))
-    };
+            .with_max_size(vec2(160.0, f32::INFINITY));
 
     menu.show(ui, |ui, is_open| {
         ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
             if on_list {
                 app.theme.accent_button_1_style(ui.style_mut());
-                ui.spacing_mut().item_spacing.y = 10.0;
+                ui.spacing_mut().item_spacing.y = 15.0;
             }
             if !on_list {
                 if ui.button("View Contacts").clicked() {
@@ -689,33 +686,13 @@ pub(super) fn render_more_list_actions(
                 }
             }
             if matches!(list, PersonList::Custom(_)) {
-                if ui.button("Rename List").clicked() {
+                if ui.button("Rename").clicked() {
                     app.deleting_list = None;
                     app.renaming_list = Some(list);
                     *is_open = false;
                 }
-                if metadata.private {
-                    if ui.button("Make Public").clicked() {
-                        metadata.private = false;
-                        let _ = GLOBALS
-                            .storage
-                            .set_person_list_metadata(list, metadata, None);
-                        *is_open = false;
-                    }
-                } else {
-                    if ui.button("Make Private").clicked() {
-                        metadata.private = true;
-                        let _ = GLOBALS
-                            .storage
-                            .set_person_list_metadata(list, metadata, None);
-                        let _ = GLOBALS
-                            .storage
-                            .set_all_people_in_list_to_private(list, None);
-                        *is_open = false;
-                    }
-                }
                 if metadata.favorite {
-                    if ui.button("Remove from Favorites").clicked() {
+                    if ui.button("Unset as Favorite").clicked() {
                         metadata.favorite = false;
                         let _ = GLOBALS
                             .storage
@@ -723,7 +700,7 @@ pub(super) fn render_more_list_actions(
                         *is_open = false;
                     }
                 } else {
-                    if ui.button("Make Favorite").clicked() {
+                    if ui.button("Set as Favorite").clicked() {
                         metadata.favorite = true;
                         let _ = GLOBALS
                             .storage
@@ -731,16 +708,36 @@ pub(super) fn render_more_list_actions(
                         *is_open = false;
                     }
                 }
-                if count > 0 && on_list {
-                    if ui.button("Clear All").clicked() {
+                if on_list {
+                    if metadata.private {
+                        if ui.button("Make Public").clicked() {
+                            metadata.private = false;
+                            let _ = GLOBALS
+                                .storage
+                                .set_person_list_metadata(list, metadata, None);
+                            *is_open = false;
+                        }
+                    } else {
+                        if ui.button("Make Private").clicked() {
+                            metadata.private = true;
+                            let _ = GLOBALS
+                                .storage
+                                .set_person_list_metadata(list, metadata, None);
+                            let _ = GLOBALS
+                                .storage
+                                .set_all_people_in_list_to_private(list, None);
+                            *is_open = false;
+                        }
+                    }
+                    if ui.add_enabled(count > 0, egui::Button::new("Clear All")).clicked() {
                         app.people_list.clear_list_needs_confirm = true;
                         *is_open = false;
                     }
-                }
-                if count == 0 && ui.button("Delete List").clicked() {
-                    app.renaming_list = None;
-                    app.deleting_list = Some(list);
-                    *is_open = false;
+                    if ui.button("Delete").clicked() {
+                        app.renaming_list = None;
+                        app.deleting_list = Some(list);
+                        *is_open = false;
+                    }
                 }
             }
         });
