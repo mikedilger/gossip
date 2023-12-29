@@ -244,29 +244,46 @@ impl Overlord {
     }
 
     async fn apply_relay_assignment(&mut self, assignment: RelayAssignment) -> Result<(), Error> {
-        // Subscribe to the general feed
-        self.engage_minion(
-            assignment.relay_url.clone(),
-            vec![
-                RelayJob {
-                    reason: RelayConnectionReason::Follow,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
-                            assignment.pubkeys.clone(),
-                        ),
-                    },
+        let mut jobs = vec![
+            RelayJob {
+                reason: RelayConnectionReason::Follow,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
+                        assignment.pubkeys.clone(),
+                    ),
                 },
+            },
+        ];
+
+        // Until NIP-65 is in widespread use, we should listen for mentions
+        // of us on all these relays too
+        // Only do this if we aren't already doing it.
+        let mut fetch_mentions = true;
+        if let Some(jobs) = GLOBALS.connected_relays.get(&assignment.relay_url) {
+            for job in &*jobs {
+                if job.reason == RelayConnectionReason::FetchMentions {
+                    fetch_mentions = false;
+                    break;
+                }
+            }
+        }
+        if fetch_mentions {
+            jobs.push(
                 RelayJob {
-                    // Until NIP-65 is in widespread use, we should listen for mentions
-                    // of us on all these relays too
                     reason: RelayConnectionReason::FetchMentions,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeMentions,
                     },
                 },
-            ],
+            );
+        }
+
+        // Subscribe to the general feed
+        self.engage_minion(
+            assignment.relay_url.clone(),
+            jobs
         )
         .await?;
 
