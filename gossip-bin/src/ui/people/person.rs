@@ -9,11 +9,11 @@ use egui_winit::egui::vec2;
 use egui_winit::egui::InnerResponse;
 use egui_winit::egui::Response;
 use egui_winit::egui::Widget;
-use gossip_lib::PersonList;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
 use gossip_lib::Person;
+use gossip_lib::PersonList;
 use gossip_lib::GLOBALS;
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
@@ -188,7 +188,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             }
 
             ui.add_space(10.0);
-            ui.horizontal(|ui|{
+            ui.horizontal(|ui| {
                 ui.add_space(10.0);
                 ui.heading("User lists");
             });
@@ -206,10 +206,14 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             let membership = membership_map.get(&list);
                             let mut inlist = membership.is_some();
 
-                            if ui.add(widgets::Switch::onoff(&app.theme, &mut inlist)).clicked() {
+                            if ui
+                                .add(widgets::Switch::onoff(&app.theme, &mut inlist))
+                                .clicked()
+                            {
                                 if !inlist {
-                                    let _ =
-                                        GLOBALS.storage.remove_person_from_list(&pubkey, list, None);
+                                    let _ = GLOBALS
+                                        .storage
+                                        .remove_person_from_list(&pubkey, list, None);
                                 } else {
                                     let _ = GLOBALS.storage.add_person_to_list(
                                         &pubkey,
@@ -220,13 +224,15 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 }
                             }
 
-                            let title_response = ui.add_enabled(inlist, egui::Label::new(metadata.title));
+                            let title_response =
+                                ui.add_enabled(inlist, egui::Label::new(metadata.title));
 
                             if inlist && list != PersonList::Followed {
                                 ui.add_space(20.0);
 
                                 let mut private = !membership.unwrap_or(&false);
-                                let switch_response = ui.add(widgets::Switch::onoff(&app.theme, &mut private));
+                                let switch_response =
+                                    ui.add(widgets::Switch::onoff(&app.theme, &mut private));
                                 if switch_response.clicked() {
                                     let _ = GLOBALS
                                         .storage
@@ -235,11 +241,16 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 }
                                 ui.add_enabled(private, egui::Label::new("Private"));
 
-                                let color = if private { ui.visuals().text_color() } else { ui.visuals().weak_text_color() };
+                                let color = if private {
+                                    ui.visuals().text_color()
+                                } else {
+                                    ui.visuals().weak_text_color()
+                                };
                                 let left = title_response.rect.right_center();
                                 let right = switch_response.rect.left_center();
-                                let points = [left + vec2(10.0,0.0), right + vec2(-10.0, 0.0)];
-                                ui.painter().line_segment(points, egui::Stroke::new(1.0, color));
+                                let points = [left + vec2(10.0, 0.0), right + vec2(-10.0, 0.0)];
+                                ui.painter()
+                                    .line_segment(points, egui::Stroke::new(1.0, color));
                             }
                         });
                     }
@@ -247,7 +258,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             });
 
             ui.add_space(10.0);
-            ui.horizontal(|ui|{
+            ui.horizontal(|ui| {
                 ui.add_space(10.0);
                 ui.heading("More details");
             });

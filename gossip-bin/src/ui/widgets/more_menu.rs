@@ -1,5 +1,7 @@
 use eframe::epaint::PathShape;
-use egui_winit::egui::{self, vec2, AboveOrBelow, Color32, Id, Rect, TextureHandle, Ui, Vec2, Align2};
+use egui_winit::egui::{
+    self, vec2, AboveOrBelow, Align2, Color32, Id, Rect, TextureHandle, Ui, Vec2,
+};
 
 use crate::ui::GossipUi;
 
@@ -96,9 +98,10 @@ impl MoreMenu {
             MoreMenuStyle::Simple => {
                 let text = egui::RichText::new("=").size(13.0);
                 ui.add(egui::Button::new(text))
-            },
+            }
             MoreMenuStyle::Bubble => {
-                let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
+                let (response, painter) =
+                    ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
                 let btn_rect = response.rect;
                 let color = if response.hovered() {
                     self.accent_color
@@ -113,7 +116,7 @@ impl MoreMenu {
                 );
                 painter.add(egui::Shape::mesh(mesh));
                 response
-            },
+            }
         };
 
         let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -132,7 +135,9 @@ impl MoreMenu {
         }
 
         let pos = response.rect.center();
-        let above_or_below = self.above_or_below.unwrap_or(select_above_or_below(ui, pos));
+        let above_or_below = self
+            .above_or_below
+            .unwrap_or(select_above_or_below(ui, pos));
         let bg_color = ui.visuals().window_fill();
         let (pivot, fixed_pos, polygon) = match above_or_below {
             AboveOrBelow::Above => {
@@ -143,12 +148,18 @@ impl MoreMenu {
                         Align2::RIGHT_BOTTOM => origin_pos + vec2(super::DROPDOWN_DISTANCE, -5.0),
                         Align2::LEFT_BOTTOM => origin_pos + vec2(-super::DROPDOWN_DISTANCE, -5.0),
                         _ => origin_pos,
-                    }
+                    },
                     MoreMenuStyle::Bubble => match pivot {
-                        Align2::RIGHT_BOTTOM => origin_pos + vec2(2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
-                        Align2::LEFT_BOTTOM => origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE),
+                        Align2::RIGHT_BOTTOM => {
+                            origin_pos
+                                + vec2(2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE)
+                        }
+                        Align2::LEFT_BOTTOM => {
+                            origin_pos
+                                + vec2(-2.0 * super::DROPDOWN_DISTANCE, -super::DROPDOWN_DISTANCE)
+                        }
                         _ => origin_pos,
-                    }
+                    },
                 };
                 let path = PathShape::convex_polygon(
                     [
@@ -170,12 +181,18 @@ impl MoreMenu {
                         Align2::RIGHT_TOP => origin_pos + vec2(super::DROPDOWN_DISTANCE, 5.0),
                         Align2::LEFT_TOP => origin_pos + vec2(-super::DROPDOWN_DISTANCE, 5.0),
                         _ => origin_pos,
-                    }
+                    },
                     MoreMenuStyle::Bubble => match pivot {
-                        Align2::RIGHT_TOP => origin_pos + vec2(2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
-                        Align2::LEFT_TOP => origin_pos + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE),
+                        Align2::RIGHT_TOP => {
+                            origin_pos
+                                + vec2(2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE)
+                        }
+                        Align2::LEFT_TOP => {
+                            origin_pos
+                                + vec2(-2.0 * super::DROPDOWN_DISTANCE, super::DROPDOWN_DISTANCE)
+                        }
                         _ => origin_pos,
-                    }
+                    },
                 };
                 let path = PathShape::convex_polygon(
                     [

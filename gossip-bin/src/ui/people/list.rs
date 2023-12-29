@@ -335,7 +335,12 @@ pub(in crate::ui) fn layout_list_title(
     layout_job
 }
 
-fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList, metadata: &PersonListMetadata) {
+fn render_add_contact_popup(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    list: PersonList,
+    metadata: &PersonListMetadata,
+) {
     const DLG_SIZE: Vec2 = vec2(400.0, 240.0);
     let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
         let enter_key;
@@ -415,17 +420,21 @@ fn render_add_contact_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList, m
                         if let Ok(pubkey) =
                             PublicKey::try_from_bech32_string(app.add_contact.trim(), true)
                         {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, !metadata.private));
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
+                                pubkey,
+                                list,
+                                !metadata.private,
+                            ));
                             can_close = true;
                             mark_refresh(app);
                         } else if let Ok(pubkey) =
                             PublicKey::try_from_hex_string(app.add_contact.trim(), true)
                         {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::FollowPubkey(pubkey, list, !metadata.private));
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
+                                pubkey,
+                                list,
+                                !metadata.private,
+                            ));
                             can_close = true;
                             mark_refresh(app);
                         } else if let Ok(profile) =
@@ -667,11 +676,11 @@ pub(super) fn render_more_list_actions(
     on_list: bool,
 ) {
     if on_list {
-        app.theme.accent_button_1_style(ui.style_mut());   
+        app.theme.accent_button_1_style(ui.style_mut());
     }
     let menu = widgets::MoreMenu::simple(ui, app)
-            .with_min_size(vec2(100.0, 0.0))
-            .with_max_size(vec2(160.0, f32::INFINITY));
+        .with_min_size(vec2(100.0, 0.0))
+        .with_max_size(vec2(160.0, f32::INFINITY));
 
     menu.show(ui, |ui, is_open| {
         ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
@@ -729,7 +738,10 @@ pub(super) fn render_more_list_actions(
                             *is_open = false;
                         }
                     }
-                    if ui.add_enabled(count > 0, egui::Button::new("Clear All")).clicked() {
+                    if ui
+                        .add_enabled(count > 0, egui::Button::new("Clear All"))
+                        .clicked()
+                    {
                         app.people_list.clear_list_needs_confirm = true;
                         *is_open = false;
                     }

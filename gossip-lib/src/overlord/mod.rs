@@ -244,17 +244,13 @@ impl Overlord {
     }
 
     async fn apply_relay_assignment(&mut self, assignment: RelayAssignment) -> Result<(), Error> {
-        let mut jobs = vec![
-            RelayJob {
-                reason: RelayConnectionReason::Follow,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
-                        assignment.pubkeys.clone(),
-                    ),
-                },
+        let mut jobs = vec![RelayJob {
+            reason: RelayConnectionReason::Follow,
+            payload: ToMinionPayload {
+                job_id: rand::random::<u64>(),
+                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(assignment.pubkeys.clone()),
             },
-        ];
+        }];
 
         // Until NIP-65 is in widespread use, we should listen for mentions
         // of us on all these relays too
@@ -269,23 +265,18 @@ impl Overlord {
             }
         }
         if fetch_mentions {
-            jobs.push(
-                RelayJob {
-                    reason: RelayConnectionReason::FetchMentions,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeMentions,
-                    },
+            jobs.push(RelayJob {
+                reason: RelayConnectionReason::FetchMentions,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeMentions,
                 },
-            );
+            });
         }
 
         // Subscribe to the general feed
-        self.engage_minion(
-            assignment.relay_url.clone(),
-            jobs
-        )
-        .await?;
+        self.engage_minion(assignment.relay_url.clone(), jobs)
+            .await?;
 
         Ok(())
     }
