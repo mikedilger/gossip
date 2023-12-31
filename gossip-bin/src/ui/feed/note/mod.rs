@@ -717,7 +717,7 @@ fn render_note_inner(
                                     } else if note.event.kind == EventKind::EncryptedDirectMessage {
                                         ui.output_mut(|o| {
                                             if let Ok(m) =
-                                                GLOBALS.signer.decrypt_message(&note.event)
+                                                GLOBALS.identity.decrypt_event_contents(&note.event)
                                             {
                                                 o.copied_text = m
                                             } else {
@@ -733,7 +733,7 @@ fn render_note_inner(
 
                                 ui.add_space(24.0);
 
-                                if GLOBALS.signer.is_ready() {
+                                if GLOBALS.identity.is_unlocked() {
                                     if note.event.kind != EventKind::EncryptedDirectMessage
                                         && note.event.kind != EventKind::DmChat
                                     {
@@ -913,7 +913,7 @@ fn render_note_inner(
                                                 .on_hover_text("ZAP")
                                                 .clicked()
                                             {
-                                                if GLOBALS.signer.is_ready() {
+                                                if GLOBALS.identity.is_unlocked() {
                                                     let _ = GLOBALS.to_overlord.send(
                                                         ToOverlordMessage::ZapStart(
                                                             note.event.id,
@@ -959,7 +959,7 @@ fn render_note_inner(
                                         )
                                         .clicked()
                                     {
-                                        if !GLOBALS.signer.is_ready() {
+                                        if !GLOBALS.identity.is_unlocked() {
                                             GLOBALS
                                                 .status_queue
                                                 .write()
@@ -1078,7 +1078,7 @@ fn render_content(
                         );
                     } else if app.render_qr == Some(event.id) {
                         if note.event.kind == EventKind::EncryptedDirectMessage {
-                            if let Ok(m) = GLOBALS.signer.decrypt_message(&note.event) {
+                            if let Ok(m) = GLOBALS.identity.decrypt_event_contents(&note.event) {
                                 app.render_qr(ui, ctx, "feedqr", m.trim());
                             }
                         } else {

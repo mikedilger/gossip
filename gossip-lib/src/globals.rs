@@ -2,11 +2,11 @@ use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::delegation::Delegation;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
+use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
 use crate::people::{People, Person};
 use crate::relay::Relay;
 use crate::relay_picker_hooks::Hooks;
-use crate::signer::Signer;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
 use dashmap::{DashMap, DashSet};
@@ -57,8 +57,8 @@ pub struct Globals {
     /// waited for by the overlord)
     pub shutting_down: AtomicBool,
 
-    /// Signer
-    pub signer: Signer,
+    /// Wrapped Identity wrapping a Signer
+    pub identity: GossipIdentity,
 
     /// Dismissed Events
     pub dismissed: RwLock<Vec<Id>>,
@@ -164,7 +164,7 @@ lazy_static! {
             connected_relays: DashMap::new(),
             relay_picker: Default::default(),
             shutting_down: AtomicBool::new(false),
-            signer: Signer::default(),
+            identity: GossipIdentity::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),
             fetcher: Fetcher::new(),
@@ -201,7 +201,7 @@ lazy_static! {
 
 impl Globals {
     pub fn get_your_nprofile() -> Option<Profile> {
-        let public_key = match GLOBALS.signer.public_key() {
+        let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return None,
         };

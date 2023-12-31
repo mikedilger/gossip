@@ -113,9 +113,9 @@ pub(in crate::ui) fn posting_area(
 ) {
     // Posting Area
     ui.vertical(|ui| {
-        if !GLOBALS.signer.is_ready() {
+        if !GLOBALS.identity.is_unlocked() {
             ui.horizontal_wrapped(|ui| {
-                if GLOBALS.signer.encrypted_private_key().is_some() {
+                if GLOBALS.identity.encrypted_private_key().is_some() {
                     you::offer_unlock_priv_key(app, ui);
                 } else {
                     ui.label("You need to ");

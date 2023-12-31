@@ -54,8 +54,8 @@ impl WizardState {
     pub fn update(&mut self) {
         self.follow_only = GLOBALS.storage.get_flag_following_only();
 
-        self.pubkey = GLOBALS.signer.public_key();
-        self.has_private_key = GLOBALS.signer.is_ready();
+        self.pubkey = GLOBALS.identity.public_key();
+        self.has_private_key = GLOBALS.identity.is_unlocked();
 
         if let Some(pk) = self.pubkey {
             self.metadata_events = GLOBALS

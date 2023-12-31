@@ -402,7 +402,7 @@ impl Feed {
                 *self.followed_feed.write() = events;
             }
             FeedKind::Inbox(indirect) => {
-                if let Some(my_pubkey) = GLOBALS.signer.public_key() {
+                if let Some(my_pubkey) = GLOBALS.identity.public_key() {
                     // Unfortunately it is expensive to find all events referencing
                     // any of my events, and we don't have such an index.
                     //

@@ -92,6 +92,9 @@ mod filter;
 mod globals;
 pub use globals::{Globals, ZapState, GLOBALS};
 
+mod gossip_identity;
+pub use gossip_identity::GossipIdentity;
+
 mod media;
 pub use media::Media;
 
@@ -126,9 +129,6 @@ pub use relay_picker_hooks::Hooks;
 mod settings;
 pub use settings::Settings;
 
-mod signer;
-pub use signer::Signer;
-
 mod status;
 pub use status::StatusQueue;
 
@@ -153,13 +153,13 @@ pub fn init() -> Result<(), Error> {
     GLOBALS.storage.init()?;
 
     // Load signer from settings
-    GLOBALS.signer.init()?;
+    GLOBALS.identity.load()?;
 
     // Load delegation tag
     GLOBALS.delegation.load()?;
 
     // If we have a key but have not unlocked it
-    if GLOBALS.signer.is_loaded() && !GLOBALS.signer.is_ready() {
+    if GLOBALS.identity.has_private_key() && !GLOBALS.identity.is_unlocked() {
         // If we need to rebuild relationships
         if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
             GLOBALS

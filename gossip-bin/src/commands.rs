@@ -419,7 +419,7 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     login()?;
 
-    let plaintext = GLOBALS.signer.decrypt_nip44(&pubkey, &ciphertext)?;
+    let plaintext = GLOBALS.identity.decrypt_nip44(&pubkey, &ciphertext)?;
     println!("{}", plaintext);
 
     Ok(())
@@ -461,7 +461,7 @@ pub fn delete_spam_by_content(
         let mut matches = false;
         if let Ok(Some(event)) = GLOBALS.storage.read_event(id) {
             if kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
                     if rumor.content.contains(&substring) {
                         matches = true;
                     }
@@ -517,7 +517,7 @@ pub fn delete_spam_by_content(
         });
     }
     let event = {
-        let public_key = GLOBALS.signer.public_key().unwrap();
+        let public_key = GLOBALS.identity.public_key().unwrap();
         let pre_event = PreEvent {
             pubkey: public_key,
             created_at: Unixtime::now().unwrap(),
@@ -526,7 +526,7 @@ pub fn delete_spam_by_content(
             content: "spam".to_owned(),
         };
         // Should we add a pow? Maybe the relay needs it.
-        GLOBALS.signer.sign_preevent(pre_event, None, None)?
+        GLOBALS.identity.sign_event(pre_event)?
     };
     println!("{}", serde_json::to_string(&event).unwrap());
 
@@ -768,7 +768,7 @@ pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     login()?;
 
-    let rumor = GLOBALS.signer.unwrap_giftwrap(&event)?;
+    let rumor = GLOBALS.identity.unwrap_giftwrap(&event)?;
 
     println!("{}", serde_json::to_string(&rumor)?);
 
@@ -891,14 +891,14 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
 }
 
 pub fn login() -> Result<(), Error> {
-    if GLOBALS.signer.is_loaded() {
+    if GLOBALS.identity.has_private_key() {
         let mut password = rpassword::prompt_password("Password: ").unwrap();
         let epk = match GLOBALS.storage.read_encrypted_private_key()? {
             Some(epk) => epk,
             None => return Err(ErrorKind::NoPrivateKey.into()),
         };
-        GLOBALS.signer.set_encrypted_private_key(epk);
-        GLOBALS.signer.unlock_encrypted_private_key(&password)?;
+        GLOBALS.identity.set_encrypted_private_key(epk)?;
+        GLOBALS.identity.unlock(&password)?;
         password.zeroize();
     } else {
         println!("No private key, skipping login");

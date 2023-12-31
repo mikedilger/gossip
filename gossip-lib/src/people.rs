@@ -532,7 +532,7 @@ impl People {
         &self,
         person_list: PersonList,
     ) -> Result<Event, Error> {
-        if !GLOBALS.signer.is_ready() {
+        if !GLOBALS.identity.is_unlocked() {
             return Err((ErrorKind::NoPrivateKey, file!(), line!()).into());
         }
 
@@ -542,7 +542,7 @@ impl People {
             None => return Err(ErrorKind::ListNotFound.into()),
         };
 
-        let my_pubkey = GLOBALS.signer.public_key().unwrap();
+        let my_pubkey = GLOBALS.identity.public_key().unwrap();
 
         // Read the person list
         let people = GLOBALS.storage.get_people_in_list(person_list)?;
@@ -577,7 +577,7 @@ impl People {
             if let Some(ref event) = existing_event {
                 if !event.content.is_empty() && kind != EventKind::ContactList {
                     let decrypted_content =
-                        GLOBALS.signer.decrypt_nip04(&my_pubkey, &event.content)?;
+                        GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
                     let mut tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
                     tags.extend(event.tags.clone());
                     tags
@@ -702,7 +702,7 @@ impl People {
                 }
             } else {
                 let private_tags_string = serde_json::to_string(&private_tags)?;
-                GLOBALS.signer.encrypt(
+                GLOBALS.identity.encrypt(
                     &my_pubkey,
                     &private_tags_string,
                     ContentEncryptionAlgorithm::Nip04,
@@ -718,7 +718,7 @@ impl People {
             content,
         };
 
-        GLOBALS.signer.sign_preevent(pre_event, None, None)
+        GLOBALS.identity.sign_event(pre_event)
     }
 
     /// Follow (or unfollow) the public key
@@ -773,7 +773,7 @@ impl People {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if mute {
-            if let Some(pk) = GLOBALS.signer.public_key() {
+            if let Some(pk) = GLOBALS.identity.public_key() {
                 if pk == *pubkey {
                     return Err(ErrorKind::General("You cannot mute yourself".to_owned()).into());
                 }

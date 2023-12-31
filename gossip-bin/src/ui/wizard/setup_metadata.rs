@@ -94,7 +94,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(15.0);
 
-    if GLOBALS.signer.is_ready() {
+    if GLOBALS.identity.is_unlocked() {
         ui.add_space(20.0);
         let mut label = RichText::new("  >  Save, Publish and Continue");
         if app.wizard_state.new_user {

@@ -751,7 +751,7 @@ impl Overlord {
 
     /// Advertise the user's current relay list
     pub async fn advertise_relay_list(&mut self) -> Result<(), Error> {
-        let public_key = match GLOBALS.signer.public_key() {
+        let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
                 tracing::warn!("No public key! Not posting");
@@ -788,7 +788,7 @@ impl Overlord {
             content: "".to_string(),
         };
 
-        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+        let event = GLOBALS.identity.sign_event(pre_event)?;
 
         let relays: Vec<RelayUrl> = GLOBALS
             .storage
@@ -867,7 +867,7 @@ impl Overlord {
 
     /// Change the user's passphrase.
     pub async fn change_passphrase(mut old: String, mut new: String) -> Result<(), Error> {
-        GLOBALS.signer.change_passphrase(&old, &new).await?;
+        GLOBALS.identity.change_passphrase(&old, &new).await?;
         old.zeroize();
         new.zeroize();
         Ok(())
@@ -914,7 +914,7 @@ impl Overlord {
             return Ok(());
         }
 
-        let public_key = match GLOBALS.signer.public_key() {
+        let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
                 // Odd. how do they have a list if they have no pubkey?
@@ -942,7 +942,7 @@ impl Overlord {
         }
 
         // Require sign in to delete further
-        if !GLOBALS.signer.is_ready() {
+        if !GLOBALS.identity.is_unlocked() {
             GLOBALS
                 .status_queue
                 .write()
@@ -981,7 +981,7 @@ impl Overlord {
             };
 
             // Should we add a pow? Maybe the relay needs it.
-            GLOBALS.signer.sign_preevent(pre_event, None, None)?
+            GLOBALS.identity.sign_event(pre_event)?
         };
 
         // Process this event locally
@@ -1047,7 +1047,7 @@ impl Overlord {
         }];
 
         let event = {
-            let public_key = match GLOBALS.signer.public_key() {
+            let public_key = match GLOBALS.identity.public_key() {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -1064,7 +1064,7 @@ impl Overlord {
             };
 
             // Should we add a pow? Maybe the relay needs it.
-            GLOBALS.signer.sign_preevent(pre_event, None, None)?
+            GLOBALS.identity.sign_event(pre_event)?
         };
 
         // Process this event locally
@@ -1117,7 +1117,7 @@ impl Overlord {
 
     /// Delete private key and any delegation setup
     pub async fn delete_priv() -> Result<(), Error> {
-        GLOBALS.signer.delete_identity();
+        GLOBALS.identity.delete_identity()?;
         Self::delegation_reset().await?;
         GLOBALS
             .status_queue
@@ -1128,7 +1128,7 @@ impl Overlord {
 
     /// Delete public key (only if no private key exists) and any delegation setup
     pub async fn delete_pub() -> Result<(), Error> {
-        GLOBALS.signer.clear_public_key();
+        GLOBALS.identity.clear_public_key()?;
         Self::delegation_reset().await?;
         Ok(())
     }
@@ -1256,7 +1256,7 @@ impl Overlord {
 
     /// Generate an identity (private key) and keep encrypted under the given passphrase
     pub async fn generate_private_key(mut password: String) -> Result<(), Error> {
-        GLOBALS.signer.generate_private_key(&password)?;
+        GLOBALS.identity.generate_private_key(&password)?;
         password.zeroize();
         Ok(())
     }
@@ -1276,8 +1276,8 @@ impl Overlord {
     pub async fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
         if privkey.starts_with("ncryptsec") {
             let epk = EncryptedPrivateKey(privkey);
-            GLOBALS.signer.set_encrypted_private_key(epk);
-            if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
+            GLOBALS.identity.set_encrypted_private_key(epk)?;
+            if let Err(e) = GLOBALS.identity.unlock(&password) {
                 password.zeroize();
                 GLOBALS
                     .status_queue
@@ -1298,7 +1298,7 @@ impl Overlord {
                     .write("Private key not recognized.".to_owned());
             } else {
                 let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-                GLOBALS.signer.set_private_key(privkey, &password)?;
+                GLOBALS.identity.set_private_key(privkey, &password)?;
                 password.zeroize();
             }
         }
@@ -1317,7 +1317,7 @@ impl Overlord {
                 .write("Public key not recognized.".to_owned());
         } else {
             let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-            GLOBALS.signer.set_public_key(pubkey);
+            GLOBALS.identity.set_public_key(pubkey)?;
         }
 
         Ok(())
@@ -1353,7 +1353,7 @@ impl Overlord {
     /// pubkey author too.
     pub async fn like(&mut self, id: Id, pubkey: PublicKey) -> Result<(), Error> {
         let event = {
-            let public_key = match GLOBALS.signer.public_key() {
+            let public_key = match GLOBALS.identity.public_key() {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -1394,16 +1394,17 @@ impl Overlord {
             };
 
             let powint = GLOBALS.storage.read_setting_pow();
-            let pow = if powint > 0 { Some(powint) } else { None };
-            let (work_sender, work_receiver) = mpsc::channel();
-
-            std::thread::spawn(move || {
-                work_logger(work_receiver, powint);
-            });
-
-            GLOBALS
-                .signer
-                .sign_preevent(pre_event, pow, Some(work_sender))?
+            if powint > 0 {
+                let (work_sender, work_receiver) = mpsc::channel();
+                std::thread::spawn(move || {
+                    work_logger(work_receiver, powint);
+                });
+                GLOBALS
+                    .identity
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+            } else {
+                GLOBALS.identity.sign_event(pre_event)?
+            }
         };
 
         let relays: Vec<Relay> = GLOBALS
@@ -1573,7 +1574,7 @@ impl Overlord {
         reply_to: Option<Id>,
         dm_channel: Option<DmChannel>,
     ) -> Result<(), Error> {
-        let public_key = match GLOBALS.signer.public_key() {
+        let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
                 tracing::warn!("No public key! Not posting");
@@ -1594,7 +1595,7 @@ impl Overlord {
                 };
 
                 // On a DM, we ignore tags and reply_to
-                let enc_content = GLOBALS.signer.encrypt(
+                let enc_content = GLOBALS.identity.encrypt(
                     &recipient,
                     &content,
                     ContentEncryptionAlgorithm::Nip04,
@@ -1802,16 +1803,17 @@ impl Overlord {
 
         let event = {
             let powint = GLOBALS.storage.read_setting_pow();
-            let pow = if powint > 0 { Some(powint) } else { None };
-            let (work_sender, work_receiver) = mpsc::channel();
-
-            std::thread::spawn(move || {
-                work_logger(work_receiver, powint);
-            });
-
-            GLOBALS
-                .signer
-                .sign_preevent(pre_event, pow, Some(work_sender))?
+            if powint > 0 {
+                let (work_sender, work_receiver) = mpsc::channel();
+                std::thread::spawn(move || {
+                    work_logger(work_receiver, powint);
+                });
+                GLOBALS
+                    .identity
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+            } else {
+                GLOBALS.identity.sign_event(pre_event)?
+            }
         };
 
         // Process this event locally
@@ -1951,7 +1953,7 @@ impl Overlord {
 
     /// Publish the user's metadata
     pub async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
-        let public_key = match GLOBALS.signer.public_key() {
+        let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
         };
@@ -1964,7 +1966,7 @@ impl Overlord {
             content: serde_json::to_string(&metadata)?,
         };
 
-        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+        let event = GLOBALS.identity.sign_event(pre_event)?;
 
         // Push to all of the relays we post to
         let relays: Vec<Relay> = GLOBALS
@@ -2008,7 +2010,7 @@ impl Overlord {
         let mut pubkeys = GLOBALS.people.get_subscribed_pubkeys();
 
         // add own pubkey as well
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
             pubkeys.push(pubkey)
         }
 
@@ -2112,7 +2114,7 @@ impl Overlord {
         }
 
         let event = {
-            let public_key = match GLOBALS.signer.public_key() {
+            let public_key = match GLOBALS.identity.public_key() {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -2136,16 +2138,17 @@ impl Overlord {
             };
 
             let powint = GLOBALS.storage.read_setting_pow();
-            let pow = if powint > 0 { Some(powint) } else { None };
-            let (work_sender, work_receiver) = mpsc::channel();
-
-            std::thread::spawn(move || {
-                work_logger(work_receiver, powint);
-            });
-
-            GLOBALS
-                .signer
-                .sign_preevent(pre_event, pow, Some(work_sender))?
+            if powint > 0 {
+                let (work_sender, work_receiver) = mpsc::channel();
+                std::thread::spawn(move || {
+                    work_logger(work_receiver, powint);
+                });
+                GLOBALS
+                    .identity
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+            } else {
+                GLOBALS.identity.sign_event(pre_event)?
+            }
         };
 
         // Process this event locally
@@ -2635,7 +2638,7 @@ impl Overlord {
     /// Unlock the private key with the given passphrase so that gossip can use it.
     /// This is akin to logging in.
     pub fn unlock_key(mut password: String) -> Result<(), Error> {
-        if let Err(e) = GLOBALS.signer.unlock_encrypted_private_key(&password) {
+        if let Err(e) = GLOBALS.identity.unlock(&password) {
             tracing::error!("{}", e);
             GLOBALS
                 .status_queue
@@ -2645,7 +2648,7 @@ impl Overlord {
         password.zeroize();
 
         // Update public key from private key
-        let public_key = GLOBALS.signer.public_key().unwrap();
+        let public_key = GLOBALS.identity.public_key().unwrap();
         GLOBALS
             .storage
             .write_setting_public_key(&Some(public_key), None)?;
@@ -2802,9 +2805,10 @@ impl Overlord {
         }
 
         if list != PersonList::Followed && !event.content.is_empty() {
-            if GLOBALS.signer.is_ready() {
+            if GLOBALS.identity.is_unlocked() {
                 // Private entries
-                let decrypted_content = GLOBALS.signer.decrypt_nip04(&my_pubkey, &event.content)?;
+                let decrypted_content =
+                    GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
 
                 let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
 
@@ -2977,7 +2981,7 @@ impl Overlord {
         target_pubkey: PublicKey,
         lnurl: UncheckedUrl,
     ) -> Result<(), Error> {
-        if GLOBALS.signer.public_key().is_none() {
+        if GLOBALS.identity.public_key().is_none() {
             tracing::warn!("You need to setup your private-key to zap.");
             GLOBALS
                 .status_queue
@@ -3039,7 +3043,7 @@ impl Overlord {
     ) -> Result<(), Error> {
         use serde_json::Value;
 
-        let user_pubkey = match GLOBALS.signer.public_key() {
+        let user_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
                 tracing::warn!("You need to setup your private-key to zap.");
@@ -3182,7 +3186,7 @@ impl Overlord {
             content: comment,
         };
 
-        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+        let event = GLOBALS.identity.sign_event(pre_event)?;
         let serialized_event = serde_json::to_string(&event)?;
 
         let client = reqwest::Client::builder()

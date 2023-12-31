@@ -161,7 +161,7 @@ pub(super) fn update(
                     });
             }
 
-            if GLOBALS.signer.is_ready() {
+            if GLOBALS.identity.is_unlocked() {
                 if ui
                     .button("↑ Publish ↑")
                     .on_hover_text("This publishes the list to your relays")

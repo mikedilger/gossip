@@ -26,7 +26,7 @@ impl DmChannel {
 
     pub fn name(&self) -> String {
         if self.0.is_empty() {
-            return match GLOBALS.signer.public_key() {
+            return match GLOBALS.identity.public_key() {
                 Some(pk) => crate::names::best_name_from_pubkey_lookup(&pk),
                 None => "[NOBODY]".to_string(),
             };
@@ -58,7 +58,7 @@ impl DmChannel {
     pub fn from_event(event: &Event, my_pubkey: Option<PublicKey>) -> Option<DmChannel> {
         let my_pubkey = match my_pubkey {
             Some(pk) => pk,
-            None => match GLOBALS.signer.public_key() {
+            None => match GLOBALS.identity.public_key() {
                 Some(pk) => pk,
                 None => return None,
             },
@@ -78,7 +78,7 @@ impl DmChannel {
                 Some(Self::new(&people))
             }
         } else if event.kind == EventKind::GiftWrap {
-            if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
+            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
                 let rumor_event = rumor.into_event_with_bad_signature();
                 let mut people: Vec<PublicKey> = rumor_event
                     .people()

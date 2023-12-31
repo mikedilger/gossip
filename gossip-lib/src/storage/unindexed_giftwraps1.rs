@@ -44,7 +44,7 @@ impl Storage {
     }
 
     pub(crate) fn index_unindexed_giftwraps1(&self) -> Result<(), Error> {
-        if !GLOBALS.signer.is_ready() {
+        if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKey.into());
         }
 

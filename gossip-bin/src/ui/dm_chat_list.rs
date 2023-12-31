@@ -43,7 +43,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
     ui.add_space(10.0);
 
-    let is_signer_ready = GLOBALS.signer.is_ready();
+    let is_signer_ready = GLOBALS.identity.is_unlocked();
 
     app.vert_scroll_area()
         .id_source("dm_chat_list")

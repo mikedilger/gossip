@@ -23,7 +23,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         app.vert_scroll_area()
             .id_source("your_keys")
             .show(ui, |ui| {
-                if GLOBALS.signer.is_ready() {
+                if GLOBALS.identity.is_unlocked() {
                     ui.heading("Ready to sign events");
 
                     ui.add_space(10.0);
@@ -55,7 +55,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(10.0);
 
                     offer_delete(app, ui);
-                } else if GLOBALS.signer.is_loaded() {
+                } else if GLOBALS.identity.has_private_key() {
                     Frame::none()
                         .stroke(Stroke {
                             width: 2.0,
@@ -83,7 +83,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(10.0);
 
                     offer_delete(app, ui);
-                } else if GLOBALS.signer.public_key().is_some() {
+                } else if GLOBALS.identity.public_key().is_some() {
                     show_pub_key_detail(app, ctx, ui);
 
                     ui.add_space(10.0);
@@ -122,7 +122,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
 fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     // Render public key if available
-    if let Some(public_key) = GLOBALS.signer.public_key() {
+    if let Some(public_key) = GLOBALS.identity.public_key() {
         ui.heading("Public Key");
         ui.add_space(10.0);
 
@@ -189,9 +189,9 @@ pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
-    let key_security = GLOBALS.signer.key_security().unwrap();
+    let key_security = GLOBALS.identity.key_security().unwrap();
 
-    if let Some(epk) = GLOBALS.signer.encrypted_private_key() {
+    if let Some(epk) = GLOBALS.identity.encrypted_private_key() {
         ui.heading("Encrypted Private Key");
         ui.horizontal_wrapped(|ui| {
             ui.label(&epk.0);
@@ -261,7 +261,7 @@ fn offer_change_password(app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
-    let key_security = GLOBALS.signer.key_security().unwrap();
+    let key_security = GLOBALS.identity.key_security().unwrap();
 
     ui.heading("Raw Export");
     if key_security == KeySecurity::Medium {
@@ -275,8 +275,8 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     });
 
     if ui.button("Export Private Key as bech32").clicked() {
-        match GLOBALS.signer.export_private_key_bech32(&app.password) {
-            Ok(mut bech32) => {
+        match GLOBALS.identity.export_private_key_bech32(&app.password) {
+            Ok((mut bech32, _)) => {
                 println!("Exported private key (bech32): {}", bech32);
                 bech32.zeroize();
                 GLOBALS.status_queue.write().write(
@@ -289,8 +289,8 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         app.password = "".to_owned();
     }
     if ui.button("Export Private Key as hex").clicked() {
-        match GLOBALS.signer.export_private_key_hex(&app.password) {
-            Ok(mut hex) => {
+        match GLOBALS.identity.export_private_key_hex(&app.password) {
+            Ok((mut hex, _)) => {
                 println!("Exported private key (hex): {}", hex);
                 hex.zeroize();
                 GLOBALS.status_queue.write().write(
@@ -373,7 +373,7 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
-    if let Some(pk) = GLOBALS.signer.public_key() {
+    if let Some(pk) = GLOBALS.identity.public_key() {
         ui.heading("Public Key");
         ui.add_space(10.0);
 

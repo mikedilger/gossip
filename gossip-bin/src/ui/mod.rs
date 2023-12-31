@@ -901,7 +901,7 @@ impl GossipUi {
                     self.after_openable_menu(ui, &cstate);
                 }
 
-                if let Some(pubkey) = GLOBALS.signer.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key() {
                     if self
                         .add_selected_label(
                             ui,
@@ -928,7 +928,7 @@ impl GossipUi {
                 }
 
                 // Private chats
-                if GLOBALS.signer.is_ready() {
+                if GLOBALS.identity.is_unlocked() {
                     if self
                         .add_selected_label(ui, self.page == Page::DmChatList, "Private chats")
                         .clicked()
@@ -1079,7 +1079,7 @@ impl GossipUi {
                                 .fill(Color32::TRANSPARENT)
                                 .shadow(egui::epaint::Shadow::NONE)
                                 .show(ui, |ui| {
-                                    let text = if GLOBALS.signer.is_ready() {
+                                    let text = if GLOBALS.identity.is_unlocked() {
                                         RichText::new("+").size(22.5)
                                     } else {
                                         RichText::new("\u{1f513}").size(20.0)
@@ -1095,7 +1095,7 @@ impl GossipUi {
                                     );
                                     if response.clicked() {
                                         self.show_post_area = true;
-                                        if GLOBALS.signer.is_ready() {
+                                        if GLOBALS.identity.is_unlocked() {
                                             self.draft_needs_focus = true;
                                         } else {
                                             self.unlock_needs_focus = true;
@@ -1390,7 +1390,7 @@ impl GossipUi {
         ui.horizontal_wrapped(|ui| {
             let followed = person.is_in_list(PersonList::Followed);
             let muted = person.is_in_list(PersonList::Muted);
-            let is_self = if let Some(pubkey) = GLOBALS.signer.public_key() {
+            let is_self = if let Some(pubkey) = GLOBALS.identity.public_key() {
                 pubkey == person.pubkey
             } else {
                 false
@@ -1419,7 +1419,7 @@ impl GossipUi {
                         app.set_page(ui.ctx(), Page::Feed(FeedKind::Person(person.pubkey)));
                     }
                 }
-                if GLOBALS.signer.is_ready() {
+                if GLOBALS.identity.is_unlocked() {
                     if ui.button("Send DM").clicked() {
                         let channel = DmChannel::new(&[person.pubkey]);
                         app.set_page(ui.ctx(), Page::Feed(FeedKind::DmChat(channel)));

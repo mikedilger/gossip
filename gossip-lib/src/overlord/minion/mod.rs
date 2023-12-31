@@ -625,7 +625,7 @@ impl Minion {
         let mut event_kinds = crate::feed::feed_related_event_kinds(true);
         event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
 
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
             // Any mentions of me
             // (but not in peoples contact lists, for example)
 
@@ -670,7 +670,7 @@ impl Minion {
 
     // Subscribe to the user's output (config, DMs, etc) which is on their own write relays
     async fn subscribe_outbox(&mut self, job_id: u64) -> Result<(), Error> {
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
             let pkh: PublicKeyHex = pubkey.into();
 
             let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
@@ -831,7 +831,7 @@ impl Minion {
 
         let mut filters: Vec<Filter> = Vec::new();
 
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
             // Any mentions of me
             // (but not in peoples contact lists, for example)
 
@@ -924,7 +924,7 @@ impl Minion {
         job_id: u64,
         dmchannel: DmChannel,
     ) -> Result<(), Error> {
-        let pubkey = match GLOBALS.signer.public_key() {
+        let pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Ok(()),
         };
@@ -1234,10 +1234,10 @@ impl Minion {
     }
 
     async fn authenticate(&mut self, challenge: String) -> Result<Id, Error> {
-        if !GLOBALS.signer.is_ready() {
+        if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
         }
-        let pubkey = match GLOBALS.signer.public_key() {
+        let pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
                 return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
@@ -1259,7 +1259,7 @@ impl Minion {
             ],
             content: "".to_string(),
         };
-        let event = GLOBALS.signer.sign_preevent(pre_event, None, None)?;
+        let event = GLOBALS.identity.sign_event(pre_event)?;
         let id = event.id;
         let msg = ClientMessage::Auth(Box::new(event));
         let wire = serde_json::to_string(&msg)?;

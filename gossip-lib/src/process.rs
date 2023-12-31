@@ -74,7 +74,7 @@ pub async fn process_new_event(
     {
         let filter_result = {
             if event.kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
                     let author = GLOBALS.storage.read_person(&rumor.pubkey)?;
                     Some(crate::filter::filter_rumor(rumor, author, event.id))
                 } else {
@@ -198,7 +198,7 @@ pub async fn process_new_event(
     let mut event: &Event = event; // take ownership of this reference
     let mut rumor_event: Event;
     if event.kind == EventKind::GiftWrap {
-        let rumor = GLOBALS.signer.unwrap_giftwrap(event)?;
+        let rumor = GLOBALS.identity.unwrap_giftwrap(event)?;
         rumor_event = rumor.into_event_with_bad_signature();
         rumor_event.id = event.id; // Lie so it's handled with the giftwrap's id
         event = &rumor_event;
@@ -259,7 +259,7 @@ pub async fn process_new_event(
     }
 
     if event.kind == EventKind::ContactList {
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
                 let (_personlist, _metadata) =
@@ -272,7 +272,7 @@ pub async fn process_new_event(
         }
     } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
         // Only our own
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
                 let (_personlist, _metadata) =
@@ -888,9 +888,9 @@ fn update_or_allocate_person_list_from_event(
 
         if event.kind == EventKind::ContactList {
             metadata.event_private_len = None;
-        } else if GLOBALS.signer.is_ready() {
+        } else if GLOBALS.identity.is_unlocked() {
             let mut private_len: Option<usize> = None;
-            if let Ok(bytes) = GLOBALS.signer.decrypt_nip04(&pubkey, &event.content) {
+            if let Ok(bytes) = GLOBALS.identity.decrypt_nip04(&pubkey, &event.content) {
                 if let Ok(vectags) = serde_json::from_slice::<Vec<Tag>>(&bytes) {
                     private_len = Some(
                         vectags

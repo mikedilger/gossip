@@ -172,7 +172,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 add_left_space(ui);
-                if Some(pubkey) == GLOBALS.signer.public_key() {
+                if Some(pubkey) == GLOBALS.identity.public_key() {
                     ui.heading("My notes");
                 } else {
                     ui.heading(gossip_lib::names::best_name_from_pubkey_lookup(&pubkey));
@@ -194,7 +194,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             );
         }
         FeedKind::DmChat(channel) => {
-            if !GLOBALS.signer.is_ready() {
+            if !GLOBALS.identity.is_unlocked() {
                 ui.add_space(10.0);
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");

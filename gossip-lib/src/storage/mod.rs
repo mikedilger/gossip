@@ -568,10 +568,10 @@ impl Storage {
     /// Write the user's encrypted private key
     pub fn write_encrypted_private_key<'a>(
         &'a self,
-        epk: &Option<EncryptedPrivateKey>,
+        epk: Option<&EncryptedPrivateKey>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = epk.as_ref().map(|e| &e.0).write_to_vec()?;
+        let bytes = epk.map(|e| &e.0).write_to_vec()?;
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             self.general.put(txn, b"encrypted_private_key", &bytes)?;
@@ -1581,7 +1581,7 @@ impl Storage {
             // If giftwrap, index the inner rumor instead
             let mut rumor_event: Event;
             if event.kind == EventKind::GiftWrap {
-                match GLOBALS.signer.unwrap_giftwrap(event) {
+                match GLOBALS.identity.unwrap_giftwrap(event) {
                     Ok(rumor) => {
                         rumor_event = rumor.into_event_with_bad_signature();
                         rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
@@ -1631,7 +1631,7 @@ impl Storage {
             // If giftwrap, index the inner rumor instead
             let mut rumor_event: Event;
             if event.kind == EventKind::GiftWrap {
-                match GLOBALS.signer.unwrap_giftwrap(event) {
+                match GLOBALS.identity.unwrap_giftwrap(event) {
                     Ok(rumor) => {
                         rumor_event = rumor.into_event_with_bad_signature();
                         rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
@@ -1865,7 +1865,7 @@ impl Storage {
                     '+'
                 };
                 phase1.insert(by, symbol);
-                if Some(by) == GLOBALS.signer.public_key() {
+                if Some(by) == GLOBALS.identity.public_key() {
                     self_already_reacted = true;
                 }
             }
@@ -2097,7 +2097,7 @@ impl Storage {
 
     /// Get all the DM channels with associated data
     pub fn dm_channels(&self) -> Result<Vec<DmChannelData>, Error> {
-        let my_pubkey = match GLOBALS.signer.public_key() {
+        let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
         };
@@ -2137,7 +2137,8 @@ impl Storage {
                 if let Some(dmcdata) = map.get_mut(&dmchannel) {
                     if time > dmcdata.latest_message_created_at {
                         dmcdata.latest_message_created_at = time;
-                        dmcdata.latest_message_content = GLOBALS.signer.decrypt_message(event).ok();
+                        dmcdata.latest_message_content =
+                            GLOBALS.identity.decrypt_event_contents(event).ok();
                     }
                     dmcdata.message_count += 1;
                     dmcdata.unread_message_count += unread;
@@ -2147,14 +2148,17 @@ impl Storage {
                         DmChannelData {
                             dm_channel: dmchannel,
                             latest_message_created_at: time,
-                            latest_message_content: GLOBALS.signer.decrypt_message(event).ok(),
+                            latest_message_content: GLOBALS
+                                .identity
+                                .decrypt_event_contents(event)
+                                .ok(),
                             message_count: 1,
                             unread_message_count: unread,
                         },
                     );
                 }
             } else if event.kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
                     let rumor_event = rumor.into_event_with_bad_signature();
                     let time = rumor_event.created_at;
                     let dmchannel = match DmChannel::from_event(&rumor_event, Some(my_pubkey)) {
@@ -2195,7 +2199,7 @@ impl Storage {
 
     /// Get DM events (by id) in a channel
     pub fn dm_events(&self, channel: &DmChannel) -> Result<Vec<Id>, Error> {
-        let my_pubkey = match GLOBALS.signer.public_key() {
+        let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
         };

@@ -20,7 +20,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.heading("My profile");
     });
     ui.add_space(10.0);
-    let public_key = match GLOBALS.signer.public_key() {
+    let public_key = match GLOBALS.identity.public_key() {
         Some(pk) => pk,
         None => {
             ui.horizontal(|ui| {
@@ -120,7 +120,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         .to_overlord
                         .send(ToOverlordMessage::PushMetadata(app.metadata.clone()));
                 }
-            } else if !GLOBALS.signer.is_ready() {
+            } else if !GLOBALS.identity.is_unlocked() {
                 ui.horizontal(|ui| {
                     ui.label("You need to");
                     if ui.link("unlock your private key").clicked() {

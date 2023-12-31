@@ -48,7 +48,7 @@ impl Storage {
 
         let mut rumor_event: EventV1;
         if event.kind == EventKind::GiftWrap {
-            match GLOBALS.signer.unwrap_giftwrap1(event) {
+            match GLOBALS.identity.unwrap_giftwrap1(event) {
                 Ok(rumor) => {
                     rumor_event = rumor.into_event_with_bad_signature();
                     rumor_event.id = event.id; // lie, so it indexes it under the giftwrap

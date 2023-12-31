@@ -64,7 +64,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
     let mut lud06 = "unable to get lud06".to_owned();
     let mut lud16 = "unable to get lud16".to_owned();
 
-    let is_self = if let Some(pubkey) = GLOBALS.signer.public_key() {
+    let is_self = if let Some(pubkey) = GLOBALS.identity.public_key() {
         pubkey == person.pubkey
     } else {
         false
