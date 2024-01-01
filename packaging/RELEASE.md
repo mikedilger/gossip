@@ -61,6 +61,12 @@
 
 9. Bundle the files, create SHA256 hashes
 
+  files in files/
+
+  create changelog.txt like this:
+
+    git log --oneline v0.8.2..v0.9.0 > changelog.txt
+
 10. Upload release to github
 
 11. Update the AUR packages
