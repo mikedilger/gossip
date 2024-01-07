@@ -96,10 +96,11 @@ impl Feed {
     }
 
     /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
-    pub(crate) fn load_more_general_feed(&self) {
+    pub(crate) fn load_more_general_feed(&self) -> Unixtime {
         let mut start = *self.general_feed_start.read();
         start = start - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
         *self.general_feed_start.write() = start;
+        start
     }
 
     fn unlisten(&self) {

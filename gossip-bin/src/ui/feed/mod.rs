@@ -253,7 +253,7 @@ fn render_a_feed(
                             if response.clicked() {
                                 let _ = GLOBALS
                                     .to_overlord
-                                    .send(ToOverlordMessage::LoadMoreGeneralFeed);
+                                    .send(ToOverlordMessage::LoadMoreCurrentFeed);
                             }
 
                             // draw some nice lines left and right of the button

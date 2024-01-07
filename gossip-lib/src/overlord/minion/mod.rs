@@ -424,8 +424,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
             }
-            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(pubkeys) => {
-                self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys)
+            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk { pubkeys, start } => {
+                self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys, start)
                     .await?;
             }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
@@ -905,6 +905,7 @@ impl Minion {
         &mut self,
         job_id: u64,
         pubkeys: Vec<PublicKey>,
+        start: Unixtime,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
 
@@ -917,8 +918,6 @@ impl Minion {
             }
         };
 
-        let chunk_secs = GLOBALS.storage.read_setting_feed_chunk();
-        let start = Unixtime(end.0 - chunk_secs as i64);
         self.general_feed_start = Some(start);
 
         tracing::debug!(
@@ -948,7 +947,11 @@ impl Minion {
             ..Default::default()
         });
 
+        // We include the job_id so that if the user presses "load more" yet again,
+        // the new chunk subscription doesn't clobber this subscription which might
+        // not have run to completion yet.
         let sub_name = format!("temp_general_feed_chunk_{}", job_id);
+
         self.subscribe(filters, &*sub_name, job_id).await?;
 
         Ok(())

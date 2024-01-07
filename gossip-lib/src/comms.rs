@@ -2,7 +2,7 @@ use crate::dm_channel::DmChannel;
 use crate::people::PersonList;
 use nostr_types::{
     Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, RelayUrl, Tag,
-    UncheckedUrl,
+    UncheckedUrl, Unixtime,
 };
 use std::fmt;
 
@@ -80,8 +80,8 @@ pub enum ToOverlordMessage {
     /// Calls [like](crate::Overlord::like)
     Like(Id, PublicKey),
 
-    /// Calls [load_more_general_feed](crate::Overlord::load_more_general_feed)
-    LoadMoreGeneralFeed,
+    /// Calls [load_more_current_feed](crate::Overlord::load_more_current_feed)
+    LoadMoreCurrentFeed,
 
     /// internal (minions use this channel too)
     MinionJobComplete(RelayUrl, u64),
@@ -214,7 +214,10 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribePersonFeed(PublicKey),
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
     SubscribeDmChannel(DmChannel),
-    TempSubscribeGeneralFeedChunk(Vec<PublicKey>),
+    TempSubscribeGeneralFeedChunk {
+        pubkeys: Vec<PublicKey>,
+        start: Unixtime,
+    },
     TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribePersonFeed,
     UnsubscribeThreadFeed,
