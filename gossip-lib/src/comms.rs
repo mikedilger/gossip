@@ -128,15 +128,18 @@ pub enum ToOverlordMessage {
     SetActivePerson(PublicKey),
 
     /// internal
+    SetDmChannel(DmChannel),
+
+    /// internal
+    SetPersonFeed(PublicKey),
+
+    /// internal
     SetThreadFeed {
         id: Id,
         referenced_by: Id,
         relays: Vec<RelayUrl>,
         author: Option<PublicKey>,
     },
-
-    /// internal
-    SetDmChannel(DmChannel),
 
     /// Calls [start_long_lived_subscriptions](crate::Overlord::start_long_lived_subscriptions)
     StartLongLivedSubscriptions,
@@ -231,6 +234,7 @@ pub enum RelayConnectionReason {
     PostMetadata,
     PostMuteList,
     ReadThread,
+    SubscribePerson,
 }
 
 impl fmt::Display for RelayConnectionReason {
@@ -260,6 +264,7 @@ impl RelayConnectionReason {
             PostMuteList => "Posting our mute list",
             PostMetadata => "Posting our metadata",
             ReadThread => "Reading ancestors to build a thread",
+            SubscribePerson => "Subscribe to the events of a person",
         }
     }
 
@@ -282,6 +287,7 @@ impl RelayConnectionReason {
             PostMuteList => false,
             PostMetadata => false,
             ReadThread => true,
+            SubscribePerson => false,
         }
     }
 }

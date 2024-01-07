@@ -625,6 +625,12 @@ impl Overlord {
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 Self::set_active_person(pubkey).await?;
             }
+            ToOverlordMessage::SetDmChannel(dmchannel) => {
+                self.set_dm_channel(dmchannel).await?;
+            }
+            ToOverlordMessage::SetPersonFeed(pubkey) => {
+                self.set_person_feed(pubkey).await?;
+            }
             ToOverlordMessage::SetThreadFeed {
                 id,
                 referenced_by,
@@ -633,9 +639,6 @@ impl Overlord {
             } => {
                 self.set_thread_feed(id, referenced_by, relays, author)
                     .await?;
-            }
-            ToOverlordMessage::SetDmChannel(dmchannel) => {
-                self.set_dm_channel(dmchannel).await?;
             }
             ToOverlordMessage::StartLongLivedSubscriptions => {
                 self.start_long_lived_subscriptions().await?;
@@ -2151,6 +2154,58 @@ impl Overlord {
         Ok(())
     }
 
+    async fn set_dm_channel(&mut self, dmchannel: DmChannel) -> Result<(), Error> {
+        // subscribe to channel on outbox and inbox relays
+        //   outbox: you may have written them there. Other clients may have too.
+        //   inbox: they may have put theirs here for you to pick up.
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
+
+        for relay in relays.iter() {
+            // Subscribe
+            self.engage_minion(
+                relay.url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchDirectMessages,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeDmChannel(dmchannel.clone()),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn set_person_feed(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        let relays: Vec<RelayUrl> = GLOBALS
+            .storage
+            .get_best_relays(pubkey, Direction::Write)?
+            .drain(..)
+            .map(|(relay, _rank)| relay)
+            .collect();
+
+        for relay in relays.iter() {
+            // Subscribe
+            self.engage_minion(
+                relay.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::SubscribePerson,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
     async fn set_thread_feed(
         &mut self,
         id: Id,
@@ -2287,32 +2342,6 @@ impl Overlord {
                 )
                 .await?;
             }
-        }
-
-        Ok(())
-    }
-
-    async fn set_dm_channel(&mut self, dmchannel: DmChannel) -> Result<(), Error> {
-        // subscribe to channel on outbox and inbox relays
-        //   outbox: you may have written them there. Other clients may have too.
-        //   inbox: they may have put theirs here for you to pick up.
-        let relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
-
-        for relay in relays.iter() {
-            // Subscribe
-            self.engage_minion(
-                relay.url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchDirectMessages,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeDmChannel(dmchannel.clone()),
-                    },
-                }],
-            )
-            .await?;
         }
 
         Ok(())
