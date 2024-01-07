@@ -578,8 +578,11 @@ pub fn feed_related_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
         .filter(|k| {
-            k.is_feed_related() &&
-                (dms || (*k != EventKind::EncryptedDirectMessage && *k != EventKind::DmChat && *k != EventKind::GiftWrap))
+            k.is_feed_related()
+                && (dms
+                    || (*k != EventKind::EncryptedDirectMessage
+                        && *k != EventKind::DmChat
+                        && *k != EventKind::GiftWrap))
         })
         .collect()
 }
@@ -588,8 +591,11 @@ pub fn feed_displayable_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
         .filter(|k| {
-            k.is_feed_displayable() &&
-                (dms || (*k != EventKind::EncryptedDirectMessage && *k != EventKind::DmChat && *k != EventKind::GiftWrap))
+            k.is_feed_displayable()
+                && (dms
+                    || (*k != EventKind::EncryptedDirectMessage
+                        && *k != EventKind::DmChat
+                        && *k != EventKind::GiftWrap))
         })
         .collect()
 }
