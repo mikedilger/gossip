@@ -1653,17 +1653,18 @@ impl Overlord {
         // Process this event locally
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get 'read' relays for everybody tagged in the event.
-            // Currently we take the 2 best read relays per person
             for pubkey in tagged_pubkeys.drain(..) {
                 let best_relays: Vec<RelayUrl> = GLOBALS
                     .storage
                     .get_best_relays(pubkey, Direction::Read)?
                     .drain(..)
-                    .take(2)
+                    .take(num_relays_per_person as usize + 1)
                     .map(|(u, _)| u)
                     .collect();
                 relay_urls.extend(best_relays);
@@ -1857,7 +1858,7 @@ impl Overlord {
                 .storage
                 .get_best_relays(*pubkey, Direction::Write)?
                 .drain(..)
-                .take(num_relays_per_person as usize)
+                .take(num_relays_per_person as usize + 1)
             {
                 map.entry(relayscore.0)
                     .and_modify(|e| e.push(*pubkey))
@@ -2181,10 +2182,13 @@ impl Overlord {
     }
 
     async fn set_person_feed(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+
         let relays: Vec<RelayUrl> = GLOBALS
             .storage
             .get_best_relays(pubkey, Direction::Write)?
             .drain(..)
+            .take(num_relays_per_person as usize + 1)
             .map(|(relay, _rank)| relay)
             .collect();
 
