@@ -701,11 +701,12 @@ impl Minion {
         // Allow all feed related event kinds (excluding DMs)
         let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
+        let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
+
         let filters: Vec<Filter> = vec![Filter {
             authors: vec![pubkey.into()],
             kinds: event_kinds,
-            // No since, just a limit on quantity of posts
-            limit: Some(25),
+            since: Some(since),
             ..Default::default()
         }];
 
