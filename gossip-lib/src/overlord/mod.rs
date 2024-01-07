@@ -6,6 +6,7 @@ use crate::comms::{
 };
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
+use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
@@ -170,6 +171,16 @@ impl Overlord {
                 .wait_for_data_migration
                 .store(false, Ordering::Relaxed);
         }
+
+        // Init some feed variables
+        let now = Unixtime::now().unwrap();
+        let general_feed_start =
+            now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
+        let person_feed_start =
+            now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
+        GLOBALS
+            .feed
+            .set_feed_starts(general_feed_start, person_feed_start);
 
         // Start the fetcher
         crate::fetcher::Fetcher::start()?;
@@ -562,6 +573,20 @@ impl Overlord {
             }
             ToOverlordMessage::Like(id, pubkey) => {
                 self.like(id, pubkey).await?;
+            }
+            ToOverlordMessage::LoadMoreCurrentFeed => {
+                match GLOBALS.feed.get_feed_kind() {
+                    FeedKind::List(_, _) => self.load_more_general_feed().await?,
+                    FeedKind::Inbox(_) => {
+                        GLOBALS
+                            .status_queue
+                            .write()
+                            .write("Load More not yet implemented for Inbox".to_string());
+                    }
+                    FeedKind::Person(pubkey) => self.load_more_person_feed(pubkey).await?,
+                    FeedKind::DmChat(_) => (), // DmChat is complete, not chunked
+                    FeedKind::Thread { .. } => (), // Thread is complete, not chunked
+                }
             }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
                 self.finish_job(url, Some(job_id), None)?;
@@ -1355,6 +1380,62 @@ impl Overlord {
 
         // Process the message for ourself
         crate::process::process_new_event(&event, None, None, false, false).await?;
+
+        Ok(())
+    }
+
+    pub async fn load_more_general_feed(&mut self) -> Result<(), Error> {
+        // Set the feed to load another chunk back
+        let start = GLOBALS.feed.load_more_general_feed();
+
+        // Subscribe on the minions for that missing chunk
+        for relay_assignment in GLOBALS.relay_picker.relay_assignments_iter() {
+            // Ask relay to subscribe to the missing chunk
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_assignment.relay_url.as_str().to_owned(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk {
+                        pubkeys: relay_assignment.pubkeys.clone(),
+                        start,
+                    },
+                },
+            });
+        }
+
+        Ok(())
+    }
+
+    pub async fn load_more_person_feed(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        // Set the feed to load another chunk back
+        let start = GLOBALS.feed.load_more_person_feed();
+
+        // Get write relays for the person
+        let relays: Vec<RelayUrl> = GLOBALS
+            .storage
+            .get_best_relays(pubkey, Direction::Write)?
+            .drain(..)
+            .map(|(relay, _rank)| relay)
+            .collect();
+
+        // Subscribe on each of those write relays
+        for relay in relays.iter() {
+            // Subscribe
+            self.engage_minion(
+                relay.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::SubscribePerson,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
+                            pubkey,
+                            start,
+                        },
+                    },
+                }],
+            )
+            .await?;
+        }
 
         Ok(())
     }
@@ -2223,7 +2304,7 @@ impl Overlord {
         // exist in memory.
 
         // Our task is fourfold:
-        //   ancestors from sqlite, replies from sqlite
+        //   ancestors from storage, replies from storage
         //   ancestors from relays, replies from relays,
 
         // We simplify things by asking for this data from every relay we are

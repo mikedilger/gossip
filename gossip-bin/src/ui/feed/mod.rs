@@ -2,6 +2,7 @@ use super::theme::FeedProperties;
 use super::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Frame, RichText, Ui, Vec2};
+use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::Id;
@@ -50,6 +51,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 
     let feed_kind = GLOBALS.feed.get_feed_kind();
+    let load_more = feed_kind.can_load_more();
 
     match feed_kind {
         FeedKind::List(list, with_replies) => {
@@ -104,7 +106,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, &id);
+            render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
         }
         FeedKind::Inbox(indirect) => {
             if app.settings.public_key.is_none() {
@@ -150,11 +152,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, id);
+            render_a_feed(app, ctx, frame, ui, feed, false, id, load_more);
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
-                render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string());
+                render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string(), load_more);
             }
         }
         FeedKind::Person(pubkey) => {
@@ -171,7 +173,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(6.0);
 
             let feed = GLOBALS.feed.get_person_feed();
-            render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string());
+            render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string(), load_more);
         }
         FeedKind::DmChat(channel) => {
             if !GLOBALS.signer.is_ready() {
@@ -194,7 +196,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             let feed = GLOBALS.feed.get_dm_chat_feed();
             let id = channel.unique_id();
-            render_a_feed(app, ctx, frame, ui, feed, false, &id);
+            render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
         }
     }
 
@@ -210,6 +212,7 @@ fn render_a_feed(
     feed: Vec<Id>,
     threaded: bool,
     scroll_area_id: &str,
+    offer_load_more: bool,
 ) {
     let feed_properties = FeedProperties {
         is_thread: threaded,
@@ -239,6 +242,38 @@ fn render_a_feed(
                                 threaded,
                                 is_first: Some(id) == first,
                                 is_last: Some(id) == last,
+                            },
+                        );
+                    }
+
+                    if !feed.is_empty() && offer_load_more {
+                        ui.add_space(50.0);
+                        ui.with_layout(
+                            egui::Layout::top_down(egui::Align::Center)
+                                .with_cross_align(egui::Align::Center),
+                            |ui| {
+                                app.theme.accent_button_1_style(ui.style_mut());
+                                ui.spacing_mut().button_padding.x *= 3.0;
+                                ui.spacing_mut().button_padding.y *= 2.0;
+                                let response = ui.add(egui::Button::new("Load More"));
+                                if response.clicked() {
+                                    let _ = GLOBALS
+                                        .to_overlord
+                                        .send(ToOverlordMessage::LoadMoreCurrentFeed);
+                                }
+
+                                // draw some nice lines left and right of the button
+                                let stroke = egui::Stroke::new(1.5, ui.visuals().extreme_bg_color);
+                                let width =
+                                    (ui.available_width() - response.rect.width()) / 2.0 - 20.0;
+                                let left_start =
+                                    response.rect.left_center() - egui::vec2(10.0, 0.0);
+                                let left_end = left_start - egui::vec2(width, 0.0);
+                                ui.painter().line_segment([left_start, left_end], stroke);
+                                let right_start =
+                                    response.rect.right_center() + egui::vec2(10.0, 0.0);
+                                let right_end = right_start + egui::vec2(width, 0.0);
+                                ui.painter().line_segment([right_start, right_end], stroke);
                             },
                         );
                     }

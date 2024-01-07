@@ -53,6 +53,8 @@ pub struct Minion {
     waiting_for_auth: Option<Id>,
     corked_subscriptions: Vec<(String, Unixtime)>,
     corked_metadata: Vec<(u64, Vec<PublicKey>)>,
+    general_feed_start: Option<Unixtime>,
+    person_feed_start: Option<Unixtime>,
 }
 
 impl Minion {
@@ -84,6 +86,8 @@ impl Minion {
             waiting_for_auth: None,
             corked_subscriptions: Vec::new(),
             corked_metadata: Vec::new(),
+            general_feed_start: None,
+            person_feed_start: None,
         })
     }
 }
@@ -422,6 +426,14 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
             }
+            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk { pubkeys, start } => {
+                self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys, start)
+                    .await?;
+            }
+            ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, start } => {
+                self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, start)
+                    .await?;
+            }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
                 self.temp_subscribe_metadata(message.job_id, pubkeys)
                     .await?;
@@ -469,37 +481,39 @@ impl Minion {
     async fn subscribe_general_feed(
         &mut self,
         job_id: u64,
-        followed_pubkeys: Vec<PublicKey>,
+        pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
 
-        tracing::debug!(
-            "Following {} people at {}",
-            followed_pubkeys.len(),
-            &self.url
-        );
+        tracing::debug!("Following {} people at {}", pubkeys.len(), &self.url);
 
         // Compute how far to look back
-        let feed_since = {
-            if self.subscription_map.has("general_feed") {
-                // don't lookback if we are just adding more people
+        let since = {
+            if let Some(_) = self.general_feed_start {
+                // We already have a general subscription.
+                // Therefore, don't lookback at all. We are just adding more people
+                //    and we don't want to reload everybody's events again.
+                // FIXME: we should do a separate temp subscription for the more people added
+                // to get their events over the past chunk.
                 Unixtime::now().unwrap()
             } else {
-                self.compute_since(GLOBALS.storage.read_setting_feed_chunk())
+                let since = self.compute_since(GLOBALS.storage.read_setting_feed_chunk());
+                self.general_feed_start = Some(since);
+                since
             }
         };
 
         // Allow all feed related event kinds (excluding DMs)
         let event_kinds = crate::feed::feed_related_event_kinds(false);
 
-        if !followed_pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHex> = followed_pubkeys.iter().map(|pk| pk.into()).collect();
+        if !pubkeys.is_empty() {
+            let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
 
             // feed related by people followed
             filters.push(Filter {
                 authors: pkp,
                 kinds: event_kinds.clone(),
-                since: Some(feed_since),
+                since: Some(since),
                 ..Default::default()
             });
 
@@ -511,7 +525,7 @@ impl Minion {
             // in the last 8 hours (so we don't do it every client restart).
             let keys_needing_relay_lists: Vec<PublicKeyHex> = GLOBALS
                 .people
-                .get_subscribed_pubkeys_needing_relay_lists(&followed_pubkeys)
+                .get_subscribed_pubkeys_needing_relay_lists(&pubkeys)
                 .drain(..)
                 .map(|pk| pk.into())
                 .collect();
@@ -702,6 +716,7 @@ impl Minion {
         let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
         let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
+        self.person_feed_start = Some(since);
 
         let filters: Vec<Filter> = vec![Filter {
             authors: vec![pubkey.into()],
@@ -713,7 +728,7 @@ impl Minion {
         // NO REPLIES OR ANCESTORS
 
         if filters.is_empty() {
-            self.unsubscribe("person_feed").await?;
+            self.unsubscribe_person_feed().await?;
             self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
                 self.url.clone(),
                 job_id,
@@ -722,6 +737,56 @@ impl Minion {
             self.subscribe(filters, "person_feed", job_id).await?;
         }
 
+        Ok(())
+    }
+
+    async fn temp_subscribe_person_feed_chunk(
+        &mut self,
+        job_id: u64,
+        pubkey: PublicKey,
+        since: Unixtime,
+    ) -> Result<(), Error> {
+        // Allow all feed related event kinds (excluding DMs)
+        let event_kinds = crate::feed::feed_displayable_event_kinds(false);
+
+        let until = match self.person_feed_start {
+            Some(old_since_new_until) => old_since_new_until,
+            None => Unixtime::now().unwrap(),
+        };
+
+        self.person_feed_start = Some(since);
+
+        let filters: Vec<Filter> = vec![Filter {
+            authors: vec![pubkey.into()],
+            kinds: event_kinds,
+            since: Some(since),
+            until: Some(until),
+            ..Default::default()
+        }];
+
+        if filters.is_empty() {
+            self.unsubscribe_person_feed().await?;
+            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                self.url.clone(),
+                job_id,
+            ))?;
+        } else {
+            let sub_name = format!("temp_person_feed_chunk_{}", job_id);
+            self.subscribe(filters, &*sub_name, job_id).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn unsubscribe_person_feed(&mut self) -> Result<(), Error> {
+        // Unsubscribe person_feed and all person feed chunks
+        let handles = self
+            .subscription_map
+            .get_all_handles_matching("person_feed");
+        for handle in handles {
+            self.unsubscribe(&handle).await?;
+        }
+        self.person_feed_start = None;
         Ok(())
     }
 
@@ -890,6 +955,63 @@ impl Minion {
         filter.d = vec![ea.d];
 
         self.subscribe(vec![filter], &handle, job_id).await
+    }
+
+    // Load more, one more chunk back
+    async fn temp_subscribe_general_feed_chunk(
+        &mut self,
+        job_id: u64,
+        pubkeys: Vec<PublicKey>,
+        start: Unixtime,
+    ) -> Result<(), Error> {
+        let mut filters: Vec<Filter> = Vec::new();
+
+        let end = {
+            if let Some(end) = self.general_feed_start {
+                end
+            } else {
+                // This shouldn't happen, but if it does
+                Unixtime::now().unwrap()
+            }
+        };
+
+        self.general_feed_start = Some(start);
+
+        tracing::debug!(
+            "Following {} people at {}, from {} to {}",
+            pubkeys.len(),
+            &self.url,
+            start,
+            end
+        );
+
+        // Allow all feed related event kinds (including DMs)
+        let event_kinds = crate::feed::feed_related_event_kinds(true);
+
+        if pubkeys.is_empty() {
+            // Nothing to do
+            return Ok(());
+        }
+
+        let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
+
+        // feed related by people followed
+        filters.push(Filter {
+            authors: pkp,
+            kinds: event_kinds.clone(),
+            since: Some(start),
+            until: Some(end),
+            ..Default::default()
+        });
+
+        // We include the job_id so that if the user presses "load more" yet again,
+        // the new chunk subscription doesn't clobber this subscription which might
+        // not have run to completion yet.
+        let sub_name = format!("temp_general_feed_chunk_{}", job_id);
+
+        self.subscribe(filters, &*sub_name, job_id).await?;
+
+        Ok(())
     }
 
     async fn temp_subscribe_metadata(
