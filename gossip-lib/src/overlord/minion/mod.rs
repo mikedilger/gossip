@@ -54,6 +54,7 @@ pub struct Minion {
     corked_subscriptions: Vec<(String, Unixtime)>,
     corked_metadata: Vec<(u64, Vec<PublicKey>)>,
     general_feed_start: Option<Unixtime>,
+    person_feed_start: Option<Unixtime>,
 }
 
 impl Minion {
@@ -86,6 +87,7 @@ impl Minion {
             corked_subscriptions: Vec::new(),
             corked_metadata: Vec::new(),
             general_feed_start: None,
+            person_feed_start: None,
         })
     }
 }
@@ -428,6 +430,10 @@ impl Minion {
                 self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys, start)
                     .await?;
             }
+            ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, start } => {
+                self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, start)
+                    .await?;
+            }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
                 self.temp_subscribe_metadata(message.job_id, pubkeys)
                     .await?;
@@ -710,6 +716,7 @@ impl Minion {
         let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
         let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
+        self.person_feed_start = Some(since);
 
         let filters: Vec<Filter> = vec![Filter {
             authors: vec![pubkey.into()],
@@ -721,7 +728,7 @@ impl Minion {
         // NO REPLIES OR ANCESTORS
 
         if filters.is_empty() {
-            self.unsubscribe("person_feed").await?;
+            self.unsubscribe_person_feed().await?;
             self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
                 self.url.clone(),
                 job_id,
@@ -730,6 +737,56 @@ impl Minion {
             self.subscribe(filters, "person_feed", job_id).await?;
         }
 
+        Ok(())
+    }
+
+    async fn temp_subscribe_person_feed_chunk(
+        &mut self,
+        job_id: u64,
+        pubkey: PublicKey,
+        since: Unixtime,
+    ) -> Result<(), Error> {
+        // Allow all feed related event kinds (excluding DMs)
+        let event_kinds = crate::feed::feed_displayable_event_kinds(false);
+
+        let until = match self.person_feed_start {
+            Some(old_since_new_until) => old_since_new_until,
+            None => Unixtime::now().unwrap(),
+        };
+
+        self.person_feed_start = Some(since);
+
+        let filters: Vec<Filter> = vec![Filter {
+            authors: vec![pubkey.into()],
+            kinds: event_kinds,
+            since: Some(since),
+            until: Some(until),
+            ..Default::default()
+        }];
+
+        if filters.is_empty() {
+            self.unsubscribe_person_feed().await?;
+            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                self.url.clone(),
+                job_id,
+            ))?;
+        } else {
+            let sub_name = format!("temp_person_feed_chunk_{}", job_id);
+            self.subscribe(filters, &*sub_name, job_id).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn unsubscribe_person_feed(&mut self) -> Result<(), Error> {
+        // Unsubscribe person_feed and all person feed chunks
+        let handles = self
+            .subscription_map
+            .get_all_handles_matching("person_feed");
+        for handle in handles {
+            self.unsubscribe(&handle).await?;
+        }
+        self.person_feed_start = None;
         Ok(())
     }
 

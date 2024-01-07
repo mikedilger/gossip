@@ -172,11 +172,15 @@ impl Overlord {
                 .store(false, Ordering::Relaxed);
         }
 
-        // Init a feed variable
+        // Init some feed variables
         let now = Unixtime::now().unwrap();
         let general_feed_start =
             now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
-        GLOBALS.feed.set_general_feed_start(general_feed_start);
+        let person_feed_start =
+            now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
+        GLOBALS
+            .feed
+            .set_feed_starts(general_feed_start, person_feed_start);
 
         // Start the fetcher
         crate::fetcher::Fetcher::start()?;
@@ -572,19 +576,14 @@ impl Overlord {
             }
             ToOverlordMessage::LoadMoreCurrentFeed => {
                 match GLOBALS.feed.get_feed_kind() {
-                    FeedKind::List(_,_) => self.load_more_general_feed().await?,
+                    FeedKind::List(_, _) => self.load_more_general_feed().await?,
                     FeedKind::Inbox(_) => {
                         GLOBALS
                             .status_queue
                             .write()
                             .write("Load More not yet implemented for Inbox".to_string());
-                    },
-                    FeedKind::Person(_) => {
-                        GLOBALS
-                            .status_queue
-                            .write()
-                            .write("Load More not yet implemented for Person Feed".to_string());
-                    },
+                    }
+                    FeedKind::Person(pubkey) => self.load_more_person_feed(pubkey).await?,
                     FeedKind::DmChat(_) => (), // DmChat is complete, not chunked
                     FeedKind::Thread { .. } => (), // Thread is complete, not chunked
                 }
@@ -1402,6 +1401,40 @@ impl Overlord {
                     },
                 },
             });
+        }
+
+        Ok(())
+    }
+
+    pub async fn load_more_person_feed(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        // Set the feed to load another chunk back
+        let start = GLOBALS.feed.load_more_person_feed();
+
+        // Get write relays for the person
+        let relays: Vec<RelayUrl> = GLOBALS
+            .storage
+            .get_best_relays(pubkey, Direction::Write)?
+            .drain(..)
+            .map(|(relay, _rank)| relay)
+            .collect();
+
+        // Subscribe on each of those write relays
+        for relay in relays.iter() {
+            // Subscribe
+            self.engage_minion(
+                relay.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::SubscribePerson,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
+                            pubkey,
+                            start,
+                        },
+                    },
+                }],
+            )
+            .await?;
         }
 
         Ok(())

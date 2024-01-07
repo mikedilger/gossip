@@ -43,6 +43,16 @@ impl SubscriptionMap {
         }
     }
 
+    pub fn get_all_handles_matching(&self, substr: &str) -> Vec<String> {
+        let mut output: Vec<String> = Vec::new();
+        for handle in self.handle_to_id.keys() {
+            if handle.contains(substr) {
+                output.push(handle.clone());
+            }
+        }
+        output
+    }
+
     /*
     pub fn get_by_id(&self, id: &str) -> Option<Subscription> {
         self.by_id.get(id).cloned()

@@ -58,8 +58,9 @@ pub struct Feed {
     person_feed: RwLock<Vec<Id>>,
     dm_chat_feed: RwLock<Vec<Id>>,
 
-    // When the general feed starts
+    // When feeds start
     general_feed_start: RwLock<Unixtime>,
+    person_feed_start: RwLock<Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -84,6 +85,7 @@ impl Feed {
             person_feed: RwLock::new(Vec::new()),
             dm_chat_feed: RwLock::new(Vec::new()),
             general_feed_start: RwLock::new(Unixtime::now().unwrap()),
+            person_feed_start: RwLock::new(Unixtime::now().unwrap()),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
@@ -91,8 +93,13 @@ impl Feed {
     }
 
     /// Done during startup
-    pub(crate) fn set_general_feed_start(&self, general_feed_start: Unixtime) {
+    pub(crate) fn set_feed_starts(
+        &self,
+        general_feed_start: Unixtime,
+        person_feed_start: Unixtime,
+    ) {
         *self.general_feed_start.write() = general_feed_start;
+        *self.person_feed_start.write() = person_feed_start;
     }
 
     /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
@@ -100,6 +107,14 @@ impl Feed {
         let mut start = *self.general_feed_start.read();
         start = start - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
         *self.general_feed_start.write() = start;
+        start
+    }
+
+    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    pub(crate) fn load_more_person_feed(&self) -> Unixtime {
+        let mut start = *self.person_feed_start.read();
+        start = start - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
+        *self.person_feed_start.write() = start;
         start
     }
 
@@ -449,8 +464,7 @@ impl Feed {
                 }
             }
             FeedKind::Person(person_pubkey) => {
-                let since =
-                    now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
+                let start: Unixtime = *self.person_feed_start.read();
 
                 let pphex: PublicKeyHex = person_pubkey.into();
 
@@ -469,7 +483,7 @@ impl Feed {
                     .find_events(
                         &kinds_without_dms,
                         &[person_pubkey],
-                        Some(since),
+                        Some(start),
                         filter,
                         false,
                     )?
