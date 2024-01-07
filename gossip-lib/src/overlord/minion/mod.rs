@@ -910,7 +910,7 @@ impl Minion {
         let handle = "temp_subscribe_metadata".to_string();
         let filter = Filter {
             authors: pkhp,
-            kinds: vec![EventKind::Metadata],
+            kinds: vec![EventKind::Metadata, EventKind::RelayList],
             // FIXME: we could probably get a since-last-fetched-their-metadata here.
             //        but relays should just return the lastest of these.
             ..Default::default()
