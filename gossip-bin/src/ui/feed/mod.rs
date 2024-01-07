@@ -51,6 +51,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 
     let feed_kind = GLOBALS.feed.get_feed_kind();
+    let load_more = feed_kind.can_load_more();
 
     match feed_kind {
         FeedKind::List(list, with_replies) => {
@@ -105,7 +106,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, &id);
+            render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
         }
         FeedKind::Inbox(indirect) => {
             if app.settings.public_key.is_none() {
@@ -151,11 +152,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, id);
+            render_a_feed(app, ctx, frame, ui, feed, false, id, load_more);
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
-                render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string());
+                render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string(), load_more);
             }
         }
         FeedKind::Person(pubkey) => {
@@ -172,7 +173,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(6.0);
 
             let feed = GLOBALS.feed.get_person_feed();
-            render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string());
+            render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string(), load_more);
         }
         FeedKind::DmChat(channel) => {
             if !GLOBALS.signer.is_ready() {
@@ -195,7 +196,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             let feed = GLOBALS.feed.get_dm_chat_feed();
             let id = channel.unique_id();
-            render_a_feed(app, ctx, frame, ui, feed, false, &id);
+            render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
         }
     }
 
@@ -211,6 +212,7 @@ fn render_a_feed(
     feed: Vec<Id>,
     threaded: bool,
     scroll_area_id: &str,
+    offer_load_more: bool,
 ) {
     let feed_properties = FeedProperties {
         is_thread: threaded,
@@ -243,7 +245,8 @@ fn render_a_feed(
                             },
                         );
                     }
-                    if !feed.is_empty() {
+
+                    if !feed.is_empty() && offer_load_more {
                         ui.add_space(50.0);
                         ui.with_layout(
                             egui::Layout::top_down(egui::Align::Center)

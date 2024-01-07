@@ -45,6 +45,18 @@ impl std::fmt::Display for FeedKind {
     }
 }
 
+impl FeedKind {
+    pub fn can_load_more(&self) -> bool {
+        match self {
+            &Self::List(_, _) => true,
+            &Self::Inbox(_) => false, // at the moment
+            &Self::Thread { .. } => false, // always full
+            &Self::Person(_) => true,
+            &Self::DmChat(_) => false, // always full
+        }
+    }
+}
+
 /// The system that computes feeds as an ordered list of event Ids.
 pub struct Feed {
     /// Consumers of gossip-lib should only read this, not write to it.
