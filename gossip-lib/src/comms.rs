@@ -83,6 +83,9 @@ pub enum ToOverlordMessage {
     /// Calls [load_more_current_feed](crate::Overlord::load_more_current_feed)
     LoadMoreCurrentFeed,
 
+    /// Calls [local_delege](crate::Overlord::local_delete)
+    LocalDelete(Id),
+
     /// internal (minions use this channel too)
     MinionJobComplete(RelayUrl, u64),
 
