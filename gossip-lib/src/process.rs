@@ -67,22 +67,36 @@ pub async fn process_new_event(
     }
 
     // Spam filter (displayable and author is not followed)
-    if event.kind.is_feed_displayable()
+    if (event.kind.is_feed_displayable() || event.kind == EventKind::GiftWrap)
         && !GLOBALS
             .people
             .is_person_in_list(&event.pubkey, PersonList::Followed)
     {
-        let author = GLOBALS.storage.read_person(&event.pubkey)?;
-        match crate::filter::filter(event.clone(), author) {
-            EventFilterAction::Allow => {}
-            EventFilterAction::Deny => {
+        let filter_result = {
+            if event.kind == EventKind::GiftWrap {
+                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
+                    let author = GLOBALS.storage.read_person(&rumor.pubkey)?;
+                    Some(crate::filter::filter_rumor(rumor, author, event.id))
+                } else {
+                    None
+                }
+            } else {
+                let author = GLOBALS.storage.read_person(&event.pubkey)?;
+                Some(crate::filter::filter_event(event.clone(), author))
+            }
+        };
+
+        match filter_result {
+            None => {}
+            Some(EventFilterAction::Allow) => {}
+            Some(EventFilterAction::Deny) => {
                 tracing::info!(
                     "SPAM FILTER: Filtered out event {}",
                     event.id.as_hex_string()
                 );
                 return Ok(());
             }
-            EventFilterAction::MuteAuthor => {
+            Some(EventFilterAction::MuteAuthor) => {
                 let public = true;
                 GLOBALS.people.mute(&event.pubkey, true, public)?;
                 return Ok(());
