@@ -156,7 +156,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
-                render_a_feed(app, ctx, frame, ui, vec![parent], true, &id.as_hex_string(), load_more);
+                render_a_feed(
+                    app,
+                    ctx,
+                    frame,
+                    ui,
+                    vec![parent],
+                    true,
+                    &id.as_hex_string(),
+                    load_more,
+                );
             }
         }
         FeedKind::Person(pubkey) => {
@@ -173,7 +182,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(6.0);
 
             let feed = GLOBALS.feed.get_person_feed();
-            render_a_feed(app, ctx, frame, ui, feed, false, &pubkey.as_hex_string(), load_more);
+            render_a_feed(
+                app,
+                ctx,
+                frame,
+                ui,
+                feed,
+                false,
+                &pubkey.as_hex_string(),
+                load_more,
+            );
         }
         FeedKind::DmChat(channel) => {
             if !GLOBALS.signer.is_ready() {
