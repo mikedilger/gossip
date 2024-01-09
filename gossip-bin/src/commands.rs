@@ -445,15 +445,18 @@ pub fn delete_spam_by_content(
         None => return cmd.usage("Missing <substring> paramter".to_string()),
     };
 
-    login()?;
+    // Login if we need to look into GiftWraps
+    if kind == EventKind::GiftWrap {
+        login()?;
+    }
 
+    // Get all event ids of the kind/since
     let ids = GLOBALS.storage.find_event_ids(&[kind], &[], Some(since))?;
 
     println!("Searching through {} events...", ids.len());
 
+    // Find events among those with matching spammy content
     let mut target_ids: Vec<Id> = Vec::new();
-    let mut relays: HashSet<RelayUrl> = HashSet::new();
-
     for id in ids {
         let mut matches = false;
         if let Ok(Some(event)) = GLOBALS.storage.read_event(id) {
@@ -466,20 +469,44 @@ pub fn delete_spam_by_content(
             } else if event.content.contains(&substring) {
                 matches = true;
             }
-
             if matches {
                 target_ids.push(id);
-
-                // Get seen on relays
-                if let Ok(seen_on) = GLOBALS.storage.get_event_seen_on_relay(id) {
-                    for (relay, _when) in seen_on {
-                        relays.insert(relay);
-                    }
-                }
             }
         }
     }
 
+    // Delete locally
+    let mut txn = GLOBALS.storage.get_write_txn()?;
+    for id in &target_ids {
+        // Delete locally
+        GLOBALS.storage.delete_event(*id, Some(&mut txn))?;
+
+        // NOTE: we cannot add a delete relationship; we can't delete
+        // other people's events.
+
+        // FIXME: add a database of marked-deleted events
+    }
+    txn.commit()?;
+
+    // Unless they were giftwraps, we are done
+    // (We cannot delete spam on relays that we didn't author unless it is a giftwrap)
+    if kind != EventKind::GiftWrap {
+        println!("Ok");
+        return Ok(());
+    }
+
+    // Get the relays these giftwraps were seen on
+    let mut relays: HashSet<RelayUrl> = HashSet::new();
+    for id in &target_ids {
+        // Get seen on relays
+        if let Ok(seen_on) = GLOBALS.storage.get_event_seen_on_relay(*id) {
+            for (relay, _when) in seen_on {
+                relays.insert(relay);
+            }
+        }
+    }
+
+    // Build up a single deletion event
     let mut tags: Vec<Tag> = Vec::new();
     for id in target_ids {
         tags.push(Tag::Event {
@@ -501,7 +528,6 @@ pub fn delete_spam_by_content(
         // Should we add a pow? Maybe the relay needs it.
         GLOBALS.signer.sign_preevent(pre_event, None, None)?
     };
-
     println!("{}", serde_json::to_string(&event).unwrap());
 
     let job = tokio::task::spawn(async move {
@@ -511,6 +537,7 @@ pub fn delete_spam_by_content(
         {
             println!("ERROR: {}", e);
         } else {
+            // Post the event to all the relays
             for relay in relays {
                 if let Err(e) = gossip_lib::direct::post(relay.as_str(), event.clone()) {
                     println!("ERROR: {}", e);
