@@ -515,9 +515,7 @@ fn render_note_inner(
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
                             *keep_open = false;
                         }
-                        if Some(note.event.pubkey) == app.settings.public_key
-                            && note.deletions.is_empty()
-                        {
+                        if note.deletions.is_empty() {
                             if ui.button("Delete").clicked() {
                                 let _ = GLOBALS
                                     .to_overlord

@@ -75,8 +75,9 @@ impl NoteData {
         let mut secure: bool = false;
         if matches!(event.kind, EventKind::GiftWrap) {
             secure = true;
+            // Use the rumor for subsequent processing, but swap for the Giftwrap's id
+            // since that is the effective event (database-accessible, deletable, etc)
             if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
-                // Use the rumor for subsequent processing
                 let id = event.id;
                 event = rumor.into_event_with_bad_signature();
                 event.id = id; // lie, keep the giftwrap id
@@ -85,6 +86,7 @@ impl NoteData {
 
         let delegation = event.delegation();
 
+        // This function checks that the deletion author is allowed
         let deletions = GLOBALS.storage.get_deletions(&event).unwrap_or_default();
 
         let (reactions, self_already_reacted) = GLOBALS

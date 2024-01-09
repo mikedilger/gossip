@@ -119,7 +119,7 @@ pub async fn process_new_event(
     // Ignore if the event is already deleted (by id)
     for (_id, relbyid) in GLOBALS.storage.find_relationships_by_id(event.id)? {
         if let RelationshipById::Deletion { by, reason: _ } = relbyid {
-            if by == event.pubkey {
+            if event.delete_author_allowed(by) {
                 tracing::trace!(
                     "{}: Deleted Event: {} {:?} @{}",
                     seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
@@ -194,7 +194,7 @@ pub async fn process_new_event(
     }
     // FIXME do same for event addr
 
-    // If it is a GiftWrap, from here on out operate on the Rumor
+    // If it is a GiftWrap, from here on out operate on the Rumor with the giftwrap's id
     let mut event: &Event = event; // take ownership of this reference
     let mut rumor_event: Event;
     if event.kind == EventKind::GiftWrap {
@@ -493,6 +493,23 @@ pub(crate) fn process_relationships_of_event<'a>(
             for er in vec.iter() {
                 match er {
                     EventReference::Id(id, _, _) => {
+                        // If we have the event,
+                        // Actually delete at this point in some cases
+                        if let Some(deleted_event) = GLOBALS.storage.read_event(*id)? {
+                            if !deleted_event.delete_author_allowed(event.pubkey) {
+                                // No further processing if not a valid delete
+                                continue;
+                            }
+                            invalidate.push(deleted_event.id);
+                            if !deleted_event.kind.is_feed_displayable() {
+                                // Otherwise actually delete (PITA to do otherwise)
+                                GLOBALS.storage.delete_event(deleted_event.id, Some(txn))?;
+                            }
+                        }
+
+                        // Store the delete (we either don't have the target to verify,
+                        // or we just verified above. In the former case, it is okay because
+                        // we verify on usage)
                         GLOBALS.storage.write_relationship_by_id(
                             *id,
                             event.id,
@@ -502,21 +519,28 @@ pub(crate) fn process_relationships_of_event<'a>(
                             },
                             Some(txn),
                         )?;
-
+                    }
+                    EventReference::Addr(ea) => {
+                        // If we have the event,
                         // Actually delete at this point in some cases
-                        if let Some(deleted_event) = GLOBALS.storage.read_event(*id)? {
-                            invalidate.push(deleted_event.id);
-                            if deleted_event.pubkey != event.pubkey {
-                                // No further processing if authors do not match
+                        if let Some(deleted_event) = GLOBALS
+                            .storage
+                            .get_replaceable_event(ea.kind, ea.author, &ea.d)?
+                        {
+                            if !deleted_event.delete_author_allowed(event.pubkey) {
+                                // No further processing if not a valid delete
                                 continue;
                             }
+                            invalidate.push(deleted_event.id);
                             if !deleted_event.kind.is_feed_displayable() {
                                 // Otherwise actually delete (PITA to do otherwise)
                                 GLOBALS.storage.delete_event(deleted_event.id, Some(txn))?;
                             }
                         }
-                    }
-                    EventReference::Addr(ea) => {
+
+                        // Store the delete (we either don't have the target to verify,
+                        // or we just verified above. In the former case, it is okay because
+                        // we verify on usage)
                         GLOBALS.storage.write_relationship_by_addr(
                             ea.clone(),
                             event.id,
@@ -526,22 +550,6 @@ pub(crate) fn process_relationships_of_event<'a>(
                             },
                             Some(txn),
                         )?;
-
-                        // Actually delete at this point in some cases
-                        if let Some(deleted_event) = GLOBALS
-                            .storage
-                            .get_replaceable_event(ea.kind, ea.author, &ea.d)?
-                        {
-                            invalidate.push(deleted_event.id);
-                            if deleted_event.pubkey != event.pubkey {
-                                // No further processing if authors do not match
-                                continue;
-                            }
-                            if !deleted_event.kind.is_feed_displayable() {
-                                // Otherwise actually delete (PITA to do otherwise)
-                                GLOBALS.storage.delete_event(deleted_event.id, Some(txn))?;
-                            }
-                        }
                     }
                 }
             }

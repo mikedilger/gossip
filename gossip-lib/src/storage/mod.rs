@@ -1884,10 +1884,16 @@ impl Storage {
     pub fn get_deletions(&self, maybe_deleted_event: &Event) -> Result<Vec<String>, Error> {
         let mut reasons: Vec<String> = Vec::new();
 
-        for (_id, rel) in self.find_relationships_by_id(maybe_deleted_event.id)? {
+        for (deleting_id, rel) in self.find_relationships_by_id(maybe_deleted_event.id)? {
             if let RelationshipById::Deletion { by, reason } = rel {
-                if maybe_deleted_event.pubkey == by {
-                    reasons.push(reason);
+                if maybe_deleted_event.delete_author_allowed(by) {
+                    // We must have the deletion event to check it
+                    if let Some(deleting_event) = self.read_event(deleting_id)? {
+                        // Delete must come after event in question
+                        if deleting_event.created_at > maybe_deleted_event.created_at {
+                            reasons.push(reason);
+                        }
+                    }
                 }
             }
         }
@@ -1903,8 +1909,7 @@ impl Storage {
             for (deleting_id, rel) in self.find_relationships_by_addr(&addr)? {
                 // Must be a deletion relationship
                 if let RelationshipByAddr::Deletion { by, reason } = rel {
-                    // Must be by the same pubkey
-                    if maybe_deleted_event.pubkey == by {
+                    if maybe_deleted_event.delete_author_allowed(by) {
                         // We must have the deletion event to check it
                         if let Some(deleting_event) = self.read_event(deleting_id)? {
                             // Delete must come after event in question
