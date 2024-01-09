@@ -518,18 +518,12 @@ fn render_note_inner(
                         if Some(note.event.pubkey) == app.settings.public_key
                             && note.deletions.is_empty()
                         {
-                            if ui.button("Request Delete").clicked() {
+                            if ui.button("Delete").clicked() {
                                 let _ = GLOBALS
                                     .to_overlord
                                     .send(ToOverlordMessage::DeletePost(note.event.id));
                                 *keep_open = false;
                             }
-                        }
-                        if ui.button("Delete Locally").clicked() {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::LocalDelete(note.event.id));
-                            *keep_open = false;
                         }
                         if ui.button("Rerender").clicked() {
                             app.notes.cache_invalidate_note(&note.event.id);

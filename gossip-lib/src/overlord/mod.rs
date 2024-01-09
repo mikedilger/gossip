@@ -588,9 +588,6 @@ impl Overlord {
                     FeedKind::Thread { .. } => (), // Thread is complete, not chunked
                 }
             }
-            ToOverlordMessage::LocalDelete(id) => {
-                self.local_delete(id).await?;
-            }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
                 self.finish_job(url, Some(job_id), None)?;
             }
@@ -1452,12 +1449,6 @@ impl Overlord {
         // Then pick
         self.pick_relays().await;
 
-        Ok(())
-    }
-
-    pub async fn local_delete(&mut self, id: Id) -> Result<(), Error> {
-        // Delete
-        GLOBALS.storage.delete_event(id, None)?;
         Ok(())
     }
 
