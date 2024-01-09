@@ -232,7 +232,7 @@ impl Signer {
         self.private.read().as_ref().map(|pk| pk.key_security())
     }
 
-    pub(crate) fn sign_preevent(
+    pub fn sign_preevent(
         &self,
         preevent: PreEvent,
         pow: Option<u8>,

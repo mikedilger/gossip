@@ -4,9 +4,10 @@ use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
 use gossip_lib::{PersonList, PersonListMetadata};
 use nostr_types::{
-    Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, RelayUrl,
-    UncheckedUrl, Unixtime,
+    Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PreEvent, PrivateKey, PublicKey,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
+use std::collections::HashSet;
 use std::env;
 use tokio::runtime::Runtime;
 use zeroize::Zeroize;
@@ -28,7 +29,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 27] = [
+const COMMANDS: [Command; 28] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -58,6 +59,11 @@ const COMMANDS: [Command; 27] = [
         cmd: "decrypt",
         usage_params: "<pubkeyhex> <ciphertext>",
         desc: "decrypt the ciphertext from the pubkeyhex.",
+    },
+    Command {
+        cmd: "delete_spam_by_content",
+        usage_params: "<kind> <unixtime_since> <substring>",
+        desc: "delete all feed-displayable events with content matching the substring (including giftwraps)",
     },
     Command {
         cmd: "delete_relay",
@@ -189,6 +195,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "bech32_decode" => bech32_decode(command, args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(command, args)?,
         "decrypt" => decrypt(command, args)?,
+        "delete_spam_by_content" => delete_spam_by_content(command, args, runtime)?,
         "delete_relay" => delete_relay(command, args)?,
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
@@ -415,6 +422,106 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let plaintext = GLOBALS.signer.decrypt_nip44(&pubkey, &ciphertext)?;
     println!("{}", plaintext);
 
+    Ok(())
+}
+
+pub fn delete_spam_by_content(
+    cmd: Command,
+    mut args: env::Args,
+    runtime: &Runtime,
+) -> Result<(), Error> {
+    let kind: EventKind = match args.next() {
+        Some(integer) => integer.parse::<u32>()?.into(),
+        None => return cmd.usage("Missing kind parameter".to_string()),
+    };
+
+    let since = match args.next() {
+        Some(s) => Unixtime(s.parse::<i64>()?),
+        None => return cmd.usage("Missing <since_unixtime> paramter".to_string()),
+    };
+
+    let substring = match args.next() {
+        Some(c) => c,
+        None => return cmd.usage("Missing <substring> paramter".to_string()),
+    };
+
+    login()?;
+
+    let ids = GLOBALS.storage.find_event_ids(&[kind], &[], Some(since))?;
+
+    println!("Searching through {} events...", ids.len());
+
+    let mut target_ids: Vec<Id> = Vec::new();
+    let mut relays: HashSet<RelayUrl> = HashSet::new();
+
+    for id in ids {
+        let mut matches = false;
+        if let Ok(Some(event)) = GLOBALS.storage.read_event(id) {
+            if kind == EventKind::GiftWrap {
+                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
+                    if rumor.content.contains(&substring) {
+                        matches = true;
+                    }
+                }
+            } else if event.content.contains(&substring) {
+                matches = true;
+            }
+
+            if matches {
+                target_ids.push(id);
+
+                // Get seen on relays
+                if let Ok(seen_on) = GLOBALS.storage.get_event_seen_on_relay(id) {
+                    for (relay, _when) in seen_on {
+                        relays.insert(relay);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut tags: Vec<Tag> = Vec::new();
+    for id in target_ids {
+        tags.push(Tag::Event {
+            id,
+            recommended_relay_url: None,
+            marker: None,
+            trailing: Vec::new(),
+        });
+    }
+    let event = {
+        let public_key = GLOBALS.signer.public_key().unwrap();
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::EventDeletion,
+            tags,
+            content: "spam".to_owned(),
+        };
+        // Should we add a pow? Maybe the relay needs it.
+        GLOBALS.signer.sign_preevent(pre_event, None, None)?
+    };
+
+    println!("{}", serde_json::to_string(&event).unwrap());
+
+    let job = tokio::task::spawn(async move {
+        // Process this event locally
+        if let Err(e) =
+            gossip_lib::process::process_new_event(&event, None, None, false, false).await
+        {
+            println!("ERROR: {}", e);
+        } else {
+            for relay in relays {
+                if let Err(e) = gossip_lib::direct::post(relay.as_str(), event.clone()) {
+                    println!("ERROR: {}", e);
+                }
+            }
+        }
+    });
+
+    runtime.block_on(job)?;
+
+    println!("Ok.");
     Ok(())
 }
 
