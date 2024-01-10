@@ -55,6 +55,7 @@ pub struct Minion {
     corked_metadata: Vec<(u64, Vec<PublicKey>)>,
     general_feed_start: Option<Unixtime>,
     person_feed_start: Option<Unixtime>,
+    inbox_feed_start: Option<Unixtime>,
 }
 
 impl Minion {
@@ -88,6 +89,7 @@ impl Minion {
             corked_metadata: Vec::new(),
             general_feed_start: None,
             person_feed_start: None,
+            inbox_feed_start: None,
         })
     }
 }
@@ -434,6 +436,10 @@ impl Minion {
                 self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, start)
                     .await?;
             }
+            ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(start) => {
+                self.temp_subscribe_inbox_feed_chunk(message.job_id, start)
+                    .await?;
+            }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
                 self.temp_subscribe_metadata(message.job_id, pubkeys)
                     .await?;
@@ -585,6 +591,7 @@ impl Minion {
 
         // Compute how far to look back
         let replies_since = self.compute_since(GLOBALS.storage.read_setting_replies_chunk());
+        self.inbox_feed_start = Some(replies_since);
 
         // GiftWrap lookback needs to be one week further back
         // FIXME: this depends on how far other clients backdate.
@@ -774,6 +781,64 @@ impl Minion {
             let sub_name = format!("temp_person_feed_chunk_{}", job_id);
             self.subscribe(filters, &*sub_name, job_id).await?;
         }
+
+        Ok(())
+    }
+
+    async fn temp_subscribe_inbox_feed_chunk(
+        &mut self,
+        job_id: u64,
+        since: Unixtime,
+    ) -> Result<(), Error> {
+        let until = match self.inbox_feed_start {
+            Some(old_since_new_until) => old_since_new_until,
+            None => Unixtime::now().unwrap(),
+        };
+
+        self.inbox_feed_start = Some(since);
+
+        // Giftwraps look back even further
+        let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
+        let giftwrap_until = Unixtime(until.0 - 60 * 60 * 24 * 7);
+
+        // Allow all feed related event kinds (including DMs)
+        let mut event_kinds = crate::feed::feed_related_event_kinds(true);
+        event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
+
+        let mut filters: Vec<Filter> = Vec::new();
+
+        if let Some(pubkey) = GLOBALS.signer.public_key() {
+            // Any mentions of me
+            // (but not in peoples contact lists, for example)
+
+            let pkh: PublicKeyHex = pubkey.into();
+
+            filters.push(Filter {
+                p: vec![pkh.clone()],
+                kinds: event_kinds,
+                since: Some(since),
+                until: Some(until),
+                ..Default::default()
+            });
+
+            // Giftwrap specially looks back further
+            filters.push(Filter {
+                p: vec![pkh],
+                kinds: vec![EventKind::GiftWrap],
+                since: Some(giftwrap_since),
+                until: Some(giftwrap_until),
+                ..Default::default()
+            });
+        } else {
+            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                self.url.clone(),
+                job_id,
+            ))?;
+            return Ok(());
+        }
+
+        let sub_name = format!("temp_inbox_feed_chunk_{}", job_id);
+        self.subscribe(filters, &*sub_name, job_id).await?;
 
         Ok(())
     }

@@ -178,9 +178,11 @@ impl Overlord {
             now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
         let person_feed_start =
             now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
+        let inbox_feed_start =
+            now - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
         GLOBALS
             .feed
-            .set_feed_starts(general_feed_start, person_feed_start);
+            .set_feed_starts(general_feed_start, person_feed_start, inbox_feed_start);
 
         // Start the fetcher
         crate::fetcher::Fetcher::start()?;
@@ -577,12 +579,7 @@ impl Overlord {
             ToOverlordMessage::LoadMoreCurrentFeed => {
                 match GLOBALS.feed.get_feed_kind() {
                     FeedKind::List(_, _) => self.load_more_general_feed().await?,
-                    FeedKind::Inbox(_) => {
-                        GLOBALS
-                            .status_queue
-                            .write()
-                            .write("Load More not yet implemented for Inbox".to_string());
-                    }
+                    FeedKind::Inbox(_) => self.load_more_inbox_feed().await?,
                     FeedKind::Person(pubkey) => self.load_more_person_feed(pubkey).await?,
                     FeedKind::DmChat(_) => (), // DmChat is complete, not chunked
                     FeedKind::Thread { .. } => (), // Thread is complete, not chunked
@@ -1431,6 +1428,36 @@ impl Overlord {
                             pubkey,
                             start,
                         },
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn load_more_inbox_feed(&mut self) -> Result<(), Error> {
+        // Set the feed to load another chunk back
+        let start = GLOBALS.feed.load_more_inbox_feed();
+
+        let relays: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+
+        // Subscribe on each of these relays
+        for relay in relays.iter() {
+            // Subscribe
+            self.engage_minion(
+                relay.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchMentions,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(start),
                     },
                 }],
             )

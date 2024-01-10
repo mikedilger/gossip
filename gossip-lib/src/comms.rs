@@ -222,6 +222,7 @@ pub(crate) enum ToMinionPayloadDetail {
         pubkey: PublicKey,
         start: Unixtime,
     },
+    TempSubscribeInboxFeedChunk(Unixtime),
     TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribePersonFeed,
     UnsubscribeThreadFeed,

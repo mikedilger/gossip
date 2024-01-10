@@ -49,7 +49,7 @@ impl FeedKind {
     pub fn can_load_more(&self) -> bool {
         match self {
             &Self::List(_, _) => true,
-            &Self::Inbox(_) => false,      // at the moment
+            &Self::Inbox(_) => true,
             &Self::Thread { .. } => false, // always full
             &Self::Person(_) => true,
             &Self::DmChat(_) => false, // always full
@@ -73,6 +73,7 @@ pub struct Feed {
     // When feeds start
     general_feed_start: RwLock<Unixtime>,
     person_feed_start: RwLock<Unixtime>,
+    inbox_feed_start: RwLock<Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -98,6 +99,7 @@ impl Feed {
             dm_chat_feed: RwLock::new(Vec::new()),
             general_feed_start: RwLock::new(Unixtime::now().unwrap()),
             person_feed_start: RwLock::new(Unixtime::now().unwrap()),
+            inbox_feed_start: RwLock::new(Unixtime::now().unwrap()),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
@@ -109,9 +111,11 @@ impl Feed {
         &self,
         general_feed_start: Unixtime,
         person_feed_start: Unixtime,
+        inbox_feed_start: Unixtime,
     ) {
         *self.general_feed_start.write() = general_feed_start;
         *self.person_feed_start.write() = person_feed_start;
+        *self.inbox_feed_start.write() = inbox_feed_start;
     }
 
     /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
@@ -127,6 +131,14 @@ impl Feed {
         let mut start = *self.person_feed_start.read();
         start = start - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
         *self.person_feed_start.write() = start;
+        start
+    }
+
+    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    pub(crate) fn load_more_inbox_feed(&self) -> Unixtime {
+        let mut start = *self.inbox_feed_start.read();
+        start = start - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
+        *self.inbox_feed_start.write() = start;
         start
     }
 
@@ -404,8 +416,7 @@ impl Feed {
                         None,         // since
                     )?;
 
-                    let since =
-                        now - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
+                    let since: Unixtime = *self.inbox_feed_start.read();
 
                     let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
 

@@ -11,15 +11,21 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
 
     ui.horizontal(|ui| {
-        ui.label("Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load events from. You'll eventually be able to load more, one chunk at a time. Mostly takes effect on restart.");
+        ui.label("Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load events from initially. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
         ui.add(Slider::new(&mut app.settings.feed_chunk, 1800..=43200).text("seconds, "));
         ui.label(secs_to_string(app.settings.feed_chunk));
     });
 
     ui.horizontal(|ui| {
-        ui.label("Replies Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load replies, mentions, and DMs from. You'll eventually be able to load more, one chunk at a time. Mostly takes effect on restart.");
+        ui.label("Replies Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load replies, mentions, and DMs from. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
         ui.add(Slider::new(&mut app.settings.replies_chunk, 86400..=2592000).text("seconds, "));
         ui.label(secs_to_string(app.settings.replies_chunk));
+    });
+
+    ui.horizontal(|ui| {
+        ui.label("Person Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load a persons notes from. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
+        ui.add(Slider::new(&mut app.settings.person_feed_chunk, 86400..=2592000).text("seconds, "));
+        ui.label(secs_to_string(app.settings.person_feed_chunk));
     });
 
     ui.horizontal(|ui| {

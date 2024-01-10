@@ -711,7 +711,7 @@ impl Storage {
         person_feed_chunk,
         b"person_feed_chunk",
         u64,
-        60 * 60 * 24 * 30
+        60 * 60 * 24 * 15
     );
     def_setting!(overlap, b"overlap", u64, 300);
     def_setting!(reposts, b"reposts", bool, true);
