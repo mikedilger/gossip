@@ -48,11 +48,11 @@ impl std::fmt::Display for FeedKind {
 impl FeedKind {
     pub fn can_load_more(&self) -> bool {
         match self {
-            &Self::List(_, _) => true,
-            &Self::Inbox(_) => true,
-            &Self::Thread { .. } => false, // always full
-            &Self::Person(_) => true,
-            &Self::DmChat(_) => false, // always full
+            Self::List(_, _) => true,
+            Self::Inbox(_) => true,
+            Self::Thread { .. } => false, // always full
+            Self::Person(_) => true,
+            Self::DmChat(_) => false, // always full
         }
     }
 }

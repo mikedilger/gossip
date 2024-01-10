@@ -74,7 +74,7 @@ pub async fn process_new_event(
     {
         let filter_result = {
             if event.kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
+                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
                     let author = GLOBALS.storage.read_person(&rumor.pubkey)?;
                     Some(crate::filter::filter_rumor(rumor, author, event.id))
                 } else {

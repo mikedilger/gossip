@@ -222,6 +222,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     app.handle_visible_note_changes();
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_a_feed(
     app: &mut GossipUi,
     ctx: &Context,

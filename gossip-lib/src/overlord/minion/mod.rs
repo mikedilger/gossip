@@ -495,7 +495,7 @@ impl Minion {
 
         // Compute how far to look back
         let since = {
-            if let Some(_) = self.general_feed_start {
+            if self.general_feed_start.is_some() {
                 // We already have a general subscription.
                 // Therefore, don't lookback at all. We are just adding more people
                 //    and we don't want to reload everybody's events again.
@@ -779,7 +779,7 @@ impl Minion {
             ))?;
         } else {
             let sub_name = format!("temp_person_feed_chunk_{}", job_id);
-            self.subscribe(filters, &*sub_name, job_id).await?;
+            self.subscribe(filters, &sub_name, job_id).await?;
         }
 
         Ok(())
@@ -838,7 +838,7 @@ impl Minion {
         }
 
         let sub_name = format!("temp_inbox_feed_chunk_{}", job_id);
-        self.subscribe(filters, &*sub_name, job_id).await?;
+        self.subscribe(filters, &sub_name, job_id).await?;
 
         Ok(())
     }
@@ -1074,7 +1074,7 @@ impl Minion {
         // not have run to completion yet.
         let sub_name = format!("temp_general_feed_chunk_{}", job_id);
 
-        self.subscribe(filters, &*sub_name, job_id).await?;
+        self.subscribe(filters, &sub_name, job_id).await?;
 
         Ok(())
     }
