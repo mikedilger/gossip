@@ -99,8 +99,20 @@ impl Minion {
         // minion will log when it connects
         tracing::trace!("{}: Minion handling started", &self.url);
 
-        let fetcher_timeout =
-            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0);
+        // Possibly use a short timeout
+        let mut short_timeout = false;
+        for m in &messages {
+            // When advertising relay lists, use a short timeout
+            if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_)) {
+                short_timeout = true;
+            }
+        }
+
+        let fetcher_timeout = if short_timeout {
+            std::time::Duration::new(5, 0)
+        } else {
+            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0)
+        };
 
         // Connect to the relay
         let websocket_stream = {
@@ -225,9 +237,14 @@ impl Minion {
                     .read_setting_websocket_accept_unmasked_frames(),
             };
 
-            let connect_timeout = GLOBALS.storage.read_setting_websocket_connect_timeout_sec();
+            let connect_timeout_secs = if short_timeout {
+                5
+            } else {
+                GLOBALS.storage.read_setting_websocket_connect_timeout_sec()
+            };
+
             let (websocket_stream, response) = tokio::time::timeout(
-                std::time::Duration::new(connect_timeout, 0),
+                std::time::Duration::new(connect_timeout_secs, 0),
                 tokio_tungstenite::connect_async_with_config(req, Some(config), false),
             )
             .await??;
@@ -370,6 +387,20 @@ impl Minion {
         message: ToMinionPayload,
     ) -> Result<(), Error> {
         match message.detail {
+            ToMinionPayloadDetail::AdvertiseRelayList(event) => {
+                let id = event.id;
+                self.postings.insert(id);
+                let msg = ClientMessage::Event(event);
+                let wire = serde_json::to_string(&msg)?;
+                let ws_stream = self.stream.as_mut().unwrap();
+                self.last_message_sent = wire.clone();
+                ws_stream.send(WsMessage::Text(wire)).await?;
+                tracing::info!("Advertised relay list to {}", &self.url);
+                self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                    self.url.clone(),
+                    message.job_id,
+                ))?;
+            }
             ToMinionPayloadDetail::FetchEvent(id) => {
                 self.sought_events
                     .entry(id)

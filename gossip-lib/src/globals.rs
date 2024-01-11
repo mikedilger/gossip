@@ -9,7 +9,7 @@ use crate::relay_picker_hooks::Hooks;
 use crate::signer::Signer;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
@@ -133,6 +133,9 @@ pub struct Globals {
 
     // Wait for data migration
     pub wait_for_data_migration: AtomicBool,
+
+    // Active advertise jobs
+    pub active_advertise_jobs: DashSet<u64>,
 }
 
 lazy_static! {
@@ -191,6 +194,7 @@ lazy_static! {
             wait_for_login: AtomicBool::new(false),
             wait_for_login_notify: Notify::new(),
             wait_for_data_migration: AtomicBool::new(false),
+            active_advertise_jobs: DashSet::new(),
         }
     };
 }

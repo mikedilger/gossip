@@ -22,6 +22,9 @@ pub enum ToOverlordMessage {
     /// Calls [advertise_relay_list](crate::Overlord::advertise_relay_list)
     AdvertiseRelayList,
 
+    /// internal
+    AdvertiseRelayListNextChunk(Box<Event>, Vec<RelayUrl>),
+
     /// Calls [change_passphrase](crate::Overlord::change_passphrase)
     ChangePassphrase { old: String, new: String },
 
@@ -202,6 +205,7 @@ pub(crate) struct ToMinionPayload {
 
 #[derive(Debug, Clone)]
 pub(crate) enum ToMinionPayloadDetail {
+    AdvertiseRelayList(Box<Event>),
     FetchEvent(Id),
     FetchEventAddr(EventAddr),
     PostEvent(Box<Event>),
