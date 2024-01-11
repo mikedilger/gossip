@@ -89,20 +89,24 @@ impl RelaySorting {
 pub(super) enum RelayFilter {
     #[default]
     All,
+    Configured,
     Write,
     Read,
     Advertise,
     Private,
+    Hidden,
 }
 
 impl RelayFilter {
     pub fn get_name(&self) -> &str {
         match self {
             RelayFilter::All => "All",
+            RelayFilter::Configured => "Configured",
             RelayFilter::Write => "Write",
             RelayFilter::Read => "Read",
             RelayFilter::Advertise => "Advertise",
             RelayFilter::Private => "Private",
+            RelayFilter::Hidden => "Hidden",
         }
     }
 }
@@ -539,6 +543,11 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
             );
             ui.selectable_value(
                 &mut app.relays.filter,
+                RelayFilter::Configured,
+                RelayFilter::Configured.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
                 RelayFilter::Write,
                 RelayFilter::Write.get_name(),
             );
@@ -556,6 +565,11 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
                 &mut app.relays.filter,
                 RelayFilter::Private,
                 RelayFilter::Private.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::Hidden,
+                RelayFilter::Hidden.get_name(),
             );
         });
 }
@@ -607,10 +621,16 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
 
     let filter = match rui.filter {
         RelayFilter::All => true,
+        RelayFilter::Configured => ri.has_any_usage_bit(),
         RelayFilter::Write => ri.has_usage_bits(Relay::WRITE),
         RelayFilter::Read => ri.has_usage_bits(Relay::READ),
         RelayFilter::Advertise => ri.is_good_for_advertise(),
-        RelayFilter::Private => !ri.has_usage_bits(Relay::INBOX | Relay::OUTBOX),
+        RelayFilter::Private => {
+            ri.has_any_usage_bit()
+                && !ri.has_usage_bits(Relay::INBOX)
+                && !ri.has_usage_bits(Relay::OUTBOX)
+        }
+        RelayFilter::Hidden => ri.hidden,
     };
 
     search && filter

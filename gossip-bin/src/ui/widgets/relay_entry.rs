@@ -516,7 +516,7 @@ impl RelayEntry {
             pos,
             "low quality".into(),
             Align::Center,
-            self.make_id("lq")
+            self.make_id("lq"),
         );
         draw_text_galley_at(ui, pos, galley, Some(egui::Color32::GRAY), None);
         response.on_hover_text("The relay is not configured and either has low usage, poor success, or you have disabled it.");
